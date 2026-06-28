@@ -19,7 +19,9 @@ describe('App', () => {
   it('switches to the tracker view when Start New MixJam is clicked', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
+    await waitFor(() => expect(start).toBeEnabled())
+    fireEvent.click(start)
 
     await waitFor(() => {
       expect(screen.getByText('Timeline Area')).toBeInTheDocument()

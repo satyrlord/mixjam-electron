@@ -22,6 +22,12 @@ function readUtf8(absolutePath: string): string {
   return readFileSync(absolutePath, 'utf8')
 }
 
+async function clickStartNewMixJam(): Promise<void> {
+  const start = await screen.findByRole('button', { name: 'Start New MixJam' })
+  await waitFor(() => expect(start).toBeEnabled())
+  fireEvent.click(start)
+}
+
 describe('Spec 001 - App Shell & Navigation acceptance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -74,7 +80,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     })
     expect(screen.getByRole('button', { name: 'Select settings folder' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
 
     await waitFor(() => {
       expect(screen.getByText('Timeline Area')).toBeInTheDocument()
@@ -111,7 +117,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
 
     await waitFor(() => {
       expect(screen.getByText('Timeline Area')).toBeInTheDocument()
@@ -123,7 +129,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
   it('AC-005: Player header shows home link, brand, and timer', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Return to Main Menu/ })).toBeInTheDocument()
@@ -138,7 +144,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     expect(screen.queryByRole('button', { name: /Return to Main Menu/ })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Return to Main Menu/ })).toBeInTheDocument()
@@ -220,7 +226,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
     await waitFor(() => {
       expect(screen.getByText('Timeline Area')).toBeInTheDocument()
     })
@@ -237,7 +243,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
   it('AC-009: roundtrip Home -> Player -> Home -> Player works with no state leak', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
     await waitFor(() => {
       expect(screen.getByText('Timeline Area')).toBeInTheDocument()
     })
@@ -247,7 +253,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
     await waitFor(() => {
       expect(screen.getByText('Timeline Area')).toBeInTheDocument()
     })
@@ -259,7 +265,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
   it('AC-010: Player content has exactly three empty placeholder zones', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    await clickStartNewMixJam()
 
     const timeline = await screen.findByText('Timeline Area')
     const browser = screen.getByText('Browser Panel')

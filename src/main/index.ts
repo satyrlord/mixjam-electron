@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeImage } from 'electron'
 import { join } from 'path'
-import { IPC_CHANNELS } from '../shared/ipc'
+import { IPC_CHANNELS, type SessionPaths } from '../shared/ipc'
 import {
   buildAppIconPath,
   buildPreloadPath,
@@ -8,9 +8,23 @@ import {
   resizeWindowToHome,
   resizeWindowToTracker
 } from '../shared/window-config'
+import {
+  SESSION_FILE_NAME,
+  isFolderRole,
+  normalizeSession,
+  readSession,
+  validateFolder,
+  writeSession,
+  writeSessionConfig
+} from './session'
 
 let mainWindow: BrowserWindow | null = null
+let lastSession: SessionPaths = { userFolder: null, sampleFolder: null }
 const ALLOWED_EXTERNAL_HOSTS = new Set(['github.com', 'www.github.com'])
+
+function sessionFilePath(): string {
+  return join(app.getPath('userData'), SESSION_FILE_NAME)
+}
 
 function createWindow(): void {
   Menu.setApplicationMenu(null)
@@ -43,6 +57,12 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
+app.on('before-quit', () => {
+  void writeSessionConfig(lastSession, app.getVersion()).catch((error: unknown) => {
+    console.error('Failed to write mixjam.json on quit:', error)
+  })
+})
+
 ipcMain.handle(IPC_CHANNELS.appGetVersion, () => app.getVersion())
 
 ipcMain.handle(IPC_CHANNELS.windowResizeTracker, () => {
@@ -70,6 +90,36 @@ ipcMain.handle(IPC_CHANNELS.dialogOpenFolder, async () => {
     properties: ['openDirectory']
   })
   return result.canceled ? null : result.filePaths[0]
+})
+
+ipcMain.handle(IPC_CHANNELS.sessionLoad, async () => {
+  lastSession = await readSession(sessionFilePath())
+  return lastSession
+})
+
+ipcMain.handle(IPC_CHANNELS.sessionSave, async (_event, payload: unknown) => {
+  lastSession = normalizeSession(payload)
+  await writeSession(sessionFilePath(), lastSession)
+  try {
+    await writeSessionConfig(lastSession, app.getVersion())
+  } catch (error) {
+    console.error('Failed to write mixjam.json:', error)
+  }
+})
+
+ipcMain.handle(IPC_CHANNELS.folderPick, async (_event, rawRole: unknown) => {
+  if (!mainWindow || !isFolderRole(rawRole)) return null
+  const title = rawRole === 'user' ? 'Select User Folder' : 'Select Sample Folder'
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title,
+    properties: ['openDirectory']
+  })
+  return result.canceled ? null : result.filePaths[0]
+})
+
+ipcMain.handle(IPC_CHANNELS.folderValidate, async (_event, rawPath: unknown, rawRole: unknown) => {
+  if (typeof rawPath !== 'string' || !isFolderRole(rawRole)) return false
+  return validateFolder(rawPath, rawRole)
 })
 
 ipcMain.handle(IPC_CHANNELS.shellOpenUrl, async (_event, rawUrl: unknown) => {

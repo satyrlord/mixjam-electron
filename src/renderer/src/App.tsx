@@ -3,6 +3,7 @@ import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import TrackerView from './components/TrackerView'
 import { useAppState } from './hooks/useAppState'
+import { useFolderSession } from './hooks/useFolderSession'
 import { selectTheme } from './theme/themes'
 
 export default function App() {
@@ -16,6 +17,10 @@ export default function App() {
     openSettingsFolder,
     openRepo
   } = useAppState(window.electronAPI)
+
+  const { userFolder, sampleFolder, canStart, pickUser, pickSample } = useFolderSession(
+    window.electronAPI
+  )
 
   // Theme is bootstrap-applied synchronously in main.tsx before React mounts
   // (spec-002 AC-001). Only Emerald is implemented; all selections collapse to
@@ -35,7 +40,15 @@ export default function App() {
       />
       <main className="content">
         {view === 'home' ? (
-          <HomeScreen onStart={goToTracker} onLoad={handleLoadMixJam} />
+          <HomeScreen
+            userFolder={userFolder}
+            sampleFolder={sampleFolder}
+            canStart={canStart}
+            onPickUser={pickUser}
+            onPickSample={pickSample}
+            onStart={goToTracker}
+            onLoad={handleLoadMixJam}
+          />
         ) : (
           <TrackerView />
         )}

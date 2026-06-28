@@ -1,7 +1,7 @@
 # Spec 003 — Folder & Session Management
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** NOT IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-001 (App Shell & Navigation)
 
 ## Objective

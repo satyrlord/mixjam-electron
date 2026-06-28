@@ -175,7 +175,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     const select = screen.getByLabelText('Theme')
     const beforeStyleSnapshot = document.documentElement.style.cssText
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
+    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
+    await waitFor(() => expect(start).toBeEnabled())
+    fireEvent.click(start)
 
     await waitFor(() => {
       expect(screen.getByText('Timeline Area')).toBeInTheDocument()
