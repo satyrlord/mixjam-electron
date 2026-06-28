@@ -1,9 +1,6 @@
 ---
 name: handoff
-description: >
-  Transfer session state to a fresh agent. Compacts the current conversation
-  into a minimal, lossless state-transfer document so the next agent resumes
-  without asking "what were we doing?"
+description: Transfer session state to a fresh agent as a minimal, lossless state-transfer document.
 argument-hint: "What will the next session be used for?"
 disable-model-invocation: true
 ---

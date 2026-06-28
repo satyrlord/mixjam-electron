@@ -21,8 +21,9 @@ reported findings and either:
 - report live findings and validated false positives, or
 - remove provably dead code when the user explicitly asked for cleanup.
 
-Use this skill for dead-code work only. Use the `full-code-review` skill for ordinary
-review, security review, performance review, or merge-readiness review.
+Use this skill for dead-code work only. Ordinary review, security review,
+performance review, and merge-readiness review are out of scope here — that
+is `full-code-review`'s domain.
 
 ## Read First
 

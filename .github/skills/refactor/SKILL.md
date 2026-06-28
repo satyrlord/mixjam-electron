@@ -2,9 +2,8 @@
 name: refactor
 description: >
   Surgical, behavior-preserving cleanup for the MixJam Electron (MJE)
-  repository. Use when the user asks to refactor, simplify, clean up,
-  reduce complexity, untangle, de-duplicate, or make code easier to change
-  without adding features.
+  repository. Use when the user asks to refactor — reduce complexity or make
+  code easier to change without adding features.
 ---
 
 # Refactor

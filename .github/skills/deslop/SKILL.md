@@ -35,14 +35,14 @@ intentional, economical, and consistent with the surrounding codebase.
 The deslop is done when you can re-read the diff and answer yes to every
 question:
 
-- Would every remaining comment survive `full-code-review`?
-- Would every remaining guard clause, cast, and nested block survive
-  `full-code-review`?
+- Would every remaining comment meet the `full-code-review` standard?
+- Would every remaining guard clause, cast, and nested block meet the
+  `full-code-review` standard?
 - Does the diff read like a skilled human wrote it — intentional,
   economical, consistent with the surrounding file?
 
-If `full-code-review` would flag the same patterns this skill targets, the
-deslop is not done.
+If the `full-code-review` standards would flag the same patterns this skill
+targets, the deslop is not done.
 
 ## Guardrails
 
