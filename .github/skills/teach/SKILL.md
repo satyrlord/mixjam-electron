@@ -1,6 +1,6 @@
 ---
 name: teach
-description: Teach the user a new skill or concept, within this workspace.
+description: Teach the user a new skill or concept over multiple sessions, using this workspace as a structured learning space.
 disable-model-invocation: true
 argument-hint: "What would you like to learn about?"
 ---
@@ -121,3 +121,13 @@ Glossaries, in particular, are an essential reference. Once one is created, it s
 ## `NOTES.md`
 
 The user will sometimes express preferences of how they want to be taught, or things you should keep in mind. This is the place to record those preferences, so you can refer back to them when designing lessons or working with the user.
+
+## Completion Criterion
+
+The teaching session is complete when:
+
+- the user’s mission and current skill gap are documented,
+- a lesson, reference artifact, or learning record is produced that fits the
+  mission and the user’s zone of proximal development,
+- and the next step is clear enough that the user can continue without
+  re-litigating the plan.

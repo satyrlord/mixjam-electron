@@ -1,6 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.
+description: Surface architectural friction in a codebase, package it as a visual HTML report, and grill through the strongest deepening opportunity.
 disable-model-invocation: true
 ---
 
@@ -83,7 +83,7 @@ Do NOT propose interfaces yet. After the file is written, ask the user: "Which o
 
 ### 3. Grilling loop
 
-Once the user picks a candidate, run the `/grilling` skill to walk the design tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
+Once the user picks a candidate, run the `grill-me` skill to walk the design tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
 
 Side effects happen inline as decisions crystallize — use `add-feature` to
 record durable decisions as you go:
@@ -102,3 +102,12 @@ record durable decisions as you go:
 - **Want to explore alternative interfaces for the deepened module?** Design
   two competing interfaces in parallel, compare them against the deletion
   test and leverage, and record the winner.
+## Completion Criterion
+
+The architecture review is complete when:
+
+- the HTML report is written to the temp directory, opened for the user, and
+  clearly communicates the candidate trade-offs,
+- the top recommendation is explicit,
+- and any durable architecture decisions that emerge are recorded in the
+  relevant docs.

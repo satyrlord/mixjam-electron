@@ -100,6 +100,16 @@ theme JSON patches matching the project's theme file structure.
 - **CSS specificity** — theme custom properties must not be overridden by
   component-level styles. Verify the cascade order after applying patches.
 
+## Completion Criterion
+
+The parity pass is complete when:
+
+- the design tokens are extracted and mapped,
+- the current theme is audited against the checklist,
+- every fixable delta has a concrete CSS or theme JSON patch or an explicit
+  accepted delta,
+- and the relevant build or visual smoke validation is recorded.
+
 ## Deep Reference
 
 Use [REFERENCE.md](REFERENCE.md) for the full

@@ -1,6 +1,6 @@
 # Spec 001 — App Shell & Navigation
 
-**Status:** ✅ VALIDATED
+**Status:** ✅ SPEC VALIDATED
 **Depends on:** *(root — no dependencies)*
 
 ## Objective
@@ -88,11 +88,14 @@ Implement view switching, the header bar, and the footer.
 - Fixed 40px height, full width (same fixed size as the header).
 - Left: "Select settings folder" link (placeholder — opens a native folder
   picker but does not persist the selection in this spec).
-- Right: version string derived from git commit count (format:
-  `v0.<commit_count>.0`). Clicking the version link opens the default system
+- Right: version string derived from app metadata version (format:
+  semantic version string, e.g. `0.5.0`). Clicking the version link opens the default system
   browser to `https://github.com/satyrlord/mixjam-electron`.
 
 ## Acceptance Criteria (testable)
+
+Spec validation confirms these criteria are complete and testable as requirements.
+Implementation validation should be tracked in implementation PR/test evidence.
 
 - [ ] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
 - [ ] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.

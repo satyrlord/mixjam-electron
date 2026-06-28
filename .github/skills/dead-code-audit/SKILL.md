@@ -50,7 +50,7 @@ Run from the repository root and collect findings from:
 
 ```PowerShell
 # TypeScript compiler diagnostics (unused variables, unreachable code, unused parameters)
-npx tsc --noEmit
+npm run typecheck
 
 # ESLint diagnostics (unused imports, unused variables, dead code patterns)
 npm run lint
@@ -88,6 +88,15 @@ one of these paths), report the concrete reason rather than deleting.
 3. After each deletion, run Audit Validation before widening scope.
 4. For false positives, suggest the narrowest suppression or config
    refinement only when the same false positive is likely to recur.
+
+## Completion Criterion
+
+The audit is complete when:
+
+- every reported finding has been triaged as live, false positive, or removed,
+- the evidence for each decision is explicit,
+- no cleanup was performed without proof,
+- and validation commands were re-run after any edits.
 
 ## Deep Reference
 

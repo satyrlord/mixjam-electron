@@ -18,7 +18,7 @@ rediscover. Document decisions, not just code — the context and trade-offs
 that explain *why it was built this way*. Skip obvious code and throwaway
 prototypes under `tmp/`.
 
-Use `grilling` instead when the user wants interactive design grilling,
+Use `grill-me` instead when the user wants interactive design grilling,
 pressure-testing, or branch-by-branch questioning before documentation.
 
 ## First Rule
@@ -83,10 +83,6 @@ would otherwise fall in. Every time an agent produces a wrong result from a
 missing fact (endianness, pan precedence, scheduler timing constraints),
 record the fact where it matters. No commented-out code, no lingering TODOs.
 
-## Repo Constraints
-
-- Prefer updating existing docs over creating new ones.
-
 ## Manual Spec Workflow
 
 Use when spec-kit CLI is not available:
@@ -118,7 +114,3 @@ handing off to the implementation step.
 Use [REFERENCE.md](REFERENCE.md) for durable decision rules and the
 decision-record threshold. Use [EXAMPLES.md](EXAMPLES.md) for concrete
 spec, glossary, and decision-record updates.
-
-## Validation
-
-Run `markdownlint-cli2` on edited Markdown files.

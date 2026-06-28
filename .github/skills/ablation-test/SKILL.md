@@ -61,6 +61,16 @@ Report:
 3. candidates proven unnecessary
 4. confidence level and any residual uncertainty
 
+## Completion Criterion
+
+The ablation run is complete when:
+
+- the initial hypothesis and candidate groups are recorded,
+- each candidate group has been tested with the same validation check,
+- the minimal candidate set that still satisfies the pass/fail check is identified,
+- unnecessary candidates are listed with evidence, and
+- the result is captured in `tmp/ablation-<slug>.md`.
+
 ## Deep Reference
 
 Use [REFERENCE.md](REFERENCE.md) for the full workflow and safe Git commands.

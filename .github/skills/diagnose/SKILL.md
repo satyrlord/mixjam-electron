@@ -26,6 +26,15 @@ Work through these in order:
 6. **Cleanup + post-mortem** — remove instrumentation; hand off architecture
    findings to `improve-codebase-architecture` when warranted.
 
+## Completion Criterion
+
+The diagnosis is complete when:
+
+- the bug or regression is reproduced with a feedback loop,
+- one root-cause hypothesis is validated or ruled out with evidence,
+- the fix and regression test are in place,
+- and the instrumentation is removed unless it remains necessary.
+
 ## Deep Reference
 
 Use [REFERENCE.md](REFERENCE.md) for full phase instructions, loop construction

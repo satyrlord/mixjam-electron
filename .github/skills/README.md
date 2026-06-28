@@ -12,6 +12,7 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 | [`dead-code-audit`](./dead-code-audit/SKILL.md) | Model-invoked | Audit TS code for dead code, orphan files, and unused symbols across main and renderer processes. Optionally remove provably dead code. |
 | [`refactor`](./refactor/SKILL.md) | Model-invoked | Surgical, behavior-preserving cleanup. Watch for IPC lifecycle traps, React stale closures, Web Audio lifecycle, and SQLite query hazards. |
 | [`deslop`](./deslop/SKILL.md) | Model-invoked | Remove AI-generated code slop from the branch diff: unnecessary comments, defensive cruft, `any` casts, deep nesting, and style inconsistencies. |
+| [`run-quality-gate`](./run-quality-gate/SKILL.md) | Model-invoked | Deterministic quality gate: clear Problems, markdownlint, ESLint, Fallow, unit/e2e tests, and enforce >=80% in every coverage cell without suppression by default. |
 
 ## Design & Architecture
 
@@ -30,7 +31,7 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 
 | Skill | Invocation | Purpose |
 |---|---|---|
-| [`grilling`](./grilling/SKILL.md) | Model-invoked | Interview the user relentlessly about a plan or design before building. |
+| [`grill-me`](./grill-me/SKILL.md) | Model-invoked | Interview the user relentlessly about a plan or design before building. |
 | [`handoff`](./handoff/SKILL.md) | User-invoked | Compact the conversation into a handoff document for another agent to continue. |
 | [`teach`](./teach/SKILL.md) | User-invoked | Multi-session teaching of a new skill or concept. |
 | [`writing-great-skills`](./writing-great-skills/SKILL.md) | User-invoked | Reference for authoring skills: vocabulary and principles. |

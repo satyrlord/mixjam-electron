@@ -4,7 +4,7 @@ description: >
   Interview the user relentlessly about a plan or design. Use when the user
   wants to stress-test a plan before building, or uses any 'grill' trigger
   phrases.
-tools:vscode/memory, vscode/resolveMemoryFileUri, vscode/askQuestions, vscode/toolSearch, read/problems, read/readFile, read/skill, read/terminalSelection, read/terminalLastCommand, agent, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename
+tools: vscode/memory, vscode/resolveMemoryFileUri, vscode/askQuestions, vscode/toolSearch, read/problems, read/readFile, read/skill, read/terminalSelection, read/terminalLastCommand, agent, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename
 ---
 
 # Grilling
