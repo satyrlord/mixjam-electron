@@ -25,6 +25,7 @@ For each question, provide your recommended answer before asking for mine.
 
 - Ask questions **one at a time**. Asking multiple at once is bewildering
   and breaks the tree walk.
+- Summarize advantages and disadvantages for each option.
 - If a question can be answered by exploring the repo, explore the repo instead of asking.
 - When I answer with a constraint or preference, incorporate it immediately
   — don't ask the same branch again later.

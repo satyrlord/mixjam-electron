@@ -25,7 +25,9 @@ Implement view switching, the header bar, and the footer.
   from the `public/` folder.
 - **Window:** 1280×720, centered on screen, not resizable, no maximize button.
 - Full-viewport layout with header, centered content area, and footer.
-- **Header** (40px): brand "MixJam Electron" anchored to the left margin.
+- **Header** (40px): brand "MixJam Electron" anchored to the left margin,
+  theme selector dropdown (right, non-functional — lists theme names but
+  selection has no effect until spec-002).
 - **Content area:** vertically and horizontally centered.
   - "Start New MixJam" button — primary action, navigates to Tracker View.
   - "Load MixJam" link — secondary action, opens a native file picker filtered
@@ -71,6 +73,8 @@ Implement view switching, the header bar, and the footer.
 
 - Fixed 40px height, full width.
 - **Home Screen state:** brand "MixJam Electron" anchored to the left margin.
+  Theme selector dropdown on the right (non-functional — lists theme names
+  but selection has no effect until spec-002).
 - **Tracker View state:** home link "&lt; Return to Main Menu" (left),
   brand "MixJam Electron" (right of home link), timer (absolute center),
   theme selector dropdown (right, non-functional — lists theme names but
