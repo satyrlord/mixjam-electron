@@ -94,7 +94,7 @@ external CDN or Google Fonts dependency). Font files live in `public/fonts/`.
 
 ### Theme Selector
 
-- Present in both Home Screen and Tracker View headers (right side).
+- Present in both Home Screen and Player headers (right side).
 - In spec-001 the selector was non-functional (listed themes, no effect).
   This spec makes it functional.
 - Dropdown lists all 8 theme names.
@@ -111,7 +111,7 @@ external CDN or Google Fonts dependency). Font files live in `public/fonts/`.
 - Theme tokens are applied to the root element (e.g. `:root` or equivalent).
 - All UI elements consume tokens exclusively — no hardcoded colors outside the
   token file.
-- Switching between Home and Tracker views does not reset or re-apply the
+- Switching between Home Screen and Player does not reset or re-apply the
   theme.
 
 ### Theme File Format
@@ -150,7 +150,7 @@ in later specs.
 - [ ] **AC-006:** Selecting any non-Emerald theme from the dropdown immediately resets the selection back to Emerald — the app never displays a broken/incomplete theme.
 - [ ] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.
 - [ ] **AC-008:** Theme tokens are defined in a single source of truth (e.g. JSON file). No UI element uses hardcoded color values outside the token system.
-- [ ] **AC-009:** Switching from Home to Tracker and back does not change the active theme or cause a re-apply flicker.
+- [ ] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
 - [ ] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
 
 ## Non-Goals (deferred to later specs)
