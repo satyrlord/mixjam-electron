@@ -1,6 +1,7 @@
 # Spec 009 — Time-Stretching
 
-**Status:** ✅ VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective

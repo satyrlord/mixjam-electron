@@ -1,6 +1,7 @@
 # Spec 011 — Project Save & Load
 
-**Status:** ✅ VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
 **Depends on:** spec-006 (Player Timeline & Panel Layout), spec-007 (Mixer)
 
 ## Objective

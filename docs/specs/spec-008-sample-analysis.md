@@ -1,6 +1,7 @@
 # Spec 008 — Sample Analysis & Auto-Categorization
 
-**Status:** ✅ VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
 **Depends on:** spec-004 (Sample Library Browsing, Search & Tagging)
 
 ## Objective

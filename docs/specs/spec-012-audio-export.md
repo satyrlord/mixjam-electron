@@ -1,6 +1,7 @@
 # Spec 012 — Audio Export
 
-**Status:** ✅ VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine), spec-007 (Mixer)
 
 ## Objective

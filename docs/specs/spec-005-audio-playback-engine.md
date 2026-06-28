@@ -1,6 +1,7 @@
 # Spec 005 — Audio Playback Engine
 
-**Status:** ✅ VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
 **Depends on:** spec-003 (Folder & Session Management)
 
 ## Objective

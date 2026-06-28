@@ -1,6 +1,7 @@
 # Spec 001 — App Shell & Navigation
 
-**Status:** ✅ SPEC VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** *(root — no dependencies)*
 
 ## Objective

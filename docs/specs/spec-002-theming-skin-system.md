@@ -1,6 +1,7 @@
 # Spec 002 — Theming & Skin System
 
-**Status:** ✅ VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
 **Depends on:** spec-001 (App Shell & Navigation)
 
 ## Objective
@@ -62,7 +63,7 @@ external CDN or Google Fonts dependency). Font files live in `public/fonts/`.
 
 | # | Theme Name | Token File Key | Status |
 |---|---|---|---|
-| 1 | Emerald | `emerald` | ✅ Fully implemented |
+| 1 | Emerald | `emerald` | Fully implemented |
 | 2 | Flat Studio | `studio` | ⬜ Listed only |
 | 3 | Neon Rave | `rave` | ⬜ Listed only |
 | 4 | Warm Analog | `analog` | ⬜ Listed only |

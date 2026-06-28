@@ -1,6 +1,7 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
-**Status:** ✅ VALIDATED
+**Spec Validation Status:** VALIDATED
+**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective

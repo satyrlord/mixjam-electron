@@ -43,6 +43,8 @@ requirements that constrain every architectural choice.
   the direct fix for the prior WPF skinning failure.
 - **Never string-concatenate user input into SQL.** All query compilation uses
   parameterized statements.
+- **No emoji anywhere in code, docs, specs, or skills.** Keep all written content
+  plain text without emoji or other decorative symbols.
 
 ## Resolved decisions — do not relitigate without a stated trigger
 
