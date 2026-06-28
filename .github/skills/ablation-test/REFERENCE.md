@@ -10,20 +10,20 @@ Run this only after you already have:
 
 If you do not yet have item 1, use `diagnose` first.
 
-## Web-Specific Controls
+## Electron-Specific Controls
 
 Before you interpret any result, control for the common false positives in
 this project:
 
-- **TypeScript or component changes:** validate with `npm run build` or the
+- **TypeScript changes:** validate with the project's build command or the
   narrowest relevant test, not by editor state alone.
-- **Vitest slices:** prefer focused `npm test -- --run src/.../test.ts` when
-  you already know the target test.
-- **UI changes:** make sure the dev server or build output is current. A
-  stale Vite cache or a missed HMR can make an ablation look false-negative
-  or false-positive.
-- **Browser state issues:** full page reload (not just HMR) may be part of
-  the repro contract.
+- **Test slices:** prefer focused test runs when you already know the
+  target test file.
+- **UI changes:** make sure the build output is current. A stale build
+  cache or missed rebuild can make an ablation look false-negative or
+  false-positive.
+- **Renderer state issues:** a fresh renderer process reload (not just
+  hot-reload) may be part of the repro contract.
 - **Source artifacts:** keep input files read-only and write notes or logs
   under `tmp/`.
 
@@ -40,7 +40,7 @@ Do not start by stashing the whole repository if unrelated user work exists.
 Helper script example:
 
 ```PowerShell
-VALIDATION='npm test -- --run src/engine/__tests__/Scheduler.test.ts'
+VALIDATION='npm test -- --run src/__tests__/scheduler.test.ts'
 ```
 
 If a candidate path overlaps with unrelated user edits and you cannot isolate
@@ -50,12 +50,11 @@ it safely, stop and ask before moving that path.
 
 Prefer groups that map to project seams instead of random file batches:
 
-- parser or decoder logic (`src/engine/`)
-- sample resolver or product metadata
-- tracker or transport scheduling (`src/engine/Scheduler.ts`)
-- UI components (`src/ui/`)
-- state stores (`src/state/`)
-- bridge wiring (`src/bridge/`)
+- IPC handlers and main-process services
+- SQLite query builders or indexing logic
+- renderer engine (tracker, playback, scheduler)
+- UI components and state (renderer)
+- preload / contextBridge wiring
 - tests or docs only
 
 A good first cut is 2-4 groups, not 12 individual files.

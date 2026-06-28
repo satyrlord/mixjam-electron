@@ -1,8 +1,8 @@
 # Claude Design Parity Reference
 
 Connection notes for the DesignSync tool plus the complete conversion rules
-for translating Claude Design mockup CSS into MixJam Web's CSS custom
-properties theme tokens.
+for translating Claude Design mockup CSS into MixJam Electron's (MJE) CSS
+custom properties theme tokens.
 
 ## DesignSync Connection
 

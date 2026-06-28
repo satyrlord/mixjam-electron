@@ -32,8 +32,12 @@ behavior. Update the owning document instead.
 
 1. `AGENTS.md` - Agent behavior rules and guardrails
 2. **All relevant docs in `docs/` folder for the domain**:
-   - `docs/architectural-suggestion-notes.md` - Architecture plan and data model
-   - `docs/tech-stack.md` - Stack decisions and rationale
+   - `docs/architecture.md` - Stack, process model, non-goals
+   - `docs/data-model.md` - SQLite schema, FTS5, indexes
+   - `docs/query-schema.md` - `rule_json` predicate-tree format
+   - `docs/indexing.md` - First-run scan + incremental re-scan
+   - `docs/audio-engine.md` - Web Audio scheduler + native-addon trigger
+   - `docs/decisions.md` - Resolved trade-offs and revisit triggers
 3. Check for existing implementations that might solve the problem
 
 **Never implement without understanding the existing documented context.**
@@ -42,8 +46,12 @@ behavior. Update the owning document instead.
 
 For **canonical docs** (durable reference documents):
 
-- architecture and data model -> `docs/architectural-suggestion-notes.md`
-- stack decisions and rationale -> `docs/tech-stack.md`
+- architecture and process model -> `docs/architecture.md`
+- data model and schema -> `docs/data-model.md`
+- query format and compilation -> `docs/query-schema.md`
+- indexing and scanning -> `docs/indexing.md`
+- audio engine decisions -> `docs/audio-engine.md`
+- trade-off decisions and rationale -> `docs/decisions.md`
 - cross-cutting terminology -> `docs/glossary.md` (create lazily, only when needed)
 - durable trade-off decisions -> record in the relevant canonical doc, or create a new doc under `docs/`
   (this project does not use standalone ADRs; no `docs/adr/` tree).

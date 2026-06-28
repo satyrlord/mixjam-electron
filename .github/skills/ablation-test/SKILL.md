@@ -1,11 +1,11 @@
 ---
 name: ablation-test
 description: >
-  Runs a disciplined ablation workflow for MixJam Web bugs to prove which
-  changed files or layers are actually required for a fix. Use when a MixJam
-  Web import, playback, or UI bug has a known pass/fail check but several
-  edits may be involved, or when the user asks which change actually fixed it,
-  what can be removed, or for the smallest proven fix.
+  Runs a disciplined ablation workflow for MixJam Electron (MJE) bugs to
+  prove which changed files or layers are actually required for a fix. Use
+  when an MJE import, playback, or UI bug has a known pass/fail check but
+  several edits may be involved, or when the user asks which change actually
+  fixed it, what can be removed, or for the smallest proven fix.
 argument-hint: >
   Optionally include the repro check, candidate paths, and any restart/build
   constraints.
@@ -13,7 +13,7 @@ argument-hint: >
 
 # Ablation Test
 
-Use this after `diagnose` when MixJam Web
+Use this after `diagnose` when MJE
 already has a discriminating PASS/FAIL check and the remaining question is
 which **candidates** — the changed files or groups — are actually required.
 
@@ -22,7 +22,7 @@ which **candidates** — the changed files or groups — are actually required.
 - a bug only went green after a broad change set with many candidates
 - import, playback, or UI fixes may span several files
 - the user wants the smallest proven fix set or wants unnecessary candidates removed
-- caching, HMR, or stale-build-output questions are muddying the result
+- caching, Electron reload, or stale-build-output questions are muddying the result
 
 ## Not For
 
@@ -47,8 +47,9 @@ In those cases, start with `diagnose`.
 ## Candidate Grouping Hints
 
 - Import and parser code plus resolver/parser tests
-- Tracker and playback services (`src/engine/`)
-- UI components, stores, or bridge wiring (`src/ui/`, `src/state/`, `src/bridge/`)
+- Tracker and playback services (renderer engine)
+- IPC handlers, main-process services, or SQLite query builders
+- UI components, state, or preload bridge wiring
 - tests, docs, or config that may have masked the real fix
 
 ## Output

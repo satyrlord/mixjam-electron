@@ -3,25 +3,25 @@ name: claude-design-parity
 description: >
   Connects to a Claude Design project with the DesignSync tool (or a .zip
   archive fallback), extracts design tokens from its HTML/CSS mockups, and
-  drives MixJam Web's CSS custom properties theming toward maximum design
-  parity with a per-theme gap-analysis checklist and concrete CSS/JSON
-  patches. Use when the user shares a claude.ai/design URL or project
-  archive, asks for design parity with a reference mockup, wants a
-  CSS-to-theme-token mapping, or needs a parity audit of the Tracker UI,
-  Mixer, or Home screen themes.
+  drives MixJam Electron's (MJE) CSS custom properties theming toward
+  maximum design parity with a per-theme gap-analysis checklist and
+  concrete CSS/JSON patches. Use when the user shares a claude.ai/design
+  URL or project archive, asks for design parity with a reference mockup,
+  wants a CSS-to-theme-token mapping, or needs a parity audit of the
+  Tracker UI, Mixer, or Home screen themes.
 ---
 
 # Claude Design Parity
 
 Connect to a Claude Design project, extract its design tokens, and close the
-gap between the mockups and MixJam Web's CSS custom properties theming.
+gap between the mockups and MixJam Electron's CSS custom properties theming.
 Produces a parity checklist and concrete CSS custom property or theme JSON
 patches.
 
 ## Read First
 
 1. `AGENTS.md`
-2. `docs/tech-stack.md` — theming architecture (CSS custom properties + JSON)
+2. `docs/architecture.md` — theming architecture (CSS custom properties, Tailwind, plain CSS)
 
 ## Step 1: Connect and ingest
 
@@ -83,8 +83,9 @@ theme JSON patches matching the project's theme file structure.
 
 ## Step 6: Validate
 
-- `npm run build` must pass with 0 errors
-- Visual smoke check in the browser: switch to the affected theme
+- Build must pass with 0 errors
+- Visual smoke check in the Electron app: switch to the affected theme and
+  verify in the Chromium renderer
 - Update theme documentation if a theme description changed
 
 ## Gotchas

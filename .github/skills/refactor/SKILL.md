@@ -1,10 +1,10 @@
 ---
 name: refactor
 description: >
-  Surgical, behavior-preserving cleanup for the MixJam Web repository. Use
-  when the user asks to refactor, simplify, clean up, reduce complexity,
-  untangle, de-duplicate, or make code easier to change without adding
-  features.
+  Surgical, behavior-preserving cleanup for the MixJam Electron (MJE)
+  repository. Use when the user asks to refactor, simplify, clean up,
+  reduce complexity, untangle, de-duplicate, or make code easier to change
+  without adding features.
 ---
 
 # Refactor
@@ -13,18 +13,22 @@ Reduce structural and local complexity without changing behavior, contracts,
 or validation coverage. Take small steps and validate after each one; do not
 mix cleanup with new feature work or widen into drive-by edits.
 
-Web-specific hazards — read more context before touching these
+Project-specific hazards — read more context before touching these
 (Chesterton's fence):
 
-- React stale closures: memoized callbacks or effect dependencies that
-  capture stale engine state; "simplifying" by moving state outside hooks
-  can break reactive updates silently
-- Zustand store mutation: direct state mutation outside `set()` or immer
-  breaks reactivity; flattening selectors without understanding re-render
-  boundaries can cause unexpected cascades
+- IPC channel lifecycle: main↔renderer contracts defined in the preload
+  contextBridge; changing channel names, payload shapes, or sync/async
+  semantics silently breaks the typed API between processes
+- React stale closures (renderer): memoized callbacks or effect
+  dependencies that capture stale state; "simplifying" by moving state
+  outside hooks can break reactive updates silently
 - Web Audio lifecycle: `AudioContext` state transitions (suspended/resumed)
   must be handled asynchronously; simplifying AudioNode creation patterns
   can leak nodes or break scheduling
+- SQLite query hazards: `better-sqlite3` is synchronous and blocks the
+  main-process event loop; long queries must run in a worker_thread.
+  Refactoring query builders can accidentally drop parameterized bindings
+  or FTS5 match syntax
 
 Delete dead code only when you can prove it is off the active path
 (`dead-code-audit` owns the full sweep).

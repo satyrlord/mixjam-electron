@@ -18,7 +18,10 @@ Treat a finding as alive when it is used through one of these paths:
 - React component references, JSX element usage, or conditional rendering
 - JSON serialization and deserialization contracts
 - reflection, dynamic imports, or template literal access
-- Build entry files (Vite entry, worker entry points)
+- Build entry files (Electron main process entry, preload scripts,
+  renderer entry, worker_thread entry points)
 - test-only or fixture-only reachability that the scan intentionally excludes
-- Zustand store selectors or subscriptions
+- IPC channel names and contextBridge API surface — symbols exposed to the
+  renderer via preload may appear unused in main-process scans
+- state store selectors or subscriptions (renderer)
 - CSS class name references that appear in template strings

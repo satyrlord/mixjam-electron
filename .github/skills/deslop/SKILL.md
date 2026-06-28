@@ -27,8 +27,8 @@ intentional, economical, and consistent with the surrounding codebase.
 - **Deep nesting** — simplify with early returns, guard clauses, or extracted
   helpers.
 - **Inconsistent patterns** — anything that clashes with the file and
-  surrounding codebase conventions (import grouping, hook patterns, store
-  access style).
+  surrounding codebase conventions (import grouping, IPC handler style,
+  React patterns in the renderer, SQLite query builder conventions).
 
 ## Completion Criterion
 
@@ -48,8 +48,9 @@ deslop is not done.
 
 - Keep behavior unchanged unless fixing a clear bug.
 - Keep the final summary concise (1–3 sentences).
-- Respect the four-layer architecture boundary: engine → bridge/state → ui.
-  Do not introduce cross-layer imports that violate it.
+- Respect the Electron process boundary: main process ↔ preload/contextBridge
+  ↔ renderer. Do not import Node APIs in the renderer or DOM APIs in main.
+  All data crosses via typed IPC channels.
 
 ## Deep Reference
 

@@ -1,32 +1,32 @@
 # Ablation Test Examples
 
-## Example 1: Folder Permission Re-prompt on Every Page Load
+## Example 1: IPC Handler Returning Stale Data After Rescan
 
 ### Example 1 Symptom
 
-- The File System Access folder picker re-appears on every page load even
-  though the user granted permission in a previous session.
+- After a library rescan, the renderer still shows old sample counts until
+the app is fully restarted.
 
 ### Example 1 Candidate Groups
 
-1. handle persistence logic in `src/files/handlePersistence.ts` (IndexedDB
-   store and permission re-request flow)
-2. folder setup dialog in `src/ui/shell/FolderSetupDialog.tsx` (UI triggers
-   and state management)
-3. library or project store initialization in `src/state/`
+1. IPC handler in main process that queries sample counts
+2. indexer worker_thread that reports scan progress
+3. renderer store that caches the count from IPC responses
+4. preload bridge typing for the count channel
 
 ### Example 1 Ablation Sequence
 
-1. Restore only the handle-persistence change -> test -> **PASS**.
-2. Remove the dialog UI change and retest -> **PASS**.
-3. Remove the store initialization change -> **PASS**.
-4. Confirm with a clean browser profile -> **PASS**.
+1. Restore only the IPC handler change -> test -> **PASS**.
+2. Remove the indexer change and retest -> **PASS**.
+3. Remove the renderer store change -> **PASS**.
+4. Confirm with a clean app data directory -> **PASS**.
 
 ### Example 1 Conclusion
 
-- Root cause is IndexedDB handle persistence, not UI or store wiring.
-- Minimal fix is the `handlePersistence.ts` change alone.
-- The dialog and store edits were incidental for this bug.
+- Root cause is the IPC handler not invalidating cached counts, not the
+  indexer or renderer store.
+- Minimal fix is the IPC handler change alone.
+- The indexer and store edits were incidental for this bug.
 
 ---
 
@@ -67,21 +67,21 @@
 
 ### Example 3 Candidate Groups
 
-1. `src/ui/tracker/...`
-2. `src/ui/mixer/...`
-3. clean rebuild / full page reload
+1. renderer UI components
+2. renderer CSS/theme files
+3. clean rebuild / fresh renderer reload
 
 ### Example 3 Ablation Sequence
 
-1. Run the repro against the currently running dev server -> **FAIL**.
-2. Full page reload with no extra code changes -> **PASS**.
-3. Remove the speculative style override while keeping the HMR cycle ->
+1. Run the repro against the currently running build -> **FAIL**.
+2. Fresh renderer reload with no extra code changes -> **PASS**.
+3. Remove the speculative style override while keeping the live reload ->
    **PASS**.
 
 ### Example 3 Conclusion
 
-- The false variable was a stale HMR state, not missing UI logic.
-- Minimal fix is the real source change plus a full page reload.
+- The false variable was a stale renderer state, not missing UI logic.
+- Minimal fix is the real source change plus a fresh renderer reload.
 - The style override was unnecessary.
 
 ---
@@ -102,7 +102,7 @@
 
 ### Example 4 Ablation Sequence
 
-1. Lock the validation loop to a vitest regression test and a manual
+1. Lock the validation loop to a regression test and a manual
    listening pass.
 2. Restore diagnostics or test-only edits first -> telemetry is easier to
   read, but the audible dropout remains -> **FAIL**.
@@ -127,7 +127,7 @@ Run ID: AB-<date>-<index>
 Validation:
 - command or manual repro:
 - target bar range or event ids:
-- page reload required: yes/no
+- renderer reload required: yes/no
 - clean build: yes/no
 
 State:

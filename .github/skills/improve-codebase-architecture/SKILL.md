@@ -31,15 +31,17 @@ Principles:
 - **One adapter = hypothetical seam, two = real** — the first adapter on a
   seam is scaffolding; the second proves the seam is right
 
-The domain language in `docs/architectural-suggestion-notes.md` and
-`docs/tech-stack.md` names good seams. Create `docs/glossary.md` lazily
-when shared terminology is needed across docs.
+The domain language in `docs/architecture.md` and `docs/data-model.md`
+names good seams. Create `docs/glossary.md` lazily when shared terminology
+is needed across docs.
 
 ## Process
 
 ### 1. Explore
 
-Read the project's architecture docs (`docs/architectural-suggestion-notes.md`, `docs/tech-stack.md`) first. If a `CONTEXT.md` domain glossary exists, read that too.
+Read the project's architecture docs (`docs/architecture.md`,
+`docs/data-model.md`) first. If a `CONTEXT.md` domain glossary exists,
+read that too.
 
 Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
 
@@ -68,7 +70,10 @@ For each candidate, render a card with:
 
 End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
 
-**Use the domain vocabulary from `docs/architectural-suggestion-notes.md`, `docs/tech-stack.md`, and the terms defined above.** If `docs/glossary.md` exists, use its terms — don't drift into "component," "service," "API," or "boundary."
+**Use the domain vocabulary from `docs/architecture.md`,
+`docs/data-model.md`, and the terms defined above.** If `docs/glossary.md`
+exists, use its terms — don't drift into "component," "service," "API," or
+"boundary."
 
 **Existing decision conflicts**: if a candidate contradicts a decision recorded in an existing doc, only surface it when the friction is real enough to warrant revisiting that decision. Mark it clearly in the card. Don't list every theoretical refactor a past decision forbids.
 

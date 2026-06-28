@@ -1,22 +1,22 @@
 ---
 name: dead-code-audit
 description: >
-  Audits the MixJam Web codebase for dead TypeScript code, orphan files, and
-  unused symbols, triages findings into live dead code or false positives,
-  and optionally removes provably dead code with focused validation. Always
-  starts with Fallow static analysis and fixing all issues, including
-  pre-existing ones. Use when the user asks for a dead-code scan, unused-code
-  audit, orphan-file scan, unused-symbol triage, or cleanup from analyzer
-  findings.
+  Audits the MixJam Electron (MJE) codebase for dead TypeScript code,
+  orphan files, and unused symbols across main and renderer processes,
+  triages findings into live dead code or false positives, and optionally
+  removes provably dead code with focused validation. Always starts with
+  Fallow static analysis and fixing all issues, including pre-existing
+  ones. Use when the user asks for a dead-code scan, unused-code audit,
+  orphan-file scan, unused-symbol triage, or cleanup from analyzer findings.
 ---
 
 # Dead Code Audit
 
 ## Goal
 
-Gather deterministic **evidence** of dead code in the TypeScript/React
-codebase — hard proof, not suspicion. Inspect only the reported findings
-and either:
+Gather deterministic **evidence** of dead code in the TypeScript codebase
+(main + renderer processes) — hard proof, not suspicion. Inspect only the
+reported findings and either:
 
 - report live findings and validated false positives, or
 - remove provably dead code when the user explicitly asked for cleanup.
@@ -68,8 +68,11 @@ triage findings against a broken build, and do not delete anything.
 For each finding, gather the smallest local proof before editing:
 
 - direct usages and references
-- entrypoint wiring, React component tree, or host glue
+- entrypoint wiring (main process, preload, renderer), React component
+  tree, or IPC glue
 - reflection, serialization, CSS class references, or dynamic imports
+- contextBridge API surface — symbols exposed to the renderer may appear
+  unused in the main process but are consumed over IPC
 - tests or fixtures that rely on the symbol or file
 
 If the evidence shows the finding is a false positive (still alive through
