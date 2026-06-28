@@ -1,0 +1,49 @@
+{
+  "name": "mixjam-electron",
+  "version": "0.5.0",
+  "description": "MixJam Electron — sample-library browser and tracker",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "fallow": "fallow dead-code",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "^6.6.4",
+    "@testing-library/react": "^16.2.0",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "electron": "^42.5.0",
+    "electron-vite": "^5.0.0",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "fallow": "^2.103.0",
+    "globals": "^17.7.0",
+    "jsdom": "^25.0.1",
+    "playwright": "^1.61.1",
+    "playwright-core": "^1.61.1",
+    "typescript": "^5.5.2",
+    "typescript-eslint": "^8.62.0",
+    "vite": "^7.1.12",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "allowScripts": {
+    "electron@42.5.0": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true
+  }
+}

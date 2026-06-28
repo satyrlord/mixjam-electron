@@ -1,5 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/config.schema.json",
+  "entry": [
+    "src/renderer/src/main.tsx",
+    "src/renderer/index.html"
+  ],
   "ignorePatterns": [
     "vite.config.js",
     "vite.config.d.ts",
@@ -11,7 +15,7 @@
     "src/state/projectStore.ts",
     "src/state/selectors.ts"
   ],
-  "ignoreDependencies": ["zundo"],
+  "ignoreDependencies": ["zundo", "playwright-core"],
   "usedClassMembers": [
     "initProject", "trackCount", "hasClipboardPattern", "play", "pause",
     "stop", "setBpm", "backToStart", "goToEnd", "setLoopEnabled",
