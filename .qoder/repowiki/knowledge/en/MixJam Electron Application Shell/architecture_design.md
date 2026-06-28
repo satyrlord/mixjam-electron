@@ -1,0 +1,4 @@
+- Follows standard Electron three-process architecture: Main (`src/main/index.ts`) handles OS integration, session persistence, and sample indexing; Preload (`src/preload/index.ts`) exposes a typed `ElectronAPI` via `contextBridge`; Renderer (`src/renderer/src`) implements the UI in React.
+- Uses `electron-vite` for multi-target builds, separating Main, Preload, and Renderer configurations.
+- State management relies on React hooks (`useAppState`, `useFolderSession`) that communicate with the Main process through IPC channels defined in `src/shared/ipc.ts`.
+- Session data (user/sample folders) is persisted to `app.getPath('userData')` and validated by the Main process before being exposed to the renderer.

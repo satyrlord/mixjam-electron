@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: error_handling
+title: Informal Error Handling via Try/Catch and Console Logging
+scope: []
+source_files:
+    - src/main/session.ts
+    - src/main/sample-browser.ts
+    - src/main/index.ts
+    - src/renderer/src/hooks/useAppState.ts
+    - src/shared/ipc.ts
+    - src/preload/index.ts
+depends_on: []
+related_to: []

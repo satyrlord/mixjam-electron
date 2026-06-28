@@ -1,0 +1,3 @@
+- IPC channels are defined as string constants in `src/shared/ipc.ts` and used consistently across Main handlers and Preload bindings.
+- Renderer hooks inject the `electronAPI` dependency explicitly rather than accessing `window.electronAPI` directly, facilitating testability.
+- Main process file system operations use `node:fs/promises` with robust error handling and fallback defaults for missing configuration files.
