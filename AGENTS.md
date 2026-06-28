@@ -2,6 +2,10 @@
 
 Guidance for AI coding agents working in this repository.
 
+> This project is distinct from **MixJam Native** (WinUI) and **MixJam Web**
+> (React/Vite, GitHub Pages). Do not share or copy schemas, docs, or code with
+> them. See [architecture.md](architecture.md#relationship-to-sibling-projects).
+
 ## Status: pre-implementation
 
 Architecture is decided and design questions are resolved; no code is scaffolded yet.

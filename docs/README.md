@@ -11,10 +11,6 @@ A Windows Electron desktop app with two halves:
 Performance at that data scale and pixel-perfect CSS skinning are the two hard
 requirements that drive every architectural choice.
 
-> This project is distinct from **MixJam Native** (WinUI) and **MixJam Web**
-> (React/Vite, GitHub Pages). Do not share or copy schemas, docs, or code with
-> them. See [architecture.md](architecture.md#relationship-to-sibling-projects).
-
 ## Document map
 
 | Doc | Contents |
