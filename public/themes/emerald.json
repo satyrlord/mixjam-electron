@@ -1,0 +1,27 @@
+{
+  "name": "Emerald",
+  "key": "emerald",
+  "colors": {
+    "accent": "#00674F",
+    "accent-dark": "#004434",
+    "highlight": "#8FBCB2",
+    "bg-base": "#081715",
+    "bg-panel": "#051411",
+    "bg-lane": "#091613",
+    "bg-grid": "#020C0A",
+    "chrome": "#0F2722",
+    "border": "#1A4D3E",
+    "header-border": "#1D5C4A",
+    "text": "#E8F0EC",
+    "text-muted": "#B8D0C8",
+    "pill-bg": "#0C2D32",
+    "pill-border": "#2D6B5E",
+    "playhead": "#E74C3C"
+  },
+  "fonts": {
+    "chrome": "Josefin Sans",
+    "label": "Ubuntu",
+    "mono": "JetBrains Mono"
+  },
+  "radius": "0.22rem"
+}

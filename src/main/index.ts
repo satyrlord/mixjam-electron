@@ -1,6 +1,13 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeImage } from 'electron'
 import { join } from 'path'
 import { IPC_CHANNELS } from '../shared/ipc'
+import {
+  buildAppIconPath,
+  buildPreloadPath,
+  createMainWindowOptions,
+  resizeWindowToHome,
+  resizeWindowToTracker
+} from '../shared/window-config'
 
 let mainWindow: BrowserWindow | null = null
 const ALLOWED_EXTERNAL_HOSTS = new Set(['github.com', 'www.github.com'])
@@ -8,24 +15,11 @@ const ALLOWED_EXTERNAL_HOSTS = new Set(['github.com', 'www.github.com'])
 function createWindow(): void {
   Menu.setApplicationMenu(null)
 
-  const iconPath = join(__dirname, '../../public/app-icon.ico')
+  const iconPath = buildAppIconPath(__dirname)
   const icon = nativeImage.createFromPath(iconPath)
+  const preloadPath = buildPreloadPath(__dirname)
 
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 720,
-    center: true,
-    resizable: false,
-    maximizable: false,
-    icon,
-    show: false,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  })
+  mainWindow = new BrowserWindow(createMainWindowOptions(preloadPath, icon))
 
   mainWindow.once('ready-to-show', () => {
     mainWindow!.show()
@@ -53,21 +47,12 @@ ipcMain.handle(IPC_CHANNELS.appGetVersion, () => app.getVersion())
 
 ipcMain.handle(IPC_CHANNELS.windowResizeTracker, () => {
   if (!mainWindow) return
-  mainWindow.setResizable(true)
-  mainWindow.setMaximizable(true)
-  mainWindow.setSize(1920, 1080)
-  mainWindow.center()
+  resizeWindowToTracker(mainWindow)
 })
 
 ipcMain.handle(IPC_CHANNELS.windowResizeHome, () => {
   if (!mainWindow) return
-  // setSize must come before setResizable(false) — on Windows, a non-resizable
-  // window ignores setSize calls.
-  mainWindow.setResizable(true)
-  mainWindow.setSize(1280, 720)
-  mainWindow.center()
-  mainWindow.setResizable(false)
-  mainWindow.setMaximizable(false)
+  resizeWindowToHome(mainWindow)
 })
 
 ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async () => {

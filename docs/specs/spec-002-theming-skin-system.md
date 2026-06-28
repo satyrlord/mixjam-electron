@@ -1,7 +1,7 @@
 # Spec 002 — Theming & Skin System
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-001 (App Shell & Navigation)
 
 ## Objective
@@ -57,7 +57,7 @@ elements consistently.
 | `--font-mono` | Monospace (ruler, timer, code) | JetBrains Mono |
 
 All three fonts must be bundled with the app and loaded from local files (no
-external CDN or Google Fonts dependency). Font files live in `public/fonts/`.
+external CDN or Google Fonts dependency). Font files live in `src/renderer/public/fonts/`.
 
 ### Eight Themes
 

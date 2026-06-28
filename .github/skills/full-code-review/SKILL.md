@@ -171,7 +171,7 @@ checklist.
 
 ## Required Final Step
 
-After delivering the full-code-review findings, invoke the `run-quality-gate`
+After fixing the full-code-review findings, invoke the `run-quality-gate`
 skill to execute the repository quality gates before ending the flow.
 
 - Treat this invocation as mandatory, even when the review findings are small.
@@ -182,5 +182,5 @@ skill to execute the repository quality gates before ending the flow.
 
 This skill run is complete only when:
 
-- the maintainability review findings have been delivered, and
+- the maintainability review findings have been fixed, and
 - the `run-quality-gate` skill has been invoked and its gate outcomes reported.

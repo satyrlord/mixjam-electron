@@ -4,7 +4,14 @@ import Header from './Header'
 
 describe('Header', () => {
   it('shows only the brand in the home view', () => {
-    render(<Header view="home" timer="00:00.0" onHome={vi.fn()} />)
+    render(
+      <Header
+        view="home"
+        timer="00:00.0"
+        onHome={vi.fn()}
+        onThemeChange={vi.fn(() => 'emerald')}
+      />
+    )
     expect(screen.getByText('MixJam Electron')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Return to Main Menu/ })).not.toBeInTheDocument()
     expect(screen.queryByText('00:00.0')).not.toBeInTheDocument()
@@ -12,11 +19,49 @@ describe('Header', () => {
 
   it('shows the home link and timer in the tracker view and fires onHome', () => {
     const onHome = vi.fn()
-    render(<Header view="tracker" timer="01:23.4" onHome={onHome} />)
+    render(
+      <Header
+        view="tracker"
+        timer="01:23.4"
+        onHome={onHome}
+        onThemeChange={vi.fn(() => 'emerald')}
+      />
+    )
 
     expect(screen.getByText('01:23.4')).toBeInTheDocument()
     const homeLink = screen.getByRole('button', { name: /Return to Main Menu/ })
     fireEvent.click(homeLink)
     expect(onHome).toHaveBeenCalledTimes(1)
+  })
+
+  it('lists the available themes and reports selection changes', () => {
+    const onThemeChange = vi.fn(() => 'emerald')
+    render(
+      <Header
+        view="home"
+        timer="00:00.0"
+        onHome={vi.fn()}
+        onThemeChange={onThemeChange}
+      />
+    )
+
+    const select = screen.getByLabelText('Theme')
+    expect(select).toHaveValue('emerald')
+
+    const optionNames = Array.from(screen.getAllByRole('option')).map((option) => option.textContent)
+    expect(optionNames).toEqual([
+      'Emerald',
+      'Flat Studio',
+      'Neon Rave',
+      'Warm Analog',
+      'IDE',
+      'Rust Industrial',
+      'Screen Maximal',
+      'Club PA'
+    ])
+
+    fireEvent.change(select, { target: { value: 'studio' } })
+    expect(onThemeChange).toHaveBeenCalledWith('studio')
+    expect(select).toHaveValue('emerald')
   })
 })

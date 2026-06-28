@@ -18,7 +18,7 @@ export function useAppState(electronAPI: ElectronAPI) {
   const [view, setView] = useState<View>('home')
   const [version, setVersion] = useState('')
   const [elapsedMs, setElapsedMs] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerRef = useRef<number | null>(null)
   const startRef = useRef<number>(0)
 
   useEffect(() => {
