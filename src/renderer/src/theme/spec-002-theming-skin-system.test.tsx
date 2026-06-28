@@ -113,8 +113,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       <Header
         view="tracker"
         timer="00:00.0"
+        theme="emerald"
         onHome={() => {}}
-        onThemeChange={() => 'emerald'}
+        onThemeChange={() => {}}
       />
     )
 
@@ -180,7 +181,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     fireEvent.click(start)
 
     await waitFor(() => {
-      expect(screen.getByText('Timeline Area')).toBeInTheDocument()
+      expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /Return to Main Menu/ }))

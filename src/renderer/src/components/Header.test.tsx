@@ -8,8 +8,9 @@ describe('Header', () => {
       <Header
         view="home"
         timer="00:00.0"
+        theme="emerald"
         onHome={vi.fn()}
-        onThemeChange={vi.fn(() => 'emerald')}
+        onThemeChange={vi.fn()}
       />
     )
     expect(screen.getByText('MixJam Electron')).toBeInTheDocument()
@@ -23,8 +24,9 @@ describe('Header', () => {
       <Header
         view="tracker"
         timer="01:23.4"
+        theme="emerald"
         onHome={onHome}
-        onThemeChange={vi.fn(() => 'emerald')}
+        onThemeChange={vi.fn()}
       />
     )
 
@@ -35,11 +37,12 @@ describe('Header', () => {
   })
 
   it('lists the available themes and reports selection changes', () => {
-    const onThemeChange = vi.fn(() => 'emerald')
+    const onThemeChange = vi.fn()
     render(
       <Header
         view="home"
         timer="00:00.0"
+        theme="emerald"
         onHome={vi.fn()}
         onThemeChange={onThemeChange}
       />
@@ -62,6 +65,9 @@ describe('Header', () => {
 
     fireEvent.change(select, { target: { value: 'studio' } })
     expect(onThemeChange).toHaveBeenCalledWith('studio')
+    // The select value stays on 'emerald' because the theme prop is controlled
+    // and the mock doesn't update it — same as production where non-Emerald
+    // selections collapse back.
     expect(select).toHaveValue('emerald')
   })
 })

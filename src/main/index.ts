@@ -10,20 +10,29 @@ import {
 } from '../shared/window-config'
 import {
   SESSION_FILE_NAME,
+  RECENT_PROJECTS_FILE_NAME,
   isFolderRole,
+  listRecentProjects,
   normalizeSession,
+  recordRecentProject,
   readSession,
   validateFolder,
   writeSession,
   writeSessionConfig
 } from './session'
+import { querySampleBrowser, type SampleBrowserCache } from './sample-browser'
 
 let mainWindow: BrowserWindow | null = null
 let lastSession: SessionPaths = { userFolder: null, sampleFolder: null }
 const ALLOWED_EXTERNAL_HOSTS = new Set(['github.com', 'www.github.com'])
+const sampleBrowserCache: SampleBrowserCache = new Map()
 
 function sessionFilePath(): string {
   return join(app.getPath('userData'), SESSION_FILE_NAME)
+}
+
+function recentProjectsFilePath(): string {
+  return join(app.getPath('userData'), RECENT_PROJECTS_FILE_NAME)
 }
 
 function createWindow(): void {
@@ -79,7 +88,7 @@ ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async () => {
   if (!mainWindow) return null
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
-    filters: [{ name: 'MixJam Project', extensions: ['mjam'] }]
+    filters: [{ name: 'MixJam Project', extensions: ['mixjam'] }]
   })
   return result.canceled ? null : result.filePaths[0]
 })
@@ -106,6 +115,27 @@ ipcMain.handle(IPC_CHANNELS.sessionSave, async (_event, payload: unknown) => {
     console.error('Failed to write mixjam.json:', error)
   }
 })
+
+ipcMain.handle(IPC_CHANNELS.recentProjectsList, async (_event, rawUserFolder: unknown) => {
+  const userFolder = typeof rawUserFolder === 'string' ? rawUserFolder : null
+  return listRecentProjects(recentProjectsFilePath(), userFolder)
+})
+
+ipcMain.handle(IPC_CHANNELS.recentProjectsRecord, async (_event, rawProjectPath: unknown) => {
+  if (typeof rawProjectPath !== 'string') return
+  await recordRecentProject(recentProjectsFilePath(), rawProjectPath)
+})
+
+ipcMain.handle(
+  IPC_CHANNELS.sampleBrowserQuery,
+  async (_event, rawSampleFolder: unknown, rawSearchQuery: unknown, rawForceRescan: unknown) => {
+    const sampleFolder = typeof rawSampleFolder === 'string' ? rawSampleFolder : null
+    const searchQuery = typeof rawSearchQuery === 'string' ? rawSearchQuery : ''
+    const forceRescan = rawForceRescan === true
+
+    return querySampleBrowser(sampleBrowserCache, sampleFolder, searchQuery, forceRescan)
+  }
+)
 
 ipcMain.handle(IPC_CHANNELS.folderPick, async (_event, rawRole: unknown) => {
   if (!mainWindow || !isFolderRole(rawRole)) return null

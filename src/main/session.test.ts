@@ -4,11 +4,18 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   CONFIG_FILE_NAME,
+  RECENT_PROJECTS_FILE_NAME,
   buildSessionConfig,
   isFolderRole,
+  listRecentProjects,
+  normalizeRecentProjects,
   normalizeSession,
+  recordRecentProject,
+  readRecentProjects,
   readSession,
+  upsertRecentProject,
   validateFolder,
+  writeRecentProjects,
   writeSession,
   writeSessionConfig
 } from './session'
@@ -122,5 +129,162 @@ describe('writeSessionConfig', () => {
     await mkdir(userFolder)
     await writeSessionConfig({ userFolder, sampleFolder: null }, '0.5.0')
     await expect(readFile(join(userFolder, CONFIG_FILE_NAME), 'utf8')).rejects.toThrow()
+  })
+})
+
+describe('normalizeRecentProjects', () => {
+  it('keeps only valid entries, deduplicates by canonical path, and sorts newest first', () => {
+    expect(
+      normalizeRecentProjects([
+        {
+          path: 'C:/Users/Test/Documents/MixJam/alpha.mixjam',
+          displayName: 'Alpha',
+          lastOpened: '2026-06-28T12:00:00.000Z'
+        },
+        {
+          path: 'c:/users/test/documents/mixjam/ALPHA.mixjam',
+          displayName: 'Alpha Duplicate',
+          lastOpened: '2026-06-28T13:00:00.000Z'
+        },
+        {
+          path: 'C:/Users/Test/Documents/MixJam/beta.mixjam',
+          displayName: 'Beta',
+          lastOpened: '2026-06-28T11:00:00.000Z'
+        },
+        { nope: true }
+      ])
+    ).toEqual([
+      {
+        path: 'c:\\users\\test\\documents\\mixjam\\alpha.mixjam',
+        displayName: 'Alpha Duplicate',
+        lastOpened: '2026-06-28T13:00:00.000Z'
+      },
+      {
+        path: 'c:\\users\\test\\documents\\mixjam\\beta.mixjam',
+        displayName: 'Beta',
+        lastOpened: '2026-06-28T11:00:00.000Z'
+      }
+    ])
+  })
+})
+
+describe('upsertRecentProject', () => {
+  it('inserts a new project and refreshes existing paths to the top of the list', () => {
+    const original = [
+      {
+        path: 'c:/users/test/documents/mixjam/beta.mixjam',
+        displayName: 'Beta',
+        lastOpened: '2026-06-28T10:00:00.000Z'
+      },
+      {
+        path: 'c:/users/test/documents/mixjam/alpha.mixjam',
+        displayName: 'Alpha',
+        lastOpened: '2026-06-28T09:00:00.000Z'
+      }
+    ]
+
+    expect(
+      upsertRecentProject(
+        original,
+        'C:/Users/Test/Documents/MixJam/alpha.mixjam',
+        new Date('2026-06-28T12:00:00.000Z')
+      )
+    ).toEqual([
+      {
+        path: 'c:\\users\\test\\documents\\mixjam\\alpha.mixjam',
+        displayName: 'alpha',
+        lastOpened: '2026-06-28T12:00:00.000Z'
+      },
+      {
+        path: 'c:/users/test/documents/mixjam/beta.mixjam',
+        displayName: 'Beta',
+        lastOpened: '2026-06-28T10:00:00.000Z'
+      }
+    ])
+  })
+})
+
+describe('readRecentProjects / writeRecentProjects', () => {
+  it('round-trips recent projects through disk', async () => {
+    const file = join(workDir, RECENT_PROJECTS_FILE_NAME)
+    const entries = [
+      {
+        path: 'C:/Users/Test/Documents/MixJam/alpha.mixjam',
+        displayName: 'Alpha',
+        lastOpened: '2026-06-28T12:00:00.000Z'
+      }
+    ]
+
+    await writeRecentProjects(file, entries)
+
+    expect(await readRecentProjects(file)).toEqual([
+      {
+        path: 'c:\\users\\test\\documents\\mixjam\\alpha.mixjam',
+        displayName: 'Alpha',
+        lastOpened: '2026-06-28T12:00:00.000Z'
+      }
+    ])
+  })
+
+  it('returns an empty list when the registry file is missing or corrupt', async () => {
+    expect(await readRecentProjects(join(workDir, RECENT_PROJECTS_FILE_NAME))).toEqual([])
+
+    const corrupt = join(workDir, 'recent-projects-corrupt.json')
+    await writeFile(corrupt, '{ not json')
+    expect(await readRecentProjects(corrupt)).toEqual([])
+  })
+})
+
+describe('recordRecentProject', () => {
+  it('persists an upserted project entry to disk', async () => {
+    const file = join(workDir, RECENT_PROJECTS_FILE_NAME)
+
+    await recordRecentProject(
+      file,
+      'C:/Users/Test/Documents/MixJam/subfolder/song.mixjam',
+      new Date('2026-06-28T14:00:00.000Z')
+    )
+
+    expect(await readRecentProjects(file)).toEqual([
+      {
+        path: 'c:\\users\\test\\documents\\mixjam\\subfolder\\song.mixjam',
+        displayName: 'song',
+        lastOpened: '2026-06-28T14:00:00.000Z'
+      }
+    ])
+  })
+})
+
+describe('listRecentProjects', () => {
+  it('merges registry entries with recursively discovered user-folder projects', async () => {
+    const file = join(workDir, RECENT_PROJECTS_FILE_NAME)
+    const userFolder = join(workDir, 'MixJam')
+    const nested = join(userFolder, 'sets', 'summer')
+
+    await mkdir(nested, { recursive: true })
+    await writeFile(join(userFolder, 'alpha.mixjam'), '{}')
+    await writeFile(join(nested, 'beta.mixjam'), '{}')
+    await writeFile(join(nested, 'notes.txt'), 'ignore me')
+
+    await writeRecentProjects(file, [
+      {
+        path: join(userFolder, 'alpha.mixjam'),
+        displayName: 'alpha',
+        lastOpened: '2026-06-28T15:00:00.000Z'
+      }
+    ])
+
+    expect(await listRecentProjects(file, userFolder)).toEqual([
+      {
+        path: join(userFolder, 'alpha.mixjam').toLowerCase(),
+        displayName: 'alpha',
+        lastOpened: '2026-06-28T15:00:00.000Z'
+      },
+      {
+        path: join(nested, 'beta.mixjam').toLowerCase(),
+        displayName: 'beta',
+        lastOpened: null
+      }
+    ])
   })
 })

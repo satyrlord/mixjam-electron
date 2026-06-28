@@ -3,11 +3,12 @@ import { THEME_OPTIONS } from '../theme/themes'
 interface HeaderProps {
   view: 'home' | 'tracker'
   timer: string
+  theme: string
   onHome: () => void
-  onThemeChange: (themeKey: string) => string
+  onThemeChange: (themeKey: string) => void
 }
 
-export default function Header({ view, timer, onHome, onThemeChange }: HeaderProps) {
+export default function Header({ view, timer, theme, onHome, onThemeChange }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-left">
@@ -27,10 +28,8 @@ export default function Header({ view, timer, onHome, onThemeChange }: HeaderPro
         <select
           className="theme-selector"
           aria-label="Theme"
-          defaultValue="emerald"
-          onChange={(event) => {
-            event.currentTarget.value = onThemeChange(event.currentTarget.value)
-          }}
+          value={theme}
+          onChange={(event) => onThemeChange(event.currentTarget.value)}
         >
           {THEME_OPTIONS.map((theme) => (
             <option key={theme.key} value={theme.key}>{theme.name}</option>

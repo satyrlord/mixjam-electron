@@ -104,17 +104,17 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(screen.queryByText(LAUNCH_HINT)).not.toBeInTheDocument()
 
     fireEvent.click(start)
-    await waitFor(() => expect(screen.getByText('Timeline Area')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Lane 1')).toBeInTheDocument())
     expect(vi.mocked(api().resizeToTracker)).toHaveBeenCalledTimes(1)
   })
 
   it('AC-008: Load MixJam works regardless of folder selection state', async () => {
     await renderFirstLaunch()
-    vi.mocked(api().openFilePicker).mockResolvedValueOnce('C:/projects/song.mjam')
+    vi.mocked(api().openFilePicker).mockResolvedValueOnce('C:/projects/song.mixjam')
 
     fireEvent.click(screen.getByRole('button', { name: 'Load MixJam' }))
 
-    await waitFor(() => expect(screen.getByText('Timeline Area')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Lane 1')).toBeInTheDocument())
   })
 
   it('AC-009: each Pick Folder invokes the native picker with the matching role', async () => {

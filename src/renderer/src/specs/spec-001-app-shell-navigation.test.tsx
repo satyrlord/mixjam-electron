@@ -45,7 +45,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     render(<App />)
     expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeInTheDocument()
-    expect(screen.queryByText('Timeline Area')).not.toBeInTheDocument()
+    expect(screen.queryByText('Lane 1')).not.toBeInTheDocument()
   })
 
   it('AC-001a: Home header shows MixJam Electron brand anchored to the left margin', () => {
@@ -83,7 +83,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     await clickStartNewMixJam()
 
     await waitFor(() => {
-      expect(screen.getByText('Timeline Area')).toBeInTheDocument()
+      expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
     expect(screen.getByRole('button', { name: 'Select settings folder' })).toBeInTheDocument()
@@ -120,7 +120,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     await clickStartNewMixJam()
 
     await waitFor(() => {
-      expect(screen.getByText('Timeline Area')).toBeInTheDocument()
+      expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
     expect(vi.mocked(window.electronAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
@@ -162,8 +162,9 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       <Header
         view="tracker"
         timer="00:00.0"
+        theme="emerald"
         onHome={() => {}}
-        onThemeChange={() => 'emerald'}
+        onThemeChange={() => {}}
       />
     )
 
@@ -174,14 +175,14 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
   })
 
   it('AC-007: Load MixJam opens picker; selection moves to Player, cancel stays on Home', async () => {
-    vi.mocked(window.electronAPI.openFilePicker).mockResolvedValueOnce('D:/test/project.mjam')
+    vi.mocked(window.electronAPI.openFilePicker).mockResolvedValueOnce('D:/test/project.mixjam')
 
     const firstRender = render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Load MixJam' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Timeline Area')).toBeInTheDocument()
+      expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
     expect(vi.mocked(window.electronAPI.openFilePicker)).toHaveBeenCalledTimes(1)
@@ -201,7 +202,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     })
 
     expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeInTheDocument()
-    expect(screen.queryByText('Timeline Area')).not.toBeInTheDocument()
+    expect(screen.queryByText('Lane 1')).not.toBeInTheDocument()
     expect(vi.mocked(window.electronAPI.resizeToTracker)).not.toHaveBeenCalled()
   })
 
@@ -228,7 +229,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     await clickStartNewMixJam()
     await waitFor(() => {
-      expect(screen.getByText('Timeline Area')).toBeInTheDocument()
+      expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /Return to Main Menu/ }))
@@ -245,7 +246,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     await clickStartNewMixJam()
     await waitFor(() => {
-      expect(screen.getByText('Timeline Area')).toBeInTheDocument()
+      expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /Return to Main Menu/ }))
@@ -255,29 +256,32 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     await clickStartNewMixJam()
     await waitFor(() => {
-      expect(screen.getByText('Timeline Area')).toBeInTheDocument()
+      expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
     expect(vi.mocked(window.electronAPI.resizeToTracker)).toHaveBeenCalledTimes(2)
     expect(vi.mocked(window.electronAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
-  it('AC-010: Player content has exactly three empty placeholder zones', async () => {
+  it('AC-010: Player content has five labeled shell regions', async () => {
     render(<App />)
 
     await clickStartNewMixJam()
 
-    const timeline = await screen.findByText('Timeline Area')
-    const browser = screen.getByText('Browser Panel')
-    const transport = screen.getByText('Transport Strip')
+    const recentProjects = await screen.findByText('Recent Projects')
+    const tracker = screen.getByText('Lane 1')
+    const middleStrip = screen.getByText('Untitled')
+    const songControls = screen.getByText('Song Controls')
+    const categoryTree = screen.getByText('Category Tree')
 
-    expect(timeline).toBeInTheDocument()
-    expect(browser).toBeInTheDocument()
-    expect(transport).toBeInTheDocument()
+    expect(recentProjects).toBeInTheDocument()
+    expect(tracker).toBeInTheDocument()
+    expect(middleStrip).toBeInTheDocument()
+    expect(songControls).toBeInTheDocument()
+    expect(categoryTree).toBeInTheDocument()
 
     const trackerView = document.querySelector('.tracker-view') as HTMLElement
-    expect(trackerView.querySelectorAll('.tracker-zone')).toHaveLength(3)
-    expect(within(trackerView).queryAllByRole('button')).toHaveLength(0)
+    expect(trackerView.querySelectorAll('.tracker-zone')).toHaveLength(5)
   })
 
   it('AC-011: app root occupies full viewport height with overflow hidden', () => {
