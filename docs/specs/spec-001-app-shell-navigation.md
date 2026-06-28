@@ -49,9 +49,11 @@ Implement view switching, the header bar, and the footer.
 - **Timer** displays `00:00.0` format, absolutely centered in the header
   regardless of left/right content width.
 - The tracker content area below the header shows the structural skeleton of
-  the app: three empty labeled rectangular zones (timeline area, transport
-  strip, browser panel). No lane rows, no button icons, no sub-zones —
-  completely blank placeholders.
+  the app using the approved player region map: five empty labeled rectangular
+  zones (Recent Projects rail, Player / Tracker region, full-width Middle
+  Strip, Song Controls rail, Sample Browser region). No lane rows, no button
+  icons, and no detailed sub-zones inside those regions — completely blank
+  placeholders.
 - **Footer** is unchanged from Home Screen.
 
 ### View Switching
@@ -87,11 +89,16 @@ Implement view switching, the header bar, and the footer.
 ### Footer (both views)
 
 - Fixed 40px height, full width (same fixed size as the header).
-- Left: "Select settings folder" link (placeholder — opens a native folder
-  picker but does not persist the selection in this spec).
-- Right: version string derived from app metadata version (format:
-  semantic version string, e.g. `0.5.0`). Clicking the version link opens the default system
-  browser to `https://github.com/satyrlord/mixjam-electron`.
+- **Home Screen state:** left "Select settings folder" link (placeholder —
+  opens a native folder picker but does not persist the selection in this
+  spec), right version string.
+- **Player state:** left "Select settings folder" link, right version string,
+  and a center detail slot that may be populated by the Sample Browser
+  selection model (spec-004).
+- The center footer slot is empty when no sample is selected.
+- Version string is derived from app metadata version (format: semantic
+  version string, e.g. `0.5.0`). Clicking the version link opens the default
+  system browser to `https://github.com/satyrlord/mixjam-electron`.
 
 ## Acceptance Criteria (testable)
 
@@ -103,6 +110,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [ ] **AC-002:** Home Screen content area shows "Start New MixJam" button and "Load MixJam" link.
 - [ ] **AC-003:** Footer is 40px height (same as header), shows "Select settings folder" left and clickable version string right on both views.
 - [ ] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
+- [ ] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
 - [ ] **AC-004:** Clicking "Start New MixJam" resizes the window to 1920×1080 centered, enables the maximize button, and switches the content area to the MixJam Player.
 - [ ] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
 - [ ] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
@@ -110,7 +118,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [ ] **AC-007:** Clicking "Load MixJam" opens a native file picker. Selecting a file navigates to the Player (with window resize). Cancelling the picker stays on the Home Screen.
 - [ ] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [ ] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
-- [ ] **AC-010:** The Player content area shows three empty labeled rectangular zones (timeline, transport, browser) — no lane rows, no icons, no sub-zones.
+- [ ] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip, Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
 - [ ] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
 - [ ] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 

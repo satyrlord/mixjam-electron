@@ -22,6 +22,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   immediately.
 - **US-005:** As a user, each track has its own volume and stereo pan control
   that affects its sound independently.
+- **US-006:** As a user, I can change the master output volume without altering
+  the relative balance between channels.
+- **US-007:** As a user, the UI can display a master loudness meter driven by
+  the engine's real output level.
 
 ## Scope
 
@@ -55,10 +59,16 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 ### Audio Engine
 
 - Owns the single `AudioContext` and the master `GainNode`.
+- Owns a master metering tap (`AnalyserNode` or equivalent) after the master
+  gain stage so UI can render overall loudness.
 - Provides a factory for mixer channels (`createChannel()`).
 - Provides `triggerVoice(buffer, channel, when, trackIndex)` — creates a new
   `AudioBufferSourceNode`, routes it through the channel's gain/pan chain into
   the master bus, and returns a `Voice` handle.
+- Provides `setMasterGain(value)` — 0 to 1 range, applied after all channel
+  routing.
+- Provides a read-only master meter stream or polling surface that reports
+  current output loudness in dB for UI metering.
 - Maintains an active voice registry — tracks which voices are currently
   playing.
 - `stopAllVoices()` — immediately stops all active voices.
@@ -131,6 +141,8 @@ the engine never knows who is listening.
 - [ ] **AC-007:** Calling `voice.stop()` before the buffer ends terminates the voice; a `voiceEnded` event fires.
 - [ ] **AC-008:** `stopAllVoices()` immediately stops all active voices. Active voice count drops to 0.
 - [ ] **AC-009:** `createChannel()` returns a channel with independent gain and pan. Setting gain on channel A does not affect channel B.
+- [ ] **AC-009a:** Calling `setMasterGain()` changes the master output level without muting or altering individual channel settings.
+- [ ] **AC-009b:** The engine exposes a master loudness value in dB that can drive the Song Controls meter during playback.
 - [ ] **AC-010:** Decoding the same sample twice returns the cached `AudioBuffer` — no duplicate decode.
 - [ ] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
 - [ ] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.

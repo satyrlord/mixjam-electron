@@ -55,6 +55,7 @@ Each card shows:
 - Always enabled. The user can pick or change the output folder at any time.
 - Role: read-write. The app writes projects, exports, and session config into
   this folder.
+- Initial default path on Windows: `%USERPROFILE%\Documents\MixJam`.
 
 **Sample Folder card:**
 - **Disabled** (greyed out, non-interactive) until the User Folder is selected.
@@ -125,6 +126,7 @@ It is not user-editable.
 - [ ] **AC-008:** "Load MixJam" link works regardless of folder selection state (per spec-001).
 - [ ] **AC-009:** Each "Pick Folder" button opens a native OS folder picker with the correct dialog title.
 - [ ] **AC-010:** Selected folder paths are displayed on their respective cards after successful validation.
+- [ ] **AC-010b:** When no User Folder has been chosen yet, the initial suggested location on Windows is `%USERPROFILE%\Documents\MixJam`.
 - [ ] **AC-010a:** If a selected folder is not accessible (permissions error), the card shows: "Cannot access this folder. Check permissions and try again."
 - [ ] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
 - [ ] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.

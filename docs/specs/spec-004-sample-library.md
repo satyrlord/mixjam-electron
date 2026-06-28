@@ -17,6 +17,8 @@ categories. Libraries are saved queries, not file copies.
   import files.
 - **US-002:** As a user, I can browse samples in a scrollable list that stays
   responsive even with thousands of files.
+- **US-002a:** As a user, when I select a sample I see its path, metadata, and
+  tags in the Player footer without losing list width in the browser.
 - **US-003:** As a user, I can search samples by filename and get instant
   results as I type.
 - **US-004:** As a user, I can create custom tags and assign them to samples,
@@ -57,34 +59,53 @@ categories. Libraries are saved queries, not file copies.
 
 ### Sample Browser Container
 
-The sample browser occupies the bottom browser panel zone in the MixJam Player.
-Its internal layout:
+The sample browser occupies the lower-right browser region in the MixJam
+Player, to the right of the Song Controls rail and below the full-width Middle
+Strip from spec-006. Its internal layout:
 
 ```text
-.browser
-  ├── .category-tree    — expandable category/subcategory tree (left portion)
-  └── .sample-list      — virtualized sample tiles with search bar (main area)
+.browser-region
+  ├── .category-tree      — expandable category/subcategory tree (left portion)
+  ├── .browser-resize-v   — internal vertical split handle
+  └── .sample-pane        — main browser workspace
+      ├── .browser-toolbar      — search input, result count, re-scan action
+      ├── .sample-list-header   — sortable column headers
+      └── .sample-list-viewport — virtualized rows
 ```
 
-- The left control column (Volume slider, dB meter, BPM slider) and mixer
-  section are deferred to spec-007 (Mixer). They live in a separate container.
+- The Song Controls rail is a separate lower-left region from spec-006. The
+  hidden-by-default mixer reveal from spec-007 does not live inside the sample
+  browser.
 - A vertical resize handle separates the category tree from the sample list
-  (deferred to spec-006 for full panel layout).
+  inside the browser region (defined in spec-006).
+- Selected sample details do not open a third pane inside the browser region.
+  They render in the center slot of the app-wide Player footer (spec-001) so
+  the browser keeps its two-column tree/list layout.
 
 ### Sample Browser List
 - Columns: filename, duration, BPM, tags, category, date added.
 - Sortable by any column (click header to toggle ascending/descending).
-- Selecting a sample shows its detail: path, metadata, assigned tags.
+- Selecting a sample highlights the row and populates the Player footer detail
+  area with: file path, metadata, and assigned tags.
+- The sample list itself does not use inline row expansion.
 - **Development constraint:** initial implementation targets the `tmp/test-samples`
   folder (~67 files). Scale validation against 100k+ samples is deferred.
 
 ### Full-Text Search
 
-- A search input at the top of the sample browser.
+- A search input lives in the browser toolbar at the top of the sample pane.
 - As the user types, results filter in real-time (debounced, ~150ms).
 - Search matches against filename and filepath.
 - Results respect any active tag/category filter (search within filtered set).
 - Empty search query shows all samples (subject to active filters).
+
+### Browser Toolbar
+
+- Left: search input.
+- Middle: result count summary for the current filter/search set.
+- Right: manual "Re-scan" action.
+- Toolbar actions never bypass SQLite-backed query/filter flow; they only
+  change the current browser query state or trigger the indexed re-scan path.
 
 ### Dynamic Tagging
 
@@ -135,8 +156,10 @@ Its internal layout:
 - [ ] **AC-002:** Indexed samples appear in the browser list as they are discovered (phase 1).
 - [ ] **AC-003:** Sample metadata (duration, sample rate, channels) fills in incrementally (phase 2) without blocking browsing.
 - [ ] **AC-004:** The sample list is virtualized — scrolling through all indexed samples is smooth with no layout jank.
+- [ ] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, and a manual "Re-scan" action.
 - [ ] **AC-005:** Typing in the search field filters the sample list in real-time, matching against filename.
 - [ ] **AC-006:** Clearing the search field restores the full sample list.
+- [ ] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
 - [ ] **AC-007:** User can create a new tag, see it in the tag list, and assign it to a sample.
 - [ ] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.
 - [ ] **AC-009:** User can delete a tag — it is removed from all assigned samples.
@@ -159,6 +182,8 @@ Its internal layout:
 - No content-hashing for dedup or move/rename detection.
 - No live folder watching (file system events) — manual re-scan only.
 - No drag-and-drop from browser to tracker timeline. Tracker is spec-006.
+- No dedicated detail pane inside the browser region; selected-sample details
+  are footer-hosted.
 - No library export or sharing.
 - No tag import/export.
 - No batch tag operations (select multiple samples, apply tag to all).

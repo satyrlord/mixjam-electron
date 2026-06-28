@@ -20,6 +20,8 @@ the full session. Samples are referenced by relative path, never embedded.
   I see a clear warning but the rest of the project still loads.
 - **US-004:** As a user, my .mixjam file files include a format version so future
   versions of the app can migrate old projects.
+- **US-005:** As a user, projects I save or open appear in the Recent Projects
+  rail so I can reopen them quickly later.
 
 ## Scope
 
@@ -91,6 +93,22 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - If the `formatVersion` is higher than supported, show: "This project was
   created with a newer version of MixJam. Please update the app."
 
+### Recent Projects Registry
+
+- The app persists a recent-project registry separate from the project files
+  themselves.
+- Each entry stores at minimum:
+  - canonical project file path
+  - display name derived from the filename
+  - last-opened timestamp
+- Successfully opening a `.mixjam` file updates or inserts its registry entry.
+- Successfully saving a new project path updates or inserts its registry entry.
+- The Recent Projects rail (spec-006) merges this registry with `.mixjam`
+  files discovered by recursively scanning the current User Folder and
+  deduplicates entries by canonical file path.
+- When the rail is built, registry entries with `lastOpened` timestamps sort
+  newest-first ahead of discovered-but-never-opened projects.
+
 ### Format Migration
 
 - When loading an older `formatVersion`, apply migration transforms to bring
@@ -109,6 +127,8 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - [ ] **AC-006:** Loading a project with a `formatVersion` higher than the app supports shows an error message and does not load.
 - [ ] **AC-007:** `sampleRef` fields are relative paths, never absolute paths, never base64-encoded audio.
 - [ ] **AC-008:** The project file survives a roundtrip: save → load → save produces an identical file (minus `modifiedAt` timestamp).
+- [ ] **AC-009:** Opening a `.mixjam` file adds or refreshes that file in the persisted recent-project registry.
+- [ ] **AC-010:** Saving a new `.mixjam` path adds or refreshes that file in the persisted recent-project registry.
 
 ## Non-Goals
 

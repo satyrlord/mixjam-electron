@@ -2,13 +2,14 @@
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** ⏳ NOT IMPLEMENTED
-**Depends on:** spec-005 (Audio Playback Engine)
+**Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline & Panel Layout)
 
 ## Objective
 
 Implement the N-channel mixer: per-channel gain, pan, stereo width, mute/solo
 controls, and channel routing. Default 16 channels (one per default lane),
-extendable to 99. The mixer UI lives in the left control column of the Player.
+extendable to 99. The mixer UI is hidden by default inside the lower-left Song
+Controls rail and is revealed by widening that rail.
 
 ## User Stories
 
@@ -20,28 +21,27 @@ extendable to 99. The mixer UI lives in the left control column of the Player.
   output level.
 - **US-005:** As a user, I can add new channels (up to 99) and remove unused
   ones.
-- **US-006:** As a user, I can set a global BPM from the mixer panel.
 
 ## Scope
 
 ### Mixer Panel Location
 
-The mixer occupies the left control column (96px wide) in the Player layout,
-positioned between the lane heads and the category tree:
+The mixer occupies revealable space inside the lower-left Song Controls rail in
+the Player layout. It is not a child of the sample browser:
 
 ```text
 .player
-  └── .browser
-      ├── .mixer-col      — 96px, mixer controls
-      ├── .resize-v       — vertical split handle
-      ├── .category-tree
-      └── .sample-list
+  └── .lower-work
+      ├── .song-controls-rail      — visible by default
+      │   ├── .song-controls-main  — default song-level controls
+      │   └── .mixer-col           — hidden by default, revealed on widen
+      └── .browser-region
 ```
 
-The mixer column is revealed when the vertical resize handle is dragged past a
-threshold (104px minimum control column width). When collapsed below the
-threshold, the mixer column is hidden and only the category tree + sample list
-are visible.
+The mixer column is revealed when the Song Controls rail's right-edge reveal
+seam is dragged to the right past a threshold (104px of revealed mixer width).
+When collapsed below that threshold, the mixer column is hidden and only the
+default Song Controls content is visible in the left rail.
 
 ### Channel Strip (per channel)
 
@@ -72,14 +72,6 @@ Each channel strip is a vertical stack:
 - Color zones: green (-60 to -12 dB), yellow (-12 to -3 dB), red (-3 to 0 dB).
 - Peak hold: a small line marks the recent peak, decays after ~1 second.
 
-### BPM Control
-
-- A dedicated BPM slider in the mixer column, separate from channel strips.
-- Range: 40–300 BPM.
-- Current BPM displayed as a numeric label.
-- Changing the BPM slider updates the engine's transport BPM immediately.
-- The BPM display in the transport strip (spec-006) stays in sync.
-
 ### Routing
 
 - Each lane (spec-006) is assigned to one mixer channel.
@@ -94,10 +86,9 @@ Each channel strip is a vertical stack:
 - [ ] **AC-003:** The dB meter updates during playback, showing green/yellow/red zones proportional to output level.
 - [ ] **AC-004:** Clicking a channel's M button mutes that channel — all lanes routed to it go silent. The button shows active state.
 - [ ] **AC-005:** Clicking a channel's S button soloes it — all other channels go silent. Clicking another channel's S transfers the solo.
-- [ ] **AC-006:** The BPM slider changes the engine's BPM; the transport strip BPM display updates synchronously.
 - [ ] **AC-007:** User can add a new channel (incrementing the count beyond 16).
 - [ ] **AC-008:** User can remove a channel; lanes routed to it become unrouted and silent.
-- [ ] **AC-009:** Dragging the vertical resize handle reveals/hides the mixer column based on the 104px threshold.
+- [ ] **AC-009:** Dragging the Song Controls rail's right-edge reveal seam reveals/hides the mixer column based on the 104px threshold.
 - [ ] **AC-010:** Multiple lanes can be routed to the same channel; muting that channel silences all of them.
 
 ## Non-Goals (deferred to later specs)
