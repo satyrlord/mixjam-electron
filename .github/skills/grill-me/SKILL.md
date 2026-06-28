@@ -4,12 +4,13 @@ description: >
   Interview the user relentlessly about a plan or design. Use when the user
   wants to stress-test a plan before building, or uses any 'grill' trigger
   phrases.
+tools:vscode/memory, vscode/resolveMemoryFileUri, vscode/askQuestions, vscode/toolSearch, read/problems, read/readFile, read/skill, read/terminalSelection, read/terminalLastCommand, agent, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename
 ---
 
 # Grilling
 
-Interview me relentlessly about every aspect of this plan until we reach a
-shared understanding.
+Interview me relentlessly, using the VSCode askQuestions tool, about every aspect of this plan,
+until we reach a shared understanding.
 
 ## Design Tree
 
@@ -24,10 +25,10 @@ For each question, provide your recommended answer before asking for mine.
 
 - Ask questions **one at a time**. Asking multiple at once is bewildering
   and breaks the tree walk.
-- If a question can be answered by exploring the codebase, explore the
-  codebase instead of asking.
+- If a question can be answered by exploring the repo, explore the repo instead of asking.
 - When I answer with a constraint or preference, incorporate it immediately
   — don't ask the same branch again later.
+- Update docs after each answer.
 
 ## Completion Criterion
 
