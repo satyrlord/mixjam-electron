@@ -52,7 +52,7 @@ describe('useAppState', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to read app version:', testError)
   })
 
-  it('moves to tracker and increments the timer', async () => {
+  it('moves to tracker and increments the timer while playing', async () => {
     vi.useFakeTimers()
     const electronAPI = createElectronAPI()
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
@@ -63,6 +63,14 @@ describe('useAppState', () => {
 
     expect(result.current.view).toBe('tracker')
     expect(electronAPI.resizeToTracker).toHaveBeenCalledTimes(1)
+
+    // Timer should be at 00:00.0 until playback starts
+    expect(result.current.timerText).toBe('00:00.0')
+
+    // Start playback
+    act(() => {
+      result.current.transportPlay()
+    })
 
     act(() => {
       vi.advanceTimersByTime(1000)
@@ -156,7 +164,8 @@ describe('useAppState', () => {
         name: 'kick_808.wav',
         path: 'Drums/Kicks/kick_808.wav',
         metadata: ['44.1 kHz', 'Stereo'],
-        tags: ['Drums', 'Kick']
+        tags: ['Drums', 'Kick'],
+        duration: null
       })
     })
 
@@ -174,7 +183,7 @@ describe('useAppState', () => {
     expect(electronAPI.querySampleBrowser).toHaveBeenCalledWith(SAMPLE_FOLDER, '', true)
   })
 
-  it('places a sample clip on a lane when a sample detail is selected', async () => {
+  it('places a sample clip on a lane via drag-and-drop', async () => {
     const electronAPI = createElectronAPI()
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -183,16 +192,11 @@ describe('useAppState', () => {
     })
 
     act(() => {
-      result.current.setSelectedSampleDetail({
-        name: 'kick_808.wav',
-        path: 'Drums/Kicks/kick_808.wav',
-        metadata: ['44.1 kHz', 'Stereo'],
-        tags: ['Drums', 'Kick']
-      })
-    })
-
-    act(() => {
-      result.current.placeSampleOnLane(0, 0)
+      result.current.placeSampleDetailOnLane(
+        { name: 'kick_808.wav', path: 'Drums/Kicks/kick_808.wav', metadata: [], tags: [], duration: null },
+        0,
+        0
+      )
     })
 
     const lane0 = result.current.lanes.find((lane) => lane.index === 0)
@@ -200,18 +204,6 @@ describe('useAppState', () => {
     expect(lane0?.clips[0]?.sampleName).toBe('kick_808.wav')
     expect(lane0?.clips[0]?.startTick).toBe(0)
     expect(lane0?.clips[0]?.durationTicks).toBe(32)
-  })
-
-  it('does not place a clip when no sample detail is selected', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    act(() => {
-      result.current.placeSampleOnLane(0, 0)
-    })
-
-    const lane0 = result.current.lanes.find((lane) => lane.index === 0)
-    expect(lane0?.clips).toHaveLength(0)
   })
 
   it('falls back when loadRecentProjects fails', async () => {
@@ -281,7 +273,8 @@ describe('useAppState', () => {
         name: 'kick_808.wav',
         path: visiblePath,
         metadata: ['44.1 kHz', 'Stereo'],
-        tags: ['Drums', 'Kick']
+        tags: ['Drums', 'Kick'],
+        duration: null
       })
     })
 
@@ -540,5 +533,68 @@ describe('useAppState', () => {
 
     resolveProjects!([])
     // No crash = pass.
+  })
+
+  it('setBpm updates the BPM state', async () => {
+    vi.useFakeTimers()
+    const electronAPI = createElectronAPI()
+    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    await act(async () => { await result.current.goToTracker() })
+
+    act(() => { result.current.setBpm(140) })
+    expect(result.current.bpm).toBe(140)
+  })
+
+  it('setMasterGain updates the master gain', async () => {
+    vi.useFakeTimers()
+    const electronAPI = createElectronAPI()
+    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    await act(async () => { await result.current.goToTracker() })
+
+    act(() => { result.current.setMasterGain(0.5) })
+    expect(result.current.masterGain).toBe(0.5)
+  })
+
+  it('moveClipOnLane repositions a clip across lanes', async () => {
+    vi.useFakeTimers()
+    const electronAPI = createElectronAPI()
+    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    await act(async () => { await result.current.goToTracker() })
+
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', path: '/s/k.wav', metadata: [], tags: [], duration: null }, 0, 0) })
+    const cid = result.current.lanes[0].clips[0].id
+
+    act(() => { result.current.moveClipOnLane(cid, 2, 64) })
+    expect(result.current.lanes[0].clips).toHaveLength(0)
+    expect(result.current.lanes[2].clips).toHaveLength(1)
+    expect(result.current.lanes[2].clips[0].startTick).toBe(64)
+  })
+
+  it('removeClipFromLane deletes a clip', async () => {
+    vi.useFakeTimers()
+    const electronAPI = createElectronAPI()
+    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    await act(async () => { await result.current.goToTracker() })
+
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', path: '/s/k.wav', metadata: [], tags: [], duration: null }, 0, 0) })
+    const cid = result.current.lanes[0].clips[0].id
+
+    act(() => { result.current.removeClipFromLane(0, cid) })
+    expect(result.current.lanes[0].clips).toHaveLength(0)
+  })
+
+  it('setLanePan updates pan value', async () => {
+    vi.useFakeTimers()
+    const electronAPI = createElectronAPI()
+    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    await act(async () => { await result.current.goToTracker() })
+
+    act(() => { result.current.setLanePan(3, -0.5) })
+    expect(result.current.lanes[3].pan).toBe(-0.5)
   })
 })

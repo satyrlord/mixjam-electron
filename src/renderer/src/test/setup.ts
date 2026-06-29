@@ -1,19 +1,29 @@
-import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
-import { createElectronAPI } from './electronApi'
-import { bootstrapTheme } from '../theme/themes'
+export {}
 
-Object.defineProperty(window, 'electronAPI', {
-  configurable: true,
-  value: createElectronAPI()
-})
+if (typeof window !== 'undefined') {
+  const { createElectronAPI } = await import('./electronApi')
+  const { bootstrapTheme } = await import('../theme/themes')
+  const { cleanup } = await import('@testing-library/react')
+  const { afterEach } = await import('vitest')
+  const { MockAudioContext } = await import('./mockAudioContext')
+  await import('@testing-library/jest-dom/vitest')
 
-// Mirror the synchronous theme bootstrap from main.tsx (spec-002 AC-001).
-// In production, main.tsx applies the theme before React mounts; tests must
-// do the same since they render <App /> directly.
-bootstrapTheme()
+  Object.defineProperty(window, 'electronAPI', {
+    configurable: true,
+    value: createElectronAPI()
+  })
 
-afterEach(() => {
-  cleanup()
-})
+  // jsdom has no Web Audio API; provide the engine's mock so the Player can be
+  // constructed in component/hook tests without a real AudioContext.
+  Object.defineProperty(globalThis, 'AudioContext', {
+    configurable: true,
+    writable: true,
+    value: MockAudioContext
+  })
+
+  bootstrapTheme()
+
+  afterEach(() => {
+    cleanup()
+  })
+}

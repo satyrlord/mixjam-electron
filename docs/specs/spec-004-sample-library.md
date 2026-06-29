@@ -1,7 +1,7 @@
 # Spec 004 — Sample Library Browsing, Search & Tagging
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** ✅ IMPLEMENTED
 **Depends on:** spec-003 (Folder & Session Management)
 
 ## Objective
@@ -118,17 +118,21 @@ Strip from spec-006. Its internal layout:
 
 ### Category Tree
 
-- Top-level categories are hardcoded buttons representing common sample types
-  (e.g. Bass, Drums, FX, Synth, Vocal, Loop, Percussion, Atmosphere). Users
-  can add new custom top-level categories.
-- Subcategories are tag-based: users create custom tags and organize them
-  under any category. This is the flexible, user-driven organizational layer.
-- Filtering by a category shows samples in that category AND all tags beneath
-  it.
+- **"Unsorted"** is the only hardcoded top-level category. It serves as the
+  fallback bucket for samples that cannot be assigned to any folder-derived
+  category (flat files, unrecognised paths).
+- All other top-level categories are **derived from the sample-folder
+  structure**: each top-level subdirectory in the Sample Folder becomes a
+  root category. If the Sample Folder is flat, only the "Unsorted" category
+  exists.
+- Subcategories are deeper folder levels: the first subdirectory under a
+  category folder becomes a subcategory, and so on.
+- Users can create additional custom top-level categories and subcategories
+  via the manage panel; folder-derived and user-created categories coexist.
+- Filtering by a category shows samples in that category AND all its
+  descendants (subcategories).
 - The category tree is displayed in the browser panel as an expandable tree:
-  top-level categories as root nodes, tags as children.
-- Categories and tags are stored in the same `categories` table with
-  `parent_id` linking children to their parent category or tag.
+  top-level categories as root nodes, subcategories as children.
 
 ### Libraries (Saved Queries)
 
@@ -152,26 +156,26 @@ Strip from spec-006. Its internal layout:
 
 ## Acceptance Criteria (testable)
 
-- [ ] **AC-001:** After selecting a Sample Folder, the app begins indexing and shows a progress indicator (file count).
-- [ ] **AC-002:** Indexed samples appear in the browser list as they are discovered (phase 1).
-- [ ] **AC-003:** Sample metadata (duration, sample rate, channels) fills in incrementally (phase 2) without blocking browsing.
-- [ ] **AC-004:** The sample list is virtualized — scrolling through all indexed samples is smooth with no layout jank.
-- [ ] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, and a manual "Re-scan" action.
-- [ ] **AC-005:** Typing in the search field filters the sample list in real-time, matching against filename.
-- [ ] **AC-006:** Clearing the search field restores the full sample list.
-- [ ] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
-- [ ] **AC-007:** User can create a new tag, see it in the tag list, and assign it to a sample.
-- [ ] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.
-- [ ] **AC-009:** User can delete a tag — it is removed from all assigned samples.
-- [ ] **AC-010:** Hardcoded top-level category buttons are displayed (Bass, Drums, FX, Synth, Vocal, Loop, Percussion, Atmosphere).
-- [ ] **AC-010a:** User can create a new custom top-level category.
-- [ ] **AC-010b:** User can create a tag as a subcategory under any category. The tree displays correctly.
-- [ ] **AC-011:** Filtering by a category shows samples in that category AND all its descendants.
-- [ ] **AC-012:** User can save the current filter/search state as a named library.
-- [ ] **AC-013:** Opening a saved library restores its filters and shows the matching samples.
-- [ ] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
-- [ ] **AC-015:** Re-scanning detects new, changed, and missing files; changed files preserve their tags.
-- [ ] **AC-016:** The sample list can be sorted by filename, duration, and date added (ascending/descending).
+- [x] **AC-001:** After selecting a Sample Folder, the app shows a full-screen loader ("Scanning sample folder...") with a progress bar while indexing runs.
+- [x] **AC-002:** Indexed samples appear in the browser list as they are discovered (phase 1).
+- [x] **AC-003:** Sample metadata (duration, sample rate, channels) fills in incrementally (phase 2) without blocking browsing.
+- [x] **AC-004:** The sample list is virtualized — scrolling through all indexed samples is smooth with no layout jank.
+- [x] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, and a manual "Re-scan" action.
+- [x] **AC-005:** Typing in the search field filters the sample list in real-time, matching against filename.
+- [x] **AC-006:** Clearing the search field restores the full sample list.
+- [x] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
+- [x] **AC-007:** User can create a new tag, see it in the tag list, and assign it to a sample.
+- [x] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.
+- [x] **AC-009:** User can delete a tag — it is removed from all assigned samples.
+- [x] **AC-010:** "Unsorted" is the only hardcoded category tile; all other root categories are derived from the sample-folder structure (each top-level subdirectory becomes a category).
+- [x] **AC-010a:** User can create a new custom top-level category via the manage panel.
+- [x] **AC-010b:** User can create a subcategory under any category. The tree displays correctly.
+- [x] **AC-011:** Filtering by a category shows samples in that category AND all its descendants.
+- [x] **AC-012:** User can save the current filter/search state as a named library.
+- [x] **AC-013:** Opening a saved library restores its filters and shows the matching samples.
+- [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
+- [x] **AC-015:** Re-scanning detects new, changed, and missing files; changed files preserve their tags. Re-scan also shows the full-screen loader.
+- [x] **AC-016:** The sample list can be sorted by filename, duration, and date added (ascending/descending).
 
 ## Non-Goals (deferred to later specs)
 
@@ -181,7 +185,7 @@ Strip from spec-006. Its internal layout:
 - No 100k+ scale validation — development uses `tmp/test-samples` (~67 files).
 - No content-hashing for dedup or move/rename detection.
 - No live folder watching (file system events) — manual re-scan only.
-- No drag-and-drop from browser to tracker timeline. Tracker is spec-006.
+- No drag-and-drop within the browser itself (reordering tiles). Drag to tracker lane is the primary placement mechanism (see spec-006).
 - No dedicated detail pane inside the browser region; selected-sample details
   are footer-hosted.
 - No library export or sharing.

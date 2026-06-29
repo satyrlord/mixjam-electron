@@ -45,7 +45,17 @@ const EXPECTED_EMERALD_COLORS = {
   'text-muted': '#B8D0C8',
   'pill-bg': '#0C2D32',
   'pill-border': '#2D6B5E',
-  playhead: '#E74C3C'
+  playhead: '#E74C3C',
+  'clip-text': '#FFFFFF',
+  'clip-select': '#FFE066',
+  'clip-missing': '#FF6D6D'
+} as const
+
+const EXPECTED_EMERALD_DEPTH = {
+  'gradient-header': 'linear-gradient(90deg, #07291F, #0A362A)',
+  'gradient-ruler': 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))',
+  'gradient-lane': 'linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)',
+  'shadow-clip-text': '1.5px 1.5px 2px rgba(0,0,0,0.55)'
 } as const
 
 function readUtf8(absolutePath: string): string {
@@ -84,6 +94,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(emeraldTheme.name).toBe('Emerald')
     expect(emeraldTheme.key).toBe('emerald')
     expect(emeraldTheme.colors).toEqual(EXPECTED_EMERALD_COLORS)
+    expect(emeraldTheme.depth).toEqual(EXPECTED_EMERALD_DEPTH)
     expect(emeraldTheme.radius).toBe('0.22rem')
   })
 
@@ -201,12 +212,13 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       key: string
       colors: Record<string, string>
       fonts: Record<string, string>
+      depth: Record<string, string>
       radius: string
     }
 
     expect(parsed).toEqual(emeraldTheme)
 
-    expect(Object.keys(parsed)).toEqual(['name', 'key', 'colors', 'fonts', 'radius'])
+    expect(Object.keys(parsed)).toEqual(['name', 'key', 'colors', 'fonts', 'depth', 'radius'])
     expect(Object.keys(parsed.colors)).toEqual([
       'accent',
       'accent-dark',
@@ -222,15 +234,25 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'text-muted',
       'pill-bg',
       'pill-border',
-      'playhead'
+      'playhead',
+      'clip-text',
+      'clip-select',
+      'clip-missing'
     ])
     expect(Object.keys(parsed.fonts)).toEqual(['chrome', 'label', 'mono'])
+    expect(Object.keys(parsed.depth)).toEqual([
+      'gradient-header',
+      'gradient-ruler',
+      'gradient-lane',
+      'shadow-clip-text'
+    ])
 
     const expectedKeyCounts: Record<string, number> = {
       name: 1,
       key: 1,
       colors: 1,
       fonts: 1,
+      depth: 1,
       radius: 1,
       accent: 1,
       'accent-dark': 1,
@@ -248,7 +270,11 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'pill-border': 1,
       playhead: 1,
       label: 1,
-      mono: 1
+      mono: 1,
+      'gradient-header': 1,
+      'gradient-ruler': 1,
+      'gradient-lane': 1,
+      'shadow-clip-text': 1
     }
 
     for (const [key, count] of Object.entries(expectedKeyCounts)) {

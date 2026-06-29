@@ -1,291 +1,72 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ElectronAPI, RecentProjectItem, SampleBrowserItem } from '../../../shared/ipc'
-import {
-  type FooterSampleDetail,
-  type LaneState,
-  anyLaneSoloed,
-  createDefaultLanes,
-  laneShouldDim,
-  placeClipOnLane,
-  toggleLaneMute,
-  toggleLaneSolo
-} from '../lib/playerShell'
-import { type Transport, createTransport } from '../engine/transport'
-import { formatTimer } from '../lib/formatTimer'
-
-type View = 'home' | 'tracker'
+import { useCallback } from 'react'
+import type { ElectronAPI } from '../../../shared/ipc'
+import { useLibraryData, type LibraryData } from './useLibraryData'
+import { useTransportEngine, type TransportEngine } from './useTransportEngine'
 
 const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
+export type AppState = LibraryData & TransportEngine & {
+  goToTracker: () => Promise<void>
+  goToHome: () => Promise<void>
+  handleLoadMixJam: () => Promise<void>
+  openFolderPicker: () => Promise<void>
+  openRepo: () => Promise<void>
+}
+
+/**
+ * Orchestrator hook that wires the library-data and transport-engine hooks
+ * together, handling the cross-cutting navigation and sample-placement flows.
+ */
 export function useAppState(
   electronAPI: ElectronAPI,
   userFolder: string | null,
   sampleFolder: string | null
-) {
-  const [view, setView] = useState<View>('home')
-  const [version, setVersion] = useState('')
-  const [elapsedMs, setElapsedMs] = useState(0)
-  const [recentProjects, setRecentProjects] = useState<RecentProjectItem[]>([])
-  const [sampleRows, setSampleRows] = useState<SampleBrowserItem[]>([])
-  const [sampleSearchQuery, setSampleSearchQuery] = useState('')
-  const [sampleBrowserLoading, setSampleBrowserLoading] = useState(false)
-  const [sampleBrowserError, setSampleBrowserError] = useState<string | null>(null)
-  const [selectedSampleDetail, setSelectedSampleDetail] = useState<FooterSampleDetail | null>(null)
-  const [lanes, setLanes] = useState<LaneState[]>(() => createDefaultLanes())
-  const transportRef = useRef<Transport | null>(null)
-  const [transportState, setTransportState] = useState<Transport['state']>('stopped')
-  const sampleQuerySeqRef = useRef(0)
-  const timerRef = useRef<number | null>(null)
-  const startRef = useRef<number>(0)
+): AppState {
+  const lib = useLibraryData(electronAPI, userFolder, sampleFolder)
+  const engine = useTransportEngine(electronAPI, sampleFolder)
 
-  useEffect(() => {
-    let isMounted = true
+  const { setView } = engine
+  const { setSelectedSampleDetail, reloadRecentProjects, startLibraryScan, scanProgress } = lib
 
-    void electronAPI
-      .getVersion()
-      .then((appVersion) => {
-        if (isMounted) {
-          setVersion(appVersion)
-        }
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to read app version:', error)
-        if (isMounted) {
-          setVersion('version unavailable')
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [electronAPI])
-
-  useEffect(() => {
-    let isMounted = true
-
-    void electronAPI
-      .loadRecentProjects(userFolder)
-      .then((projects) => {
-        if (isMounted) {
-          setRecentProjects(projects)
-        }
-      })
-      .catch((error: unknown) => {
-        console.error('Failed to load recent projects:', error)
-        if (isMounted) {
-          setRecentProjects([])
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [electronAPI, userFolder])
-
-  const runSampleQuery = useCallback(
-    async (searchQuery: string, forceRescan: boolean) => {
-      if (!sampleFolder) {
-        setSampleRows([])
-        setSampleBrowserLoading(false)
-        setSampleBrowserError(null)
-        return
-      }
-
-      const seq = ++sampleQuerySeqRef.current
-      setSampleBrowserLoading(true)
-
-      try {
-        const rows = await electronAPI.querySampleBrowser(sampleFolder, searchQuery, forceRescan)
-        // Ignore results from a query that a newer one has superseded so a
-        // slow earlier response can't clobber the latest search.
-        if (seq !== sampleQuerySeqRef.current) return
-        setSampleRows(rows)
-        setSampleBrowserError(null)
-      } catch (error) {
-        if (seq !== sampleQuerySeqRef.current) return
-        console.error('Failed to query sample browser:', error)
-        setSampleRows([])
-        setSampleBrowserError('Unable to load sample library.')
-      } finally {
-        if (seq === sampleQuerySeqRef.current) {
-          setSampleBrowserLoading(false)
-        }
-      }
-    },
-    [electronAPI, sampleFolder]
-  )
-
-  useEffect(() => {
-    if (!sampleFolder) {
-      setSampleRows([])
-      setSampleSearchQuery('')
-      setSampleBrowserLoading(false)
-      setSampleBrowserError(null)
-      setSelectedSampleDetail(null)
-      return
-    }
-
-    let cancelled = false
-    const currentQuery = sampleSearchQuery
-    const timer = window.setTimeout(() => {
-      if (!cancelled) {
-        void runSampleQuery(currentQuery, false)
-      }
-    }, 150)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
-  }, [runSampleQuery, sampleFolder, sampleSearchQuery])
-
-  useEffect(() => {
-    if (!selectedSampleDetail) return
-    const stillVisible = sampleRows.some((sample) => sample.path === selectedSampleDetail.path)
-    if (!stillVisible) {
-      setSelectedSampleDetail(null)
-    }
-  }, [sampleRows, selectedSampleDetail])
-
-  // Elapsed-time display timer — pure UI concern.
-  useEffect(() => {
-    if (view !== 'tracker') {
-      setElapsedMs(0)
-      return
-    }
-
-    startRef.current = Date.now()
-    timerRef.current = window.setInterval(() => {
-      setElapsedMs(Date.now() - startRef.current)
-    }, 100)
-
-    return () => {
-      if (timerRef.current !== null) {
-        window.clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-    }
-  }, [view])
-
-  // Transport instance — audio engine concern, separate from the UI timer.
-  useEffect(() => {
-    if (view !== 'tracker') return
-
-    const transport = createTransport()
-    transportRef.current = transport
-
-    return () => {
-      transport.destroy()
-      transportRef.current = null
-      setTransportState('stopped')
-    }
-  }, [view])
-
-  const goToTracker = async () => {
+  const goToTracker = useCallback(async () => {
     await electronAPI.resizeToTracker()
     setView('tracker')
-  }
+    // Auto-scan on first entry if sample folder is set and never scanned
+    if (sampleFolder && scanProgress.status === 'idle') {
+      void startLibraryScan()
+    }
+  }, [electronAPI, setView, sampleFolder, scanProgress.status, startLibraryScan])
 
-  const goToHome = async () => {
+  const goToHome = useCallback(async () => {
     await electronAPI.resizeToHome()
     setSelectedSampleDetail(null)
     setView('home')
-  }
+  }, [electronAPI, setSelectedSampleDetail, setView])
 
-  const handleLoadMixJam = async () => {
+  const handleLoadMixJam = useCallback(async () => {
     const file = await electronAPI.openFilePicker()
     if (file !== null) {
       try {
         await electronAPI.recordRecentProject(file)
-        setRecentProjects(await electronAPI.loadRecentProjects(userFolder))
+        await reloadRecentProjects()
       } catch (error) {
         console.error('Failed to record recent project:', error)
       }
       await goToTracker()
     }
-  }
+  }, [electronAPI, reloadRecentProjects, goToTracker])
 
-  const openFolderPicker = async () => {
+  const openFolderPicker = useCallback(async () => {
     await electronAPI.openFolderPicker()
-  }
+  }, [electronAPI])
 
-  const openRepo = async () => {
+  const openRepo = useCallback(async () => {
     await electronAPI.openExternal(GITHUB_URL)
-  }
-
-  const rescanSampleBrowser = async () => {
-    await runSampleQuery(sampleSearchQuery, true)
-  }
-
-  const placeSampleOnLane = useCallback(
-    (laneIndex: number, startTick: number) => {
-      if (!selectedSampleDetail) return
-      setLanes((current) =>
-        placeClipOnLane(current, laneIndex, selectedSampleDetail.path, selectedSampleDetail.name, startTick)
-      )
-    },
-    [selectedSampleDetail]
-  )
-
-  const handleToggleLaneMute = useCallback((laneIndex: number) => {
-    setLanes((current) => toggleLaneMute(current, laneIndex))
-  }, [])
-
-  const handleToggleLaneSolo = useCallback((laneIndex: number) => {
-    setLanes((current) => toggleLaneSolo(current, laneIndex))
-  }, [])
-
-  const transportPlay = useCallback(() => {
-    transportRef.current?.play()
-    setTransportState(transportRef.current?.state ?? 'stopped')
-  }, [])
-
-  const transportPause = useCallback(() => {
-    transportRef.current?.pause()
-    setTransportState(transportRef.current?.state ?? 'stopped')
-  }, [])
-
-  const transportStop = useCallback(() => {
-    transportRef.current?.stop()
-    setTransportState('stopped')
-  }, [])
-
-  const transportSkipBack = useCallback(() => {
-    transportRef.current?.skipBack()
-  }, [])
-
-  const timerText = useMemo(() => formatTimer(elapsedMs), [elapsedMs])
-
-  const anySoloed = useMemo(() => anyLaneSoloed(lanes), [lanes])
-
-  const dimLane = useCallback(
-    (lane: LaneState) => laneShouldDim(lane, anySoloed),
-    [anySoloed]
-  )
+  }, [electronAPI])
 
   return {
-    view,
-    version,
-    timerText,
-    recentProjects,
-    sampleRows,
-    sampleSearchQuery,
-    sampleBrowserLoading,
-    sampleBrowserError,
-    selectedSampleDetail,
-    setSelectedSampleDetail,
-    setSampleSearchQuery,
-    rescanSampleBrowser,
-    lanes,
-    placeSampleOnLane,
-    toggleLaneMute: handleToggleLaneMute,
-    toggleLaneSolo: handleToggleLaneSolo,
-    laneShouldDim: dimLane,
-    transportState,
-    transportPlay,
-    transportPause,
-    transportStop,
-    transportSkipBack,
+    ...lib,
+    ...engine,
     goToTracker,
     goToHome,
     handleLoadMixJam,

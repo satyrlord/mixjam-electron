@@ -3,6 +3,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import TrackerView from './components/TrackerView'
+import ScanOverlay from './components/ScanOverlay'
 import { useAppState } from './hooks/useAppState'
 import { useFolderSession } from './hooks/useFolderSession'
 import { selectTheme } from './theme/themes'
@@ -29,30 +30,66 @@ export default function App() {
     setSampleSearchQuery,
     rescanSampleBrowser,
     lanes,
-    placeSampleOnLane,
+    placeSampleDetailOnLane,
+    moveClipOnLane,
+    removeClipFromLane,
+    setLanePan,
+    previewSample,
     toggleLaneMute,
     toggleLaneSolo,
     laneShouldDim,
     transportState,
+    currentTick,
     transportPlay,
     transportPause,
     transportStop,
     transportSkipBack,
+    bpm,
+    setBpm,
+    masterGain,
+    setMasterGain,
+    masterLevelDb,
     goToTracker,
     goToHome,
     handleLoadMixJam,
     openFolderPicker,
-    openRepo
+    openRepo,
+    scanProgress,
+    dbSamples,
+    dbSampleTotal,
+    dbSearchQuery,
+    setDbSearchQuery,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    selectedTagIds,
+    setSelectedTagIds,
+    sortBy,
+    sortDir,
+    handleSortChange,
+    tags,
+    categories,
+    libraries,
+    startLibraryScan,
+    createTag,
+    renameTag,
+    deleteTag,
+    createCategory,
+    deleteCategory,
+    saveLibrary,
+    deleteLibrary
   } = useAppState(window.electronAPI, resolvedUserFolder, resolvedSampleFolder)
 
-  // Theme is bootstrap-applied synchronously in main.tsx before React mounts
-  // (spec-002 AC-001). Only Emerald is implemented; all selections collapse to
-  // the default per AC-006.
   const [activeTheme, setActiveTheme] = useState('emerald')
 
   const handleThemeChange = useCallback((requestedThemeKey: string) => {
     setActiveTheme(selectTheme(requestedThemeKey))
   }, [])
+
+  const handleToggleTagFilter = useCallback((id: number) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(id) ? prev.filter((tid) => tid !== id) : [...prev, id]
+    )
+  }, [setSelectedTagIds])
 
   return (
     <div className="app">
@@ -85,16 +122,49 @@ export default function App() {
             lanes={lanes}
             laneShouldDim={laneShouldDim}
             transportState={transportState}
+            currentTick={currentTick}
+            bpm={bpm}
+            masterGain={masterGain}
+            masterLevelDb={masterLevelDb}
+            onSetBpm={setBpm}
+            onSetMasterGain={setMasterGain}
             onSelectSampleDetail={setSelectedSampleDetail}
             onSampleSearchChange={setSampleSearchQuery}
             onSampleRescan={rescanSampleBrowser}
-            onPlaceSampleOnLane={placeSampleOnLane}
+            onPlaceSampleDetailOnLane={placeSampleDetailOnLane}
+            onMoveClipOnLane={moveClipOnLane}
+            onRemoveClipFromLane={removeClipFromLane}
+            onSetLanePan={setLanePan}
+            onPreviewSample={previewSample}
             onToggleLaneMute={toggleLaneMute}
             onToggleLaneSolo={toggleLaneSolo}
             onTransportPlay={transportPlay}
             onTransportPause={transportPause}
             onTransportStop={transportStop}
             onTransportSkipBack={transportSkipBack}
+            scanProgress={scanProgress}
+            dbSamples={dbSamples}
+            dbSampleTotal={dbSampleTotal}
+            dbSearchQuery={dbSearchQuery}
+            selectedCategoryId={selectedCategoryId}
+            selectedTagIds={selectedTagIds}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            tags={tags}
+            categories={categories}
+            libraries={libraries}
+            onDbSearchChange={setDbSearchQuery}
+            onSelectCategory={setSelectedCategoryId}
+            onToggleTagFilter={handleToggleTagFilter}
+            onSortChange={handleSortChange}
+            onStartScan={startLibraryScan}
+            onCreateTag={createTag}
+            onRenameTag={renameTag}
+            onDeleteTag={deleteTag}
+            onCreateCategory={createCategory}
+            onDeleteCategory={deleteCategory}
+            onSaveLibrary={saveLibrary}
+            onDeleteLibrary={deleteLibrary}
           />
         )}
       </main>
@@ -105,6 +175,7 @@ export default function App() {
         onSelectFolder={openFolderPicker}
         onOpenRepo={openRepo}
       />
+      <ScanOverlay progress={scanProgress} />
     </div>
   )
 }

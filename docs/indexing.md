@@ -43,6 +43,25 @@ metadata "filling in" as it completes.
 set manually. Automatic analysis is a possible later phase 3 that only updates rows
 where the columns are NULL; nothing else needs to change to add it.
 
+## Category auto-assignment
+
+Before processing individual files, the indexer synchronises root categories with
+the sample-folder structure: each top-level subdirectory becomes a root category
+(created if it does not already exist). The hardcoded **"Unsorted"** category is
+always present and serves as the fallback.
+
+During phase 1, each sample is assigned to a primary category by matching the
+first relative path segment against existing root categories. Deeper path
+segments become subcategories (auto-created under the matched root if needed).
+
+For example, `Drums/Kicks/kick_808.wav` → primary category `Drums`, subcategory
+`Kicks`. Samples directly in the sample-folder root (no subdirectory) are
+assigned to **"Unsorted"**.
+
+See `syncCategoriesFromFolder()` and `assignCategoryFromPath()` in
+`src/main/library.ts`. A sample belongs to exactly one primary category but may
+have multiple subcategory assignments (via the `sample_categories` join table).
+
 ## Change detection & incremental re-scan
 
 The cheap, reliable change key is **`(size_bytes, mtime)`**. On re-scan of a root:

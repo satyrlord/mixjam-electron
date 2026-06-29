@@ -1,7 +1,7 @@
 # Spec 005 — Audio Playback Engine
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** ✅ IMPLEMENTED
 **Depends on:** spec-003 (Folder & Session Management)
 
 ## Objective
@@ -132,27 +132,30 @@ the engine never knows who is listening.
 
 ## Acceptance Criteria (testable)
 
-- [ ] **AC-001:** Calling `play()` on the transport transitions state to `playing` and advances the playhead each tick.
-- [ ] **AC-002:** Calling `pause()` holds the current tick; calling `play()` again resumes from that tick.
-- [ ] **AC-003:** Calling `stop()` resets the playhead to tick 0 and sets state to `stopped`.
-- [ ] **AC-004:** Changing BPM from 120 to 140 changes the step duration from 62.5ms to ~53.6ms. Subsequent ticks fire at the new tempo.
-- [ ] **AC-005:** The scheduler fires `onSchedule(tick, when)` callbacks for ticks within the lookahead window. A unit test with a mock clock verifies this.
-- [ ] **AC-006:** `triggerVoice()` creates an `AudioBufferSourceNode` connected to the channel's gain/pan chain → master gain → destination.
-- [ ] **AC-007:** Calling `voice.stop()` before the buffer ends terminates the voice; a `voiceEnded` event fires.
-- [ ] **AC-008:** `stopAllVoices()` immediately stops all active voices. Active voice count drops to 0.
-- [ ] **AC-009:** `createChannel()` returns a channel with independent gain and pan. Setting gain on channel A does not affect channel B.
-- [ ] **AC-009a:** Calling `setMasterGain()` changes the master output level without muting or altering individual channel settings.
-- [ ] **AC-009b:** The engine exposes a master loudness value in dB that can drive the Song Controls meter during playback.
-- [ ] **AC-010:** Decoding the same sample twice returns the cached `AudioBuffer` — no duplicate decode.
-- [ ] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
-- [ ] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.
-- [ ] **AC-013:** A soloed track plays; all non-soloed tracks are silent. Un-soloing restores normal playback.
+- [x] **AC-001:** Calling `play()` on the transport transitions state to `playing` and advances the playhead each tick.
+- [x] **AC-002:** Calling `pause()` holds the current tick; calling `play()` again resumes from that tick.
+- [x] **AC-003:** Calling `stop()` resets the playhead to tick 0 and sets state to `stopped`.
+- [x] **AC-004:** Changing BPM from 120 to 140 changes the step duration from 62.5ms to ~53.6ms. Subsequent ticks fire at the new tempo.
+- [x] **AC-005:** The scheduler fires `onSchedule(tick, when)` callbacks for ticks within the lookahead window. A unit test with a mock clock verifies this.
+- [x] **AC-006:** `triggerVoice()` creates an `AudioBufferSourceNode` connected to the channel's gain/pan chain → master gain → destination.
+- [x] **AC-007:** Calling `voice.stop()` before the buffer ends terminates the voice; a `voiceEnded` event fires.
+- [x] **AC-008:** `stopAllVoices()` immediately stops all active voices. Active voice count drops to 0.
+- [x] **AC-009:** `createChannel()` returns a channel with independent gain and pan. Setting gain on channel A does not affect channel B.
+- [x] **AC-009a:** Calling `setMasterGain()` changes the master output level without muting or altering individual channel settings.
+- [x] **AC-009b:** The engine exposes a master loudness value in dB that can drive the Song Controls meter during playback.
+- [x] **AC-010:** Decoding the same sample twice returns the cached `AudioBuffer` — no duplicate decode.
+- [x] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
+- [x] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.
+- [x] **AC-013:** A soloed track plays; all non-soloed tracks are silent. Un-soloing restores normal playback.
 
 ## Non-Goals (deferred to later specs)
 
 - No UI for transport controls — play/pause/stop buttons. The tracker timeline
-  UI is spec-006.
-- No visual playhead in the tracker grid. That's spec-006.
+  UI is spec-006. (Transport buttons and playhead were pulled forward into
+  TrackerView during spec-005 implementation; spec-006 formalizes the full layout.)
+- Visual playhead pulled forward: `currentTick` is surfaced from transport to
+  React state via `setOnTick` and rendered as a positioned bar in TrackerView.
+  The spec-006 playhead AC is therefore already satisfied.
 - No time-stretching — samples play at native rate regardless of BPM.
   Time-stretch is spec-009.
 - No per-channel audio effects (delay, reverb, compression). FX is spec-010.

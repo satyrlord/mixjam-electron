@@ -7,6 +7,7 @@ import {
   RECENT_PROJECTS_FILE_NAME,
   buildSessionConfig,
   isFolderRole,
+  defaultUserFolderPath,
   listRecentProjects,
   normalizeRecentProjects,
   normalizeSession,
@@ -252,6 +253,16 @@ describe('recordRecentProject', () => {
         lastOpened: '2026-06-28T14:00:00.000Z'
       }
     ])
+  })
+})
+
+describe('defaultUserFolderPath (AC-010b)', () => {
+  it('returns Documents/MixJam under the given home on Windows-style path', () => {
+    expect(defaultUserFolderPath('C:\\Users\\Alice')).toBe(join('C:\\Users\\Alice', 'Documents', 'MixJam'))
+  })
+
+  it('returns Documents/MixJam under the given home on POSIX-style path', () => {
+    expect(defaultUserFolderPath('/home/alice')).toBe(join('/home/alice', 'Documents', 'MixJam'))
   })
 })
 

@@ -63,7 +63,7 @@ describe('App', () => {
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00674F')
   })
 
-  it('places a clip on the tracker lane when a selected sample lane is clicked', async () => {
+  it('places a clip on the tracker lane when a sample tile is dragged onto a lane', async () => {
     render(<App />)
 
     const start = await screen.findByRole('button', { name: 'Start New MixJam' })
@@ -74,23 +74,45 @@ describe('App', () => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
-    const kickRow = await screen.findByRole('button', { name: /kick_808\.wav/i })
-    fireEvent.click(kickRow)
+    const detail = JSON.stringify({
+      name: 'kick_808.wav',
+      path: 'Drums/Kicks/kick_808.wav',
+      metadata: [],
+      tags: [],
+      duration: 0.5
+    })
 
-    const laneCanvas = screen.getByRole('button', { name: 'Place sample on Lane 3' })
-    fireEvent.click(laneCanvas)
+    const lane3Canvas = screen.getByRole('region', { name: 'Lane 3 track area' })
+    fireEvent.drop(lane3Canvas, {
+      dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
+    })
 
     await waitFor(() => {
       expect(screen.getByTitle('kick_808.wav')).toBeInTheDocument()
     })
 
-    // Second click on the same lane at the same position replaces the prior clip (monophonic)
-    fireEvent.click(laneCanvas)
-    expect(screen.getAllByTitle('kick_808.wav')).toHaveLength(1)
-
-    // Click on a different lane preserves the first clip and adds a second
-    const lane2Canvas = screen.getByRole('button', { name: 'Place sample on Lane 2' })
-    fireEvent.click(lane2Canvas)
+    // Dropping again on the same lane adds a second overlapping clip (visual overlap, monophonic playback)
+    fireEvent.drop(lane3Canvas, {
+      dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
+    })
     expect(screen.getAllByTitle('kick_808.wav')).toHaveLength(2)
+
+    // Dropping on a different lane adds a third clip
+    const lane2Canvas = screen.getByRole('region', { name: 'Lane 2 track area' })
+    fireEvent.drop(lane2Canvas, {
+      dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
+    })
+    expect(screen.getAllByTitle('kick_808.wav')).toHaveLength(3)
+  })
+
+  it('applies the Emerald theme by default and ignores unknown themes', () => {
+    render(<App />)
+
+    const select = screen.getByLabelText('Theme')
+    expect(select).toHaveValue('emerald')
+
+    // Unknown theme falls back to emerald
+    fireEvent.change(select, { target: { value: 'nonexistent' } })
+    expect(select).toHaveValue('emerald')
   })
 })

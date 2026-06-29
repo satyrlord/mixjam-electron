@@ -116,23 +116,23 @@ It is not user-editable.
 
 ## Acceptance Criteria (testable)
 
-- [ ] **AC-001:** Home Screen shows two folder cards: User Folder (top) and Sample Folder (bottom).
-- [ ] **AC-002:** User Folder card is always active — "Pick Folder" button is clickable.
-- [ ] **AC-003:** Sample Folder card is initially disabled (greyed out, non-interactive).
-- [ ] **AC-004:** Sample Folder card becomes active only after a User Folder is selected.
-- [ ] **AC-005:** "Start New MixJam" button is disabled when either folder is unset.
-- [ ] **AC-006:** A hint label appears below the disabled button: "Select both folders above to start."
-- [ ] **AC-007:** When both folders are set, "Start New MixJam" becomes active and navigates to the MixJam Player on click.
-- [ ] **AC-008:** "Load MixJam" link works regardless of folder selection state (per spec-001).
-- [ ] **AC-009:** Each "Pick Folder" button opens a native OS folder picker with the correct dialog title.
-- [ ] **AC-010:** Selected folder paths are displayed on their respective cards after successful validation.
-- [ ] **AC-010b:** When no User Folder has been chosen yet, the initial suggested location on Windows is `%USERPROFILE%\Documents\MixJam`.
-- [ ] **AC-010a:** If a selected folder is not accessible (permissions error), the card shows: "Cannot access this folder. Check permissions and try again."
-- [ ] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
-- [ ] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
-- [ ] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
-- [ ] **AC-014:** A `mixjam.json` session config file is written to the User Folder after both folders are selected.
-- [ ] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
+- [x] **AC-001:** Home Screen shows two folder cards: User Folder (top) and Sample Folder (bottom).
+- [x] **AC-002:** User Folder card is always active — "Pick Folder" button is clickable.
+- [x] **AC-003:** Sample Folder card is initially disabled (greyed out, non-interactive).
+- [x] **AC-004:** Sample Folder card becomes active only after a User Folder is selected.
+- [x] **AC-005:** "Start New MixJam" button is disabled when either folder is unset.
+- [x] **AC-006:** A hint label appears below the disabled button: "Select both folders above to start."
+- [x] **AC-007:** When both folders are set, "Start New MixJam" becomes active and navigates to the MixJam Player on click.
+- [x] **AC-008:** "Load MixJam" link works regardless of folder selection state (per spec-001).
+- [x] **AC-009:** Each "Pick Folder" button opens a native OS folder picker with the correct dialog title.
+- [x] **AC-010:** Selected folder paths are displayed on their respective cards after successful validation.
+- [x] **AC-010b:** When no User Folder has been chosen yet, the initial suggested location on Windows is `%USERPROFILE%\Documents\MixJam`.
+- [x] **AC-010a:** If a selected folder is not accessible (permissions error), the card shows: "Cannot access this folder. Check permissions and try again."
+- [x] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
+- [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
+- [x] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
+- [x] **AC-014:** A `mixjam.json` session config file is written to the User Folder after both folders are selected.
+- [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
 
 ## Non-Goals (deferred to later specs)
 

@@ -272,16 +272,13 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     const tracker = screen.getByText('Lane 1')
     const middleStrip = screen.getByText('Untitled')
     const songControls = screen.getByText('Song Controls')
-    const categoryTree = screen.getByText('Category Tree')
+    const sampleBrowser = screen.getByRole('region', { name: /sample browser/i })
 
     expect(recentProjects).toBeInTheDocument()
     expect(tracker).toBeInTheDocument()
     expect(middleStrip).toBeInTheDocument()
     expect(songControls).toBeInTheDocument()
-    expect(categoryTree).toBeInTheDocument()
-
-    const trackerView = document.querySelector('.tracker-view') as HTMLElement
-    expect(trackerView.querySelectorAll('.tracker-zone')).toHaveLength(5)
+    expect(sampleBrowser).toBeInTheDocument()
   })
 
   it('AC-011: app root occupies full viewport height with overflow hidden', () => {

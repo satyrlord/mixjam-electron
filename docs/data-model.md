@@ -23,7 +23,8 @@ CREATE TABLE samples (
   bpm          REAL,                   -- NULL unless set manually / analyzed later
   musical_key  TEXT,                   -- e.g. 'Am'; NULL until set
   date_added   INTEGER NOT NULL,       -- epoch ms, first-indexed time
-  scan_state   INTEGER NOT NULL DEFAULT 0  -- 0=stub, 1=metadata-extracted, 2=missing
+  scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-extracted, 2=missing
+  category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL  -- one primary category per sample (v2)
 );
 
 CREATE TABLE tags (
@@ -39,6 +40,10 @@ CREATE TABLE sample_tags (
 );
 
 -- Self-referencing tree: categories and subcategories.
+-- "Unsorted" is the only hardcoded root category (ensured at DB init).
+-- All other root categories are derived from the sample-folder structure
+-- (each top-level subdirectory becomes a root category) or created by
+-- the user via the manage panel.
 CREATE TABLE categories (
   id        INTEGER PRIMARY KEY,
   name      TEXT NOT NULL,
@@ -46,7 +51,9 @@ CREATE TABLE categories (
   UNIQUE (parent_id, name)
 );
 
--- Many-to-many: a sample can live in multiple categories.
+-- Many-to-many: subcategory assignments. A sample has exactly one primary
+-- category (stored in samples.category_id) but may belong to multiple
+-- subcategories of that category via this join table.
 CREATE TABLE sample_categories (
   sample_id   INTEGER NOT NULL REFERENCES samples(id)    ON DELETE CASCADE,
   category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,

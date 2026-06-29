@@ -7,7 +7,10 @@ import {
   anyLaneSoloed,
   createDefaultLanes,
   laneShouldDim,
+  moveClipOnLane,
   placeClipOnLane,
+  removeClipFromLane,
+  setLanePan,
   toggleLaneMute,
   toggleLaneSolo
 } from '../lib/playerShell'
@@ -64,16 +67,17 @@ describe('placeClipOnLane', () => {
     expect(next[5]?.clips).toHaveLength(1)
   })
 
-  it('truncates an overlapping previous clip at the overlap point (monophonic cutoff)', () => {
+  it('allows overlapping clips without trimming (monophonic playback, visual overlap)', () => {
     const lanes = createDefaultLanes()
     let next = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
     next = placeClipOnLane(next, 0, 'Drums/snare.wav', 'snare.wav', 16)
 
     const clips = next[0]?.clips
     expect(clips).toHaveLength(2)
+    // Both clips retain their full original lengths — overlap, no trimming.
     expect(clips?.[0]?.sampleName).toBe('kick.wav')
     expect(clips?.[0]?.startTick).toBe(0)
-    expect(clips?.[0]?.durationTicks).toBe(16)
+    expect(clips?.[0]?.durationTicks).toBe(32)
     expect(clips?.[1]?.sampleName).toBe('snare.wav')
     expect(clips?.[1]?.startTick).toBe(16)
     expect(clips?.[1]?.durationTicks).toBe(32)
@@ -161,5 +165,92 @@ describe('anyLaneSoloed / laneShouldDim', () => {
     expect(laneShouldDim(state[0]!, true)).toBe(true)
     expect(laneShouldDim(state[3]!, true)).toBe(false)
     expect(laneShouldDim(state[5]!, true)).toBe(true)
+  })
+})
+
+describe('moveClipOnLane', () => {
+  it('moves a clip from one lane to another at a new tick', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    const clipId = state[0]!.clips[0]!.id
+
+    state = moveClipOnLane(state, clipId, 3, 64)
+
+    expect(state[0]!.clips).toHaveLength(0)
+    expect(state[3]!.clips).toHaveLength(1)
+    expect(state[3]!.clips[0]!.startTick).toBe(64)
+    expect(state[3]!.clips[0]!.sampleName).toBe('kick.wav')
+  })
+
+  it('is a no-op for an unknown clip id', () => {
+    const lanes = createDefaultLanes()
+    const state = moveClipOnLane(lanes, 'nonexistent', 0, 0)
+    expect(state).toEqual(lanes)
+  })
+
+  it('moves within the same lane to a new position', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    const clipId = state[0]!.clips[0]!.id
+
+    state = moveClipOnLane(state, clipId, 0, 96)
+
+    expect(state[0]!.clips).toHaveLength(1)
+    expect(state[0]!.clips[0]!.startTick).toBe(96)
+  })
+})
+
+describe('removeClipFromLane', () => {
+  it('removes a clip by id from the specified lane', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    const clipId = state[0]!.clips[0]!.id
+
+    state = removeClipFromLane(state, 0, clipId)
+
+    expect(state[0]!.clips).toHaveLength(0)
+  })
+
+  it('does not remove clips from other lanes', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    state = placeClipOnLane(state, 3, 'Drums/snare.wav', 'snare.wav', 0)
+    const clipId = state[0]!.clips[0]!.id
+
+    state = removeClipFromLane(state, 0, clipId)
+
+    expect(state[0]!.clips).toHaveLength(0)
+    expect(state[3]!.clips).toHaveLength(1)
+  })
+
+  it('is a no-op for an unknown clip id', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    const count = state[0]!.clips.length
+
+    state = removeClipFromLane(state, 0, 'nonexistent')
+    expect(state[0]!.clips).toHaveLength(count)
+  })
+})
+
+describe('setLanePan', () => {
+  it('sets the pan value on the specified lane', () => {
+    const lanes = createDefaultLanes()
+    const state = setLanePan(lanes, 5, 0.5)
+    expect(state[5]!.pan).toBe(0.5)
+    expect(state[0]!.pan).toBe(0)
+  })
+
+  it('clamps pan to the range [-1, 1]', () => {
+    const lanes = createDefaultLanes()
+    expect(setLanePan(lanes, 0, 2)[0]!.pan).toBe(1)
+    expect(setLanePan(lanes, 0, -3)[0]!.pan).toBe(-1)
+  })
+
+  it('does not affect other lanes', () => {
+    const lanes = createDefaultLanes()
+    const state = setLanePan(lanes, 2, -0.75)
+    expect(state[2]!.pan).toBe(-0.75)
+    expect(state[3]!.pan).toBe(0)
   })
 })

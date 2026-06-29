@@ -16,12 +16,21 @@
     "text-muted": "#B8D0C8",
     "pill-bg": "#0C2D32",
     "pill-border": "#2D6B5E",
-    "playhead": "#E74C3C"
+    "playhead": "#E74C3C",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFE066",
+    "clip-missing": "#FF6D6D"
   },
   "fonts": {
     "chrome": "Josefin Sans",
     "label": "Ubuntu",
     "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, #07291F, #0A362A)",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
+    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
   },
   "radius": "0.22rem"
 }

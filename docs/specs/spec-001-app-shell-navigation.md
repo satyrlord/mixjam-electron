@@ -105,22 +105,22 @@ Implement view switching, the header bar, and the footer.
 Spec validation confirms these criteria are complete and testable as requirements.
 Implementation validation should be tracked in implementation PR/test evidence.
 
-- [ ] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
-- [ ] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
-- [ ] **AC-002:** Home Screen content area shows "Start New MixJam" button and "Load MixJam" link.
-- [ ] **AC-003:** Footer is 40px height (same as header), shows "Select settings folder" left and clickable version string right on both views.
-- [ ] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
-- [ ] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
-- [ ] **AC-004:** Clicking "Start New MixJam" resizes the window to 1920×1080 centered, enables the maximize button, and switches the content area to the MixJam Player.
-- [ ] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
-- [ ] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
-- [ ] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
-- [ ] **AC-007:** Clicking "Load MixJam" opens a native file picker. Selecting a file navigates to the Player (with window resize). Cancelling the picker stays on the Home Screen.
-- [ ] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
-- [ ] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
-- [ ] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip, Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
-- [ ] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
-- [ ] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
+- [x] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
+- [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
+- [x] **AC-002:** Home Screen content area shows "Start New MixJam" button and "Load MixJam" link.
+- [x] **AC-003:** Footer is 40px height (same as header), shows "Select settings folder" left and clickable version string right on both views.
+- [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
+- [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
+- [x] **AC-004:** Clicking "Start New MixJam" resizes the window to 1920×1080 centered, enables the maximize button, and switches the content area to the MixJam Player.
+- [x] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
+- [x] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
+- [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
+- [x] **AC-007:** Clicking "Load MixJam" opens a native file picker. Selecting a file navigates to the Player (with window resize). Cancelling the picker stays on the Home Screen.
+- [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
+- [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
+- [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip, Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
+- [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
+- [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 
 ## Non-Goals (deferred to later specs)
 

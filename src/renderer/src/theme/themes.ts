@@ -34,6 +34,9 @@ export interface ThemeColors {
   'pill-bg': string
   'pill-border': string
   playhead: string
+  'clip-text': string
+  'clip-select': string
+  'clip-missing': string
 }
 
 export interface ThemeFonts {
@@ -45,11 +48,25 @@ export interface ThemeFonts {
   mono: string
 }
 
+/**
+ * Depth tokens hold the multi-stop gradient and shadow values that give chrome
+ * regions their dimensionality in the design mockups. They are full CSS value
+ * strings (gradients, box/text-shadow) so index.css references them purely
+ * through `var(--token)` and never inlines a color literal (spec-002 AC-008).
+ */
+export interface ThemeDepth {
+  'gradient-header': string
+  'gradient-ruler': string
+  'gradient-lane': string
+  'shadow-clip-text': string
+}
+
 export interface Theme {
   name: string
   key: ThemeKey
   colors: ThemeColors
   fonts: ThemeFonts
+  depth: ThemeDepth
   radius: string
 }
 
@@ -89,6 +106,9 @@ export function normalizeThemeKey(themeKey: string): ThemeKey {
  */
 function applyTheme(theme: Theme, root: HTMLElement = document.documentElement): void {
   for (const [token, value] of Object.entries(theme.colors)) {
+    root.style.setProperty(`--${token}`, value)
+  }
+  for (const [token, value] of Object.entries(theme.depth)) {
     root.style.setProperty(`--${token}`, value)
   }
   root.style.setProperty('--radius', theme.radius)

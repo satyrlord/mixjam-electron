@@ -55,7 +55,8 @@ describe('Footer', () => {
           name: 'kick_808.wav',
           path: 'Drums/Kicks/kick_808.wav',
           metadata: ['44.1 kHz', 'Stereo'],
-          tags: ['Drums', 'Kick']
+          tags: ['Drums', 'Kick'],
+          duration: null
         }}
         onSelectFolder={vi.fn()}
         onOpenRepo={vi.fn()}

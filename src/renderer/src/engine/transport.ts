@@ -27,13 +27,21 @@ export interface Transport {
   skipBack(): void
   setBpm(bpm: number): void
   setOnTick(callback: ((event: TransportTickEvent) => void) | null): void
+  tickDurationSeconds(): number
+  tickToTime(tick: number, referenceTick: number, referenceTime: number): number
   destroy(): void
 }
 
-const TICKS_PER_BEAT = 8
+// Step resolution: 1/32 note. 8 ticks per beat at 4/4 — every track shares this
+// global grid (see spec-005 Transport).
+export const TICKS_PER_BEAT = 8
 
 function tickIntervalMs(bpm: number): number {
-  return 60000 / bpm / TICKS_PER_BEAT
+  return tickDurationSeconds(bpm) * 1000
+}
+
+export function tickDurationSeconds(bpm: number): number {
+  return 60 / bpm / TICKS_PER_BEAT
 }
 
 export function createTransport(bpm = 120, scheduler: TransportScheduler = defaultScheduler()): Transport {
@@ -104,6 +112,14 @@ export function createTransport(bpm = 120, scheduler: TransportScheduler = defau
 
     setOnTick(callback: ((event: TransportTickEvent) => void) | null): void {
       onTick = callback
+    },
+
+    tickDurationSeconds(): number {
+      return tickDurationSeconds(currentBpm)
+    },
+
+    tickToTime(tick: number, referenceTick: number, referenceTime: number): number {
+      return referenceTime + (tick - referenceTick) * tickDurationSeconds(currentBpm)
     },
 
     destroy(): void {

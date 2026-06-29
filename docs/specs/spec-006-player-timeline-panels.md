@@ -1,7 +1,7 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** ⏳ PARTIAL (pulled forward into spec-005 TrackerView)
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -106,9 +106,11 @@ adjacencies.
 - Label: sample filename, truncated.
 - Clip color: driven by a per-sample hue derived from category or a hash of
   the filename (consistent across sessions).
-- **Monophonic cut-off behavior** (per spec-005): placing a clip that overlaps
-  an existing clip on the same lane visually truncates the previous clip at
-  the overlap point.
+- **Monophonic cut-off behavior** (per spec-005): a lane is monophonic in
+  *audio* only — a new trigger cuts off the previously sounding voice on that
+  lane. Overlapping clips are *not* trimmed visually: both bubbles keep their
+  full size and data, so an accidental overlap never destroys the earlier
+  sample's information.
 - Clips are rendered on a canvas element for performance — not as individual
   DOM nodes (enables smooth scrolling at high lane/clip counts).
 
@@ -185,26 +187,26 @@ adjacencies.
 
 ## Acceptance Criteria (testable)
 
-- [ ] **AC-001:** The active Player layout renders five primary regions matching the mock-up: Recent Projects rail, Tracker region, full-width Middle Strip, Song Controls rail, and Sample Browser region.
-- [ ] **AC-002:** The Recent Projects rail remains visible in the upper-left of the active Player, shares the same width as the Song Controls rail below it, and shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current User Folder.
+- [x] **AC-001:** The active Player layout renders five primary regions matching the mock-up: Recent Projects rail, Tracker region, full-width Middle Strip, Song Controls rail, and Sample Browser region.
+- [x] **AC-002:** The Recent Projects rail remains visible in the upper-left of the active Player, shares the same width as the Song Controls rail below it, and shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current User Folder.
 - [ ] **AC-002a:** The User Folder contribution to the Recent Projects rail includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
 - [ ] **AC-002b:** The Recent Projects rail sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
 - [ ] **AC-002c:** When the Recent Projects rail has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank rail or rail-specific action buttons.
-- [ ] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
-- [ ] **AC-004:** The Song Controls rail is visible by default in the lower-left; widening its right-edge reveal seam may expose mixer content without relocating the sample browser into the left rail.
-- [ ] **AC-004a:** The default Song Controls rail shows a Master Volume slider, a master dB loudness meter, and a BPM slider.
-- [ ] **AC-004b:** The Song Controls BPM slider ranges from 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
-- [ ] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, M and S buttons, and pan knob placeholder.
-- [ ] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
-- [ ] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
-- [ ] **AC-008:** Placing a sample clip on a lane renders it as a rounded rectangle at the correct tick position with proportional width.
-- [ ] **AC-009:** Placing a clip that overlaps an existing one on the same lane visually truncates the previous clip.
-- [ ] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
-- [ ] **AC-011:** The ruler displays tick marks every 96px and bar numbers (1, 5, 9, 13…) in monospace font.
-- [ ] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
-- [ ] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
-- [ ] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
-- [ ] **AC-015:** The BPM display shows the current BPM. Clicking it allows editing; changing the value updates the engine's BPM immediately.
+- [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
+- [x] **AC-004:** The Song Controls rail is visible by default in the lower-left; widening its right-edge reveal seam may expose mixer content without relocating the sample browser into the left rail.
+- [x] **AC-004a:** The default Song Controls rail shows a Master Volume slider, a master dB loudness meter, and a BPM slider.
+- [x] **AC-004b:** The Song Controls BPM slider ranges from 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
+- [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, M and S buttons, and pan knob placeholder.
+- [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
+- [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
+- [x] **AC-008:** Dragging a sample tile from the browser and dropping it onto a lane places it as a clip at the nearest tick, sized proportionally to the sample's audio duration.
+- [x] **AC-009:** Placing a clip that overlaps an existing one on the same lane keeps both clips visually intact (overlapping); only the audio is monophonic (the new trigger cuts off the previous voice). Overlap never deletes or trims the earlier clip's data.
+- [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
+- [x] **AC-011:** The ruler displays tick marks every 96px and bar numbers (1, 5, 9, 13…) in monospace font.
+- [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
+- [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
+- [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
+- [x] **AC-015:** The BPM display shows the current BPM. Clicking it allows editing; changing the value updates the engine's BPM immediately.
 - [ ] **AC-015a:** Changing BPM from either the Middle Strip editor or the Song Controls slider updates the same transport state and keeps both controls synchronized.
 - [ ] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [ ] **AC-017:** Clips are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
@@ -214,8 +216,7 @@ adjacencies.
 - No bulk recent-project management actions (pinning, removing entries, or custom grouping) inside the Recent Projects rail.
 - No user-resizable split between the upper and lower work bands; the full-width
   Middle Strip is a fixed seam, not a drag handle.
-- No clip drag-to-reposition or resize — clips are placed programmatically.
-  Full clip interaction is a later slice.
+- No clip drag-to-reposition or resize once placed — full clip interaction is a later slice.
 - No track reordering (drag lane up/down).
 - No lane add/remove UI (fixed 16 lanes).
 - No zoom in/out on the timeline.

@@ -4,6 +4,8 @@ import TrackerView from './TrackerView'
 import type { RecentProjectItem, SampleBrowserItem } from '../../../shared/ipc'
 import type { LaneState } from '../lib/playerShell'
 
+const asyncNoop = async () => { /* empty */ }
+
 const RECENT_PROJECTS: RecentProjectItem[] = [
   {
     path: 'c:/users/test/mixjam/club-night.mixjam',
@@ -29,10 +31,24 @@ const LANES: LaneState[] = Array.from({ length: 16 }, (_, index) => ({
   name: `Lane ${index + 1}`,
   muted: false,
   solo: false,
+  pan: 0,
   clips: []
 }))
 
 const noop = () => undefined
+
+const DEFAULT_CATEGORIES = [
+  { id: 1, name: 'Bass', parentId: null },
+  { id: 2, name: 'Drums', parentId: null },
+  { id: 3, name: 'FX', parentId: null },
+  { id: 4, name: 'Synth', parentId: null },
+  { id: 5, name: 'Vocal', parentId: null },
+  { id: 6, name: 'Loop', parentId: null },
+  { id: 7, name: 'Percussion', parentId: null },
+  { id: 8, name: 'Atmosphere', parentId: null }
+]
+
+const IDLE_PROGRESS = { status: 'idle' as const, phase: null, found: 0, processed: 0, total: 0 }
 
 function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
   return render(
@@ -46,16 +62,49 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       lanes={LANES}
       laneShouldDim={() => false}
       transportState="stopped"
+      currentTick={0}
+      bpm={120}
+      masterGain={0.8}
+      masterLevelDb={-100}
+      onSetBpm={noop}
+      onSetMasterGain={noop}
       onSelectSampleDetail={noop}
       onSampleSearchChange={noop}
       onSampleRescan={noop}
-      onPlaceSampleOnLane={noop}
+      onPlaceSampleDetailOnLane={noop}
+      onMoveClipOnLane={noop}
+      onRemoveClipFromLane={noop}
+      onSetLanePan={noop}
+      onPreviewSample={noop}
       onToggleLaneMute={noop}
       onToggleLaneSolo={noop}
       onTransportPlay={noop}
       onTransportPause={noop}
       onTransportStop={noop}
       onTransportSkipBack={noop}
+      scanProgress={IDLE_PROGRESS}
+      dbSamples={[]}
+      dbSampleTotal={0}
+      dbSearchQuery=""
+      selectedCategoryId={undefined}
+      selectedTagIds={[]}
+      sortBy="filename"
+      sortDir="asc"
+      tags={[]}
+      categories={DEFAULT_CATEGORIES}
+      libraries={[]}
+      onDbSearchChange={noop}
+      onSelectCategory={noop}
+      onToggleTagFilter={noop}
+      onSortChange={noop}
+      onStartScan={asyncNoop}
+      onCreateTag={asyncNoop as never}
+      onRenameTag={asyncNoop as never}
+      onDeleteTag={asyncNoop as never}
+      onCreateCategory={asyncNoop as never}
+      onDeleteCategory={asyncNoop as never}
+      onSaveLibrary={asyncNoop as never}
+      onDeleteLibrary={asyncNoop as never}
       {...props}
     />
   )
@@ -72,7 +121,7 @@ describe('TrackerView', () => {
     expect(screen.getByText('club-night')).toBeInTheDocument()
     expect(screen.getByText('Lane 1')).toBeInTheDocument()
     expect(screen.getByText('Song Controls')).toBeInTheDocument()
-    expect(screen.getByText('Category Tree')).toBeInTheDocument()
+    expect(screen.getByRole('listbox', { name: /sample categories/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /kick_808\.wav/i })).toBeInTheDocument()
   })
 
@@ -87,7 +136,8 @@ describe('TrackerView', () => {
                 samplePath: 'Drums/Kicks/kick_808.wav',
                 sampleName: 'kick_808.wav',
                 startTick: 0,
-                durationTicks: 32
+                durationTicks: 32,
+                durationSeconds: null
               }
             ]
           }
@@ -98,18 +148,27 @@ describe('TrackerView', () => {
     expect(screen.getAllByTitle('kick_808.wav')).toHaveLength(1)
   })
 
-  it('fires onPlaceSampleOnLane when clicking the lane canvas with a selected sample', () => {
-    const onPlaceSampleOnLane = vi.fn()
+  it('fires onPlaceSampleDetailOnLane when a sample tile is dropped onto a lane canvas', () => {
+    const onPlaceSampleDetailOnLane = vi.fn()
+    const detail = {
+      name: 'kick_808.wav',
+      path: 'Drums/Kicks/kick_808.wav',
+      metadata: [],
+      tags: [],
+      duration: 0.5
+    }
 
-    renderTracker({
-      sampleRows: SAMPLE_ROWS,
-      selectedSamplePath: 'Drums/Kicks/kick_808.wav',
-      onPlaceSampleOnLane
+    renderTracker({ onPlaceSampleDetailOnLane })
+
+    const laneCanvas = screen.getByRole('region', { name: 'Lane 1 track area' })
+    fireEvent.drop(laneCanvas, {
+      dataTransfer: { getData: () => JSON.stringify(detail), types: ['application/mixjam-sample'] }
     })
-
-    const laneCanvas = screen.getByRole('button', { name: 'Place sample on Lane 1' })
-    fireEvent.click(laneCanvas)
-    expect(onPlaceSampleOnLane).toHaveBeenCalledWith(0, expect.any(Number))
+    expect(onPlaceSampleDetailOnLane).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'kick_808.wav', path: 'Drums/Kicks/kick_808.wav' }),
+      0,
+      expect.any(Number)
+    )
   })
 
   it('fires onToggleLaneMute when clicking the M button', () => {
@@ -192,5 +251,100 @@ describe('TrackerView', () => {
 
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument()
+  })
+
+  it('fires onPreviewSample when clicking a sample tile', () => {
+    const onPreviewSample = vi.fn()
+    renderTracker({
+      onPreviewSample,
+      dbSamples: [{ id: 1, filepath: '/s/kick.wav', filename: 'kick.wav', ext: 'wav', sizeBytes: null, duration: 1.5, sampleRate: null, channels: null, bpm: null, musicalKey: null, dateAdded: Date.now(), scanState: 1, categoryId: null }],
+      dbSampleTotal: 1,
+      categories: DEFAULT_CATEGORIES
+    })
+
+    // The accessible name is "kick 1.5s" (inner b + i text)
+    const tile = screen.getByText(/kick/i).closest('button')!
+    fireEvent.click(tile)
+    expect(onPreviewSample).toHaveBeenCalledWith('/s/kick.wav')
+  })
+
+  it('shows context menu on right-clicking a clip', () => {
+    const lanesWithClip: LaneState[] = LANES.map((lane) =>
+      lane.index === 0
+        ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
+        : lane
+    )
+    renderTracker({ lanes: lanesWithClip })
+
+    const clip = screen.getByTitle('kick.wav')
+    fireEvent.contextMenu(clip)
+
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Locate in Browser' })).toBeInTheDocument()
+  })
+
+  it('calls onRemoveClipFromLane when Delete is clicked in context menu', () => {
+    const onRemoveClipFromLane = vi.fn()
+    const lanesWithClip: LaneState[] = LANES.map((lane) =>
+      lane.index === 0
+        ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
+        : lane
+    )
+    renderTracker({ lanes: lanesWithClip, onRemoveClipFromLane })
+
+    const clip = screen.getByTitle('kick.wav')
+    fireEvent.contextMenu(clip)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
+
+    expect(onRemoveClipFromLane).toHaveBeenCalledWith(0, 'clip-1')
+  })
+
+  it('calls onMoveClipOnLane when a clip is dragged and dropped on another lane', () => {
+    const onMoveClipOnLane = vi.fn()
+    const lanesWithClip: LaneState[] = LANES.map((lane) =>
+      lane.index === 0
+        ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
+        : lane
+    )
+    renderTracker({ lanes: lanesWithClip, onMoveClipOnLane })
+
+    const canvas = screen.getByRole('region', { name: 'Lane 3 track area' })
+    // Simulate drag over first (to allow drop) with matching types
+    fireEvent.dragOver(canvas, {
+      dataTransfer: { types: ['application/mixjam-clip'], getData: () => '' }
+    })
+    fireEvent.drop(canvas, {
+      dataTransfer: {
+        types: ['application/mixjam-clip'],
+        getData: (type: string) => type === 'application/mixjam-clip' ? JSON.stringify({ clipId: 'clip-1' }) : ''
+      }
+    })
+
+    expect(onMoveClipOnLane).toHaveBeenCalledWith('clip-1', 2, expect.any(Number))
+  })
+
+  it('fires onSetLanePan on pan dial mouse interaction', () => {
+    const onSetLanePan = vi.fn()
+    renderTracker({ onSetLanePan })
+
+    const panDial = screen.getByRole('slider', { name: 'Pan Lane 1' })
+    fireEvent.mouseDown(panDial, { clientX: 100, button: 0 })
+    // Pan listener is attached to window, not the element
+    fireEvent.mouseMove(window, { clientX: 150 })
+    fireEvent.mouseUp(window)
+
+    expect(onSetLanePan).toHaveBeenCalledWith(0, expect.any(Number))
+  })
+
+  it('transport-button-play class only appears when playing', () => {
+    renderTracker({ transportState: 'stopped' })
+    const btn = screen.getByRole('button', { name: 'Play' })
+    expect(btn.className).not.toContain('transport-button-play')
+  })
+
+  it('transport-button-play class present when playing', () => {
+    renderTracker({ transportState: 'playing' })
+    const btn = screen.getByRole('button', { name: 'Pause' })
+    expect(btn.className).toContain('transport-button-play')
   })
 })

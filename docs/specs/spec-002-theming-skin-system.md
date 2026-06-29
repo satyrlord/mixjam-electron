@@ -143,16 +143,16 @@ in later specs.
 
 ## Acceptance Criteria (testable)
 
-- [ ] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
-- [ ] **AC-002:** The Emerald theme uses the exact token values listed in the table above (all 16 color tokens + `--radius`).
-- [ ] **AC-003:** The three bundled fonts (Josefin Sans, Ubuntu, JetBrains Mono) are loaded from local files — no external network requests for fonts.
-- [ ] **AC-004:** The theme selector dropdown in the tracker header lists all 8 theme names in order: Emerald, Flat Studio, Neon Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA.
-- [ ] **AC-005:** Default selection in the theme selector is "Emerald".
-- [ ] **AC-006:** Selecting any non-Emerald theme from the dropdown immediately resets the selection back to Emerald — the app never displays a broken/incomplete theme.
-- [ ] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.
-- [ ] **AC-008:** Theme tokens are defined in a single source of truth (e.g. JSON file). No UI element uses hardcoded color values outside the token system.
-- [ ] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
-- [ ] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
+- [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
+- [x] **AC-002:** The Emerald theme uses the exact token values listed in the table above (all 16 color tokens + `--radius`).
+- [x] **AC-003:** The three bundled fonts (Josefin Sans, Ubuntu, JetBrains Mono) are loaded from local files — no external network requests for fonts.
+- [x] **AC-004:** The theme selector dropdown in the tracker header lists all 8 theme names in order: Emerald, Flat Studio, Neon Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA.
+- [x] **AC-005:** Default selection in the theme selector is "Emerald".
+- [x] **AC-006:** Selecting any non-Emerald theme from the dropdown immediately resets the selection back to Emerald — the app never displays a broken/incomplete theme.
+- [x] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.
+- [x] **AC-008:** Theme tokens are defined in a single source of truth (e.g. JSON file). No UI element uses hardcoded color values outside the token system.
+- [x] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
+- [x] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
 
 ## Non-Goals (deferred to later specs)
 

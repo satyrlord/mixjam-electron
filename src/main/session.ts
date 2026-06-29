@@ -228,6 +228,10 @@ export async function listRecentProjects(
   return sortRecentProjectItems([...merged.values()])
 }
 
+export function defaultUserFolderPath(home: string): string {
+  return join(home, 'Documents', 'MixJam')
+}
+
 export interface SessionConfig {
   appVersion: string
   userFolder: string
