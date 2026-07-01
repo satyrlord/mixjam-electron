@@ -26,13 +26,10 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive Player orchestration layer that coordinates transport, scheduler, and audio engine
-- Enhanced lookahead scheduler with configurable intervals and lookahead windows
-- Integrated complete audio processing pipeline with voice management and channel routing
-- Added sample caching system with LRU eviction and error handling
-- Implemented monophonic playback with lane evaluation and trigger management
-- Enhanced transport system with BPM control and tick-to-time conversion
-- Added preview functionality with transport-aware scheduling
+- Enhanced player implementation with improved stop/pause behavior using playGeneration tracking to prevent stray voice starts after playback ends
+- Updated transport engine with better synchronization between audio clock and visual playhead rendering through Player.currentTick integration
+- Improved lane evaluation system with sophisticated dimming policy for mute/solo states, separating visual dimming from audio audibility rules
+- Enhanced preview functionality with transport-aware scheduling that quantizes previews to downbeats when transport is playing
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,7 +44,7 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features.
+This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features. Recent improvements include enhanced player lifecycle management, improved transport synchronization, and sophisticated lane evaluation policies.
 
 ## Project Structure
 The audio engine is organized into distinct layers that work together to provide a complete playback solution. The architecture follows a layered approach with clear separation of concerns:
@@ -55,20 +52,20 @@ The audio engine is organized into distinct layers that work together to provide
 - **Transport Layer**: Handles playhead state, BPM control, and timing calculations
 - **Scheduler Layer**: Manages lookahead scheduling with configurable timing parameters
 - **Audio Engine Layer**: Controls Web Audio API, voice management, and audio routing
-- **Player Orchestration**: Coordinates all components and manages playback lifecycle
-- **UI Integration**: Connects the audio engine to the tracker interface and user controls
+- **Player Orchestration**: Coordinates all components and manages playback lifecycle with improved state management
+- **UI Integration**: Connects the audio engine to the tracker interface and user controls with synchronized playhead rendering
 
 ```mermaid
 graph TB
 subgraph "Audio Engine Layers"
-A["Transport Layer<br/>- BPM control<br/>- Playhead state<br/>- Tick calculations"]
-B["Scheduler Layer<br/>- Lookahead scheduling<br/>- Timing precision<br/>- Event coordination"]
-C["Audio Engine Layer<br/>- Web Audio API<br/>- Voice management<br/>- Channel routing"]
-D["Player Orchestration<br/>- Component coordination<br/>- Playback lifecycle<br/>- Sample loading"]
+A["Transport Layer<br/>- BPM control<br/>- Playhead state<br/>- Tick calculations<br/>- State machine"]
+B["Scheduler Layer<br/>- Lookahead scheduling<br/>- Timing precision<br/>- Event coordination<br/>- Audio clock synchronization"]
+C["Audio Engine Layer<br/>- Web Audio API<br/>- Voice management<br/>- Channel routing<br/>- Sample caching"]
+D["Player Orchestration<br/>- Component coordination<br/>- Playback lifecycle<br/>- Generation tracking<br/>- Preview scheduling"]
 end
 subgraph "UI Integration"
-E["Player Shell<br/>- Lane management<br/>- Clip placement<br/>- UI data model"]
-F["Tracker Interface<br/>- Playhead visualization<br/>- Transport controls<br/>- Mixer integration"]
+E["Player Shell<br/>- Lane management<br/>- Clip placement<br/>- Dimming policy<br/>- Visual feedback"]
+F["Tracker Interface<br/>- Playhead visualization<br/>- Transport controls<br/>- Mixer integration<br/>- Transport-aware preview"]
 end
 A --> B
 B --> C
@@ -94,19 +91,22 @@ F --> D
 ## Core Components
 
 ### Transport System
-The transport system provides precise timing control with BPM management and playhead state tracking. It operates independently of the audio clock to maintain clean separation of concerns.
+The transport system provides precise timing control with BPM management and playhead state tracking. It operates independently of the audio clock to maintain clean separation of concerns while ensuring synchronization through the Player's currentTick property.
 
 **Key Features:**
 - Pure state machine with stopped/playing/paused states
 - BPM control with dynamic tempo changes
 - Tick-to-time conversion for absolute scheduling
 - No internal timers - relies on scheduler for timing
+- Maintains transport state for UI controls while playhead is driven by audio clock
+
+**Updated** Enhanced synchronization with Player.currentTick for perfect visual-audio alignment
 
 **Section sources**
 - [transport.ts:9-79](file://src/renderer/src/engine/transport.ts#L9-L79)
 
 ### Lookahead Scheduler
-The scheduler implements the Chris Wilson "A Tale of Two Clocks" pattern with configurable timing parameters for optimal performance.
+The scheduler implements the Chris Wilson "A Tale of Two Clocks" pattern with configurable timing parameters for optimal performance and improved synchronization with the audio clock.
 
 **Key Features:**
 - Configurable interval timing (default 25ms)
@@ -114,45 +114,57 @@ The scheduler implements the Chris Wilson "A Tale of Two Clocks" pattern with co
 - Self-correcting from audio clock drift
 - Absolute time scheduling for sample accuracy
 - Live BPM adaptation during playback
+- Anchor-based currentTick calculation for paused state preservation
+
+**Updated** Improved anchor-based currentTick calculation that preserves playhead position during pause/resume cycles
 
 **Section sources**
 - [scheduler.ts:15-137](file://src/renderer/src/engine/scheduler.ts#L15-L137)
 
 ### Audio Engine
-The audio engine manages the Web Audio API infrastructure with comprehensive voice and channel management.
+The audio engine manages the Web Audio API infrastructure with comprehensive voice and channel management and enhanced sample caching capabilities.
 
 **Key Features:**
 - Lazy AudioContext creation for autoplay policy compliance
 - Master gain stage with real-time metering
 - Channel factory with independent gain/pan control
 - Voice registry with lifecycle management
-- Sample caching with LRU eviction policy
+- Enhanced sample caching with LRU eviction policy
+- Preview functionality with dedicated temporary routing
+
+**Updated** Enhanced preview functionality with transport-aware scheduling and improved error handling
 
 **Section sources**
 - [audio-engine.ts:17-204](file://src/renderer/src/engine/audio-engine.ts#L17-L204)
 
 ### Player Orchestration
-The Player class coordinates all audio engine components and manages the complete playback lifecycle.
+The Player class coordinates all audio engine components and manages the complete playback lifecycle with improved state management and generation tracking.
 
 **Key Features:**
 - Orchestrates transport, scheduler, and audio engine
-- Manages playback state transitions
-- Handles sample loading and caching
+- Manages playback state transitions with generation tracking
+- Handles sample loading and caching with race condition prevention
 - Implements monophonic playback with voice management
 - Provides preview functionality with transport-aware scheduling
+- Prevents stray voice starts after stop/pause/close operations
+
+**Updated** Enhanced with playGeneration tracking to prevent race conditions where async buffer loads resolve after playback ends
 
 **Section sources**
 - [player.ts:18-230](file://src/renderer/src/engine/player.ts#L18-L230)
 
 ### Audio Processing Pipeline
-Complete audio processing chain from sample data to final output.
+Complete audio processing chain from sample data to final output with enhanced error handling and preview capabilities.
 
 **Key Features:**
-- Sample loading with asynchronous decoding
-- Voice creation and management
+- Sample loading with asynchronous decoding and caching
+- Voice creation and management with proper cleanup
 - Channel routing with gain/pan control
 - Master bus processing with metering
 - Real-time audio graph manipulation
+- Preview routing with dedicated temporary gain nodes
+
+**Updated** Enhanced preview functionality with transport-aware scheduling and immediate cancellation support
 
 **Section sources**
 - [voice.ts:16-75](file://src/renderer/src/engine/voice.ts#L16-L75)
@@ -160,7 +172,7 @@ Complete audio processing chain from sample data to final output.
 - [sample-cache.ts:27-107](file://src/renderer/src/engine/sample-cache.ts#L27-L107)
 
 ## Architecture Overview
-The enhanced audio engine follows a layered architecture that separates concerns while maintaining tight integration between components. The system uses event-driven communication with clear interfaces between layers.
+The enhanced audio engine follows a layered architecture that separates concerns while maintaining tight integration between components. The system uses event-driven communication with clear interfaces between layers and improved synchronization between audio clock and visual playhead.
 
 ```mermaid
 sequenceDiagram
@@ -182,8 +194,10 @@ Player->>Engine : "triggerVoice(buffer, channel, when)"
 Engine->>Voice : "createAudioBufferSourceNode"
 Voice-->>Engine : "voiceStarted"
 Engine-->>Player : "voice registered"
-Player->>UI : "Update playhead position"
+Player->>UI : "Update playhead position via Player.currentTick"
 ```
+
+**Updated** Enhanced synchronization where UI playhead is derived from Player.currentTick rather than transport state, ensuring perfect visual-audio alignment
 
 **Diagram sources**
 - [useTransportEngine.ts:235-244](file://src/renderer/src/hooks/useTransportEngine.ts#L235-L244)
@@ -199,7 +213,7 @@ Player->>UI : "Update playhead position"
 ## Detailed Component Analysis
 
 ### Transport System Architecture
-The transport system provides a pure state machine interface that manages playback state and timing calculations without direct audio involvement.
+The transport system provides a pure state machine interface that manages playback state and timing calculations without direct audio involvement, maintaining clean separation while ensuring UI synchronization.
 
 ```mermaid
 classDiagram
@@ -224,6 +238,8 @@ paused
 Transport --> TransportState : uses
 ```
 
+**Updated** Transport state is now primarily used for UI controls while the audio clock drives the actual playhead position
+
 **Diagram sources**
 - [transport.ts:9-23](file://src/renderer/src/engine/transport.ts#L9-L23)
 
@@ -231,7 +247,7 @@ Transport --> TransportState : uses
 - [transport.ts:33-79](file://src/renderer/src/engine/transport.ts#L33-L79)
 
 ### Lookahead Scheduler Implementation
-The scheduler implements a sophisticated timing system that bridges JavaScript timer imprecision with Web Audio API precision.
+The scheduler implements a sophisticated timing system that bridges JavaScript timer imprecision with Web Audio API precision and maintains improved synchronization with the audio clock.
 
 ```mermaid
 flowchart TD
@@ -246,6 +262,8 @@ Schedule --> NextTick
 NextTick --> Loop
 ```
 
+**Updated** Enhanced anchor-based currentTick calculation that preserves playhead position during pause/resume cycles
+
 **Diagram sources**
 - [scheduler.ts:75-87](file://src/renderer/src/engine/scheduler.ts#L75-L87)
 
@@ -253,7 +271,7 @@ NextTick --> Loop
 - [scheduler.ts:59-137](file://src/renderer/src/engine/scheduler.ts#L59-L137)
 
 ### Audio Engine Architecture
-The audio engine manages the complete Web Audio API infrastructure with comprehensive voice and channel management.
+The audio engine manages the complete Web Audio API infrastructure with comprehensive voice and channel management and enhanced preview capabilities.
 
 ```mermaid
 classDiagram
@@ -291,6 +309,8 @@ AudioEngine --> Channel : creates
 AudioEngine --> Voice : manages
 ```
 
+**Updated** Enhanced preview functionality with dedicated temporary routing and improved error handling
+
 **Diagram sources**
 - [audio-engine.ts:37-103](file://src/renderer/src/engine/audio-engine.ts#L37-L103)
 - [channel.ts:23-60](file://src/renderer/src/engine/channel.ts#L23-L60)
@@ -300,7 +320,7 @@ AudioEngine --> Voice : manages
 - [audio-engine.ts:37-204](file://src/renderer/src/engine/audio-engine.ts#L37-L204)
 
 ### Player Orchestration Layer
-The Player class serves as the central coordinator for all audio engine components, managing the complete playback lifecycle.
+The Player class serves as the central coordinator for all audio engine components, managing the complete playback lifecycle with enhanced state management and generation tracking.
 
 ```mermaid
 graph TB
@@ -310,26 +330,32 @@ B["AudioEngine Instance"]
 C["Scheduler Instance"]
 D["Channel Registry"]
 E["Lane Voice Registry"]
+F["Play Generation Tracking"]
 end
 subgraph "Playback Flow"
-F["start(fromTick)"]
-G["pause()"]
-H["stop()"]
-I["close()"]
+G["start(fromTick)"]
+H["pause()"]
+I["stop()"]
+J["close()"]
+K["previewSample()"]
 end
 A --> B
 A --> C
 A --> D
 A --> E
-F --> C
-F --> B
+A --> F
 G --> C
 G --> B
 H --> C
 H --> B
 I --> C
 I --> B
+J --> C
+J --> B
+K --> B
 ```
+
+**Updated** Enhanced with playGeneration tracking to prevent race conditions where async buffer loads resolve after playback ends
 
 **Diagram sources**
 - [player.ts:29-59](file://src/renderer/src/engine/player.ts#L29-L59)
@@ -338,7 +364,7 @@ I --> B
 - [player.ts:29-230](file://src/renderer/src/engine/player.ts#L29-L230)
 
 ### Sample Processing Pipeline
-Complete pipeline for sample loading, caching, and playback preparation.
+Complete pipeline for sample loading, caching, and playback preparation with enhanced error handling and preview capabilities.
 
 ```mermaid
 flowchart TD
@@ -354,6 +380,8 @@ Error --> HandleError["Handle decode failure"]
 HandleError --> ReturnNull["Return null"]
 ```
 
+**Updated** Enhanced error handling with proper cleanup and race condition prevention
+
 **Diagram sources**
 - [sample-cache.ts:61-86](file://src/renderer/src/engine/sample-cache.ts#L61-L86)
 
@@ -361,7 +389,7 @@ HandleError --> ReturnNull["Return null"]
 - [sample-cache.ts:27-107](file://src/renderer/src/engine/sample-cache.ts#L27-L107)
 
 ### Lane Evaluation and Trigger Management
-System for determining which clips should trigger at specific ticks, respecting mute/solo states and monophonic rules.
+System for determining which clips should trigger at specific ticks, respecting mute/solo states and monophonic rules with enhanced dimming policy for visual feedback.
 
 ```mermaid
 flowchart TD
@@ -379,14 +407,38 @@ MoreClips --> |Yes| ClipCheck
 MoreClips --> |No| ReturnTriggers["Return triggers array"]
 ```
 
+**Updated** Enhanced with sophisticated dimming policy that separates visual feedback from audio audibility rules
+
 **Diagram sources**
 - [lane-evaluation.ts:53-72](file://src/renderer/src/engine/lane-evaluation.ts#L53-L72)
 
 **Section sources**
 - [lane-evaluation.ts:16-73](file://src/renderer/src/engine/lane-evaluation.ts#L16-L73)
 
+### Enhanced Dimming Policy
+The player shell implements a sophisticated dimming policy that provides visual feedback while maintaining audio flexibility for edge cases.
+
+```mermaid
+flowchart TD
+Input(["LaneState & anySoloed"]) --> MuteCheck{"Lane muted?"}
+MuteCheck --> |Yes| Dim["Dim lane (visual only)"]
+MuteCheck --> |No| SoloCheck{"Any lane soloed?"}
+SoloCheck --> |Yes| SoloCheck2{"Lane soloed?"}
+SoloCheck --> |No| NoDim["No dimming"]
+SoloCheck2 --> |Yes| NoDim
+SoloCheck2 --> |No| Dim
+```
+
+**Updated** Visual dimming policy differs from audio audibility rules to provide clear visual feedback even when audio behavior is more nuanced
+
+**Diagram sources**
+- [playerShell.ts:141-149](file://src/renderer/src/lib/playerShell.ts#L141-L149)
+
+**Section sources**
+- [playerShell.ts:136-149](file://src/renderer/src/lib/playerShell.ts#L136-L149)
+
 ## Dependency Analysis
-The audio engine components have well-defined dependencies that maintain loose coupling while enabling tight coordination.
+The audio engine components have well-defined dependencies that maintain loose coupling while enabling tight coordination and improved synchronization.
 
 ```mermaid
 graph LR
@@ -406,6 +458,8 @@ UI --> PlayerShell
 UI --> Transport
 ```
 
+**Updated** Enhanced dependency flow with Player.currentTick driving UI synchronization and improved error handling throughout the chain
+
 **Diagram sources**
 - [transport.ts:13](file://src/renderer/src/engine/transport.ts#L13)
 - [scheduler.ts:13](file://src/renderer/src/engine/scheduler.ts#L13)
@@ -424,40 +478,44 @@ UI --> Transport
 ## Performance Considerations
 
 ### Timing Precision and Latency Optimization
-The lookahead scheduler provides sample-accurate timing by bridging JavaScript timer imprecision with Web Audio API precision. The system uses absolute time scheduling to eliminate cumulative timing errors.
+The lookahead scheduler provides sample-accurate timing by bridging JavaScript timer imprecision with Web Audio API precision. The system uses absolute time scheduling to eliminate cumulative timing errors and enhanced synchronization between audio clock and visual playhead.
 
 **Key Performance Features:**
 - 25ms interval timing with 100ms lookahead window
 - Self-correcting mechanism that catches up from audio clock drift
 - Absolute AudioContext time scheduling prevents timer jitter accumulation
 - Configurable timing parameters optimize for different use cases
+- Enhanced anchor-based currentTick calculation preserves playhead position during pause/resume
 
 ### Memory Management and Sample Caching
-The sample cache implements an LRU eviction policy to prevent unbounded memory growth while maintaining frequently accessed samples in memory.
+The sample cache implements an LRU eviction policy to prevent unbounded memory growth while maintaining frequently accessed samples in memory with enhanced error handling.
 
 **Memory Optimization Features:**
 - Configurable maximum cache entries (default 64)
 - Deduplicated in-flight decode requests prevent race conditions
 - Automatic eviction of least-recently-used samples
 - Efficient buffer reuse reduces garbage collection pressure
+- Enhanced error handling with proper cleanup
 
 ### Audio Thread Safety and Real-time Processing
-The engine maintains strict separation between UI and audio threads, with all Web Audio API operations occurring on the audio thread.
+The engine maintains strict separation between UI and audio threads, with all Web Audio API operations occurring on the audio thread and improved state management.
 
 **Real-time Processing Features:**
 - All AudioBufferSourceNode operations on audio thread
 - Voice lifecycle managed through proper event handling
 - Channel connections established once and reused
 - Master metering performed asynchronously to avoid blocking
+- Enhanced generation tracking prevents race conditions
 
 ### UI Integration and Render Performance
-The tracker interface efficiently updates the playhead position and visual feedback without impacting audio performance.
+The tracker interface efficiently updates the playhead position and visual feedback without impacting audio performance through improved synchronization mechanisms.
 
 **UI Performance Features:**
-- Visual playhead derived from audio clock, not separate timer
+- Visual playhead derived from Player.currentTick, not separate timer
 - Minimal state updates during playback
 - Efficient lane rendering with optimized clip positioning
 - Master level meter updates at reduced frequency
+- Enhanced dimming policy provides clear visual feedback
 
 ## Troubleshooting Guide
 
@@ -468,24 +526,30 @@ The tracker interface efficiently updates the playhead position and visual feedb
 - Check that scheduler is running and receiving tick events
 - Ensure BPM is set to positive value (> 0)
 - Confirm that transport.play() is called and scheduler.start() is executed
+- Verify that Player.currentTick is being used for UI updates rather than transport state
 
 **Audio Dropouts or Glitches**
 - Verify lookahead window is sufficient (≥ 50ms for typical use cases)
 - Check that scheduler interval is appropriate (20-30ms recommended)
 - Monitor active voice count - excessive voices can cause buffer underruns
 - Ensure sample cache has adequate decoded buffers loaded
+- Check for race conditions in async buffer loading
 
 **Timing Drift or Desynchronization**
 - Confirm that visual playhead is derived from Player.currentTick, not transport state
 - Verify that all scheduling uses absolute AudioContext time
 - Check that scheduler anchors are properly maintained during pause/resume
 - Ensure transport state changes don't interfere with scheduler timing
+- Verify that playGeneration tracking prevents stray voice starts
 
 **Sample Loading Failures**
 - Verify sample file integrity and format compatibility
 - Check that sample cache is properly configured with sufficient capacity
 - Confirm that decode errors are handled gracefully without crashing engine
 - Ensure file permissions allow sample access through IPC
+- Check for race conditions where async loads resolve after stop/pause
+
+**Updated** Enhanced troubleshooting guidance for new generation tracking and improved synchronization features
 
 **Section sources**
 - [transport.ts:46-66](file://src/renderer/src/engine/transport.ts#L46-L66)
@@ -493,7 +557,7 @@ The tracker interface efficiently updates the playhead position and visual feedb
 - [sample-cache.ts:77-82](file://src/renderer/src/engine/sample-cache.ts#L77-L82)
 
 ## Conclusion
-MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
+MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback with significant improvements in synchronization, state management, and user experience. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The enhanced player implementation prevents race conditions and stray voice starts, while the improved transport synchronization ensures perfect visual-audio alignment. The sophisticated dimming policy provides clear visual feedback while maintaining flexible audio behavior. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
 
 ## Appendices
 
@@ -508,6 +572,8 @@ Playing --> Stopped : "stop()"
 Stopped --> Stopped : "stop()"
 Paused --> Stopped : "stop()"
 ```
+
+**Updated** Transport state is now primarily used for UI controls while audio clock drives actual playhead position
 
 **Diagram sources**
 - [transport.ts:46-58](file://src/renderer/src/engine/transport.ts#L46-L58)
@@ -533,19 +599,35 @@ end
 User->>Player : "pause()"
 Player->>Scheduler : "stop()"
 Scheduler-->>Player : "running=false"
+Player->>Player : "clear lane voices"
 User->>Player : "stop()"
 Player->>Scheduler : "reset(0)"
 Player->>Engine : "stopAllVoices()"
+Player->>Player : "clear lane voices"
+Player->>Player : "reset lastScheduledTick"
 ```
+
+**Updated** Enhanced with generation tracking and improved state cleanup during pause/stop operations
 
 **Diagram sources**
 - [player.ts:145-174](file://src/renderer/src/engine/player.ts#L145-L174)
 - [scheduler.ts:94-116](file://src/renderer/src/engine/scheduler.ts#L94-L116)
 
 ### Timeline Visualization and Playback Coordination
-The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer.
+The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer. This ensures that the visual playhead never drifts from the audible output, providing a consistent user experience.
+
+**Updated** Enhanced synchronization through Player.currentTick integration and improved anchor-based calculations
 
 **Section sources**
 - [useTransportEngine.ts:149-154](file://src/renderer/src/hooks/useTransportEngine.ts#L149-L154)
 - [player.ts:67-69](file://src/renderer/src/engine/player.ts#L67-L69)
 - [TrackerView.tsx:115-122](file://src/renderer/src/components/TrackerView.tsx#L115-L122)
+
+### Enhanced Dimming Policy Implementation
+The player shell implements a sophisticated dimming policy that provides clear visual feedback while maintaining audio flexibility. The policy separates visual dimming from audio audibility rules, ensuring that users receive appropriate visual cues even in complex mute/solo scenarios.
+
+**Updated** New dimming policy that differs from audio audibility rules for better user experience
+
+**Section sources**
+- [playerShell.ts:141-149](file://src/renderer/src/lib/playerShell.ts#L141-L149)
+- [lane-evaluation.ts:43-48](file://src/renderer/src/engine/lane-evaluation.ts#L43-L48)
