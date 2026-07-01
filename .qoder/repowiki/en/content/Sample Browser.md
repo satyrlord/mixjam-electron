@@ -16,6 +16,7 @@
 - [ScanOverlay.tsx](file://src/renderer/src/components/ScanOverlay.tsx)
 - [ScanProgressBar.tsx](file://src/renderer/src/components/ScanProgressBar.tsx)
 - [useFolderSession.ts](file://src/renderer/src/hooks/useFolderSession.ts)
+- [useLibraryData.test.ts](file://src/renderer/src/hooks/useLibraryData.test.ts)
 - [spec-004-sample-library.md](file://docs/specs/spec-004-sample-library.md)
 - [data-model.md](file://docs/data-model.md)
 - [indexing.md](file://docs/indexing.md)
@@ -25,10 +26,10 @@
 
 ## Update Summary
 **Changes Made**
-- **Unified SampleListItem Interface**: Introduced standardized data representation that eliminates inconsistencies between legacy folder browser and database query pipelines
-- **Consistent Data Shape**: Provides unified id, name, filepath, category, durationSeconds, tags, categoryId, and tagIds fields across all browsing modes
-- **Enhanced Cold-Start Fallback**: Improved legacy folder scanner with consistent data structure matching indexed database browser
-- **Streamlined Data Mapping**: Simplified conversion between different data representations with dbSampleToListItem function
+- **Enhanced Paginated Loading System**: Implemented constant page size of 500 items with automatic iteration through all database pages for improved performance on large sample libraries
+- **Automatic Full Library Loading**: Updated behavior where clearing category filters loads all matching samples rather than just the first page
+- **Improved Performance**: Optimized database queries with constant page size for better memory management and faster response times
+- **Enhanced User Experience**: Seamless loading of complete sample sets when category filters are cleared
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -44,7 +45,7 @@
 11. [Appendices](#appendices)
 
 ## Introduction
-This document explains the enhanced sample browser functionality in MixJam Electron, featuring a unified SampleListItem interface that standardizes data representation across all browsing modes. The system now provides consistent data shapes between the legacy folder browser and database query pipelines, eliminating inconsistencies in cold-start fallback scenarios. The enhanced architecture maintains sophisticated database-backed operations with FTS5 full-text search, hierarchical category filtering, tag-based organization, and pagination support, while ensuring seamless data interchange between main and renderer processes.
+This document explains the enhanced sample browser functionality in MixJam Electron, featuring a unified SampleListItem interface that standardizes data representation across all browsing modes. The system now provides consistent data shapes between the legacy folder browser and database query pipelines, eliminating inconsistencies in cold-start fallback scenarios. The enhanced architecture maintains sophisticated database-backed operations with FTS5 full-text search, hierarchical category filtering, tag-based organization, and an improved paginated loading system with constant page size for optimal performance on large sample libraries.
 
 ## Project Structure
 The enhanced sample browser spans four integrated layers with unified data representation:
@@ -98,14 +99,14 @@ DB --> IDX
 
 **Diagram sources**
 - [TrackerView.tsx:1-685](file://src/renderer/src/components/TrackerView.tsx#L1-L685)
-- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
+- [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 - [library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [db.ts:1-145](file://src/main/db.ts#L1-L145)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
 
 **Section sources**
 - [TrackerView.tsx:1-685](file://src/renderer/src/components/TrackerView.tsx#L1-L685)
-- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
+- [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 - [library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [db.ts:1-145](file://src/main/db.ts#L1-L145)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
@@ -124,7 +125,7 @@ The system features a comprehensive SQLite-based architecture with:
 - **FTS5 Virtual Table**: Full-text search with prefix matching and operator safety
 - **Hierarchical Categories**: Recursive category trees with parent-child relationships
 - **Tag Management**: Many-to-many relationships between samples and tags
-- **Pagination Support**: Windowed query results with configurable limits
+- **Enhanced Pagination Support**: Constant page size of 500 items with automatic iteration through all database pages
 - **Advanced Indexing**: Optimized indexes for performance on large datasets
 
 ### Advanced Filtering System
@@ -150,7 +151,7 @@ The system features a comprehensive SQLite-based architecture with:
 - [TrackerView.tsx:506-656](file://src/renderer/src/components/TrackerView.tsx#L506-L656)
 
 ## Architecture Overview
-The enhanced sample browser implements a sophisticated three-tier architecture with unified data representation:
+The enhanced sample browser implements a sophisticated three-tier architecture with unified data representation and improved pagination:
 - **Main Process**: Heavy I/O operations, database management, and FTS5 indexing with consistent SampleListItem interface
 - **Database Layer**: Schema management, query optimization, and full-text search
 - **Renderer Process**: Rich UI components with advanced filtering and real-time updates
@@ -170,13 +171,14 @@ M->>L : "normalizeSampleQueryRequest(req)"
 L->>D : "querySamples(opts)"
 alt "FTS5 enabled"
 D->>D : "FTS5 prefix query building"
-D-->>L : "SampleQueryResult{rows,total}"
-else "Simple query"
-D-->>L : "Standard SQL query"
 end
-L-->>M : "SampleQueryResult{rows,total}"
-M-->>P : "SampleQueryResult{rows,total}"
-P-->>R : "SampleQueryResult{rows,total}"
+loop "Automatic Page Iteration (500 items/page)"
+D->>L : "SampleQueryResult{rows,total}"
+L->>L : "accumulate rows until total loaded"
+end
+L-->>M : "Complete SampleQueryResult"
+M-->>P : "Complete SampleQueryResult"
+P-->>R : "Complete SampleQueryResult"
 R->>R : "map to SampleListItem"
 R->>R : "set samples, update UI"
 ```
@@ -236,16 +238,18 @@ Filter --> Return["Return SampleListItem[]"]
 - [sample-browser.ts:26-77](file://src/main/sample-browser.ts#L26-L77)
 - [sample-browser.ts:62-71](file://src/main/sample-browser.ts#L62-L71)
 
-### Database Query Pipeline with Unified Interface
-The database query pipeline maps to the unified SampleListItem format:
+### Enhanced Database Query Pipeline with Automatic Page Iteration
+The database query pipeline now implements automatic page iteration with constant page size:
 
 ```mermaid
 flowchart TD
-Query["querySamples()"] --> DB["SQLite Query"]
-DB --> Rows["SampleRow[]"]
-Rows --> Map["dbSampleToListItem()"]
-Map --> ListItem["SampleListItem[]"]
-ListItem --> Return["Return to Renderer"]
+Query["querySamples()"] --> Init["Initialize rows[], total=0, offset=0"]
+Init --> Loop{"rows.length < total<br/>or first iteration?"}
+Loop --> |Yes| Fetch["Fetch next 500 items<br/>with current filters"]
+Fetch --> Accumulate["Accumulate rows<br/>update total"]
+Accumulate --> Loop
+Loop --> |No| Map["dbSampleToListItem()"]
+Map --> Complete["Return complete SampleListItem[]"]
 ```
 
 **Diagram sources**
@@ -322,29 +326,36 @@ Sample "1" o-- "0..1" Category : "assigned_to"
 - [library.ts:104-182](file://src/main/library.ts#L104-L182)
 - [library.ts:456-535](file://src/main/library.ts#L456-L535)
 
-### Pagination and Windowed Queries
-The system implements efficient pagination for large datasets:
-- **Configurable Limits**: Default 200 rows per page with adjustable sizes
-- **Offset-based Navigation**: Efficient cursor-based positioning
+### Enhanced Pagination and Windowed Queries
+The system implements efficient pagination for large datasets with constant page size:
+- **Constant Page Size**: Fixed 500 items per page for predictable memory usage
+- **Automatic Iteration**: Continuous fetching until all matching samples are loaded
+- **Offset-based Navigation**: Efficient cursor-based positioning with accumulated offsets
 - **Total Count Tracking**: Accurate result counting for UI feedback
-- **Performance Optimization**: Separate COUNT queries for pagination metadata
+- **Performance Optimization**: Single query execution with automatic page accumulation
 
 ```mermaid
 flowchart TD
 Request["Query Request"] --> Params["Parse Parameters"]
-Params --> Limit["Apply Limit (default: 200)"]
-Limit --> Offset["Apply Offset (default: 0)"]
-Offset --> Sort["Apply Sorting"]
-Sort --> Execute["Execute Windowed Query"]
-Execute --> Count["Execute COUNT Query"]
-Count --> Result["Return {rows,total}"]
+Params --> Init["Initialize: rows=[], total=0, offset=0"]
+Init --> Loop{"rows.length < total<br/>or first iteration?"}
+Loop --> |Yes| Fetch["Fetch 500 items with filters"]
+Fetch --> Update["Update total, append rows"]
+Update --> Check{"rows.length == 0?"}
+Check --> |Yes| Break["Break loop"]
+Check --> |No| Advance["offset += rows.length"]
+Advance --> Loop
+Loop --> |No| Map["Map to SampleListItem[]"]
+Map --> Return["Return complete results"]
 ```
 
 **Diagram sources**
 - [library.ts:281-384](file://src/main/library.ts#L281-L384)
+- [useLibraryData.ts:186-202](file://src/renderer/src/hooks/useLibraryData.ts#L186-L202)
 
 **Section sources**
 - [library.ts:281-384](file://src/main/library.ts#L281-L384)
+- [useLibraryData.ts:186-202](file://src/renderer/src/hooks/useLibraryData.ts#L186-L202)
 
 ### Advanced Filtering Pipeline
 The filtering system processes multiple criteria simultaneously:
@@ -362,8 +373,9 @@ Build --> Text["Text Search Condition"]
 Text --> Category["Category Filter Condition"]
 Category --> Tags["Tag Filter Condition"]
 Tags --> Sort["Sorting Configuration"]
-Sort --> Execute["Execute Query"]
-Execute --> Results["Return Paginated Results"]
+Sort --> Execute["Execute Query with 500-item Pages"]
+Execute --> Iterate["Automatic Page Iteration"]
+Iterate --> Results["Return Complete Results"]
 ```
 
 **Diagram sources**
@@ -376,7 +388,7 @@ Execute --> Results["Return Paginated Results"]
 
 ## Advanced Features
 
-### Manage Panel Interface
+### Enhanced Manage Panel Interface
 The ManagePanel provides comprehensive administrative capabilities:
 - **Tag Management**: Create, rename, delete tags with color support
 - **Category Management**: Hierarchical category creation and deletion
@@ -396,11 +408,18 @@ The interface adapts to various screen sizes and user interactions:
 - **Context Menus**: Right-click actions for advanced operations
 - **Drag-and-Drop**: Seamless integration with the tracker interface
 
+### Enhanced Category Filter Behavior
+The category filtering system now provides improved user experience:
+- **Automatic Full Loading**: Clearing category filters loads all matching samples
+- **Seamless Transition**: Smooth transition from filtered to full library view
+- **Performance Optimization**: Efficient loading of complete sample sets
+
 **Section sources**
 - [ManagePanel.tsx:1-242](file://src/renderer/src/components/ManagePanel.tsx#L1-L242)
 - [ScanOverlay.tsx:1-39](file://src/renderer/src/components/ScanOverlay.tsx#L1-L39)
 - [ScanProgressBar.tsx:1-19](file://src/renderer/src/components/ScanProgressBar.tsx#L1-L19)
 - [TrackerView.tsx:241-261](file://src/renderer/src/components/TrackerView.tsx#L241-L261)
+- [useLibraryData.ts:347-351](file://src/renderer/src/hooks/useLibraryData.ts#L347-L351)
 
 ## Dependency Analysis
 The enhanced system has sophisticated interdependencies with unified data representation:
@@ -431,37 +450,40 @@ UI --> SampleListItem["Unified Interface"]
 - [sample-browser.ts:1-104](file://src/main/sample-browser.ts#L1-L104)
 - [library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [db.ts:1-145](file://src/main/db.ts#L1-L145)
-- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
+- [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
 
 **Section sources**
 - [sample-browser.ts:1-104](file://src/main/sample-browser.ts#L1-L104)
 - [library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [db.ts:1-145](file://src/main/db.ts#L1-L145)
-- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
+- [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
 
 ## Performance Considerations
 The enhanced system implements multiple optimization strategies with unified data representation:
 - **FTS5 Indexing**: Virtual table with automatic trigger-based updates
-- **Windowed Queries**: Configurable pagination with efficient COUNT queries
+- **Enhanced Windowed Queries**: Constant 500-item page size with automatic iteration for optimal memory usage
 - **Debounced Queries**: 150ms debounce for search and filter changes
 - **Hierarchical CTE**: Recursive category queries with optimized execution plans
 - **Virtualized Rendering**: Efficient DOM management for large lists
 - **Schema Migration**: Versioned database schema with backward compatibility
 - **Unified Interface**: Reduces data transformation overhead and improves consistency
+- **Automatic Page Accumulation**: Seamless loading of complete sample sets when filters are cleared
 
 ### Performance Benchmarks
 - **Full-text Search**: < 50ms against development dataset, target < 5ms for 100k+ rows
 - **Category Filtering**: Recursive CTE with optimized subtree expansion
 - **Tag Filtering**: Multi-index queries with efficient intersection operations
-- **Pagination**: Windowed queries with separate COUNT operations
+- **Enhanced Pagination**: 500-item pages with automatic iteration for large libraries
 - **Data Mapping**: Streamlined conversion between legacy and database formats
+- **Memory Usage**: Predictable memory footprint with constant page size
 
 **Section sources**
 - [spec-004-sample-library.md:147-155](file://docs/specs/spec-004-sample-library.md#L147-L155)
 - [library.ts:281-384](file://src/main/library.ts#L281-L384)
 - [db.ts:87-104](file://src/main/db.ts#L87-L104)
+- [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
 
 ## Troubleshooting Guide
 Enhanced troubleshooting for the advanced feature set with unified interface:
@@ -473,6 +495,7 @@ Enhanced troubleshooting for the advanced feature set with unified interface:
 - **Scan Progress Issues**: Monitor IPC progress events and database connection status
 - **Memory Leaks**: Ensure proper cleanup of debounced timers and event listeners
 - **Data Inconsistency**: Verify SampleListItem interface compliance across all pipelines
+- **Page Loading Issues**: Check automatic page iteration logic and 500-item page size
 
 ### Diagnostic Steps
 - **Database Health**: Verify schema version and migration completion
@@ -481,6 +504,7 @@ Enhanced troubleshooting for the advanced feature set with unified interface:
 - **IPC Communication**: Validate typed interfaces and error handling
 - **Component State**: Monitor React component lifecycle and state updates
 - **Interface Compliance**: Ensure all data sources produce consistent SampleListItem format
+- **Page Iteration Logic**: Verify automatic page accumulation and 500-item page size
 
 **Section sources**
 - [library.ts:123-143](file://src/main/library.ts#L123-L143)
@@ -488,7 +512,7 @@ Enhanced troubleshooting for the advanced feature set with unified interface:
 - [useLibraryData.ts:264-275](file://src/renderer/src/hooks/useLibraryData.ts#L264-L275)
 
 ## Conclusion
-The enhanced sample browser represents a significant advancement in audio library management, featuring sophisticated database architecture, FTS5 full-text search, hierarchical organization, and comprehensive filtering capabilities. The introduction of the unified SampleListItem interface eliminates inconsistencies between legacy folder browser and database query pipelines, providing a consistent data shape across all browsing modes. The system successfully balances performance with functionality, providing users with powerful tools for organizing and discovering large sample collections. The modular architecture ensures maintainability while the comprehensive component ecosystem delivers an intuitive user experience.
+The enhanced sample browser represents a significant advancement in audio library management, featuring sophisticated database architecture, FTS5 full-text search, hierarchical organization, and comprehensive filtering capabilities. The introduction of the unified SampleListItem interface eliminates inconsistencies between legacy folder browser and database query pipelines, providing a consistent data shape across all browsing modes. The enhanced paginated loading system with constant 500-item page size and automatic page iteration significantly improves performance on large sample libraries, while the improved category filter behavior provides a seamless user experience when clearing filters. The system successfully balances performance with functionality, providing users with powerful tools for organizing and discovering large sample collections. The modular architecture ensures maintainability while the comprehensive component ecosystem delivers an intuitive user experience.
 
 ## Appendices
 
@@ -496,7 +520,7 @@ The enhanced sample browser represents a significant advancement in audio librar
 - **Supported Audio Formats**: WAV, MP3, FLAC, OGG, AIFF
 - **Database Schema**: Versioned with automatic migration support
 - **FTS5 Configuration**: Virtual table with automatic trigger synchronization
-- **Pagination Settings**: Default 200 rows per page with configurable limits
+- **Enhanced Pagination Settings**: Constant 500 items per page with automatic iteration
 - **Scan Intervals**: Manual triggering with progress monitoring
 - **Cache Management**: Automatic cache per sample folder with forced refresh
 - **Unified Interface**: Consistent SampleListItem data structure across all pipelines
@@ -506,33 +530,38 @@ The enhanced sample browser represents a significant advancement in audio librar
 - [db.ts:106-144](file://src/main/db.ts#L106-L144)
 - [library.ts:281-384](file://src/main/library.ts#L281-L384)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
+- [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
 
 ### Advanced Features
 - **FTS5 Full-Text Search**: Safe prefix matching with operator protection
 - **Hierarchical Categories**: Recursive filtering with descendant inclusion
 - **Tag-Based Organization**: Flexible many-to-many relationships
-- **Pagination Support**: Windowed queries with total count tracking
+- **Enhanced Pagination Support**: Automatic page iteration with 500-item page size
 - **Real-time Updates**: Debounced queries with instant UI feedback
 - **Administrative Interface**: Comprehensive ManagePanel for system administration
 - **Unified Data Interface**: Consistent SampleListItem format across all browsing modes
 - **Legacy Fallback**: Improved cold-start scanner with standardized data structure
+- **Automatic Full Library Loading**: Seamless loading of complete sample sets when filters are cleared
 
 **Section sources**
 - [library.ts:252-384](file://src/main/library.ts#L252-L384)
 - [ManagePanel.tsx:1-242](file://src/renderer/src/components/ManagePanel.tsx#L1-L242)
 - [useLibraryData.ts:216-248](file://src/renderer/src/hooks/useLibraryData.ts#L216-L248)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
+- [useLibraryData.ts:347-351](file://src/renderer/src/hooks/useLibraryData.ts#L347-L351)
 
 ### Performance Specifications
 - **Search Performance**: < 50ms for development dataset, target < 5ms for 100k+ rows
 - **Category Filtering**: Optimized recursive CTE execution
 - **Tag Operations**: Efficient multi-index intersection queries
-- **Memory Usage**: Virtualized rendering with controlled DOM node count
+- **Memory Usage**: Predictable memory footprint with 500-item page size
 - **Database Size**: Scalable SQLite database with proper indexing
 - **Data Consistency**: Unified interface reduces transformation overhead and improves reliability
+- **Page Loading Performance**: Automatic page iteration provides seamless loading experience
 
 **Section sources**
 - [spec-004-sample-library.md:147-155](file://docs/specs/spec-004-sample-library.md#L147-L155)
 - [TrackerView.tsx:591-640](file://src/renderer/src/components/TrackerView.tsx#L591-L640)
 - [db.ts:79-85](file://src/main/db.ts#L79-L85)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
+- [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)

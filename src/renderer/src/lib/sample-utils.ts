@@ -66,14 +66,26 @@ export function tileWidth(seconds: number | null): number {
   return Math.max(60, Math.round(cappedSeconds * 35))
 }
 
-export function nearestTick(clickX: number, containerWidth: number, totalTicks: number): number {
+/**
+ * Convert a pixel position to the nearest tick, optionally snapping to a grid.
+ * @param snapResolution - Grid resolution in ticks (e.g. 8 = snap to beat, 1 = per-tick freeform).
+ *   Defaults to 1 (per-tick, no grid snap) for backward compatibility.
+ */
+export function nearestTick(
+  clickX: number,
+  containerWidth: number,
+  totalTicks: number,
+  snapResolution: number = 1
+): number {
   // Guard against an unmeasured (zero/negative) container width, which would
   // make tickWidth 0 and yield Infinity/NaN ticks.
   if (!(containerWidth > 0) || !(totalTicks > 0)) return 0
   const tickWidth = containerWidth / totalTicks
   const tick = Math.round(clickX / tickWidth)
   if (!Number.isFinite(tick)) return 0
-  return Math.min(Math.max(0, tick), totalTicks - 1)
+  const clamped = Math.min(Math.max(0, tick), totalTicks - 1)
+  if (snapResolution <= 1) return clamped
+  return Math.round(clamped / snapResolution) * snapResolution
 }
 
 export function meterFillPct(db: number): number {

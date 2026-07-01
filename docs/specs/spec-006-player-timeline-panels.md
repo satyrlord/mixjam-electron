@@ -109,6 +109,11 @@ adjacencies.
 - Label: sample filename, truncated.
 - Clip color: driven by a per-sample hue derived from category or a hash of
   the filename (consistent across sessions).
+- **Snap-to-beat (default):** Dropping a sample from the browser or moving a
+  clip within the tracker snaps the clip's start position to the nearest beat
+  boundary (every 8 ticks). Holding **Alt** while dropping/moving places the
+  clip at per-tick precision (freeform). **Shift** is reserved for duplicating
+  a sample; **Ctrl** is reserved for rectangle-drag multi-select.
 - **Monophonic cut-off behavior** (per spec-005): a lane is monophonic in
   *audio* only — a new trigger cuts off the previously sounding voice on that
   lane. Overlapping clips are *not* trimmed visually: both bubbles keep their
@@ -208,7 +213,8 @@ adjacencies.
 - [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, M and S buttons, and pan knob placeholder.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
-- [x] **AC-008:** Dragging a sample tile from the browser and dropping it onto a lane places it as a clip at the nearest tick, sized proportionally to the sample's audio duration.
+- [x] **AC-008:** Dragging a sample tile from the browser and dropping it onto a lane places it as a clip snapped to the nearest beat boundary, sized proportionally to the sample's audio duration.
+- [x] **AC-008a:** Holding Alt while dropping a sample or moving a clip bypasses beat-snap and places the clip at per-tick precision (freeform).
 - [x] **AC-009:** Placing a clip that overlaps an existing one on the same lane keeps both clips visually intact (overlapping); only the audio
   is monophonic (the new trigger cuts off the previous voice). Overlap never deletes or trims the earlier clip's data.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
@@ -227,7 +233,7 @@ adjacencies.
 - No bulk recent-project management actions (pinning, removing entries, or custom grouping) inside the Recent Projects rail.
 - No user-resizable split between the upper and lower work bands; the full-width
   Middle Strip is a fixed seam, not a drag handle.
-- No clip drag-to-reposition or resize once placed — full clip interaction is a later slice.
+- No clip resize once placed.
 - No track reordering (drag lane up/down).
 - No lane add/remove UI (fixed 16 lanes).
 - No zoom in/out on the timeline.

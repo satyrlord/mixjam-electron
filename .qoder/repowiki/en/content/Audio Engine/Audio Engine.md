@@ -15,6 +15,9 @@
 - [TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
 - [useAppState.ts](file://src/renderer/src/hooks/useAppState.ts)
 - [App.tsx](file://src/renderer/src/App.tsx)
+- [LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
+- [useLibraryData.ts](file://src/renderer/src/hooks/useLibraryData.ts)
+- [library.ts](file://src/main/library.ts)
 - [audio-engine.md](file://docs/audio-engine.md)
 - [spec-005-audio-playback-engine.md](file://docs/specs/spec-005-audio-playback-engine.md)
 - [spec-006-player-timeline-panels.md](file://docs/specs/spec-006-player-timeline-panels.md)
@@ -27,10 +30,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced error handling and voice lifecycle management in Player class with improved race condition prevention
-- Refined audio processing pipeline with better sample loading and caching error recovery
-- Improved transport system with live BPM editing capabilities and enhanced synchronization
-- Strengthened voice lifecycle management with robust double-processing guards and proper cleanup
+- Enhanced timeline panel system with comprehensive beat and bar grid alignment
+- Improved ruler and grid rendering with CSS variable integration
+- Added new getComputedColor utility function for CSS property fallback resolution
+- Implemented performance improvements to useLibraryData hook with paginated loading system
+- Replaced single-page database queries with efficient pagination replacing legacy folder scanning
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,14 +42,16 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Timeline Panel Enhancements](#timeline-panel-enhancements)
+7. [Library Data Performance Improvements](#library-data-performance-improvements)
+8. [Dependency Analysis](#dependency-analysis)
+9. [Performance Considerations](#performance-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
+12. [Appendices](#appendices)
 
 ## Introduction
-This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features. Recent improvements include enhanced player lifecycle management, improved transport synchronization, and sophisticated lane evaluation policies.
+This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features. Recent improvements include enhanced player lifecycle management, improved transport synchronization, sophisticated lane evaluation policies, and significant performance optimizations for the library data system.
 
 ## Project Structure
 The audio engine is organized into distinct layers that work together to provide a complete playback solution. The architecture follows a layered approach with clear separation of concerns:
@@ -55,6 +61,7 @@ The audio engine is organized into distinct layers that work together to provide
 - **Audio Engine Layer**: Controls Web Audio API, voice management, and audio routing
 - **Player Orchestration**: Coordinates all components and manages playback lifecycle with improved state management
 - **UI Integration**: Connects the audio engine to the tracker interface and user controls with synchronized playhead rendering
+- **Timeline Panels**: Enhanced visual timeline with beat/bar grid alignment and CSS variable integration
 
 ```mermaid
 graph TB
@@ -67,12 +74,14 @@ end
 subgraph "UI Integration"
 E["Player Shell<br/>- Lane management<br/>- Clip placement<br/>- Dimming policy<br/>- Visual feedback"]
 F["Tracker Interface<br/>- Playhead visualization<br/>- Transport controls<br/>- Mixer integration<br/>- Transport-aware preview"]
+G["Timeline Panels<br/>- Beat/bar grid alignment<br/>- CSS variable integration<br/>- Enhanced rendering<br/>- Performance optimization"]
 end
 A --> B
 B --> C
 C --> D
 E --> D
 F --> D
+G --> F
 ```
 
 **Diagram sources**
@@ -81,6 +90,7 @@ F --> D
 - [audio-engine.ts:1-204](file://src/renderer/src/engine/audio-engine.ts#L1-L204)
 - [player.ts:1-230](file://src/renderer/src/engine/player.ts#L1-L230)
 - [playerShell.ts:1-202](file://src/renderer/src/lib/playerShell.ts#L1-L202)
+- [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
 
 **Section sources**
 - [transport.ts:1-79](file://src/renderer/src/engine/transport.ts#L1-L79)
@@ -438,6 +448,105 @@ SoloCheck2 --> |No| Dim
 **Section sources**
 - [playerShell.ts:136-149](file://src/renderer/src/lib/playerShell.ts#L136-L149)
 
+## Timeline Panel Enhancements
+
+### Beat and Bar Grid Alignment
+The timeline panel system has been significantly enhanced with comprehensive beat and bar grid alignment, providing precise visual synchronization between the audio engine and the tracker interface.
+
+**Key Features:**
+- Beat grid rendering with 1/8th note resolution (TICKS_PER_BEAT = 8)
+- Bar grid rendering with 4/4 time signature alignment
+- One tick per beat in ruler for perfect header-line alignment
+- Enhanced visual grid with transparent beat lines and opaque bar lines
+- CSS variable integration for consistent theming across components
+
+**Updated** New comprehensive grid system with beat/bar alignment and improved visual hierarchy
+
+**Section sources**
+- [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
+- [TrackerView.tsx:364-371](file://src/renderer/src/components/TrackerView.tsx#L364-L371)
+
+### CSS Variable Integration and Utility Functions
+The timeline panels now utilize CSS variable integration for consistent theming and improved maintainability.
+
+**Key Features:**
+- getComputedColor utility function for CSS property fallback resolution
+- getComputedAccent function for accent color retrieval
+- CSS variable-based styling for borders, backgrounds, and accents
+- Dynamic color resolution based on current theme variables
+
+**Updated** New utility functions for CSS property resolution and enhanced theming support
+
+**Section sources**
+- [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
+- [LaneClipCanvas.tsx:102-103](file://src/renderer/src/components/LaneClipCanvas.tsx#L102-L103)
+- [LaneClipCanvas.tsx:133](file://src/renderer/src/components/LaneClipCanvas.tsx#L133)
+
+### Enhanced Ruler Rendering
+The ruler component has been improved with better tick mark placement and bar numbering system.
+
+**Key Features:**
+- One tick per beat for perfect grid alignment
+- Bar numbers displayed every 4 bars (1, 5, 9, 13...)
+- Consistent spacing between lane head and ruler spacer
+- Enhanced visual hierarchy with transparent beat lines and opaque bar lines
+
+**Updated** Improved ruler rendering with precise beat/bar alignment and enhanced visual feedback
+
+**Section sources**
+- [TrackerView.tsx:364-371](file://src/renderer/src/components/TrackerView.tsx#L364-L371)
+- [index.css:493-511](file://src/renderer/src/index.css#L493-L511)
+
+## Library Data Performance Improvements
+
+### Paginated Loading System
+The useLibraryData hook has been significantly optimized with a paginated loading system that replaces single-page database queries and improves performance for large sample libraries.
+
+**Key Features:**
+- Page size of 500 items per request (DB_SAMPLE_PAGE_SIZE = 500)
+- Sequential loading with offset-based pagination
+- Query sequence tracking to prevent race conditions
+- Efficient memory usage with progressive loading
+- Improved responsiveness for large datasets
+
+**Updated** New paginated loading system with 500-item page size replacing single-page queries
+
+**Section sources**
+- [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
+- [useLibraryData.ts:178-217](file://src/renderer/src/hooks/useLibraryData.ts#L178-L217)
+
+### Database Query Optimization
+The database query system has been enhanced to handle large datasets efficiently while maintaining responsive user experience.
+
+**Key Features:**
+- Offset-based pagination with configurable page size
+- Sequential query execution to prevent overwhelming the database
+- Query cancellation through sequence tracking
+- Progressive data loading with incremental updates
+- Error handling with graceful degradation
+
+**Updated** Optimized database queries with pagination replacing single-page scans
+
+**Section sources**
+- [useLibraryData.ts:186-202](file://src/renderer/src/hooks/useLibraryData.ts#L186-L202)
+- [library.ts:281-293](file://src/main/library.ts#L281-L293)
+
+### Legacy Fallback System
+The system maintains backward compatibility with legacy folder scanning while optimizing for modern database-backed queries.
+
+**Key Features:**
+- Automatic detection of database indexing status
+- Seamless transition between legacy and database queries
+- Fallback mechanism for unindexed databases
+- Progressive migration from folder scanning to database queries
+- Maintained functionality during scan completion
+
+**Updated** Enhanced fallback system with automatic database detection and seamless migration
+
+**Section sources**
+- [useLibraryData.ts:126-145](file://src/renderer/src/hooks/useLibraryData.ts#L126-L145)
+- [useLibraryData.ts:220-229](file://src/renderer/src/hooks/useLibraryData.ts#L220-L229)
+
 ## Dependency Analysis
 The audio engine components have well-defined dependencies that maintain loose coupling while enabling tight coordination and improved synchronization.
 
@@ -457,9 +566,12 @@ PlayerShell --> Transport
 UI["useTransportEngine.ts"] --> Player
 UI --> PlayerShell
 UI --> Transport
+Timeline["LaneClipCanvas.tsx"] --> Transport
+Timeline --> CSS["CSS Variables"]
+Library["useLibraryData.ts"] --> Database["library.ts"]
 ```
 
-**Updated** Enhanced dependency flow with Player.currentTick driving UI synchronization and improved error handling throughout the chain
+**Updated** Enhanced dependency flow with timeline panel integration and library data performance improvements
 
 **Diagram sources**
 - [transport.ts:13](file://src/renderer/src/engine/transport.ts#L13)
@@ -467,6 +579,8 @@ UI --> Transport
 - [audio-engine.ts:9-11](file://src/renderer/src/engine/audio-engine.ts#L9-L11)
 - [player.ts:9-13](file://src/renderer/src/engine/player.ts#L9-L13)
 - [useTransportEngine.ts:18-19](file://src/renderer/src/hooks/useTransportEngine.ts#L18-L19)
+- [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
+- [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
 
 **Section sources**
 - [transport.ts:1-79](file://src/renderer/src/engine/transport.ts#L1-L79)
@@ -475,6 +589,8 @@ UI --> Transport
 - [player.ts:1-230](file://src/renderer/src/engine/player.ts#L1-L230)
 - [playerShell.ts:1-202](file://src/renderer/src/lib/playerShell.ts#L1-L202)
 - [useTransportEngine.ts:1-315](file://src/renderer/src/hooks/useTransportEngine.ts#L1-L315)
+- [LaneClipCanvas.tsx:1-265](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L265)
+- [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 
 ## Performance Considerations
 
@@ -518,6 +634,26 @@ The tracker interface efficiently updates the playhead position and visual feedb
 - Master level meter updates at reduced frequency
 - Enhanced dimming policy provides clear visual feedback
 
+### Timeline Panel Performance
+The enhanced timeline panels utilize efficient rendering techniques with CSS variable integration and optimized grid calculations.
+
+**Timeline Performance Features:**
+- Efficient canvas rendering with device pixel ratio scaling
+- Optimized grid drawing with skip logic for bar positions
+- CSS variable-based color resolution avoiding DOM queries
+- Efficient hit-testing with precomputed rectangles
+- Responsive layout with ResizeObserver integration
+
+### Library Data Performance
+The paginated library data system optimizes performance for large sample collections through intelligent loading strategies.
+
+**Library Performance Features:**
+- 500-item page size balancing memory usage and network efficiency
+- Sequential loading preventing database overload
+- Query cancellation preventing stale data processing
+- Progressive loading improving perceived performance
+- Efficient error handling with graceful fallback
+
 ## Troubleshooting Guide
 
 ### Common Issues and Solutions
@@ -550,15 +686,31 @@ The tracker interface efficiently updates the playhead position and visual feedb
 - Ensure file permissions allow sample access through IPC
 - Check for race conditions where async loads resolve after stop/pause
 
-**Updated** Enhanced troubleshooting guidance for new generation tracking and improved synchronization features
+**Timeline Grid Misalignment**
+- Verify beat and bar calculations match TICKS_PER_BEAT constant
+- Check CSS variable resolution for border and accent colors
+- Ensure canvas rendering accounts for device pixel ratio
+- Confirm grid line positions use Math.round with 0.5 pixel offset
+- Validate that bar lines are drawn separately from beat lines
+
+**Library Data Loading Issues**
+- Verify database indexing status before attempting paginated queries
+- Check query sequence tracking prevents race conditions
+- Monitor page size configuration for optimal performance
+- Ensure error handling provides meaningful user feedback
+- Validate that fallback to legacy scanning works correctly
+
+**Updated** Enhanced troubleshooting guidance for new timeline panel features and library data performance improvements
 
 **Section sources**
 - [transport.ts:46-66](file://src/renderer/src/engine/transport.ts#L46-L66)
 - [scheduler.ts:75-87](file://src/renderer/src/engine/scheduler.ts#L75-L87)
 - [sample-cache.ts:77-82](file://src/renderer/src/engine/sample-cache.ts#L77-L82)
+- [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
+- [useLibraryData.ts:178-217](file://src/renderer/src/hooks/useLibraryData.ts#L178-L217)
 
 ## Conclusion
-MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback with significant improvements in synchronization, state management, and user experience. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The enhanced player implementation prevents race conditions and stray voice starts, while the improved transport synchronization ensures perfect visual-audio alignment. The sophisticated dimming policy provides clear visual feedback while maintaining flexible audio behavior. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
+MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback with significant improvements in synchronization, state management, user experience, and performance optimization. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The enhanced player implementation prevents race conditions and stray voice starts, while the improved transport synchronization ensures perfect visual-audio alignment. The sophisticated dimming policy provides clear visual feedback while maintaining flexible audio behavior. The new timeline panel system offers precise beat and bar grid alignment with CSS variable integration, and the library data system provides optimized performance through paginated loading. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
 
 ## Appendices
 
@@ -615,14 +767,15 @@ Player->>Player : "reset lastScheduledTick"
 - [scheduler.ts:94-116](file://src/renderer/src/engine/scheduler.ts#L94-L116)
 
 ### Timeline Visualization and Playback Coordination
-The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer. This ensures that the visual playhead never drifts from the audible output, providing a consistent user experience.
+The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer. This ensures that the visual playhead never drifts from the audible output, providing a consistent user experience. The enhanced timeline panels provide precise beat and bar grid alignment with CSS variable integration for consistent theming.
 
-**Updated** Enhanced synchronization through Player.currentTick integration and improved anchor-based calculations
+**Updated** Enhanced synchronization through Player.currentTick integration and improved anchor-based calculations with new timeline panel features
 
 **Section sources**
 - [useTransportEngine.ts:149-154](file://src/renderer/src/hooks/useTransportEngine.ts#L149-L154)
 - [player.ts:67-69](file://src/renderer/src/engine/player.ts#L67-L69)
 - [TrackerView.tsx:115-122](file://src/renderer/src/components/TrackerView.tsx#L115-L122)
+- [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
 
 ### Enhanced Dimming Policy Implementation
 The player shell implements a sophisticated dimming policy that provides clear visual feedback while maintaining audio flexibility. The policy separates visual dimming from audio audibility rules, ensuring that users receive appropriate visual cues even in complex mute/solo scenarios.
@@ -650,3 +803,46 @@ The Player class implements robust error handling and voice lifecycle management
 - [player.ts:202-214](file://src/renderer/src/engine/player.ts#L202-L214)
 - [voice.ts:52-60](file://src/renderer/src/engine/voice.ts#L52-L60)
 - [player.test.ts:107-140](file://src/renderer/src/engine/player.test.ts#L107-L140)
+
+### Timeline Panel System Architecture
+The enhanced timeline panel system provides precise visual synchronization between audio timing and visual representation through beat/bar grid alignment and CSS variable integration.
+
+**Key Features:**
+- Beat grid rendering with 1/8th note resolution
+- Bar grid rendering with 4/4 time signature
+- One tick per beat in ruler for perfect alignment
+- Transparent beat lines with opaque bar lines
+- CSS variable-based color resolution
+- Device pixel ratio aware canvas rendering
+
+**Updated** New timeline panel system with comprehensive grid alignment and enhanced visual feedback
+
+**Diagram sources**
+- [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
+- [TrackerView.tsx:364-371](file://src/renderer/src/components/TrackerView.tsx#L364-L371)
+
+**Section sources**
+- [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
+- [LaneClipCanvas.tsx:101-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L101-L129)
+- [TrackerView.tsx:364-371](file://src/renderer/src/components/TrackerView.tsx#L364-L371)
+
+### Library Data Performance Architecture
+The paginated library data system optimizes performance for large sample collections through intelligent loading strategies and efficient memory management.
+
+**Key Features:**
+- 500-item page size for optimal performance
+- Sequential loading with offset-based pagination
+- Query sequence tracking for race condition prevention
+- Progressive data loading with incremental updates
+- Graceful fallback to legacy scanning
+
+**Updated** New paginated loading system with performance optimizations and improved user experience
+
+**Diagram sources**
+- [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
+- [useLibraryData.ts:178-217](file://src/renderer/src/hooks/useLibraryData.ts#L178-L217)
+
+**Section sources**
+- [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
+- [useLibraryData.ts:178-217](file://src/renderer/src/hooks/useLibraryData.ts#L178-L217)
+- [library.ts:281-293](file://src/main/library.ts#L281-L293)

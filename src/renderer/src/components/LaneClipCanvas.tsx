@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { LaneClip } from '../lib/playerShell'
-import { tileWidth } from '../lib/sample-utils'
 
 interface LaneClipCanvasProps {
   clips: LaneClip[]
@@ -137,7 +136,7 @@ export default function LaneClipCanvas({
 
     for (const clip of clips) {
       const x = clip.startTick * pixelsPerTick
-      const w = tileWidth(clip.durationSeconds)
+      const w = Math.max(12, clip.durationTicks * pixelsPerTick)
       const color = clip.color || accent
       const isFlashing = flashSamplePath === clip.samplePath
 

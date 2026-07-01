@@ -15,21 +15,26 @@
 - [src/renderer/src/components/Footer.test.tsx](file://src/renderer/src/components/Footer.test.tsx)
 - [src/renderer/src/components/LaneClipCanvas.test.tsx](file://src/renderer/src/components/LaneClipCanvas.test.tsx)
 - [src/renderer/src/components/ManagePanel.test.tsx](file://src/renderer/src/components/ManagePanel.test.tsx)
+- [src/renderer/src/components/TrackerView.test.tsx](file://src/renderer/src/components/TrackerView.test.tsx)
 - [src/renderer/src/hooks/useAppState.test.ts](file://src/renderer/src/hooks/useAppState.test.ts)
+- [src/renderer/src/hooks/useLibraryData.test.ts](file://src/renderer/src/hooks/useLibraryData.test.ts)
 - [src/renderer/src/engine/transport.test.ts](file://src/renderer/src/engine/transport.test.ts)
 - [src/renderer/src/lib/playerShell.test.ts](file://src/renderer/src/lib/playerShell.test.ts)
 - [src/renderer/src/lib/sample-utils.test.ts](file://src/renderer/src/lib/sample-utils.test.ts)
 - [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx](file://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx)
 - [src/renderer/src/components/LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
 - [src/renderer/src/components/ManagePanel.tsx](file://src/renderer/src/components/ManagePanel.tsx)
+- [src/renderer/src/components/TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
+- [src/renderer/src/hooks/useLibraryData.ts](file://src/renderer/src/hooks/useLibraryData.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive testing coverage for new components: LaneClipCanvas and ManagePanel
-- Enhanced test infrastructure with improved mock utilities and setup configurations
-- Expanded testing coverage for sample-utils library functions
-- Updated component testing patterns to include canvas-based rendering and complex UI interactions
+- Added comprehensive testing coverage for new TrackerView component with AC-011 ruler tick alignment validation
+- Enhanced MockAudioContext utility with improved Web Audio API mocking capabilities
+- Added extensive tests for new paginated loading functionality in useLibraryData hook
+- Expanded test infrastructure to support grid alignment components and advanced UI interactions
+- Updated component testing patterns to include sophisticated ruler rendering and timeline alignment validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -39,16 +44,17 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Test Infrastructure](#enhanced-test-infrastructure)
 7. [New Component Testing Strategies](#new-component-testing-strategies)
-8. [Dependency Analysis](#dependency-analysis)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
-12. [Appendices](#appendices)
+8. [Advanced UI and Grid Alignment Testing](#advanced-ui-and-grid-alignment-testing)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
+13. [Appendices](#appendices)
 
 ## Introduction
 This document describes MixJam Electron's testing strategy and implementation. It covers Vitest configuration, test setup, mock strategies for Electron APIs, unit testing approaches for React components and main process functions, IPC handler testing, integration and acceptance testing patterns, and test coverage reporting. It also documents testing utilities, helper functions, common patterns, and best practices for Electron cross-process testing.
 
-**Updated** Added comprehensive testing coverage for new components including LaneClipCanvas, ManagePanel, and enhanced test infrastructure with new mock utilities and setup configurations.
+**Updated** Enhanced testing infrastructure now includes comprehensive coverage for new grid alignment components, AC-011 ruler tick alignment validation, advanced MockAudioContext utility, and extensive paginated loading functionality testing in useLibraryData hook.
 
 ## Project Structure
 The repository organizes tests by responsibility:
@@ -72,6 +78,8 @@ R6["specs/spec-001-app-shell-navigation.test.tsx"]
 R7["LaneClipCanvas.test.tsx"]
 R8["ManagePanel.test.tsx"]
 R9["sample-utils.test.ts"]
+R10["TrackerView.test.tsx"]
+R11["useLibraryData.test.ts"]
 end
 subgraph "Main Tests"
 M1["session.test.ts"]
@@ -96,6 +104,8 @@ R6 --> U1
 R7 --> U1
 R8 --> U1
 R9 --> U1
+R10 --> U1
+R11 --> U1
 R3 --> U2
 R1 --> U2
 R2 --> U2
@@ -113,33 +123,37 @@ V1 --> R6
 V1 --> R7
 V1 --> R8
 V1 --> R9
+V1 --> R10
+V1 --> R11
 V1 --> M1
 V1 --> M2
 P1 --> V1
 ```
 
 **Diagram sources**
-- [vitest.config.ts:1-29](file:://vitest.config.ts#L1-L29)
-- [package.json:1-50](file:://package.json#L1-L50)
-- [src/renderer/src/test/setup.ts:1-40](file:://src/renderer/src/test/setup.ts#L1-L40)
-- [src/renderer/src/test/electronApi.ts:1-126](file:://src/renderer/src/test/electronApi.ts#L1-L126)
-- [src/renderer/src/test/mockAudioContext.ts:1-133](file:://src/renderer/src/test/mockAudioContext.ts#L1-L133)
-- [src/shared/ipc.ts:1-59](file:://src/shared/ipc.ts#L1-L59)
-- [src/renderer/src/App.test.tsx:1-97](file:://src/renderer/src/App.test.tsx#L1-L97)
-- [src/renderer/src/components/Footer.test.tsx:1-70](file:://src/renderer/src/components/Footer.test.tsx#L1-L70)
-- [src/renderer/src/components/LaneClipCanvas.test.tsx:1-319](file:://src/renderer/src/components/LaneClipCanvas.test.tsx#L1-L319)
-- [src/renderer/src/components/ManagePanel.test.tsx:1-273](file:://src/renderer/src/components/ManagePanel.test.tsx#L1-L273)
-- [src/renderer/src/hooks/useAppState.test.ts:1-204](file:://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
-- [src/renderer/src/engine/transport.test.ts:1-152](file:://src/renderer/src/engine/transport.test.ts#L1-L152)
-- [src/renderer/src/lib/playerShell.test.ts:1-166](file:://src/renderer/src/lib/playerShell.test.ts#L1-L166)
-- [src/renderer/src/lib/sample-utils.test.ts:1-159](file:://src/renderer/src/lib/sample-utils.test.ts#L1-L159)
-- [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx:1-304](file:://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx#L1-L304)
-- [src/main/session.test.ts:1-291](file:://src/main/session.test.ts#L1-L291)
-- [src/main/sample-browser.test.ts:1-67](file:://src/main/sample-browser.test.ts#L1-L67)
+- [vitest.config.ts:1-37](file://vitest.config.ts#L1-L37)
+- [package.json:1-63](file://package.json#L1-L63)
+- [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
+- [src/renderer/src/test/electronApi.ts:1-126](file://src/renderer/src/test/electronApi.ts#L1-L126)
+- [src/renderer/src/test/mockAudioContext.ts:1-133](file://src/renderer/src/test/mockAudioContext.ts#L1-L133)
+- [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
+- [src/renderer/src/App.test.tsx:1-97](file://src/renderer/src/App.test.tsx#L1-L97)
+- [src/renderer/src/components/Footer.test.tsx:1-70](file://src/renderer/src/components/Footer.test.tsx#L1-L70)
+- [src/renderer/src/components/LaneClipCanvas.test.tsx:1-319](file://src/renderer/src/components/LaneClipCanvas.test.tsx#L1-L319)
+- [src/renderer/src/components/ManagePanel.test.tsx:1-273](file://src/renderer/src/components/ManagePanel.test.tsx#L1-L273)
+- [src/renderer/src/hooks/useAppState.test.ts:1-204](file://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
+- [src/renderer/src/engine/transport.test.ts:1-152](file://src/renderer/src/engine/transport.test.ts#L1-L152)
+- [src/renderer/src/lib/playerShell.test.ts:1-166](file://src/renderer/src/lib/playerShell.test.ts#L1-L166)
+- [src/renderer/src/lib/sample-utils.test.ts:1-159](file://src/renderer/src/lib/sample-utils.test.ts#L1-L159)
+- [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx:1-304](file://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx#L1-L304)
+- [src/renderer/src/components/TrackerView.test.tsx:1-610](file://src/renderer/src/components/TrackerView.test.tsx#L1-L610)
+- [src/renderer/src/hooks/useLibraryData.test.ts:1-534](file://src/renderer/src/hooks/useLibraryData.test.ts#L1-L534)
+- [src/main/session.test.ts:1-291](file://src/main/session.test.ts#L1-L291)
+- [src/main/sample-browser.test.ts:1-67](file://src/main/sample-browser.test.ts#L1-L67)
 
 **Section sources**
-- [vitest.config.ts:1-29](file:://vitest.config.ts#L1-L29)
-- [package.json:1-50](file:://package.json#L1-L50)
+- [vitest.config.ts:1-37](file://vitest.config.ts#L1-L37)
+- [package.json:1-63](file://package.json#L1-L63)
 
 ## Core Components
 - Vitest configuration defines:
@@ -163,11 +177,11 @@ P1 --> V1
   - Defines channel names and ElectronAPI contract used by both renderer and main tests
 
 **Section sources**
-- [vitest.config.ts:4-28](file:://vitest.config.ts#L4-L28)
-- [src/renderer/src/test/setup.ts:1-40](file:://src/renderer/src/test/setup.ts#L1-L40)
-- [src/renderer/src/test/electronApi.ts:1-126](file:://src/renderer/src/test/electronApi.ts#L1-L126)
-- [src/renderer/src/test/mockAudioContext.ts:1-133](file:://src/renderer/src/test/mockAudioContext.ts#L1-L133)
-- [src/shared/ipc.ts:1-59](file:://src/shared/ipc.ts#L1-L59)
+- [vitest.config.ts:6-36](file://vitest.config.ts#L6-L36)
+- [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
+- [src/renderer/src/test/electronApi.ts:1-126](file://src/renderer/src/test/electronApi.ts#L1-L126)
+- [src/renderer/src/test/mockAudioContext.ts:1-133](file://src/renderer/src/test/mockAudioContext.ts#L1-L133)
+- [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
 
 ## Architecture Overview
 The testing architecture separates concerns across layers:
@@ -197,11 +211,11 @@ Test->>Comp : Assert UI transitions and window resize calls
 ```
 
 **Diagram sources**
-- [src/renderer/src/test/setup.ts:1-40](file:://src/renderer/src/test/setup.ts#L1-L40)
-- [src/renderer/src/test/electronApi.ts:1-126](file:://src/renderer/src/test/electronApi.ts#L1-L126)
-- [src/main/index.ts:1-170](file:://src/main/index.ts#L1-L170)
-- [src/renderer/src/App.test.tsx:1-97](file:://src/renderer/src/App.test.tsx#L1-L97)
-- [src/renderer/src/hooks/useAppState.test.ts:1-204](file:://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
+- [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
+- [src/renderer/src/test/electronApi.ts:1-126](file://src/renderer/src/test/electronApi.ts#L1-L126)
+- [src/main/index.ts:1-170](file://src/main/index.ts#L1-L170)
+- [src/renderer/src/App.test.tsx:1-97](file://src/renderer/src/App.test.tsx#L1-L97)
+- [src/renderer/src/hooks/useAppState.test.ts:1-204](file://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
 
 ## Detailed Component Analysis
 
@@ -216,7 +230,7 @@ Test->>Comp : Assert UI transitions and window resize calls
   - Excludes main/, preload/, and other non-renderer sources to keep unit coverage scoped to renderer logic
 
 **Section sources**
-- [vitest.config.ts:6-28](file:://vitest.config.ts#L6-L28)
+- [vitest.config.ts:6-36](file://vitest.config.ts#L6-L36)
 
 ### Test Setup and Global Mocks
 - Registers jest-dom matchers for assertions
@@ -227,7 +241,7 @@ Test->>Comp : Assert UI transitions and window resize calls
 - Cleans up DOM after each test
 
 **Section sources**
-- [src/renderer/src/test/setup.ts:1-40](file:://src/renderer/src/test/setup.ts#L1-L40)
+- [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
 
 ### ElectronAPI Mock Strategy
 - Provides stubbed implementations for all IPC channels
@@ -310,12 +324,12 @@ ElectronAPI <|.. ElectronAPIMock : "implements"
 ```
 
 **Diagram sources**
-- [src/shared/ipc.ts:40-58](file:://src/shared/ipc.ts#L40-L58)
-- [src/renderer/src/test/electronApi.ts:71-125](file:://src/renderer/src/test/electronApi.ts#L71-L125)
+- [src/shared/ipc.ts:40-58](file://src/shared/ipc.ts#L40-L58)
+- [src/renderer/src/test/electronApi.ts:71-125](file://src/renderer/src/test/electronApi.ts#L71-L125)
 
 **Section sources**
-- [src/renderer/src/test/electronApi.ts:1-126](file:://src/renderer/src/test/electronApi.ts#L1-L126)
-- [src/shared/ipc.ts:1-59](file:://src/shared/ipc.ts#L1-L59)
+- [src/renderer/src/test/electronApi.ts:1-126](file://src/renderer/src/test/electronApi.ts#L1-L126)
+- [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
 
 ### Unit Testing React Components
 - App.test.tsx validates:
@@ -347,12 +361,12 @@ T->>T : assert tracker view and recent projects
 ```
 
 **Diagram sources**
-- [src/renderer/src/App.test.tsx:6-31](file:://src/renderer/src/App.test.tsx#L6-L31)
-- [src/renderer/src/test/electronApi.ts:73-74](file:://src/renderer/src/test/electronApi.ts#L73-L74)
+- [src/renderer/src/App.test.tsx:6-31](file://src/renderer/src/App.test.tsx#L6-L31)
+- [src/renderer/src/test/electronApi.ts:73-74](file://src/renderer/src/test/electronApi.ts#L73-L74)
 
 **Section sources**
-- [src/renderer/src/App.test.tsx:1-97](file:://src/renderer/src/App.test.tsx#L1-L97)
-- [src/renderer/src/components/Footer.test.tsx:1-70](file:://src/renderer/src/components/Footer.test.tsx#L1-L70)
+- [src/renderer/src/App.test.tsx:1-97](file://src/renderer/src/App.test.tsx#L1-L97)
+- [src/renderer/src/components/Footer.test.tsx:1-70](file://src/renderer/src/components/Footer.test.tsx#L1-L70)
 
 ### Unit Testing Hooks and Renderer Logic
 - useAppState.test.ts validates:
@@ -386,14 +400,14 @@ ResizeHome --> Cleanup["Clear interval and reset state"]
 ```
 
 **Diagram sources**
-- [src/renderer/src/hooks/useAppState.test.ts:19-100](file:://src/renderer/src/hooks/useAppState.test.ts#L19-L100)
-- [src/renderer/src/engine/transport.test.ts:29-74](file:://src/renderer/src/engine/transport.test.ts#L29-L74)
-- [src/renderer/src/lib/playerShell.test.ts:46-103](file:://src/renderer/src/lib/playerShell.test.ts#L46-L103)
+- [src/renderer/src/hooks/useAppState.test.ts:19-100](file://src/renderer/src/hooks/useAppState.test.ts#L19-L100)
+- [src/renderer/src/engine/transport.test.ts:29-74](file://src/renderer/src/engine/transport.test.ts#L29-L74)
+- [src/renderer/src/lib/playerShell.test.ts:46-103](file://src/renderer/src/lib/playerShell.test.ts#L46-L103)
 
 **Section sources**
-- [src/renderer/src/hooks/useAppState.test.ts:1-204](file:://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
-- [src/renderer/src/engine/transport.test.ts:1-152](file:://src/renderer/src/engine/transport.test.ts#L1-L152)
-- [src/renderer/src/lib/playerShell.test.ts:1-166](file:://src/renderer/src/lib/playerShell.test.ts#L1-L166)
+- [src/renderer/src/hooks/useAppState.test.ts:1-204](file://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
+- [src/renderer/src/engine/transport.test.ts:1-152](file://src/renderer/src/engine/transport.test.ts#L1-L152)
+- [src/renderer/src/lib/playerShell.test.ts:1-166](file://src/renderer/src/lib/playerShell.test.ts#L1-L166)
 
 ### Unit Testing Main Process Functions
 - session.test.ts validates:
@@ -419,12 +433,12 @@ ForceRescan --> Cleanup["Remove temp dir"]
 ```
 
 **Diagram sources**
-- [src/main/sample-browser.test.ts:24-65](file:://src/main/sample-browser.test.ts#L24-L65)
-- [src/main/session.test.ts:79-95](file:://src/main/session.test.ts#L79-L95)
+- [src/main/sample-browser.test.ts:24-65](file://src/main/sample-browser.test.ts#L24-L65)
+- [src/main/session.test.ts:79-95](file://src/main/session.test.ts#L79-L95)
 
 **Section sources**
-- [src/main/session.test.ts:1-291](file:://src/main/session.test.ts#L1-L291)
-- [src/main/sample-browser.test.ts:1-67](file:://src/main/sample-browser.test.ts#L1-L67)
+- [src/main/session.test.ts:1-291](file://src/main/session.test.ts#L1-L291)
+- [src/main/sample-browser.test.ts:1-67](file://src/main/sample-browser.test.ts#L1-L67)
 
 ### IPC Handler Testing and Cross-Process Patterns
 - Electron main registers handlers for all IPC channels defined in IPC_CHANNELS
@@ -454,13 +468,13 @@ I-->>R : Promise result
 ```
 
 **Diagram sources**
-- [src/main/index.ts:75-169](file:://src/main/index.ts#L75-L169)
-- [src/shared/ipc.ts:1-15](file:://src/shared/ipc.ts#L1-L15)
-- [src/renderer/src/App.test.tsx:19-31](file:://src/renderer/src/App.test.tsx#L19-L31)
+- [src/main/index.ts:75-169](file://src/main/index.ts#L75-L169)
+- [src/shared/ipc.ts:1-15](file://src/shared/ipc.ts#L1-L15)
+- [src/renderer/src/App.test.tsx:19-31](file://src/renderer/src/App.test.tsx#L19-L31)
 
 **Section sources**
-- [src/main/index.ts:1-170](file:://src/main/index.ts#L1-L170)
-- [src/shared/ipc.ts:1-59](file:://src/shared/ipc.ts#L1-L59)
+- [src/main/index.ts:1-170](file://src/main/index.ts#L1-L170)
+- [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
 
 ### Integration and Acceptance Testing
 - spec-001-app-shell-navigation.test.tsx validates:
@@ -472,7 +486,7 @@ I-->>R : Promise result
 - These tests combine UI assertions with IPC call verifications to ensure end-to-end behavior aligns with product specs
 
 **Section sources**
-- [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx:1-304](file:://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx#L1-L304)
+- [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx:1-304](file://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx#L1-L304)
 
 ## Enhanced Test Infrastructure
 
@@ -485,7 +499,7 @@ The test infrastructure now includes a comprehensive MockAudioContext that provi
 - Support for gain, panner, analyser, and buffer source nodes
 
 **Section sources**
-- [src/renderer/src/test/mockAudioContext.ts:1-133](file:://src/renderer/src/test/mockAudioContext.ts#L1-L133)
+- [src/renderer/src/test/mockAudioContext.ts:1-133](file://src/renderer/src/test/mockAudioContext.ts#L1-L133)
 
 ### Enhanced Setup Configuration
 The setup.ts file now provides:
@@ -495,9 +509,104 @@ The setup.ts file now provides:
 - Comprehensive cleanup handling for all test scenarios
 
 **Section sources**
-- [src/renderer/src/test/setup.ts:1-40](file:://src/renderer/src/test/setup.ts#L1-L40)
+- [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
 
 ## New Component Testing Strategies
+
+### TrackerView Testing Approach
+The TrackerView component required comprehensive testing for its advanced UI features and grid alignment requirements:
+
+#### AC-011 Ruler Tick Alignment Validation
+- Tests validate ruler tick marks and bar numbers rendering
+- Ensures one tick per beat alignment with canvas grid
+- Verifies bar numbering sequence (1, 5, 9, 13) for proper beat grouping
+- Confirms lane head box maintains consistent width with ruler spacer
+- Validates CSS properties for border-box sizing
+
+#### Advanced UI Interaction Testing
+- Tests transport controls (play, pause, stop, skip back) with proper state transitions
+- Validates BPM slider with min=50, max=200 range and default 120 value
+- Tests click-to-edit BPM functionality with Enter/Esc key handling
+- Validates 16-lane rendering with mute/solo buttons and pan knobs
+- Tests playhead visibility and positioning during playback
+
+#### Grid Alignment and Timeline Precision
+- Validates ruler tick precision for timeline alignment
+- Tests context menu interactions for clip management
+- Ensures proper coordinate mapping for clip placement and movement
+- Validates drag-and-drop functionality between lanes
+
+```mermaid
+flowchart TD
+Tracker["TrackerView Rendering"] --> Ruler["Ruler Component"]
+Ruler --> Ticks["Tick Marks"]
+Ruler --> Bars["Bar Numbers"]
+Ruler --> Alignment["Grid Alignment"]
+Tracker --> Transport["Transport Controls"]
+Transport --> BPM["BPM Slider"]
+Transport --> Playhead["Playhead Position"]
+Tracker --> Lanes["16 Lanes"]
+Lanes --> Clips["Clip Bubbles"]
+Clips --> DragDrop["Drag & Drop"]
+Clips --> ContextMenu["Right-click Menu"]
+```
+
+**Diagram sources**
+- [src/renderer/src/components/TrackerView.test.tsx:417-447](file://src/renderer/src/components/TrackerView.test.tsx#L417-L447)
+- [src/renderer/src/components/TrackerView.test.tsx:448-503](file://src/renderer/src/components/TrackerView.test.tsx#L448-L503)
+- [src/renderer/src/components/TrackerView.test.tsx:312-334](file://src/renderer/src/components/TrackerView.test.tsx#L312-L334)
+
+**Section sources**
+- [src/renderer/src/components/TrackerView.test.tsx:1-610](file://src/renderer/src/components/TrackerView.test.tsx#L1-L610)
+- [src/renderer/src/components/TrackerView.tsx:1-200](file://src/renderer/src/components/TrackerView.tsx#L1-L200)
+
+### Enhanced Library Data Hook Testing
+The useLibraryData hook now includes comprehensive testing for new paginated loading functionality:
+
+#### Paginated Loading Implementation
+- Tests loading every DB sample window when no category is selected
+- Validates chunked loading with 500-item limits and proper offset handling
+- Ensures sequential loading of database pages for large datasets
+- Tests total count tracking across multiple pages
+
+#### Advanced Library Management
+- Tests tag creation, renaming, and deletion with state synchronization
+- Validates category management with parent-child relationships
+- Tests library saving with encoded filter rules in ruleJson format
+- Validates library deletion and state cleanup
+
+#### Error Handling and Edge Cases
+- Tests error states for both legacy and database query failures
+- Validates state clearing when sample folder is null
+- Tests alphabetical sorting for tags and categories
+- Validates scan progress tracking and completion callbacks
+
+```mermaid
+flowchart TD
+LibraryHook["useLibraryData Hook"] --> Init["Initial Load"]
+Init --> Legacy["Legacy Query"]
+Init --> Database["Database Query"]
+Legacy --> Samples["Sample List"]
+Database --> Paginated["Paginated Loading"]
+Paginated --> Chunk1["Chunk 1 (0-499)"]
+Paginated --> Chunk2["Chunk 2 (500-1000)"]
+Chunk1 --> Merge["Merge Results"]
+Chunk2 --> Merge
+Merge --> State["Update State"]
+LibraryHook --> CRUD["CRUD Operations"]
+CRUD --> Tags["Tag Management"]
+CRUD --> Categories["Category Management"]
+CRUD --> Libraries["Library Management"]
+```
+
+**Diagram sources**
+- [src/renderer/src/hooks/useLibraryData.test.ts:70-101](file://src/renderer/src/hooks/useLibraryData.test.ts#L70-L101)
+- [src/renderer/src/hooks/useLibraryData.test.ts:150-220](file://src/renderer/src/hooks/useLibraryData.test.ts#L150-L220)
+- [src/renderer/src/hooks/useLibraryData.test.ts:256-285](file://src/renderer/src/hooks/useLibraryData.test.ts#L256-L285)
+
+**Section sources**
+- [src/renderer/src/hooks/useLibraryData.test.ts:1-534](file://src/renderer/src/hooks/useLibraryData.test.ts#L1-L534)
+- [src/renderer/src/hooks/useLibraryData.ts:1-200](file://src/renderer/src/hooks/useLibraryData.ts#L1-L200)
 
 ### LaneClipCanvas Testing Approach
 The LaneClipCanvas component required specialized testing strategies due to its canvas-based rendering:
@@ -537,12 +646,12 @@ HitTest --> Spatial["Spatial Detection"]
 ```
 
 **Diagram sources**
-- [src/renderer/src/components/LaneClipCanvas.test.tsx:26-49](file:://src/renderer/src/components/LaneClipCanvas.test.tsx#L26-L49)
-- [src/renderer/src/components/LaneClipCanvas.tsx:154-174](file:://src/renderer/src/components/LaneClipCanvas.tsx#L154-L174)
+- [src/renderer/src/components/LaneClipCanvas.test.tsx:26-49](file://src/renderer/src/components/LaneClipCanvas.test.tsx#L26-L49)
+- [src/renderer/src/components/LaneClipCanvas.tsx:154-174](file://src/renderer/src/components/LaneClipCanvas.tsx#L154-L174)
 
 **Section sources**
-- [src/renderer/src/components/LaneClipCanvas.test.tsx:1-319](file:://src/renderer/src/components/LaneClipCanvas.test.tsx#L1-L319)
-- [src/renderer/src/components/LaneClipCanvas.tsx:1-228](file:://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
+- [src/renderer/src/components/LaneClipCanvas.test.tsx:1-319](file://src/renderer/src/components/LaneClipCanvas.test.tsx#L1-L319)
+- [src/renderer/src/components/LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
 
 ### ManagePanel Testing Strategy
 The ManagePanel component required comprehensive testing for its three-tab interface:
@@ -579,11 +688,11 @@ CreateCategory --> CategoriesTab : Form cleared
 ```
 
 **Diagram sources**
-- [src/renderer/src/components/ManagePanel.test.tsx:38-272](file:://src/renderer/src/components/ManagePanel.test.tsx#L38-L272)
+- [src/renderer/src/components/ManagePanel.test.tsx:38-272](file://src/renderer/src/components/ManagePanel.test.tsx#L38-L272)
 
 **Section sources**
-- [src/renderer/src/components/ManagePanel.test.tsx:1-273](file:://src/renderer/src/components/ManagePanel.test.tsx#L1-L273)
-- [src/renderer/src/components/ManagePanel.tsx:1-242](file:://src/renderer/src/components/ManagePanel.tsx#L1-L242)
+- [src/renderer/src/components/ManagePanel.test.tsx:1-273](file://src/renderer/src/components/ManagePanel.test.tsx#L1-L273)
+- [src/renderer/src/components/ManagePanel.tsx:1-242](file://src/renderer/src/components/ManagePanel.tsx#L1-L242)
 
 ### Enhanced Utility Function Testing
 The sample-utils library received comprehensive test coverage:
@@ -601,7 +710,33 @@ The sample-utils library received comprehensive test coverage:
 - Ensures proper clamping and edge case handling
 
 **Section sources**
-- [src/renderer/src/lib/sample-utils.test.ts:1-159](file:://src/renderer/src/lib/sample-utils.test.ts#L1-L159)
+- [src/renderer/src/lib/sample-utils.test.ts:1-159](file://src/renderer/src/lib/sample-utils.test.ts#L1-L159)
+
+## Advanced UI and Grid Alignment Testing
+
+### AC-011 Ruler Tick Alignment Requirements
+The TrackerView tests now comprehensively validate AC-011 requirements for ruler tick alignment:
+
+#### Tick Mark Precision
+- Tests that ruler renders exactly 32 tick marks for 32-beat timeline
+- Validates 8 bar tick groups with proper spacing (every 4 ticks/32 beats)
+- Ensures tick marks align precisely with canvas grid cells
+- Confirms visual consistency between ruler header and timeline grid
+
+#### Bar Numbering Sequence
+- Validates first bar label displays "1" as expected
+- Tests second bar label shows "5" indicating 4-beat intervals
+- Ensures subsequent bar numbers follow the 4-beat grouping pattern
+- Validates proper rhythm marking for musical timeline alignment
+
+#### CSS and Layout Consistency
+- Tests lane head box maintains border-box sizing
+- Validates consistent width between ruler spacer and lane head
+- Ensures proper CSS properties for visual alignment
+- Confirms responsive layout behavior across different screen sizes
+
+**Section sources**
+- [src/renderer/src/components/TrackerView.test.tsx:417-447](file://src/renderer/src/components/TrackerView.test.tsx#L417-L447)
 
 ## Dependency Analysis
 - Renderer tests depend on:
@@ -626,16 +761,16 @@ Pkg["package.json"] --> V
 ```
 
 **Diagram sources**
-- [vitest.config.ts:1-29](file:://vitest.config.ts#L1-L29)
-- [package.json:6-16](file:://package.json#L6-L16)
-- [src/renderer/src/test/setup.ts:1-40](file:://src/renderer/src/test/setup.ts#L1-L40)
-- [src/renderer/src/test/electronApi.ts:1-126](file:://src/renderer/src/test/electronApi.ts#L1-L126)
-- [src/renderer/src/test/mockAudioContext.ts:1-133](file:://src/renderer/src/test/mockAudioContext.ts#L1-L133)
-- [src/shared/ipc.ts:1-59](file:://src/shared/ipc.ts#L1-L59)
+- [vitest.config.ts:1-37](file://vitest.config.ts#L1-L37)
+- [package.json:6-23](file://package.json#L6-L23)
+- [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
+- [src/renderer/src/test/electronApi.ts:1-126](file://src/renderer/src/test/electronApi.ts#L1-L126)
+- [src/renderer/src/test/mockAudioContext.ts:1-133](file://src/renderer/src/test/mockAudioContext.ts#L1-L133)
+- [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
 
 **Section sources**
-- [vitest.config.ts:1-29](file:://vitest.config.ts#L1-L29)
-- [package.json:1-50](file:://package.json#L1-L50)
+- [vitest.config.ts:1-37](file://vitest.config.ts#L1-L37)
+- [package.json:1-63](file://package.json#L1-L63)
 
 ## Performance Considerations
 - Prefer mocking Electron APIs to avoid heavy startup costs
@@ -644,6 +779,7 @@ Pkg["package.json"] --> V
 - Use targeted include/exclude patterns to minimize coverage computation overhead
 - Canvas component tests benefit from comprehensive context mocking to avoid expensive rendering operations
 - MockAudioContext provides lightweight alternatives to real Web Audio API for faster test execution
+- Paginated loading tests optimize memory usage by testing chunked data loading patterns
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -663,22 +799,28 @@ Common issues and resolutions:
   - Use MockAudioContext for Web Audio API compatibility in component tests
 - ResizeObserver errors:
   - Setup polyfill in test setup for canvas-based components
+- Grid alignment issues:
+  - Verify CSS border-box properties and consistent width calculations
+- Pagination test failures:
+  - Ensure proper offset/limit handling and chunked loading validation
 
 **Section sources**
-- [src/renderer/src/test/setup.ts:36-39](file:://src/renderer/src/test/setup.ts#L36-L39)
-- [src/renderer/src/hooks/useAppState.test.ts:14-17](file:://src/renderer/src/hooks/useAppState.test.ts#L14-L17)
-- [src/main/session.test.ts:25-31](file:://src/main/session.test.ts#L25-L31)
+- [src/renderer/src/test/setup.ts:36-39](file://src/renderer/src/test/setup.ts#L36-L39)
+- [src/renderer/src/hooks/useAppState.test.ts:14-17](file://src/renderer/src/hooks/useAppState.test.ts#L14-L17)
+- [src/main/session.test.ts:25-31](file://src/main/session.test.ts#L25-L31)
 
 ## Conclusion
 MixJam Electron employs a layered testing strategy with enhanced capabilities:
 - Renderer tests with jsdom and deterministic mocks validate UI, hooks, and transport logic
 - Main process tests validate filesystem-backed features with temporary directories
-- New component testing strategies cover complex UI interactions and canvas-based rendering
+- New component testing strategies cover complex UI interactions, grid alignment requirements, and canvas-based rendering
 - Enhanced test infrastructure provides comprehensive mocking for Web Audio API and Electron IPC
+- Advanced paginated loading functionality receives thorough testing for performance optimization
+- AC-011 ruler tick alignment validation ensures precise timeline grid consistency
 - Acceptance specs ensure cross-process flows meet product specifications
 - Coverage is configured to report on renderer logic, keeping reports actionable and focused
 
-**Updated** The testing strategy now includes comprehensive coverage for new components (LaneClipCanvas, ManagePanel) and enhanced infrastructure supporting advanced testing scenarios.
+**Updated** The testing strategy now includes comprehensive coverage for new components (TrackerView, useLibraryData), enhanced infrastructure supporting advanced testing scenarios, and sophisticated grid alignment validation for timeline precision requirements.
 
 ## Appendices
 
@@ -688,4 +830,4 @@ MixJam Electron employs a layered testing strategy with enhanced capabilities:
 - Coverage: npm run test:coverage
 
 **Section sources**
-- [package.json:13-15](file:://package.json#L13-L15)
+- [package.json:18-23](file://package.json#L18-L23)

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CategoryItem, LibraryItem, RecentProjectItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
 import type { FooterSampleDetail, LaneState } from '../lib/playerShell'
-import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX } from '../lib/playerShell'
+import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX, sampleDurationTicks } from '../lib/playerShell'
 import {
   categoryColor,
   formatDuration,
   meterFillPct,
   nearestTick,
-  tileWidth,
 } from '../lib/sample-utils'
 import ScanProgressBar from './ScanProgressBar'
 import ManagePanel from './ManagePanel'
@@ -159,6 +158,22 @@ export default function TrackerView({
     }
   }, [editingBpm])
 
+  // Lane content width measurement for consistent bubble widths
+  const lanesRef = useRef<HTMLDivElement>(null)
+  const [laneContentWidth, setLaneContentWidth] = useState(0)
+
+  useEffect(() => {
+    const el = lanesRef.current
+    if (!el) return
+    const measure = () => setLaneContentWidth(el.clientWidth - LANE_HEAD_WIDTH_PX)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const pixelsPerTick = laneContentWidth > 0 ? laneContentWidth / totalTicks : 0
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -235,13 +250,15 @@ export default function TrackerView({
 
   const handleLaneCanvasDrop = (laneIndex: number, event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
+    // Default: snap to beat (8 ticks). Hold Alt for freeform (per-tick).
+    const snap = event.altKey ? 1 : ticksPerBeat
     const raw = event.dataTransfer.getData('application/mixjam-sample')
     if (raw) {
       try {
         const detail = JSON.parse(raw) as FooterSampleDetail
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
-        const tick = nearestTick(clickX, rect.width, totalTicks)
+        const tick = nearestTick(clickX, rect.width, totalTicks, snap)
         onPlaceSampleDetailOnLane(detail, laneIndex, tick)
       } catch { /* malformed drag data */ }
       return
@@ -253,7 +270,7 @@ export default function TrackerView({
         const { clipId } = JSON.parse(clipRaw) as { clipId: string }
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
-        const tick = nearestTick(clickX, rect.width, totalTicks)
+        const tick = nearestTick(clickX, rect.width, totalTicks, snap)
         onMoveClipOnLane(clipId, laneIndex, tick)
       } catch { /* malformed drag data */ }
     }
@@ -357,7 +374,7 @@ export default function TrackerView({
             aria-hidden="true"
           />
         )}
-        <div className="tracker-lanes">
+        <div className="tracker-lanes" ref={lanesRef}>
           <div className="tracker-ruler">
             <div className="tracker-ruler-spacer" />
             {Array.from({ length: rulerBeatCount }, (_, i) => {
@@ -655,7 +672,8 @@ export default function TrackerView({
 
           <div className="tiles">
             {samples.map((sample) => {
-              const width = tileWidth(sample.durationSeconds)
+              const durationTicks = sampleDurationTicks(sample.durationSeconds, bpm)
+              const width = Math.max(12, durationTicks * pixelsPerTick)
               const isSelected = selectedSamplePath === sample.filepath
               // Compute the sample's own category colour for drag-to-tracker.
               // When a category filter is active all visible samples share that
