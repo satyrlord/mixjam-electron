@@ -6,9 +6,7 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 
 ## Status
 
-Specs 001-005 fully implemented and tested. Spec-006 (Player Timeline & Panel Layout) is partial — structural and
-transport ACs are done; clip overlap truncation, BPM dual-sync, browser resize handle, and canvas clip rendering
-remain. Check individual spec files for AC status.
+Specs 001-006 fully implemented and tested. Check individual spec files for AC status.
 
 ## Key docs
 

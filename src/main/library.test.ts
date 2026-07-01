@@ -294,6 +294,49 @@ describe('querySamples (AC-004, AC-005, AC-006, AC-011, AC-016)', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Windowed paging (AC-004)
+// ---------------------------------------------------------------------------
+
+describe('querySamples paging (AC-004)', () => {
+  beforeEach(() => {
+    // Insert 10 samples so we can test limit/offset
+    for (let i = 1; i <= 10; i++) {
+      upsertStub(db, `/s/sample${String(i).padStart(2, '0')}.wav`, `sample${String(i).padStart(2, '0')}.wav`, 'wav', 1000, 1000, false)
+    }
+  })
+
+  it('AC-004: limit restricts the number of rows returned', () => {
+    const { rows, total } = querySamples(db, { limit: 3 })
+    expect(rows).toHaveLength(3)
+    expect(total).toBe(10)
+  })
+
+  it('AC-004: offset skips rows (windowed paging)', () => {
+    const page1 = querySamples(db, { limit: 4, offset: 0, sortBy: 'filename', sortDir: 'asc' })
+    const page2 = querySamples(db, { limit: 4, offset: 4, sortBy: 'filename', sortDir: 'asc' })
+    const page3 = querySamples(db, { limit: 4, offset: 8, sortBy: 'filename', sortDir: 'asc' })
+
+    // No overlap between pages
+    const allNames = [...page1.rows, ...page2.rows, ...page3.rows].map((r) => r.filename)
+    expect(new Set(allNames).size).toBe(allNames.length)
+
+    // Together they cover all 10
+    expect(allNames).toHaveLength(10)
+
+    // total is consistent across pages
+    expect(page1.total).toBe(10)
+    expect(page2.total).toBe(10)
+    expect(page3.total).toBe(10)
+  })
+
+  it('AC-004: offset beyond total returns empty rows but correct total', () => {
+    const { rows, total } = querySamples(db, { limit: 5, offset: 100 })
+    expect(rows).toHaveLength(0)
+    expect(total).toBe(10)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Libraries
 // ---------------------------------------------------------------------------
 

@@ -21,6 +21,16 @@ if (typeof window !== 'undefined') {
     value: MockAudioContext
   })
 
+  // jsdom lacks ResizeObserver; provide a no-op stub so canvas-based components
+  // can mount without throwing.
+  if (typeof globalThis.ResizeObserver === 'undefined') {
+    (globalThis as unknown as Record<string, unknown>).ResizeObserver = class {
+      observe() { /* no-op */ }
+      unobserve() { /* no-op */ }
+      disconnect() { /* no-op */ }
+    }
+  }
+
   bootstrapTheme()
 
   afterEach(() => {

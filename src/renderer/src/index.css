@@ -640,6 +640,18 @@ html[data-theme-ready='true'] body {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+.lane-clip-canvas-container {
+  position: absolute;
+  inset: 0;
+}
+
+.lane-clip-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .tracker-lane-clip {
   position: absolute;
   top: 6px;
@@ -755,6 +767,28 @@ html[data-theme-ready='true'] body {
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.strip-bpm:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.strip-bpm-input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  width: 60px;
+  outline: none;
 }
 
 .strip-center {
@@ -967,15 +1001,27 @@ html[data-theme-ready='true'] body {
   position: relative;
 }
 
-/* Category grid panel — 152px fixed, matches design */
+/* Category grid panel — width controlled by JS resize handle */
 .cats {
   flex: none;
-  width: 152px;
   display: flex;
   flex-direction: column;
   padding: 8px;
   overflow: hidden;
-  border-right: 1px solid var(--border);
+  border-right: none;
+}
+
+/* ── Browser vertical resize handle ──────────── */
+.browser-resize-v {
+  flex: none;
+  width: 5px;
+  cursor: ew-resize;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.browser-resize-v:hover {
+  background: var(--accent);
 }
 
 .cat-manage-btn {

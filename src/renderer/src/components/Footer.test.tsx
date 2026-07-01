@@ -66,4 +66,32 @@ describe('Footer', () => {
     expect(screen.getByText('C:/Samples/Drums/Kicks/kick_808.wav')).toBeInTheDocument()
     expect(screen.getByText('Drums, Kick')).toBeInTheDocument()
   })
+
+  // AC-003b: center footer slot populated while left settings and right version remain visible
+  it('AC-003b: sample detail populates center slot while settings and version remain visible', () => {
+    render(
+      <Footer
+        view="tracker"
+        version="1.2.3"
+        sampleDetail={{
+          name: 'snare.wav',
+          filepath: 'C:/Samples/snare.wav',
+          tags: ['Percussion'],
+          duration: 0.8
+        }}
+        onSelectFolder={vi.fn()}
+        onOpenRepo={vi.fn()}
+      />
+    )
+
+    // Center slot populated
+    expect(screen.getByText('snare.wav')).toBeInTheDocument()
+    expect(screen.getByText('C:/Samples/snare.wav')).toBeInTheDocument()
+    expect(screen.getByText('Percussion')).toBeInTheDocument()
+
+    // Left settings link still visible
+    expect(screen.getByRole('button', { name: 'Select settings folder' })).toBeInTheDocument()
+    // Right version string still visible
+    expect(screen.getByRole('button', { name: '1.2.3' })).toBeInTheDocument()
+  })
 })

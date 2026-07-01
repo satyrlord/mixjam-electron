@@ -1,7 +1,7 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ PARTIAL (pulled forward into spec-005 TrackerView)
+**Spec Implementation Status:** COMPLETE
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -195,9 +195,9 @@ adjacencies.
 - [x] **AC-002:** The Recent Projects rail remains visible in the upper-left of the active Player, shares the same width as the Song
   Controls rail below it, and shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current
   User Folder.
-- [ ] **AC-002a:** The User Folder contribution to the Recent Projects rail includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
-- [ ] **AC-002b:** The Recent Projects rail sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
-- [ ] **AC-002c:** When the Recent Projects rail has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank rail or rail-specific action buttons.
+- [x] **AC-002a:** The User Folder contribution to the Recent Projects rail includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
+- [x] **AC-002b:** The Recent Projects rail sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
+- [x] **AC-002c:** When the Recent Projects rail has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank rail or rail-specific action buttons.
 - [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
 - [x] **AC-004:** The Song Controls rail is visible by default in the lower-left; widening its right-edge reveal seam may expose mixer content without relocating the sample browser into the left rail.
 - [x] **AC-004a:** The default Song Controls rail shows a Master Volume slider, a master dB loudness meter, and a BPM slider.
@@ -214,9 +214,9 @@ adjacencies.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
 - [x] **AC-015:** The BPM display shows the current BPM. Clicking it allows editing; changing the value updates the engine's BPM immediately.
-- [ ] **AC-015a:** Changing BPM from either the Middle Strip editor or the Song Controls slider updates the same transport state and keeps both controls synchronized.
-- [ ] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
-- [ ] **AC-017:** Clips are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
+- [x] **AC-015a:** Changing BPM from either the Middle Strip editor or the Song Controls slider updates the same transport state and keeps both controls synchronized.
+- [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
+- [x] **AC-017:** Clips are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
 
 ## Non-Goals (deferred to later specs)
 

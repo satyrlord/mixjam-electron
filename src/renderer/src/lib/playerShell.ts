@@ -1,5 +1,5 @@
 import type { SampleListItem } from '../../../shared/ipc'
-import { type EngineLane, anyLaneSoloed as anyMuteSoloSoloed } from '../engine/lane-evaluation'
+import { type EngineLane } from '../engine/lane-evaluation'
 import { tickDurationSeconds } from '../engine/transport'
 
 /** Detail passed around the UI after a user selects or drags a sample. All paths
@@ -131,11 +131,6 @@ export function toggleLaneSolo(lanes: LaneState[], laneIndex: number): LaneState
     }
     return lane
   })
-}
-
-export function anyLaneSoloed(lanes: LaneState[]): boolean {
-  // Delegates to the shared mute/solo policy (lane-evaluation).
-  return anyMuteSoloSoloed(lanes)
 }
 
 // A lane is dimmed when it is muted, or when any lane is soloed and this lane is

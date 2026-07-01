@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
   DEFAULT_LANE_COUNT,
   LANE_HEIGHT_PX,
   LANE_HEAD_WIDTH_PX,
   DEFAULT_CLIP_DURATION_TICKS,
-  anyLaneSoloed,
   createDefaultLanes,
   laneShouldDim,
   moveClipOnLane,

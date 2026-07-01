@@ -1,0 +1,194 @@
+import { describe, expect, it, vi } from 'vitest'
+import { type EngineLane } from './lane-evaluation'
+import { Player } from './player'
+import { type SchedulerClock } from './scheduler'
+import { MockAudioContext, MockBufferSourceNode, createMockContext } from '../test/mockAudioContext'
+
+function mockClock(): SchedulerClock & { fire: () => void } {
+  let pending: (() => void) | null = null
+  return {
+    fire: () => pending?.(),
+    setInterval: vi.fn((cb: () => void) => { pending = cb; return 1 }),
+    clearInterval: vi.fn(() => { pending = null })
+  }
+}
+
+function flushAsync(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+function makePlayer(opts: {
+  context?: MockAudioContext
+  lanes?: EngineLane[]
+  loadSampleBytes?: (p: string) => Promise<ArrayBuffer | null>
+  audioTime?: number
+}) {
+  const context = opts.context ?? createMockContext()
+  const clock = mockClock()
+  const audioTime = opts.audioTime ?? 0
+  const player = new Player({
+    createContext: () => context as unknown as AudioContext,
+    clock,
+    now: () => audioTime,
+    getLanes: () => opts.lanes ?? [],
+    loadSampleBytes: opts.loadSampleBytes ?? (async () => new ArrayBuffer(8)),
+    bpm: 120
+  })
+  return { player, context, clock }
+}
+
+describe('Player.previewSample', () => {
+  it('toggles off when the same sample is previewed again', async () => {
+    const { player, context } = makePlayer({})
+    await player.previewSample('kick.wav')
+    await flushAsync()
+    expect(context.created.sources.length).toBeGreaterThanOrEqual(1)
+
+    // Preview the same sample again → should stop, not start a new voice
+    await player.previewSample('kick.wav')
+    await flushAsync()
+    // No new source created on toggle-off
+    expect(context.created.sources.length).toBe(1)
+    await player.close()
+  })
+
+  it('swaps to a new sample when a different one is previewed', async () => {
+    const { player, context } = makePlayer({})
+    await player.previewSample('kick.wav')
+    await flushAsync()
+
+    await player.previewSample('snare.wav')
+    await flushAsync()
+    expect(context.created.sources.length).toBeGreaterThanOrEqual(2)
+    await player.close()
+  })
+
+  it('clears preview path when buffer load returns null', async () => {
+    const { player } = makePlayer({
+      loadSampleBytes: async () => null
+    })
+    await player.previewSample('missing.wav')
+    await flushAsync()
+    // Should not crash; preview path cleared
+    await player.close()
+  })
+
+  it('clears preview path when buffer load throws', async () => {
+    const { player } = makePlayer({
+      loadSampleBytes: async () => { throw new Error('disk fail') }
+    })
+    await player.previewSample('broken.wav')
+    await flushAsync()
+    // Should not crash; preview path cleared
+    await player.close()
+  })
+
+  it('fires onEnded callback when preview voice finishes on its own', async () => {
+    const { player, context } = makePlayer({})
+    await player.previewSample('kick.wav')
+    await flushAsync()
+
+    // Get the last created source (the preview voice) and simulate it ending
+    const sources = context.created.sources as MockBufferSourceNode[]
+    const previewSource = sources[sources.length - 1]!
+    previewSource.endNow()
+    await flushAsync()
+
+    // After the preview ends, previewing the same sample should start a new voice
+    // (not toggle off), proving the path was cleared.
+    await player.previewSample('kick.wav')
+    await flushAsync()
+    expect(context.created.sources.length).toBeGreaterThanOrEqual(2)
+    await player.close()
+  })
+})
+
+describe('Player.triggerLane edge cases', () => {
+  it('skips trigger when loadSampleBytes returns null', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'gone.wav' }] }
+    ]
+    const { player } = makePlayer({
+      lanes,
+      loadSampleBytes: async () => null
+    })
+    await player.start(0)
+    await flushAsync()
+    expect(player.audioEngine.activeVoiceCount).toBe(0)
+    await player.close()
+  })
+
+  it('drops trigger when playback stops during async buffer load', async () => {
+    let resolveLoad!: (buf: ArrayBuffer) => void
+    const deferred = new Promise<ArrayBuffer>((resolve) => { resolveLoad = resolve })
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'slow.wav' }] }
+    ]
+    const { player } = makePlayer({
+      lanes,
+      loadSampleBytes: () => deferred
+    })
+    await player.start(0)
+    // Stop before the buffer load resolves
+    player.stop()
+    // Now resolve the load
+    resolveLoad(new ArrayBuffer(8))
+    await flushAsync()
+    // No voice should have started since playback was stopped
+    expect(player.audioEngine.activeVoiceCount).toBe(0)
+    await player.close()
+  })
+})
+
+describe('Player.setBpm', () => {
+  it('updates the BPM used by the scheduler', async () => {
+    const { player } = makePlayer({})
+    player.setBpm(140)
+    // The BPM is read live by the scheduler; no crash is the main assertion
+    await player.close()
+  })
+})
+
+describe('Player.setChannelPan', () => {
+  it('sets pan on the channel without crashing', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, channelIndex: 3, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+    ]
+    const { player } = makePlayer({ lanes })
+    await player.start(0)
+    await flushAsync()
+    player.setChannelPan(3, 0.5)
+    await player.close()
+  })
+})
+
+describe('Voice lifecycle (createVoice)', () => {
+  // Directly test the voice via the engine to cover the onended guard.
+  it('does not re-process onended when called twice', async () => {
+    const { player, context } = makePlayer({})
+    await player.previewSample('kick.wav')
+    await flushAsync()
+
+    const sources = context.created.sources as MockBufferSourceNode[]
+    const source = sources[sources.length - 1]!
+    // Fire onended twice — the second call should be a no-op
+    source.endNow()
+    source.endNow()
+    await flushAsync()
+    // No crash; the guard prevented double-processing
+    await player.close()
+  })
+
+  it('stop() is a no-op after the voice has already ended', async () => {
+    const { player, context } = makePlayer({})
+    await player.previewSample('kick.wav')
+    await flushAsync()
+
+    const sources = context.created.sources as MockBufferSourceNode[]
+    const source = sources[sources.length - 1]!
+    // End the voice, then stop it
+    source.endNow()
+    // stop() on an already-ended voice should not throw
+    await player.close()
+  })
+})

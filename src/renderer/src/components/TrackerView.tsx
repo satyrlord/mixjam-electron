@@ -11,6 +11,7 @@ import {
 } from '../lib/sample-utils'
 import ScanProgressBar from './ScanProgressBar'
 import ManagePanel from './ManagePanel'
+import LaneClipCanvas from './LaneClipCanvas'
 
 interface TrackerViewProps {
   recentProjects: RecentProjectItem[]
@@ -123,6 +124,36 @@ export default function TrackerView({
   const isPlaying = transportState === 'playing'
 
   const [managePanelOpen, setManagePanelOpen] = useState(false)
+
+  // BPM inline-edit state for the Middle Strip
+  const [editingBpm, setEditingBpm] = useState(false)
+  const [bpmDraft, setBpmDraft] = useState(String(bpm))
+  const bpmInputRef = useRef<HTMLInputElement>(null)
+
+  const handleBpmEditStart = useCallback(() => {
+    setBpmDraft(String(bpm))
+    setEditingBpm(true)
+  }, [bpm])
+
+  const handleBpmEditCommit = useCallback(() => {
+    const parsed = parseInt(bpmDraft, 10)
+    if (!Number.isNaN(parsed) && parsed >= 50 && parsed <= 200) {
+      onSetBpm(parsed)
+    }
+    setEditingBpm(false)
+  }, [bpmDraft, onSetBpm])
+
+  const handleBpmEditKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleBpmEditCommit()
+    if (e.key === 'Escape') setEditingBpm(false)
+  }, [handleBpmEditCommit])
+
+  useEffect(() => {
+    if (editingBpm && bpmInputRef.current) {
+      bpmInputRef.current.focus()
+      bpmInputRef.current.select()
+    }
+  }, [editingBpm])
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -242,6 +273,25 @@ export default function TrackerView({
   // region.  1 = equal split with the tracker region.
   const [browserFlex, setBrowserFlex] = useState(1)
 
+  // Browser internal vertical resize: category-tree width in px.
+  const [catsWidth, setCatsWidth] = useState(152)
+
+  const handleBrowserResizeVStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = catsWidth
+    const onMove = (moveEvent: MouseEvent) => {
+      const newWidth = startWidth + (moveEvent.clientX - startX)
+      setCatsWidth(Math.max(80, Math.min(400, newWidth)))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [catsWidth])
+
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     const startY = e.clientY
@@ -313,7 +363,6 @@ export default function TrackerView({
         </div>
         <div className="tracker-lanes">
           {lanes.map((lane) => {
-            const tickWidth = `calc(100% / ${totalTicks})`
             const dimmed = laneShouldDim(lane)
             return (
               <div
@@ -369,36 +418,14 @@ export default function TrackerView({
                   role="region"
                   aria-label={`Lane ${lane.index + 1} track area`}
                 >
-                  {lane.clips.map((clip) => {
-                    return (
-                    <div
-                      key={clip.id}
-                      className={`tracker-lane-clip sample-bubble${flashSamplePath === clip.samplePath ? ' tracker-lane-clip-flash' : ''}`}
-                      style={{
-                        left: `calc(${clip.startTick} * ${tickWidth})`,
-                        width: `${tileWidth(clip.durationSeconds)}px`,
-                        ...(clip.color ? { background: clip.color, borderColor: clip.color } : {}),
-                      }}
-                      title={clip.sampleName}
-                      draggable
-                      onDragStart={(e) => handleClipDragStart(e, clip.id)}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setContextMenu({
-                          x: e.clientX,
-                          y: e.clientY,
-                          laneIndex: lane.index,
-                          clipId: clip.id,
-                          samplePath: clip.samplePath,
-                          sampleName: clip.sampleName
-                        })
-                      }}
-                    >
-                      <span className="tracker-lane-clip-label">{clip.sampleName}</span>
-                    </div>
-                    )
-                  })}
+                  <LaneClipCanvas
+                    clips={lane.clips}
+                    totalTicks={totalTicks}
+                    laneIndex={lane.index}
+                    flashSamplePath={flashSamplePath}
+                    onClipDragStart={(clipId, e) => handleClipDragStart(e, clipId)}
+                    onClipContextMenu={setContextMenu}
+                  />
                 </div>
               </div>
             )
@@ -410,7 +437,29 @@ export default function TrackerView({
         <div className="strip-left">
           <span className="strip-proj">Untitled</span>
           <span className="strip-sep" />
-          <span className="strip-bpm">{bpm} BPM</span>
+          {editingBpm ? (
+            <input
+              ref={bpmInputRef}
+              type="number"
+              className="strip-bpm-input"
+              min={50}
+              max={200}
+              value={bpmDraft}
+              onChange={(e) => setBpmDraft(e.currentTarget.value)}
+              onBlur={handleBpmEditCommit}
+              onKeyDown={handleBpmEditKeyDown}
+              aria-label="Edit BPM"
+            />
+          ) : (
+            <button
+              type="button"
+              className="strip-bpm"
+              onClick={handleBpmEditStart}
+              aria-label="Edit BPM"
+            >
+              {bpm} BPM
+            </button>
+          )}
         </div>
         <div className="strip-center">
           <button type="button" className="transport-button" aria-label="Skip Back" onClick={onTransportSkipBack}>
@@ -504,7 +553,7 @@ export default function TrackerView({
       </aside>
 
       <section className="browser-region" aria-label="Sample Browser">
-        <div className="cats">
+        <div className="cats" style={{ width: catsWidth }}>
           <button
             type="button"
             className="cat-manage-btn"
@@ -533,6 +582,14 @@ export default function TrackerView({
             })}
           </div>
         </div>
+
+        <div
+          className="browser-resize-v"
+          role="separator"
+          aria-label="Resize category tree"
+          aria-orientation="vertical"
+          onMouseDown={handleBrowserResizeVStart}
+        />
 
         <div className="tiles-section">
           <div className="subcats-row">

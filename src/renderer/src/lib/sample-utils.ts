@@ -66,14 +66,6 @@ export function tileWidth(seconds: number | null): number {
   return Math.max(60, Math.round(cappedSeconds * 35))
 }
 
-export function parseDurationString(s: string): number | null {
-  const mMatch = s.match(/^(\d+):(\d+)$/)
-  if (mMatch) return parseInt(mMatch[1], 10) * 60 + parseInt(mMatch[2], 10)
-  const sMatch = s.match(/^([\d.]+)s$/)
-  if (sMatch) return parseFloat(sMatch[1])
-  return null
-}
-
 export function nearestTick(clickX: number, containerWidth: number, totalTicks: number): number {
   // Guard against an unmeasured (zero/negative) container width, which would
   // make tickWidth 0 and yield Infinity/NaN ticks.

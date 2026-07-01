@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ElectronAPI } from '../../../shared/ipc'
+import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
   type FooterSampleDetail,
   type LaneState,
-  anyLaneSoloed,
   createDefaultLanes,
   laneShouldDim,
   moveClipOnLane,

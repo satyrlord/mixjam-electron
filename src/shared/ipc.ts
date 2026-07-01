@@ -47,16 +47,6 @@ export interface RecentProjectItem {
   lastOpened: string | null
 }
 
-export interface SampleBrowserItem {
-  id: string
-  name: string
-  path: string
-  category: string
-  duration: string
-  metadata: string[]
-  tags: string[]
-}
-
 export interface TagItem {
   id: number
   name: string
