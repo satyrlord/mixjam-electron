@@ -67,6 +67,39 @@ describe('useLibraryData', () => {
     })
   })
 
+  it('loads every DB sample window when no category is selected', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const dbRows: SampleItem[] = Array.from({ length: 501 }, (_, index) => ({
+      id: index + 1,
+      filepath: `C:/samples/sample-${index + 1}.wav`,
+      filename: `sample-${index + 1}.wav`,
+      ext: '.wav',
+      sizeBytes: 100,
+      duration: 2.5,
+      sampleRate: 44100,
+      channels: 1,
+      bpm: 120,
+      musicalKey: 'C',
+      dateAdded: index,
+      scanState: 1,
+      categoryId: (index % 8) + 1
+    }))
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockImplementation(async (request) => {
+      const offset = request.offset ?? 0
+      const limit = request.limit ?? 500
+      return { rows: dbRows.slice(offset, offset + limit), total: dbRows.length }
+    })
+
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(501))
+    expect(result.current.selectedCategoryId).toBeUndefined()
+    expect(api.querySamples).toHaveBeenCalledWith(expect.objectContaining({ limit: 500, offset: 0 }))
+    expect(api.querySamples).toHaveBeenCalledWith(expect.objectContaining({ limit: 500, offset: 500 }))
+  })
+
   it('sets an error when the legacy query fails', async () => {
     vi.useRealTimers()
     const api = makeApi()

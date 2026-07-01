@@ -24,6 +24,7 @@
 - Added documentation for the new hasSamples() function in library management system
 - Updated file system integration patterns to show centralized extension handling
 - Enhanced IPC communication patterns with hasSamples() integration
+- Improved scanning/indexing processes documentation with centralized extension validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -363,6 +364,26 @@ The hierarchical category system provides flexible organization for audio sample
 **Section sources**
 - [library.ts](file://src/main/library.ts)
 - [indexer.ts](file://src/main/indexer.ts)
+
+### Centralized Audio Extension Management
+The AUDIO_EXTENSIONS constant provides unified audio file extension handling across all scanning components:
+
+#### Centralization Benefits
+- **Consistency**: All scanning components use the same extension validation logic
+- **Maintainability**: Single place to update supported audio formats
+- **Performance**: Efficient Set-based lookups for file extension validation
+- **Reliability**: Reduced risk of inconsistent extension handling between components
+
+#### Integration Points
+- **Indexer Worker**: Uses AUDIO_EXTENSIONS for file validation during scanning
+- **Legacy Browser**: Integrates AUDIO_EXTENSIONS for local folder scanning
+- **Path Utilities**: Central location for extension constants and path utilities
+- **Future Expansion**: Easy to add new audio formats by updating single constant
+
+**Section sources**
+- [path-utils.ts](file://src/main/path-utils.ts)
+- [indexer.ts](file://src/main/indexer.ts)
+- [sample-browser.ts](file://src/main/sample-browser.ts)
 
 ## Dependency Analysis
 The system exhibits clear dependency relationships that support maintainability and scalability with centralized extension management:

@@ -68,6 +68,8 @@ function dbSampleToListItem(s: SampleItem, categories: readonly CategoryItem[]):
   }
 }
 
+const DB_SAMPLE_PAGE_SIZE = 500
+
 export function useLibraryData(
   electronAPI: ElectronAPI,
   userFolder: string | null,
@@ -177,18 +179,31 @@ export function useLibraryData(
     const seq = ++querySeqRef.current
     setLoading(true)
     try {
-      const result = await electronAPI.querySamples({
-        textSearch: searchQuery || undefined,
-        categoryId: selectedCategoryId,
-        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-        sortBy,
-        sortDir,
-        limit: 500
-      })
-      if (seq !== querySeqRef.current) return
-      const mapped = result.rows.map((s) => dbSampleToListItem(s, categories))
+      const rows: SampleItem[] = []
+      let total = 0
+      let offset = 0
+
+      do {
+        const result = await electronAPI.querySamples({
+          textSearch: searchQuery || undefined,
+          categoryId: selectedCategoryId,
+          tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+          sortBy,
+          sortDir,
+          limit: DB_SAMPLE_PAGE_SIZE,
+          offset
+        })
+        if (seq !== querySeqRef.current) return
+
+        total = result.total
+        rows.push(...result.rows)
+        if (result.rows.length === 0) break
+        offset += result.rows.length
+      } while (rows.length < total)
+
+      const mapped = rows.map((s) => dbSampleToListItem(s, categories))
       setSamples(mapped)
-      setTotalCount(result.total)
+      setTotalCount(total)
       setError(null)
     } catch (e) {
       if (seq !== querySeqRef.current) return

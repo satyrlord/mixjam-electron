@@ -99,6 +99,8 @@ Strip from spec-006. Its internal layout:
 - Search matches against filename and filepath.
 - Results respect any active tag/category filter (search within filtered set).
 - Empty search query shows all samples (subject to active filters).
+- Clearing the category filter restores all matching samples by requesting every
+  available SQLite result window, not just the first page.
 
 ### Browser Toolbar
 
@@ -164,6 +166,7 @@ Strip from spec-006. Its internal layout:
 - [x] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, and a manual "Re-scan" action.
 - [x] **AC-005:** Typing in the search field filters the sample list in real-time, matching against filename.
 - [x] **AC-006:** Clearing the search field restores the full sample list.
+- [x] **AC-006b:** Clearing or unselecting a category restores all matching samples across every SQLite result window, not only the first page.
 - [x] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
 - [x] **AC-007:** User can create a new tag, see it in the tag list, and assign it to a sample.
 - [x] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.

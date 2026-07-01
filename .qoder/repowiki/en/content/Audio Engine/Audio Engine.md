@@ -22,14 +22,15 @@
 - [architecture.md](file://docs/architecture.md)
 - [index.ts](file://src/main/index.ts)
 - [ipc.ts](file://src/shared/ipc.ts)
+- [player.test.ts](file://src/renderer/src/engine/player.test.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced player implementation with improved stop/pause behavior using playGeneration tracking to prevent stray voice starts after playback ends
-- Updated transport engine with better synchronization between audio clock and visual playhead rendering through Player.currentTick integration
-- Improved lane evaluation system with sophisticated dimming policy for mute/solo states, separating visual dimming from audio audibility rules
-- Enhanced preview functionality with transport-aware scheduling that quantizes previews to downbeats when transport is playing
+- Enhanced error handling and voice lifecycle management in Player class with improved race condition prevention
+- Refined audio processing pipeline with better sample loading and caching error recovery
+- Improved transport system with live BPM editing capabilities and enhanced synchronization
+- Strengthened voice lifecycle management with robust double-processing guards and proper cleanup
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -631,3 +632,21 @@ The player shell implements a sophisticated dimming policy that provides clear v
 **Section sources**
 - [playerShell.ts:141-149](file://src/renderer/src/lib/playerShell.ts#L141-L149)
 - [lane-evaluation.ts:43-48](file://src/renderer/src/engine/lane-evaluation.ts#L43-L48)
+
+### Enhanced Error Handling and Voice Lifecycle Management
+The Player class implements robust error handling and voice lifecycle management to prevent race conditions and ensure proper cleanup during playback operations.
+
+**Key Features:**
+- Play generation tracking prevents stray voice starts after stop/pause/close
+- Enhanced sample loading with proper error recovery and cleanup
+- Robust voice lifecycle management with double-processing guards
+- Immediate cancellation support for preview functionality
+- Proper resource cleanup during engine shutdown
+
+**Updated** Comprehensive error handling improvements with enhanced race condition prevention
+
+**Section sources**
+- [player.ts:38-40](file://src/renderer/src/engine/player.ts#L38-L40)
+- [player.ts:202-214](file://src/renderer/src/engine/player.ts#L202-L214)
+- [voice.ts:52-60](file://src/renderer/src/engine/voice.ts#L52-L60)
+- [player.test.ts:107-140](file://src/renderer/src/engine/player.test.ts#L107-L140)

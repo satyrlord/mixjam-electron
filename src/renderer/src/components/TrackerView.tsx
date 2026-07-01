@@ -121,6 +121,10 @@ export default function TrackerView({
   onDeleteLibrary,
 }: TrackerViewProps) {
   const totalTicks = 256
+  const ticksPerBeat = 8
+  const ticksPerBar = 32
+  const beatsPerBar = ticksPerBar / ticksPerBeat
+  const rulerBeatCount = totalTicks / ticksPerBeat
   const isPlaying = transportState === 'playing'
 
   const [managePanelOpen, setManagePanelOpen] = useState(false)
@@ -353,15 +357,19 @@ export default function TrackerView({
             aria-hidden="true"
           />
         )}
-        <div className="tracker-ruler">
-          <div className="tracker-ruler-spacer" />
-          {Array.from({ length: totalTicks / 32 }, (_, i) => (
-            <div key={i} className="tracker-ruler-tick">
-              {i % 4 === 0 ? <span className="tracker-ruler-bar">{i + 1}</span> : null}
-            </div>
-          ))}
-        </div>
         <div className="tracker-lanes">
+          <div className="tracker-ruler">
+            <div className="tracker-ruler-spacer" />
+            {Array.from({ length: rulerBeatCount }, (_, i) => {
+              const isBar = i % beatsPerBar === 0
+              const barNumber = i / beatsPerBar + 1
+              return (
+                <div key={i} className={`tracker-ruler-tick${isBar ? ' tracker-ruler-tick-bar' : ''}`}>
+                  {isBar && barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
+                </div>
+              )
+            })}
+          </div>
           {lanes.map((lane) => {
             const dimmed = laneShouldDim(lane)
             return (

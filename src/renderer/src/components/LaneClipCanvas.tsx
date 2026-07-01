@@ -24,6 +24,9 @@ const CORNER_RADIUS = 6
 const ACCENT_FALLBACK = '#2D8C6F'
 const TEXT_COLOR = '#EAEAEA'
 const LABEL_FONT = '10px sans-serif'
+const TICKS_PER_BAR = 32
+const BEATS_PER_BAR = 4
+const TICKS_PER_BEAT = TICKS_PER_BAR / BEATS_PER_BAR
 
 interface ClipHitRect {
   clip: LaneClip
@@ -31,9 +34,13 @@ interface ClipHitRect {
   width: number
 }
 
+function getComputedColor(token: string, fallback: string): string {
+  const val = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+  return val || fallback
+}
+
 function getComputedAccent(): string {
-  const val = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
-  return val || ACCENT_FALLBACK
+  return getComputedColor('--accent', ACCENT_FALLBACK)
 }
 
 function roundRect(
@@ -91,9 +98,39 @@ export default function LaneClipCanvas({
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
 
-    const accent = getComputedAccent()
+    // --- Grid lines ---
+    const borderColor = getComputedColor('--border', '#1A4D3E')
     const pixelsPerTick = canvasWidth / totalTicks
+
+    // Beat lines (more transparent)
+    ctx.strokeStyle = borderColor
+    ctx.globalAlpha = 0.25
+    ctx.lineWidth = 1
+    for (let tick = TICKS_PER_BEAT; tick < totalTicks; tick += TICKS_PER_BEAT) {
+      // Skip positions that fall on bar lines — they are drawn separately
+      if (tick % TICKS_PER_BAR === 0) continue
+      const x = Math.round(tick * pixelsPerTick) + 0.5
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, canvasHeight)
+      ctx.stroke()
+    }
+
+    // Bar lines (fully visible)
+    ctx.globalAlpha = 1.0
+    ctx.strokeStyle = borderColor
+    ctx.lineWidth = 1
+    for (let tick = TICKS_PER_BAR; tick < totalTicks; tick += TICKS_PER_BAR) {
+      const x = Math.round(tick * pixelsPerTick) + 0.5
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, canvasHeight)
+      ctx.stroke()
+    }
+
+    // --- Clips ---
     const hitRects: ClipHitRect[] = []
+    const accent = getComputedAccent()
 
     ctx.font = LABEL_FONT
     ctx.textBaseline = 'middle'

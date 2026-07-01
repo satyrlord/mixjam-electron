@@ -18,11 +18,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced shared IPC interface with new SampleListItem interface for unified sample representation
-- Added new libraryHasSamples IPC channel for determining sample availability in library database
-- Improved input validation in main process IPC handlers with robust error handling
-- Updated ElectronAPI type definitions to include new hasSamples method
-- Enhanced renderer integration with unified sample list interface
+- Removed SampleBrowserItem interface from shared IPC types as part of simplification effort
+- Consolidated data structures to use unified SampleListItem interface throughout the system
+- Simplified IPC communication structure for better maintainability
+- Enhanced shared IPC interface with improved SampleListItem interface for unified sample representation
+- Updated ElectronAPI type definitions to reflect simplified interface structure
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -73,10 +73,10 @@ IMR --> LIB
 - [preload/index.ts:1-61](file://src/preload/index.ts#L1-L61)
 - [main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 - [session.ts:1-265](file://src/main/session.ts#L1-L265)
-- [sample-browser.ts:1-113](file://src/main/sample-browser.ts#L1-L113)
+- [sample-browser.ts:1-104](file://src/main/sample-browser.ts#L1-L104)
 - [library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
-- [useAppState.ts:1-295](file://src/renderer/src/hooks/useAppState.ts#L1-L295)
+- [useAppState.ts:1-77](file://src/renderer/src/hooks/useAppState.ts#L1-L77)
 
 **Section sources**
 - [preload/index.ts:1-61](file://src/preload/index.ts#L1-L61)
@@ -97,7 +97,7 @@ Key responsibilities:
 - Renderer consumes a strongly-typed API surface with unified sample types.
 
 **Section sources**
-- [ipc.ts:1-204](file://src/shared/ipc.ts#L1-L204)
+- [ipc.ts:1-194](file://src/shared/ipc.ts#L1-L194)
 - [preload/index.ts:1-61](file://src/preload/index.ts#L1-L61)
 - [main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 
@@ -125,7 +125,7 @@ P-->>R : "Promise<boolean>"
 - [main/index.ts:239](file://src/main/index.ts#L239)
 
 **Section sources**
-- [ipc.ts:1-204](file://src/shared/ipc.ts#L1-L204)
+- [ipc.ts:1-194](file://src/shared/ipc.ts#L1-L194)
 - [preload/index.ts:1-61](file://src/preload/index.ts#L1-L61)
 - [main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 
@@ -135,7 +135,7 @@ P-->>R : "Promise<boolean>"
 - Channel names are defined centrally to prevent drift between renderer and main.
 - Shared types define request/response shapes and enums.
 - ElectronAPI declares the renderer-facing contract.
-- **New**: SampleListItem interface provides unified sample representation across legacy and database pipelines.
+- **Updated**: SampleListItem interface provides unified sample representation across legacy and database pipelines, replacing the previous SampleBrowserItem interface.
 
 ```mermaid
 classDiagram
@@ -224,15 +224,6 @@ class RecentProjectItem {
 +displayName : string
 +lastOpened : string|null
 }
-class SampleBrowserItem {
-+id : string
-+name : string
-+path : string
-+category : string
-+duration : string
-+metadata : string[]
-+tags : string[]
-}
 class SampleQueryRequest {
 +textSearch? : string
 +categoryId? : number
@@ -250,16 +241,15 @@ IPC_CHANNELS --> ElectronAPI : "keys"
 ElectronAPI --> SampleListItem : "returns"
 ElectronAPI --> SessionPaths : "returns"
 ElectronAPI --> RecentProjectItem : "returns"
-ElectronAPI --> SampleBrowserItem : "returns"
 ElectronAPI --> SampleQueryRequest : "accepts"
 ElectronAPI --> SampleQueryResponse : "returns"
 ```
 
 **Diagram sources**
-- [ipc.ts:1-204](file://src/shared/ipc.ts#L1-L204)
+- [ipc.ts:1-194](file://src/shared/ipc.ts#L1-L194)
 
 **Section sources**
-- [ipc.ts:1-204](file://src/shared/ipc.ts#L1-L204)
+- [ipc.ts:1-194](file://src/shared/ipc.ts#L1-L194)
 
 ### Security Bridge in Preload
 - contextBridge exposes a minimal ElectronAPI to the renderer.
@@ -458,17 +448,17 @@ PRE --> RND2["Renderer Hooks<br/>useAppState.ts"]
 ```
 
 **Diagram sources**
-- [ipc.ts:1-204](file://src/shared/ipc.ts#L1-L204)
+- [ipc.ts:1-194](file://src/shared/ipc.ts#L1-L194)
 - [preload/index.ts:1-61](file://src/preload/index.ts#L1-L61)
 - [main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 - [session.ts:1-265](file://src/main/session.ts#L1-L265)
-- [sample-browser.ts:1-113](file://src/main/sample-browser.ts#L1-L113)
+- [sample-browser.ts:1-104](file://src/main/sample-browser.ts#L1-L104)
 - [library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
-- [useAppState.ts:1-295](file://src/renderer/src/hooks/useAppState.ts#L1-L295)
+- [useAppState.ts:1-77](file://src/renderer/src/hooks/useAppState.ts#L1-L77)
 
 **Section sources**
-- [ipc.ts:1-204](file://src/shared/ipc.ts#L1-L204)
+- [ipc.ts:1-194](file://src/shared/ipc.ts#L1-L194)
 - [preload/index.ts:1-61](file://src/preload/index.ts#L1-L61)
 - [main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 
@@ -574,11 +564,11 @@ The IPC system in MixJam Electron is designed around strong typing, process isol
 **Section sources**
 - [electron.d.ts:1-9](file://src/renderer/src/electron.d.ts#L1-L9)
 - [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
-- [useAppState.ts:1-295](file://src/renderer/src/hooks/useAppState.ts#L1-L295)
+- [useAppState.ts:1-77](file://src/renderer/src/hooks/useAppState.ts#L1-L77)
 - [bootstrapApp.tsx:1-19](file://src/renderer/src/bootstrapApp.tsx#L1-L19)
 
 ### Data Model Enhancements
-- **New**: SampleListItem interface provides unified sample representation with:
+- **Updated**: SampleListItem interface provides unified sample representation with:
   - id: string (file path or unique identifier)
   - name: string (display name)
   - filepath: string (full file path)

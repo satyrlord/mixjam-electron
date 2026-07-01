@@ -81,7 +81,10 @@ adjacencies.
 ### Ruler
 
 - Height: 24px, padded left 168px (lane-head width).
-- Tick marks every 96px (one bar at default zoom).
+- The lane-head rendered border box must remain exactly 168px wide so ruler
+  marks, tracker grid lines, clips, and playhead share the same x-origin.
+- Tick marks use the same beat/bar model as the lane canvas: a transparent
+  tick every beat and a stronger tick every bar.
 - Bar numbers: 1, 5, 9, 13… (every 4 bars), monospace font, muted color.
 - Scrolls horizontally in sync with the lane canvas.
 
@@ -209,7 +212,8 @@ adjacencies.
 - [x] **AC-009:** Placing a clip that overlaps an existing one on the same lane keeps both clips visually intact (overlapping); only the audio
   is monophonic (the new trigger cuts off the previous voice). Overlap never deletes or trims the earlier clip's data.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
-- [x] **AC-011:** The ruler displays tick marks every 96px and bar numbers (1, 5, 9, 13…) in monospace font.
+- [x] **AC-011:** The ruler displays beat ticks and stronger bar ticks using the same beat/bar grid as the lane canvas, with bar numbers (1, 5, 9, 13…) in monospace font;
+  the ruler x-origin aligns with the tracker grid, clips, and playhead.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).

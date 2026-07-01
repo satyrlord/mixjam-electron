@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import TrackerView from './TrackerView'
 import type { RecentProjectItem, SampleListItem } from '../../../shared/ipc'
 import type { LaneState } from '../lib/playerShell'
+
+const INDEX_CSS_PATH = resolve(process.cwd(), 'src/renderer/src/index.css')
 
 const asyncNoop = async () => { /* empty */ }
 
@@ -423,6 +427,22 @@ describe('TrackerView', () => {
     expect(barLabels[0].textContent).toBe('1')
     // Second bar label is 5 (every 4 ticks/32 grouping)
     expect(barLabels[1].textContent).toBe('5')
+  })
+
+  it('AC-011: ruler renders one tick per beat so header lines align with the canvas grid', () => {
+    renderTracker({})
+
+    const ticks = document.querySelectorAll('.tracker-ruler-tick')
+    expect(ticks).toHaveLength(32)
+    expect(document.querySelectorAll('.tracker-ruler-tick-bar')).toHaveLength(8)
+  })
+
+  it('AC-011: keeps the lane head box at the same rendered width as the ruler spacer', () => {
+    const css = readFileSync(INDEX_CSS_PATH, 'utf8')
+
+    expect(css).toMatch(
+      /\.tracker-lane-head\s*\{[\s\S]*box-sizing:\s*border-box;/m
+    )
   })
 
   // --- AC-015: BPM click-to-edit ---
