@@ -27,6 +27,12 @@ path and skips synth discovery entirely (skips `deriveComponentsFromSrc`).
   at the top in the review capture image). This does not reflect how the real
   claude.ai/design product renders the card (full declared viewport, `900x700`
   via `cardMode: single`). Benign — do not chase.
+- `[RENDER_THIN] AppShell: variants render identically` — false positive. The
+  8 per-theme AppShell stories share identical DOM structure (same Header +
+  TrackerView + Footer, same lanes/layout); only the CSS custom property values
+  differ per theme. That heuristic doesn't diff computed colors, so it reads the
+  structural sameness as "identical". The captured screenshots show 8 visibly
+  distinct themes. Benign — do not chase.
 - `[FONT_DANGLING]` on Josefin Sans / Ubuntu / JetBrains Mono — the repo's
   `index.css` uses root-relative `@font-face` URLs (`/fonts/Foo.ttf`), which
   the *local* validator's naive `resolve(dirname(cssFile), url)` mistakes for
@@ -145,15 +151,49 @@ escapes any grid entirely; `primaryStory: "Scanning"`).
   `src/renderer/src/components/TrackerView.test.tsx`'s `renderTracker()`
   default prop set (the closest thing to a canonical "here's how this
   component is actually used" fixture, since there's no docs/stories tree).
-- `TrackerView` has one full-window story **per theme** (`ThemeEmerald` …
-  `ThemeClubPA`, 8 stories) on top of Populated/Scanning/EmptyLibrary. This
-  was added at the user's request: judging a whole-page composition in every
-  theme is a different thing from judging components in one theme (what reads
-  well in Emerald may not in Club PA's black/white or Neon Rave's saturation).
-  It replaces the old design project's per-theme static mockup HTML files with
-  the real component driven by the real theme data. If a theme is added to
-  `public/themes/`, add a matching `Theme<Name>` story here (and it will show
-  up as a token block automatically via the generator).
+- `TrackerView` also has one full-window story **per theme** (`ThemeEmerald` …
+  `ThemeClubPA`, 8 stories) on top of Populated/Scanning/EmptyLibrary, kept for
+  judging the tracker in isolation — see the AppShell section below for why
+  per-theme full-window stories exist at all and how the two overlap.
+
+## AppShell — the full-window preview component (design-sync only)
+
+`.design-sync/app-shell.tsx` (exported `AppShell`) is a **preview-only harness**,
+not part of the shipped app — it composes `Header` + body + `Footer` exactly as
+`App.tsx` does, owning the active theme in state so the header's theme selector
+works live. Added at the user's request: reviewing the whole window with a
+working theme dropdown (and per-theme stories) is what the old design project's
+per-theme mockups gave, which per-component previews can't.
+
+How it's wired (three coordinated pieces — all must stay in sync):
+
+1. It lives OUTSIDE `srcDir`, so the fork (`source-kit.mjs`) discovers it via a
+   hardcoded `EXTRA_COMPONENT_FILES = ['.design-sync/app-shell.tsx']` list —
+   NOT a cfg key (the config validator in `common.mjs` runs before the fork
+   loads and would reject an unknown key). It is therefore NOT in `extraEntries`
+   (that would double-export it → `[EXPORT_COLLISION]`).
+2. Its group is `Pages` via `cfg.docsMap.AppShell` → `.design-sync/docs/AppShell.md`
+   (frontmatter `category: Pages`). For that category to win, the fork also adds
+   `design-sync`/`.design-sync`/`..` to `GENERIC_DIR` so the path-derived group
+   doesn't beat the doc category.
+3. It applies its `initialTheme` in a **`useEffect`** (not `useLayoutEffect`) —
+   same provider effect-ordering reason as the `Themed` wrappers (see the theme
+   section above): the `ThemeBootstrap` provider's layout effect runs after a
+   child layout effect and would stomp the theme.
+
+Do NOT add `componentSrcMap: {AppShell: ...}` — that makes `names` non-empty,
+which skips the fork's `deriveComponentsFromSrc` fallback and drops all 9 real
+components. `EXTRA_COMPONENT_FILES` (merged into `srcFiles`) is the right lever.
+
+Judging a whole-page composition in every theme is a different thing from
+judging components in one theme (what reads well in Emerald may not in Club
+PA's black/white or Neon Rave's saturation) — this is why AppShell's 8
+per-theme stories exist, replacing the old design project's per-theme static
+mockup HTML files with the real component driven by real theme data. If a
+theme is added to `public/themes/`, add a matching `Theme<Name>` story here
+(it shows up as a token block automatically via the generator). The 8
+per-theme TrackerView stories (`ThemeEmerald`…) are redundant with these for
+whole-page judgment, but kept for judging the tracker in isolation.
 
 ## guidelinesGlob is deliberately empty
 
@@ -171,6 +211,50 @@ ManagePanel, ScanOverlay, ScanProgressBar, TrackerView) are authored and
 graded `good` — full coverage, no floor cards. User confirmed this scope
 up front (small component count made full authoring cheap).
 
+## Theme font/texture pass (2026-07-01)
+
+User-requested per-theme identity pass, done directly in `public/themes/*.json`
+(single source of truth — see "Theme tokens are real, static CSS now" above)
+plus new theme-scoped CSS in `index.css`:
+
+- **Rust Industrial** (`rust.json`): `fonts.chrome` and `fonts.label` both
+  changed from Josefin Sans / Courier New to **Special Elite** (a period
+  typewriter face) — Courier New/Josefin read as anachronistic against the
+  rust-industrial look. `fonts.mono` stays JetBrains Mono. New
+  `SpecialElite-Regular.ttf` added under `src/renderer/public/fonts/` (Google
+  Fonts, OFL/Apache-licensed, fetched from the `google/fonts` GitHub repo —
+  same sourcing pattern as the existing Josefin/Ubuntu/JetBrains files), with
+  a matching `@font-face` in `index.css` and an entry in `cfg.extraFonts`.
+- **Neon Rave** (`rave.json`) and **Screen Maximal**/**Club PA**
+  (`screen.json`/`pa.json`) already used JetBrains Mono across all three font
+  tokens before this pass — no change needed, just confirmed.
+- **Flat Studio** (`studio.json`): `fonts.mono` changed from JetBrains Mono to
+  **Ubuntu**, so all three tokens are Ubuntu — the user wants Flat Studio on
+  a single family.
+- **Rust Industrial texture**: `[data-theme-key='rust'] .app::before/::after`
+  in `index.css` layer a tiled SVG fractal-noise grain (`mix-blend-mode:
+  overlay`) plus three angled `repeating-linear-gradient` passes standing in
+  for random scratches, over the whole window.
+- **Screen Maximal texture**: `[data-theme-key='screen'] .app::before/::after`
+  layer CRT scanlines (`repeating-linear-gradient` + the same fractal-noise
+  technique for pixelated grain, both blended `overlay`, with a `steps()`
+  flicker animation) and a subtle RGB-fringe VHS drift (`mix-blend-mode:
+  screen`, animated horizontal jitter).
+- Both overlays live on `.app::before`/`.app::after` (`.app` gained
+  `position: relative` to anchor them) rather than per-surface, so every
+  full-window composition (real app, `AppShell` preview) gets them for free
+  without touching individual component CSS. They deliberately do **not**
+  reach `.scan-overlay` (a `position: fixed` modal that already escapes
+  `.app` — see the `[RENDER_THIN]` note above).
+- **Gotcha hit while doing this:** the SVG data-URI noise filter's
+  `xmlns='http://www.w3.org/2000/svg'` tripped
+  `spec-002-theming-skin-system.test.tsx`'s `expect(css).not.toMatch(/https?:\/\//i)`
+  guard (meant to catch real external font/CDN URLs, not incidental `http://`
+  substrings). Fixed by percent-encoding the `://` in the xmlns
+  (`http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg`) — decodes identically at parse
+  time, doesn't match the regex. If a future texture needs another data-URI
+  SVG, apply the same encoding up front.
+
 ## Re-sync risks
 
 - `docsDir`/`docsMap` unset — there's no docs tree in this repo, so every
@@ -185,6 +269,14 @@ up front (small component count made full authoring cheap).
   reappear at a path the build could mistake for something real — this
   hasn't happened, but if a future `[NO_DIST]`-adjacent bug appears, re-check
   that `--entry ./out/main/does-not-exist.js` still doesn't exist.
+- Rust Industrial/Screen Maximal's texture overlays (see "Theme font/texture
+  pass" above) live in plain `index.css` under `[data-theme-key='...']`
+  selectors, copied verbatim like everything else in `cfg.cssEntry` — no
+  special wiring needed on re-sync. But they're keyed off `data-theme-key`
+  the same way the generated token blocks are, so if a theme's `key` in its
+  `public/themes/*.json` ever changes, update the matching selector in
+  `index.css` too (the generator doesn't touch these — they're hand-authored,
+  not derived from the JSON).
 - Theme tokens are entirely runtime-injected (see Provider wiring above) —
   if MixJam ever adds a *second* runtime-only visual system (e.g. a
   print/export stylesheet), it will need the same `extraEntries`-wrapper

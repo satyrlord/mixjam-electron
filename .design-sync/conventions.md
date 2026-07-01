@@ -45,11 +45,23 @@ compose with most:
 - **Lines / chips:** `--border`, `--header-border`, `--pill-bg`, `--pill-border`.
 - **Tracker specifics:** `--playhead`, `--clip-text`, `--clip-select`,
   `--clip-missing`.
-- **Type:** `--font-chrome` (Josefin Sans — headers/brand), `--font-label`
-  (Ubuntu — body/buttons), `--font-mono` (JetBrains Mono — timecodes, paths,
-  numbers). All three ship as `@font-face` in the bundle.
+- **Type:** `--font-chrome` (headers/brand), `--font-label` (body/buttons),
+  `--font-mono` (timecodes, paths, numbers) — values vary per theme (e.g.
+  Emerald: Josefin Sans / Ubuntu / JetBrains Mono; Rust Industrial: Special
+  Elite for both chrome and label, JetBrains Mono for mono; Flat Studio,
+  Neon Rave, Screen Maximal, Club PA: one family across all three tokens —
+  Ubuntu, JetBrains Mono, JetBrains Mono, JetBrains Mono respectively).
+  Josefin Sans, Ubuntu, JetBrains Mono, and Special Elite all ship as
+  `@font-face` in the bundle.
 - **Depth / shape:** `--gradient-header`, `--gradient-ruler`, `--gradient-lane`,
   `--shadow-clip-text`, `--radius`.
+- **Theme-specific texture overlays:** Rust Industrial and Screen Maximal add
+  a full-window pseudo-element overlay (grain/scratches for Rust; scanlines +
+  VHS chroma drift for Screen) keyed off `[data-theme-key='rust'|'screen']`
+  on `.app::before`/`.app::after` in `index.css` — not tokens, since they're
+  theme-specific effects rather than shared design vocabulary. If you compose
+  a full-window page (like `AppShell`), these apply automatically; they do
+  not extend to `.scan-overlay` (a `position: fixed` modal outside `.app`).
 
 For a new element, reuse a class the components already use (`.folder-card`,
 `.btn-primary`, `.manage-tab`, `.sample-bubble`, …) or write your own rule using
@@ -58,9 +70,13 @@ inventing.
 
 ## Components and how they compose
 
+- **Whole window:** `AppShell` stacks `Header` + a body + `Footer` and owns the
+  active theme (its header theme selector switches themes live) — the fastest way
+  to compose a full MixJam page. Pass the tracker (or home) content as its
+  `children`.
 - **App frame:** `Header` (brand, transport timer, theme selector) + `Footer`
   (version, selected-sample detail) top and bottom; both span the full window
-  width — give them a full-width parent.
+  width — give them a full-width parent. (`AppShell` wires these for you.)
 - **Home:** `HomeScreen` (composes two `FolderCard`s + a launch gate). `FolderCard`
   is standalone too — folder picker with empty / set / error states.
 - **Tracker:** `TrackerView` is the whole workspace (recent-projects rail, lanes,

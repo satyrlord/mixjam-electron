@@ -12,12 +12,16 @@
     "src/renderer/public/fonts/Ubuntu-Regular.ttf",
     "src/renderer/public/fonts/Ubuntu-Medium.ttf",
     "src/renderer/public/fonts/JetBrainsMono-Regular.ttf",
-    "src/renderer/public/fonts/JetBrainsMono-Medium.ttf"
+    "src/renderer/public/fonts/JetBrainsMono-Medium.ttf",
+    "src/renderer/public/fonts/SpecialElite-Regular.ttf"
   ],
   "libOverrides": {
-    "source-kit.mjs": "all components use export default; the stock synth-entry writer's `export * from` never re-exports defaults, leaving window.MixJam empty ([BUNDLE_EXPORT]). Fork writes named re-exports instead."
+    "source-kit.mjs": "(1) all components use export default; the stock synth-entry writer's `export * from` never re-exports defaults, leaving window.MixJam empty ([BUNDLE_EXPORT]) — fork writes named re-exports instead. (2) also pulls in the design-sync-only AppShell harness (.design-sync/app-shell.tsx, outside srcDir) as a first-class discovered component — see EXTRA_COMPONENT_FILES in the fork."
   },
   "guidelinesGlob": [],
+  "docsMap": {
+    "AppShell": ".design-sync/docs/AppShell.md"
+  },
   "readmeHeader": ".design-sync/conventions.md",
   "extraEntries": ["./.design-sync/theme-bootstrap.tsx"],
   "provider": {
@@ -29,6 +33,7 @@
     "Header": { "cardMode": "column" },
     "LaneClipCanvas": { "cardMode": "column" },
     "Footer": { "cardMode": "column" },
+    "AppShell": { "cardMode": "column" },
     "ScanOverlay": { "cardMode": "single", "primaryStory": "Scanning" }
   },
   "buildCmd": "node .design-sync/generate-theme-tokens.mjs && node .ds-sync/package-build.mjs --config .design-sync/config.json --node-modules ./node_modules --entry ./out/main/does-not-exist.js --out ./ds-bundle"

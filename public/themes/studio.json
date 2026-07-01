@@ -24,7 +24,7 @@
   "fonts": {
     "chrome": "Ubuntu",
     "label": "Ubuntu",
-    "mono": "JetBrains Mono"
+    "mono": "Ubuntu"
   },
   "depth": {
     "gradient-header": "linear-gradient(90deg, #0A2A25, #0D362E)",

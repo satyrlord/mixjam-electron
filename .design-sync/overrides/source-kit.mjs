@@ -27,9 +27,19 @@ import { exportedNames, isComponentName } from '../../.ds-sync/lib/dts.mjs';
 
 const NON_IMPL_RX = /\.(stories|test|spec)\./;
 const SRC_IMPL_RX = /\.(tsx|jsx)$/;
+// FORK ADDITION: standalone component source files that live OUTSIDE srcDir but
+// must still be discovered as first-class components — the design-sync-only
+// AppShell harness (full app frame: Header + body + Footer, with a live theme
+// selector). Repo-relative to PKG_DIR (the repo root). Not a cfg key because
+// the top-level config validator (common.mjs CONFIG_KEYS, checked before this
+// fork loads) would reject an unknown key; the fork is repo-specific anyway.
+const EXTRA_COMPONENT_FILES = ['.design-sync/app-shell.tsx'];
 // Dir names that don't usefully group components — skip so the emitted path
 // is `components/<group>/<Name>` not `components/components/<Name>`.
-const GENERIC_DIR = new Set(['components', 'component', 'src', 'lib', 'ui', 'packages', 'react']);
+// FORK ADDITION: 'design-sync' added so EXTRA_COMPONENT_FILES living under
+// .design-sync/ don't derive a literal "design-sync" group — they fall through
+// to their doc's `category` frontmatter (e.g. AppShell → Pages via docsMap).
+const GENERIC_DIR = new Set(['components', 'component', 'src', 'lib', 'ui', 'packages', 'react', 'design-sync', '.design-sync', '..']);
 const slug = (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'general';
 
 // No .d.ts → scan src files for PascalCase value exports via ts-morph.
@@ -96,6 +106,14 @@ export async function resolvePackage(ctx) {
     .map((d) => d && resolve(PKG_DIR, d))
     .find((d) => d && existsSync(d));
   const srcFiles = srcRoot ? walk(srcRoot, (n) => /\.(tsx|jsx|mdx?)$/.test(n)) : [];
+  // FORK ADDITION: pull EXTRA_COMPONENT_FILES (outside srcDir) into the scan so
+  // they land in both the synth entry (as named re-exports) AND
+  // deriveComponentsFromSrc — making them first-class discovered components.
+  for (const rel of EXTRA_COMPONENT_FILES) {
+    const p = slash(resolve(PKG_DIR, rel));
+    if (existsSync(p)) srcFiles.push(p);
+    else console.error(`  ! EXTRA_COMPONENT_FILES: ${rel} not found — skipped`);
+  }
 
   // ── 2. entry: dist if it exists, else synthesize from src/ (last resort).
   let entry = resolveDistEntry({ pkgDir: PKG_DIR, pkgJson, override: ENTRY_OVERRIDE, pkgName: PKG, soft: true });
