@@ -18,8 +18,8 @@ baseline. All other themes are listed but deferred.
   theme selector dropdown so I know what options exist.
 - **US-003:** As a user, selecting the Emerald theme applies it immediately
   across the entire app (header, content, footer, all views).
-- **US-004:** As a user, selecting any non-Emerald theme resets back to
-  Emerald so I never see a broken half-themed state.
+- **US-004:** As a user, selecting any theme applies it immediately across
+  the entire app so I can use all 8 themes.
 
 ## Scope
 
@@ -64,13 +64,13 @@ external CDN or Google Fonts dependency). Font files live in `src/renderer/publi
 | # | Theme Name | Token File Key | Status |
 |---|---|---|---|
 | 1 | Emerald | `emerald` | Fully implemented |
-| 2 | Flat Studio | `studio` | ⬜ Listed only |
-| 3 | Neon Rave | `rave` | ⬜ Listed only |
-| 4 | Warm Analog | `analog` | ⬜ Listed only |
-| 5 | IDE | `ide` | ⬜ Listed only |
-| 6 | Rust Industrial | `rust` | ⬜ Listed only |
-| 7 | Screen Maximal | `screen` | ⬜ Listed only |
-| 8 | Club PA | `pa` | ⬜ Listed only |
+| 2 | Flat Studio | `studio` | Fully implemented |
+| 3 | Neon Rave | `rave` | Fully implemented |
+| 4 | Warm Analog | `analog` | Fully implemented |
+| 5 | IDE | `ide` | Fully implemented |
+| 6 | Rust Industrial | `rust` | Fully implemented |
+| 7 | Screen Maximal | `screen` | Fully implemented |
+| 8 | Club PA | `pa` | Fully implemented |
 
 ### Emerald Theme — Full Token Values
 
@@ -100,8 +100,7 @@ external CDN or Google Fonts dependency). Font files live in `src/renderer/publi
   This spec makes it functional.
 - Dropdown lists all 8 theme names.
 - Default selection: **Emerald**.
-- Changing the selection to any non-Emerald theme immediately resets back to
-  Emerald.
+- Changing the selection to any theme applies it immediately.
 - The dropdown is fully functional (opens, items selectable, keyboard
   navigable) in both views.
 
@@ -148,7 +147,7 @@ in later specs.
 - [x] **AC-003:** The three bundled fonts (Josefin Sans, Ubuntu, JetBrains Mono) are loaded from local files — no external network requests for fonts.
 - [x] **AC-004:** The theme selector dropdown in the tracker header lists all 8 theme names in order: Emerald, Flat Studio, Neon Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA.
 - [x] **AC-005:** Default selection in the theme selector is "Emerald".
-- [x] **AC-006:** Selecting any non-Emerald theme from the dropdown immediately resets the selection back to Emerald — the app never displays a broken/incomplete theme.
+- [x] **AC-006:** Selecting any theme from the dropdown immediately applies that theme across the entire UI.
 - [x] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.
 - [x] **AC-008:** Theme tokens are defined in a single source of truth (e.g. JSON file). No UI element uses hardcoded color values outside the token system.
 - [x] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
@@ -156,8 +155,7 @@ in later specs.
 
 ## Non-Goals (deferred to later specs)
 
-- Only Emerald is implemented. The other 7 themes are listed in the dropdown
-  but have no distinct visual appearance.
+- All 8 themes are fully implemented with distinct visual appearances.
 - No theme import/export — themes are bundled with the app, not loaded from
   external files at runtime.
 - No theme validation/sanitization for untrusted theme files (relevant when

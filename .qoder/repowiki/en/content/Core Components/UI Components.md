@@ -21,10 +21,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added documentation for new LaneClipCanvas component with canvas-based timeline rendering
-- Enhanced TrackerView documentation to include BPM editing functionality and resize handle capabilities
-- Updated component integration patterns to reflect the new canvas-based timeline visualization
-- Added new sections covering canvas rendering, hit-testing, and drag-and-drop interactions
+- Enhanced TrackerView documentation to include beat-snap functionality with Alt key for per-tick precision
+- Updated sample-utils documentation to reflect configurable snap resolution parameter
+- Added comprehensive keyboard modifier documentation for Alt (per-tick precision), Shift (duplicate samples), and Ctrl (multi-select)
+- Updated LaneClipCanvas documentation to highlight improved grid visualization with beat and bar line rendering
+- Enhanced component integration patterns to reflect the new snap resolution configuration
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -62,9 +63,9 @@ App --> IPC["ipc.ts<br/>Electron API types"]
 **Diagram sources**
 - [App.tsx:1-108](file://src/renderer/src/App.tsx#L1-L108)
 - [HomeScreen.tsx:1-77](file://src/renderer/src/components/HomeScreen.tsx#L1-L77)
-- [TrackerView.tsx:1-742](file://src/renderer/src/components/TrackerView.tsx#L1-L742)
+- [TrackerView.tsx:1-768](file://src/renderer/src/components/TrackerView.tsx#L1-L768)
 - [FolderCard.tsx:1-60](file://src/renderer/src/components/FolderCard.tsx#L1-L60)
-- [LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
+- [LaneClipCanvas.tsx:1-264](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L264)
 - [useAppState.ts:1-295](file://src/renderer/src/hooks/useAppState.ts#L1-L295)
 - [useFolderSession.ts:1-106](file://src/renderer/src/hooks/useFolderSession.ts#L1-L106)
 - [playerShell.ts:1-197](file://src/renderer/src/lib/playerShell.ts#L1-L197)
@@ -83,15 +84,15 @@ App --> IPC["ipc.ts<br/>Electron API types"]
 This section outlines the primary UI components and their roles in the application.
 
 - HomeScreen: Provides initial setup and onboarding by allowing users to select User and Sample folders, enabling the Start button when both folders are selected, and offering a Load option.
-- TrackerView: Implements the main composition interface with enhanced timeline visualization, BPM editing, resize handle functionality, sample arrangement, transport controls, and sample browser.
+- TrackerView: Implements the main composition interface with enhanced timeline visualization, BPM editing, resize handle functionality, sample arrangement, transport controls, and sample browser. **Enhanced** with beat-snap functionality and keyboard modifier support.
 - FolderCard: Displays folder selection state with status messaging, icons, and a pick action, handling disabled states and error conditions.
-- LaneClipCanvas: **NEW** Specialized canvas component for rendering timeline clips with advanced hit-testing, drag-and-drop support, visual effects, and performance optimization.
+- LaneClipCanvas: **NEW** Specialized canvas component for rendering timeline clips with advanced hit-testing, drag-and-drop support, visual effects, and performance optimization. **Enhanced** with improved grid visualization and beat/bar line rendering.
 
 **Section sources**
 - [HomeScreen.tsx:1-77](file://src/renderer/src/components/HomeScreen.tsx#L1-L77)
-- [TrackerView.tsx:1-742](file://src/renderer/src/components/TrackerView.tsx#L1-L742)
+- [TrackerView.tsx:1-768](file://src/renderer/src/components/TrackerView.tsx#L1-L768)
 - [FolderCard.tsx:1-60](file://src/renderer/src/components/FolderCard.tsx#L1-L60)
-- [LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
+- [LaneClipCanvas.tsx:1-264](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L264)
 
 ## Architecture Overview
 The UI architecture follows a unidirectional data flow with enhanced canvas-based rendering:
@@ -100,6 +101,7 @@ The UI architecture follows a unidirectional data flow with enhanced canvas-base
 - useAppState manages tracker view state, sample browser queries, transport, and lane management.
 - playerShell provides pure data transformations for lanes and clips.
 - LaneClipCanvas offers specialized canvas rendering for timeline clips with hit-testing and drag-and-drop.
+- sample-utils provides configurable snap resolution for precise timeline positioning.
 - index.css defines theme-driven design tokens applied via themes.ts.
 - bootstrapApp initializes the theme before mounting the React app.
 
@@ -114,6 +116,7 @@ participant HookAS as "useAppState.ts"
 participant PS as "playerShell.ts"
 participant TV as "TrackerView.tsx"
 participant LCC as "LaneClipCanvas.tsx"
+participant SU as "sample-utils.ts"
 participant IPC as "ipc.ts"
 participant Theme as "themes.ts"
 User->>App : Open app
@@ -138,6 +141,8 @@ HookAS->>IPC : loadRecentProjects(), querySampleBrowser()
 IPC-->>HookAS : Projects & samples
 HookAS-->>App : lanes, sampleRows, transportState
 App->>TV : Render TrackerView
+TV->>SU : nearestTick(clickX, containerWidth, totalTicks, snapResolution)
+SU-->>TV : Snapped tick position
 TV->>LCC : Render canvas-based timeline
 LCC->>LCC : Perform hit-testing & drawing
 LCC-->>TV : Rendered clips
@@ -150,8 +155,9 @@ LCC-->>TV : Rendered clips
 - [useFolderSession.ts:1-106](file://src/renderer/src/hooks/useFolderSession.ts#L1-L106)
 - [useAppState.ts:1-295](file://src/renderer/src/hooks/useAppState.ts#L1-L295)
 - [playerShell.ts:1-197](file://src/renderer/src/lib/playerShell.ts#L1-L197)
-- [LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
-- [TrackerView.tsx:1-742](file://src/renderer/src/components/TrackerView.tsx#L1-L742)
+- [LaneClipCanvas.tsx:1-264](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L264)
+- [TrackerView.tsx:1-768](file://src/renderer/src/components/TrackerView.tsx#L1-L768)
+- [sample-utils.ts:69-89](file://src/renderer/src/lib/sample-utils.ts#L69-L89)
 - [ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
 - [themes.ts:1-112](file://src/renderer/src/theme/themes.ts#L1-L112)
 - [bootstrapApp.tsx:1-19](file://src/renderer/src/bootstrapApp.tsx#L1-L19)
@@ -286,6 +292,7 @@ FolderCardProps --> FolderCardStatus : "uses"
 
 - Canvas Rendering Features:
   - Device pixel ratio aware rendering for crisp visuals
+  - **Enhanced** Grid visualization with beat lines (25% opacity) and bar lines (full opacity)
   - Rounded rectangle clip rendering with gradient colors
   - Semi-transparent flash overlay for visual feedback
   - Text clipping for truncated sample names
@@ -315,7 +322,8 @@ Canvas["Canvas Element"] --> Init["Initialize Context & DPR"]
 Init --> Measure["Measure Container Dimensions"]
 Measure --> Scale["Scale Canvas by Device Pixel Ratio"]
 Scale --> Clear["Clear Canvas"]
-Clear --> DrawLoop["Draw Each Clip"]
+Clear --> Grid["Draw Beat & Bar Lines"]
+Grid --> DrawLoop["Draw Each Clip"]
 DrawLoop --> RoundRect["Render Rounded Rectangle"]
 RoundRect --> FillBody["Fill Clip Body"]
 FillBody --> FlashCheck{"Flash Sample?"}
@@ -329,14 +337,14 @@ StoreHit --> End["Canvas Ready"]
 ```
 
 **Diagram sources**
-- [LaneClipCanvas.tsx:73-139](file://src/renderer/src/components/LaneClipCanvas.tsx#L73-L139)
-- [LaneClipCanvas.tsx:154-174](file://src/renderer/src/components/LaneClipCanvas.tsx#L154-L174)
+- [LaneClipCanvas.tsx:79-175](file://src/renderer/src/components/LaneClipCanvas.tsx#L79-L175)
+- [LaneClipCanvas.tsx:191-210](file://src/renderer/src/components/LaneClipCanvas.tsx#L191-L210)
 
 **Section sources**
-- [LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
+- [LaneClipCanvas.tsx:1-264](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L264)
 
 ### TrackerView Component
-TrackerView implements the main composition interface with enhanced timeline visualization, BPM editing, resize handle functionality, sample arrangement, transport controls, and a sample browser.
+**Enhanced** TrackerView implements the main composition interface with enhanced timeline visualization, BPM editing, resize handle functionality, sample arrangement, transport controls, and a sample browser.
 
 - Props:
   - recentProjects: Array of recent project items
@@ -394,6 +402,7 @@ TrackerView implements the main composition interface with enhanced timeline vis
   - **NEW** Canvas-based rendering via LaneClipCanvas component
   - Fixed total ticks (256) with ruler ticks every 32 ticks, marking bars at multiples of 4
   - Lane canvas width calculated as percentage per tick for precise placement
+  - **Enhanced** Grid visualization with beat lines (25% opacity) and bar lines (full opacity)
   - Visual playhead indicator synchronized with transport state
 
 - BPM Editing Functionality:
@@ -408,10 +417,11 @@ TrackerView implements the main composition interface with enhanced timeline vis
   - Heuristic-based flex ratio calculation (~600px = 1fr unit)
   - Min/max constraints for both horizontal and vertical resizing
 
-- Sample Arrangement:
+- **Enhanced** Sample Arrangement:
   - Clips are positioned absolutely within lanes based on startTick and durationTicks
-  - nearestTick function ensures placement clamps to timeline bounds
-  - **NEW** Canvas-based clip rendering with advanced hit-testing
+  - **Enhanced** nearestTick function with configurable snap resolution parameter
+  - **NEW** Beat-snap functionality: Alt key enables per-tick precision (snap = 1), default is beat snapping (snap = 8)
+  - **NEW** Keyboard modifier support for enhanced workflow efficiency
 
 - Transport Controls:
   - Play/Pause toggles based on transportState
@@ -426,6 +436,12 @@ TrackerView implements the main composition interface with enhanced timeline vis
   - **NEW** Right-click context menu for clip operations
   - Delete and Locate in Browser actions
   - Automatic dismissal on outside clicks
+
+- **Enhanced** Keyboard Modifier Documentation:
+  - **Alt**: Enables per-tick precision snapping (snap = 1) for fine-grained positioning
+  - **Shift**: Duplicate samples functionality (implementation pending)
+  - **Ctrl**: Multi-select functionality (implementation pending)
+  - These modifiers provide enhanced workflow efficiency for professional music production
 
 - Accessibility:
   - Proper roles and labels for interactive elements (canvas as button, mute/solo buttons)
@@ -443,6 +459,7 @@ sequenceDiagram
 participant User as "User"
 participant TV as "TrackerView.tsx"
 participant LCC as "LaneClipCanvas.tsx"
+participant SU as "sample-utils.ts"
 participant PS as "playerShell.ts"
 participant IPC as "ipc.ts"
 User->>TV : Click BPM display
@@ -454,11 +471,14 @@ TV->>PS : onSetBpm(parsedValue)
 PS-->>TV : Updated transport state
 TV-->>User : Render updated BPM display
 User->>TV : Drag sample to timeline
+User->>TV : Hold Alt for per-tick precision
+TV->>SU : nearestTick(clickX, containerWidth, totalTicks, altKey ? 1 : 8)
+SU-->>TV : Snapped tick position
 TV->>LCC : Render canvas with clips
 LCC->>LCC : Perform hit-testing
 LCC-->>TV : Rendered canvas
 User->>TV : Drag sample over lane
-TV->>TV : Calculate drop position
+TV->>TV : Calculate drop position with snap resolution
 TV->>PS : placeClipOnLane(lanes, laneIndex, ...)
 PS-->>TV : Updated lanes
 TV-->>User : Render updated timeline
@@ -468,22 +488,25 @@ TV-->>User : Render resized layout
 ```
 
 **Diagram sources**
+- [TrackerView.tsx:251-277](file://src/renderer/src/components/TrackerView.tsx#L251-L277)
 - [TrackerView.tsx:128-156](file://src/renderer/src/components/TrackerView.tsx#L128-L156)
 - [TrackerView.tsx:214-256](file://src/renderer/src/components/TrackerView.tsx#L214-L256)
 - [TrackerView.tsx:278-311](file://src/renderer/src/components/TrackerView.tsx#L278-L311)
-- [LaneClipCanvas.tsx:154-174](file://src/renderer/src/components/LaneClipCanvas.tsx#L154-L174)
+- [LaneClipCanvas.tsx:191-210](file://src/renderer/src/components/LaneClipCanvas.tsx#L191-L210)
+- [sample-utils.ts:69-89](file://src/renderer/src/lib/sample-utils.ts#L69-L89)
 - [playerShell.ts:74-107](file://src/renderer/src/lib/playerShell.ts#L74-L107)
 - [useAppState.ts:225-233](file://src/renderer/src/hooks/useAppState.ts#L225-L233)
 - [ipc.ts:51-55](file://src/shared/ipc.ts#L51-L55)
 
 **Section sources**
-- [TrackerView.tsx:1-742](file://src/renderer/src/components/TrackerView.tsx#L1-L742)
-- [LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
+- [TrackerView.tsx:1-768](file://src/renderer/src/components/TrackerView.tsx#L1-L768)
+- [LaneClipCanvas.tsx:1-264](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L264)
 - [playerShell.ts:1-197](file://src/renderer/src/lib/playerShell.ts#L1-L197)
+- [sample-utils.ts:69-89](file://src/renderer/src/lib/sample-utils.ts#L69-L89)
 - [useAppState.ts:225-233](file://src/renderer/src/hooks/useAppState.ts#L225-L233)
 
 ## Dependency Analysis
-The components depend on hooks and libraries for state management and data transformations. The new LaneClipCanvas component integrates deeply with the TrackerView and playerShell for enhanced timeline visualization. The following diagram illustrates key dependencies:
+The components depend on hooks and libraries for state management and data transformations. The new LaneClipCanvas component integrates deeply with the TrackerView and playerShell for enhanced timeline visualization. The sample-utils library provides the foundation for configurable snap resolution. The following diagram illustrates key dependencies:
 
 ```mermaid
 graph TB
@@ -495,7 +518,8 @@ App --> FS
 App --> AS["useAppState.ts"]
 Tracker --> PS["playerShell.ts"]
 Tracker --> LCC["LaneClipCanvas.tsx"]
-LCC --> SU["sample-utils.ts"]
+Tracker --> SU["sample-utils.ts"]
+LCC --> SU
 AS --> PS
 App --> IPC["ipc.ts"]
 App --> Theme["themes.ts"]
@@ -508,11 +532,11 @@ Bootstrap["bootstrapApp.tsx"] --> Theme
 - [FolderCard.tsx:1-60](file://src/renderer/src/components/FolderCard.tsx#L1-L60)
 - [useFolderSession.ts:1-106](file://src/renderer/src/hooks/useFolderSession.ts#L1-L106)
 - [App.tsx:1-108](file://src/renderer/src/App.tsx#L1-L108)
-- [TrackerView.tsx:1-742](file://src/renderer/src/components/TrackerView.tsx#L1-L742)
-- [LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
+- [TrackerView.tsx:1-768](file://src/renderer/src/components/TrackerView.tsx#L1-L768)
+- [LaneClipCanvas.tsx:1-264](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L264)
 - [useAppState.ts:1-295](file://src/renderer/src/hooks/useAppState.ts#L1-L295)
 - [playerShell.ts:1-197](file://src/renderer/src/lib/playerShell.ts#L1-L197)
-- [sample-utils.ts:1-85](file://src/renderer/src/lib/sample-utils.ts#L1-L85)
+- [sample-utils.ts:1-97](file://src/renderer/src/lib/sample-utils.ts#L1-L97)
 - [ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
 - [themes.ts:1-112](file://src/renderer/src/theme/themes.ts#L1-L112)
 - [index.css:1-795](file://src/renderer/src/index.css#L1-L795)
@@ -532,6 +556,7 @@ Bootstrap["bootstrapApp.tsx"] --> Theme
 - **Virtualization**: The sample list uses a viewport with overflow for large datasets; consider virtualization for very large libraries.
 - **Hit-testing optimization**: LaneClipCanvas caches hit rectangles for efficient spatial queries during drag operations.
 - **Resize observers**: Automatic canvas scaling reduces manual resize calculations and improves responsiveness.
+- **Snap resolution caching**: The nearestTick function efficiently calculates snap positions with configurable resolution for optimal performance.
 
 [No sources needed since this section provides general guidance]
 
@@ -551,6 +576,14 @@ Bootstrap["bootstrapApp.tsx"] --> Theme
 - **Timeline rendering problems**:
   - **NEW** Canvas rendering requires proper container dimensions; ensure parent containers have valid sizes.
   - **NEW** Hit-testing may fail in test environments; verify canvas measurements and fallback logic.
+  - **NEW** Grid visualization requires proper container width; verify snap resolution calculations.
+- **Beat-snap functionality issues**:
+  - **NEW** Alt key functionality requires proper event detection; verify event.altKey handling.
+  - **NEW** Snap resolution parameter defaults to 1 for backward compatibility; ensure proper parameter passing.
+  - **NEW** Per-tick precision may feel different from expected; verify snap resolution of 1 vs default 8.
+- **Keyboard modifier conflicts**:
+  - **NEW** Shift and Ctrl modifiers are reserved for future duplicate and multi-select functionality.
+  - **NEW** Ensure proper event handling to prevent conflicts with browser shortcuts.
 - **Resize handle issues**:
   - **NEW** Horizontal resize may not work if browserFlex is out of range (0.3-3); check flex ratio calculations.
   - **NEW** Vertical resize has min/max constraints (80-400px); verify width calculations.
@@ -559,12 +592,14 @@ Bootstrap["bootstrapApp.tsx"] --> Theme
 
 **Section sources**
 - [FolderCard.tsx:4-6](file://src/renderer/src/components/FolderCard.tsx#L4-L6)
+- [TrackerView.tsx:251-277](file://src/renderer/src/components/TrackerView.tsx#L251-L277)
 - [TrackerView.tsx:128-156](file://src/renderer/src/components/TrackerView.tsx#L128-L156)
 - [TrackerView.tsx:278-311](file://src/renderer/src/components/TrackerView.tsx#L278-L311)
-- [LaneClipCanvas.tsx:154-174](file://src/renderer/src/components/LaneClipCanvas.tsx#L154-L174)
+- [LaneClipCanvas.tsx:191-210](file://src/renderer/src/components/LaneClipCanvas.tsx#L191-L210)
+- [sample-utils.ts:69-89](file://src/renderer/src/lib/sample-utils.ts#L69-L89)
 - [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
 - [useAppState.ts:150-156](file://src/renderer/src/hooks/useAppState.ts#L150-L156)
 - [bootstrapApp.tsx:12-19](file://src/renderer/src/bootstrapApp.tsx#L12-L19)
 
 ## Conclusion
-MixJam Electron's UI components are structured around clear separation of concerns with enhanced canvas-based rendering: HomeScreen handles onboarding and folder selection, TrackerView provides the composition interface with timeline and sample management, FolderCard encapsulates folder selection UX, and the new LaneClipCanvas delivers high-performance timeline visualization. The BPM editing functionality and resize handle capabilities significantly improve the user experience, while the hooks manage state transitions and integrate with Electron APIs. The theme system and CSS custom properties enable flexible styling, and the canvas-based approach provides optimal performance for complex timeline interactions. Together, these components deliver a responsive, accessible, and performant user experience for music production workflows.
+MixJam Electron's UI components are structured around clear separation of concerns with enhanced canvas-based rendering: HomeScreen handles onboarding and folder selection, TrackerView provides the composition interface with timeline and sample management, FolderCard encapsulates folder selection UX, and the new LaneClipCanvas delivers high-performance timeline visualization. The enhanced beat-snap functionality with Alt key support, improved grid visualization, and configurable snap resolution significantly improve the user experience for precise timing and workflow efficiency. The keyboard modifier system (Alt for per-tick precision, with Shift and Ctrl reserved for future duplicate and multi-select functionality) provides professional-grade control for music production workflows. The hooks manage state transitions and integrate with Electron APIs, while the theme system and CSS custom properties enable flexible styling. Together, these components deliver a responsive, accessible, and performant user experience for music production workflows.

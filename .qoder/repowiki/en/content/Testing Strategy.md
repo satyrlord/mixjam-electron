@@ -30,11 +30,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive testing coverage for new TrackerView component with AC-011 ruler tick alignment validation
-- Enhanced MockAudioContext utility with improved Web Audio API mocking capabilities
-- Added extensive tests for new paginated loading functionality in useLibraryData hook
-- Expanded test infrastructure to support grid alignment components and advanced UI interactions
-- Updated component testing patterns to include sophisticated ruler rendering and timeline alignment validation
+- Enhanced TrackerView component testing with comprehensive AC-011 ruler tick alignment validation
+- Expanded useLibraryData hook tests for paginated loading functionality with 500-item page size validation
+- Added detailed snapping behavior testing for drag-and-drop operations
+- Improved test coverage for grid alignment components and timeline precision requirements
+- Enhanced library management CRUD operations testing with comprehensive state validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -54,7 +54,7 @@
 ## Introduction
 This document describes MixJam Electron's testing strategy and implementation. It covers Vitest configuration, test setup, mock strategies for Electron APIs, unit testing approaches for React components and main process functions, IPC handler testing, integration and acceptance testing patterns, and test coverage reporting. It also documents testing utilities, helper functions, common patterns, and best practices for Electron cross-process testing.
 
-**Updated** Enhanced testing infrastructure now includes comprehensive coverage for new grid alignment components, AC-011 ruler tick alignment validation, advanced MockAudioContext utility, and extensive paginated loading functionality testing in useLibraryData hook.
+**Updated** Enhanced testing infrastructure now includes comprehensive coverage for new grid alignment components, AC-011 ruler tick alignment validation, advanced MockAudioContext utility, and extensive paginated loading functionality testing in useLibraryData hook with 500-item page size validation.
 
 ## Project Structure
 The repository organizes tests by responsibility:
@@ -534,7 +534,7 @@ The TrackerView component required comprehensive testing for its advanced UI fea
 - Validates ruler tick precision for timeline alignment
 - Tests context menu interactions for clip management
 - Ensures proper coordinate mapping for clip placement and movement
-- Validates drag-and-drop functionality between lanes
+- Validates drag-and-drop functionality between lanes with snapping behavior
 
 ```mermaid
 flowchart TD
@@ -738,6 +738,42 @@ The TrackerView tests now comprehensively validate AC-011 requirements for ruler
 **Section sources**
 - [src/renderer/src/components/TrackerView.test.tsx:417-447](file://src/renderer/src/components/TrackerView.test.tsx#L417-L447)
 
+### Enhanced Snapping Behavior Testing
+The TrackerView component now includes comprehensive snapping behavior testing:
+
+#### Drag-and-Drop Snapping Validation
+- Tests default snapping to beat boundaries (8 ticks) with Alt key modifier for freeform placement
+- Validates coordinate mapping from clientX to timeline positions
+- Ensures proper snapping calculations using nearestTick function
+- Tests both sample tile placement and intra-lane clip movement
+
+#### Timeline Precision Testing
+- Validates snapping precision for timeline alignment
+- Tests context menu interactions for clip management
+- Ensures proper coordinate mapping for clip placement and movement
+- Validates drag-and-drop functionality between lanes with accurate snapping
+
+**Section sources**
+- [src/renderer/src/components/TrackerView.test.tsx:251-277](file://src/renderer/src/components/TrackerView.test.tsx#L251-L277)
+
+### Enhanced Paginated Loading Testing
+The useLibraryData hook now includes comprehensive testing for paginated loading functionality:
+
+#### Page Size Validation
+- Tests 500-item page size validation for optimal performance
+- Validates sequential loading of database pages for large datasets
+- Ensures proper offset/limit handling for pagination
+- Tests total count tracking across multiple pages
+
+#### Database Query Optimization
+- Validates chunked loading implementation with proper pagination
+- Tests sequential loading of database pages for efficient memory usage
+- Ensures proper state management during paginated queries
+- Validates error handling for large dataset pagination
+
+**Section sources**
+- [src/renderer/src/hooks/useLibraryData.test.ts:70-101](file://src/renderer/src/hooks/useLibraryData.test.ts#L70-L101)
+
 ## Dependency Analysis
 - Renderer tests depend on:
   - test/setup.ts for global initialization
@@ -779,7 +815,7 @@ Pkg["package.json"] --> V
 - Use targeted include/exclude patterns to minimize coverage computation overhead
 - Canvas component tests benefit from comprehensive context mocking to avoid expensive rendering operations
 - MockAudioContext provides lightweight alternatives to real Web Audio API for faster test execution
-- Paginated loading tests optimize memory usage by testing chunked data loading patterns
+- Paginated loading tests optimize memory usage by testing chunked data loading patterns with 500-item page size validation
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -802,7 +838,9 @@ Common issues and resolutions:
 - Grid alignment issues:
   - Verify CSS border-box properties and consistent width calculations
 - Pagination test failures:
-  - Ensure proper offset/limit handling and chunked loading validation
+  - Ensure proper offset/limit handling and chunked loading validation with 500-item page size
+- Snapping behavior issues:
+  - Verify nearestTick calculations and coordinate mapping for accurate timeline alignment
 
 **Section sources**
 - [src/renderer/src/test/setup.ts:36-39](file://src/renderer/src/test/setup.ts#L36-L39)
@@ -815,12 +853,13 @@ MixJam Electron employs a layered testing strategy with enhanced capabilities:
 - Main process tests validate filesystem-backed features with temporary directories
 - New component testing strategies cover complex UI interactions, grid alignment requirements, and canvas-based rendering
 - Enhanced test infrastructure provides comprehensive mocking for Web Audio API and Electron IPC
-- Advanced paginated loading functionality receives thorough testing for performance optimization
+- Advanced paginated loading functionality receives thorough testing for performance optimization with 500-item page size validation
 - AC-011 ruler tick alignment validation ensures precise timeline grid consistency
+- Enhanced snapping behavior testing validates accurate timeline precision for drag-and-drop operations
 - Acceptance specs ensure cross-process flows meet product specifications
 - Coverage is configured to report on renderer logic, keeping reports actionable and focused
 
-**Updated** The testing strategy now includes comprehensive coverage for new components (TrackerView, useLibraryData), enhanced infrastructure supporting advanced testing scenarios, and sophisticated grid alignment validation for timeline precision requirements.
+**Updated** The testing strategy now includes comprehensive coverage for new components (TrackerView, useLibraryData), enhanced infrastructure supporting advanced testing scenarios with 500-item page size validation, sophisticated grid alignment validation for timeline precision requirements, and comprehensive snapping behavior testing for accurate timeline positioning.
 
 ## Appendices
 

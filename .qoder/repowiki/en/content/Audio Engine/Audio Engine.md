@@ -13,11 +13,14 @@
 - [playerShell.ts](file://src/renderer/src/lib/playerShell.ts)
 - [useTransportEngine.ts](file://src/renderer/src/hooks/useTransportEngine.ts)
 - [TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
+- [LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
+- [sample-utils.ts](file://src/renderer/src/lib/sample-utils.ts)
 - [useAppState.ts](file://src/renderer/src/hooks/useAppState.ts)
 - [App.tsx](file://src/renderer/src/App.tsx)
-- [LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
 - [useLibraryData.ts](file://src/renderer/src/hooks/useLibraryData.ts)
 - [library.ts](file://src/main/library.ts)
+- [index.css](file://src/renderer/src/index.css)
+- [themes.ts](file://src/renderer/src/theme/themes.ts)
 - [audio-engine.md](file://docs/audio-engine.md)
 - [spec-005-audio-playback-engine.md](file://docs/specs/spec-005-audio-playback-engine.md)
 - [spec-006-player-timeline-panels.md](file://docs/specs/spec-006-player-timeline-panels.md)
@@ -33,6 +36,8 @@
 - Enhanced timeline panel system with comprehensive beat and bar grid alignment
 - Improved ruler and grid rendering with CSS variable integration
 - Added new getComputedColor utility function for CSS property fallback resolution
+- Implemented beat-snap functionality with nearestTick algorithm for precise clip placement
+- Added Alt-key modifier support for freeform vs beat-snap placement
 - Implemented performance improvements to useLibraryData hook with paginated loading system
 - Replaced single-page database queries with efficient pagination replacing legacy folder scanning
 
@@ -43,15 +48,16 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Timeline Panel Enhancements](#timeline-panel-enhancements)
-7. [Library Data Performance Improvements](#library-data-performance-improvements)
-8. [Dependency Analysis](#dependency-analysis)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
-12. [Appendices](#appendices)
+7. [Beat-Snap Functionality](#beat-snap-functionality)
+8. [Library Data Performance Improvements](#library-data-performance-improvements)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
+13. [Appendices](#appendices)
 
 ## Introduction
-This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features. Recent improvements include enhanced player lifecycle management, improved transport synchronization, sophisticated lane evaluation policies, and significant performance optimizations for the library data system.
+This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features. Recent improvements include enhanced player lifecycle management, improved transport synchronization, sophisticated lane evaluation policies, significant performance optimizations for the library data system, and advanced timeline panel functionality with beat-snap precision.
 
 ## Project Structure
 The audio engine is organized into distinct layers that work together to provide a complete playback solution. The architecture follows a layered approach with clear separation of concerns:
@@ -61,7 +67,7 @@ The audio engine is organized into distinct layers that work together to provide
 - **Audio Engine Layer**: Controls Web Audio API, voice management, and audio routing
 - **Player Orchestration**: Coordinates all components and manages playback lifecycle with improved state management
 - **UI Integration**: Connects the audio engine to the tracker interface and user controls with synchronized playhead rendering
-- **Timeline Panels**: Enhanced visual timeline with beat/bar grid alignment and CSS variable integration
+- **Timeline Panels**: Enhanced visual timeline with beat/bar grid alignment, CSS variable integration, and precise snapping behavior
 
 ```mermaid
 graph TB
@@ -74,7 +80,7 @@ end
 subgraph "UI Integration"
 E["Player Shell<br/>- Lane management<br/>- Clip placement<br/>- Dimming policy<br/>- Visual feedback"]
 F["Tracker Interface<br/>- Playhead visualization<br/>- Transport controls<br/>- Mixer integration<br/>- Transport-aware preview"]
-G["Timeline Panels<br/>- Beat/bar grid alignment<br/>- CSS variable integration<br/>- Enhanced rendering<br/>- Performance optimization"]
+G["Timeline Panels<br/>- Beat/bar grid alignment<br/>- CSS variable integration<br/>- Enhanced rendering<br/>- Beat-snap functionality<br/>- Performance optimization"]
 end
 A --> B
 B --> C
@@ -497,6 +503,38 @@ The ruler component has been improved with better tick mark placement and bar nu
 - [TrackerView.tsx:364-371](file://src/renderer/src/components/TrackerView.tsx#L364-L371)
 - [index.css:493-511](file://src/renderer/src/index.css#L493-L511)
 
+## Beat-Snap Functionality
+
+### Nearest Tick Algorithm
+The timeline system now includes sophisticated beat-snap functionality that allows precise clip placement with configurable snapping behavior.
+
+**Key Features:**
+- nearestTick function converts pixel positions to nearest tick with snapping
+- Configurable snap resolution (default: 1 tick for freeform, 8 ticks for beat-snap)
+- Alt-key modifier support for freeform vs beat-snap placement
+- Guard clauses for container width and tick validation
+- Clamping to valid tick range (0 to totalTicks-1)
+
+**Updated** New beat-snap functionality with precise grid alignment and user-friendly snapping behavior
+
+**Section sources**
+- [sample-utils.ts:70-97](file://src/renderer/src/lib/sample-utils.ts#L70-L97)
+- [TrackerView.tsx:253-277](file://src/renderer/src/components/TrackerView.tsx#L253-L277)
+
+### Snapping Behavior Implementation
+The beat-snap functionality is integrated throughout the tracker interface for seamless user experience.
+
+**Key Features:**
+- Default beat-snap placement (Alt key not pressed)
+- Freeform placement when Alt key is held during drag
+- Consistent snapping behavior across sample placement and clip movement
+- Visual feedback through grid alignment and precise positioning
+
+**Updated** Enhanced user interaction with intuitive snapping behavior and keyboard modifiers
+
+**Section sources**
+- [TrackerView.tsx:253-277](file://src/renderer/src/components/TrackerView.tsx#L253-L277)
+
 ## Library Data Performance Improvements
 
 ### Paginated Loading System
@@ -568,10 +606,11 @@ UI --> PlayerShell
 UI --> Transport
 Timeline["LaneClipCanvas.tsx"] --> Transport
 Timeline --> CSS["CSS Variables"]
+Timeline --> SnapUtils["sample-utils.ts"]
 Library["useLibraryData.ts"] --> Database["library.ts"]
 ```
 
-**Updated** Enhanced dependency flow with timeline panel integration and library data performance improvements
+**Updated** Enhanced dependency flow with timeline panel integration, snapping utilities, and library data performance improvements
 
 **Diagram sources**
 - [transport.ts:13](file://src/renderer/src/engine/transport.ts#L13)
@@ -580,6 +619,7 @@ Library["useLibraryData.ts"] --> Database["library.ts"]
 - [player.ts:9-13](file://src/renderer/src/engine/player.ts#L9-L13)
 - [useTransportEngine.ts:18-19](file://src/renderer/src/hooks/useTransportEngine.ts#L18-L19)
 - [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
+- [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
 - [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
 
 **Section sources**
@@ -590,6 +630,7 @@ Library["useLibraryData.ts"] --> Database["library.ts"]
 - [playerShell.ts:1-202](file://src/renderer/src/lib/playerShell.ts#L1-L202)
 - [useTransportEngine.ts:1-315](file://src/renderer/src/hooks/useTransportEngine.ts#L1-L315)
 - [LaneClipCanvas.tsx:1-265](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L265)
+- [sample-utils.ts:1-97](file://src/renderer/src/lib/sample-utils.ts#L1-L97)
 - [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 
 ## Performance Considerations
@@ -643,6 +684,7 @@ The enhanced timeline panels utilize efficient rendering techniques with CSS var
 - CSS variable-based color resolution avoiding DOM queries
 - Efficient hit-testing with precomputed rectangles
 - Responsive layout with ResizeObserver integration
+- Beat-snap algorithm optimized for real-time performance
 
 ### Library Data Performance
 The paginated library data system optimizes performance for large sample collections through intelligent loading strategies.
@@ -693,6 +735,13 @@ The paginated library data system optimizes performance for large sample collect
 - Confirm grid line positions use Math.round with 0.5 pixel offset
 - Validate that bar lines are drawn separately from beat lines
 
+**Beat-Snap Placement Issues**
+- Verify nearestTick function receives correct parameters (clickX, containerWidth, totalTicks)
+- Check that snapResolution parameter is properly calculated (8 for beat-snap, 1 for freeform)
+- Ensure Alt-key modifier is correctly detected during drag operations
+- Validate that snapping respects grid boundaries and clamps to valid tick range
+- Confirm that visual feedback matches snapped positions
+
 **Library Data Loading Issues**
 - Verify database indexing status before attempting paginated queries
 - Check query sequence tracking prevents race conditions
@@ -700,17 +749,18 @@ The paginated library data system optimizes performance for large sample collect
 - Ensure error handling provides meaningful user feedback
 - Validate that fallback to legacy scanning works correctly
 
-**Updated** Enhanced troubleshooting guidance for new timeline panel features and library data performance improvements
+**Updated** Enhanced troubleshooting guidance for new timeline panel features, beat-snap functionality, and library data performance improvements
 
 **Section sources**
 - [transport.ts:46-66](file://src/renderer/src/engine/transport.ts#L46-L66)
 - [scheduler.ts:75-87](file://src/renderer/src/engine/scheduler.ts#L75-L87)
 - [sample-cache.ts:77-82](file://src/renderer/src/engine/sample-cache.ts#L77-L82)
 - [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
+- [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
 - [useLibraryData.ts:178-217](file://src/renderer/src/hooks/useLibraryData.ts#L178-L217)
 
 ## Conclusion
-MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback with significant improvements in synchronization, state management, user experience, and performance optimization. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The enhanced player implementation prevents race conditions and stray voice starts, while the improved transport synchronization ensures perfect visual-audio alignment. The sophisticated dimming policy provides clear visual feedback while maintaining flexible audio behavior. The new timeline panel system offers precise beat and bar grid alignment with CSS variable integration, and the library data system provides optimized performance through paginated loading. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
+MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback with significant improvements in synchronization, state management, user experience, and performance optimization. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The enhanced player implementation prevents race conditions and stray voice starts, while the improved transport synchronization ensures perfect visual-audio alignment. The sophisticated dimming policy provides clear visual feedback while maintaining flexible audio behavior. The new timeline panel system offers precise beat and bar grid alignment with CSS variable integration, beat-snap functionality for precise clip placement, and the library data system provides optimized performance through paginated loading. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
 
 ## Appendices
 
@@ -767,15 +817,16 @@ Player->>Player : "reset lastScheduledTick"
 - [scheduler.ts:94-116](file://src/renderer/src/engine/scheduler.ts#L94-L116)
 
 ### Timeline Visualization and Playback Coordination
-The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer. This ensures that the visual playhead never drifts from the audible output, providing a consistent user experience. The enhanced timeline panels provide precise beat and bar grid alignment with CSS variable integration for consistent theming.
+The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer. This ensures that the visual playhead never drifts from the audible output, providing a consistent user experience. The enhanced timeline panels provide precise beat and bar grid alignment with CSS variable integration, and the new beat-snap functionality ensures precise clip placement with configurable snapping behavior.
 
-**Updated** Enhanced synchronization through Player.currentTick integration and improved anchor-based calculations with new timeline panel features
+**Updated** Enhanced synchronization through Player.currentTick integration, improved anchor-based calculations, new timeline panel features, and beat-snap functionality
 
 **Section sources**
 - [useTransportEngine.ts:149-154](file://src/renderer/src/hooks/useTransportEngine.ts#L149-L154)
 - [player.ts:67-69](file://src/renderer/src/engine/player.ts#L67-L69)
 - [TrackerView.tsx:115-122](file://src/renderer/src/components/TrackerView.tsx#L115-L122)
 - [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
+- [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
 
 ### Enhanced Dimming Policy Implementation
 The player shell implements a sophisticated dimming policy that provides clear visual feedback while maintaining audio flexibility. The policy separates visual dimming from audio audibility rules, ensuring that users receive appropriate visual cues even in complex mute/solo scenarios.
@@ -805,7 +856,7 @@ The Player class implements robust error handling and voice lifecycle management
 - [player.test.ts:107-140](file://src/renderer/src/engine/player.test.ts#L107-L140)
 
 ### Timeline Panel System Architecture
-The enhanced timeline panel system provides precise visual synchronization between audio timing and visual representation through beat/bar grid alignment and CSS variable integration.
+The enhanced timeline panel system provides precise visual synchronization between audio timing and visual representation through beat/bar grid alignment, CSS variable integration, and beat-snap functionality.
 
 **Key Features:**
 - Beat grid rendering with 1/8th note resolution
@@ -814,17 +865,38 @@ The enhanced timeline panel system provides precise visual synchronization betwe
 - Transparent beat lines with opaque bar lines
 - CSS variable-based color resolution
 - Device pixel ratio aware canvas rendering
+- Beat-snap functionality with configurable snapping behavior
 
-**Updated** New timeline panel system with comprehensive grid alignment and enhanced visual feedback
+**Updated** New timeline panel system with comprehensive grid alignment, enhanced visual feedback, and precise snapping behavior
 
 **Diagram sources**
 - [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
 - [TrackerView.tsx:364-371](file://src/renderer/src/components/TrackerView.tsx#L364-L371)
+- [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
 
 **Section sources**
 - [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
 - [LaneClipCanvas.tsx:101-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L101-L129)
 - [TrackerView.tsx:364-371](file://src/renderer/src/components/TrackerView.tsx#L364-L371)
+- [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
+
+### Beat-Snap Algorithm Implementation
+The nearestTick function provides precise grid-aligned positioning for timeline interactions.
+
+**Key Features:**
+- Pixel-to-tick conversion with guard clauses
+- Configurable snap resolution parameter
+- Boundary clamping to valid tick range
+- Mathematical rounding for precise grid alignment
+- Freeform vs beat-snap behavior based on snapResolution
+
+**Updated** New beat-snap functionality with configurable snapping behavior and precise grid alignment
+
+**Diagram sources**
+- [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
+
+**Section sources**
+- [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
 
 ### Library Data Performance Architecture
 The paginated library data system optimizes performance for large sample collections through intelligent loading strategies and efficient memory management.

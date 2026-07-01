@@ -227,6 +227,10 @@ adjacencies.
 - [x] **AC-015a:** Changing BPM from either the Middle Strip editor or the Song Controls slider updates the same transport state and keeps both controls synchronized.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-017:** Clips are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
+- [x] **AC-018:** Shift-dragging a placed clip duplicates it at the drop position; the original remains unchanged.
+- [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; clips whose bounds intersect the rectangle are selected (highlighted with a white border).
+- [x] **AC-020:** Pressing Delete removes all selected clips. Clicking empty space without Ctrl deselects all.
+- [x] **AC-021:** Dragging a clip that is part of a multi-selection moves the entire group, maintaining relative offsets. Shift-dragging the group duplicates all members.
 
 ## Non-Goals (deferred to later specs)
 
@@ -238,7 +242,7 @@ adjacencies.
 - No lane add/remove UI (fixed 16 lanes).
 - No zoom in/out on the timeline.
 - No waveform rendering inside clips.
-- No clip selection, multi-select, cut/copy/paste.
+- No cut/copy/paste for clips.
 - No undo/redo for clip placement.
 - No BPM automation or tempo changes within a project.
 
