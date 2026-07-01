@@ -33,6 +33,9 @@ export default function App() {
     lanes,
     placeSampleDetailOnLane,
     moveClipOnLane,
+    duplicateClipOnLane,
+    moveClipGroup,
+    duplicateClipGroup,
     removeClipFromLane,
     setLanePan,
     previewSample,
@@ -131,6 +134,9 @@ export default function App() {
             onRescan={rescanSampleBrowser}
             onPlaceSampleDetailOnLane={placeSampleDetailOnLane}
             onMoveClipOnLane={moveClipOnLane}
+            onDuplicateClipOnLane={duplicateClipOnLane}
+            onMoveClipGroup={moveClipGroup}
+            onDuplicateClipGroup={duplicateClipGroup}
             onRemoveClipFromLane={removeClipFromLane}
             onSetLanePan={setLanePan}
             onPreviewSample={previewSample}

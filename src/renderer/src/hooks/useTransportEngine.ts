@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ElectronAPI } from '../../../shared/ipc'
 import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
+  type ClipGroupEntry,
   type FooterSampleDetail,
   type LaneState,
   createDefaultLanes,
+  duplicateClipGroup,
+  duplicateClipOnLane,
   laneShouldDim,
+  moveClipGroup,
   moveClipOnLane,
   placeClipOnLane,
   removeClipFromLane,
@@ -39,6 +43,9 @@ export interface TransportEngineActions {
   setView: (view: View) => void
   placeSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
   moveClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
+  duplicateClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
+  moveClipGroup: (moves: ClipGroupEntry[]) => void
+  duplicateClipGroup: (sources: ClipGroupEntry[]) => void
   removeClipFromLane: (laneIndex: number, clipId: string) => void
   setLanePan: (laneIndex: number, pan: number) => void
   previewSample: (samplePath: string) => void
@@ -190,6 +197,27 @@ export function useTransportEngine(
     []
   )
 
+  const handleDuplicateClipOnLane = useCallback(
+    (clipId: string, toLaneIndex: number, newStartTick: number) => {
+      setLanes((current) => duplicateClipOnLane(current, clipId, toLaneIndex, newStartTick))
+    },
+    []
+  )
+
+  const handleMoveClipGroup = useCallback(
+    (moves: ClipGroupEntry[]) => {
+      setLanes((current) => moveClipGroup(current, moves))
+    },
+    []
+  )
+
+  const handleDuplicateClipGroup = useCallback(
+    (sources: ClipGroupEntry[]) => {
+      setLanes((current) => duplicateClipGroup(current, sources))
+    },
+    []
+  )
+
   const handleRemoveClipFromLane = useCallback(
     (laneIndex: number, clipId: string) => {
       setLanes((current) => removeClipFromLane(current, laneIndex, clipId))
@@ -298,6 +326,9 @@ export function useTransportEngine(
     setView,
     placeSampleDetailOnLane,
     moveClipOnLane: handleMoveClipOnLane,
+    duplicateClipOnLane: handleDuplicateClipOnLane,
+    moveClipGroup: handleMoveClipGroup,
+    duplicateClipGroup: handleDuplicateClipGroup,
     removeClipFromLane: handleRemoveClipFromLane,
     setLanePan: handleSetLanePan,
     previewSample: handlePreviewSample,

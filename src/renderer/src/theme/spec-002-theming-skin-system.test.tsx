@@ -11,7 +11,8 @@ import {
   emeraldTheme,
   normalizeThemeKey,
   resolveTheme,
-  selectTheme
+  selectTheme,
+  studioTheme
 } from './themes'
 
 const REPO_ROOT = process.cwd()
@@ -141,7 +142,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(screen.getByLabelText('Theme')).toHaveValue('emerald')
   })
 
-  it('AC-006: selecting a non-Emerald option immediately resets back to Emerald', () => {
+  it('AC-006: selecting a theme applies it across the entire UI', () => {
     render(<App />)
 
     const select = screen.getByLabelText('Theme')
@@ -149,14 +150,17 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
 
     fireEvent.change(select, { target: { value: 'studio' } })
 
-    expect(select).toHaveValue('emerald')
-    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00674F')
+    expect(select).toHaveValue('studio')
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00B58C')
   })
 
   it('AC-007: selecting Emerald when already active is a no-op', () => {
     render(<App />)
 
     const select = screen.getByLabelText('Theme')
+
+    // Ensure emerald is active first
+    fireEvent.change(select, { target: { value: 'emerald' } })
     const beforeStyleSnapshot = document.documentElement.style.cssText
 
     fireEvent.change(select, { target: { value: 'emerald' } })
@@ -171,9 +175,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     const root = document.createElement('html')
     bootstrapTheme(root)
 
-    expect(resolveTheme('studio')).toBe(emeraldTheme)
+    expect(resolveTheme('studio')).toBe(studioTheme)
     expect(resolveTheme('not-a-theme')).toBe(emeraldTheme)
-    expect(normalizeThemeKey('studio')).toBe('emerald')
+    expect(normalizeThemeKey('studio')).toBe('studio')
     expect(selectTheme('not-a-theme', root)).toBe('emerald')
     expect(root.style.getPropertyValue('--accent')).toBe('#00674F')
     expect(root.getAttribute('data-theme-key')).toBe('emerald')

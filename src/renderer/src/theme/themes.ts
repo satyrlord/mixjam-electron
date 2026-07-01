@@ -1,4 +1,11 @@
 import emeraldThemeJson from '../../../../public/themes/emerald.json'
+import studioThemeJson from '../../../../public/themes/studio.json'
+import raveThemeJson from '../../../../public/themes/rave.json'
+import analogThemeJson from '../../../../public/themes/analog.json'
+import ideThemeJson from '../../../../public/themes/ide.json'
+import rustThemeJson from '../../../../public/themes/rust.json'
+import screenThemeJson from '../../../../public/themes/screen.json'
+import paThemeJson from '../../../../public/themes/pa.json'
 
 export const THEME_OPTIONS = [
   { name: 'Emerald', key: 'emerald' },
@@ -72,11 +79,25 @@ export interface Theme {
 
 /** Canonical, fully-implemented baseline theme (spec-002 US-001). */
 export const emeraldTheme = emeraldThemeJson as Theme
+export const studioTheme = studioThemeJson as Theme
+const raveTheme = raveThemeJson as Theme
+const analogTheme = analogThemeJson as Theme
+const ideTheme = ideThemeJson as Theme
+const rustTheme = rustThemeJson as Theme
+const screenTheme = screenThemeJson as Theme
+const paTheme = paThemeJson as Theme
 
 const DEFAULT_THEME_KEY: ThemeKey = 'emerald'
 
 const IMPLEMENTED_THEMES: Readonly<Partial<Record<ThemeKey, Theme>>> = {
-  emerald: emeraldTheme
+  emerald: emeraldTheme,
+  studio: studioTheme,
+  rave: raveTheme,
+  analog: analogTheme,
+  ide: ideTheme,
+  rust: rustTheme,
+  screen: screenTheme,
+  pa: paTheme
 }
 
 function fontStack(family: string, fallback: string): string {

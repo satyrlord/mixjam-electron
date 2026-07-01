@@ -14,6 +14,7 @@ export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'filepath' | 'tag
 export const DEFAULT_LANE_COUNT = 16
 export const LANE_HEIGHT_PX = 44
 export const LANE_HEAD_WIDTH_PX = 168
+export const RULER_HEIGHT_PX = 24
 export const DEFAULT_CLIP_DURATION_TICKS = 32
 
 export interface LaneClip {
@@ -36,6 +37,24 @@ export interface LaneState {
   solo: boolean
   pan: number
   clips: LaneClip[]
+}
+
+// Monotonic counter appended to generated clip ids so multiple clips placed
+// synchronously in the same millisecond (e.g. a batched group duplicate)
+// never collide on id, which would make delete/select-by-id affect both.
+let clipIdSequence = 0
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+/** Pixel-space rect for a clip's bubble, shared by canvas drawing and
+ *  rectangle-selection hit-testing so the two never drift apart. */
+export function clipScreenRect(clip: LaneClip, pixelsPerTick: number): { x: number; width: number } {
+  return {
+    x: clip.startTick * pixelsPerTick,
+    width: Math.max(12, clip.durationTicks * pixelsPerTick)
+  }
 }
 
 export function createDefaultLanes(): LaneState[] {
@@ -84,7 +103,8 @@ export function placeClipOnLane(
   return lanes.map((lane) => {
     if (lane.index !== laneIndex) return lane
 
-    const clipId = `clip-${samplePath}-${startTick}-${Date.now()}`
+    clipIdSequence += 1
+    const clipId = `clip-${samplePath}-${startTick}-${Date.now()}-${clipIdSequence}`
     const newClip: LaneClip = {
       id: clipId,
       samplePath,
@@ -143,26 +163,34 @@ export function laneShouldDim(lane: LaneState, anySoloed: boolean): boolean {
   return false
 }
 
+function findClipById(lanes: LaneState[], clipId: string): { clip: LaneClip; laneIndex: number } | null {
+  for (const lane of lanes) {
+    const found = lane.clips.find((c) => c.id === clipId)
+    if (found) return { clip: found, laneIndex: lane.index }
+  }
+  return null
+}
+
+function newClipFrom(source: LaneClip, startTick: number): LaneClip {
+  clipIdSequence += 1
+  return {
+    ...source,
+    id: `clip-${source.samplePath}-${startTick}-${Date.now()}-${clipIdSequence}`,
+    startTick
+  }
+}
+
 export function moveClipOnLane(
   lanes: LaneState[],
   clipId: string,
   toLaneIndex: number,
   newStartTick: number
 ): LaneState[] {
-  let sourceClip: LaneClip | null = null
-  let sourceLaneIndex = -1
-  for (const lane of lanes) {
-    const found = lane.clips.find((c) => c.id === clipId)
-    if (found) {
-      sourceClip = found
-      sourceLaneIndex = lane.index
-      break
-    }
-  }
-  if (!sourceClip) return lanes
+  const found = findClipById(lanes, clipId)
+  if (!found) return lanes
 
   const withoutSource = lanes.map((lane) =>
-    lane.index === sourceLaneIndex
+    lane.index === found.laneIndex
       ? { ...lane, clips: lane.clips.filter((c) => c.id !== clipId) }
       : lane
   )
@@ -170,13 +198,85 @@ export function moveClipOnLane(
   return placeClipOnLane(
     withoutSource,
     toLaneIndex,
-    sourceClip.samplePath,
-    sourceClip.sampleName,
+    found.clip.samplePath,
+    found.clip.sampleName,
     newStartTick,
-    sourceClip.durationTicks,
-    sourceClip.durationSeconds,
-    sourceClip.color
+    found.clip.durationTicks,
+    found.clip.durationSeconds,
+    found.clip.color
   )
+}
+
+export function duplicateClipOnLane(
+  lanes: LaneState[],
+  clipId: string,
+  toLaneIndex: number,
+  newStartTick: number
+): LaneState[] {
+  const found = findClipById(lanes, clipId)
+  if (!found) return lanes
+  return placeClipOnLane(
+    lanes, toLaneIndex, found.clip.samplePath, found.clip.sampleName,
+    newStartTick, found.clip.durationTicks, found.clip.durationSeconds, found.clip.color
+  )
+}
+
+export interface ClipGroupEntry {
+  clipId: string
+  toLaneIndex: number
+  newStartTick: number
+}
+
+/** Batch-moves a selection of clips in a single pass over `lanes`, instead of
+ *  rebuilding the full lane array once per clip. Source clips are looked up
+ *  before any mutation so offsets are resolved against the pre-drag layout. */
+export function moveClipGroup(lanes: LaneState[], moves: ClipGroupEntry[]): LaneState[] {
+  const resolved = moves
+    .map(({ clipId, toLaneIndex, newStartTick }) => {
+      const found = findClipById(lanes, clipId)
+      return found ? { clipId, toLaneIndex, newStartTick, clip: found.clip } : null
+    })
+    .filter((entry): entry is { clipId: string; toLaneIndex: number; newStartTick: number; clip: LaneClip } => entry !== null)
+
+  const movingIds = new Set(resolved.map((entry) => entry.clipId))
+  const withoutSources = lanes.map((lane) => ({
+    ...lane,
+    clips: lane.clips.filter((c) => !movingIds.has(c.id))
+  }))
+
+  const byLane = new Map(withoutSources.map((lane) => [lane.index, lane]))
+  for (const entry of resolved) {
+    const targetLane = byLane.get(entry.toLaneIndex)
+    if (!targetLane) continue
+    targetLane.clips = sortClips([
+      ...targetLane.clips,
+      { ...entry.clip, startTick: entry.newStartTick }
+    ])
+  }
+
+  return withoutSources
+}
+
+/** Batch-duplicates a selection of clips in a single pass over `lanes`. */
+export function duplicateClipGroup(lanes: LaneState[], sources: ClipGroupEntry[]): LaneState[] {
+  const resolved = sources
+    .map(({ clipId, toLaneIndex, newStartTick }) => {
+      const found = findClipById(lanes, clipId)
+      return found ? { toLaneIndex, newStartTick, clip: found.clip } : null
+    })
+    .filter((entry): entry is { toLaneIndex: number; newStartTick: number; clip: LaneClip } => entry !== null)
+
+  const byLane = new Map(lanes.map((lane) => [lane.index, { ...lane, clips: [...lane.clips] }]))
+  for (const entry of resolved) {
+    const targetLane = byLane.get(entry.toLaneIndex)
+    if (!targetLane) continue
+    targetLane.clips = sortClips([
+      ...targetLane.clips,
+      newClipFrom(entry.clip, entry.newStartTick)
+    ])
+  }
+
+  return lanes.map((lane) => byLane.get(lane.index) ?? lane)
 }
 
 export function removeClipFromLane(
@@ -192,6 +292,6 @@ export function removeClipFromLane(
 
 export function setLanePan(lanes: LaneState[], laneIndex: number, pan: number): LaneState[] {
   return lanes.map((lane) =>
-    lane.index === laneIndex ? { ...lane, pan: Math.max(-1, Math.min(1, pan)) } : lane
+    lane.index === laneIndex ? { ...lane, pan: clamp(pan, -1, 1) } : lane
   )
 }

@@ -5,15 +5,38 @@ import {
   LANE_HEIGHT_PX,
   LANE_HEAD_WIDTH_PX,
   DEFAULT_CLIP_DURATION_TICKS,
+  clamp,
+  clipScreenRect,
   createDefaultLanes,
+  duplicateClipGroup,
+  duplicateClipOnLane,
   laneShouldDim,
+  moveClipGroup,
   moveClipOnLane,
   placeClipOnLane,
   removeClipFromLane,
   setLanePan,
+  toEngineLanes,
   toggleLaneMute,
   toggleLaneSolo
 } from '../lib/playerShell'
+
+describe('clamp', () => {
+  it('clamps a value within [min, max]', () => {
+    expect(clamp(5, 0, 10)).toBe(5)
+    expect(clamp(-5, 0, 10)).toBe(0)
+    expect(clamp(15, 0, 10)).toBe(10)
+  })
+})
+
+describe('clipScreenRect', () => {
+  it('computes x/width matching the canvas draw math, with a minimum width floor', () => {
+    const clip = { id: 'c', samplePath: 's', sampleName: 'n', startTick: 32, durationTicks: 16, durationSeconds: 1 }
+    expect(clipScreenRect(clip, 2)).toEqual({ x: 64, width: 32 })
+    // Very short clip still floors to the 12px minimum.
+    expect(clipScreenRect({ ...clip, durationTicks: 1 }, 1)).toEqual({ x: 32, width: 12 })
+  })
+})
 
 describe('playerShell lane constants', () => {
   it('has 16 default lanes', () => {
@@ -252,5 +275,136 @@ describe('setLanePan', () => {
     const state = setLanePan(lanes, 2, -0.75)
     expect(state[2]!.pan).toBe(-0.75)
     expect(state[3]!.pan).toBe(0)
+  })
+})
+
+describe('toEngineLanes', () => {
+  it('maps UI lanes with clips to engine lanes', () => {
+    const lanes = createDefaultLanes()
+    const withClip = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0, 32, 0.5)
+    const engineLanes = toEngineLanes(withClip)
+
+    expect(engineLanes).toHaveLength(16)
+    expect(engineLanes[0]!.clips).toHaveLength(1)
+    expect(engineLanes[0]!.clips[0]!.samplePath).toBe('Drums/kick.wav')
+    expect(engineLanes[0]!.clips[0]!.startTick).toBe(0)
+    expect(engineLanes[0]!.clips[0]!.durationTicks).toBe(32)
+    expect(engineLanes[0]!.channelIndex).toBe(0)
+  })
+
+  it('maps empty lanes to engine lanes with no clips', () => {
+    const lanes = createDefaultLanes()
+    const engineLanes = toEngineLanes(lanes)
+
+    for (const el of engineLanes) {
+      expect(el.clips).toEqual([])
+    }
+  })
+})
+
+describe('duplicateClipOnLane', () => {
+  it('duplicates a clip to another lane at a new tick', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0, 32, 0.5)
+    const clipId = state[0]!.clips[0]!.id
+
+    state = duplicateClipOnLane(state, clipId, 2, 64)
+
+    expect(state[0]!.clips).toHaveLength(1)
+    expect(state[2]!.clips).toHaveLength(1)
+    expect(state[2]!.clips[0]!.samplePath).toBe('Drums/kick.wav')
+    expect(state[2]!.clips[0]!.startTick).toBe(64)
+    expect(state[2]!.clips[0]!.id).not.toBe(clipId)
+  })
+
+  it('is a no-op for an unknown clip id', () => {
+    const lanes = createDefaultLanes()
+    const state = duplicateClipOnLane(lanes, 'nonexistent', 0, 0)
+    expect(state).toEqual(lanes)
+  })
+})
+
+describe('moveClipGroup', () => {
+  it('moves multiple clips in a batch', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    state = placeClipOnLane(state, 1, 'Drums/snare.wav', 'snare.wav', 32)
+    const clip0 = state[0]!.clips[0]!.id
+    const clip1 = state[1]!.clips[0]!.id
+
+    state = moveClipGroup(state, [
+      { clipId: clip0, toLaneIndex: 4, newStartTick: 64 },
+      { clipId: clip1, toLaneIndex: 5, newStartTick: 128 }
+    ])
+
+    expect(state[0]!.clips).toHaveLength(0)
+    expect(state[1]!.clips).toHaveLength(0)
+    expect(state[4]!.clips).toHaveLength(1)
+    expect(state[4]!.clips[0]!.startTick).toBe(64)
+    expect(state[5]!.clips).toHaveLength(1)
+    expect(state[5]!.clips[0]!.startTick).toBe(128)
+  })
+})
+
+describe('duplicateClipGroup', () => {
+  it('duplicates multiple clips in a batch', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    state = placeClipOnLane(state, 1, 'Drums/snare.wav', 'snare.wav', 32)
+    const clip0 = state[0]!.clips[0]!.id
+    const clip1 = state[1]!.clips[0]!.id
+
+    state = duplicateClipGroup(state, [
+      { clipId: clip0, toLaneIndex: 4, newStartTick: 64 },
+      { clipId: clip1, toLaneIndex: 5, newStartTick: 128 }
+    ])
+
+    expect(state[0]!.clips).toHaveLength(1)
+    expect(state[1]!.clips).toHaveLength(1)
+    expect(state[4]!.clips).toHaveLength(1)
+    expect(state[4]!.clips[0]!.startTick).toBe(64)
+    expect(state[5]!.clips).toHaveLength(1)
+    expect(state[5]!.clips[0]!.startTick).toBe(128)
+  })
+
+  it('gives every duplicated clip a unique id even when two source clips share samplePath and land on the same lane/tick', () => {
+    // Regression test: two clips of the same sample, clamped to the same
+    // target lane+tick (e.g. a group drag near the grid edge), used to be
+    // able to collide on id because ids were derived only from
+    // samplePath+startTick+Date.now(). A collision meant deleting one
+    // duplicated clip silently deleted both.
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    state = placeClipOnLane(state, 1, 'Drums/kick.wav', 'kick.wav', 0)
+    const clip0 = state[0]!.clips[0]!.id
+    const clip1 = state[1]!.clips[0]!.id
+
+    state = duplicateClipGroup(state, [
+      { clipId: clip0, toLaneIndex: 4, newStartTick: 0 },
+      { clipId: clip1, toLaneIndex: 4, newStartTick: 0 }
+    ])
+
+    expect(state[4]!.clips).toHaveLength(2)
+    const [dupA, dupB] = state[4]!.clips
+    expect(dupA!.id).not.toBe(dupB!.id)
+
+    // Deleting one duplicate must not remove the other.
+    state = removeClipFromLane(state, 4, dupA!.id)
+    expect(state[4]!.clips).toHaveLength(1)
+    expect(state[4]!.clips[0]!.id).toBe(dupB!.id)
+  })
+
+  it('is a no-op per-entry for unknown clip ids without dropping the rest of the group', () => {
+    const lanes = createDefaultLanes()
+    let state = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
+    const clip0 = state[0]!.clips[0]!.id
+
+    state = duplicateClipGroup(state, [
+      { clipId: clip0, toLaneIndex: 4, newStartTick: 64 },
+      { clipId: 'nonexistent', toLaneIndex: 5, newStartTick: 128 }
+    ])
+
+    expect(state[4]!.clips).toHaveLength(1)
+    expect(state[5]!.clips).toHaveLength(0)
   })
 })

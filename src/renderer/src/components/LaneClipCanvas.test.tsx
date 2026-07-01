@@ -72,6 +72,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={vi.fn()}
       />
@@ -90,6 +91,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={vi.fn()}
       />
@@ -110,6 +112,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath="C:/kick.wav"
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={vi.fn()}
       />
@@ -132,6 +135,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={vi.fn()}
       />
@@ -149,6 +153,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={3}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={onCtx}
       />
@@ -173,6 +178,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={onCtx}
       />
@@ -191,6 +197,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={vi.fn()}
       />
@@ -209,6 +216,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={vi.fn()}
       />
@@ -228,6 +236,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={onDrag}
         onClipContextMenu={vi.fn()}
       />
@@ -249,6 +258,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={onDrag}
         onClipContextMenu={vi.fn()}
       />
@@ -269,6 +279,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={onCtx}
       />
@@ -298,6 +309,7 @@ describe('LaneClipCanvas', () => {
         totalTicks={64}
         laneIndex={0}
         flashSamplePath={null}
+        selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={onCtx}
       />
@@ -314,5 +326,25 @@ describe('LaneClipCanvas', () => {
     fireEvent.contextMenu(el, { clientX: 100 })
 
     expect(onCtx).not.toHaveBeenCalled()
+  })
+
+  it('draws selection highlight border when a clip is in selectedClipIds', () => {
+    // Use only one clip so its selection highlight is the last drawing operation
+    render(
+      <LaneClipCanvas
+        clips={[CLIPS[0]!]}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set(['clip-1'])}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    // Selection highlight sets strokeStyle to white and lineWidth to 2
+    // Since clip-1 is the only clip and is selected, the last stroke call is the selection border
+    expect(mockCtx.strokeStyle).toBe('#FFFFFF')
+    expect(mockCtx.lineWidth).toBe(2)
   })
 })

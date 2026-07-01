@@ -514,6 +514,15 @@ html[data-theme-ready='true'] body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
+}
+
+.selection-rect {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  pointer-events: none;
+  z-index: 10;
 }
 
 .tracker-lane {

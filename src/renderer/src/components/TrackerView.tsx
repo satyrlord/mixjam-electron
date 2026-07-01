@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CategoryItem, LibraryItem, RecentProjectItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
-import type { FooterSampleDetail, LaneState } from '../lib/playerShell'
-import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX, sampleDurationTicks } from '../lib/playerShell'
+import type { ClipGroupEntry, FooterSampleDetail, LaneState } from '../lib/playerShell'
+import {
+  LANE_HEAD_WIDTH_PX,
+  LANE_HEIGHT_PX,
+  RULER_HEIGHT_PX,
+  clamp,
+  clipScreenRect,
+  sampleDurationTicks,
+} from '../lib/playerShell'
 import {
   categoryColor,
   formatDuration,
@@ -34,6 +41,9 @@ interface TrackerViewProps {
   onRescan: () => void
   onPlaceSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
   onMoveClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
+  onDuplicateClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
+  onMoveClipGroup: (moves: ClipGroupEntry[]) => void
+  onDuplicateClipGroup: (sources: ClipGroupEntry[]) => void
   onRemoveClipFromLane: (laneIndex: number, clipId: string) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
   onPreviewSample: (samplePath: string) => void
@@ -89,6 +99,9 @@ export default function TrackerView({
   onRescan,
   onPlaceSampleDetailOnLane,
   onMoveClipOnLane,
+  onDuplicateClipOnLane,
+  onMoveClipGroup,
+  onDuplicateClipGroup,
   onRemoveClipFromLane,
   onSetLanePan,
   onPreviewSample,
@@ -174,6 +187,96 @@ export default function TrackerView({
 
   const pixelsPerTick = laneContentWidth > 0 ? laneContentWidth / totalTicks : 0
 
+  const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set())
+  const [selectionRect, setSelectionRect] = useState<{
+    startX: number; startY: number; currentX: number; currentY: number
+  } | null>(null)
+  // Tracks the mousemove/mouseup listeners for an in-progress rectangle-select
+  // drag so they can be torn down if TrackerView unmounts mid-drag (e.g. the
+  // user navigates Home while still holding the mouse button).
+  const dragCleanupRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => dragCleanupRef.current?.()
+  }, [])
+
+  const handleLanesMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!e.ctrlKey) {
+      setSelectedClipIds(new Set())
+      return
+    }
+    const container = lanesRef.current
+    if (!container) return
+    // Capture geometry once at drag start — the container doesn't resize or
+    // reposition mid-drag, so re-measuring on every mousemove is wasted work.
+    // Also capture scroll offsets so the rendered selection-rect and the
+    // hit-testing stay correct if the lanes list is scrolled mid-drag.
+    const rect = container.getBoundingClientRect()
+    const localX = e.clientX - rect.left
+    const localY = e.clientY - rect.top
+    if (localX < LANE_HEAD_WIDTH_PX || localY < RULER_HEIGHT_PX) return
+
+    e.preventDefault()
+    const startX = localX + container.scrollLeft
+    const startY = localY + container.scrollTop
+    setSelectionRect({ startX, startY, currentX: startX, currentY: startY })
+    setSelectedClipIds(new Set())
+
+    const onMove = (moveEvent: MouseEvent) => {
+      const cx = moveEvent.clientX - rect.left + container.scrollLeft
+      const cy = moveEvent.clientY - rect.top + container.scrollTop
+      setSelectionRect((prev) => prev ? { ...prev, currentX: cx, currentY: cy } : null)
+
+      const x1 = Math.min(startX, cx) - LANE_HEAD_WIDTH_PX
+      const x2 = Math.max(startX, cx) - LANE_HEAD_WIDTH_PX
+      const y1 = Math.min(startY, cy) - RULER_HEIGHT_PX
+      const y2 = Math.max(startY, cy) - RULER_HEIGHT_PX
+
+      const minLane = Math.max(0, Math.floor(y1 / LANE_HEIGHT_PX))
+      const maxLane = Math.min(lanes.length - 1, Math.floor(y2 / LANE_HEIGHT_PX))
+
+      const ids = new Set<string>()
+      for (let li = minLane; li <= maxLane; li++) {
+        const lane = lanes[li]
+        if (!lane) continue
+        for (const clip of lane.clips) {
+          const { x: clipX, width: clipW } = clipScreenRect(clip, pixelsPerTick)
+          if (clipX + clipW > x1 && clipX < x2) {
+            ids.add(clip.id)
+          }
+        }
+      }
+      setSelectedClipIds(ids)
+    }
+
+    const onUp = () => {
+      setSelectionRect(null)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      dragCleanupRef.current = null
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    dragCleanupRef.current = onUp
+  }, [lanes, pixelsPerTick])
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' || selectedClipIds.size === 0) return
+      for (const lane of lanes) {
+        for (const clip of lane.clips) {
+          if (selectedClipIds.has(clip.id)) {
+            onRemoveClipFromLane(lane.index, clip.id)
+          }
+        }
+      }
+      setSelectedClipIds(new Set())
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selectedClipIds, lanes, onRemoveClipFromLane])
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -236,7 +339,29 @@ export default function TrackerView({
   }
 
   const handleClipDragStart = (event: React.DragEvent, clipId: string) => {
-    event.dataTransfer.setData('application/mixjam-clip', JSON.stringify({ clipId }))
+    if (selectedClipIds.size > 1 && selectedClipIds.has(clipId)) {
+      let anchorLaneIndex = 0
+      let anchorStartTick = 0
+      for (const lane of lanes) {
+        const clip = lane.clips.find((c) => c.id === clipId)
+        if (clip) { anchorLaneIndex = lane.index; anchorStartTick = clip.startTick; break }
+      }
+      const group: Array<{ clipId: string; tickOffset: number; laneOffset: number }> = []
+      for (const lane of lanes) {
+        for (const clip of lane.clips) {
+          if (selectedClipIds.has(clip.id)) {
+            group.push({
+              clipId: clip.id,
+              tickOffset: clip.startTick - anchorStartTick,
+              laneOffset: lane.index - anchorLaneIndex
+            })
+          }
+        }
+      }
+      event.dataTransfer.setData('application/mixjam-clip', JSON.stringify({ clipId, group }))
+    } else {
+      event.dataTransfer.setData('application/mixjam-clip', JSON.stringify({ clipId }))
+    }
     event.dataTransfer.effectAllowed = 'move'
     event.stopPropagation()
   }
@@ -245,7 +370,11 @@ export default function TrackerView({
     if (!event.dataTransfer.types.includes('application/mixjam-sample') &&
         !event.dataTransfer.types.includes('application/mixjam-clip')) return
     event.preventDefault()
-    event.dataTransfer.dropEffect = event.dataTransfer.types.includes('application/mixjam-clip') ? 'move' : 'copy'
+    if (event.dataTransfer.types.includes('application/mixjam-clip')) {
+      event.dataTransfer.dropEffect = event.shiftKey ? 'copy' : 'move'
+    } else {
+      event.dataTransfer.dropEffect = 'copy'
+    }
   }
 
   const handleLaneCanvasDrop = (laneIndex: number, event: React.DragEvent<HTMLDivElement>) => {
@@ -263,15 +392,32 @@ export default function TrackerView({
       } catch { /* malformed drag data */ }
       return
     }
-    // Intra-player clip move
+    // Intra-player clip move or duplicate
     const clipRaw = event.dataTransfer.getData('application/mixjam-clip')
     if (clipRaw) {
       try {
-        const { clipId } = JSON.parse(clipRaw) as { clipId: string }
+        const parsed = JSON.parse(clipRaw) as {
+          clipId: string
+          group?: Array<{ clipId: string; tickOffset: number; laneOffset: number }>
+        }
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
-        const tick = nearestTick(clickX, rect.width, totalTicks, snap)
-        onMoveClipOnLane(clipId, laneIndex, tick)
+        const anchorTick = nearestTick(clickX, rect.width, totalTicks, snap)
+
+        if (parsed.group && parsed.group.length > 1) {
+          const entries: ClipGroupEntry[] = parsed.group.map((g) => ({
+            clipId: g.clipId,
+            toLaneIndex: clamp(laneIndex + g.laneOffset, 0, lanes.length - 1),
+            newStartTick: clamp(anchorTick + g.tickOffset, 0, totalTicks - 1)
+          }))
+          const applyGroup = event.shiftKey ? onDuplicateClipGroup : onMoveClipGroup
+          applyGroup(entries)
+          setSelectedClipIds(new Set())
+        } else {
+          const applySingle = event.shiftKey ? onDuplicateClipOnLane : onMoveClipOnLane
+          applySingle(parsed.clipId, laneIndex, anchorTick)
+          setSelectedClipIds(new Set())
+        }
       } catch { /* malformed drag data */ }
     }
   }
@@ -374,7 +520,14 @@ export default function TrackerView({
             aria-hidden="true"
           />
         )}
-        <div className="tracker-lanes" ref={lanesRef}>
+        <div className="tracker-lanes" ref={lanesRef} onMouseDown={handleLanesMouseDown}>
+          {selectionRect && (() => {
+            const x = Math.min(selectionRect.startX, selectionRect.currentX)
+            const y = Math.min(selectionRect.startY, selectionRect.currentY)
+            const w = Math.abs(selectionRect.currentX - selectionRect.startX)
+            const h = Math.abs(selectionRect.currentY - selectionRect.startY)
+            return <div className="selection-rect" style={{ left: x, top: y, width: w, height: h }} />
+          })()}
           <div className="tracker-ruler">
             <div className="tracker-ruler-spacer" />
             {Array.from({ length: rulerBeatCount }, (_, i) => {
@@ -448,6 +601,7 @@ export default function TrackerView({
                     totalTicks={totalTicks}
                     laneIndex={lane.index}
                     flashSamplePath={flashSamplePath}
+                    selectedClipIds={selectedClipIds}
                     onClipDragStart={(clipId, e) => handleClipDragStart(e, clipId)}
                     onClipContextMenu={setContextMenu}
                   />

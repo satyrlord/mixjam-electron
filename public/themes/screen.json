@@ -1,0 +1,36 @@
+{
+  "name": "Screen Maximal",
+  "key": "screen",
+  "colors": {
+    "accent": "#00B58C",
+    "accent-dark": "#007A60",
+    "highlight": "#4DE3BC",
+    "bg-base": "#090E0D",
+    "bg-panel": "#090E0D",
+    "bg-lane": "#090E0D",
+    "bg-grid": "#090E0D",
+    "chrome": "#1B1D21",
+    "border": "rgba(77,227,188,0.12)",
+    "header-border": "rgba(77,227,188,0.2)",
+    "text": "#D9E6E1",
+    "text-muted": "#7E938C",
+    "pill-bg": "#0F1A18",
+    "pill-border": "rgba(0,181,140,0.35)",
+    "playhead": "#4DE3BC",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFE066",
+    "clip-missing": "#FF6D6D"
+  },
+  "fonts": {
+    "chrome": "JetBrains Mono",
+    "label": "JetBrains Mono",
+    "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, #061210, #0A1A18)",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
+    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+  },
+  "radius": "4px"
+}

@@ -1,3 +1,5 @@
+import { clamp } from './playerShell'
+
 // 8-colour palette from the Emerald theme design project (§8 Color Palette System).
 // Well-known category names get a fixed slot; unknown names get a deterministic
 // slot via hash so every category keeps its colour across scans.
@@ -83,7 +85,7 @@ export function nearestTick(
   const tickWidth = containerWidth / totalTicks
   const tick = Math.round(clickX / tickWidth)
   if (!Number.isFinite(tick)) return 0
-  const clamped = Math.min(Math.max(0, tick), totalTicks - 1)
+  const clamped = clamp(tick, 0, totalTicks - 1)
   if (snapResolution <= 1) return clamped
   return Math.round(clamped / snapResolution) * snapResolution
 }

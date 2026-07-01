@@ -1,0 +1,36 @@
+{
+  "name": "Rust Industrial",
+  "key": "rust",
+  "colors": {
+    "accent": "#B5552D",
+    "accent-dark": "#7A3018",
+    "highlight": "#E8A33D",
+    "bg-base": "#2A2722",
+    "bg-panel": "#34312A",
+    "bg-lane": "#383528",
+    "bg-grid": "#211E19",
+    "chrome": "#44483B",
+    "border": "#1A1813",
+    "header-border": "#26231D",
+    "text": "#E2D8C0",
+    "text-muted": "#A89F88",
+    "pill-bg": "#3A3830",
+    "pill-border": "rgba(181,85,45,0.4)",
+    "playhead": "#E8A33D",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFE066",
+    "clip-missing": "#FF6D6D"
+  },
+  "fonts": {
+    "chrome": "Josefin Sans",
+    "label": "Courier New",
+    "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, #241A11, #2E2015)",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
+    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+  },
+  "radius": "2px"
+}

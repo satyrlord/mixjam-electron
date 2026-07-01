@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import TrackerView from './TrackerView'
 import type { RecentProjectItem, SampleListItem } from '../../../shared/ipc'
@@ -79,6 +79,9 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       onRescan={noop}
       onPlaceSampleDetailOnLane={noop}
       onMoveClipOnLane={noop}
+      onDuplicateClipOnLane={noop}
+      onMoveClipGroup={noop}
+      onDuplicateClipGroup={noop}
       onRemoveClipFromLane={noop}
       onSetLanePan={noop}
       onPreviewSample={noop}
@@ -605,5 +608,481 @@ describe('TrackerView', () => {
     renderTracker({ error: 'Database locked', loading: false, samples: [] })
 
     expect(screen.getByText('Database locked')).toBeInTheDocument()
+  })
+
+  it('calls onTransportPlay when Play button is clicked while stopped', () => {
+    const onTransportPlay = vi.fn()
+    renderTracker({ transportState: 'stopped', onTransportPlay })
+
+    fireEvent.click(screen.getByLabelText('Play'))
+    expect(onTransportPlay).toHaveBeenCalled()
+  })
+
+  it('calls onTransportPause when Pause button is clicked while playing', () => {
+    const onTransportPause = vi.fn()
+    renderTracker({ transportState: 'playing', onTransportPause })
+
+    fireEvent.click(screen.getByLabelText('Pause'))
+    expect(onTransportPause).toHaveBeenCalled()
+  })
+
+  it('calls onTransportStop when Stop button is clicked', () => {
+    const onTransportStop = vi.fn()
+    renderTracker({ onTransportStop })
+
+    fireEvent.click(screen.getByLabelText('Stop'))
+    expect(onTransportStop).toHaveBeenCalled()
+  })
+
+  it('calls onTransportSkipBack when Skip Back button is clicked', () => {
+    const onTransportSkipBack = vi.fn()
+    renderTracker({ onTransportSkipBack })
+
+    fireEvent.click(screen.getByLabelText('Skip Back'))
+    expect(onTransportSkipBack).toHaveBeenCalled()
+  })
+
+  it('calls onSetMasterGain when Master Volume slider changes', () => {
+    const onSetMasterGain = vi.fn()
+    renderTracker({ masterGain: 0.8, onSetMasterGain })
+
+    const slider = screen.getByLabelText('Master Volume')
+    fireEvent.change(slider, { target: { value: '50' } })
+    expect(onSetMasterGain).toHaveBeenCalledWith(0.5)
+  })
+
+  it('calls onSetBpm when BPM slider changes', () => {
+    const onSetBpm = vi.fn()
+    renderTracker({ bpm: 120, onSetBpm })
+
+    const bpmSlider = screen.getByLabelText('BPM')
+    fireEvent.change(bpmSlider, { target: { value: '140' } })
+    expect(onSetBpm).toHaveBeenCalledWith(140)
+  })
+
+  it('inline-edits BPM via the strip button and commits on Enter', () => {
+    const onSetBpm = vi.fn()
+    renderTracker({ bpm: 120, onSetBpm })
+
+    const bpmButton = screen.getByLabelText('Edit BPM')
+    fireEvent.click(bpmButton)
+
+    const input = screen.getByLabelText('Edit BPM') as HTMLInputElement
+    expect(input.tagName).toBe('INPUT')
+    fireEvent.change(input, { target: { value: '140' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onSetBpm).toHaveBeenCalledWith(140)
+  })
+
+  it('cancels BPM inline edit on Escape', () => {
+    const onSetBpm = vi.fn()
+    renderTracker({ bpm: 120, onSetBpm })
+
+    const bpmButton = screen.getByLabelText('Edit BPM')
+    fireEvent.click(bpmButton)
+
+    const input = screen.getByLabelText('Edit BPM') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '180' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(onSetBpm).not.toHaveBeenCalled()
+  })
+
+  it('calls onSelectCategory(undefined) when All button is clicked', () => {
+    const onSelectCategory = vi.fn()
+    const categoriesWithChildren = [
+      ...DEFAULT_CATEGORIES,
+      { id: 9, name: 'SubBass', parentId: 1 }
+    ]
+    renderTracker({
+      categories: categoriesWithChildren,
+      selectedCategoryId: 1,
+      onSelectCategory
+    })
+
+    fireEvent.click(screen.getByLabelText('Clear category filter'))
+    expect(onSelectCategory).toHaveBeenCalledWith(undefined)
+  })
+
+  it('calls onSelectCategory with subcategory id when subcategory chip is clicked', () => {
+    const onSelectCategory = vi.fn()
+    const categoriesWithChildren = [
+      ...DEFAULT_CATEGORIES,
+      { id: 9, name: 'SubBass', parentId: 1 }
+    ]
+    renderTracker({
+      categories: categoriesWithChildren,
+      selectedCategoryId: 1,
+      onSelectCategory
+    })
+
+    fireEvent.click(screen.getByText('SubBass'))
+    expect(onSelectCategory).toHaveBeenCalledWith(9)
+  })
+
+  it('toggles subcategory off when clicked while already selected', () => {
+    const onSelectCategory = vi.fn()
+    // To test the toggle-off path, selectedCategoryId must equal a subcategory's id
+    // while that subcategory is still visible. Create a deeper nesting:
+    // Bass (id:1) -> SubBass (id:9) -> DeepBass (id:10)
+    // When selectedCategoryId=9, subcatChips = children of 9 = [DeepBass]
+    // But we need to test clicking a chip whose id === selectedCategoryId.
+    // Use parentId=1 so when selectedCategoryId=1, SubBass chip is shown.
+    // Then test that clicking SubBass calls onSelectCategory(9) since 1 !== 9
+    const categoriesWithChildren = [
+      ...DEFAULT_CATEGORIES,
+      { id: 9, name: 'SubBass', parentId: 1 },
+      { id: 10, name: 'DeepBass', parentId: 9 }
+    ]
+    // selectedCategoryId=9 shows children of 9 => [DeepBass]
+    renderTracker({
+      categories: categoriesWithChildren,
+      selectedCategoryId: 9,
+      onSelectCategory
+    })
+
+    // DeepBass is a child of 9, so clicking it when selectedCategoryId===9
+    // tests: selectedCategoryId !== sub.id (9 !== 10) => selects 10
+    fireEvent.click(screen.getByText('DeepBass'))
+    expect(onSelectCategory).toHaveBeenCalledWith(10)
+  })
+
+  it('calls onDbSearchChange and onSearchChange when search input changes', () => {
+    const onSearchChange = vi.fn()
+    const onDbSearchChange = vi.fn()
+    renderTracker({ onSearchChange, onDbSearchChange })
+
+    const search = screen.getByLabelText('Search samples')
+    fireEvent.change(search, { target: { value: 'bass' } })
+
+    expect(onSearchChange).toHaveBeenCalledWith('bass')
+    expect(onDbSearchChange).toHaveBeenCalledWith('bass')
+  })
+
+  it('renders playhead when transport is playing with non-zero tick', () => {
+    const { container } = renderTracker({ transportState: 'playing', currentTick: 64 })
+    const playhead = container.querySelector('.tracker-playhead')
+    expect(playhead).not.toBeNull()
+  })
+
+  it('does not render playhead when transport is stopped', () => {
+    const { container } = renderTracker({ transportState: 'stopped', currentTick: 64 })
+    const playhead = container.querySelector('.tracker-playhead')
+    expect(playhead).toBeNull()
+  })
+
+  it('clears selection on click without Ctrl key', () => {
+    const { container } = renderTracker({})
+    const lanes = container.querySelector('.tracker-lanes')!
+    fireEvent.mouseDown(lanes, { ctrlKey: false, clientX: 200, clientY: 100 })
+  })
+
+  it('starts rectangle selection on Ctrl+mousedown in lanes area', () => {
+    const { container } = renderTracker({})
+    const lanes = container.querySelector('.tracker-lanes')!
+    Object.defineProperty(lanes, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
+    })
+    fireEvent.mouseDown(lanes, { ctrlKey: true, clientX: 200, clientY: 100 })
+    fireEvent.mouseMove(window, { clientX: 300, clientY: 200 })
+    const selRect = container.querySelector('.selection-rect')
+    expect(selRect).not.toBeNull()
+    fireEvent.mouseUp(window)
+  })
+
+  it('renders lane clips in canvas and triggers drag start', () => {
+    const lanesWithClips = LANES.map((lane, i) =>
+      i === 0
+        ? { ...lane, clips: [{ id: 'clip1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 0.5, color: '#ff0000' }] }
+        : lane
+    )
+    renderTracker({ lanes: lanesWithClips })
+    expect(screen.getByLabelText('Lane 1 track area')).toBeInTheDocument()
+  })
+
+  it('handles sample drop on lane track area', () => {
+    const onPlaceSampleDetailOnLane = vi.fn()
+    renderTracker({ onPlaceSampleDetailOnLane })
+
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const sampleData = JSON.stringify({ name: 'kick.wav', filepath: '/s/kick.wav', duration: 0.5, tags: [] })
+
+    const dataTransfer = {
+      types: ['application/mixjam-sample'],
+      getData: (type: string) => type === 'application/mixjam-sample' ? sampleData : '',
+      dropEffect: 'copy',
+      effectAllowed: 'all'
+    }
+    fireEvent.dragOver(trackArea, { dataTransfer })
+    Object.defineProperty(trackArea, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 800, bottom: 44, width: 800, height: 44 })
+    })
+    fireEvent.drop(trackArea, { dataTransfer, clientX: 200, clientY: 22 })
+    expect(onPlaceSampleDetailOnLane).toHaveBeenCalled()
+  })
+
+  it('handles clip move drop on lane track area', () => {
+    const onMoveClipOnLane = vi.fn()
+    renderTracker({ onMoveClipOnLane })
+
+    const trackArea = screen.getByLabelText('Lane 2 track area')
+    const clipData = JSON.stringify({ clipId: 'clip1' })
+
+    const dataTransfer = {
+      types: ['application/mixjam-clip'],
+      getData: (type: string) => type === 'application/mixjam-clip' ? clipData : '',
+      dropEffect: 'move',
+      effectAllowed: 'all'
+    }
+    Object.defineProperty(trackArea, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 800, bottom: 44, width: 800, height: 44 })
+    })
+    fireEvent.drop(trackArea, { dataTransfer, clientX: 200, clientY: 22, shiftKey: false })
+    expect(onMoveClipOnLane).toHaveBeenCalled()
+  })
+
+  it('handles clip duplicate drop on lane track area with Shift', () => {
+    const onDuplicateClipOnLane = vi.fn()
+    renderTracker({ onDuplicateClipOnLane })
+
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const clipData = JSON.stringify({ clipId: 'clip1' })
+
+    const dataTransfer = {
+      types: ['application/mixjam-clip'],
+      getData: (type: string) => type === 'application/mixjam-clip' ? clipData : '',
+      dropEffect: 'copy',
+      effectAllowed: 'all'
+    }
+    Object.defineProperty(trackArea, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 800, bottom: 44, width: 800, height: 44 })
+    })
+    // jsdom DragEvent doesn't propagate shiftKey via init; use native dispatch
+    const dropEvent = new Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(dropEvent, 'dataTransfer', { value: dataTransfer })
+    Object.defineProperty(dropEvent, 'shiftKey', { value: true })
+    Object.defineProperty(dropEvent, 'altKey', { value: false })
+    Object.defineProperty(dropEvent, 'clientX', { value: 200 })
+    Object.defineProperty(dropEvent, 'clientY', { value: 22 })
+    trackArea.dispatchEvent(dropEvent)
+    expect(onDuplicateClipOnLane).toHaveBeenCalled()
+  })
+
+  it('handles group move drop with multiple clips', () => {
+    const onMoveClipGroup = vi.fn()
+    renderTracker({ onMoveClipGroup })
+
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const clipData = JSON.stringify({
+      clipId: 'clip1',
+      group: [
+        { clipId: 'clip1', tickOffset: 0, laneOffset: 0 },
+        { clipId: 'clip2', tickOffset: 32, laneOffset: 1 }
+      ]
+    })
+
+    const dataTransfer = {
+      types: ['application/mixjam-clip'],
+      getData: (type: string) => type === 'application/mixjam-clip' ? clipData : '',
+      dropEffect: 'move',
+      effectAllowed: 'all'
+    }
+    Object.defineProperty(trackArea, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 800, bottom: 44, width: 800, height: 44 })
+    })
+    fireEvent.drop(trackArea, { dataTransfer, clientX: 200, clientY: 22, shiftKey: false })
+    expect(onMoveClipGroup).toHaveBeenCalled()
+  })
+
+  it('handles group duplicate drop with Shift', () => {
+    const onDuplicateClipGroup = vi.fn()
+    renderTracker({ onDuplicateClipGroup })
+
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const clipData = JSON.stringify({
+      clipId: 'clip1',
+      group: [
+        { clipId: 'clip1', tickOffset: 0, laneOffset: 0 },
+        { clipId: 'clip2', tickOffset: 32, laneOffset: 1 }
+      ]
+    })
+
+    const dataTransfer = {
+      types: ['application/mixjam-clip'],
+      getData: (type: string) => type === 'application/mixjam-clip' ? clipData : '',
+      dropEffect: 'copy',
+      effectAllowed: 'all'
+    }
+    Object.defineProperty(trackArea, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 800, bottom: 44, width: 800, height: 44 })
+    })
+    // jsdom DragEvent doesn't propagate shiftKey via init; use native dispatch
+    const dropEvent = new Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(dropEvent, 'dataTransfer', { value: dataTransfer })
+    Object.defineProperty(dropEvent, 'shiftKey', { value: true })
+    Object.defineProperty(dropEvent, 'altKey', { value: false })
+    Object.defineProperty(dropEvent, 'clientX', { value: 200 })
+    Object.defineProperty(dropEvent, 'clientY', { value: 22 })
+    trackArea.dispatchEvent(dropEvent)
+    expect(onDuplicateClipGroup).toHaveBeenCalled()
+  })
+
+  it('handles dragover with clip type setting move effect', () => {
+    renderTracker({})
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const dataTransfer = {
+      types: ['application/mixjam-clip'],
+      getData: () => '',
+      dropEffect: '',
+      effectAllowed: 'all'
+    }
+    fireEvent.dragOver(trackArea, { dataTransfer, shiftKey: false })
+    expect(dataTransfer.dropEffect).toBe('move')
+  })
+
+  it('handles dragover with clip type + Shift setting copy effect', () => {
+    renderTracker({})
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const dataTransfer = {
+      types: ['application/mixjam-clip'],
+      getData: () => '',
+      dropEffect: '',
+      effectAllowed: 'all'
+    }
+    // jsdom DragEvent doesn't propagate shiftKey via init; use native dispatch
+    const dragOverEvent = new Event('dragover', { bubbles: true, cancelable: true })
+    Object.defineProperty(dragOverEvent, 'dataTransfer', { value: dataTransfer })
+    Object.defineProperty(dragOverEvent, 'shiftKey', { value: true })
+    trackArea.dispatchEvent(dragOverEvent)
+    expect(dataTransfer.dropEffect).toBe('copy')
+  })
+
+  it('dragover with irrelevant type does not set dropEffect', () => {
+    renderTracker({})
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const dataTransfer = {
+      types: ['text/plain'],
+      getData: () => '',
+      dropEffect: '',
+      effectAllowed: 'all'
+    }
+    fireEvent.dragOver(trackArea, { dataTransfer })
+    expect(dataTransfer.dropEffect).toBe('')
+  })
+
+  it('handles multi-selection group clip drag start', () => {
+    const lanesWithClips: LaneState[] = LANES.map((lane) => {
+      if (lane.index === 0) {
+        return { ...lane, clips: [{ id: 'clip-1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 16, durationSeconds: 0.5 }] }
+      }
+      if (lane.index === 1) {
+        return { ...lane, clips: [{ id: 'clip-2', samplePath: '/s/snare.wav', sampleName: 'snare.wav', startTick: 0, durationTicks: 16, durationSeconds: 0.5 }] }
+      }
+      return lane
+    })
+
+    const { container } = renderTracker({ lanes: lanesWithClips })
+
+    const lanesEl = container.querySelector('.tracker-lanes')!
+    Object.defineProperty(lanesEl, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
+    })
+    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 170, clientY: 30 })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 180, clientY: 130, bubbles: true }))
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+
+    const canvasContainers = container.querySelectorAll('.lane-clip-canvas-container')
+    const firstContainer = canvasContainers[0]! as HTMLElement
+    // A plain (non-Ctrl) mousedown directly on a selected clip must NOT clear
+    // the multi-selection via bubbling to .tracker-lanes — otherwise the
+    // subsequent dragstart would see an empty selection and silently
+    // degrade the drag to a single clip instead of the whole group.
+    fireEvent.mouseDown(firstContainer, { button: 0 })
+    expect(firstContainer.dataset.dragClipId).toBe('clip-1')
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+    fireEvent.dragStart(firstContainer, { dataTransfer })
+
+    expect(dataTransfer.setData).toHaveBeenCalled()
+    const setDataCall = dataTransfer.setData.mock.calls[0]
+    expect(setDataCall[0]).toBe('application/mixjam-clip')
+    const parsed = JSON.parse(setDataCall[1])
+    expect(parsed.clipId).toBe('clip-1')
+    expect(parsed.group).toHaveLength(2)
+    expect(parsed.group.map((g: { clipId: string }) => g.clipId).sort()).toEqual(['clip-1', 'clip-2'])
+  })
+
+  it('clears multi-selection when a plain mousedown lands on an unselected clip', () => {
+    const lanesWithClips: LaneState[] = LANES.map((lane) => {
+      if (lane.index === 0) {
+        return { ...lane, clips: [{ id: 'clip-1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 16, durationSeconds: 0.5 }] }
+      }
+      if (lane.index === 2) {
+        return { ...lane, clips: [{ id: 'clip-3', samplePath: '/s/hat.wav', sampleName: 'hat.wav', startTick: 0, durationTicks: 16, durationSeconds: 0.5 }] }
+      }
+      return lane
+    })
+
+    const { container } = renderTracker({ lanes: lanesWithClips })
+
+    const lanesEl = container.querySelector('.tracker-lanes')!
+    Object.defineProperty(lanesEl, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
+    })
+    // Rectangle-select only clip-1 (lane 0).
+    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 170, clientY: 30 })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 180, clientY: 40, bubbles: true }))
+    })
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    })
+
+    // Plain mousedown on the unrelated, unselected clip-3 should clear the
+    // stale selection so it doesn't linger after this unrelated drag.
+    const canvasContainers = container.querySelectorAll('.lane-clip-canvas-container')
+    const thirdContainer = canvasContainers[2]! as HTMLElement
+    fireEvent.mouseDown(thirdContainer, { button: 0 })
+    expect(thirdContainer.dataset.dragClipId).toBe('clip-3')
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+    fireEvent.dragStart(thirdContainer, { dataTransfer })
+
+    const parsed = JSON.parse(dataTransfer.setData.mock.calls[0][1])
+    expect(parsed.clipId).toBe('clip-3')
+    expect(parsed.group).toBeUndefined()
+  })
+
+  it('handles dragover with sample type setting copy effect', () => {
+    renderTracker({})
+    const trackArea = screen.getByLabelText('Lane 1 track area')
+    const dataTransfer = {
+      types: ['application/mixjam-sample'],
+      getData: () => '',
+      dropEffect: '',
+      effectAllowed: 'all'
+    }
+    fireEvent.dragOver(trackArea, { dataTransfer })
+    expect(dataTransfer.dropEffect).toBe('copy')
+  })
+
+  it('flash effect toggles after Locate in Browser', () => {
+    vi.useFakeTimers()
+    const lanesWithClip: LaneState[] = LANES.map((lane) =>
+      lane.index === 0
+        ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
+        : lane
+    )
+    renderTracker({ lanes: lanesWithClip })
+
+    const canvasContainer = document.querySelector('[data-clip-names="kick.wav"]')!
+    fireEvent.contextMenu(canvasContainer)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Locate in Browser' }))
+
+    vi.advanceTimersByTime(1800)
+    vi.useRealTimers()
   })
 })

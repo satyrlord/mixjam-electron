@@ -1,0 +1,36 @@
+{
+  "name": "Warm Analog",
+  "key": "analog",
+  "colors": {
+    "accent": "#D99A3D",
+    "accent-dark": "#B07820",
+    "highlight": "#F2C879",
+    "bg-base": "#14100D",
+    "bg-panel": "#1C1510",
+    "bg-lane": "#201812",
+    "bg-grid": "#0E0B08",
+    "chrome": "#2A2018",
+    "border": "rgba(217,154,61,0.22)",
+    "header-border": "rgba(217,154,61,0.32)",
+    "text": "#E8D8C0",
+    "text-muted": "#A8946E",
+    "pill-bg": "#2C1E10",
+    "pill-border": "rgba(217,154,61,0.38)",
+    "playhead": "#F2C879",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFE066",
+    "clip-missing": "#FF6D6D"
+  },
+  "fonts": {
+    "chrome": "Josefin Sans",
+    "label": "Ubuntu",
+    "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, #1F150A, #2A1C0D)",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
+    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+  },
+  "radius": "0.22rem"
+}

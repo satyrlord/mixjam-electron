@@ -1,0 +1,36 @@
+{
+  "name": "Neon Rave",
+  "key": "rave",
+  "colors": {
+    "accent": "#2DE2FF",
+    "accent-dark": "#0B5E8A",
+    "highlight": "#FF2D9B",
+    "bg-base": "#05030F",
+    "bg-panel": "#080518",
+    "bg-lane": "#0A0720",
+    "bg-grid": "#040210",
+    "chrome": "#0D0926",
+    "border": "rgba(45,226,255,0.22)",
+    "header-border": "rgba(45,226,255,0.3)",
+    "text": "#E6F6FF",
+    "text-muted": "#8FA8C7",
+    "pill-bg": "#10103A",
+    "pill-border": "rgba(45,226,255,0.4)",
+    "playhead": "#FF2D9B",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFE066",
+    "clip-missing": "#FF6D6D"
+  },
+  "fonts": {
+    "chrome": "JetBrains Mono",
+    "label": "JetBrains Mono",
+    "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, #050B1A, #08102E)",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
+    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+  },
+  "radius": "0.22rem"
+}

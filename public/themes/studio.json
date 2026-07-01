@@ -1,0 +1,36 @@
+{
+  "name": "Flat Studio",
+  "key": "studio",
+  "colors": {
+    "accent": "#00B58C",
+    "accent-dark": "#007A60",
+    "highlight": "#4DE3BC",
+    "bg-base": "#17191C",
+    "bg-panel": "#1A1D20",
+    "bg-lane": "#1D2024",
+    "bg-grid": "#141619",
+    "chrome": "#202428",
+    "border": "rgba(0,181,140,0.18)",
+    "header-border": "rgba(0,181,140,0.25)",
+    "text": "#D6DFD8",
+    "text-muted": "#8FA89F",
+    "pill-bg": "#1E2B28",
+    "pill-border": "rgba(0,181,140,0.35)",
+    "playhead": "#E74C3C",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFE066",
+    "clip-missing": "#FF6D6D"
+  },
+  "fonts": {
+    "chrome": "Ubuntu",
+    "label": "Ubuntu",
+    "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, #0A2A25, #0D362E)",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
+    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+  },
+  "radius": "0.22rem"
+}

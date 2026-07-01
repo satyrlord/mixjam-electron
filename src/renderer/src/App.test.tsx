@@ -49,7 +49,7 @@ describe('App', () => {
     expect(screen.getByText('Drums, WAV')).toBeInTheDocument()
   })
 
-  it('applies the Emerald theme by default and resets non-Emerald selection back to Emerald', () => {
+  it('applies the Emerald theme by default and switches to selected theme', () => {
     render(<App />)
 
     const select = screen.getByLabelText('Theme')
@@ -58,8 +58,8 @@ describe('App', () => {
 
     fireEvent.change(select, { target: { value: 'studio' } })
 
-    expect(select).toHaveValue('emerald')
-    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00674F')
+    expect(select).toHaveValue('studio')
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00B58C')
   })
 
   it('places a clip on the tracker lane when a sample tile is dragged onto a lane', async () => {

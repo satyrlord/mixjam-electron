@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { LaneClip } from '../lib/playerShell'
+import { clipScreenRect, type LaneClip } from '../lib/playerShell'
 
 interface LaneClipCanvasProps {
   clips: LaneClip[]
   totalTicks: number
   laneIndex: number
   flashSamplePath: string | null
+  selectedClipIds: ReadonlySet<string>
   onClipDragStart: (clipId: string, event: React.DragEvent) => void
   onClipContextMenu: (info: {
     x: number
@@ -63,11 +64,15 @@ function roundRect(
   ctx.closePath()
 }
 
+const SELECTION_BORDER_COLOR = '#FFFFFF'
+const SELECTION_BORDER_WIDTH = 2
+
 export default function LaneClipCanvas({
   clips,
   totalTicks,
   laneIndex,
   flashSamplePath,
+  selectedClipIds,
   onClipDragStart,
   onClipContextMenu,
 }: LaneClipCanvasProps) {
@@ -135,8 +140,7 @@ export default function LaneClipCanvas({
     ctx.textBaseline = 'middle'
 
     for (const clip of clips) {
-      const x = clip.startTick * pixelsPerTick
-      const w = Math.max(12, clip.durationTicks * pixelsPerTick)
+      const { x, width: w } = clipScreenRect(clip, pixelsPerTick)
       const color = clip.color || accent
       const isFlashing = flashSamplePath === clip.samplePath
 
@@ -169,10 +173,23 @@ export default function LaneClipCanvas({
       ctx.restore()
 
       hitRects.push({ clip, x, width: w })
+
+      if (selectedClipIds.has(clip.id)) {
+        // Stroked on the clip's own bounding box (inset by half the line
+        // width) so the selection highlight never grows the clip's visual
+        // footprint beyond its normal w x CLIP_HEIGHT bubble size.
+        const inset = SELECTION_BORDER_WIDTH / 2
+        ctx.globalAlpha = 0.8
+        roundRect(ctx, x + inset, CLIP_TOP + inset, w - SELECTION_BORDER_WIDTH, CLIP_HEIGHT - SELECTION_BORDER_WIDTH, CORNER_RADIUS)
+        ctx.strokeStyle = SELECTION_BORDER_COLOR
+        ctx.lineWidth = SELECTION_BORDER_WIDTH
+        ctx.stroke()
+        ctx.globalAlpha = 1.0
+      }
     }
 
     hitRectsRef.current = hitRects
-  }, [clips, totalTicks, flashSamplePath])
+  }, [clips, totalTicks, flashSamplePath, selectedClipIds])
 
   // Redraw on clips change or resize
   useEffect(() => {
@@ -226,6 +243,8 @@ export default function LaneClipCanvas({
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
+    // Ctrl+click is used for rectangle selection at the TrackerView level
+    if (e.ctrlKey) return
     const clip = hitTest(e.clientX)
     if (!clip) return
     // Set up for potential drag — store the clip id for dragstart
@@ -233,7 +252,14 @@ export default function LaneClipCanvas({
     if (container) {
       container.dataset.dragClipId = clip.id
     }
-  }, [hitTest])
+    // If this clip is already part of a multi-selection, stop the mousedown
+    // from bubbling to TrackerView's lanes-container handler, which would
+    // otherwise clear selectedClipIds before dragstart fires and silently
+    // downgrade the drag to a single clip instead of the whole group.
+    if (selectedClipIds.has(clip.id)) {
+      e.stopPropagation()
+    }
+  }, [hitTest, selectedClipIds])
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     const container = containerRef.current
