@@ -4,7 +4,7 @@ import type {
   ElectronAPI,
   LibraryItem,
   RecentProjectItem,
-  SampleBrowserItem,
+  SampleListItem,
   SampleQueryResponse,
   ScanProgress,
   TagItem
@@ -24,24 +24,26 @@ const DEFAULT_RECENT_PROJECTS: RecentProjectItem[] = [
   }
 ]
 
-const DEFAULT_SAMPLE_BROWSER_ITEMS: SampleBrowserItem[] = [
+const DEFAULT_SAMPLE_LIST_ITEMS: SampleListItem[] = [
   {
-    id: 'sample-kick-808',
+    id: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
     name: 'kick_808.wav',
-    path: 'Drums/Kicks/kick_808.wav',
+    filepath: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
     category: 'Drums',
-    duration: '--',
-    metadata: ['44.1 kHz', 'Stereo', '52.0 KB'],
-    tags: ['Drums', 'Kick', '808']
+    durationSeconds: null,
+    tags: ['Drums', 'WAV'],
+    categoryId: null,
+    tagIds: []
   },
   {
-    id: 'sample-snare-clap',
+    id: 'C:\\Samples\\Drums\\Snares\\snare_clap.wav',
     name: 'snare_clap.wav',
-    path: 'Drums/Snares/snare_clap.wav',
+    filepath: 'C:\\Samples\\Drums\\Snares\\snare_clap.wav',
     category: 'Drums',
-    duration: '--',
-    metadata: ['44.1 kHz', 'Stereo', '49.0 KB'],
-    tags: ['Drums', 'Snare', 'Clap']
+    durationSeconds: null,
+    tags: ['Drums', 'WAV'],
+    categoryId: null,
+    tagIds: []
   }
 ]
 
@@ -80,13 +82,14 @@ export function createElectronAPI(): ElectronAPI {
     recordRecentProject: vi.fn().mockResolvedValue(undefined),
     querySampleBrowser: vi.fn().mockImplementation(async (_sampleFolder, searchQuery: string) => {
       const query = searchQuery.trim().toLowerCase()
-      if (!query) return DEFAULT_SAMPLE_BROWSER_ITEMS
-      return DEFAULT_SAMPLE_BROWSER_ITEMS.filter((item) =>
-        `${item.name} ${item.path}`.toLowerCase().includes(query)
+      if (!query) return DEFAULT_SAMPLE_LIST_ITEMS
+      return DEFAULT_SAMPLE_LIST_ITEMS.filter((item) =>
+        `${item.name} ${item.filepath}`.toLowerCase().includes(query)
       )
     }),
     pickFolder: vi.fn().mockResolvedValue(null),
     validateFolder: vi.fn().mockResolvedValue(true),
+    hasSamples: vi.fn().mockResolvedValue(false),
     startScan: vi.fn().mockResolvedValue(undefined),
     getScanProgress: vi.fn().mockResolvedValue(IDLE_PROGRESS),
     querySamples: vi.fn().mockResolvedValue({ rows: [], total: 0 } as SampleQueryResponse),

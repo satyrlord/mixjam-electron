@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import TrackerView from './TrackerView'
-import type { RecentProjectItem, SampleBrowserItem } from '../../../shared/ipc'
+import type { RecentProjectItem, SampleListItem } from '../../../shared/ipc'
 import type { LaneState } from '../lib/playerShell'
 
 const asyncNoop = async () => { /* empty */ }
@@ -14,15 +14,16 @@ const RECENT_PROJECTS: RecentProjectItem[] = [
   }
 ]
 
-const SAMPLE_ROWS: SampleBrowserItem[] = [
+const SAMPLES: SampleListItem[] = [
   {
-    id: 'kick-808',
+    id: 'C:/Samples/Drums/Kicks/kick_808.wav',
     name: 'kick_808.wav',
-    path: 'Drums/Kicks/kick_808.wav',
+    filepath: 'C:/Samples/Drums/Kicks/kick_808.wav',
     category: 'Drums',
-    duration: '--',
-    metadata: ['44.1 kHz', 'Stereo', '52.0 KB'],
-    tags: ['Drums', 'Kick', '808']
+    durationSeconds: null,
+    tags: ['Drums', 'WAV'],
+    categoryId: null,
+    tagIds: []
   }
 ]
 
@@ -54,10 +55,10 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
   return render(
     <TrackerView
       recentProjects={[]}
-      sampleRows={[]}
-      sampleSearchQuery=""
-      sampleBrowserLoading={false}
-      sampleBrowserError={null}
+      samples={[]}
+      searchQuery=""
+      loading={false}
+      error={null}
       selectedSamplePath={null}
       lanes={LANES}
       laneShouldDim={() => false}
@@ -66,11 +67,12 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       bpm={120}
       masterGain={0.8}
       masterLevelDb={-100}
+      totalCount={0}
       onSetBpm={noop}
       onSetMasterGain={noop}
       onSelectSampleDetail={noop}
-      onSampleSearchChange={noop}
-      onSampleRescan={noop}
+      onSearchChange={noop}
+      onRescan={noop}
       onPlaceSampleDetailOnLane={noop}
       onMoveClipOnLane={noop}
       onRemoveClipFromLane={noop}
@@ -83,9 +85,6 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       onTransportStop={noop}
       onTransportSkipBack={noop}
       scanProgress={IDLE_PROGRESS}
-      dbSamples={[]}
-      dbSampleTotal={0}
-      dbSearchQuery=""
       selectedCategoryId={undefined}
       selectedTagIds={[]}
       sortBy="filename"
@@ -114,7 +113,8 @@ describe('TrackerView', () => {
   it('renders the player shell regions and recent projects rail', () => {
     renderTracker({
       recentProjects: RECENT_PROJECTS,
-      sampleRows: SAMPLE_ROWS
+      samples: SAMPLES,
+      totalCount: 1
     })
 
     expect(screen.getByText('Recent Projects')).toBeInTheDocument()
@@ -122,7 +122,7 @@ describe('TrackerView', () => {
     expect(screen.getByText('Lane 1')).toBeInTheDocument()
     expect(screen.getByText('Song Controls')).toBeInTheDocument()
     expect(screen.getByRole('listbox', { name: /sample categories/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /kick_808\.wav/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
   })
 
   it('renders clip bubbles on a lane after placement', () => {
@@ -257,8 +257,8 @@ describe('TrackerView', () => {
     const onPreviewSample = vi.fn()
     renderTracker({
       onPreviewSample,
-      dbSamples: [{ id: 1, filepath: '/s/kick.wav', filename: 'kick.wav', ext: 'wav', sizeBytes: null, duration: 1.5, sampleRate: null, channels: null, bpm: null, musicalKey: null, dateAdded: Date.now(), scanState: 1, categoryId: null }],
-      dbSampleTotal: 1,
+      samples: [{ id: '/s/kick.wav', name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+      totalCount: 1,
       categories: DEFAULT_CATEGORIES
     })
 

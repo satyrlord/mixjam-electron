@@ -1,151 +1,93 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createTransport, type TransportScheduler } from '../engine/transport'
-
-function mockScheduler(): TransportScheduler & { pending: (() => void)[] } {
-  const pending: (() => void)[] = []
-  return {
-    pending,
-    setInterval: vi.fn((callback: () => void) => {
-      pending.push(callback)
-      return pending.length - 1
-    }),
-    clearInterval: vi.fn(() => {
-      pending.length = 0
-    })
-  }
-}
+import { describe, expect, it } from 'vitest'
+import { createTransport, tickDurationSeconds, TICKS_PER_BEAT } from '../engine/transport'
 
 describe('createTransport', () => {
-  let scheduler: ReturnType<typeof mockScheduler>
-
-  beforeEach(() => {
-    scheduler = mockScheduler()
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('starts in stopped state at tick 0 with default BPM 120', () => {
-    const transport = createTransport(120, scheduler)
+  it('starts in stopped state with default BPM 120', () => {
+    const transport = createTransport(120)
 
     expect(transport.state).toBe('stopped')
-    expect(transport.currentTick).toBe(0)
     expect(transport.bpm).toBe(120)
   })
 
-  it('transitions to playing on play() and starts the timer', () => {
-    const transport = createTransport(120, scheduler)
+  it('transitions to playing on play()', () => {
+    const transport = createTransport(120)
 
     transport.play()
 
     expect(transport.state).toBe('playing')
-    expect(scheduler.setInterval).toHaveBeenCalledTimes(1)
   })
 
-  it('does not restart timer on duplicate play()', () => {
-    const transport = createTransport(120, scheduler)
+  it('play() is idempotent', () => {
+    const transport = createTransport(120)
 
     transport.play()
     transport.play()
 
-    expect(scheduler.setInterval).toHaveBeenCalledTimes(1)
+    expect(transport.state).toBe('playing')
   })
 
-  it('pauses and clears the timer', () => {
-    const transport = createTransport(120, scheduler)
+  it('pauses from playing', () => {
+    const transport = createTransport(120)
 
     transport.play()
     transport.pause()
 
     expect(transport.state).toBe('paused')
-    expect(scheduler.clearInterval).toHaveBeenCalled()
   })
 
-  it('stop resets to tick 0 and stopped state', () => {
-    const transport = createTransport(120, scheduler)
+  it('pause is a no-op when not playing', () => {
+    const transport = createTransport(120)
+
+    transport.pause()
+
+    expect(transport.state).toBe('stopped')
+  })
+
+  it('stop resets to stopped state', () => {
+    const transport = createTransport(120)
 
     transport.play()
     transport.stop()
 
     expect(transport.state).toBe('stopped')
-    expect(transport.currentTick).toBe(0)
-    expect(scheduler.clearInterval).toHaveBeenCalled()
   })
 
-  it('skipBack resets tick to 0 without stopping playback', () => {
-    const transport = createTransport(120, scheduler)
+  it('skipBack does not change playback state', () => {
+    const transport = createTransport(120)
 
     transport.play()
-    scheduler.pending[0]?.()
-    scheduler.pending[0]?.()
-    scheduler.pending[0]?.()
-
-    expect(transport.currentTick).toBe(3)
-
     transport.skipBack()
-    expect(transport.currentTick).toBe(0)
+
     expect(transport.state).toBe('playing')
   })
 
-  it('advances tick on each scheduler fire', () => {
-    const transport = createTransport(120, scheduler)
+  it('setBpm updates the tempo', () => {
+    const transport = createTransport(120)
 
-    transport.play()
-    scheduler.pending[0]?.()
-
-    expect(transport.currentTick).toBe(1)
-  })
-
-  it('fires onTick callback with current tick', () => {
-    const transport = createTransport(120, scheduler)
-    const onTick = vi.fn()
-
-    transport.setOnTick(onTick)
-    transport.play()
-    scheduler.pending[0]?.()
-    scheduler.pending[0]?.()
-
-    expect(onTick).toHaveBeenCalledTimes(2)
-    expect(onTick).toHaveBeenLastCalledWith({ currentTick: 2 })
-  })
-
-  it('setBpm restarts the timer with new interval when playing', () => {
-    const transport = createTransport(120, scheduler)
-
-    transport.play()
     transport.setBpm(140)
 
     expect(transport.bpm).toBe(140)
-    expect(scheduler.setInterval).toHaveBeenCalledTimes(2)
   })
 
-  it('setBpm updates BPM without restarting timer when stopped', () => {
-    const transport = createTransport(120, scheduler)
+  it('tickDurationSeconds reflects the current BPM', () => {
+    const transport = createTransport(120)
 
-    transport.setBpm(90)
+    // 120 BPM, 8 ticks/beat -> 0.0625s per tick.
+    expect(transport.tickDurationSeconds()).toBeCloseTo(0.0625, 6)
 
-    expect(transport.bpm).toBe(90)
-    expect(scheduler.setInterval).not.toHaveBeenCalled()
+    transport.setBpm(60)
+    expect(transport.tickDurationSeconds()).toBeCloseTo(0.125, 6)
   })
 
-  it('destroy stops timer and clears callback', () => {
-    const transport = createTransport(120, scheduler)
-    const onTick = vi.fn()
+  it('tickToTime projects a future tick onto the audio clock', () => {
+    const transport = createTransport(120) // 0.0625s per tick
 
-    transport.setOnTick(onTick)
-    transport.play()
-    transport.destroy()
-
-    expect(scheduler.clearInterval).toHaveBeenCalled()
+    // 8 ticks ahead of reference tick 0 at audio time 1.0 -> 1.0 + 8*0.0625
+    expect(transport.tickToTime(8, 0, 1.0)).toBeCloseTo(1.5, 6)
   })
 
-  it('pause is a no-op when not playing', () => {
-    const transport = createTransport(120, scheduler)
-
-    transport.pause()
-
-    expect(transport.state).toBe('stopped')
-    expect(scheduler.clearInterval).not.toHaveBeenCalled()
+  it('exposes the shared tick grid constants', () => {
+    expect(TICKS_PER_BEAT).toBe(8)
+    expect(tickDurationSeconds(120)).toBeCloseTo(0.0625, 6)
   })
 })

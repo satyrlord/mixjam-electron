@@ -31,10 +31,8 @@ CREATE TABLE IF NOT EXISTS samples (
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
 );
 
--- Migration: add category_id column to existing samples tables
--- SQLite does not support IF NOT EXISTS for ALTER TABLE, so we catch the error.
--- We use a pragmatic try/catch in the calling code rather than a conditional here.
-CREATE TABLE IF NOT EXISTS schema_v2_migration_applied ( applied INTEGER NOT NULL DEFAULT 1 );
+-- Note: the category_id column above is added to pre-existing (v1) samples
+-- tables by the version-gated ALTER TABLE migration in openDatabase().
 
 CREATE TABLE IF NOT EXISTS tags (
   id    INTEGER PRIMARY KEY,

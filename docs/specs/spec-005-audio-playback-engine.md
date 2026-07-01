@@ -153,9 +153,11 @@ the engine never knows who is listening.
 - No UI for transport controls — play/pause/stop buttons. The tracker timeline
   UI is spec-006. (Transport buttons and playhead were pulled forward into
   TrackerView during spec-005 implementation; spec-006 formalizes the full layout.)
-- Visual playhead pulled forward: `currentTick` is surfaced from transport to
-  React state via `setOnTick` and rendered as a positioned bar in TrackerView.
-  The spec-006 playhead AC is therefore already satisfied.
+- Visual playhead pulled forward: the playhead tick is derived from the
+  audio-clock Scheduler (`Player.currentTick`), polled into React state and
+  rendered as a positioned bar in TrackerView. The transport is a pure state
+  machine and owns no timer, so the playhead never drifts from the audible
+  output. The spec-006 playhead AC is therefore already satisfied.
 - No time-stretching — samples play at native rate regardless of BPM.
   Time-stretch is spec-009.
 - No per-channel audio effects (delay, reverb, compression). FX is spec-010.

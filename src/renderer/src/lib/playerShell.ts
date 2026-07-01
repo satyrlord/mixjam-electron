@@ -1,8 +1,11 @@
-import type { SampleBrowserItem } from '../../../shared/ipc'
-import type { EngineLane } from '../engine/lane-evaluation'
+import type { SampleListItem } from '../../../shared/ipc'
+import { type EngineLane, anyLaneSoloed as anyMuteSoloSoloed } from '../engine/lane-evaluation'
 import { tickDurationSeconds } from '../engine/transport'
 
-export type FooterSampleDetail = Pick<SampleBrowserItem, 'name' | 'path' | 'metadata' | 'tags'> & {
+/** Detail passed around the UI after a user selects or drags a sample. All paths
+ *  are absolute filepaths (the sample-browser and DB pipelines both normalise to
+ *  absolute paths before surfacing items to the renderer). */
+export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'filepath' | 'tags'> & {
   duration: number | null
   /** Category-derived colour, stored so placed clips keep their colour permanently. */
   color?: string
@@ -131,9 +134,14 @@ export function toggleLaneSolo(lanes: LaneState[], laneIndex: number): LaneState
 }
 
 export function anyLaneSoloed(lanes: LaneState[]): boolean {
-  return lanes.some((lane) => lane.solo)
+  // Delegates to the shared mute/solo policy (lane-evaluation).
+  return anyMuteSoloSoloed(lanes)
 }
 
+// A lane is dimmed when it is muted, or when any lane is soloed and this lane is
+// not the soloed one. This is the *visual* policy and intentionally differs from
+// engine audibility (laneIsAudible) for the soloed-and-muted edge case: a soloed
+// lane is audible even if muted, but muted lanes always dim for visual feedback.
 export function laneShouldDim(lane: LaneState, anySoloed: boolean): boolean {
   if (lane.muted) return true
   if (anySoloed && !lane.solo) return true

@@ -28,7 +28,7 @@ keep the UI a real webview).
 
 ## Process model
 
-```
+```text
 ┌────────────────────────────────────────────────────────────┐
 │ Electron main process (Node)                                │
 │   • better-sqlite3 — owns the database, runs all queries    │

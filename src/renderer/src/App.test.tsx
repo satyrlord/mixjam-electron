@@ -42,12 +42,11 @@ describe('App', () => {
       expect(screen.getByText('sunrise')).toBeInTheDocument()
     })
 
-    const kickRow = await screen.findByRole('button', { name: /kick_808\.wav/i })
+    const kickRow = await screen.findByRole('button', { name: /kick_808/ })
     fireEvent.click(kickRow)
 
-    expect(screen.getByText('Drums/Kicks/kick_808.wav')).toBeInTheDocument()
-    expect(screen.getByText(/44\.1 kHz/)).toBeInTheDocument()
-    expect(screen.getByText('Drums, Kick, 808')).toBeInTheDocument()
+    expect(screen.getByText('C:\\Samples\\Drums\\Kicks\\kick_808.wav')).toBeInTheDocument()
+    expect(screen.getByText('Drums, WAV')).toBeInTheDocument()
   })
 
   it('applies the Emerald theme by default and resets non-Emerald selection back to Emerald', () => {

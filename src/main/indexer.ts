@@ -6,9 +6,10 @@ import { workerData, parentPort } from 'worker_threads'
 import { promises as fs, statSync, type Dirent } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import Database from 'better-sqlite3'
+import type { DB } from './db'
+import { AUDIO_EXTENSIONS } from './path-utils'
 import { upsertStub, markMissing, updateMetadata, syncCategoriesFromFolder, assignCategoryFromPath } from './library'
 
-const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.flac', '.ogg', '.aiff'])
 const BATCH_SIZE = 500
 
 export type IndexerMessage =
@@ -52,7 +53,7 @@ async function walkAudio(rootPath: string): Promise<string[]> {
   return results
 }
 
-async function phase1(db: Database.Database, sampleFolder: string): Promise<string[]> {
+async function phase1(db: DB, sampleFolder: string): Promise<string[]> {
   const files = await walkAudio(sampleFolder)
   const total = files.length
   let processed = 0
@@ -71,15 +72,7 @@ async function phase1(db: Database.Database, sampleFolder: string): Promise<stri
           continue
         }
         const ext = extname(filepath).slice(1).toLowerCase()
-        upsertStub(
-          db as unknown as import('./db').DB,
-          filepath,
-          basename(filepath),
-          ext,
-          stat.size,
-          Math.round(stat.mtimeMs),
-          true
-        )
+        upsertStub(db, filepath, basename(filepath), ext, stat.size, Math.round(stat.mtimeMs), true)
         processed++
       }
     })
@@ -95,33 +88,33 @@ async function phase1(db: Database.Database, sampleFolder: string): Promise<stri
   const fileSet = new Set(files)
   for (const { filepath } of known) {
     if (!fileSet.has(filepath)) {
-      markMissing(db as unknown as import('./db').DB, filepath)
+      markMissing(db, filepath)
     }
   }
 
   // Synchronise root categories with the sample-folder structure.
   // Creates a category for each top-level subdirectory plus the
   // hardcoded "Unsorted" fallback.
-  syncCategoriesFromFolder(
-    db as unknown as import('./db').DB,
-    sampleFolder
-  )
+  syncCategoriesFromFolder(db, sampleFolder)
 
-  // Auto-assign every sample to a category based on its folder path.
+  // Auto-assign every sample to a category based on its folder path, batched in
+  // transactions so a large library does not pay one WAL fsync per file.
   // Samples inside a recognised subfolder get that folder's category;
   // everything else (flat files, unrecognised paths) goes to Unsorted.
-  for (const filepath of files) {
-    assignCategoryFromPath(
-      db as unknown as import('./db').DB,
-      filepath,
-      sampleFolder
-    )
+  for (let i = 0; i < files.length; i += BATCH_SIZE) {
+    const batch = files.slice(i, i + BATCH_SIZE)
+    const assignBatch = db.transaction((items: string[]) => {
+      for (const filepath of items) {
+        assignCategoryFromPath(db, filepath, sampleFolder)
+      }
+    })
+    assignBatch(batch)
   }
 
   return files
 }
 
-async function phase2(db: Database.Database): Promise<void> {
+async function phase2(db: DB): Promise<void> {
   // Only process stubs (scan_state = 0)
   const stubs = db
     .prepare('SELECT filepath FROM samples WHERE scan_state = 0')
@@ -137,7 +130,7 @@ async function phase2(db: Database.Database): Promise<void> {
     try {
       const meta = await parseFile(filepath, { duration: true })
       updateMetadata(
-        db as unknown as import('./db').DB,
+        db,
         filepath,
         meta.format.duration ?? null,
         meta.format.sampleRate ?? null,
@@ -156,7 +149,7 @@ async function phase2(db: Database.Database): Promise<void> {
 async function run(): Promise<void> {
   const { dbPath, sampleFolder } = workerData as WorkerInput
 
-  let db: Database.Database
+  let db: DB
   try {
     db = new Database(dbPath)
     db.pragma('foreign_keys = ON')

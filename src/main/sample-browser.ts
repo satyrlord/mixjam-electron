@@ -1,36 +1,30 @@
 import { promises as fs, type Dirent } from 'node:fs'
 import { basename, extname, join, relative } from 'node:path'
-import type { SampleBrowserItem } from '../shared/ipc'
-import { canonicalizePath } from './path-utils'
+import type { SampleListItem } from '../shared/ipc'
+import { AUDIO_EXTENSIONS, canonicalizePath } from './path-utils'
+import { UNSORTED_CATEGORY } from './library'
 
-const AUDIO_FILE_EXTENSIONS = new Set(['.wav', '.mp3', '.flac', '.ogg', '.aiff'])
-
-export type SampleBrowserCache = Map<string, SampleBrowserItem[]>
+export type SampleBrowserCache = Map<string, SampleListItem[]>
 
 function toPortableRelativePath(sampleFolder: string, filePath: string): string {
   return relative(sampleFolder, filePath).replaceAll('\\', '/')
 }
 
-function formatSize(sizeInBytes: number): string {
-  if (sizeInBytes < 1024) return `${sizeInBytes} B`
-  if (sizeInBytes < 1024 * 1024) return `${(sizeInBytes / 1024).toFixed(1)} KB`
-  return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 function deriveCategory(relativePath: string): string {
   const firstSegment = relativePath.split('/')[0]
-  return firstSegment && firstSegment !== relativePath ? firstSegment : 'Uncategorized'
+  // Root-level files share the same "Unsorted" label as the indexed DB browser.
+  return firstSegment && firstSegment !== relativePath ? firstSegment : UNSORTED_CATEGORY
 }
 
-function sortSamples(items: SampleBrowserItem[]): SampleBrowserItem[] {
+function sortSampleList(items: SampleListItem[]): SampleListItem[] {
   return [...items].sort((left, right) => {
     const nameOrder = left.name.localeCompare(right.name)
-    return nameOrder !== 0 ? nameOrder : left.path.localeCompare(right.path)
+    return nameOrder !== 0 ? nameOrder : left.filepath.localeCompare(right.filepath)
   })
 }
 
-async function scanSampleFolder(sampleFolder: string): Promise<SampleBrowserItem[]> {
-  const results: SampleBrowserItem[] = []
+async function scanSampleFolder(sampleFolder: string): Promise<SampleListItem[]> {
+  const results: SampleListItem[] = []
 
   async function walk(currentPath: string): Promise<void> {
     let entries: Dirent<string>[]
@@ -52,41 +46,42 @@ async function scanSampleFolder(sampleFolder: string): Promise<SampleBrowserItem
       if (!entry.isFile()) continue
 
       const extension = extname(entry.name).toLowerCase()
-      if (!AUDIO_FILE_EXTENSIONS.has(extension)) continue
+      if (!AUDIO_EXTENSIONS.has(extension)) continue
 
-      let stats: Awaited<ReturnType<typeof fs.stat>>
       try {
-        stats = await fs.stat(childPath)
+        await fs.stat(childPath)
       } catch {
         continue
       }
 
       const relativePath = toPortableRelativePath(sampleFolder, childPath)
+      const absolutePath = canonicalizePath(childPath)
       const category = deriveCategory(relativePath)
       const extensionTag = extension.slice(1).toUpperCase()
 
       results.push({
-        id: canonicalizePath(childPath),
+        id: absolutePath,
         name: basename(relativePath),
-        path: relativePath,
+        filepath: absolutePath,
         category,
-        duration: '--',
-        metadata: [extensionTag, formatSize(stats.size)],
-        tags: [category, extensionTag]
+        durationSeconds: null,
+        tags: [category, extensionTag],
+        categoryId: null,
+        tagIds: []
       })
     }
   }
 
   await walk(sampleFolder)
-  return sortSamples(results)
+  return sortSampleList(results)
 }
 
-function filterSamples(items: SampleBrowserItem[], searchQuery: string): SampleBrowserItem[] {
+function filterSampleList(items: SampleListItem[], searchQuery: string): SampleListItem[] {
   const query = searchQuery.trim().toLowerCase()
   if (!query) return items
 
   return items.filter((item) => {
-    const haystack = `${item.name} ${item.path}`.toLowerCase()
+    const haystack = `${item.name} ${item.filepath}`.toLowerCase()
     return haystack.includes(query)
   })
 }
@@ -96,7 +91,7 @@ export async function querySampleBrowser(
   sampleFolder: string | null,
   searchQuery: string,
   forceRescan = false
-): Promise<SampleBrowserItem[]> {
+): Promise<SampleListItem[]> {
   if (!sampleFolder) return []
 
   const cacheKey = canonicalizePath(sampleFolder)
@@ -104,5 +99,5 @@ export async function querySampleBrowser(
     cache.set(cacheKey, await scanSampleFolder(sampleFolder))
   }
 
-  return filterSamples(cache.get(cacheKey) ?? [], searchQuery)
+  return filterSampleList(cache.get(cacheKey) ?? [], searchQuery)
 }

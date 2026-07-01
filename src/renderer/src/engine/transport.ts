@@ -1,24 +1,15 @@
+// The Transport is a pure state machine for the play/pause/stop lifecycle plus
+// tempo and tick<->time conversion. It owns NO timer: the audio-clock Scheduler
+// (see scheduler.ts) drives sample scheduling and the visual playhead, so the
+// transport never needs its own wall-clock ticker. This keeps a single timing
+// source and avoids drift between the playhead and the audible output.
+//
+// Engine boundary: pure TypeScript. No React, no DOM, no Web Audio.
+
 export type TransportState = 'stopped' | 'playing' | 'paused'
-
-export interface TransportTickEvent {
-  currentTick: number
-}
-
-export interface TransportScheduler {
-  setInterval(callback: () => void, intervalMs: number): number
-  clearInterval(handle: number): void
-}
-
-function defaultScheduler(): TransportScheduler {
-  return {
-    setInterval: (callback, intervalMs) => window.setInterval(callback, intervalMs),
-    clearInterval: (handle) => window.clearInterval(handle)
-  }
-}
 
 export interface Transport {
   readonly state: TransportState
-  readonly currentTick: number
   readonly bpm: number
 
   play(): void
@@ -26,7 +17,6 @@ export interface Transport {
   stop(): void
   skipBack(): void
   setBpm(bpm: number): void
-  setOnTick(callback: ((event: TransportTickEvent) => void) | null): void
   tickDurationSeconds(): number
   tickToTime(tick: number, referenceTick: number, referenceTime: number): number
   destroy(): void
@@ -36,45 +26,17 @@ export interface Transport {
 // global grid (see spec-005 Transport).
 export const TICKS_PER_BEAT = 8
 
-function tickIntervalMs(bpm: number): number {
-  return tickDurationSeconds(bpm) * 1000
-}
-
 export function tickDurationSeconds(bpm: number): number {
   return 60 / bpm / TICKS_PER_BEAT
 }
 
-export function createTransport(bpm = 120, scheduler: TransportScheduler = defaultScheduler()): Transport {
+export function createTransport(bpm = 120): Transport {
   let state: TransportState = 'stopped'
-  let currentTick = 0
   let currentBpm = bpm
-  let timerHandle: number | null = null
-  let onTick: ((event: TransportTickEvent) => void) | null = null
 
-  function clearTimer(): void {
-    if (timerHandle !== null) {
-      scheduler.clearInterval(timerHandle)
-      timerHandle = null
-    }
-  }
-
-  function advance(): void {
-    currentTick += 1
-    onTick?.({ currentTick })
-  }
-
-  function startTimer(): void {
-    clearTimer()
-    timerHandle = scheduler.setInterval(advance, tickIntervalMs(currentBpm))
-  }
-
-  const transport: Transport = {
+  return {
     get state() {
       return state
-    },
-
-    get currentTick() {
-      return currentTick
     },
 
     get bpm() {
@@ -84,34 +46,23 @@ export function createTransport(bpm = 120, scheduler: TransportScheduler = defau
     play(): void {
       if (state === 'playing') return
       state = 'playing'
-      startTimer()
     },
 
     pause(): void {
       if (state !== 'playing') return
       state = 'paused'
-      clearTimer()
     },
 
     stop(): void {
       state = 'stopped'
-      clearTimer()
-      currentTick = 0
     },
 
-    skipBack(): void {
-      currentTick = 0
-    },
+    // Playhead position is owned by the Scheduler; skipBack only affects state,
+    // which is currently a no-op (kept for API symmetry with play/pause/stop).
+    skipBack(): void {},
 
     setBpm(newBpm: number): void {
       currentBpm = newBpm
-      if (state === 'playing') {
-        startTimer()
-      }
-    },
-
-    setOnTick(callback: ((event: TransportTickEvent) => void) | null): void {
-      onTick = callback
     },
 
     tickDurationSeconds(): number {
@@ -122,12 +73,6 @@ export function createTransport(bpm = 120, scheduler: TransportScheduler = defau
       return referenceTime + (tick - referenceTick) * tickDurationSeconds(currentBpm)
     },
 
-    destroy(): void {
-      clearTimer()
-      onTick = null
-    }
+    destroy(): void {}
   }
-
-  return transport
 }
-

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CategoryItem, LibraryItem, RecentProjectItem, SampleBrowserItem, SampleItem, ScanProgress, TagItem } from '../../../shared/ipc'
+import type { CategoryItem, LibraryItem, RecentProjectItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
 import type { FooterSampleDetail, LaneState } from '../lib/playerShell'
 import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX } from '../lib/playerShell'
 import {
@@ -7,7 +7,6 @@ import {
   formatDuration,
   meterFillPct,
   nearestTick,
-  parseDurationString,
   tileWidth,
 } from '../lib/sample-utils'
 import ScanProgressBar from './ScanProgressBar'
@@ -15,10 +14,10 @@ import ManagePanel from './ManagePanel'
 
 interface TrackerViewProps {
   recentProjects: RecentProjectItem[]
-  sampleRows: SampleBrowserItem[]
-  sampleSearchQuery: string
-  sampleBrowserLoading: boolean
-  sampleBrowserError: string | null
+  samples: SampleListItem[]
+  searchQuery: string
+  loading: boolean
+  error: string | null
   selectedSamplePath: string | null
   lanes: LaneState[]
   laneShouldDim: (lane: LaneState) => boolean
@@ -27,11 +26,12 @@ interface TrackerViewProps {
   bpm: number
   masterGain: number
   masterLevelDb: number
+  totalCount: number
   onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
-  onSampleSearchChange: (query: string) => void
-  onSampleRescan: () => void
+  onSearchChange: (query: string) => void
+  onRescan: () => void
   onPlaceSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
   onMoveClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
   onRemoveClipFromLane: (laneIndex: number, clipId: string) => void
@@ -44,9 +44,6 @@ interface TrackerViewProps {
   onTransportStop: () => void
   onTransportSkipBack: () => void
   scanProgress: ScanProgress
-  dbSamples: SampleItem[]
-  dbSampleTotal: number
-  dbSearchQuery: string
   selectedCategoryId: number | undefined
   selectedTagIds: number[]
   sortBy: 'filename' | 'duration' | 'dateAdded'
@@ -72,10 +69,10 @@ interface TrackerViewProps {
 
 export default function TrackerView({
   recentProjects,
-  sampleRows,
-  sampleSearchQuery,
-  sampleBrowserLoading,
-  sampleBrowserError,
+  samples,
+  searchQuery,
+  loading,
+  error,
   selectedSamplePath,
   lanes,
   laneShouldDim,
@@ -84,11 +81,12 @@ export default function TrackerView({
   bpm,
   masterGain,
   masterLevelDb,
+  totalCount,
   onSetBpm,
   onSetMasterGain,
   onSelectSampleDetail,
-  onSampleSearchChange,
-  onSampleRescan,
+  onSearchChange,
+  onRescan,
   onPlaceSampleDetailOnLane,
   onMoveClipOnLane,
   onRemoveClipFromLane,
@@ -101,9 +99,6 @@ export default function TrackerView({
   onTransportStop,
   onTransportSkipBack,
   scanProgress,
-  dbSamples,
-  dbSampleTotal,
-  dbSearchQuery,
   selectedCategoryId,
   selectedTagIds,
   sortBy,
@@ -236,8 +231,6 @@ export default function TrackerView({
     ? childCategories(selectedCategoryId)
     : []
 
-  const useDbSamples = dbSamples.length > 0
-
   // Compute the active category color for sample bubbles
   const activeCategoryColor = selectedCategoryId !== undefined
     ? categoryColor(
@@ -272,7 +265,7 @@ export default function TrackerView({
     return <span aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
   }
 
-  const resultCount = useDbSamples ? dbSampleTotal : sampleRows.length
+  const resultCount = totalCount
 
   return (
     <div
@@ -442,16 +435,16 @@ export default function TrackerView({
             className="strip-search"
             placeholder="Search samples…"
             aria-label="Search samples"
-            value={sampleBrowserLoading ? sampleSearchQuery : dbSearchQuery}
+            value={searchQuery}
             onChange={(e) => {
-              onSampleSearchChange(e.currentTarget.value)
+              onSearchChange(e.currentTarget.value)
               onDbSearchChange(e.currentTarget.value)
             }}
           />
           <button
             type="button"
             className="strip-rescan"
-            onClick={() => { onSampleRescan(); void onStartScan() }}
+            onClick={() => { onRescan(); void onStartScan() }}
             disabled={scanProgress.status === 'scanning'}
             aria-label={scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
           >
@@ -577,7 +570,7 @@ export default function TrackerView({
             <span className="subcats-count">
               {resultCount > 0 ? `${resultCount} samples` : ''}
             </span>
-            {useDbSamples && (
+            {totalCount > 0 && (
               <span className="sort-row">
                 {(['filename', 'duration', 'dateAdded'] as const).map((col) => (
                   <button
@@ -596,77 +589,51 @@ export default function TrackerView({
           </div>
 
           <div className="tiles">
-            {useDbSamples ? (
-              dbSamples.map((sample) => {
-                const width = tileWidth(sample.duration)
-                const isSelected = selectedSamplePath === sample.filepath
-                // Compute the sample's own category colour for drag-to-tracker.
-                // When a category filter is active all visible samples share that
-                // colour; when unfiltered each sample uses its real category.
-                const sampleColor = activeCategoryColor
-                  ?? (sample.categoryId !== null
-                    ? (() => {
-                        const cat = categories.find((c) => c.id === sample.categoryId)
-                        return cat ? categoryColor(cat.name) : undefined
-                      })()
-                    : undefined)
-                return (
-                  <button
-                    key={sample.id}
-                    type="button"
-                    className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.filepath ? ' clip-flash' : ''}`}
-                    style={{ width: `${width}px`, ...(sampleColor ? { background: sampleColor, borderColor: sampleColor } : {}) } as React.CSSProperties}
-                    draggable
-                    onDragStart={(e) => handleSampleDragStart(e, {
-                      name: sample.filename,
-                      path: sample.filepath,
-                      metadata: [],
-                      tags: [],
-                      duration: sample.duration,
-                      color: sampleColor,
-                    })}
-                    onClick={() => {
-                      onSelectSampleDetail({
-                        name: sample.filename,
-                        path: sample.filepath,
-                        metadata: [],
-                        tags: [],
-                        duration: sample.duration,
-                      })
-                      onPreviewSample(sample.filepath)
-                    }}
-                  >
-                    <b>{sample.filename.replace(/\.[^.]+$/, '')}</b>
-                    <i>{formatDuration(sample.duration)}</i>
-                  </button>
-                )
-              })
-            ) : (
-              sampleRows.map((sample) => {
-                const isSelected = selectedSamplePath === sample.path
-                const durationSec = parseDurationString(sample.duration)
-                return (
-                  <button
-                    key={sample.id}
-                    type="button"
-                    className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.path ? ' clip-flash' : ''}`}
-                    style={{ width: `${tileWidth(durationSec)}px` } as React.CSSProperties}
-                    draggable
-                    onDragStart={(e) => handleSampleDragStart(e, { ...sample, duration: durationSec })}
-                    onClick={() => {
-                      onSelectSampleDetail({ ...sample, duration: durationSec })
-                      onPreviewSample(sample.path)
-                    }}
-                  >
-                    <b>{sample.name}</b>
-                    <i>{sample.duration}</i>
-                  </button>
-                )
-              })
-            )}
-            {!sampleBrowserLoading && !useDbSamples && sampleRows.length === 0 && (
+            {samples.map((sample) => {
+              const width = tileWidth(sample.durationSeconds)
+              const isSelected = selectedSamplePath === sample.filepath
+              // Compute the sample's own category colour for drag-to-tracker.
+              // When a category filter is active all visible samples share that
+              // colour; when unfiltered each sample uses its real category.
+              const sampleColor = activeCategoryColor
+                ?? (sample.categoryId !== null
+                  ? (() => {
+                      const cat = categories.find((c) => c.id === sample.categoryId)
+                      return cat ? categoryColor(cat.name) : undefined
+                    })()
+                  : undefined)
+              return (
+                <button
+                  key={sample.id}
+                  type="button"
+                  className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.filepath ? ' clip-flash' : ''}`}
+                  style={{ width: `${width}px`, ...(sampleColor ? { background: sampleColor, borderColor: sampleColor } : {}) } as React.CSSProperties}
+                  draggable
+                  onDragStart={(e) => handleSampleDragStart(e, {
+                    name: sample.name,
+                    filepath: sample.filepath,
+                    tags: sample.tags,
+                    duration: sample.durationSeconds,
+                    color: sampleColor,
+                  })}
+                  onClick={() => {
+                    onSelectSampleDetail({
+                      name: sample.name,
+                      filepath: sample.filepath,
+                      tags: sample.tags,
+                      duration: sample.durationSeconds,
+                    })
+                    onPreviewSample(sample.filepath)
+                  }}
+                >
+                  <b>{sample.name.replace(/\.[^.]+$/, '')}</b>
+                  <i>{formatDuration(sample.durationSeconds)}</i>
+                </button>
+              )
+            })}
+            {!loading && samples.length === 0 && (
               <p className="tiles-empty">
-                {sampleBrowserError ?? 'No samples found. Choose a Sample Folder and Re-scan.'}
+                {error ?? 'No samples found. Choose a Sample Folder and Re-scan.'}
               </p>
             )}
           </div>

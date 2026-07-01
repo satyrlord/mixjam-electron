@@ -28,13 +28,21 @@ export interface LaneTrigger {
   clip: EngineClip
 }
 
-export function anyLaneSoloed(lanes: readonly EngineLane[]): boolean {
+// The mute/solo audibility policy is defined once here over the minimal
+// { muted, solo } shape so both the engine (EngineLane) and the UI
+// (LaneState, via playerShell) share a single source of truth.
+export interface MuteSolo {
+  muted: boolean
+  solo: boolean
+}
+
+export function anyLaneSoloed(lanes: readonly MuteSolo[]): boolean {
   return lanes.some((lane) => lane.solo)
 }
 
 // A lane is audible when it is not muted, and — if any lane is soloed — when it
 // is itself soloed. Solo overrides mute for soloed lanes.
-export function laneIsAudible(lane: EngineLane, soloActive: boolean): boolean {
+export function laneIsAudible(lane: MuteSolo, soloActive: boolean): boolean {
   if (soloActive) return lane.solo
   return !lane.muted
 }

@@ -52,6 +52,8 @@ export interface Scheduler {
   // The integer tick the playhead is currently on, derived from the audio clock
   // (not a wall-clock timer) so the visual playhead never drifts from the sound.
   currentTick(): number
+  // Moves the (stopped) playhead to a specific tick. No-op while running.
+  reset(tick: number): void
 }
 
 export function createScheduler(options: SchedulerOptions): Scheduler {
@@ -115,6 +117,12 @@ export function createScheduler(options: SchedulerOptions): Scheduler {
 
     currentTick(): number {
       return liveTick()
+    },
+
+    reset(tick: number): void {
+      if (timerHandle !== null) return
+      nextTick = tick
+      anchorTick = tick
     }
   }
 

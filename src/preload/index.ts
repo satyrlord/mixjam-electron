@@ -41,6 +41,7 @@ const api: ElectronAPI = {
   saveLibrary: (name, ruleJson) =>
     ipcRenderer.invoke(IPC_CHANNELS.librarySaveLibrary, name, ruleJson),
   deleteLibrary: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryDeleteLibrary, id),
+  hasSamples: () => ipcRenderer.invoke(IPC_CHANNELS.libraryHasSamples),
   readSampleBytes: (sampleFolder, filePath) =>
     ipcRenderer.invoke(IPC_CHANNELS.sampleReadBytes, sampleFolder, filePath),
   onScanProgress: (cb) => {

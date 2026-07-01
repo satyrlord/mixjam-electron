@@ -228,6 +228,12 @@ export function deleteLibrary(db: DB, id: number): void {
 // Sample queries
 // ---------------------------------------------------------------------------
 
+/** Returns true if the DB has been populated by at least one completed scan. */
+export function hasSamples(db: DB): boolean {
+  const row = db.prepare('SELECT 1 FROM samples LIMIT 1').get() as { 1: number } | undefined
+  return row !== undefined
+}
+
 export interface SampleQueryOptions {
   textSearch?: string
   categoryId?: number

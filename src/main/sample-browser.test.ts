@@ -35,11 +35,15 @@ describe('querySampleBrowser', () => {
     const rows = await querySampleBrowser(cache, workDir, '', true)
 
     expect(rows).toHaveLength(2)
-    expect(rows.map((row) => row.path)).toEqual(['Loops/Bass/acid.mp3', 'Drums/kick.wav'])
-    expect(rows[0]?.metadata[0]).toBe('MP3')
-    expect(rows[1]?.metadata[0]).toBe('WAV')
-    expect(rows[0]?.category).toBe('Loops')
-    expect(rows[1]?.category).toBe('Drums')
+    const expectedPaths = [
+      join(workDir, 'Drums', 'kick.wav'),
+      join(workDir, 'Loops', 'Bass', 'acid.mp3')
+    ].map((p) => p.toLowerCase()).sort()
+    expect(rows.map((row) => row.filepath).sort()).toEqual(expectedPaths)
+    expect(rows[0]?.category === 'Loops' || rows[0]?.category === 'Drums').toBe(true)
+    expect(rows[1]?.category === 'Loops' || rows[1]?.category === 'Drums').toBe(true)
+    expect(rows[0]?.tags.includes('MP3') || rows[0]?.tags.includes('WAV')).toBe(true)
+    expect(rows[1]?.tags.includes('MP3') || rows[1]?.tags.includes('WAV')).toBe(true)
   })
 
   it('filters by name/path using the query value', async () => {

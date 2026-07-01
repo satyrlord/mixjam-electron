@@ -14,7 +14,7 @@ owns its own `better-sqlite3` connection (WAL mode lets it write while the UI re
 Progress and lifecycle events are posted to main, which relays them to the renderer
 over IPC.
 
-```
+```text
 renderer ──"start scan(root)"──▶ main ──spawn──▶ indexer worker
    ▲                              │                  │ walk + insert (phase 1)
    └──progress/done events◀───────┘◀──postMessage────┘ extract metadata (phase 2)

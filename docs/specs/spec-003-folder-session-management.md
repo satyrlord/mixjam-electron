@@ -45,6 +45,7 @@ modified content area:
 ### Folder Cards
 
 Each card shows:
+
 - **Icon** and **label** indicating the folder role (e.g. "User Folder",
   "Sample Folder").
 - **"Pick Folder" button** — opens a native folder picker dialog.
@@ -52,12 +53,14 @@ Each card shows:
   selected.
 
 **User Folder card:**
+
 - Always enabled. The user can pick or change the output folder at any time.
 - Role: read-write. The app writes projects, exports, and session config into
   this folder.
 - Initial default path on Windows: `%USERPROFILE%\Documents\MixJam`.
 
 **Sample Folder card:**
+
 - **Disabled** (greyed out, non-interactive) until the User Folder is selected.
 - Once the User Folder is set, the Sample Folder card becomes active and the
   user can pick the input folder.

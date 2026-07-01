@@ -18,8 +18,7 @@ export default function Footer({ view, version, sampleDetail, onSelectFolder, on
         {view === 'tracker' && sampleDetail ? (
           <>
             <span className="footer-detail-name">{sampleDetail.name}</span>
-            <span className="footer-detail-path">{sampleDetail.path}</span>
-            <span className="footer-detail-meta">{sampleDetail.metadata.join(' • ')}</span>
+            <span className="footer-detail-path">{sampleDetail.filepath}</span>
             <span className="footer-detail-tags">{sampleDetail.tags.join(', ')}</span>
           </>
         ) : null}

@@ -140,7 +140,8 @@ adjacencies.
 
 ### Left Rails
 
-**Recent Projects rail**
+#### Recent Projects rail
+
 - Occupies the upper-left region of the active Player layout.
 - Uses the same width as the Song Controls rail to keep the left seam aligned.
 - Lists two merged sources:
@@ -163,7 +164,8 @@ adjacencies.
 - This spec defines the rail content and persistence in the layout; load/open
   behavior for an entry is defined by project save/load work.
 
-**Song Controls rail**
+#### Song Controls rail
+
 - Occupies the lower-left region of the active Player layout.
 - Visible by default.
 - Default-visible controls:
@@ -181,14 +183,18 @@ adjacencies.
 ### Resize Handles
 
 **Browser vertical handle** (`.browser-resize-v`):
+
 - 5px width, `ew-resize` cursor.
 - Same smooth-drag pattern.
 - Splits the category tree from the sample list within the browser region.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** The active Player layout renders five primary regions matching the mock-up: Recent Projects rail, Tracker region, full-width Middle Strip, Song Controls rail, and Sample Browser region.
-- [x] **AC-002:** The Recent Projects rail remains visible in the upper-left of the active Player, shares the same width as the Song Controls rail below it, and shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current User Folder.
+- [x] **AC-001:** The active Player layout renders five primary regions matching the mock-up: Recent Projects rail,
+  Tracker region, full-width Middle Strip, Song Controls rail, and Sample Browser region.
+- [x] **AC-002:** The Recent Projects rail remains visible in the upper-left of the active Player, shares the same width as the Song
+  Controls rail below it, and shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current
+  User Folder.
 - [ ] **AC-002a:** The User Folder contribution to the Recent Projects rail includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
 - [ ] **AC-002b:** The Recent Projects rail sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
 - [ ] **AC-002c:** When the Recent Projects rail has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank rail or rail-specific action buttons.
@@ -200,7 +206,8 @@ adjacencies.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample tile from the browser and dropping it onto a lane places it as a clip at the nearest tick, sized proportionally to the sample's audio duration.
-- [x] **AC-009:** Placing a clip that overlaps an existing one on the same lane keeps both clips visually intact (overlapping); only the audio is monophonic (the new trigger cuts off the previous voice). Overlap never deletes or trims the earlier clip's data.
+- [x] **AC-009:** Placing a clip that overlaps an existing one on the same lane keeps both clips visually intact (overlapping); only the audio
+  is monophonic (the new trigger cuts off the previous voice). Overlap never deletes or trims the earlier clip's data.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
 - [x] **AC-011:** The ruler displays tick marks every 96px and bar numbers (1, 5, 9, 13…) in monospace font.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.

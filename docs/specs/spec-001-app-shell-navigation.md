@@ -118,7 +118,8 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-007:** Clicking "Load MixJam" opens a native file picker. Selecting a file navigates to the Player (with window resize). Cancelling the picker stays on the Home Screen.
 - [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
-- [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip, Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
+- [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip,
+  Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 

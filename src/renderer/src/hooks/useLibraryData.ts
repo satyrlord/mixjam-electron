@@ -4,8 +4,8 @@ import type {
   ElectronAPI,
   LibraryItem,
   RecentProjectItem,
-  SampleBrowserItem,
   SampleItem,
+  SampleListItem,
   ScanProgress,
   TagItem
 } from '../../../shared/ipc'
@@ -14,15 +14,15 @@ import type { FooterSampleDetail } from '../lib/playerShell'
 export interface LibraryDataState {
   version: string
   recentProjects: RecentProjectItem[]
-  sampleRows: SampleBrowserItem[]
-  sampleSearchQuery: string
-  sampleBrowserLoading: boolean
-  sampleBrowserError: string | null
+  /** Unified sample list — populated from the DB browser after the first scan,
+   *  falling back to the legacy folder scanner before any scan has run. */
+  samples: SampleListItem[]
+  searchQuery: string
+  loading: boolean
+  error: string | null
   selectedSampleDetail: FooterSampleDetail | null
   scanProgress: ScanProgress
-  dbSamples: SampleItem[]
-  dbSampleTotal: number
-  dbSearchQuery: string
+  totalCount: number
   selectedCategoryId: number | undefined
   selectedTagIds: number[]
   sortBy: 'filename' | 'duration' | 'dateAdded'
@@ -34,9 +34,8 @@ export interface LibraryDataState {
 
 export interface LibraryDataActions {
   setSelectedSampleDetail: (detail: FooterSampleDetail | null) => void
-  setSampleSearchQuery: (query: string) => void
+  setSearchQuery: (query: string) => void
   rescanSampleBrowser: () => Promise<void>
-  setDbSearchQuery: (query: string) => void
   setSelectedCategoryId: (id: number | undefined) => void
   setSelectedTagIds: React.Dispatch<React.SetStateAction<number[]>>
   setSortBy: React.Dispatch<React.SetStateAction<'filename' | 'duration' | 'dateAdded'>>
@@ -55,6 +54,20 @@ export interface LibraryDataActions {
 
 export type LibraryData = LibraryDataState & LibraryDataActions
 
+function dbSampleToListItem(s: SampleItem, categories: readonly CategoryItem[]): SampleListItem {
+  const cat = categories.find((c) => c.id === s.categoryId)
+  return {
+    id: s.filepath,
+    name: s.filename,
+    filepath: s.filepath,
+    category: cat?.name ?? 'Unsorted',
+    durationSeconds: s.duration,
+    tags: [],
+    categoryId: s.categoryId,
+    tagIds: []
+  }
+}
+
 export function useLibraryData(
   electronAPI: ElectronAPI,
   userFolder: string | null,
@@ -62,17 +75,16 @@ export function useLibraryData(
 ): LibraryData {
   const [version, setVersion] = useState('')
   const [recentProjects, setRecentProjects] = useState<RecentProjectItem[]>([])
-  const [sampleRows, setSampleRows] = useState<SampleBrowserItem[]>([])
-  const [sampleSearchQuery, setSampleSearchQuery] = useState('')
-  const [sampleBrowserLoading, setSampleBrowserLoading] = useState(false)
-  const [sampleBrowserError, setSampleBrowserError] = useState<string | null>(null)
+  const [samples, setSamples] = useState<SampleListItem[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [totalCount, setTotalCount] = useState(0)
   const [selectedSampleDetail, setSelectedSampleDetail] = useState<FooterSampleDetail | null>(null)
   const [scanProgress, setScanProgress] = useState<ScanProgress>({
     status: 'idle', phase: null, found: 0, processed: 0, total: 0
   })
-  const [dbSamples, setDbSamples] = useState<SampleItem[]>([])
-  const [dbSampleTotal, setDbSampleTotal] = useState(0)
-  const [dbSearchQuery, setDbSearchQuery] = useState('')
+  const [dbIndexed, setDbIndexed] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined)
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
   const [sortBy, setSortBy] = useState<'filename' | 'duration' | 'dateAdded'>('filename')
@@ -80,8 +92,7 @@ export function useLibraryData(
   const [tags, setTags] = useState<TagItem[]>([])
   const [categories, setCategories] = useState<CategoryItem[]>([])
   const [libraries, setLibraries] = useState<LibraryItem[]>([])
-  const sampleQuerySeqRef = useRef(0)
-  const dbQuerySeqRef = useRef(0)
+  const querySeqRef = useRef(0)
 
   // Version
   useEffect(() => {
@@ -100,8 +111,8 @@ export function useLibraryData(
   const reloadRecentProjects = useCallback(async () => {
     try {
       setRecentProjects(await electronAPI.loadRecentProjects(userFolder))
-    } catch (error) {
-      console.error('Failed to load recent projects:', error)
+    } catch (err) {
+      console.error('Failed to load recent projects:', err)
       setRecentProjects([])
     }
   }, [electronAPI, userFolder])
@@ -110,113 +121,155 @@ export function useLibraryData(
     void reloadRecentProjects()
   }, [reloadRecentProjects])
 
-  // Reload DB samples (no debounce — the debounce wrapper is in the effect below)
-  const reloadDbSamples = useCallback(async () => {
-    const seq = ++dbQuerySeqRef.current
-    const result = await electronAPI.querySamples({
-      textSearch: dbSearchQuery || undefined,
-      categoryId: selectedCategoryId,
-      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-      sortBy,
-      sortDir,
-      limit: 500
-    })
-    // Discard a stale response that a newer query has superseded.
-    if (seq !== dbQuerySeqRef.current) return
-    setDbSamples(result.rows)
-    setDbSampleTotal(result.total)
-  }, [electronAPI, dbSearchQuery, selectedCategoryId, selectedTagIds, sortBy, sortDir])
-
-  // DB sample query debounce
-  useEffect(() => {
-    let cancelled = false
-    const timer = window.setTimeout(() => {
-      if (!cancelled) void reloadDbSamples()
-    }, 150)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
+  // Check whether the DB has been indexed (at least one sample row exists).
+  // Re-check whenever the sample folder changes or a scan completes.
+  const refreshDbIndexed = useCallback(async () => {
+    try {
+      const hasRows = await electronAPI.hasSamples()
+      if (hasRows) setDbIndexed(true)
+    } catch {
+      // Keep dbIndexed false on error — legacy fallback stays active.
     }
-  }, [reloadDbSamples])
+  }, [electronAPI])
 
-  // Sample browser query (with supersede guard)
-  const runSampleQuery = useCallback(
-    async (searchQuery: string, forceRescan: boolean) => {
+  useEffect(() => {
+    if (sampleFolder) void refreshDbIndexed()
+    else {
+      setDbIndexed(false)
+      setSamples([])
+      setTotalCount(0)
+      setLoading(false)
+    }
+  }, [sampleFolder, refreshDbIndexed])
+
+  // Legacy folder-browser query (used only before the first DB scan).
+  const queryLegacy = useCallback(
+    async (q: string, forceRescan: boolean) => {
       if (!sampleFolder) {
-        setSampleRows([])
-        setSampleBrowserLoading(false)
-        setSampleBrowserError(null)
+        setSamples([])
+        setLoading(false)
+        setError(null)
         return
       }
-      const seq = ++sampleQuerySeqRef.current
-      setSampleBrowserLoading(true)
+      const seq = ++querySeqRef.current
+      setLoading(true)
       try {
-        const rows = await electronAPI.querySampleBrowser(sampleFolder, searchQuery, forceRescan)
-        if (seq !== sampleQuerySeqRef.current) return
-        setSampleRows(rows)
-        setSampleBrowserError(null)
-      } catch (error) {
-        if (seq !== sampleQuerySeqRef.current) return
-        console.error('Failed to query sample browser:', error)
-        setSampleRows([])
-        setSampleBrowserError('Unable to load sample library.')
+        const rows = await electronAPI.querySampleBrowser(sampleFolder, q, forceRescan)
+        if (seq !== querySeqRef.current) return
+        setSamples(rows)
+        setTotalCount(rows.length)
+        setError(null)
+      } catch (e) {
+        if (seq !== querySeqRef.current) return
+        console.error('Failed to query sample browser:', e)
+        setSamples([])
+        setTotalCount(0)
+        setError('Unable to load sample library.')
       } finally {
-        if (seq === sampleQuerySeqRef.current) {
-          setSampleBrowserLoading(false)
-        }
+        if (seq === querySeqRef.current) setLoading(false)
       }
     },
     [electronAPI, sampleFolder]
   )
 
-  // Debounced sample browser search
+  // DB-backed query (used after the first scan has completed).
+  const queryDb = useCallback(async () => {
+    const seq = ++querySeqRef.current
+    setLoading(true)
+    try {
+      const result = await electronAPI.querySamples({
+        textSearch: searchQuery || undefined,
+        categoryId: selectedCategoryId,
+        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        sortBy,
+        sortDir,
+        limit: 500
+      })
+      if (seq !== querySeqRef.current) return
+      const mapped = result.rows.map((s) => dbSampleToListItem(s, categories))
+      setSamples(mapped)
+      setTotalCount(result.total)
+      setError(null)
+    } catch (e) {
+      if (seq !== querySeqRef.current) return
+      console.error('Failed to query DB samples:', e)
+      setSamples([])
+      setTotalCount(0)
+      setError('Unable to query library.')
+    } finally {
+      if (seq === querySeqRef.current) setLoading(false)
+    }
+  }, [electronAPI, searchQuery, selectedCategoryId, selectedTagIds, sortBy, sortDir, categories])
+
+  // Debounced query: chooses legacy or DB pipeline based on dbIndexed.
+  const runQuery = useCallback(
+    async (q: string, forceRescan: boolean) => {
+      if (dbIndexed) {
+        await queryDb()
+      } else {
+        await queryLegacy(q, forceRescan)
+      }
+    },
+    [dbIndexed, queryDb, queryLegacy]
+  )
+
+  // Debounce effect for search
   useEffect(() => {
     if (!sampleFolder) {
-      setSampleRows([])
-      setSampleSearchQuery('')
-      setSampleBrowserLoading(false)
-      setSampleBrowserError(null)
+      setSamples([])
+      setSearchQuery('')
+      setLoading(false)
+      setError(null)
       setSelectedSampleDetail(null)
       return
     }
     let cancelled = false
-    const currentQuery = sampleSearchQuery
+    const currentQuery = searchQuery
     const timer = window.setTimeout(() => {
-      if (!cancelled) void runSampleQuery(currentQuery, false)
+      if (!cancelled) void runQuery(currentQuery, false)
     }, 150)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [runSampleQuery, sampleFolder, sampleSearchQuery])
+  }, [runQuery, sampleFolder, searchQuery])
 
-  // Clear selection when the selected sample is no longer in the active list.
-  // The DB browser (dbSamples, keyed by absolute filepath) supersedes the legacy
-  // browser (sampleRows, keyed by relative path), so the selection is valid if it
-  // matches either list — checking only one would wipe a DB selection instantly.
+  // Debounce effect for DB filter changes (category, tags, sort)
+  useEffect(() => {
+    if (!dbIndexed || !sampleFolder) return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (!cancelled) void runQuery(searchQuery, false)
+    }, 150)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [dbIndexed, sampleFolder, selectedCategoryId, selectedTagIds, sortBy, sortDir, runQuery, searchQuery])
+
+  // Clear selection when the selected sample is no longer in the list.
+  // With a unified list the check is straightforward.
   useEffect(() => {
     if (!selectedSampleDetail) return
-    const stillVisible =
-      dbSamples.some((s) => s.filepath === selectedSampleDetail.path) ||
-      sampleRows.some((s) => s.path === selectedSampleDetail.path)
+    const stillVisible = samples.some((s) => s.filepath === selectedSampleDetail.filepath)
     if (!stillVisible) setSelectedSampleDetail(null)
-  }, [dbSamples, sampleRows, selectedSampleDetail])
+  }, [samples, selectedSampleDetail])
 
-  // Keep a ref to the latest reloadDbSamples so the onScanDone callback
-  // (registered once) always calls the current version with up-to-date
-  // filter state (selectedCategoryId, search query, etc.).
-  const reloadDbSamplesRef = useRef(reloadDbSamples)
-  reloadDbSamplesRef.current = reloadDbSamples
+  // Keep a ref to the latest queryDb so the onScanDone callback calls the
+  // current version with up-to-date filter state.
+  const queryDbRef = useRef(queryDb)
+  queryDbRef.current = queryDb
 
   // Scan progress listeners
   useEffect(() => {
     const unsubProgress = electronAPI.onScanProgress((progress) => setScanProgress(progress))
     const unsubDone = electronAPI.onScanDone(() => {
       setScanProgress({ status: 'idle', phase: null, found: 0, processed: 0, total: 0 })
+      setDbIndexed(true)
       // Refresh categories (folder-driven categories may have changed)
       void electronAPI.listCategories().then(setCategories)
       void electronAPI.listTags().then(setTags)
-      void reloadDbSamplesRef.current()
+      void queryDbRef.current()
     })
     return () => { unsubProgress(); unsubDone() }
   }, [electronAPI])
@@ -235,8 +288,11 @@ export function useLibraryData(
   }, [electronAPI])
 
   const rescanSampleBrowser = useCallback(async () => {
-    await runSampleQuery(sampleSearchQuery, true)
-  }, [runSampleQuery, sampleSearchQuery])
+    if (!dbIndexed) {
+      await queryLegacy(searchQuery, true)
+    }
+    // When indexed, rescan is handled by startLibraryScan.
+  }, [dbIndexed, queryLegacy, searchQuery])
 
   const startLibraryScan = useCallback(async () => {
     if (!sampleFolder) return
@@ -246,8 +302,6 @@ export function useLibraryData(
 
   const createTag = useCallback(async (name: string, color?: string) => {
     const tag = await electronAPI.createTag(name, color)
-    // createTag is idempotent server-side, so guard against inserting a
-    // duplicate id (which would produce duplicate React keys).
     setTags((prev) =>
       (prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]).sort((a, b) =>
         a.name.localeCompare(b.name)
@@ -271,8 +325,6 @@ export function useLibraryData(
 
   const createCategory = useCallback(async (name: string, parentId?: number) => {
     const cat = await electronAPI.createCategory(name, parentId)
-    // createCategory returns the existing row for a duplicate name, so dedup by
-    // id to avoid duplicate React keys / duplicate category chips.
     setCategories((prev) => (prev.some((c) => c.id === cat.id) ? prev : [...prev, cat]))
     return cat
   }, [electronAPI])
@@ -290,7 +342,7 @@ export function useLibraryData(
         kind: 'group',
         op: 'and',
         children: [
-          ...(dbSearchQuery ? [{ kind: 'text', query: dbSearchQuery }] : []),
+          ...(searchQuery ? [{ kind: 'text', query: searchQuery }] : []),
           ...(selectedCategoryId !== undefined
             ? [{ kind: 'category', quantifier: 'any' as const, categoryIds: [selectedCategoryId], includeDescendants: true }]
             : []),
@@ -303,7 +355,7 @@ export function useLibraryData(
     const lib = await electronAPI.saveLibrary(name, ruleJson)
     setLibraries((prev) => [...prev, lib].sort((a, b) => a.name.localeCompare(b.name)))
     return lib
-  }, [electronAPI, dbSearchQuery, selectedCategoryId, selectedTagIds])
+  }, [electronAPI, searchQuery, selectedCategoryId, selectedTagIds])
 
   const deleteLibrary = useCallback(async (id: number) => {
     await electronAPI.deleteLibrary(id)
@@ -324,15 +376,13 @@ export function useLibraryData(
   return {
     version,
     recentProjects,
-    sampleRows,
-    sampleSearchQuery,
-    sampleBrowserLoading,
-    sampleBrowserError,
+    samples,
+    searchQuery,
+    loading,
+    error,
     selectedSampleDetail,
     scanProgress,
-    dbSamples,
-    dbSampleTotal,
-    dbSearchQuery,
+    totalCount,
     selectedCategoryId,
     selectedTagIds,
     sortBy,
@@ -341,9 +391,8 @@ export function useLibraryData(
     categories,
     libraries,
     setSelectedSampleDetail,
-    setSampleSearchQuery,
+    setSearchQuery,
     rescanSampleBrowser,
-    setDbSearchQuery,
     setSelectedCategoryId,
     setSelectedTagIds,
     setSortBy,

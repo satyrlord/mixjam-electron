@@ -158,6 +158,8 @@ export class Player {
   stop(): void {
     this.playGeneration++
     this.scheduler.stop()
+    // Stop returns the playhead to the start; pause() leaves it where it is.
+    this.scheduler.reset(0)
     this.engine.stopAllVoices()
     this.laneVoices.clear()
     this.lastScheduledTick = -1

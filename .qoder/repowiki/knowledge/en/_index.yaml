@@ -3,13 +3,12 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-06-28T20:59:26Z"
+exported_at: "2026-06-30T18:54:37Z"
 modules:
     "":
-        dir_name: MixJam Electron Application Shell
-        title: MixJam Electron Application Shell
+        dir_name: MixJam Electron Sample Library & Tracker
+        title: MixJam Electron Sample Library & Tracker
         scope:
-            - .fallowrc.json
             - .gitignore
             - .markdownlint-cli2.jsonc
             - .markdownlint.json
@@ -23,265 +22,11 @@ modules:
             - tsconfig.node.json
             - tsconfig.web.json
             - vitest.config.ts
-            - .fallow\.gitignore
-            - .fallow\cache.bin
-            - .fallow\churn.bin
-            - .fallow\graph-cache.bin
-            - .github\copilot-instructions.md
-            - .github\skills\README.md
-            - .github\skills\ablation-test\EXAMPLES.md
-            - .github\skills\ablation-test\REFERENCE.md
-            - .github\skills\ablation-test\SKILL.md
-            - .github\skills\ablation-test\scripts\New-AblationLog.ps1
-            - .github\skills\add-feature\EXAMPLES.md
-            - .github\skills\add-feature\REFERENCE.md
-            - .github\skills\add-feature\SKILL.md
-            - .github\skills\claude-design-parity\EXAMPLES.md
-            - .github\skills\claude-design-parity\REFERENCE.md
-            - .github\skills\claude-design-parity\SKILL.md
-            - .github\skills\dead-code-audit\EXAMPLES.md
-            - .github\skills\dead-code-audit\REFERENCE.md
-            - .github\skills\dead-code-audit\SKILL.md
-            - .github\skills\deslop\EXAMPLES.md
-            - .github\skills\deslop\SKILL.md
-            - .github\skills\diagnose\EXAMPLES.md
-            - .github\skills\diagnose\REFERENCE.md
-            - .github\skills\diagnose\SKILL.md
-            - .github\skills\diagnose\scripts\hitl-loop.template.ps1
-            - .github\skills\full-code-review\REFERENCE.md
-            - .github\skills\full-code-review\SKILL.md
-            - .github\skills\grill-me\SKILL.md
-            - .github\skills\handoff\SKILL.md
-            - .github\skills\improve-codebase-architecture\HTML-REPORT.md
-            - .github\skills\improve-codebase-architecture\SKILL.md
-            - .github\skills\refactor\SKILL.md
-            - .github\skills\run-quality-gate\REFERENCE.md
-            - .github\skills\run-quality-gate\SKILL.md
-            - .github\skills\teach\GLOSSARY-FORMAT.md
-            - .github\skills\teach\LEARNING-RECORD-FORMAT.md
-            - .github\skills\teach\MISSION-FORMAT.md
-            - .github\skills\teach\REFERENCE.md
-            - .github\skills\teach\RESOURCES-FORMAT.md
-            - .github\skills\teach\SKILL.md
-            - .github\skills\writing-great-skills\GLOSSARY.md
-            - .github\skills\writing-great-skills\SKILL.md
-            - .vscode\settings.json
-            - coverage-unit\base.css
-            - coverage-unit\block-navigation.js
-            - coverage-unit\favicon.png
-            - coverage-unit\index.html
-            - coverage-unit\lcov-report\base.css
-            - coverage-unit\lcov-report\block-navigation.js
-            - coverage-unit\lcov-report\favicon.png
-            - coverage-unit\lcov-report\index.html
-            - coverage-unit\lcov-report\prettify.css
-            - coverage-unit\lcov-report\prettify.js
-            - coverage-unit\lcov-report\sort-arrow-sprite.png
-            - coverage-unit\lcov-report\sorter.js
-            - coverage-unit\lcov-report\src\App.tsx.html
-            - coverage-unit\lcov-report\src\bootstrapApp.tsx.html
-            - coverage-unit\lcov-report\src\components\FolderCard.tsx.html
-            - coverage-unit\lcov-report\src\components\Footer.tsx.html
-            - coverage-unit\lcov-report\src\components\Header.tsx.html
-            - coverage-unit\lcov-report\src\components\HomeScreen.tsx.html
-            - coverage-unit\lcov-report\src\components\TrackerView.tsx.html
-            - coverage-unit\lcov-report\src\components\index.html
-            - coverage-unit\lcov-report\src\hooks\index.html
-            - coverage-unit\lcov-report\src\hooks\useAppState.ts.html
-            - coverage-unit\lcov-report\src\hooks\useFolderSession.ts.html
-            - coverage-unit\lcov-report\src\index.html
-            - coverage-unit\lcov-report\src\theme\index.html
-            - coverage-unit\lcov-report\src\theme\themes.ts.html
-            - coverage-unit\lcov.info
-            - coverage-unit\prettify.css
-            - coverage-unit\prettify.js
-            - coverage-unit\sort-arrow-sprite.png
-            - coverage-unit\sorter.js
-            - coverage-unit\src\App.tsx.html
-            - coverage-unit\src\bootstrapApp.tsx.html
-            - coverage-unit\src\components\FolderCard.tsx.html
-            - coverage-unit\src\components\Footer.tsx.html
-            - coverage-unit\src\components\Header.tsx.html
-            - coverage-unit\src\components\HomeScreen.tsx.html
-            - coverage-unit\src\components\TrackerView.tsx.html
-            - coverage-unit\src\components\index.html
-            - coverage-unit\src\hooks\index.html
-            - coverage-unit\src\hooks\useAppState.ts.html
-            - coverage-unit\src\hooks\useFolderSession.ts.html
-            - coverage-unit\src\index.html
-            - coverage-unit\src\theme\index.html
-            - coverage-unit\src\theme\themes.ts.html
-            - coverage\base.css
-            - coverage\block-navigation.js
-            - coverage\clover.xml
-            - coverage\coverage-final.json
-            - coverage\favicon.png
-            - coverage\index.html
-            - coverage\mixjam-electron\electron.vite.config.js.html
-            - coverage\mixjam-electron\electron.vite.config.ts.html
-            - coverage\mixjam-electron\index.html
-            - coverage\mixjam-electron\src\main\index.html
-            - coverage\mixjam-electron\src\main\index.js.html
-            - coverage\mixjam-electron\src\main\index.ts.html
-            - coverage\mixjam-electron\src\preload\index.html
-            - coverage\mixjam-electron\src\preload\index.js.html
-            - coverage\mixjam-electron\src\preload\index.ts.html
-            - coverage\mixjam-electron\src\renderer\src\App.tsx.html
-            - coverage\mixjam-electron\src\renderer\src\components\Footer.tsx.html
-            - coverage\mixjam-electron\src\renderer\src\components\Header.tsx.html
-            - coverage\mixjam-electron\src\renderer\src\components\HomeScreen.tsx.html
-            - coverage\mixjam-electron\src\renderer\src\components\TrackerView.tsx.html
-            - coverage\mixjam-electron\src\renderer\src\components\index.html
-            - coverage\mixjam-electron\src\renderer\src\index.html
-            - coverage\mixjam-electron\src\renderer\src\main.tsx.html
-            - coverage\prettify.css
-            - coverage\prettify.js
-            - coverage\sort-arrow-sprite.png
-            - coverage\sorter.js
-            - docs\README.md
-            - docs\architecture.md
-            - docs\audio-engine.md
-            - docs\data-model.md
-            - docs\decisions.md
-            - docs\indexing.md
-            - docs\query-schema.md
-            - docs\specs\spec-001-app-shell-navigation.md
-            - docs\specs\spec-002-theming-skin-system.md
-            - docs\specs\spec-003-folder-session-management.md
-            - docs\specs\spec-004-sample-library.md
-            - docs\specs\spec-005-audio-playback-engine.md
-            - docs\specs\spec-006-player-timeline-panels.md
-            - docs\specs\spec-007-mixer.md
-            - docs\specs\spec-008-sample-analysis.md
-            - docs\specs\spec-009-time-stretching.md
-            - docs\specs\spec-010-audio-effects.md
-            - docs\specs\spec-011-project-save-load.md
-            - docs\specs\spec-012-audio-export.md
-            - public\app-icon-128.png
-            - public\app-icon-16.png
-            - public\app-icon-180.png
-            - public\app-icon-192.png
-            - public\app-icon-256.png
-            - public\app-icon-32.png
-            - public\app-icon-48.png
-            - public\app-icon-512.png
-            - public\app-icon-64.png
-            - public\app-icon.ico
-            - public\app-icon.svg
-            - public\themes\emerald.json
-            - public\vite.svg
-            - src\main\index.ts
-            - src\main\sample-browser.test.ts
-            - src\main\sample-browser.ts
-            - src\main\session.test.ts
-            - src\main\session.ts
-            - src\preload\index.ts
-            - src\renderer\index.html
-            - src\renderer\public\fonts\JetBrainsMono-Medium.ttf
-            - src\renderer\public\fonts\JetBrainsMono-Regular.ttf
-            - src\renderer\public\fonts\JosefinSans-Bold.ttf
-            - src\renderer\public\fonts\JosefinSans-Regular.ttf
-            - src\renderer\public\fonts\Ubuntu-Medium.ttf
-            - src\renderer\public\fonts\Ubuntu-Regular.ttf
-            - src\renderer\src\App.test.tsx
-            - src\renderer\src\App.tsx
-            - src\renderer\src\bootstrapApp.tsx
-            - src\renderer\src\components\FolderCard.tsx
-            - src\renderer\src\components\Footer.test.tsx
-            - src\renderer\src\components\Footer.tsx
-            - src\renderer\src\components\Header.test.tsx
-            - src\renderer\src\components\Header.tsx
-            - src\renderer\src\components\HomeScreen.tsx
-            - src\renderer\src\components\TrackerView.test.tsx
-            - src\renderer\src\components\TrackerView.tsx
-            - src\renderer\src\electron.d.ts
-            - src\renderer\src\engine\transport.test.ts
-            - src\renderer\src\engine\transport.ts
-            - src\renderer\src\hooks\useAppState.test.ts
-            - src\renderer\src\hooks\useAppState.ts
-            - src\renderer\src\hooks\useFolderSession.ts
-            - src\renderer\src\index.css
-            - src\renderer\src\lib\playerShell.test.ts
-            - src\renderer\src\lib\playerShell.ts
-            - src\renderer\src\main.tsx
-            - src\renderer\src\specs\spec-001-app-shell-navigation.test.tsx
-            - src\renderer\src\specs\spec-003-folder-session-management.test.tsx
-            - src\renderer\src\test\electronApi.ts
-            - src\renderer\src\test\setup.ts
-            - src\renderer\src\theme\spec-002-theming-skin-system.test.tsx
-            - src\renderer\src\theme\themes.ts
-            - src\shared\ipc.ts
-            - src\shared\window-config.ts
-            - tmp\mock-ups\General Layout.png
-            - tmp\test-samples\1996 Sequence (consolidated).wav
-            - tmp\test-samples\7 Skies Sub (consolidated).wav
-            - tmp\test-samples\AR Background Filler (consolidated).wav
-            - tmp\test-samples\AR Drown (consolidated).wav
-            - tmp\test-samples\AR Mystic Atmo 2 - Troi (consolidated).wav
-            - tmp\test-samples\AR Nostalgia (consolidated).wav
-            - tmp\test-samples\AR Paralais (consolidated).wav
-            - 'tmp\test-samples\AR Retrovision - Beverly #2 (consolidated).wav'
-            - tmp\test-samples\ARK Space Renegade (consolidated).wav
-            - 'tmp\test-samples\ARP #1 (consolidated).wav'
-            - 'tmp\test-samples\ARP #2 (consolidated).wav'
-            - 'tmp\test-samples\ARP #2 (consolidated)_3.wav'
-            - 'tmp\test-samples\ARP #3 (consolidated).wav'
-            - 'tmp\test-samples\ARP #4 (consolidated).wav'
-            - 'tmp\test-samples\ARP Med #1 (consolidated).wav'
-            - tmp\test-samples\ARP Pad (consolidated).wav
-            - tmp\test-samples\ARP Pad (consolidated)_2.wav
-            - tmp\test-samples\Acid Drop (consolidated).wav
-            - tmp\test-samples\Acid V (consolidated).wav
-            - tmp\test-samples\Atmos (consolidated).wav
-            - tmp\test-samples\Bass ARP (consolidated).wav
-            - tmp\test-samples\Berliner Bass (consolidated).wav
-            - tmp\test-samples\Berliner Bass (consolidated)_2.wav
-            - tmp\test-samples\Bones ARP (consolidated).wav
-            - tmp\test-samples\Cat Flute (consolidated).wav
-            - tmp\test-samples\Downtown Lights (consolidated).wav
-            - tmp\test-samples\Downtown Lights (consolidated)_2.wav
-            - tmp\test-samples\Eight Voice (consolidated).wav
-            - tmp\test-samples\Eight Voice (consolidated)_2.wav
-            - tmp\test-samples\Gravity Well (consolidated).wav
-            - tmp\test-samples\Horror Noise Sweep (consolidated).wav
-            - 'tmp\test-samples\Intermezzo #2 (consolidated).wav'
-            - tmp\test-samples\Intermezzo (consolidated).wav
-            - tmp\test-samples\Intermezzo (consolidated)_2.wav
-            - tmp\test-samples\Intermezzo (consolidated)_3.wav
-            - tmp\test-samples\Intro Sequence (consolidated).wav
-            - tmp\test-samples\Intro Sequence (consolidated)_2.wav
-            - tmp\test-samples\KB Rhodes Fun (consolidated).wav
-            - 'tmp\test-samples\Lead #1 (consolidated).wav'
-            - 'tmp\test-samples\Lead #1 (consolidated)_2.wav'
-            - 'tmp\test-samples\Lead #2 (consolidated).wav'
-            - tmp\test-samples\Lead (consolidated).wav
-            - tmp\test-samples\Loop 01 (consolidated).wav
-            - tmp\test-samples\Loop 02 (consolidated).wav
-            - tmp\test-samples\Main Sequence (consolidated).wav
-            - tmp\test-samples\Mellotron V (consolidated).wav
-            - tmp\test-samples\Organ (consolidated).wav
-            - tmp\test-samples\Organ (consolidated)_2.wav
-            - tmp\test-samples\Peak Drives Melody (consolidated).wav
-            - tmp\test-samples\Perc (consolidated).wav
-            - tmp\test-samples\Perc (consolidated)_2.wav
-            - tmp\test-samples\Perc (consolidated)_3.wav
-            - tmp\test-samples\Random Bells (consolidated).wav
-            - tmp\test-samples\SQ Blackout (consolidated).wav
-            - tmp\test-samples\Sad Piano (consolidated).wav
-            - 'tmp\test-samples\Solo #1 (consolidated).wav'
-            - 'tmp\test-samples\Solo #2 (consolidated).wav'
-            - 'tmp\test-samples\Solo #3 (consolidated).wav'
-            - 'tmp\test-samples\Solo #4 (consolidated).wav'
-            - tmp\test-samples\Voice (consolidated).wav
-            - tmp\test-samples\Voice (consolidated)_2.wav
-            - 'tmp\test-samples\Voice High #2 (consolidated).wav'
-            - 'tmp\test-samples\Voice High #3 (consolidated).wav'
-            - tmp\test-samples\Voice High (consolidated).wav
-            - tmp\test-samples\Woosh (consolidated).wav
-            - 'tmp\test-samples\arp 1 #2.wav'
-            - 'tmp\test-samples\arp 1 #2_2.wav'
-            - tsconfig.node.tsbuildinfo
-            - tsconfig.web.tsbuildinfo
+            - .fallowrc.json
+            - docs/
+            - public/
+            - scripts/
+            - .github/
         source_files: []
         children: []
         depends_on: []
@@ -363,6 +108,20 @@ modules:
             - src/renderer/src/bootstrapApp.tsx
             - src/renderer/src/main.tsx
             - docs/specs/spec-002-theming-skin-system.md
+        children: []
+        depends_on: []
+        related_to: []
+    logging_system:
+        dir_name: Informal Console-Based Logging Without Structured Framework
+        title: Informal Console-Based Logging Without Structured Framework
+        scope: []
+        source_files:
+            - src/main/index.ts
+            - src/main/indexer-host.ts
+            - src/main/library.ts
+            - src/renderer/src/hooks/useLibraryData.ts
+            - src/renderer/src/hooks/useAppState.ts
+            - .qoder/repowiki/knowledge/en/Informal Error Handling via Try_Catch and Console Logging/error_handling.md
         children: []
         depends_on: []
         related_to: []

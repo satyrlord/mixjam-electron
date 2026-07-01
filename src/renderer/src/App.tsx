@@ -21,13 +21,14 @@ export default function App() {
     version,
     timerText,
     recentProjects,
-    sampleRows,
-    sampleSearchQuery,
-    sampleBrowserLoading,
-    sampleBrowserError,
+    samples,
+    searchQuery,
+    loading,
+    error,
+    totalCount,
     selectedSampleDetail,
     setSelectedSampleDetail,
-    setSampleSearchQuery,
+    setSearchQuery,
     rescanSampleBrowser,
     lanes,
     placeSampleDetailOnLane,
@@ -55,10 +56,6 @@ export default function App() {
     openFolderPicker,
     openRepo,
     scanProgress,
-    dbSamples,
-    dbSampleTotal,
-    dbSearchQuery,
-    setDbSearchQuery,
     selectedCategoryId,
     setSelectedCategoryId,
     selectedTagIds,
@@ -114,11 +111,11 @@ export default function App() {
         ) : (
           <TrackerView
             recentProjects={recentProjects}
-            sampleRows={sampleRows}
-            sampleSearchQuery={sampleSearchQuery}
-            sampleBrowserLoading={sampleBrowserLoading}
-            sampleBrowserError={sampleBrowserError}
-            selectedSamplePath={selectedSampleDetail?.path ?? null}
+            samples={samples}
+            searchQuery={searchQuery}
+            loading={loading}
+            error={error}
+            selectedSamplePath={selectedSampleDetail?.filepath ?? null}
             lanes={lanes}
             laneShouldDim={laneShouldDim}
             transportState={transportState}
@@ -126,11 +123,12 @@ export default function App() {
             bpm={bpm}
             masterGain={masterGain}
             masterLevelDb={masterLevelDb}
+            totalCount={totalCount}
             onSetBpm={setBpm}
             onSetMasterGain={setMasterGain}
             onSelectSampleDetail={setSelectedSampleDetail}
-            onSampleSearchChange={setSampleSearchQuery}
-            onSampleRescan={rescanSampleBrowser}
+            onSearchChange={setSearchQuery}
+            onRescan={rescanSampleBrowser}
             onPlaceSampleDetailOnLane={placeSampleDetailOnLane}
             onMoveClipOnLane={moveClipOnLane}
             onRemoveClipFromLane={removeClipFromLane}
@@ -143,9 +141,6 @@ export default function App() {
             onTransportStop={transportStop}
             onTransportSkipBack={transportSkipBack}
             scanProgress={scanProgress}
-            dbSamples={dbSamples}
-            dbSampleTotal={dbSampleTotal}
-            dbSearchQuery={dbSearchQuery}
             selectedCategoryId={selectedCategoryId}
             selectedTagIds={selectedTagIds}
             sortBy={sortBy}
@@ -153,7 +148,7 @@ export default function App() {
             tags={tags}
             categories={categories}
             libraries={libraries}
-            onDbSearchChange={setDbSearchQuery}
+            onDbSearchChange={setSearchQuery}
             onSelectCategory={setSelectedCategoryId}
             onToggleTagFilter={handleToggleTagFilter}
             onSortChange={handleSortChange}

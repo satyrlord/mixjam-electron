@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TrackerView from '../components/TrackerView'
-import type { CategoryItem, LibraryItem, SampleItem, ScanProgress, TagItem } from '../../../shared/ipc'
+import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
 import type { LaneState } from '../lib/playerShell'
 
 const noop = () => undefined
@@ -26,21 +26,16 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
 const IDLE_PROGRESS: ScanProgress = { status: 'idle', phase: null, found: 0, processed: 0, total: 0 }
 const SCANNING_PROGRESS: ScanProgress = { status: 'scanning', phase: 1, found: 50, processed: 20, total: 50 }
 
-function makeDbSamples(count: number): SampleItem[] {
+function makeDbSamples(count: number): SampleListItem[] {
   return Array.from({ length: count }, (_, i) => ({
-    id: i + 1,
+    id: `/samples/sample_${i}.wav`,
+    name: `sample_${i}.wav`,
     filepath: `/samples/sample_${i}.wav`,
-    filename: `sample_${i}.wav`,
-    ext: 'wav',
-    sizeBytes: 1024,
-    duration: i * 0.5 + 0.1,
-    sampleRate: 44100,
-    channels: 2,
-    bpm: null,
-    musicalKey: null,
-    dateAdded: Date.now() - i * 1000,
-    scanState: 1,
-    categoryId: null
+    category: 'Unsorted',
+    durationSeconds: i * 0.5 + 0.1,
+    tags: [],
+    categoryId: null,
+    tagIds: []
   }))
 }
 
@@ -48,10 +43,10 @@ function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {
   return render(
     <TrackerView
       recentProjects={[]}
-      sampleRows={[]}
-      sampleSearchQuery=""
-      sampleBrowserLoading={false}
-      sampleBrowserError={null}
+      samples={[]}
+      searchQuery=""
+      loading={false}
+      error={null}
       selectedSamplePath={null}
       lanes={LANES}
       laneShouldDim={() => false}
@@ -60,11 +55,12 @@ function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {
       bpm={120}
       masterGain={0.8}
       masterLevelDb={-100}
+      totalCount={0}
       onSetBpm={noop}
       onSetMasterGain={noop}
       onSelectSampleDetail={noop}
-      onSampleSearchChange={noop}
-      onSampleRescan={noop}
+      onSearchChange={noop}
+      onRescan={noop}
       onPlaceSampleDetailOnLane={noop}
       onMoveClipOnLane={noop}
       onRemoveClipFromLane={noop}
@@ -77,9 +73,6 @@ function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {
       onTransportStop={noop}
       onTransportSkipBack={noop}
       scanProgress={IDLE_PROGRESS}
-      dbSamples={[]}
-      dbSampleTotal={0}
-      dbSearchQuery=""
       selectedCategoryId={undefined}
       selectedTagIds={[]}
       sortBy="filename"
@@ -117,7 +110,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // -------------------------------------------------------------------------
 
   it('AC-004a: browser toolbar shows search input, result count, and Re-scan action', () => {
-    renderTracker({ dbSamples: [], dbSampleTotal: 0 })
+    renderTracker({ samples: [], totalCount: 0 })
     expect(screen.getByRole('searchbox', { name: /search samples/i })).toBeInTheDocument()
     // Result count renders in subcats-count when there are results; strip has scan controls
     expect(screen.getByRole('button', { name: /re-scan/i })).toBeInTheDocument()
@@ -137,7 +130,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-006: clearing the search field calls onDbSearchChange with empty string', () => {
     const onDbSearchChange = vi.fn()
-    renderTracker({ dbSearchQuery: 'kick', onDbSearchChange })
+    renderTracker({ searchQuery: 'kick', onDbSearchChange })
     const input = screen.getByRole('searchbox', { name: /search samples/i })
     fireEvent.change(input, { target: { value: '' } })
     expect(onDbSearchChange).toHaveBeenCalledWith('')
@@ -309,13 +302,13 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   })
 
   it('AC-003: Re-scan triggers both onSampleRescan and onStartScan', async () => {
-    const onSampleRescan = vi.fn()
+    const onRescan = vi.fn()
     const onStartScan = vi.fn().mockResolvedValue(undefined)
-    renderTracker({ scanProgress: IDLE_PROGRESS, onSampleRescan, onStartScan })
+    renderTracker({ scanProgress: IDLE_PROGRESS, onRescan, onStartScan })
 
     fireEvent.click(screen.getByRole('button', { name: /re-scan/i }))
 
-    expect(onSampleRescan).toHaveBeenCalledTimes(1)
+    expect(onRescan).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(onStartScan).toHaveBeenCalledTimes(1))
   })
 
@@ -323,9 +316,9 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // AC-004: sample tiles
   // -------------------------------------------------------------------------
 
-  it('AC-004: sample list renders all provided DB samples as tiles', () => {
-    const dbSamples = makeDbSamples(10)
-    renderTracker({ dbSamples, dbSampleTotal: 10 })
+  it('AC-004: sample list renders all provided samples as tiles', () => {
+    const samples = makeDbSamples(10)
+    renderTracker({ samples, totalCount: 10 })
     // Each tile is a button with the filename (without extension) as text
     const tiles = screen.getAllByRole('button', { name: /sample_\d+/i })
     // 10 sample tiles + lane buttons + transport + manage + rescan
@@ -338,8 +331,8 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-016: clicking Name sort button calls onSortChange with filename', () => {
     const onSortChange = vi.fn()
-    const dbSamples = makeDbSamples(3)
-    renderTracker({ dbSamples, dbSampleTotal: 3, onSortChange })
+    const samples = makeDbSamples(3)
+    renderTracker({ samples, totalCount: 3, onSortChange })
 
     fireEvent.click(screen.getByRole('button', { name: /^name/i }))
     expect(onSortChange).toHaveBeenCalledWith('filename')
@@ -347,8 +340,8 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-016: clicking Dur sort button calls onSortChange with duration', () => {
     const onSortChange = vi.fn()
-    const dbSamples = makeDbSamples(3)
-    renderTracker({ dbSamples, dbSampleTotal: 3, onSortChange })
+    const samples = makeDbSamples(3)
+    renderTracker({ samples, totalCount: 3, onSortChange })
 
     fireEvent.click(screen.getByRole('button', { name: /^dur/i }))
     expect(onSortChange).toHaveBeenCalledWith('duration')
@@ -356,8 +349,8 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-016: clicking Date sort button calls onSortChange with dateAdded', () => {
     const onSortChange = vi.fn()
-    const dbSamples = makeDbSamples(3)
-    renderTracker({ dbSamples, dbSampleTotal: 3, onSortChange })
+    const samples = makeDbSamples(3)
+    renderTracker({ samples, totalCount: 3, onSortChange })
 
     fireEvent.click(screen.getByRole('button', { name: /^date/i }))
     expect(onSortChange).toHaveBeenCalledWith('dateAdded')
@@ -369,13 +362,13 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-006a: clicking a sample tile calls onSelectSampleDetail with the sample', () => {
     const onSelectSampleDetail = vi.fn()
-    const dbSamples = makeDbSamples(1)
-    renderTracker({ dbSamples, dbSampleTotal: 1, onSelectSampleDetail })
+    const samples = makeDbSamples(1)
+    renderTracker({ samples, totalCount: 1, onSelectSampleDetail })
 
     // tile shows filename without extension: "sample_0"
     fireEvent.click(screen.getByRole('button', { name: /sample_0/i }))
     expect(onSelectSampleDetail).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'sample_0.wav', path: '/samples/sample_0.wav' })
+      expect.objectContaining({ name: 'sample_0.wav', filepath: '/samples/sample_0.wav' })
     )
   })
 

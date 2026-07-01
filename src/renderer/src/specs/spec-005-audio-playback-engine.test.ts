@@ -29,43 +29,72 @@ function flushAsync(): Promise<void> {
 
 describe('spec-005 audio playback engine', () => {
   describe('transport (US-001..US-004)', () => {
+    // The playhead lives on the audio-clock Scheduler now, so playhead ACs are
+    // exercised through Player.currentTick with a mutable mock audio clock.
+    function makePlayer(audioTimeRef: { value: number }): Player {
+      return new Player({
+        createContext: () => createMockContext() as unknown as AudioContext,
+        clock: mockClock(),
+        now: () => audioTimeRef.value,
+        getLanes: () => [],
+        loadSampleBytes: async () => new ArrayBuffer(0),
+        bpm: 120
+      })
+    }
+
     // AC-001
-    it('AC-001: play() transitions to playing and advances the playhead', () => {
-      const scheduler = { setInterval: vi.fn(() => 1), clearInterval: vi.fn() }
-      const transport = createTransport(120, scheduler)
+    it('AC-001: play() transitions to playing and advances the playhead', async () => {
+      const transport = createTransport(120)
       transport.play()
       expect(transport.state).toBe('playing')
+
+      const audioTime = { value: 0 }
+      const player = makePlayer(audioTime)
+      await player.start(0)
+      expect(player.currentTick).toBe(0)
+      audioTime.value = tickDurationSeconds(120) * 3 + 0.0001
+      expect(player.currentTick).toBe(3)
+      await player.close()
     })
 
     // AC-002
-    it('AC-002: pause() holds the tick and play() resumes from it', () => {
-      const pending: (() => void)[] = []
-      const transport = createTransport(120, {
-        setInterval: (cb) => { pending.push(cb); return 0 },
-        clearInterval: () => {}
-      })
+    it('AC-002: pause() holds the tick and play() resumes from it', async () => {
+      const transport = createTransport(120)
+      const audioTime = { value: 0 }
+      const player = makePlayer(audioTime)
+
       transport.play()
-      pending[0]()
-      pending[0]()
+      await player.start(0)
+      audioTime.value = tickDurationSeconds(120) * 2 + 0.0001
       transport.pause()
+      player.pause()
       expect(transport.state).toBe('paused')
-      expect(transport.currentTick).toBe(2)
+      // The playhead is frozen at the paused position even as the clock advances.
+      expect(player.currentTick).toBe(2)
+      audioTime.value = 100
+      expect(player.currentTick).toBe(2)
+
+      // Resume from the held tick.
       transport.play()
-      expect(transport.currentTick).toBe(2)
+      await player.start(player.currentTick)
+      expect(player.currentTick).toBe(2)
+      await player.close()
     })
 
     // AC-003
-    it('AC-003: stop() resets playhead to 0 and state to stopped', () => {
-      const pending: (() => void)[] = []
-      const transport = createTransport(120, {
-        setInterval: (cb) => { pending.push(cb); return 0 },
-        clearInterval: () => {}
-      })
+    it('AC-003: stop() resets playhead to 0 and state to stopped', async () => {
+      const transport = createTransport(120)
+      const audioTime = { value: 0 }
+      const player = makePlayer(audioTime)
+
       transport.play()
-      pending[0]()
+      await player.start(0)
+      audioTime.value = tickDurationSeconds(120) * 4
       transport.stop()
+      player.stop()
       expect(transport.state).toBe('stopped')
-      expect(transport.currentTick).toBe(0)
+      expect(player.currentTick).toBe(0)
+      await player.close()
     })
 
     // AC-004

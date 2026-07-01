@@ -74,7 +74,7 @@ npm run lint        # eslint
 
 ## Project structure
 
-```
+```text
 src/
   main/           Node/Electron main process — SQLite, IPC handlers, indexer
   preload/        contextBridge script — typed API surface exposed to the renderer

@@ -1,0 +1,2 @@
+- Requires native module rebuilding for `better-sqlite3` via `npm run rebuild:electron` (automated in `predev` and `prebuild` scripts).
+- Development server starts with `npm run dev` after ensuring native dependencies match the Electron version.

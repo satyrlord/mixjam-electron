@@ -3,12 +3,18 @@
 <cite>
 **Referenced Files in This Document**
 - [sample-browser.ts](file://src/main/sample-browser.ts)
+- [library.ts](file://src/main/library.ts)
+- [db.ts](file://src/main/db.ts)
 - [index.ts (Main)](file://src/main/index.ts)
 - [preload/index.ts](file://src/preload/index.ts)
 - [ipc.ts](file://src/shared/ipc.ts)
-- [useAppState.ts](file://src/renderer/src/hooks/useAppState.ts)
+- [useLibraryData.ts](file://src/renderer/src/hooks/useLibraryData.ts)
 - [TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
 - [HomeScreen.tsx](file://src/renderer/src/components/HomeScreen.tsx)
+- [ManagePanel.tsx](file://src/renderer/src/components/ManagePanel.tsx)
+- [FolderCard.tsx](file://src/renderer/src/components/FolderCard.tsx)
+- [ScanOverlay.tsx](file://src/renderer/src/components/ScanOverlay.tsx)
+- [ScanProgressBar.tsx](file://src/renderer/src/components/ScanProgressBar.tsx)
 - [useFolderSession.ts](file://src/renderer/src/hooks/useFolderSession.ts)
 - [spec-004-sample-library.md](file://docs/specs/spec-004-sample-library.md)
 - [data-model.md](file://docs/data-model.md)
@@ -17,340 +23,315 @@
 - [architecture.md](file://docs/architecture.md)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Enhanced FTS5 full-text search integration with prefix matching and operator safety
+- Added pagination support with windowed query results
+- Introduced advanced filtering capabilities with category trees and tag-based filtering
+- Implemented comprehensive React component ecosystem including ManagePanel and ScanOverlay
+- Added hierarchical category system with recursive filtering
+- Enhanced performance with virtualized rendering and debounced queries
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Advanced Features](#advanced-features)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
-This document explains the sample browser functionality in MixJam Electron. It covers how the application discovers audio files, organizes them into categories, and provides a fuzzy search experience. It also documents the file scanning algorithms, metadata extraction, caching strategies, filtering and tagging system, and performance optimizations such as virtualized rendering. The integration between the main process (file system operations) and the renderer process (UI rendering) is detailed, along with configuration options and operational guidance for large sample libraries.
+This document explains the enhanced sample browser functionality in MixJam Electron. The system now features a sophisticated database-backed architecture with FTS5 full-text search, hierarchical category filtering, tag-based organization, and pagination support. It covers advanced file discovery algorithms, metadata extraction, caching strategies, and comprehensive filtering systems. The integration between the main process (file system operations and database management) and the renderer process (rich UI components) is thoroughly documented, along with configuration options and performance optimizations for large sample libraries.
 
 ## Project Structure
-The sample browser spans three layers:
-- Main process: file system scanning, caching, and IPC handlers
+The enhanced sample browser spans four integrated layers:
+- Main process: file system scanning, SQLite database management, FTS5 indexing, and IPC handlers
+- Database layer: schema management, query optimization, and full-text search capabilities
 - Preload bridge: exposes typed IPC methods to the renderer
-- Renderer: UI components, state hooks, and user interactions
+- Renderer: comprehensive React component ecosystem with advanced filtering and UI patterns
 
 ```mermaid
 graph TB
-subgraph "Renderer"
-UI_Hooks["useAppState.ts"]
+subgraph "Renderer Components"
 TV["TrackerView.tsx"]
 HS["HomeScreen.tsx"]
-PZ["preload/index.ts"]
+MP["ManagePanel.tsx"]
+FC["FolderCard.tsx"]
+SO["ScanOverlay.tsx"]
+SPB["ScanProgressBar.tsx"]
+end
+subgraph "Renderer Hooks"
+ULD["useLibraryData.ts"]
+UF["useFolderSession.ts"]
 end
 subgraph "Shared"
 IPC["ipc.ts"]
 end
-subgraph "Main"
+subgraph "Main Process"
 IDX["src/main/index.ts"]
 SB["src/main/sample-browser.ts"]
+LIB["src/main/library.ts"]
+DB["src/main/db.ts"]
 end
-UI_Hooks --> PZ
-PZ --> IPC
-PZ --> IDX
+subgraph "Database Layer"
+FTS["FTS5 Virtual Table"]
+IDX["SQLite Indexes"]
+end
+TV --> ULD
+HS --> UF
+MP --> ULD
+FC --> UF
+SO --> ULD
+SPB --> ULD
+ULD --> IPC
+UF --> IPC
+IPC --> IDX
 IDX --> SB
-TV --> UI_Hooks
-HS --> UI_Hooks
+IDX --> LIB
+LIB --> DB
+DB --> FTS
+DB --> IDX
 ```
 
 **Diagram sources**
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
-- [HomeScreen.tsx:30-77](file://src/renderer/src/components/HomeScreen.tsx#L30-L77)
-- [preload/index.ts:1-29](file://src/preload/index.ts#L1-L29)
-- [ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
-- [index.ts (Main):1-170](file://src/main/index.ts#L1-L170)
-- [sample-browser.ts:1-113](file://src/main/sample-browser.ts#L1-L113)
+- [TrackerView.tsx:1-685](file://src/renderer/src/components/TrackerView.tsx#L1-L685)
+- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
+- [library.ts:1-536](file://src/main/library.ts#L1-L536)
+- [db.ts:1-145](file://src/main/db.ts#L1-L145)
 
 **Section sources**
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
-- [HomeScreen.tsx:30-77](file://src/renderer/src/components/HomeScreen.tsx#L30-L77)
-- [preload/index.ts:1-29](file://src/preload/index.ts#L1-L29)
-- [ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
-- [index.ts (Main):1-170](file://src/main/index.ts#L1-L170)
-- [sample-browser.ts:1-113](file://src/main/sample-browser.ts#L1-L113)
+- [TrackerView.tsx:1-685](file://src/renderer/src/components/TrackerView.tsx#L1-L685)
+- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
+- [library.ts:1-536](file://src/main/library.ts#L1-L536)
+- [db.ts:1-145](file://src/main/db.ts#L1-L145)
 
 ## Core Components
-- Main process scanner and cache:
-  - Scans the sample folder recursively, filters audio files by extension, computes category from path segments, and builds a stable, sorted list.
-  - Caches results keyed by normalized absolute path to avoid repeated scans.
-  - Provides a filtering method that matches the query against name and path.
-- IPC integration:
-  - Exposes a typed Electron API for the renderer to query the sample browser.
-  - Main process handler invokes the scanner/cache and returns results.
-- Renderer state and UI:
-  - Debounced search input triggers queries with a small delay.
-  - Loading state and error handling are managed in the hook.
-  - Toolbar UI includes search input, result count, and a re-scan button.
 
-Key behaviors:
-- Supported audio formats: WAV, MP3, FLAC, OGG, AIFF
-- Category derivation: first path segment becomes the top-level category
-- Sorting: locale-aware filename sort, then path tie-breaker
-- Caching: per-folder cache with forced refresh option
+### Enhanced Database Architecture
+The system now features a comprehensive SQLite-based architecture with:
+- **FTS5 Virtual Table**: Full-text search with prefix matching and operator safety
+- **Hierarchical Categories**: Recursive category trees with parent-child relationships
+- **Tag Management**: Many-to-many relationships between samples and tags
+- **Pagination Support**: Windowed query results with configurable limits
+- **Advanced Indexing**: Optimized indexes for performance on large datasets
+
+### Advanced Filtering System
+- **Text Search**: Safe FTS5 prefix queries that handle special characters
+- **Category Filtering**: Hierarchical filtering with descendant inclusion
+- **Tag Filtering**: Multi-tag selection with flexible combinations
+- **Sorting Options**: Multiple columns with ascending/descending order
+- **Real-time Updates**: Debounced queries with instant feedback
+
+### Comprehensive React Component Ecosystem
+- **TrackerView**: Main browser interface with category chips, tag filters, and sample tiles
+- **ManagePanel**: Administrative interface for tags, categories, and saved libraries
+- **ScanOverlay**: Progress indication during library scans
+- **ScanProgressBar**: Compact progress display in the toolbar
+- **FolderCard**: Interactive folder selection interface
 
 **Section sources**
-- [sample-browser.ts:5-113](file://src/main/sample-browser.ts#L5-L113)
-- [ipc.ts:30-59](file://src/shared/ipc.ts#L30-L59)
-- [index.ts (Main):129-138](file://src/main/index.ts#L129-L138)
-- [preload/index.ts:17-25](file://src/preload/index.ts#L17-L25)
-- [useAppState.ts:93-148](file://src/renderer/src/hooks/useAppState.ts#L93-L148)
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
+- [library.ts:252-384](file://src/main/library.ts#L252-L384)
+- [db.ts:87-104](file://src/main/db.ts#L87-L104)
+- [useLibraryData.ts:175-202](file://src/renderer/src/hooks/useLibraryData.ts#L175-L202)
+- [TrackerView.tsx:506-656](file://src/renderer/src/components/TrackerView.tsx#L506-L656)
 
 ## Architecture Overview
-The sample browser follows a strict separation of concerns:
-- Main process performs heavy I/O and maintains a persistent cache.
-- Renderer remains responsive by delegating work to main via IPC and applying UI-level debouncing.
-- The UI uses virtualized rendering to handle large datasets efficiently.
+The enhanced sample browser implements a sophisticated three-tier architecture:
+- **Main Process**: Heavy I/O operations, database management, and FTS5 indexing
+- **Database Layer**: Schema management, query optimization, and full-text search
+- **Renderer Process**: Rich UI components with advanced filtering and real-time updates
 
 ```mermaid
 sequenceDiagram
-participant R as "Renderer Hook<br/>useAppState.ts"
+participant R as "Renderer Hook<br/>useLibraryData.ts"
 participant P as "Preload Bridge<br/>preload/index.ts"
 participant M as "Main Handler<br/>src/main/index.ts"
-participant S as "Scanner/Cache<br/>src/main/sample-browser.ts"
+participant L as "Library Manager<br/>src/main/library.ts"
+participant D as "Database<br/>src/main/db.ts"
 R->>R : "debounce search input"
-R->>P : "invoke querySampleBrowser(sampleFolder, query, forceRescan)"
-P->>M : "IPC sample-browser : query"
-M->>S : "querySampleBrowser(cache, sampleFolder, query, forceRescan)"
-alt "cache miss or forceRescan"
-S->>S : "scanSampleFolder(sampleFolder)"
-S-->>M : "SampleBrowserItem[]"
-else "cache hit"
-S-->>M : "cached SampleBrowserItem[]"
+R->>P : "invoke querySamples(request)"
+P->>M : "IPC library : query-samples"
+M->>L : "normalizeSampleQueryRequest(req)"
+L->>D : "querySamples(opts)"
+alt "FTS5 enabled"
+D->>D : "FTS5 prefix query building"
+D-->>L : "SampleQueryResult{rows,total}"
+else "Simple query"
+D-->>L : "Standard SQL query"
 end
-M-->>P : "SampleBrowserItem[]"
-P-->>R : "SampleBrowserItem[]"
-R->>R : "set rows, clear loading/error"
+L-->>M : "SampleQueryResult{rows,total}"
+M-->>P : "SampleQueryResult{rows,total}"
+P-->>R : "SampleQueryResult{rows,total}"
+R->>R : "set samples, update UI"
 ```
 
 **Diagram sources**
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
-- [preload/index.ts:17-25](file://src/preload/index.ts#L17-L25)
-- [index.ts (Main):129-138](file://src/main/index.ts#L129-L138)
-- [sample-browser.ts:98-112](file://src/main/sample-browser.ts#L98-L112)
+- [useLibraryData.ts:175-202](file://src/renderer/src/hooks/useLibraryData.ts#L175-L202)
+- [index.ts (Main):235-237](file://src/main/index.ts#L235-L237)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
 
 **Section sources**
-- [index.ts (Main):129-138](file://src/main/index.ts#L129-L138)
-- [sample-browser.ts:98-112](file://src/main/sample-browser.ts#L98-L112)
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
+- [index.ts (Main):235-237](file://src/main/index.ts#L235-L237)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
+- [useLibraryData.ts:175-202](file://src/renderer/src/hooks/useLibraryData.ts#L175-L202)
 
 ## Detailed Component Analysis
 
-### File Discovery and Categorization
-- Supported formats: WAV, MP3, FLAC, OGG, AIFF
-- Path normalization and canonicalization ensure cross-platform stability
-- Category derived from the first path segment; fallback to “Uncategorized”
-- Sorting is stable and deterministic by name and then path
+### FTS5 Full-Text Search Implementation
+The system implements a sophisticated FTS5 search mechanism:
+- **Safe Prefix Matching**: Each token wrapped in double quotes with trailing asterisk
+- **Operator Safety**: Special characters escaped to prevent FTS5 syntax injection
+- **Multi-token Support**: Whitespace-separated tokens combined with logical AND
+- **Performance Optimization**: Virtual table with automatic trigger-based updates
 
 ```mermaid
 flowchart TD
-Start(["scanSampleFolder"]) --> Walk["walk directory recursively"]
-Walk --> IsDir{"entry is directory?"}
-IsDir --> |Yes| Recurse["recurse into childPath"] --> Walk
-IsDir --> |No| IsFile{"entry is file?"}
-IsFile --> |No| Walk
-IsFile --> ExtCheck{"extension in supported set?"}
-ExtCheck --> |No| Walk
-ExtCheck --> |Yes| Stat["stat(childPath)"]
-Stat --> Build["build SampleBrowserItem<br/>id/name/path/category/metadata/tags"]
-Build --> Walk
-Walk --> Done(["return sorted items"])
+Input["User Text Input"] --> Trim["Trim and Split by Whitespace"]
+Trim --> Filter["Filter Non-empty Tokens"]
+Filter --> Escape["Escape Double Quotes"]
+Escape --> Quote["Wrap Each Token in Double Quotes"]
+Quote --> Asterisk["Append '*' for Prefix Matching"]
+Asterisk --> Join["Join with Spaces"]
+Join --> FTS["FTS5 Query: 'token1*' AND 'token2*'"]
+FTS --> Results["Search Results"]
 ```
 
 **Diagram sources**
-- [sample-browser.ts:36-86](file://src/main/sample-browser.ts#L36-L86)
+- [library.ts:258-265](file://src/main/library.ts#L258-L265)
 
 **Section sources**
-- [sample-browser.ts:5-86](file://src/main/sample-browser.ts#L5-L86)
+- [library.ts:258-265](file://src/main/library.ts#L258-L265)
+- [db.ts:87-104](file://src/main/db.ts#L87-L104)
 
-### Caching Strategy
-- Cache key: normalized absolute path of the sample folder
-- Cache value: pre-sorted list of items
-- Refresh policy: force rescan or cache miss
-- Benefits: avoids repeated filesystem traversal and stat calls
+### Hierarchical Category System
+The category system supports complex organizational structures:
+- **Root Categories**: Derived from sample folder structure with "Unsorted" fallback
+- **Subcategories**: Recursive hierarchy with unlimited depth
+- **Category Trees**: Expandable UI with descendant filtering
+- **Path-based Assignment**: Automatic category assignment based on file paths
 
 ```mermaid
 classDiagram
-class SampleBrowserCache {
-+Map~string, SampleBrowserItem[]~
+class Category {
++id : number
++name : string
++parentId : number | null
++UNSORTED_CATEGORY : string
 }
-class Scanner {
-+querySampleBrowser(cache, sampleFolder, searchQuery, forceRescan) SampleBrowserItem[]
-+scanSampleFolder(sampleFolder) SampleBrowserItem[]
+class Sample {
++id : number
++filepath : string
++filename : string
++categoryId : number | null
 }
-SampleBrowserCache <.. Scanner : "reads/writes"
+class SampleCategory {
++sampleId : number
++categoryId : number
+}
+Category "1" o-- "many" SampleCategory : "has"
+SampleCategory "many" o-- "1" Category : "belongs_to"
+Sample "1" o-- "0..1" Category : "assigned_to"
 ```
 
 **Diagram sources**
-- [sample-browser.ts:7-112](file://src/main/sample-browser.ts#L7-L112)
+- [library.ts:104-182](file://src/main/library.ts#L104-L182)
+- [library.ts:456-535](file://src/main/library.ts#L456-L535)
 
 **Section sources**
-- [sample-browser.ts:7-112](file://src/main/sample-browser.ts#L7-L112)
+- [library.ts:104-182](file://src/main/library.ts#L104-L182)
+- [library.ts:456-535](file://src/main/library.ts#L456-L535)
 
-### Fuzzy Search Implementation
-- Current renderer behavior: debounce input and send query to main
-- Main-side filter: case-insensitive substring match against name and path
-- Future direction (as documented): SQLite-backed fuzzy search via FTS5 with saved query rules
+### Pagination and Windowed Queries
+The system implements efficient pagination for large datasets:
+- **Configurable Limits**: Default 200 rows per page with adjustable sizes
+- **Offset-based Navigation**: Efficient cursor-based positioning
+- **Total Count Tracking**: Accurate result counting for UI feedback
+- **Performance Optimization**: Separate COUNT queries for pagination metadata
 
 ```mermaid
 flowchart TD
-Q["searchQuery"] --> Trim["trim and lowercase"]
-Trim --> Empty{"empty?"}
-Empty --> |Yes| ReturnAll["return all cached items"]
-Empty --> |No| Filter["filter items where (name+path).includes(query)"]
-Filter --> ReturnFiltered["return filtered items"]
+Request["Query Request"] --> Params["Parse Parameters"]
+Params --> Limit["Apply Limit (default: 200)"]
+Limit --> Offset["Apply Offset (default: 0)"]
+Offset --> Sort["Apply Sorting"]
+Sort --> Execute["Execute Windowed Query"]
+Execute --> Count["Execute COUNT Query"]
+Count --> Result["Return {rows,total}"]
 ```
 
 **Diagram sources**
-- [sample-browser.ts:88-96](file://src/main/sample-browser.ts#L88-L96)
-- [useAppState.ts:136-148](file://src/renderer/src/hooks/useAppState.ts#L136-L148)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
 
 **Section sources**
-- [sample-browser.ts:88-96](file://src/main/sample-browser.ts#L88-L96)
-- [useAppState.ts:136-148](file://src/renderer/src/hooks/useAppState.ts#L136-L148)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
 
-### Filtering and Tagging System
-- Tagging and categories are modeled in SQLite with hierarchical categories and many-to-many relationships
-- Saved libraries are stored as structured rule JSON that compiles to SQL
-- Filtering by category includes descendants via a recursive CTE
-- Fuzzy search integrates with FTS5 virtual table
-
-```mermaid
-erDiagram
-SAMPLES {
-integer id PK
-text filepath UK
-text filename
-text ext
-integer size_bytes
-integer mtime
-real duration
-integer sample_rate
-integer channels
-real bpm
-text musical_key
-integer date_added
-integer scan_state
-}
-TAGS {
-integer id PK
-text name UK
-text color
-}
-SAMPLE_TAGS {
-integer sample_id FK
-integer tag_id FK
-}
-CATEGORIES {
-integer id PK
-text name
-integer parent_id FK
-}
-SAMPLE_CATEGORIES {
-integer sample_id FK
-integer category_id FK
-}
-LIBRARIES {
-integer id PK
-text name
-integer created_at
-}
-LIBRARY_RULES {
-integer library_id FK
-text rule_json
-}
-SAMPLES ||--o{ SAMPLE_TAGS : "has"
-TAGS ||--o{ SAMPLE_TAGS : "assigned"
-SAMPLES ||--o{ SAMPLE_CATEGORIES : "belongs"
-CATEGORIES ||--o{ SAMPLE_CATEGORIES : "contains"
-LIBRARIES ||--|| LIBRARY_RULES : "defines"
-```
-
-**Diagram sources**
-- [data-model.md:11-74](file://docs/data-model.md#L11-L74)
-- [query-schema.md:19-114](file://docs/query-schema.md#L19-L114)
-
-**Section sources**
-- [data-model.md:11-131](file://docs/data-model.md#L11-L131)
-- [query-schema.md:19-129](file://docs/query-schema.md#L19-L129)
-
-### Integration Between Main and Renderer
-- Renderer invokes a typed Electron API to query the sample browser
-- Preload bridges IPC channels to main handlers
-- Main handler delegates to the scanner/cache and returns results
-
-```mermaid
-sequenceDiagram
-participant UI as "UI Component"
-participant Hook as "useAppState"
-participant Preload as "preload/index.ts"
-participant Main as "src/main/index.ts"
-participant Scan as "sample-browser.ts"
-UI->>Hook : "onChange(search)"
-Hook->>Preload : "querySampleBrowser(...)"
-Preload->>Main : "ipcMain.handle(sample-browser : query)"
-Main->>Scan : "querySampleBrowser(...)"
-Scan-->>Main : "SampleBrowserItem[]"
-Main-->>Preload : "SampleBrowserItem[]"
-Preload-->>Hook : "SampleBrowserItem[]"
-Hook->>UI : "render rows"
-```
-
-**Diagram sources**
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
-- [preload/index.ts:17-25](file://src/preload/index.ts#L17-L25)
-- [index.ts (Main):129-138](file://src/main/index.ts#L129-L138)
-- [sample-browser.ts:98-112](file://src/main/sample-browser.ts#L98-L112)
-
-**Section sources**
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
-- [preload/index.ts:17-25](file://src/preload/index.ts#L17-L25)
-- [index.ts (Main):129-138](file://src/main/index.ts#L129-L138)
-- [sample-browser.ts:98-112](file://src/main/sample-browser.ts#L98-L112)
-
-### UI Patterns and Virtualization
-- The UI is designed to virtualize large lists to maintain responsiveness
-- The toolbar includes search input, result count, and a re-scan action
-- Debounced search reduces unnecessary IPC calls
+### Advanced Filtering Pipeline
+The filtering system processes multiple criteria simultaneously:
+- **Text Search**: FTS5 prefix matching with safety measures
+- **Category Filters**: Recursive subtree expansion with CTE
+- **Tag Filters**: Multi-tag selection with flexible combinations
+- **Sorting**: Multiple columns with direction control
+- **Debounced Updates**: 150ms debounce for performance
 
 ```mermaid
 flowchart TD
-Input["search input"] --> Debounce["150ms debounce"]
-Debounce --> Query["querySampleBrowser(...)"]
-Query --> Rows["rows rendered in virtualized viewport"]
-Rows --> Footer["selected sample in footer"]
+Input["Filter Input"] --> Debounce["150ms Debounce"]
+Debounce --> Build["Build Query Conditions"]
+Build --> Text["Text Search Condition"]
+Text --> Category["Category Filter Condition"]
+Category --> Tags["Tag Filter Condition"]
+Tags --> Sort["Sorting Configuration"]
+Sort --> Execute["Execute Query"]
+Execute --> Results["Return Paginated Results"]
 ```
 
 **Diagram sources**
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
-- [useAppState.ts:136-148](file://src/renderer/src/hooks/useAppState.ts#L136-L148)
-- [architecture.md:5-11](file://docs/architecture.md#L5-L11)
+- [useLibraryData.ts:216-248](file://src/renderer/src/hooks/useLibraryData.ts#L216-L248)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
 
 **Section sources**
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
-- [useAppState.ts:136-148](file://src/renderer/src/hooks/useAppState.ts#L136-L148)
-- [architecture.md:5-11](file://docs/architecture.md#L5-L11)
+- [useLibraryData.ts:216-248](file://src/renderer/src/hooks/useLibraryData.ts#L216-L248)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
+
+## Advanced Features
+
+### Manage Panel Interface
+The ManagePanel provides comprehensive administrative capabilities:
+- **Tag Management**: Create, rename, delete tags with color support
+- **Category Management**: Hierarchical category creation and deletion
+- **Library Management**: Save current filters as reusable libraries
+- **Tabbed Interface**: Organized sections for different management tasks
+
+### Scan Progress Visualization
+Multiple components provide comprehensive scan progress feedback:
+- **ScanOverlay**: Full-screen overlay during intensive scans
+- **ScanProgressBar**: Compact progress indicator in toolbar
+- **Real-time Updates**: Live progress reporting with phase information
+
+### Responsive UI Patterns
+The interface adapts to various screen sizes and user interactions:
+- **Flexible Layout**: Resizable browser and tracker regions
+- **Virtualized Rendering**: Efficient handling of large sample lists
+- **Context Menus**: Right-click actions for advanced operations
+- **Drag-and-Drop**: Seamless integration with the tracker interface
+
+**Section sources**
+- [ManagePanel.tsx:1-242](file://src/renderer/src/components/ManagePanel.tsx#L1-L242)
+- [ScanOverlay.tsx:1-39](file://src/renderer/src/components/ScanOverlay.tsx#L1-L39)
+- [ScanProgressBar.tsx:1-19](file://src/renderer/src/components/ScanProgressBar.tsx#L1-L19)
+- [TrackerView.tsx:241-261](file://src/renderer/src/components/TrackerView.tsx#L241-L261)
 
 ## Dependency Analysis
-- Main process depends on:
-  - Node FS APIs for directory traversal and stats
-  - A local cache for scan results
-  - IPC channels to serve renderer queries
-- Renderer depends on:
-  - Preloaded Electron API
-  - Debounced query execution
-  - Virtualized rendering for performance
+The enhanced system has sophisticated interdependencies:
+- **Main Process Dependencies**: SQLite database, FTS5 virtual tables, indexing triggers
+- **Renderer Dependencies**: React components, debounced queries, state management
+- **IPC Dependencies**: Typed interfaces, progress callbacks, error handling
+- **Database Dependencies**: Schema migrations, index maintenance, trigger synchronization
 
 ```mermaid
 graph LR
@@ -360,91 +341,108 @@ SB --> IPC["ipc.ts"]
 IPC --> PZ["preload/index.ts"]
 PZ --> IDX["src/main/index.ts"]
 IDX --> SB
-UI["useAppState.ts"] --> PZ
+IDX --> LIB["library.ts"]
+LIB --> DB["db.ts"]
+DB --> FTS["FTS5 Virtual Table"]
+DB --> IDX["Indexes"]
+UI["useLibraryData.ts"] --> PZ
 UI --> TV["TrackerView.tsx"]
+UI --> MP["ManagePanel.tsx"]
 ```
 
 **Diagram sources**
-- [sample-browser.ts:1-113](file://src/main/sample-browser.ts#L1-L113)
-- [ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
-- [preload/index.ts:1-29](file://src/preload/index.ts#L1-L29)
-- [index.ts (Main):1-170](file://src/main/index.ts#L1-L170)
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
+- [sample-browser.ts:1-104](file://src/main/sample-browser.ts#L1-L104)
+- [library.ts:1-536](file://src/main/library.ts#L1-L536)
+- [db.ts:1-145](file://src/main/db.ts#L1-L145)
+- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
 
 **Section sources**
-- [sample-browser.ts:1-113](file://src/main/sample-browser.ts#L1-L113)
-- [ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
-- [preload/index.ts:1-29](file://src/preload/index.ts#L1-L29)
-- [index.ts (Main):1-170](file://src/main/index.ts#L1-L170)
-- [useAppState.ts:93-124](file://src/renderer/src/hooks/useAppState.ts#L93-L124)
-- [TrackerView.tsx:215-240](file://src/renderer/src/components/TrackerView.tsx#L215-L240)
+- [sample-browser.ts:1-104](file://src/main/sample-browser.ts#L1-L104)
+- [library.ts:1-536](file://src/main/library.ts#L1-L536)
+- [db.ts:1-145](file://src/main/db.ts#L1-L145)
+- [useLibraryData.ts:1-412](file://src/renderer/src/hooks/useLibraryData.ts#L1-L412)
 
 ## Performance Considerations
-- Virtualized rendering is a hard requirement for large libraries
-- Debounced search (≈150 ms) minimizes IPC traffic
-- Cache reuse avoids repeated scans and stat calls
-- Future roadmap includes SQLite-backed FTS5 fuzzy search and rule compilation to SQL for all filters
+The enhanced system implements multiple optimization strategies:
+- **FTS5 Indexing**: Virtual table with automatic trigger-based updates
+- **Windowed Queries**: Configurable pagination with efficient COUNT queries
+- **Debounced Queries**: 150ms debounce for search and filter changes
+- **Hierarchical CTE**: Recursive category queries with optimized execution plans
+- **Virtualized Rendering**: Efficient DOM management for large lists
+- **Schema Migration**: Versioned database schema with backward compatibility
 
-Practical tips:
-- Prefer re-scan only when necessary (e.g., after adding/removing files)
-- Keep the sample folder organized to reduce deep directory traversal
-- Use categories and tags to narrow the dataset before searching
+### Performance Benchmarks
+- **Full-text Search**: < 50ms against development dataset, target < 5ms for 100k+ rows
+- **Category Filtering**: Recursive CTE with optimized subtree expansion
+- **Tag Filtering**: Multi-index queries with efficient intersection operations
+- **Pagination**: Windowed queries with separate COUNT operations
 
 **Section sources**
-- [architecture.md:5-11](file://docs/architecture.md#L5-L11)
-- [useAppState.ts:136-148](file://src/renderer/src/hooks/useAppState.ts#L136-L148)
-- [indexing.md:23-44](file://docs/indexing.md#L23-L44)
-- [data-model.md:94-109](file://docs/data-model.md#L94-L109)
+- [spec-004-sample-library.md:147-155](file://docs/specs/spec-004-sample-library.md#L147-L155)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
+- [db.ts:87-104](file://src/main/db.ts#L87-L104)
 
 ## Troubleshooting Guide
-Common issues and resolutions:
-- Empty results when sample folder is not set:
-  - Ensure the sample folder is selected and validated before querying
-- Slow initial load:
-  - Allow the cache to populate; subsequent queries will be fast
-- Frequent re-scans:
-  - Use the re-scan button intentionally; otherwise rely on cached results
-- Permission errors:
-  - Some directories may be unreadable; the scanner skips inaccessible entries
+Enhanced troubleshooting for the advanced feature set:
 
-Operational checks:
-- Verify folder validation returns true for the selected path
-- Confirm IPC channel for sample-browser queries is reachable
-- Monitor loading state and error messages in the UI
+### Common Issues
+- **FTS5 Search Failures**: Verify virtual table creation and trigger synchronization
+- **Category Filtering Problems**: Check recursive CTE execution and category hierarchy
+- **Pagination Errors**: Validate limit/offset parameters and COUNT query execution
+- **Scan Progress Issues**: Monitor IPC progress events and database connection status
+- **Memory Leaks**: Ensure proper cleanup of debounced timers and event listeners
+
+### Diagnostic Steps
+- **Database Health**: Verify schema version and migration completion
+- **FTS5 Status**: Check virtual table integrity and trigger existence
+- **Index Performance**: Analyze query execution plans and index usage
+- **IPC Communication**: Validate typed interfaces and error handling
+- **Component State**: Monitor React component lifecycle and state updates
 
 **Section sources**
-- [useFolderSession.ts:30-50](file://src/renderer/src/hooks/useFolderSession.ts#L30-L50)
-- [index.ts (Main):140-153](file://src/main/index.ts#L140-L153)
-- [useAppState.ts:112-121](file://src/renderer/src/hooks/useAppState.ts#L112-L121)
+- [library.ts:123-143](file://src/main/library.ts#L123-L143)
+- [db.ts:106-144](file://src/main/db.ts#L106-L144)
+- [useLibraryData.ts:264-275](file://src/renderer/src/hooks/useLibraryData.ts#L264-L275)
 
 ## Conclusion
-The sample browser integrates a robust scanning pipeline, a resilient cache, and a responsive UI. While the current implementation focuses on basic file discovery, categorization, and simple filtering, the documented roadmap introduces SQLite-backed FTS5 fuzzy search, hierarchical categories, and saved libraries with rule-based queries. These enhancements will enable efficient exploration of very large sample libraries while preserving user-defined tags and categories.
+The enhanced sample browser represents a significant advancement in audio library management, featuring sophisticated database architecture, FTS5 full-text search, hierarchical organization, and comprehensive filtering capabilities. The system successfully balances performance with functionality, providing users with powerful tools for organizing and discovering large sample collections. The modular architecture ensures maintainability while the comprehensive component ecosystem delivers an intuitive user experience.
 
 ## Appendices
 
 ### Configuration Options
-- Supported audio formats: WAV, MP3, FLAC, OGG, AIFF
-- Scan intervals:
-  - Manual re-scan via UI
-  - Future: configurable periodic scans (planned)
-- Cache management:
-  - Automatic cache per sample folder
-  - Force refresh via re-scan
+- **Supported Audio Formats**: WAV, MP3, FLAC, OGG, AIFF
+- **Database Schema**: Versioned with automatic migration support
+- **FTS5 Configuration**: Virtual table with automatic trigger synchronization
+- **Pagination Settings**: Default 200 rows per page with configurable limits
+- **Scan Intervals**: Manual triggering with progress monitoring
+- **Cache Management**: Automatic cache per sample folder with forced refresh
 
 **Section sources**
-- [sample-browser.ts:5-5](file://src/main/sample-browser.ts#L5-L5)
-- [TrackerView.tsx:226-233](file://src/renderer/src/components/TrackerView.tsx#L226-L233)
-- [indexing.md:46-61](file://docs/indexing.md#L46-L61)
+- [sample-browser.ts:26-77](file://src/main/sample-browser.ts#L26-L77)
+- [db.ts:106-144](file://src/main/db.ts#L106-L144)
+- [library.ts:281-384](file://src/main/library.ts#L281-L384)
 
-### Roadmap Highlights
-- SQLite-backed indexing with two-phase scan (stubs + metadata extraction)
-- Fuzzy search via FTS5 and rule-based query engine
-- Hierarchical categories and saved libraries as persisted queries
-- Virtualized rendering for large datasets
+### Advanced Features
+- **FTS5 Full-Text Search**: Safe prefix matching with operator protection
+- **Hierarchical Categories**: Recursive filtering with descendant inclusion
+- **Tag-Based Organization**: Flexible many-to-many relationships
+- **Pagination Support**: Windowed queries with total count tracking
+- **Real-time Updates**: Debounced queries with instant UI feedback
+- **Administrative Interface**: Comprehensive ManagePanel for system administration
 
 **Section sources**
-- [spec-004-sample-library.md:33-174](file://docs/specs/spec-004-sample-library.md#L33-L174)
-- [data-model.md:94-123](file://docs/data-model.md#L94-L123)
-- [query-schema.md:92-129](file://docs/query-schema.md#L92-L129)
-- [indexing.md:23-61](file://docs/indexing.md#L23-L61)
+- [library.ts:252-384](file://src/main/library.ts#L252-L384)
+- [ManagePanel.tsx:1-242](file://src/renderer/src/components/ManagePanel.tsx#L1-L242)
+- [useLibraryData.ts:216-248](file://src/renderer/src/hooks/useLibraryData.ts#L216-L248)
+
+### Performance Specifications
+- **Search Performance**: < 50ms for development dataset, target < 5ms for 100k+ rows
+- **Category Filtering**: Optimized recursive CTE execution
+- **Tag Operations**: Efficient multi-index intersection queries
+- **Memory Usage**: Virtualized rendering with controlled DOM node count
+- **Database Size**: Scalable SQLite database with proper indexing
+
+**Section sources**
+- [spec-004-sample-library.md:147-155](file://docs/specs/spec-004-sample-library.md#L147-L155)
+- [TrackerView.tsx:591-640](file://src/renderer/src/components/TrackerView.tsx#L591-L640)
+- [db.ts:79-85](file://src/main/db.ts#L79-L85)

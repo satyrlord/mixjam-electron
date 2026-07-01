@@ -83,6 +83,7 @@ Strip from spec-006. Its internal layout:
   the browser keeps its two-column tree/list layout.
 
 ### Sample Browser List
+
 - Columns: filename, duration, BPM, tags, category, date added.
 - Sortable by any column (click header to toggle ascending/descending).
 - Selecting a sample highlights the row and populates the Player footer detail

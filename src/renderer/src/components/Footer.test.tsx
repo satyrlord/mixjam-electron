@@ -53,8 +53,7 @@ describe('Footer', () => {
         version="1.2.3"
         sampleDetail={{
           name: 'kick_808.wav',
-          path: 'Drums/Kicks/kick_808.wav',
-          metadata: ['44.1 kHz', 'Stereo'],
+          filepath: 'C:/Samples/Drums/Kicks/kick_808.wav',
           tags: ['Drums', 'Kick'],
           duration: null
         }}
@@ -64,7 +63,7 @@ describe('Footer', () => {
     )
 
     expect(screen.getByText('kick_808.wav')).toBeInTheDocument()
-    expect(screen.getByText('Drums/Kicks/kick_808.wav')).toBeInTheDocument()
+    expect(screen.getByText('C:/Samples/Drums/Kicks/kick_808.wav')).toBeInTheDocument()
     expect(screen.getByText('Drums, Kick')).toBeInTheDocument()
   })
 })

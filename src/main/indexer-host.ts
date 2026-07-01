@@ -2,17 +2,7 @@ import { Worker } from 'worker_threads'
 import { join } from 'path'
 import type { BrowserWindow } from 'electron'
 import type { IndexerMessage } from './indexer'
-import { IPC_SCAN_PROGRESS, IPC_SCAN_DONE } from '../shared/ipc'
-
-export type ScanStatus = 'idle' | 'scanning' | 'error'
-
-export interface ScanProgress {
-  status: ScanStatus
-  phase: 1 | 2 | null
-  found: number
-  processed: number
-  total: number
-}
+import { IPC_SCAN_PROGRESS, IPC_SCAN_DONE, type ScanProgress } from '../shared/ipc'
 
 const IDLE: ScanProgress = { status: 'idle', phase: null, found: 0, processed: 0, total: 0 }
 
@@ -32,8 +22,10 @@ export class IndexerHost {
   }
 
   startScan(sampleFolder: string): void {
+    // Tear down any in-flight scan (terminate detaches its listeners so it can no
+    // longer mutate this host's state).
     if (this.worker) {
-      this.worker.terminate()
+      void this.worker.terminate()
       this.worker = null
     }
 
@@ -43,11 +35,21 @@ export class IndexerHost {
     // In dev, the worker file is transpiled to out/main/indexer.js by electron-vite.
     // In production it lives at the same location relative to __dirname.
     const workerPath = join(__dirname, 'indexer.js')
-    this.worker = new Worker(workerPath, {
+    const worker = new Worker(workerPath, {
       workerData: { dbPath: this.dbPath, sampleFolder }
     })
+    this.worker = worker
 
-    this.worker.on('message', (msg: IndexerMessage) => {
+    // Only act on events from the worker that is still current — a stale worker
+    // that emits after being replaced must not clobber the new scan's state.
+    const isCurrent = (): boolean => this.worker === worker
+    const retire = (): void => {
+      if (isCurrent()) this.worker = null
+      void worker.terminate()
+    }
+
+    worker.on('message', (msg: IndexerMessage) => {
+      if (!isCurrent()) return
       if (msg.type === 'progress') {
         this.progress = {
           status: 'scanning',
@@ -60,20 +62,20 @@ export class IndexerHost {
       } else if (msg.type === 'done') {
         this.progress = { status: 'idle', phase: null, found: 0, processed: 0, total: 0 }
         this.emit(IPC_SCAN_DONE, null)
+        retire()
       } else if (msg.type === 'error') {
         this.progress = { status: 'error', phase: null, found: 0, processed: 0, total: 0 }
         this.emit(IPC_SCAN_PROGRESS, this.progress)
-      }
-      if (msg.type === 'done' || msg.type === 'error') {
-        this.worker = null
+        retire()
       }
     })
 
-    this.worker.on('error', (err) => {
+    worker.on('error', (err) => {
+      if (!isCurrent()) return
       console.error('Indexer worker error:', err)
       this.progress = { status: 'error', phase: null, found: 0, processed: 0, total: 0 }
       this.emit(IPC_SCAN_PROGRESS, this.progress)
-      this.worker = null
+      retire()
     })
   }
 

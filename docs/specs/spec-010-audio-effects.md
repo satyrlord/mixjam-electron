@@ -26,16 +26,19 @@ can chain effects in order and adjust parameters per channel.
 ### Effect Types
 
 **Delay:**
+
 - Parameters: time (ms, 0–2000), feedback (0–1), wet/dry mix (0–1).
 - Stereo ping-pong option (alternates L/R).
 - Tempo-synced mode (time in note divisions: 1/4, 1/8, 1/16, etc.).
 
 **Reverb:**
+
 - Parameters: room size (0–1), decay (0–1), wet/dry mix (0–1).
 - Freeverb-style algorithm (or equivalent).
 - Mono input, stereo output.
 
 **Compressor:**
+
 - Parameters: threshold (dB, -60–0), ratio (1:1–20:1), attack (ms, 0–200),
   release (ms, 5–3000), makeup gain (dB, 0–24).
 - May wrap the native `DynamicsCompressorNode` for efficiency, with custom

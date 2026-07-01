@@ -43,4 +43,5 @@ Write one when any of these is true:
 
 ## Supersession
 
-When a later record contradicts an earlier one (the user's understanding deepened or corrected), mark the old record `Status: superseded by LR-NNNN` rather than deleting it. The history of how understanding evolved is itself useful signal.
+When a later record contradicts an earlier one (the user's understanding deepened or corrected), mark the old record
+`Status: superseded by LR-NNNN` rather than deleting it. The history of how understanding evolved is itself useful signal.

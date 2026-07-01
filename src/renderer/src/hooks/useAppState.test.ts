@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RecentProjectItem, SampleBrowserItem } from '../../../shared/ipc'
+import type { RecentProjectItem, SampleListItem } from '../../../shared/ipc'
 import { createElectronAPI } from '../test/electronApi'
 import { useAppState } from './useAppState'
 
@@ -156,14 +156,13 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
-      expect(result.current.sampleRows.length).toBeGreaterThan(0)
+      expect(result.current.samples.length).toBeGreaterThan(0)
     })
 
     act(() => {
       result.current.setSelectedSampleDetail({
         name: 'kick_808.wav',
-        path: 'Drums/Kicks/kick_808.wav',
-        metadata: ['44.1 kHz', 'Stereo'],
+        filepath: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
         tags: ['Drums', 'Kick'],
         duration: null
       })
@@ -188,12 +187,12 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
-      expect(result.current.sampleRows.length).toBeGreaterThan(0)
+      expect(result.current.samples.length).toBeGreaterThan(0)
     })
 
     act(() => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick_808.wav', path: 'Drums/Kicks/kick_808.wav', metadata: [], tags: [], duration: null },
+        { name: 'kick_808.wav', filepath: 'Drums/Kicks/kick_808.wav', tags: [], duration: null },
         0,
         0
       )
@@ -225,20 +224,20 @@ describe('useAppState', () => {
     const electronAPI = createElectronAPI()
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, null))
 
-    expect(result.current.sampleRows).toEqual([])
-    expect(result.current.sampleBrowserLoading).toBe(false)
-    expect(result.current.sampleBrowserError).toBeNull()
+    expect(result.current.samples).toEqual([])
+    expect(result.current.loading).toBe(false)
+    expect(result.current.error).toBeNull()
     expect(result.current.selectedSampleDetail).toBeNull()
-    expect(result.current.sampleSearchQuery).toBe('')
+    expect(result.current.searchQuery).toBe('')
 
     // Even a forced rescan must safely no-op when folder is null.
     await act(async () => {
       await result.current.rescanSampleBrowser()
     })
 
-    expect(result.current.sampleRows).toEqual([])
-    expect(result.current.sampleBrowserLoading).toBe(false)
-    expect(result.current.sampleBrowserError).toBeNull()
+    expect(result.current.samples).toEqual([])
+    expect(result.current.loading).toBe(false)
+    expect(result.current.error).toBeNull()
   })
 
   it('handles querySampleBrowser rejection', async () => {
@@ -250,10 +249,10 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
-      expect(result.current.sampleBrowserError).toBe('Unable to load sample library.')
+      expect(result.current.error).toBe('Unable to load sample library.')
     })
 
-    expect(result.current.sampleRows).toEqual([])
+    expect(result.current.samples).toEqual([])
     expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to query sample browser:', testError)
   })
 
@@ -262,28 +261,27 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
-      expect(result.current.sampleRows.length).toBeGreaterThan(0)
+      expect(result.current.samples.length).toBeGreaterThan(0)
     })
 
     // Pick a path that actually exists in the current rows so the effect
     // does not immediately clear it.
-    const visiblePath = result.current.sampleRows[0].path
+    const visiblePath = result.current.samples[0].filepath
     act(() => {
       result.current.setSelectedSampleDetail({
         name: 'kick_808.wav',
-        path: visiblePath,
-        metadata: ['44.1 kHz', 'Stereo'],
+        filepath: visiblePath,
         tags: ['Drums', 'Kick'],
         duration: null
       })
     })
 
-    expect(result.current.selectedSampleDetail?.path).toBe(visiblePath)
+    expect(result.current.selectedSampleDetail?.filepath).toBe(visiblePath)
 
     // Simulate search that returns rows without the selected sample
     vi.mocked(electronAPI.querySampleBrowser).mockResolvedValueOnce([])
     act(() => {
-      result.current.setSampleSearchQuery('nonexistent')
+      result.current.setSearchQuery('nonexistent')
     })
 
     await waitFor(() => {
@@ -456,23 +454,23 @@ describe('useAppState', () => {
     // First call will be slow, second fast
     vi.mocked(electronAPI.querySampleBrowser)
       .mockResolvedValueOnce([
-        { id: 'old', name: 'old.wav', path: 'old/old.wav', category: '', duration: '--', metadata: [], tags: [] }
-      ] as SampleBrowserItem[])
+        { id: '/old/old.wav', name: 'old.wav', filepath: '/old/old.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
+      ] as SampleListItem[])
       .mockResolvedValueOnce([
-        { id: 'new', name: 'new.wav', path: 'new/new.wav', category: '', duration: '--', metadata: [], tags: [] }
-      ] as SampleBrowserItem[])
+        { id: '/new/new.wav', name: 'new.wav', filepath: '/new/new.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
+      ] as SampleListItem[])
 
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     // Wait for first query to settle — the debounce means the second call
     // supersedes it before the first resolves, per mock ordering.
     await waitFor(() => {
-      expect(result.current.sampleRows.length).toBeGreaterThan(0)
+      expect(result.current.samples.length).toBeGreaterThan(0)
     })
 
     // Either the first or second query's rows are set; the stale guard
     // ensures the last query wins.
-    expect(result.current.sampleBrowserError).toBeNull()
+    expect(result.current.error).toBeNull()
   })
 
   it('transport operations are no-ops when not in tracker view', () => {
@@ -564,7 +562,7 @@ describe('useAppState', () => {
 
     await act(async () => { await result.current.goToTracker() })
 
-    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', path: '/s/k.wav', metadata: [], tags: [], duration: null }, 0, 0) })
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', filepath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
     const cid = result.current.lanes[0].clips[0].id
 
     act(() => { result.current.moveClipOnLane(cid, 2, 64) })
@@ -580,7 +578,7 @@ describe('useAppState', () => {
 
     await act(async () => { await result.current.goToTracker() })
 
-    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', path: '/s/k.wav', metadata: [], tags: [], duration: null }, 0, 0) })
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', filepath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
     const cid = result.current.lanes[0].clips[0].id
 
     act(() => { result.current.removeClipFromLane(0, cid) })

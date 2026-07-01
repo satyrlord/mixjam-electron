@@ -30,6 +30,7 @@ export const IPC_CHANNELS = {
   libraryListLibraries: 'library:list-libraries',
   librarySaveLibrary: 'library:save-library',
   libraryDeleteLibrary: 'library:delete-library',
+  libraryHasSamples: 'library:has-samples',
   sampleReadBytes: 'sample:read-bytes'
 } as const
 
@@ -135,6 +136,19 @@ export interface SampleQueryResponse {
   total: number
 }
 
+/** Unified browser list item -- absolute filepath, common shape for both legacy
+ *  folder scanner (cold-start fallback) and DB query pipelines. */
+export interface SampleListItem {
+  id: string
+  name: string
+  filepath: string
+  category: string
+  durationSeconds: number | null
+  tags: string[]
+  categoryId: number | null
+  tagIds: number[]
+}
+
 export interface ScanProgress {
   status: 'idle' | 'scanning' | 'error'
   phase: 1 | 2 | null
@@ -158,7 +172,7 @@ export interface ElectronAPI {
     sampleFolder: string | null,
     searchQuery: string,
     forceRescan?: boolean
-  ) => Promise<SampleBrowserItem[]>
+  ) => Promise<SampleListItem[]>
   pickFolder: (role: FolderRole) => Promise<string | null>
   validateFolder: (path: string, role: FolderRole) => Promise<boolean>
   startScan: (sampleFolder: string) => Promise<void>
@@ -176,6 +190,10 @@ export interface ElectronAPI {
   listLibraries: () => Promise<LibraryItem[]>
   saveLibrary: (name: string, ruleJson: string) => Promise<LibraryItem>
   deleteLibrary: (id: number) => Promise<void>
+  // Returns true when at least one sample row exists in the library DB (i.e. a
+  // scan has completed at least once). Used by the renderer to switch from the
+  // legacy folder browser to the indexed DB browser.
+  hasSamples: () => Promise<boolean>
   // Reads the raw bytes of a sample file from disk (main-mediated, so the audio
   // engine never touches the filesystem). Returns null if the file is
   // unreadable. The path must resolve inside the active Sample Folder.

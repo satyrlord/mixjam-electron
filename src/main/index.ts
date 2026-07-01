@@ -28,6 +28,7 @@ import { querySampleBrowser, type SampleBrowserCache } from './sample-browser'
 import { openDatabase, type DB } from './db'
 import {
   ensureUnsortedCategory,
+  hasSamples,
   listTags,
   createTag,
   renameTag,
@@ -235,10 +236,14 @@ ipcMain.handle(IPC_CHANNELS.libraryQuerySamples, (_event, rawReq: unknown) => {
   return querySamples(getDb(), normalizeSampleQueryRequest(rawReq))
 })
 
+ipcMain.handle(IPC_CHANNELS.libraryHasSamples, () => hasSamples(getDb()))
+
 ipcMain.handle(IPC_CHANNELS.libraryListTags, () => listTags(getDb()))
 
 ipcMain.handle(IPC_CHANNELS.libraryCreateTag, (_event, rawName: unknown, rawColor: unknown) => {
-  if (typeof rawName !== 'string') return null
+  // The channel is typed to resolve to a TagItem, so reject invalid input rather
+  // than returning null (which the renderer would dereference and crash on).
+  if (typeof rawName !== 'string') throw new TypeError('createTag: name must be a string')
   const color = typeof rawColor === 'string' ? rawColor : undefined
   return createTag(getDb(), rawName, color)
 })
@@ -274,7 +279,9 @@ ipcMain.handle(IPC_CHANNELS.libraryListCategories, () => listCategories(getDb())
 ipcMain.handle(
   IPC_CHANNELS.libraryCreateCategory,
   (_event, rawName: unknown, rawParentId: unknown) => {
-    if (typeof rawName !== 'string') return null
+    // Typed to resolve to a CategoryItem — reject invalid input instead of
+    // returning null (which the renderer would dereference and crash on).
+    if (typeof rawName !== 'string') throw new TypeError('createCategory: name must be a string')
     const parentId = typeof rawParentId === 'number' ? rawParentId : undefined
     return createCategory(getDb(), rawName, parentId)
   }
