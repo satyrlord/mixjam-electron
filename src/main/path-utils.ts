@@ -14,5 +14,5 @@ export function canonicalizePath(filePath: string): string {
     return win32.resolve(filePath).toLowerCase()
   }
 
-  return normalize(resolve(filePath)).toLowerCase()
+  return normalize(resolve(filePath))
 }

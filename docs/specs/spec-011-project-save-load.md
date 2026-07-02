@@ -101,6 +101,9 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   - canonical project file path
   - display name derived from the filename
   - last-opened timestamp
+- Canonicalization preserves native path case on POSIX filesystems and only
+  lowercases drive-based Windows paths, so stored entries still point at real
+  files on case-sensitive systems.
 - Successfully opening a `.mixjam` file updates or inserts its registry entry.
 - Successfully saving a new project path updates or inserts its registry entry.
 - The Recent Projects rail (spec-006) merges this registry with `.mixjam`
