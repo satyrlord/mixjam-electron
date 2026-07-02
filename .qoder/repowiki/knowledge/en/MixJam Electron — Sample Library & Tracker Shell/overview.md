@@ -1,1 +1,0 @@
-Orchestrates a sandboxed Electron-Vite build pipeline, typed IPC contracts, and native SQLite integration to deliver a performant, skinnable desktop audio workstation.

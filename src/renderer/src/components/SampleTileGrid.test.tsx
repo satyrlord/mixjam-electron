@@ -1,0 +1,381 @@
+import { fireEvent, render } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import SampleTileGrid from './SampleTileGrid'
+import type { CategoryItem, SampleListItem } from '../../../shared/ipc'
+
+const CATEGORIES: CategoryItem[] = [
+  { id: 1, name: 'Bass', parentId: null },
+  { id: 2, name: 'Drums', parentId: null }
+]
+
+function makeSample(overrides: Partial<SampleListItem> = {}): SampleListItem {
+  return {
+    id: 'C:/a.wav',
+    dbId: 1,
+    name: 'a.wav',
+    filepath: 'C:/a.wav',
+    category: 'Bass',
+    durationSeconds: 2.0,
+    tags: [],
+    categoryId: 1,
+    tagIds: [],
+    ...overrides
+  }
+}
+
+describe('SampleTileGrid', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('renders sample bubbles for provided samples', () => {
+    const samples = [makeSample(), makeSample({ id: 'C:/b.wav', filepath: 'C:/b.wav', name: 'b.wav', dbId: 2 })]
+    const { container } = render(
+      <SampleTileGrid
+        samples={samples}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    const buttons = container.querySelectorAll('.sample-bubble')
+    expect(buttons.length).toBe(2)
+  })
+
+  it('shows empty message when no samples and not loading', () => {
+    const { container } = render(
+      <SampleTileGrid
+        samples={[]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    expect(container.querySelector('.tiles-empty')?.textContent).toContain('No samples found')
+  })
+
+  it('shows error message when error is set', () => {
+    const { container } = render(
+      <SampleTileGrid
+        samples={[]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error="Custom error message"
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    expect(container.querySelector('.tiles-empty')?.textContent).toBe('Custom error message')
+  })
+
+  it('does not show empty message while loading', () => {
+    const { container } = render(
+      <SampleTileGrid
+        samples={[]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={true}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    expect(container.querySelector('.tiles-empty')).toBeNull()
+  })
+
+  it('fires onSampleContextMenu on right-click', () => {
+    const onCtx = vi.fn()
+    const sample = makeSample()
+    const { container } = render(
+      <SampleTileGrid
+        samples={[sample]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={onCtx}
+      />
+    )
+
+    const button = container.querySelector('.sample-bubble')!
+    fireEvent.contextMenu(button)
+
+    expect(onCtx).toHaveBeenCalledTimes(1)
+    expect(onCtx.mock.calls[0]![0]).toBe(sample)
+  })
+
+  it('fires onSelectSampleDetail and onPreviewSample on click', () => {
+    const onSelect = vi.fn()
+    const onPreview = vi.fn()
+    const sample = makeSample()
+    const { container } = render(
+      <SampleTileGrid
+        samples={[sample]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={onSelect}
+        onPreviewSample={onPreview}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    const button = container.querySelector('.sample-bubble')!
+    fireEvent.click(button)
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onPreview).toHaveBeenCalledWith('C:/a.wav')
+  })
+
+  it('fires onSampleDragStart on drag start', () => {
+    const onDrag = vi.fn()
+    const sample = makeSample()
+    const { container } = render(
+      <SampleTileGrid
+        samples={[sample]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={onDrag}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    const button = container.querySelector('.sample-bubble')!
+    fireEvent.dragStart(button)
+
+    expect(onDrag).toHaveBeenCalledTimes(1)
+  })
+
+  it('adds selected class when sample path matches selectedSamplePath', () => {
+    const sample = makeSample()
+    const { container } = render(
+      <SampleTileGrid
+        samples={[sample]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath="C:/a.wav"
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    const button = container.querySelector('.sample-bubble')!
+    expect(button.classList.contains('selected')).toBe(true)
+  })
+
+  it('adds clip-flash class when flashSamplePath matches', () => {
+    const sample = makeSample()
+    const { container } = render(
+      <SampleTileGrid
+        samples={[sample]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath="C:/a.wav"
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    const button = container.querySelector('.sample-bubble')!
+    expect(button.classList.contains('clip-flash')).toBe(true)
+  })
+
+  it('applies activeCategoryColor to all sample bubbles', () => {
+    const sample = makeSample()
+    const { container } = render(
+      <SampleTileGrid
+        samples={[sample]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor="#FF0000"
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    const button = container.querySelector('.sample-bubble') as HTMLElement
+    // bubbleStyle applies background-color from the given color
+    expect(button.style.backgroundColor).toBeTruthy()
+  })
+
+  it('calls onLoadMore when hasMore is true and not loading', () => {
+    vi.useFakeTimers()
+    const onLoadMore = vi.fn()
+    render(
+      <SampleTileGrid
+        samples={[makeSample()]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={true}
+        onLoadMore={onLoadMore}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    // In jsdom with 0 viewport, the fallback renders all rows so lastVisibleRow >= rows.length - margin
+    expect(onLoadMore).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('does not call onLoadMore when loading is true', () => {
+    const onLoadMore = vi.fn()
+    render(
+      <SampleTileGrid
+        samples={[makeSample()]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={true}
+        error={null}
+        hasMore={true}
+        onLoadMore={onLoadMore}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    expect(onLoadMore).not.toHaveBeenCalled()
+  })
+
+  it('uses category color when no activeCategoryColor and sample has a category', () => {
+    const sample = makeSample({ categoryId: 2 })
+    const { container } = render(
+      <SampleTileGrid
+        samples={[sample]}
+        bpm={120}
+        pixelsPerTick={0.5}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategoryColor={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenu={vi.fn()}
+      />
+    )
+
+    const button = container.querySelector('.sample-bubble') as HTMLElement
+    // categoryColor('Drums') produces a color, applied via bubbleStyle
+    expect(button.style.backgroundColor).toBeTruthy()
+  })
+})

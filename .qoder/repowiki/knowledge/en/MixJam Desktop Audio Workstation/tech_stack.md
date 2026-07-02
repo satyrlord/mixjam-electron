@@ -1,0 +1,1 @@
+Electron 42.5.0 + React 18 + TypeScript + electron-vite for multi-process builds; better-sqlite3 for native data persistence; Vitest with jsdom for renderer tests; ESLint + typescript-eslint for linting; electron-builder for packaging.

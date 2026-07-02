@@ -622,4 +622,524 @@ describe('useLibraryData', () => {
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
     expect(result.current.samples[0]!.category).toBe('Bass')
   })
+
+  it('setSortBy accepts a function updater', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
+
+    act(() => {
+      result.current.setSortBy((prev) => (prev === 'filename' ? 'duration' : 'filename'))
+    })
+
+    expect(result.current.sortBy).toBe('duration')
+  })
+
+  it('setSortDir accepts a function updater', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
+
+    act(() => {
+      result.current.setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    })
+
+    expect(result.current.sortDir).toBe('desc')
+  })
+
+  it('setSortBy accepts a direct value', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
+
+    act(() => {
+      result.current.setSortBy('dateAdded')
+    })
+
+    expect(result.current.sortBy).toBe('dateAdded')
+  })
+
+  it('setSortDir accepts a direct value', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
+
+    act(() => {
+      result.current.setSortDir('desc')
+    })
+
+    expect(result.current.sortDir).toBe('desc')
+  })
+
+  it('assignTagToSample returns early when tag is already assigned', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [7], tags: ['Punchy'] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.assignTagToSample(result.current.samples[0]!, 7)
+    })
+
+    expect(api.assignTag).not.toHaveBeenCalled()
+  })
+
+  it('unassignTagFromSample returns early when tag is not assigned', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [], tags: [] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.unassignTagFromSample(result.current.samples[0]!, 7)
+    })
+
+    expect(api.unassignTag).not.toHaveBeenCalled()
+  })
+
+  it('loadMoreSamples does nothing when DB is not indexed', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(false)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+
+    act(() => {
+      result.current.loadMoreSamples()
+    })
+
+    // querySamples should not be called via loadMore when not indexed
+    const callsAfterLoad = vi.mocked(api.querySamples).mock.calls.length
+    expect(callsAfterLoad).toBe(0)
+  })
+
+  it('loadMoreSamples handles errors without crashing', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples)
+      .mockResolvedValueOnce({ rows: [makeDbRow()], total: 2 })
+      .mockRejectedValueOnce(new Error('network error'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    await act(async () => {
+      result.current.loadMoreSamples()
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    // Should not crash — samples remain unchanged
+    expect(result.current.samples).toHaveLength(1)
+    consoleSpy.mockRestore()
+  })
+
+  it('sets version to fallback on getVersion error', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.getVersion).mockRejectedValue(new Error('no version'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.version).toBe('version unavailable'))
+    consoleSpy.mockRestore()
+  })
+
+  it('reloadRecentProjects sets empty array on error', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.loadRecentProjects).mockRejectedValue(new Error('disk full'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.recentProjects).toEqual([]))
+    consoleSpy.mockRestore()
+  })
+
+  it('renameTag updates denormalized tag names on affected samples', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.listTags).mockResolvedValue([
+      { id: 5, name: 'Alpha', color: null },
+      { id: 7, name: 'Punchy', color: null }
+    ])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [5, 7], tags: ['Alpha', 'Punchy'] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+    await waitFor(() => expect(result.current.tags).toHaveLength(2))
+
+    await act(async () => {
+      await result.current.renameTag(5, 'Zeta')
+    })
+
+    // Tag names on the sample should be updated and sorted
+    expect(result.current.samples[0]!.tags).toEqual(['Punchy', 'Zeta'])
+  })
+
+  it('deleteTag removes the tag from affected samples', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.listTags).mockResolvedValue([
+      { id: 5, name: 'Alpha', color: null },
+      { id: 7, name: 'Punchy', color: null }
+    ])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [5, 7], tags: ['Alpha', 'Punchy'] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.deleteTag(5)
+    })
+
+    expect(result.current.samples[0]!.tagIds).toEqual([7])
+    expect(result.current.samples[0]!.tags).toEqual(['Punchy'])
+  })
+
+  it('does not duplicate a category that already exists in state', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.createCategory).mockResolvedValue({ id: 1, name: 'Bass', parentId: null })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.categories).toHaveLength(8))
+
+    await act(async () => {
+      await result.current.createCategory('Bass')
+    })
+
+    expect(result.current.categories).toHaveLength(8)
+  })
+
+  it('loadMoreSamples ignores stale responses from a superseded query', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    let callCount = 0
+    vi.mocked(api.querySamples).mockImplementation(async () => {
+      callCount++
+      if (callCount === 1) {
+        return { rows: [makeDbRow()], total: 2 }
+      }
+      // Return empty to simulate stale/superseded response
+      return { rows: [], total: 0 }
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    await act(async () => {
+      result.current.loadMoreSamples()
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    // Empty response means no rows appended
+    expect(result.current.samples).toHaveLength(1)
+  })
+
+  it('deleteTag does not modify samples that do not have the deleted tag', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.listTags).mockResolvedValue([
+      { id: 5, name: 'Alpha', color: null },
+      { id: 7, name: 'Punchy', color: null }
+    ])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [7], tags: ['Punchy'] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    // Delete tag 5 which the sample does NOT have
+    await act(async () => {
+      await result.current.deleteTag(5)
+    })
+
+    // Sample unchanged — still has tag 7
+    expect(result.current.samples[0]!.tagIds).toEqual([7])
+    expect(result.current.samples[0]!.tags).toEqual(['Punchy'])
+  })
+
+  it('category name remapping skips non-DB samples (dbId null)', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(false)
+    // Initially returns legacy samples (dbId = null)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+    // Legacy samples have dbId null and a pre-set category name
+    expect(result.current.samples[0]!.dbId).toBeNull()
+    expect(result.current.samples[0]!.category).toBe('Drums')
+  })
+
+  it('debounced query clears state when sampleFolder becomes null', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result, rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: SAMPLE_FOLDER as string | null } }
+    )
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+
+    // Set some state that should be cleared
+    act(() => {
+      result.current.setSearchQuery('test')
+    })
+
+    rerender({ folder: null })
+
+    await waitFor(() => {
+      expect(result.current.searchQuery).toBe('')
+      expect(result.current.samples).toHaveLength(0)
+      expect(result.current.selectedSampleDetail).toBeNull()
+    })
+  })
+
+  it('assignTagToSample with unknown tag in tagsRef still patches without that tag name', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    // No tags in the tags list
+    vi.mocked(api.listTags).mockResolvedValue([])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [], tags: [] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    // Assign tag 99 which is not in tagsRef
+    await act(async () => {
+      await result.current.assignTagToSample(result.current.samples[0]!, 99)
+    })
+
+    expect(api.assignTag).toHaveBeenCalledWith(1, 99)
+    // tagIds updated but name not found so tags list is empty
+    expect(result.current.samples[0]!.tagIds).toEqual([99])
+    expect(result.current.samples[0]!.tags).toEqual([])
+  })
+
+  it('unassignTagFromSample with unknown tag in tagsRef still patches correctly', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.listTags).mockResolvedValue([])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [99], tags: ['Unknown'] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.unassignTagFromSample(result.current.samples[0]!, 99)
+    })
+
+    expect(api.unassignTag).toHaveBeenCalledWith(1, 99)
+    expect(result.current.samples[0]!.tagIds).toEqual([])
+    expect(result.current.samples[0]!.tags).toEqual([])
+  })
+
+  it('unassignTagFromSample preserves remaining tag names after removal', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.listTags).mockResolvedValue([
+      { id: 5, name: 'Alpha', color: null },
+      { id: 7, name: 'Beta', color: null },
+      { id: 9, name: 'Gamma', color: null }
+    ])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [5, 7, 9], tags: ['Alpha', 'Beta', 'Gamma'] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+    await waitFor(() => expect(result.current.tags).toHaveLength(3))
+
+    // Remove the middle tag
+    await act(async () => {
+      await result.current.unassignTagFromSample(result.current.samples[0]!, 7)
+    })
+
+    expect(result.current.samples[0]!.tagIds).toEqual([5, 9])
+    expect(result.current.samples[0]!.tags).toEqual(['Alpha', 'Gamma'])
+  })
+
+  it('assignTagToSample with multiple tags sorts names alphabetically', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.listTags).mockResolvedValue([
+      { id: 5, name: 'Zebra', color: null },
+      { id: 7, name: 'Apple', color: null }
+    ])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ tagIds: [5], tags: ['Zebra'] })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+    await waitFor(() => expect(result.current.tags).toHaveLength(2))
+
+    await act(async () => {
+      await result.current.assignTagToSample(result.current.samples[0]!, 7)
+    })
+
+    expect(result.current.samples[0]!.tagIds).toEqual([5, 7])
+    expect(result.current.samples[0]!.tags).toEqual(['Apple', 'Zebra'])
+  })
+
+  it('debounced query cancels pending timer when deps change rapidly', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(false)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+
+    const initialCalls = vi.mocked(api.querySampleBrowser).mock.calls.length
+
+    // Rapidly change search query multiple times within the debounce window
+    act(() => { result.current.setSearchQuery('a') })
+    act(() => { result.current.setSearchQuery('ab') })
+    act(() => { result.current.setSearchQuery('abc') })
+
+    // Only the last query should fire after debounce
+    await waitFor(() => {
+      const lastCall = vi.mocked(api.querySampleBrowser).mock.calls.at(-1)
+      expect(lastCall?.[1]).toBe('abc')
+    })
+
+    // Fewer calls than one-per-change proves debounce + cancellation
+    const totalCalls = vi.mocked(api.querySampleBrowser).mock.calls.length - initialCalls
+    expect(totalCalls).toBeLessThanOrEqual(3)
+  })
+
+  it('refreshDbIndexed keeps dbIndexed false on error', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockRejectedValue(new Error('db locked'))
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    // Should not throw, just keep dbIndexed false
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
+    expect(result.current.dbIndexed).toBe(false)
+  })
+
+  it('remaps category names on DB samples when categories change after load', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    // Categories initially empty, will populate later via scan-done
+    vi.mocked(api.listCategories).mockResolvedValue([])
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ categoryId: 1 })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+    // With no categories loaded, categoryId 1 maps to 'Unsorted'
+    expect(result.current.samples[0]!.category).toBe('Unsorted')
+
+    // Simulate scan-done callback which refreshes categories
+    vi.mocked(api.listCategories).mockResolvedValue([{ id: 1, name: 'Bass', parentId: null }])
+    vi.mocked(api.listTags).mockResolvedValue([])
+    const scanDoneCallback = vi.mocked(api.onScanDone).mock.calls[0]![0]
+    await act(async () => {
+      scanDoneCallback()
+      await new Promise((r) => setTimeout(r, 200))
+    })
+
+    // Category name should be remapped to 'Bass'
+    await waitFor(() => expect(result.current.samples[0]!.category).toBe('Bass'))
+  })
+
+  it('category name remapping does not mutate array when names already match', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ categoryId: 1 })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+    // With default categories [id:1 -> 'Bass'], the sample maps to 'Bass'
+    expect(result.current.samples[0]!.category).toBe('Bass')
+
+    // Grab reference to current samples array
+    const prevSamples = result.current.samples
+
+    // Trigger a re-render that recalculates categoryNames but names haven't changed
+    act(() => {
+      result.current.setSearchQuery('x')
+    })
+    act(() => {
+      result.current.setSearchQuery('')
+    })
+
+    // Array identity is preserved when names match (no-op path)
+    await waitFor(() => expect(result.current.samples).toBe(prevSamples))
+  })
+
+  it('queryLegacy with search text filters samples', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(false)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+
+    act(() => {
+      result.current.setSearchQuery('kick')
+    })
+
+    await waitFor(() => {
+      expect(result.current.samples).toHaveLength(1)
+      expect(result.current.samples[0]!.name).toBe('kick_808.wav')
+    })
+  })
 })

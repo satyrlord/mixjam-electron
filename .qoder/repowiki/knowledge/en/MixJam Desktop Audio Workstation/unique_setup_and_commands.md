@@ -1,0 +1,1 @@
+`npm run dev` and `npm run build` automatically rebuild better-sqlite3 against the Electron header via `predev`/`prebuild`; running tests requires `npm run rebuild:node` first because Vitest uses the host Node.js ABI, not Electron's.

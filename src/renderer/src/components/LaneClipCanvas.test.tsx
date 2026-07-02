@@ -404,4 +404,180 @@ describe('LaneClipCanvas', () => {
     expect(mockCtx.strokeStyle).toBe('#FFFFFF')
     expect(mockCtx.lineWidth).toBe(2)
   })
+
+  it('ignores Ctrl+click on mousedown (rectangle-select handled at TrackerView level)', () => {
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set()}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    fireEvent.mouseDown(el, { button: 0, ctrlKey: true })
+
+    expect(el.dataset.dragClipId).toBeUndefined()
+  })
+
+  it('stops propagation on mousedown when the clip is already selected', () => {
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set(['clip-1'])}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    const event = new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true })
+    const stopSpy = vi.spyOn(event, 'stopPropagation')
+    el.dispatchEvent(event)
+
+    expect(stopSpy).toHaveBeenCalled()
+  })
+
+  it('does not stop propagation on mousedown when clip is not selected', () => {
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set(['clip-2'])}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    const event = new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true })
+    const stopSpy = vi.spyOn(event, 'stopPropagation')
+    el.dispatchEvent(event)
+
+    expect(stopSpy).not.toHaveBeenCalled()
+  })
+
+  it('calls onClipDragStart without custom drag image when dataTransfer lacks setDragImage', () => {
+    const onDrag = vi.fn()
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set()}
+        onClipDragStart={onDrag}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    fireEvent.mouseDown(el, { button: 0 })
+    // Fire dragstart with dataTransfer that has no setDragImage
+    fireEvent.dragStart(el, { dataTransfer: {} })
+
+    expect(onDrag).toHaveBeenCalledTimes(1)
+    expect(onDrag.mock.calls[0]![0]).toBe('clip-1')
+  })
+
+  it('clears stale drag data on fresh mousedown when no clip is hit', () => {
+    const { container } = render(
+      <LaneClipCanvas
+        clips={[]}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set()}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    // Simulate stale state
+    el.dataset.dragClipId = 'old-clip'
+    el.dataset.dragGrabX = '10'
+
+    fireEvent.mouseDown(el, { button: 0 })
+
+    // Stale data cleared because no clip hit
+    expect(el.dataset.dragClipId).toBeUndefined()
+    expect(el.dataset.dragGrabX).toBeUndefined()
+  })
+
+  it('stores grabX offset relative to the clip position on mousedown', () => {
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set()}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    const canvas = container.querySelector('canvas')!
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 0, right: 300, bottom: 40, width: 200, height: 40, x: 100, y: 0,
+      toJSON: () => ({})
+    } as DOMRect)
+
+    fireEvent.mouseDown(el, { button: 0, clientX: 110 })
+
+    // Spatial hit-test iterates from end, finds clip-2 first
+    expect(el.dataset.dragClipId).toBe('clip-2')
+    expect(el.dataset.dragGrabX).toBeDefined()
+  })
+
+  it('skips custom drag image gracefully when ghost canvas getContext returns null', () => {
+    const onDrag = vi.fn()
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set()}
+        onClipDragStart={onDrag}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    fireEvent.mouseDown(el, { button: 0 })
+
+    // Override getContext to return null for any NEW canvas (the ghost)
+    const origGetContext = HTMLCanvasElement.prototype.getContext
+    let callNum = 0
+    HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation(function (this: HTMLCanvasElement) {
+      callNum++
+      // The lane canvas getContext was already called during render.
+      // For dragStart, buildClipDragGhost creates a new canvas and calls getContext.
+      // Return null to simulate failure.
+      if (callNum > 0) return null
+      return mockCtx
+    })
+
+    const setDragImage = vi.fn()
+    fireEvent.dragStart(el, { dataTransfer: { setDragImage } })
+
+    // onClipDragStart still fires even when ghost is null
+    expect(onDrag).toHaveBeenCalledTimes(1)
+    // setDragImage is NOT called because ghost is null
+    expect(setDragImage).not.toHaveBeenCalled()
+
+    HTMLCanvasElement.prototype.getContext = origGetContext
+  })
 })
