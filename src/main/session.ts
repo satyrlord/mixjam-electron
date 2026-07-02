@@ -1,5 +1,5 @@
 import { promises as fs, constants, writeFileSync, type Dirent } from 'node:fs'
-import { basename, extname, join } from 'node:path'
+import { basename, extname, join, win32 } from 'node:path'
 import type { FolderRole, RecentProjectItem, SessionPaths } from '../shared/ipc'
 import { canonicalizePath } from './path-utils'
 
@@ -107,6 +107,13 @@ function isMixJamProjectPath(filePath: string): boolean {
   return extname(filePath).toLowerCase() === MIXJAM_PROJECT_EXTENSION
 }
 
+function displayNameForProjectPath(projectFilePath: string): string {
+  const pathModule = /^[a-zA-Z]:[\\/]/.test(projectFilePath) || projectFilePath.startsWith('\\\\')
+    ? win32
+    : { basename, extname }
+  return pathModule.basename(projectFilePath, pathModule.extname(projectFilePath))
+}
+
 export function normalizeRecentProjects(value: unknown): RecentProjectEntry[] {
   if (!Array.isArray(value)) return []
 
@@ -136,7 +143,7 @@ export function upsertRecentProject(
   now: Date = new Date()
 ): RecentProjectEntry[] {
   const path = canonicalizePath(projectFilePath)
-  const displayName = basename(path, extname(path))
+  const displayName = displayNameForProjectPath(projectFilePath)
   const nextEntries = entries.filter((entry) => canonicalizePath(entry.path) !== path)
   nextEntries.push({ path, displayName, lastOpened: now.toISOString() })
   return sortRecentProjects(nextEntries)
@@ -166,7 +173,7 @@ async function discoverMixJamProjects(rootPath: string): Promise<RecentProjectIt
       const path = canonicalizePath(childPath)
       discovered.push({
         path,
-        displayName: basename(path, extname(path)),
+        displayName: displayNameForProjectPath(childPath),
         lastOpened: null
       })
     }

@@ -14,6 +14,5 @@ export function canonicalizePath(filePath: string): string {
     return win32.resolve(filePath).toLowerCase()
   }
 
-  const canonicalPath = normalize(resolve(filePath))
-  return process.platform === 'win32' ? canonicalPath.toLowerCase() : canonicalPath
+  return normalize(resolve(filePath)).toLowerCase()
 }
