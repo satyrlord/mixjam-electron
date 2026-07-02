@@ -16,25 +16,25 @@
 - [src/renderer/src/components/LaneClipCanvas.test.tsx](file://src/renderer/src/components/LaneClipCanvas.test.tsx)
 - [src/renderer/src/components/ManagePanel.test.tsx](file://src/renderer/src/components/ManagePanel.test.tsx)
 - [src/renderer/src/components/TrackerView.test.tsx](file://src/renderer/src/components/TrackerView.test.tsx)
+- [src/renderer/src/components/TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
+- [src/renderer/src/components/LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
 - [src/renderer/src/hooks/useAppState.test.ts](file://src/renderer/src/hooks/useAppState.test.ts)
 - [src/renderer/src/hooks/useLibraryData.test.ts](file://src/renderer/src/hooks/useLibraryData.test.ts)
 - [src/renderer/src/engine/transport.test.ts](file://src/renderer/src/engine/transport.test.ts)
 - [src/renderer/src/lib/playerShell.test.ts](file://src/renderer/src/lib/playerShell.test.ts)
+- [src/renderer/src/lib/playerShell.ts](file://src/renderer/src/lib/playerShell.ts)
 - [src/renderer/src/lib/sample-utils.test.ts](file://src/renderer/src/lib/sample-utils.test.ts)
 - [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx](file://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx)
-- [src/renderer/src/components/LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
-- [src/renderer/src/components/ManagePanel.tsx](file://src/renderer/src/components/ManagePanel.tsx)
-- [src/renderer/src/components/TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
 - [src/renderer/src/hooks/useLibraryData.ts](file://src/renderer/src/hooks/useLibraryData.ts)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced TrackerView component testing with comprehensive AC-011 ruler tick alignment validation
-- Expanded useLibraryData hook tests for paginated loading functionality with 500-item page size validation
-- Added detailed snapping behavior testing for drag-and-drop operations
-- Improved test coverage for grid alignment components and timeline precision requirements
-- Enhanced library management CRUD operations testing with comprehensive state validation
+- Enhanced TrackerView component testing with comprehensive multi-clip selection functionality validation
+- Expanded playerShell group operations testing with over 400 lines of new test coverage
+- Added detailed multi-clip drag-and-drop testing with group manipulation validation
+- Enhanced selection and manipulation features testing with rectangle selection and group operations
+- Improved test coverage for ClipGroupEntry processing and batch operations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,7 +43,7 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Test Infrastructure](#enhanced-test-infrastructure)
-7. [New Component Testing Strategies](#new-component-testing-strategies)
+7. [Multi-Clip Selection and Group Operations Testing](#multi-clip-selection-and-group-operations-testing)
 8. [Advanced UI and Grid Alignment Testing](#advanced-ui-and-grid-alignment-testing)
 9. [Dependency Analysis](#dependency-analysis)
 10. [Performance Considerations](#performance-considerations)
@@ -54,7 +54,7 @@
 ## Introduction
 This document describes MixJam Electron's testing strategy and implementation. It covers Vitest configuration, test setup, mock strategies for Electron APIs, unit testing approaches for React components and main process functions, IPC handler testing, integration and acceptance testing patterns, and test coverage reporting. It also documents testing utilities, helper functions, common patterns, and best practices for Electron cross-process testing.
 
-**Updated** Enhanced testing infrastructure now includes comprehensive coverage for new grid alignment components, AC-011 ruler tick alignment validation, advanced MockAudioContext utility, and extensive paginated loading functionality testing in useLibraryData hook with 500-item page size validation.
+**Updated** Enhanced testing infrastructure now includes comprehensive coverage for multi-clip selection functionality, expanded playerShell group operations testing with over 400 lines of new test coverage, and detailed validation of new selection and manipulation features including rectangle selection, group drag-and-drop operations, and ClipGroupEntry processing.
 
 ## Project Structure
 The repository organizes tests by responsibility:
@@ -143,10 +143,10 @@ P1 --> V1
 - [src/renderer/src/components/ManagePanel.test.tsx:1-273](file://src/renderer/src/components/ManagePanel.test.tsx#L1-L273)
 - [src/renderer/src/hooks/useAppState.test.ts:1-204](file://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
 - [src/renderer/src/engine/transport.test.ts:1-152](file://src/renderer/src/engine/transport.test.ts#L1-L152)
-- [src/renderer/src/lib/playerShell.test.ts:1-166](file://src/renderer/src/lib/playerShell.test.ts#L1-L166)
+- [src/renderer/src/lib/playerShell.test.ts:1-411](file://src/renderer/src/lib/playerShell.test.ts#L1-L411)
 - [src/renderer/src/lib/sample-utils.test.ts:1-159](file://src/renderer/src/lib/sample-utils.test.ts#L1-L159)
 - [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx:1-304](file://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx#L1-L304)
-- [src/renderer/src/components/TrackerView.test.tsx:1-610](file://src/renderer/src/components/TrackerView.test.tsx#L1-L610)
+- [src/renderer/src/components/TrackerView.test.tsx:1-1089](file://src/renderer/src/components/TrackerView.test.tsx#L1-L1089)
 - [src/renderer/src/hooks/useLibraryData.test.ts:1-534](file://src/renderer/src/hooks/useLibraryData.test.ts#L1-L534)
 - [src/main/session.test.ts:1-291](file://src/main/session.test.ts#L1-L291)
 - [src/main/sample-browser.test.ts:1-67](file://src/main/sample-browser.test.ts#L1-L67)
@@ -382,6 +382,7 @@ T->>T : assert tracker view and recent projects
 - playerShell.test.ts validates:
   - Lane creation and clip placement semantics
   - Solo/mute behaviors and dimming logic
+  - **Updated** Enhanced with comprehensive group operations testing including moveClipGroup, duplicateClipGroup, and ClipGroupEntry processing
 
 ```mermaid
 flowchart TD
@@ -402,12 +403,12 @@ ResizeHome --> Cleanup["Clear interval and reset state"]
 **Diagram sources**
 - [src/renderer/src/hooks/useAppState.test.ts:19-100](file://src/renderer/src/hooks/useAppState.test.ts#L19-L100)
 - [src/renderer/src/engine/transport.test.ts:29-74](file://src/renderer/src/engine/transport.test.ts#L29-L74)
-- [src/renderer/src/lib/playerShell.test.ts:46-103](file://src/renderer/src/lib/playerShell.test.ts#L46-L103)
+- [src/renderer/src/lib/playerShell.test.ts:327-410](file://src/renderer/src/lib/playerShell.test.ts#L327-L410)
 
 **Section sources**
 - [src/renderer/src/hooks/useAppState.test.ts:1-204](file://src/renderer/src/hooks/useAppState.test.ts#L1-L204)
 - [src/renderer/src/engine/transport.test.ts:1-152](file://src/renderer/src/engine/transport.test.ts#L1-L152)
-- [src/renderer/src/lib/playerShell.test.ts:1-166](file://src/renderer/src/lib/playerShell.test.ts#L1-L166)
+- [src/renderer/src/lib/playerShell.test.ts:1-411](file://src/renderer/src/lib/playerShell.test.ts#L1-L411)
 
 ### Unit Testing Main Process Functions
 - session.test.ts validates:
@@ -511,206 +512,121 @@ The setup.ts file now provides:
 **Section sources**
 - [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
 
-## New Component Testing Strategies
+## Multi-Clip Selection and Group Operations Testing
 
-### TrackerView Testing Approach
-The TrackerView component required comprehensive testing for its advanced UI features and grid alignment requirements:
+### Enhanced TrackerView Testing with Multi-Clip Selection
+The TrackerView component now includes comprehensive testing for multi-clip selection functionality:
 
-#### AC-011 Ruler Tick Alignment Validation
-- Tests validate ruler tick marks and bar numbers rendering
-- Ensures one tick per beat alignment with canvas grid
-- Verifies bar numbering sequence (1, 5, 9, 13) for proper beat grouping
-- Confirms lane head box maintains consistent width with ruler spacer
-- Validates CSS properties for border-box sizing
+#### Rectangle Selection Implementation
+- Tests rectangle selection via Ctrl+mousedown with spatial hit-testing
+- Validates selection rectangle rendering and drag interaction
+- Ensures proper selection bounds calculation using clipScreenRect
+- Tests selection clearing when clicking outside selection area
 
-#### Advanced UI Interaction Testing
-- Tests transport controls (play, pause, stop, skip back) with proper state transitions
-- Validates BPM slider with min=50, max=200 range and default 120 value
-- Tests click-to-edit BPM functionality with Enter/Esc key handling
-- Validates 16-lane rendering with mute/solo buttons and pan knobs
-- Tests playhead visibility and positioning during playback
+#### Multi-Clip Drag-and-Drop Operations
+- Tests group drag start with ClipGroupEntry serialization
+- Validates group movement vs duplication based on Shift key state
+- Tests coordinate mapping for group operations with lane and tick offsets
+- Ensures proper selection preservation during drag operations
 
-#### Grid Alignment and Timeline Precision
-- Validates ruler tick precision for timeline alignment
-- Tests context menu interactions for clip management
-- Ensures proper coordinate mapping for clip placement and movement
-- Validates drag-and-drop functionality between lanes with snapping behavior
+#### ClipGroupEntry Processing
+- Tests group data structure with clipId, tickOffset, and laneOffset
+- Validates group serialization/deserialization for drag operations
+- Tests group manipulation with moveClipGroup and duplicateClipGroup
+- Ensures proper group validation and error handling
 
 ```mermaid
 flowchart TD
-Tracker["TrackerView Rendering"] --> Ruler["Ruler Component"]
-Ruler --> Ticks["Tick Marks"]
-Ruler --> Bars["Bar Numbers"]
-Ruler --> Alignment["Grid Alignment"]
-Tracker --> Transport["Transport Controls"]
-Transport --> BPM["BPM Slider"]
-Transport --> Playhead["Playhead Position"]
-Tracker --> Lanes["16 Lanes"]
-Lanes --> Clips["Clip Bubbles"]
-Clips --> DragDrop["Drag & Drop"]
-Clips --> ContextMenu["Right-click Menu"]
+Selection["Ctrl+Mouse Down"] --> Rect["Rectangle Selection"]
+Rect --> HitTest["Spatial Hit-Testing"]
+HitTest --> SelectedClips["Selected Clip IDs"]
+SelectedClips --> DragStart["Drag Start"]
+DragStart --> GroupCheck{"Multiple Clips?"}
+GroupCheck --> |Yes| GroupSerialize["Serialize ClipGroupEntry"]
+GroupCheck --> |No| SingleSerialize["Serialize Single Clip"]
+GroupSerialize --> DragData["application/mixjam-clip"]
+SingleSerialize --> DragData
+DragData --> Drop["Drop Operation"]
+Drop --> ShiftCheck{"Shift Key?"}
+ShiftCheck --> |Yes| Duplicate["Duplicate Group"]
+ShiftCheck --> |No| Move["Move Group"]
+Duplicate --> ClearSelection["Clear Selection"]
+Move --> ClearSelection
 ```
 
 **Diagram sources**
-- [src/renderer/src/components/TrackerView.test.tsx:417-447](file://src/renderer/src/components/TrackerView.test.tsx#L417-L447)
-- [src/renderer/src/components/TrackerView.test.tsx:448-503](file://src/renderer/src/components/TrackerView.test.tsx#L448-L503)
-- [src/renderer/src/components/TrackerView.test.tsx:312-334](file://src/renderer/src/components/TrackerView.test.tsx#L312-L334)
+- [src/renderer/src/components/TrackerView.tsx:203-262](file://src/renderer/src/components/TrackerView.tsx#L203-L262)
+- [src/renderer/src/components/TrackerView.tsx:341-423](file://src/renderer/src/components/TrackerView.tsx#L341-L423)
+- [src/renderer/src/components/TrackerView.test.tsx:780-820](file://src/renderer/src/components/TrackerView.test.tsx#L780-L820)
+- [src/renderer/src/components/TrackerView.test.tsx:974-1017](file://src/renderer/src/components/TrackerView.test.tsx#L974-L1017)
 
 **Section sources**
-- [src/renderer/src/components/TrackerView.test.tsx:1-610](file://src/renderer/src/components/TrackerView.test.tsx#L1-L610)
-- [src/renderer/src/components/TrackerView.tsx:1-200](file://src/renderer/src/components/TrackerView.tsx#L1-L200)
+- [src/renderer/src/components/TrackerView.test.tsx:1-1089](file://src/renderer/src/components/TrackerView.test.tsx#L1-L1089)
+- [src/renderer/src/components/TrackerView.tsx:1-922](file://src/renderer/src/components/TrackerView.tsx#L1-L922)
 
-### Enhanced Library Data Hook Testing
-The useLibraryData hook now includes comprehensive testing for new paginated loading functionality:
+### Enhanced playerShell Group Operations Testing
+The playerShell library now includes comprehensive testing for group operations:
 
-#### Paginated Loading Implementation
-- Tests loading every DB sample window when no category is selected
-- Validates chunked loading with 500-item limits and proper offset handling
-- Ensures sequential loading of database pages for large datasets
-- Tests total count tracking across multiple pages
+#### moveClipGroup Testing
+- Tests batch movement of multiple clips in a single operation
+- Validates proper source removal and target addition
+- Tests lane boundary clamping and start tick validation
+- Ensures clip sorting preservation after group operations
 
-#### Advanced Library Management
-- Tests tag creation, renaming, and deletion with state synchronization
-- Validates category management with parent-child relationships
-- Tests library saving with encoded filter rules in ruleJson format
-- Validates library deletion and state cleanup
+#### duplicateClipGroup Testing
+- Tests batch duplication with unique clip id generation
+- Validates proper handling of identical source clips
+- Tests duplicate id collision prevention mechanisms
+- Ensures individual entry failure doesn't affect remaining group
 
-#### Error Handling and Edge Cases
-- Tests error states for both legacy and database query failures
-- Validates state clearing when sample folder is null
-- Tests alphabetical sorting for tags and categories
-- Validates scan progress tracking and completion callbacks
+#### ClipGroupEntry Interface Testing
+- Tests ClipGroupEntry structure with clipId, toLaneIndex, newStartTick
+- Validates group entry resolution and filtering
+- Tests group operation performance optimization
+- Ensures proper error handling for unknown clip ids
 
 ```mermaid
 flowchart TD
-LibraryHook["useLibraryData Hook"] --> Init["Initial Load"]
-Init --> Legacy["Legacy Query"]
-Init --> Database["Database Query"]
-Legacy --> Samples["Sample List"]
-Database --> Paginated["Paginated Loading"]
-Paginated --> Chunk1["Chunk 1 (0-499)"]
-Paginated --> Chunk2["Chunk 2 (500-1000)"]
-Chunk1 --> Merge["Merge Results"]
-Chunk2 --> Merge
-Merge --> State["Update State"]
-LibraryHook --> CRUD["CRUD Operations"]
-CRUD --> Tags["Tag Management"]
-CRUD --> Categories["Category Management"]
-CRUD --> Libraries["Library Management"]
+GroupOp["Group Operation"] --> Resolve["Resolve Clip Entries"]
+Resolve --> Filter["Filter Valid Entries"]
+Filter --> RemoveSrc["Remove From Source Lanes"]
+RemoveSrc --> Sort["Sort Clips by Start Tick"]
+Sort --> AddTarget["Add to Target Lanes"]
+AddTarget --> Return["Return Modified Lanes"]
+GroupOp --> Error["Handle Invalid Entries"]
+Error --> Skip["Skip Invalid Entry"]
+Skip --> Continue["Continue with Valid Entries"]
+Continue --> Return
 ```
 
 **Diagram sources**
-- [src/renderer/src/hooks/useLibraryData.test.ts:70-101](file://src/renderer/src/hooks/useLibraryData.test.ts#L70-L101)
-- [src/renderer/src/hooks/useLibraryData.test.ts:150-220](file://src/renderer/src/hooks/useLibraryData.test.ts#L150-L220)
-- [src/renderer/src/hooks/useLibraryData.test.ts:256-285](file://src/renderer/src/hooks/useLibraryData.test.ts#L256-L285)
+- [src/renderer/src/lib/playerShell.ts:233-258](file://src/renderer/src/lib/playerShell.ts#L233-L258)
+- [src/renderer/src/lib/playerShell.ts:261-279](file://src/renderer/src/lib/playerShell.ts#L261-L279)
+- [src/renderer/src/lib/playerShell.test.ts:327-410](file://src/renderer/src/lib/playerShell.test.ts#L327-L410)
 
 **Section sources**
-- [src/renderer/src/hooks/useLibraryData.test.ts:1-534](file://src/renderer/src/hooks/useLibraryData.test.ts#L1-L534)
-- [src/renderer/src/hooks/useLibraryData.ts:1-200](file://src/renderer/src/hooks/useLibraryData.ts#L1-L200)
+- [src/renderer/src/lib/playerShell.test.ts:1-411](file://src/renderer/src/lib/playerShell.test.ts#L1-L411)
+- [src/renderer/src/lib/playerShell.ts:1-297](file://src/renderer/src/lib/playerShell.ts#L1-L297)
 
-### LaneClipCanvas Testing Approach
-The LaneClipCanvas component required specialized testing strategies due to its canvas-based rendering:
+### Enhanced LaneClipCanvas Testing with Selection Support
+The LaneClipCanvas component now includes comprehensive testing for selection visualization:
 
-#### Canvas Mocking Strategy
-- Uses makeMockCtx() to create comprehensive canvas context mocks
-- Spies on HTMLCanvasElement.prototype.getContext for reliable mocking
-- Mocks devicePixelRatio for consistent rendering calculations
-- Tests drawing operations through context method calls (fill, stroke, fillText)
+#### Selection Highlight Rendering
+- Tests selection highlight border drawing with white stroke and 2px width
+- Validates selection border positioning and sizing
+- Tests selection rendering order relative to clip drawing
+- Ensures selection highlighting only for selected clip ids
 
-#### Spatial Hit-Testing Validation
-- Tests both jsdom fallback and spatial hit-testing modes
-- Validates clientX coordinate mapping to clip positions
-- Ensures proper clip selection order (last-added first priority)
-- Handles edge cases for out-of-bounds clicks
-
-#### Interactive Behavior Testing
-- Mouse event simulation for drag-and-drop functionality
-- Context menu handling with proper clip identification
-- Data attribute validation for accessibility and testing
-- Flash overlay rendering for visual feedback
-
-```mermaid
-flowchart TD
-Canvas["Canvas Rendering"] --> MockCtx["Mock Canvas Context"]
-MockCtx --> DrawOps["Drawing Operations"]
-DrawOps --> Fill["fill() calls"]
-DrawOps --> Stroke["stroke() calls"]
-DrawOps --> Text["fillText() calls"]
-Canvas --> Events["Mouse Events"]
-Events --> Drag["Drag Handling"]
-Events --> Context["Context Menu"]
-Events --> Click["Click Detection"]
-Canvas --> HitTest["Spatial Hit-Testing"]
-HitTest --> Fallback["JSDOM Fallback"]
-HitTest --> Spatial["Spatial Detection"]
-```
-
-**Diagram sources**
-- [src/renderer/src/components/LaneClipCanvas.test.tsx:26-49](file://src/renderer/src/components/LaneClipCanvas.test.tsx#L26-L49)
-- [src/renderer/src/components/LaneClipCanvas.tsx:154-174](file://src/renderer/src/components/LaneClipCanvas.tsx#L154-L174)
+#### Spatial Hit-Testing with Selection
+- Tests spatial hit-testing with selection awareness
+- Validates selection preservation during context menu operations
+- Tests selection clearing when clicking on unselected clips
+- Ensures proper selection bubbling prevention for group operations
 
 **Section sources**
-- [src/renderer/src/components/LaneClipCanvas.test.tsx:1-319](file://src/renderer/src/components/LaneClipCanvas.test.tsx#L1-L319)
-- [src/renderer/src/components/LaneClipCanvas.tsx:1-228](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L228)
-
-### ManagePanel Testing Strategy
-The ManagePanel component required comprehensive testing for its three-tab interface:
-
-#### Tab-Based Interaction Testing
-- Tests all three tabs: tags, libraries, and categories
-- Validates tab switching behavior and content rendering
-- Ensures proper state management for each tab's form inputs
-
-#### Form Validation and Submission
-- Tests tag creation with Enter key and button submission
-- Validates rename operations with keyboard shortcuts (Enter/Escape)
-- Tests category creation with parent-child relationships
-- Validates library management operations
-
-#### State Management Validation
-- Tests form input state synchronization
-- Validates disabled/enabled states for submit buttons
-- Ensures proper form clearing after successful operations
-- Tests error prevention for empty submissions
-
-```mermaid
-stateDiagram-v2
-[*] --> TagsTab
-TagsTab --> LibrariesTab : User selects Libraries
-LibrariesTab --> CategoriesTab : User selects Categories
-CategoriesTab --> TagsTab : User selects Tags
-TagsTab --> RenameMode : User clicks Rename
-RenameMode --> TagsTab : User presses Enter or Escape
-LibrariesTab --> SaveLibrary : User submits form
-SaveLibrary --> LibrariesTab : Form cleared
-CategoriesTab --> CreateCategory : User submits form
-CreateCategory --> CategoriesTab : Form cleared
-```
-
-**Diagram sources**
-- [src/renderer/src/components/ManagePanel.test.tsx:38-272](file://src/renderer/src/components/ManagePanel.test.tsx#L38-L272)
-
-**Section sources**
-- [src/renderer/src/components/ManagePanel.test.tsx:1-273](file://src/renderer/src/components/ManagePanel.test.tsx#L1-L273)
-- [src/renderer/src/components/ManagePanel.tsx:1-242](file://src/renderer/src/components/ManagePanel.tsx#L1-L242)
-
-### Enhanced Utility Function Testing
-The sample-utils library received comprehensive test coverage:
-
-#### Color Mapping and Formatting
-- Tests category color mapping for known categories
-- Validates case-insensitive category name handling
-- Ensures deterministic color generation for unknown categories
-- Tests duration formatting for various time ranges
-
-#### Layout and Calculation Functions
-- Validates tile width calculations with duration constraints
-- Tests nearest tick calculation with boundary conditions
-- Validates meter fill percentage calculations
-- Ensures proper clamping and edge case handling
-
-**Section sources**
-- [src/renderer/src/lib/sample-utils.test.ts:1-159](file://src/renderer/src/lib/sample-utils.test.ts#L1-L159)
+- [src/renderer/src/components/LaneClipCanvas.test.tsx:297-350](file://src/renderer/src/components/LaneClipCanvas.test.tsx#L297-L350)
+- [src/renderer/src/components/LaneClipCanvas.tsx:67-68](file://src/renderer/src/components/LaneClipCanvas.tsx#L67-L68)
+- [src/renderer/src/components/LaneClipCanvas.tsx:176-178](file://src/renderer/src/components/LaneClipCanvas.tsx#L176-L178)
 
 ## Advanced UI and Grid Alignment Testing
 
@@ -816,6 +732,8 @@ Pkg["package.json"] --> V
 - Canvas component tests benefit from comprehensive context mocking to avoid expensive rendering operations
 - MockAudioContext provides lightweight alternatives to real Web Audio API for faster test execution
 - Paginated loading tests optimize memory usage by testing chunked data loading patterns with 500-item page size validation
+- **Updated** Multi-clip selection tests optimize performance by using efficient spatial hit-testing and selection rectangle calculations
+- **Updated** Group operations tests leverage batch processing to minimize array mutations and improve performance for large selections
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -841,6 +759,14 @@ Common issues and resolutions:
   - Ensure proper offset/limit handling and chunked loading validation with 500-item page size
 - Snapping behavior issues:
   - Verify nearestTick calculations and coordinate mapping for accurate timeline alignment
+- **Updated** Multi-clip selection failures:
+  - Verify spatial hit-testing accuracy and selection rectangle calculations
+  - Ensure proper ClipGroupEntry serialization/deserialization for drag operations
+  - Test selection preservation during drag operations and group validation
+- **Updated** Group operation test failures:
+  - Verify batch processing performance and proper error handling
+  - Test unique id generation for duplicated clips and collision prevention
+  - Ensure proper lane boundary clamping and start tick validation
 
 **Section sources**
 - [src/renderer/src/test/setup.ts:36-39](file://src/renderer/src/test/setup.ts#L36-L39)
@@ -856,10 +782,12 @@ MixJam Electron employs a layered testing strategy with enhanced capabilities:
 - Advanced paginated loading functionality receives thorough testing for performance optimization with 500-item page size validation
 - AC-011 ruler tick alignment validation ensures precise timeline grid consistency
 - Enhanced snapping behavior testing validates accurate timeline precision for drag-and-drop operations
+- **Updated** Multi-clip selection functionality receives comprehensive testing with rectangle selection, group drag-and-drop operations, and ClipGroupEntry processing
+- **Updated** playerShell group operations testing includes over 400 lines of new test coverage for batch clip manipulation
 - Acceptance specs ensure cross-process flows meet product specifications
 - Coverage is configured to report on renderer logic, keeping reports actionable and focused
 
-**Updated** The testing strategy now includes comprehensive coverage for new components (TrackerView, useLibraryData), enhanced infrastructure supporting advanced testing scenarios with 500-item page size validation, sophisticated grid alignment validation for timeline precision requirements, and comprehensive snapping behavior testing for accurate timeline positioning.
+**Updated** The testing strategy now includes comprehensive coverage for multi-clip selection functionality with rectangle selection, spatial hit-testing, and group drag-and-drop operations. Enhanced playerShell group operations testing provides over 400 lines of new test coverage for batch clip manipulation, including moveClipGroup, duplicateClipGroup, and ClipGroupEntry processing. These enhancements significantly improve the reliability and functionality of selection and manipulation features in the tracker view.
 
 ## Appendices
 

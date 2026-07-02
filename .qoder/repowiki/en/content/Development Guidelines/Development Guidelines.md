@@ -11,12 +11,22 @@
 - [vitest.config.ts](file://vitest.config.ts)
 - [.fallowrc.json](file://.fallowrc.json)
 - [docs/architecture.md](file://docs/architecture.md)
-- [docs/decisions.md](file://docs/decisions.md)
+- [docs/README.md](file://docs/README.md)
+- [AGENTS.md](file://AGENTS.md)
+- [CLAUDE.md](file://CLAUDE.md)
 - [src/main/index.ts](file://src/main/index.ts)
 - [src/preload/index.ts](file://src/preload/index.ts)
 - [src/renderer/src/App.tsx](file://src/renderer/src/App.tsx)
 - [src/shared/ipc.ts](file://src/shared/ipc.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated documentation strategy section to reflect the removal of traditional ADR format in favor of dynamic documentation approaches
+- Added new section on external decision tracking systems integration
+- Updated development workflow to include GitHub Skills integration
+- Revised contribution guidelines to reference new documentation formats
+- Enhanced technical debt management section with external decision tracking guidance
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,14 +41,15 @@
 10. [Code Style Standards](#code-style-standards)
 11. [Development Workflow and Branching](#development-workflow-and-branching)
 12. [Contribution Guidelines](#contribution-guidelines)
-13. [Code Review Criteria](#code-review-criteria)
-14. [Debugging and Troubleshooting](#debugging-and-troubleshooting)
-15. [Technical Debt Management](#technical-debt-management)
-16. [Extensibility and Maintenance](#extensibility-and-maintenance)
-17. [Conclusion](#conclusion)
+13. [Documentation Strategy and External Tracking](#documentation-strategy-and-external-tracking)
+14. [Code Review Criteria](#code-review-criteria)
+15. [Debugging and Troubleshooting](#debugging-and-troubleshooting)
+16. [Technical Debt Management](#technical-debt-management)
+17. [Extensibility and Maintenance](#extensibility-and-maintenance)
+18. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive development guidelines for contributors and maintainers working on the MixJam Electron project. It consolidates code style standards, TypeScript configuration, ESLint rules, architectural decisions, design patterns, development workflow, performance and security practices, testing requirements, and maintenance strategies. The goal is to ensure consistent, reliable, and scalable contributions while preserving the project’s Electron + React architecture and performance characteristics.
+This document provides comprehensive development guidelines for contributors and maintainers working on the MixJam Electron project. It consolidates code style standards, TypeScript configuration, ESLint rules, architectural decisions, design patterns, development workflow, performance and security practices, testing requirements, and maintenance strategies. The project has evolved to use dynamic documentation approaches and integrates with external decision tracking systems through GitHub Skills, replacing traditional Architectural Decision Record (ADR) formats.
 
 ## Project Structure
 The project follows a layered Electron architecture with separated concerns for main, preload, and renderer processes, plus shared interfaces and configuration files. Key directories and roles:
@@ -46,7 +57,8 @@ The project follows a layered Electron architecture with separated concerns for 
 - src/preload: Preload script exposing a typed API surface via contextBridge
 - src/renderer: React application, components, hooks, theme system, and test harness
 - src/shared: Shared IPC channel constants and TypeScript interfaces
-- docs: Architectural and decision logs
+- docs: Dynamic documentation including architecture, data models, and feature specifications
+- .github/skills: GitHub Skills integration for automated documentation and decision tracking
 - Configuration roots: package.json, tsconfig.json, eslint.config.mjs, electron.vite.config.ts, vitest.config.ts, .fallowrc.json
 
 ```mermaid
@@ -59,10 +71,17 @@ end
 subgraph "Renderer (React)"
 APP["src/renderer/src/App.tsx"]
 end
+subgraph "Documentation System"
+DOCS["docs/ directory"]
+GITHUB["GitHub Skills"]
+SPEC["Feature Specifications"]
+end
 MAIN --> SHARED
 PRELOAD --> SHARED
 APP --> PRELOAD
 SHARED -. "Typed IPC" .- APP
+DOCS -. "Dynamic Docs" .- SPEC
+GITHUB -. "External Tracking" .- DOCS
 ```
 
 **Diagram sources**
@@ -70,35 +89,42 @@ SHARED -. "Typed IPC" .- APP
 - [src/preload/index.ts:1-29](file://src/preload/index.ts#L1-L29)
 - [src/renderer/src/App.tsx:1-108](file://src/renderer/src/App.tsx#L1-L108)
 - [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
+- [docs/README.md:14-23](file://docs/README.md#L14-L23)
 
 **Section sources**
 - [package.json:1-50](file://package.json#L1-L50)
 - [tsconfig.json:1-8](file://tsconfig.json#L1-L8)
 - [electron.vite.config.ts:1-15](file://electron.vite.config.ts#L1-L15)
-- [docs/architecture.md:1-76](file://docs/architecture.md#L1-L76)
+- [docs/README.md:75-88](file://docs/README.md#L75-L88)
 
 ## Core Components
 - Main process: Initializes the BrowserWindow, sets up IPC channels, handles dialogs, session persistence, and safe external URL opening
 - Preload: Exposes a strongly-typed ElectronAPI via contextBridge to the renderer
 - Renderer: React application orchestrating views, state hooks, and theme selection
 - Shared IPC: Centralized channel names and TypeScript contracts for IPC communication
+- Dynamic Documentation System: Features specifications, architecture docs, and integration with external decision tracking
+- GitHub Skills Integration: Automated documentation generation and decision tracking through AI agents
 
 Key responsibilities and boundaries:
 - Main process owns database access and file system operations; renderer requests data over IPC
 - Renderer remains sandboxed with contextIsolation enabled and a narrow API surface
 - IPC channels are typed and centralized to prevent drift and improve maintainability
+- Documentation is maintained as living specifications integrated with feature development
+- External decision tracking through GitHub Skills provides automated documentation and review capabilities
 
 **Section sources**
 - [src/main/index.ts:1-170](file://src/main/index.ts#L1-L170)
 - [src/preload/index.ts:1-29](file://src/preload/index.ts#L1-L29)
 - [src/renderer/src/App.tsx:1-108](file://src/renderer/src/App.tsx#L1-L108)
 - [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
+- [AGENTS.md:11-18](file://AGENTS.md#L11-L18)
 
 ## Architecture Overview
-The system adheres to a strict process model:
+The system adheres to a strict process model with enhanced documentation integration:
 - Main (Node): database, IPC handlers, dialogs, and background tasks
 - Preload: typed bridge to renderer
 - Renderer (React): UI, virtualized lists, tracker/player, and theme system
+- Documentation: dynamic specifications and integration with external tracking systems
 
 ```mermaid
 graph TB
@@ -114,11 +140,18 @@ R_APP["src/renderer/src/App.tsx"]
 VLIST["Virtualized Lists"]
 AUDIO["Web Audio API"]
 end
+subgraph "Documentation System"
+SPEC["Feature Specs (.github/skills)"]
+TRACK["External Tracking"]
+ARCH["Architecture Docs"]
+end
 M_IDX --> SQLITE
 M_IDX -. "IPC" .- P_BRIDGE
 P_BRIDGE -. "window.electronAPI" .- R_APP
 R_APP --> VLIST
 R_APP --> AUDIO
+SPEC -. "Dynamic Docs" .- ARCH
+TRACK -. "External System" .- SPEC
 ```
 
 **Diagram sources**
@@ -126,6 +159,7 @@ R_APP --> AUDIO
 - [src/main/index.ts:1-170](file://src/main/index.ts#L1-L170)
 - [src/preload/index.ts:1-29](file://src/preload/index.ts#L1-L29)
 - [src/renderer/src/App.tsx:1-108](file://src/renderer/src/App.tsx#L1-L108)
+- [AGENTS.md:11-18](file://AGENTS.md#L11-L18)
 
 **Section sources**
 - [docs/architecture.md:1-76](file://docs/architecture.md#L1-L76)
@@ -230,7 +264,7 @@ IPCResp --> Render["Render Virtualized Rows"]
 - [src/renderer/src/App.tsx:1-108](file://src/renderer/src/App.tsx#L1-L108)
 
 ## Dependency Analysis
-The project uses a monorepo-like TypeScript setup with composite configs for main/preload and renderer, and Vite/Electron-Vite for builds. ESLint enforces environment-specific rules, Vitest configures unit tests and coverage, and Fallow detects dead code and unused exports.
+The project uses a monorepo-like TypeScript setup with composite configs for main/preload and renderer, and Vite/Electron-Vite for builds. ESLint enforces environment-specific rules, Vitest configures unit tests and coverage, and Fallow detects dead code and unused exports. GitHub Skills integration provides automated documentation and decision tracking capabilities.
 
 ```mermaid
 graph LR
@@ -240,6 +274,8 @@ EVITE --> WEB["tsconfig.web.json"]
 ESL["eslint.config.mjs"] --> SRC["Source Files"]
 VIT["vitest.config.ts"] --> TESTS["Unit Tests"]
 FALL["fallow config"] --> SRC
+GITHUB[".github/skills"] --> DOCS["Dynamic Docs"]
+SPEC["Feature Specifications"] --> GITHUB
 ```
 
 **Diagram sources**
@@ -250,6 +286,7 @@ FALL["fallow config"] --> SRC
 - [eslint.config.mjs:1-26](file://eslint.config.mjs#L1-L26)
 - [vitest.config.ts:1-29](file://vitest.config.ts#L1-L29)
 - [.fallowrc.json:1-38](file://.fallowrc.json#L1-L38)
+- [AGENTS.md:11-18](file://AGENTS.md#L11-L18)
 
 **Section sources**
 - [package.json:1-50](file://package.json#L1-L50)
@@ -267,11 +304,13 @@ FALL["fallow config"] --> SRC
 - Main-process-only DB: Synchronous database operations occur in the main process; renderer should minimize round trips
 - Strict TypeScript: Enables early detection of performance pitfalls via type checks
 - Build pipeline: Composite TypeScript configs and externalized deps reduce bundle overhead
+- Dynamic documentation: Living specifications ensure performance requirements remain visible and accessible
 
 Practical tips:
 - Prefer keyset pagination for stable, low-jitter scrolling
 - Cache frequently accessed data in the main process (e.g., sample browser cache)
 - Minimize IPC chatter by batching updates and debouncing user input
+- Use GitHub Skills for automated performance impact analysis
 
 **Section sources**
 - [docs/architecture.md:23-27](file://docs/architecture.md#L23-L27)
@@ -283,11 +322,13 @@ Practical tips:
 - External URL policy: Only HTTPS URLs with an allowlist of hosts are permitted
 - Controlled dialogs: File and folder dialogs are invoked from main to prevent renderer injection
 - IPC typing: Strongly typed channels and payloads reduce injection risks
+- Documentation security: All architectural decisions and security policies are documented in accessible specifications
 
 Operational guidance:
 - Never expose Node APIs directly to the renderer
 - Validate and sanitize all IPC payloads
 - Limit external network access to whitelisted domains
+- Use GitHub Skills to automatically flag security-related documentation gaps
 
 **Section sources**
 - [docs/architecture.md:55-60](file://docs/architecture.md#L55-L60)
@@ -299,11 +340,13 @@ Operational guidance:
 - Coverage: Enabled via v8 provider with reporters and exclusions tailored to renderer code
 - Test scope: Renderer tests and main process tests included; main tests excluded from renderer coverage
 - Playwright: Available for end-to-end scenarios (installed as dev dependency)
+- GitHub Skills integration: Automated testing guidance and coverage analysis
 
 Recommended practices:
 - Write renderer tests for components and hooks
 - Write main process tests for IPC handlers and session logic
 - Maintain coverage targets and update excludes as code evolves
+- Use GitHub Skills for automated test suggestion and coverage optimization
 
 **Section sources**
 - [vitest.config.ts:1-29](file://vitest.config.ts#L1-L29)
@@ -313,7 +356,7 @@ Recommended practices:
 - ESLint configuration:
   - Recommended base rulesets for JavaScript and TypeScript
   - Environment-specific globals: Node for main/preload, browser for renderer
-  - React Hooks plugin enabled for renderer with “rules-of-hooks” enforced and dependency warnings
+  - React Hooks plugin enabled for renderer with "rules-of-hooks" enforced and dependency warnings
   - Ignores build artifacts and config files
 - TypeScript strictness:
   - Strict mode enabled across both configs
@@ -322,11 +365,13 @@ Recommended practices:
 - Formatting and linting:
   - Lint command configured in package.json
   - Markdown linting present in repo (linters referenced)
+- GitHub Skills integration: Automated style enforcement and documentation consistency checking
 
 Style enforcement:
 - Enforce environment-appropriate globals and hooks rules
 - Keep IPC contracts and channel names centralized
 - Maintain small, focused modules with explicit interfaces
+- Use dynamic documentation to enforce architectural consistency
 
 **Section sources**
 - [eslint.config.mjs:1-26](file://eslint.config.mjs#L1-L26)
@@ -348,56 +393,112 @@ Style enforcement:
   - Generate coverage reports when needed
 - Dead code detection:
   - Fallow scans entry points and flags unused exports, files, types, dependencies, and unlisted dependencies
+- GitHub Skills integration:
+  - Automated documentation generation for new features
+  - Decision tracking and external system integration
+  - AI-assisted code review and architectural guidance
 
 Branching and release:
 - Adopt semantic versioning reflected in package.json
 - Use feature branches for changes; rebase or merge with main after review
 - Tag releases and update version in package.json accordingly
+- Use GitHub Skills for automated release documentation updates
 
 **Section sources**
 - [package.json:6-16](file://package.json#L6-L16)
 - [.fallowrc.json:1-38](file://.fallowrc.json#L1-L38)
+- [AGENTS.md:20-29](file://AGENTS.md#L20-L29)
 
 ## Contribution Guidelines
 - Follow code style and linting standards
 - Add or update unit tests alongside feature changes
 - Keep PRs focused and small; reference related docs/specs
-- Update architecture and decisions logs when introducing new trade-offs
+- Update dynamic documentation when introducing new trade-offs
 - Respect the process model: main for data, renderer for UI, preload for typed bridge
+- Use GitHub Skills for automated documentation assistance
+- Integrate with external decision tracking systems for complex architectural changes
 
 Review readiness checklist:
 - Passes lint, typecheck, and tests
 - No Fallow dead code violations
 - IPC contracts remain intact
 - Security posture preserved
+- Documentation reflects current implementation
+- GitHub Skills integration verified
 
 **Section sources**
 - [docs/architecture.md:1-76](file://docs/architecture.md#L1-L76)
-- [docs/decisions.md:1-83](file://docs/decisions.md#L1-L83)
+- [AGENTS.md:35-64](file://AGENTS.md#L35-L64)
 - [.fallowrc.json:29-36](file://.fallowrc.json#L29-L36)
+
+## Documentation Strategy and External Tracking
+
+**Updated** The project has moved away from traditional Architectural Decision Records (ADRs) in favor of dynamic documentation approaches integrated with external decision tracking systems.
+
+### Dynamic Documentation Approach
+The project maintains documentation as living specifications that evolve with the codebase:
+- Feature specifications are created as numbered documents under `docs/specs/`
+- Each specification has a matching test file under `src/`
+- Specifications 001-005 are fully implemented, with ongoing updates for newer specs
+- Documentation is integrated with the development workflow through GitHub Skills
+
+### External Decision Tracking Systems
+The project integrates with external decision tracking through GitHub Skills:
+- **Durable Decision Workflow**: Decisions are captured as numbered specs under `specs/NNN-name/`
+- **Decision-Record Threshold**: Only record decisions that are hard to reverse, surprising without context, and represent real trade-offs
+- **Where Decisions Live**: Architectural decisions are captured as specifications rather than standalone ADRs
+- **Automated Tracking**: GitHub Skills provides automated documentation generation and decision tracking
+
+### GitHub Skills Integration
+- **Add Feature Skill**: Creates or updates repository specs, acceptance criteria, and documentation for new work
+- **Improve Codebase Architecture Skill**: Generates architectural improvement reports with before/after visualizations
+- **Decision Surface Analysis**: Surfaces consequential structural decisions embedded in changes
+- **Impact Tracking**: Provides local, opt-in Fallow Impact value reporting for decision tracking
+
+### Documentation Formats
+- **Living Specifications**: Numbered feature specs under `docs/specs/` with matching test files
+- **Architecture Documents**: Core architectural decisions and constraints
+- **Data Models**: Database schema and query formats
+- **Audio Engine Documentation**: Specialized audio processing documentation
+- **Indexing Documentation**: Background scanning and metadata extraction processes
+
+**Section sources**
+- [AGENTS.md:11-18](file://AGENTS.md#L11-L18)
+- [.github/skills/add-feature/SKILL.md:11-43](file://.github/skills/add-feature/SKILL.md#L11-L43)
+- [.github/skills/improve-codebase-architecture/SKILL.md:62-110](file://.github/skills/improve-codebase-architecture/SKILL.md#L62-L110)
+- [docs/README.md:93-97](file://docs/README.md#L93-L97)
 
 ## Code Review Criteria
 - Architecture adherence:
   - Correct placement of logic in main vs renderer vs preload
   - IPC channels used consistently and typed properly
+  - Dynamic documentation updated with architectural changes
 - Reliability:
   - Proper error handling and logging
   - Defensive checks for IPC payloads and external URLs
 - Performance:
   - Avoid full dataset loads; use windowed queries
   - Prefer virtualized rendering for large lists
+  - Consider performance implications for documentation updates
 - Security:
   - No Node API exposure to renderer
   - External URL allowlist enforced
+  - Security considerations documented in specifications
 - Quality:
   - Strong TypeScript usage
   - Minimal coupling, clear interfaces
   - No dead code or unused exports flagged by Fallow
+  - Documentation reflects current implementation state
+- External Tracking:
+  - GitHub Skills integration verified
+  - Decision tracking systems updated appropriately
+  - Automated documentation consistency checked
 
 **Section sources**
 - [docs/architecture.md:48-61](file://docs/architecture.md#L48-L61)
 - [src/main/index.ts:155-169](file://src/main/index.ts#L155-L169)
 - [.fallowrc.json:29-36](file://.fallowrc.json#L29-L36)
+- [AGENTS.md:50-64](file://AGENTS.md#L50-L64)
 
 ## Debugging and Troubleshooting
 Common areas and techniques:
@@ -413,6 +514,12 @@ Common areas and techniques:
 - Dead code and dependencies:
   - Run Fallow to detect unused exports/files/types
   - Fix unlisted or unused dependencies flagged by Fallow
+- Documentation issues:
+  - Verify dynamic specifications match implementation
+  - Check GitHub Skills integration for automated debugging support
+- External tracking problems:
+  - Validate decision tracking system integration
+  - Ensure external documentation systems are synchronized
 
 **Section sources**
 - [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
@@ -421,19 +528,24 @@ Common areas and techniques:
 - [.fallowrc.json:1-38](file://.fallowrc.json#L1-L38)
 
 ## Technical Debt Management
-- Track decisions and revisit triggers in the decisions log
+- Track decisions dynamically through GitHub Skills integration
 - Use Fallow to surface unused code and dependencies proactively
 - Maintain strict IPC contracts to avoid accidental coupling
 - Keep renderer sandboxed to reduce future migration costs
 - Document performance constraints and virtualization requirements
+- Leverage external decision tracking systems for complex architectural debt
+- Use dynamic documentation to make technical debt visible and actionable
 
-Refactoring strategies:
+### Refactoring Strategies with External Tracking
 - Extract shared logic into typed modules with clear interfaces
 - Replace ad-hoc IPC payloads with well-defined DTOs
 - Gradually adopt stricter lint rules and coverage thresholds
+- Use GitHub Skills for automated refactoring suggestions
+- Integrate external decision tracking for architectural refactoring decisions
+- Maintain living specifications that document refactoring rationale
 
 **Section sources**
-- [docs/decisions.md:1-83](file://docs/decisions.md#L1-L83)
+- [AGENTS.md:50-64](file://AGENTS.md#L50-L64)
 - [.fallowrc.json:1-38](file://.fallowrc.json#L1-L38)
 - [docs/architecture.md:69-76](file://docs/architecture.md#L69-L76)
 
@@ -441,6 +553,7 @@ Refactoring strategies:
 - Extend IPC safely:
   - Add channel names to the central IPC registry
   - Define typed handler signatures in main and preload
+  - Update dynamic documentation with new IPC endpoints
 - Maintain UI portability:
   - Avoid Electron-specific UI assumptions; keep styles CSS/Tailwind-based
 - Plan for future shells:
@@ -449,11 +562,13 @@ Refactoring strategies:
   - Keep TypeScript strict and lint rules consistent
   - Regularly audit dependencies and remove unused ones
   - Preserve architectural non-goals to manage scope creep
+  - Use GitHub Skills for automated maintenance assistance
+  - Integrate external decision tracking for future architectural changes
 
 **Section sources**
 - [src/shared/ipc.ts:1-59](file://src/shared/ipc.ts#L1-L59)
 - [docs/architecture.md:69-76](file://docs/architecture.md#L69-L76)
-- [docs/decisions.md:27-35](file://docs/decisions.md#L27-L35)
+- [AGENTS.md:50-64](file://AGENTS.md#L50-L64)
 
 ## Conclusion
-These guidelines consolidate the project’s architectural principles, coding standards, and operational practices. By adhering to the IPC contracts, respecting process boundaries, enforcing strict TypeScript and linting, and maintaining robust testing and security hygiene, contributors can extend MixJam Electron reliably and efficiently while preserving its performance and portability goals.
+These guidelines consolidate the project's architectural principles, coding standards, and operational practices with the new dynamic documentation approach and external decision tracking integration. By adhering to the IPC contracts, respecting process boundaries, enforcing strict TypeScript and linting, maintaining robust testing and security hygiene, and leveraging GitHub Skills for automated documentation and decision tracking, contributors can extend MixJam Electron reliably and efficiently while preserving its performance and portability goals. The shift from traditional ADRs to dynamic documentation ensures that architectural decisions remain current, accessible, and integrated with the development workflow.

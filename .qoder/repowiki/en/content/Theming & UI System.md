@@ -26,6 +26,7 @@
 - Enhanced theme specification documentation with complete token system including new depth tokens
 - Updated architecture diagrams to show full theme ecosystem
 - Expanded practical examples to demonstrate all theme variations
+- Added documentation for theme-specific CSS effects including Rust industrial textures and Screen maximal CRT effects
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,7 +46,7 @@
 ## Introduction
 This document describes MixJam Electron's theming and user interface system. It explains the CSS variable-based theming architecture, the theme token system, and custom skin support. It covers the theme loading mechanism, dynamic theme switching, and CSS custom property integration. It also documents the theme specification format, color palette definitions, component styling patterns, accessibility considerations, responsive design principles, and cross-platform UI consistency. Practical examples show how to create custom themes, modify existing themes, and implement theme-aware components. Finally, it addresses the relationship between theming and the overall application design system.
 
-**Updated** All 8 themes are now fully implemented with distinct visual appearances, providing users with comprehensive theming options.
+**Updated** All 8 themes are now fully implemented with distinct visual appearances, providing users with comprehensive theming options including specialized effects for Rust industrial textures and Screen maximal CRT aesthetics.
 
 ## Project Structure
 The theming system is organized around a small set of cohesive modules:
@@ -64,6 +65,7 @@ C["Header.tsx<br/>Theme selector UI"]
 D["themes.ts<br/>Theme model, resolution, application"]
 E["index.css<br/>Consumes CSS custom properties"]
 F["Theme JSON Files<br/>8 fully implemented themes"]
+G["Theme-Specific Effects<br/>Rust textures, Screen CRT"]
 end
 A --> B
 B --> C
@@ -71,6 +73,7 @@ B --> D
 D --> F
 D --> E
 A --> E
+E --> G
 ```
 
 **Diagram sources**
@@ -93,6 +96,7 @@ A --> E
 - Theme application: Writes theme tokens as CSS custom properties on the root element and sets a data attribute indicating the active theme key.
 - Theme selector UI: Presents a dropdown with all 8 supported theme names and forwards user selections to the theme application function.
 - Global stylesheet: Consumes CSS custom properties for backgrounds, borders, text, and typography, ensuring consistent theming across components.
+- Theme-specific effects: Specialized CSS effects for certain themes including Rust industrial textures and Screen maximal CRT aesthetics.
 
 Key implementation references:
 - Theme model and token system: [themes.ts:28-78](file://src/renderer/src/theme/themes.ts#L28-L78)
@@ -318,6 +322,15 @@ Implementation references:
 - Tracker view: [index.css:385-527](file://src/renderer/src/index.css#L385-L527)
 - Browser and sample list: [index.css:684-794](file://src/renderer/src/index.css#L684-L794)
 
+### Theme-Specific Effects and Advanced Styling
+Beyond basic token application, certain themes implement advanced visual effects through CSS:
+
+**Rust Industrial Theme Effects**: Implements sophisticated texture overlays using SVG noise generation and repeating linear gradients to simulate weathered metal surfaces with subtle scratches and noise patterns.
+
+**Screen Maximal Theme Effects**: Creates authentic CRT monitor aesthetics with scanline overlays, pixelation effects, and VHS-style color fringing using CSS animations and blend modes.
+
+These effects are applied conditionally based on the active theme key and enhance the immersive quality of each theme variant.
+
 **Section sources**
 - [index.css:60-71](file://src/renderer/src/index.css#L60-L71)
 - [index.css:85-94](file://src/renderer/src/index.css#L85-L94)
@@ -406,6 +419,7 @@ Themes --> Pa["pa.json"]
 - No remounting: Dynamic theme switching re-applies tokens without changing component trees, minimizing layout thrashing.
 - CSS custom properties: Efficiently update visuals at runtime without recalculating stylesheets.
 - Font loading: Bundled fonts avoid external network requests, reducing latency and improving reliability.
+- Conditional effects: Theme-specific CSS effects are only applied when their respective themes are active, minimizing unnecessary rendering overhead.
 
 ## Accessibility Considerations
 - Color contrast: Tokens define primary and muted text colors; ensure sufficient contrast ratios for readability.
@@ -483,25 +497,25 @@ References:
 - [index.css:353-383](file://src/renderer/src/index.css#L353-L383)
 
 ### Exploring All 8 Theme Variants
-The system now supports eight distinct themes, each with unique visual characteristics:
+The system now supports eight distinct themes, each with unique visual characteristics and specialized effects:
 
-**Emerald Theme**: Deep forest green with teal accents, providing a classic digital audio workstation aesthetic with excellent contrast and readability.
+**Emerald Theme**: Deep forest green with teal accents, providing a classic digital audio workstation aesthetic with excellent contrast and readability. Features traditional token-based styling without special effects.
 
-**Flat Studio Theme**: Modern flat design with vibrant cyan accents, featuring clean lines and contemporary color harmony optimized for extended studio sessions.
+**Flat Studio Theme**: Modern flat design with vibrant cyan accents, featuring clean lines and contemporary color harmony optimized for extended studio sessions. Uses standard gradient backgrounds without additional effects.
 
-**Neon Rave Theme**: High-energy dark theme with electric blue and magenta accents, designed for late-night production sessions with vibrant visual feedback.
+**Neon Rave Theme**: High-energy dark theme with electric blue and magenta accents, designed for late-night production sessions with vibrant visual feedback. Employs modern typography with monospace fonts throughout.
 
-**Warm Analog Theme**: Rich amber and gold tones reminiscent of vintage tube equipment, offering comfortable eye contact and warm visual comfort for long mixing sessions.
+**Warm Analog Theme**: Rich amber and gold tones reminiscent of vintage tube equipment, offering comfortable eye contact and warm visual comfort for long mixing sessions. Utilizes traditional font pairing with Josefin Sans and Ubuntu.
 
-**IDE Theme**: Developer-centric theme with monospace typography and professional color scheme, emphasizing code-like precision and technical workflow integration.
+**IDE Theme**: Developer-centric theme with monospace typography and professional color scheme, emphasizing code-like precision and technical workflow integration. Features increased border radius for softer edges.
 
-**Rust Industrial Theme**: Weathered bronze and steel tones with industrial character, providing robust visual identity suitable for heavy-duty audio production.
+**Rust Industrial Theme**: Weathered bronze and steel tones with industrial character, providing robust visual identity suitable for heavy-duty audio production. Includes sophisticated texture overlays with SVG noise generation and repeating linear gradients.
 
-**Screen Maximal Theme**: Bold, saturated colors with high contrast ratios, designed for maximum visual impact and screen readability in demanding environments.
+**Screen Maximal Theme**: Bold, saturated colors with high contrast ratios, designed for maximum visual impact and screen readability in demanding environments. Implements authentic CRT monitor aesthetics with scanline overlays, pixelation effects, and VHS-style color fringing using CSS animations and blend modes.
 
-**Club PA Theme**: Party-oriented theme with dynamic lighting effects and energetic color schemes, optimized for live performance and club environment aesthetics.
+**Club PA Theme**: Party-oriented theme with dynamic lighting effects and energetic color schemes, optimized for live performance and club environment aesthetics. Features minimal border radius and high-contrast white-on-black color scheme.
 
-Each theme maintains consistent token values across all UI components, ensuring predictable behavior and accessibility compliance regardless of the selected variant.
+Each theme maintains consistent token values across all UI components, ensuring predictable behavior and accessibility compliance regardless of the selected variant. Theme-specific effects are conditionally applied based on the active theme key, enhancing the immersive quality of each variant.
 
 **Section sources**
 - [themes.ts:10-19](file://src/renderer/src/theme/themes.ts#L10-L19)
@@ -524,12 +538,15 @@ Common issues and resolutions:
   - Reference: [index.css:60-160](file://src/renderer/src/index.css#L60-L160)
 - Nonexistent theme key: The resolver falls back to the default theme.
   - Reference: [themes.ts:111-121](file://src/renderer/src/theme/themes.ts#L111-L121)
+- Theme-specific effects not appearing: Verify the data-theme-key attribute is set correctly and CSS selectors match the theme key.
+  - Reference: [index.css:93-162](file://src/renderer/src/index.css#L93-L162)
 
 **Section sources**
 - [bootstrapApp.tsx:12-18](file://src/renderer/src/bootstrapApp.tsx#L12-L18)
 - [App.tsx:84-86](file://src/renderer/src/App.tsx#L84-L86)
 - [index.css:60-160](file://src/renderer/src/index.css#L60-L160)
 - [themes.ts:111-121](file://src/renderer/src/theme/themes.ts#L111-L121)
+- [index.css:93-162](file://src/renderer/src/index.css#L93-L162)
 
 ## Conclusion
-MixJam Electron's theming system leverages CSS custom properties and a centralized theme model to deliver a consistent, dynamic UI. The architecture ensures fast bootstrapping, seamless theme switching, and maintainable component styling. With all eight themes now fully implemented, users have access to diverse visual experiences while maintaining accessibility and cross-platform consistency. By adhering to the token-based design and consuming tokens uniformly across the stylesheet, the system supports easy customization, accessibility, and cross-platform consistency.
+MixJam Electron's theming system leverages CSS custom properties and a centralized theme model to deliver a consistent, dynamic UI. The architecture ensures fast bootstrapping, seamless theme switching, and maintainable component styling. With all eight themes now fully implemented, users have access to diverse visual experiences including specialized effects for Rust industrial textures and Screen maximal CRT aesthetics while maintaining accessibility and cross-platform consistency. By adhering to the token-based design and consuming tokens uniformly across the stylesheet, the system supports easy customization, accessibility, and cross-platform consistency.
