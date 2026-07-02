@@ -8,7 +8,7 @@ interface UseBpmEditorOptions {
 interface UseBpmEditorResult {
   editingBpm: boolean
   bpmDraft: string
-  bpmInputRef: React.RefObject<HTMLInputElement | null>
+  bpmInputRef: React.RefObject<HTMLInputElement>
   setBpmDraft: React.Dispatch<React.SetStateAction<string>>
   handleBpmEditStart: () => void
   handleBpmEditCommit: () => void

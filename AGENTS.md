@@ -61,4 +61,6 @@ These decisions are resolved. See [docs/decisions.md](docs/decisions.md) for rat
 ## Test setup notes
 
 - `globals: false` in vitest config means testing-library auto-cleanup is off. `setup.ts` calls `cleanup()` in `afterEach`. Shared renderer mock is in `test/electronApi.ts`.
+- Vitest runs two projects: `renderer` (jsdom) for renderer plus pure-Node main tests, and `native` (node environment, forks pool) for `src/main/library.test.ts` so better-sqlite3 can load.
+- `setup.ts` stubs `HTMLCanvasElement.getContext` with a silent no-op 2D context (jsdom's own throws/logs "Not implemented"); tests that assert drawing install their own mock over it.
 - On Windows, `setSize()` must come before `setResizable(false)` or the size call is silently ignored.

@@ -29,7 +29,10 @@ export interface PlayerOptions extends AudioEngineOptions {
 export class Player {
   private readonly engine: AudioEngine
   private readonly scheduler: Scheduler
-  private readonly channels = new Map<number, Channel>()
+  // Pan per channel index, applied to the channel when it exists and replayed
+  // onto lazily-created channels so a pan set before a lane's first trigger is
+  // not lost.
+  private readonly channelPans = new Map<number, number>()
   // The single voice currently sounding on each lane (monophonic): a new
   // trigger cuts off the previous one.
   private readonly laneVoices = new Map<number, Voice>()
@@ -81,6 +84,7 @@ export class Player {
   }
 
   setChannelPan(channelIndex: number, pan: number): void {
+    this.channelPans.set(channelIndex, pan)
     this.engine.setChannelPan(channelIndex, pan)
   }
 
@@ -182,16 +186,17 @@ export class Player {
     this.playGeneration++
     this.scheduler.stop()
     await this.engine.close()
-    this.channels.clear()
+    this.channelPans.clear()
     this.laneVoices.clear()
   }
 
   private channelFor(channelIndex: number): Channel {
-    let channel = this.channels.get(channelIndex)
-    if (!channel) {
-      channel = this.engine.createChannel()
-      this.channels.set(channelIndex, channel)
-    }
+    const existing = this.engine.getChannel(channelIndex)
+    if (existing) return existing
+    const channel = this.engine.createChannel(channelIndex)
+    // Replay a pan that was set before this channel existed.
+    const pan = this.channelPans.get(channelIndex)
+    if (pan !== undefined) channel.setPan(pan)
     return channel
   }
 

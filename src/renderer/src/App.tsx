@@ -26,10 +26,11 @@ export default function App() {
     loading,
     error,
     totalCount,
+    hasMoreSamples,
+    loadMoreSamples,
     selectedSampleDetail,
     setSelectedSampleDetail,
     setSearchQuery,
-    rescanSampleBrowser,
     lanes,
     placeSampleDetailOnLane,
     moveClipOnLane,
@@ -64,7 +65,6 @@ export default function App() {
     goToHome,
     handleLoadMixJam,
     openRecentProject,
-    openFolderPicker,
     openRepo,
     scanProgress,
     selectedCategoryId,
@@ -81,10 +81,13 @@ export default function App() {
     createTag,
     renameTag,
     deleteTag,
+    assignTagToSample,
+    unassignTagFromSample,
     createCategory,
     deleteCategory,
     saveLibrary,
-    deleteLibrary
+    deleteLibrary,
+    applyLibrary
   } = useAppState(window.electronAPI, resolvedUserFolder, resolvedSampleFolder)
 
   const [activeTheme, setActiveTheme] = useState('emerald')
@@ -139,11 +142,12 @@ export default function App() {
             masterGain={masterGain}
             masterLevelDb={masterLevelDb}
             totalCount={totalCount}
+            hasMoreSamples={hasMoreSamples}
+            onLoadMoreSamples={loadMoreSamples}
             onSetBpm={setBpm}
             onSetMasterGain={setMasterGain}
             onSelectSampleDetail={setSelectedSampleDetail}
             onSearchChange={setSearchQuery}
-            onRescan={rescanSampleBrowser}
             onPlaceSampleDetailOnLane={placeSampleDetailOnLane}
             onMoveClipOnLane={moveClipOnLane}
             onDuplicateClipOnLane={duplicateClipOnLane}
@@ -173,7 +177,6 @@ export default function App() {
             tags={tags}
             categories={categories}
             libraries={libraries}
-            onDbSearchChange={setSearchQuery}
             onSelectCategory={setSelectedCategoryId}
             onToggleTagFilter={handleToggleTagFilter}
             onSortChange={handleSortChange}
@@ -181,10 +184,13 @@ export default function App() {
             onCreateTag={createTag}
             onRenameTag={renameTag}
             onDeleteTag={deleteTag}
+            onAssignTagToSample={assignTagToSample}
+            onUnassignTagFromSample={unassignTagFromSample}
             onCreateCategory={createCategory}
             onDeleteCategory={deleteCategory}
             onSaveLibrary={saveLibrary}
             onDeleteLibrary={deleteLibrary}
+            onApplyLibrary={applyLibrary}
           />
         )}
       </main>
@@ -192,7 +198,7 @@ export default function App() {
         view={view}
         version={version}
         sampleDetail={selectedSampleDetail}
-        onSelectFolder={openFolderPicker}
+        onSelectFolder={pickUser}
         onOpenRepo={openRepo}
         getSampleBuffer={getSampleBuffer}
       />

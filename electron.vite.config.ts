@@ -2,6 +2,33 @@ import { resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
+
+// Strict CSP for the packaged renderer. Injected at build time only — the dev
+// server needs inline scripts (react-refresh preamble) and websockets (HMR),
+// which a static meta tag in index.html would break.
+const RENDERER_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  // Inline styles: theme tokens are written to element style attributes.
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'"
+].join('; ')
+
+function injectCspPlugin(): Plugin {
+  return {
+    name: 'inject-csp',
+    apply: 'build',
+    transformIndexHtml(html) {
+      return html.replace(
+        '<meta charset="UTF-8" />',
+        `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${RENDERER_CSP}" />`
+      )
+    }
+  }
+}
 
 // The app version is a build-time constant. Inlining it from package.json keeps
 // the footer/mixjam.json correct in every runtime — dev, packaged, and when the
@@ -30,6 +57,6 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    plugins: [react()]
+    plugins: [react(), injectCspPlugin()]
   }
 })

@@ -6,7 +6,6 @@ export const IPC_CHANNELS = {
   windowResizeTracker: 'window:resize-tracker',
   windowResizeHome: 'window:resize-home',
   dialogOpenFile: 'dialog:open-file',
-  dialogOpenFolder: 'dialog:open-folder',
   shellOpenUrl: 'shell:open-url',
   sessionLoad: 'session:load',
   sessionSave: 'session:save',
@@ -80,6 +79,10 @@ export interface SampleItem {
   dateAdded: number
   scanState: number
   categoryId: number | null
+  /** Ids of the tags assigned to this sample, ascending. */
+  tagIds: number[]
+  /** Names of the tags assigned to this sample, alphabetical. */
+  tags: string[]
 }
 
 export interface SampleQueryRequest {
@@ -130,6 +133,9 @@ export interface SampleQueryResponse {
  *  folder scanner (cold-start fallback) and DB query pipelines. */
 export interface SampleListItem {
   id: string
+  /** DB row id when the item comes from the indexed pipeline; null for the
+   *  legacy folder scanner (pre-index), where tag assignment is unavailable. */
+  dbId: number | null
   name: string
   filepath: string
   category: string
@@ -152,7 +158,6 @@ export interface ElectronAPI {
   resizeToTracker: () => Promise<void>
   resizeToHome: () => Promise<void>
   openFilePicker: () => Promise<string | null>
-  openFolderPicker: () => Promise<string | null>
   openExternal: (url: string) => Promise<void>
   loadSession: () => Promise<SessionPaths>
   saveSession: (paths: SessionPaths) => Promise<void>

@@ -13,13 +13,13 @@ function fireKeyDown(key: string, opts: Partial<KeyboardEventInit> = {}) {
 describe('useTrackerShortcuts', () => {
   let selectedClipIdsRef: React.MutableRefObject<ReadonlySet<string>>
   let transportStateRef: React.MutableRefObject<string>
-  let clearSelection: ReturnType<typeof vi.fn>
-  let onRemoveClips: ReturnType<typeof vi.fn>
-  let onUndo: ReturnType<typeof vi.fn>
-  let onRedo: ReturnType<typeof vi.fn>
-  let onTransportPlay: ReturnType<typeof vi.fn>
-  let onTransportPause: ReturnType<typeof vi.fn>
-  let onOpenShortcuts: ReturnType<typeof vi.fn>
+  let clearSelection: ReturnType<typeof vi.fn<() => void>>
+  let onRemoveClips: ReturnType<typeof vi.fn<(clipIds: string[]) => void>>
+  let onUndo: ReturnType<typeof vi.fn<() => void>>
+  let onRedo: ReturnType<typeof vi.fn<() => void>>
+  let onTransportPlay: ReturnType<typeof vi.fn<() => void>>
+  let onTransportPause: ReturnType<typeof vi.fn<() => void>>
+  let onOpenShortcuts: ReturnType<typeof vi.fn<() => void>>
 
   function mount() {
     return renderHook(() =>
@@ -40,13 +40,13 @@ describe('useTrackerShortcuts', () => {
   beforeEach(() => {
     selectedClipIdsRef = createRef(new Set<string>())
     transportStateRef = createRef('stopped')
-    clearSelection = vi.fn()
-    onRemoveClips = vi.fn()
-    onUndo = vi.fn()
-    onRedo = vi.fn()
-    onTransportPlay = vi.fn()
-    onTransportPause = vi.fn()
-    onOpenShortcuts = vi.fn()
+    clearSelection = vi.fn<() => void>()
+    onRemoveClips = vi.fn<(clipIds: string[]) => void>()
+    onUndo = vi.fn<() => void>()
+    onRedo = vi.fn<() => void>()
+    onTransportPlay = vi.fn<() => void>()
+    onTransportPause = vi.fn<() => void>()
+    onOpenShortcuts = vi.fn<() => void>()
   })
 
   afterEach(() => {

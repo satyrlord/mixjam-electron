@@ -126,11 +126,9 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.openFolderPicker()
       await result.current.openRepo()
     })
 
-    expect(electronAPI.openFolderPicker).toHaveBeenCalledTimes(1)
     expect(electronAPI.openExternal).toHaveBeenCalledWith(
       'https://github.com/satyrlord/mixjam-electron'
     )
@@ -171,15 +169,15 @@ describe('useAppState', () => {
     expect(result.current.selectedSampleDetail?.name).toBe('kick_808.wav')
   })
 
-  it('rescans sample browser when requested', async () => {
+  it('starts a library scan when requested', async () => {
     const electronAPI = createElectronAPI()
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.rescanSampleBrowser()
+      await result.current.startLibraryScan()
     })
 
-    expect(electronAPI.querySampleBrowser).toHaveBeenCalledWith(SAMPLE_FOLDER, '', true)
+    expect(electronAPI.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER)
   })
 
   it('places a sample clip on a lane via drag-and-drop', async () => {
@@ -230,11 +228,12 @@ describe('useAppState', () => {
     expect(result.current.selectedSampleDetail).toBeNull()
     expect(result.current.searchQuery).toBe('')
 
-    // Even a forced rescan must safely no-op when folder is null.
+    // Even a scan request must safely no-op when folder is null.
     await act(async () => {
-      await result.current.rescanSampleBrowser()
+      await result.current.startLibraryScan()
     })
 
+    expect(electronAPI.startScan).not.toHaveBeenCalled()
     expect(result.current.samples).toEqual([])
     expect(result.current.loading).toBe(false)
     expect(result.current.error).toBeNull()
@@ -454,10 +453,10 @@ describe('useAppState', () => {
     // First call will be slow, second fast
     vi.mocked(electronAPI.querySampleBrowser)
       .mockResolvedValueOnce([
-        { id: '/old/old.wav', name: 'old.wav', filepath: '/old/old.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
+        { id: '/old/old.wav', dbId: null, name: 'old.wav', filepath: '/old/old.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
       ] as SampleListItem[])
       .mockResolvedValueOnce([
-        { id: '/new/new.wav', name: 'new.wav', filepath: '/new/new.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
+        { id: '/new/new.wav', dbId: null, name: 'new.wav', filepath: '/new/new.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
       ] as SampleListItem[])
 
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))

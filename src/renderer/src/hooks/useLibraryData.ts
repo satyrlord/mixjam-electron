@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CategoryItem,
   ElectronAPI,
@@ -10,6 +10,9 @@ import type {
   TagItem
 } from '../../../shared/ipc'
 import type { FooterSampleDetail } from '../lib/playerShell'
+
+export type SampleSortColumn = 'filename' | 'duration' | 'dateAdded'
+export type SampleSortDirection = 'asc' | 'desc'
 
 export interface LibraryDataState {
   version: string
@@ -23,10 +26,14 @@ export interface LibraryDataState {
   selectedSampleDetail: FooterSampleDetail | null
   scanProgress: ScanProgress
   totalCount: number
+  /** True once the library DB holds at least one sample (a scan completed). */
+  dbIndexed: boolean
+  /** True while more windowed pages exist beyond the loaded prefix. */
+  hasMoreSamples: boolean
   selectedCategoryId: number | undefined
   selectedTagIds: number[]
-  sortBy: 'filename' | 'duration' | 'dateAdded'
-  sortDir: 'asc' | 'desc'
+  sortBy: SampleSortColumn
+  sortDir: SampleSortDirection
   tags: TagItem[]
   categories: CategoryItem[]
   libraries: LibraryItem[]
@@ -35,37 +42,78 @@ export interface LibraryDataState {
 export interface LibraryDataActions {
   setSelectedSampleDetail: (detail: FooterSampleDetail | null) => void
   setSearchQuery: (query: string) => void
-  rescanSampleBrowser: () => Promise<void>
   setSelectedCategoryId: (id: number | undefined) => void
   setSelectedTagIds: React.Dispatch<React.SetStateAction<number[]>>
-  setSortBy: React.Dispatch<React.SetStateAction<'filename' | 'duration' | 'dateAdded'>>
-  setSortDir: React.Dispatch<React.SetStateAction<'asc' | 'desc'>>
+  setSortBy: React.Dispatch<React.SetStateAction<SampleSortColumn>>
+  setSortDir: React.Dispatch<React.SetStateAction<SampleSortDirection>>
   startLibraryScan: () => Promise<void>
+  /** Fetches the next windowed page of the current query (DB pipeline only). */
+  loadMoreSamples: () => void
   createTag: (name: string, color?: string) => Promise<TagItem>
   renameTag: (id: number, name: string) => Promise<void>
   deleteTag: (id: number) => Promise<void>
+  assignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
+  unassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
   createCategory: (name: string, parentId?: number) => Promise<CategoryItem>
   deleteCategory: (id: number) => Promise<void>
   saveLibrary: (name: string) => Promise<LibraryItem>
   deleteLibrary: (id: number) => Promise<void>
+  /** Restores the filter state a saved library encodes (spec-004 AC-013). */
+  applyLibrary: (library: LibraryItem) => void
   reloadRecentProjects: () => Promise<void>
-  handleSortChange: (col: 'filename' | 'duration' | 'dateAdded') => void
+  handleSortChange: (col: SampleSortColumn) => void
 }
 
 export type LibraryData = LibraryDataState & LibraryDataActions
 
-function dbSampleToListItem(s: SampleItem, categories: readonly CategoryItem[]): SampleListItem {
-  const cat = categories.find((c) => c.id === s.categoryId)
+function dbSampleToListItem(
+  s: SampleItem,
+  categoryNames: ReadonlyMap<number, string>
+): SampleListItem {
   return {
     id: s.filepath,
+    dbId: s.id,
     name: s.filename,
     filepath: s.filepath,
-    category: cat?.name ?? 'Unsorted',
+    category: (s.categoryId !== null ? categoryNames.get(s.categoryId) : undefined) ?? 'Unsorted',
     durationSeconds: s.duration,
-    tags: [],
+    tags: s.tags,
     categoryId: s.categoryId,
-    tagIds: []
+    tagIds: s.tagIds
   }
+}
+
+// Shape of the rule_json written by saveLibrary below. Parsed defensively when
+// a library is applied — a malformed blob restores nothing rather than crashing.
+interface RuleNode {
+  kind?: unknown
+  query?: unknown
+  categoryIds?: unknown
+  tagIds?: unknown
+}
+
+function parseLibraryRule(ruleJson: string): {
+  textSearch: string
+  categoryId: number | undefined
+  tagIds: number[]
+} {
+  const result = { textSearch: '', categoryId: undefined as number | undefined, tagIds: [] as number[] }
+  try {
+    const parsed = JSON.parse(ruleJson) as { root?: { children?: RuleNode[] } }
+    for (const child of parsed.root?.children ?? []) {
+      if (child.kind === 'text' && typeof child.query === 'string') {
+        result.textSearch = child.query
+      } else if (child.kind === 'category' && Array.isArray(child.categoryIds)) {
+        const first = child.categoryIds[0]
+        if (typeof first === 'number') result.categoryId = first
+      } else if (child.kind === 'tag' && Array.isArray(child.tagIds)) {
+        result.tagIds = child.tagIds.filter((id): id is number => typeof id === 'number')
+      }
+    }
+  } catch {
+    // Malformed rule_json — apply nothing.
+  }
+  return result
 }
 
 const DB_SAMPLE_PAGE_SIZE = 500
@@ -89,12 +137,46 @@ export function useLibraryData(
   const [dbIndexed, setDbIndexed] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined)
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
-  const [sortBy, setSortBy] = useState<'filename' | 'duration' | 'dateAdded'>('filename')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  // Sort column and direction live in one state object so handleSortChange can
+  // derive the next direction from the previous column inside a single pure
+  // updater (setting one state from inside another updater double-fires under
+  // StrictMode).
+  const [sort, setSort] = useState<{ by: SampleSortColumn; dir: SampleSortDirection }>({
+    by: 'filename',
+    dir: 'asc'
+  })
   const [tags, setTags] = useState<TagItem[]>([])
   const [categories, setCategories] = useState<CategoryItem[]>([])
   const [libraries, setLibraries] = useState<LibraryItem[]>([])
   const querySeqRef = useRef(0)
+  // Windowed paging cursor for the current query generation.
+  const nextOffsetRef = useRef(0)
+  const loadingMoreRef = useRef(false)
+
+  const categoryNames = useMemo(
+    () => new Map(categories.map((c) => [c.id, c.name])),
+    [categories]
+  )
+  const categoryNamesRef = useRef(categoryNames)
+  useEffect(() => { categoryNamesRef.current = categoryNames }, [categoryNames])
+
+  // Items loaded before the category list arrived resolved their category name
+  // against an empty map; re-map in place when categories change rather than
+  // re-running the whole query.
+  useEffect(() => {
+    setSamples((prev) => {
+      let changed = false
+      const next = prev.map((s) => {
+        if (s.dbId === null) return s
+        const name =
+          (s.categoryId !== null ? categoryNames.get(s.categoryId) : undefined) ?? 'Unsorted'
+        if (name === s.category) return s
+        changed = true
+        return { ...s, category: name }
+      })
+      return changed ? next : prev
+    })
+  }, [categoryNames])
 
   // Version
   useEffect(() => {
@@ -127,8 +209,7 @@ export function useLibraryData(
   // Re-check whenever the sample folder changes or a scan completes.
   const refreshDbIndexed = useCallback(async () => {
     try {
-      const hasRows = await electronAPI.hasSamples()
-      if (hasRows) setDbIndexed(true)
+      setDbIndexed(await electronAPI.hasSamples())
     } catch {
       // Keep dbIndexed false on error — legacy fallback stays active.
     }
@@ -146,7 +227,7 @@ export function useLibraryData(
 
   // Legacy folder-browser query (used only before the first DB scan).
   const queryLegacy = useCallback(
-    async (q: string, forceRescan: boolean) => {
+    async (q: string) => {
       if (!sampleFolder) {
         setSamples([])
         setLoading(false)
@@ -156,7 +237,7 @@ export function useLibraryData(
       const seq = ++querySeqRef.current
       setLoading(true)
       try {
-        const rows = await electronAPI.querySampleBrowser(sampleFolder, q, forceRescan)
+        const rows = await electronAPI.querySampleBrowser(sampleFolder, q, false)
         if (seq !== querySeqRef.current) return
         setSamples(rows)
         setTotalCount(rows.length)
@@ -174,36 +255,28 @@ export function useLibraryData(
     [electronAPI, sampleFolder]
   )
 
-  // DB-backed query (used after the first scan has completed).
+  // DB-backed query (used after the first scan has completed). Fetches only the
+  // first windowed page; the grid requests more via loadMoreSamples as the user
+  // scrolls, so the renderer never holds the full result set (AGENTS.md hard
+  // rule: windowed pages over IPC, never full result sets).
   const queryDb = useCallback(async () => {
     const seq = ++querySeqRef.current
     setLoading(true)
     try {
-      const rows: SampleItem[] = []
-      let total = 0
-      let offset = 0
+      const result = await electronAPI.querySamples({
+        textSearch: searchQuery || undefined,
+        categoryId: selectedCategoryId,
+        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        sortBy: sort.by,
+        sortDir: sort.dir,
+        limit: DB_SAMPLE_PAGE_SIZE,
+        offset: 0
+      })
+      if (seq !== querySeqRef.current) return
 
-      do {
-        const result = await electronAPI.querySamples({
-          textSearch: searchQuery || undefined,
-          categoryId: selectedCategoryId,
-          tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-          sortBy,
-          sortDir,
-          limit: DB_SAMPLE_PAGE_SIZE,
-          offset
-        })
-        if (seq !== querySeqRef.current) return
-
-        total = result.total
-        rows.push(...result.rows)
-        if (result.rows.length === 0) break
-        offset += result.rows.length
-      } while (rows.length < total)
-
-      const mapped = rows.map((s) => dbSampleToListItem(s, categories))
-      setSamples(mapped)
-      setTotalCount(total)
+      nextOffsetRef.current = result.rows.length
+      setSamples(result.rows.map((s) => dbSampleToListItem(s, categoryNamesRef.current)))
+      setTotalCount(result.total)
       setError(null)
     } catch (e) {
       if (seq !== querySeqRef.current) return
@@ -214,21 +287,43 @@ export function useLibraryData(
     } finally {
       if (seq === querySeqRef.current) setLoading(false)
     }
-  }, [electronAPI, searchQuery, selectedCategoryId, selectedTagIds, sortBy, sortDir, categories])
+  }, [electronAPI, searchQuery, selectedCategoryId, selectedTagIds, sort])
 
-  // Debounced query: chooses legacy or DB pipeline based on dbIndexed.
-  const runQuery = useCallback(
-    async (q: string, forceRescan: boolean) => {
-      if (dbIndexed) {
-        await queryDb()
-      } else {
-        await queryLegacy(q, forceRescan)
-      }
-    },
-    [dbIndexed, queryDb, queryLegacy]
-  )
+  const loadMoreSamples = useCallback(() => {
+    if (!dbIndexed || loadingMoreRef.current) return
+    const seq = querySeqRef.current
+    const offset = nextOffsetRef.current
+    loadingMoreRef.current = true
+    void electronAPI
+      .querySamples({
+        textSearch: searchQuery || undefined,
+        categoryId: selectedCategoryId,
+        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        sortBy: sort.by,
+        sortDir: sort.dir,
+        limit: DB_SAMPLE_PAGE_SIZE,
+        offset
+      })
+      .then((result) => {
+        // A newer query superseded this page while it was in flight.
+        if (seq !== querySeqRef.current || result.rows.length === 0) return
+        nextOffsetRef.current = offset + result.rows.length
+        setSamples((prev) => [
+          ...prev,
+          ...result.rows.map((s) => dbSampleToListItem(s, categoryNamesRef.current))
+        ])
+        setTotalCount(result.total)
+      })
+      .catch((e: unknown) => {
+        console.error('Failed to load more samples:', e)
+      })
+      .finally(() => {
+        loadingMoreRef.current = false
+      })
+  }, [electronAPI, dbIndexed, searchQuery, selectedCategoryId, selectedTagIds, sort])
 
-  // Debounce effect for search
+  // Debounced query: one effect covers search, filter, and sort changes, and
+  // chooses the legacy or DB pipeline based on dbIndexed.
   useEffect(() => {
     if (!sampleFolder) {
       setSamples([])
@@ -239,28 +334,16 @@ export function useLibraryData(
       return
     }
     let cancelled = false
-    const currentQuery = searchQuery
     const timer = window.setTimeout(() => {
-      if (!cancelled) void runQuery(currentQuery, false)
+      if (cancelled) return
+      if (dbIndexed) void queryDb()
+      else void queryLegacy(searchQuery)
     }, 150)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [runQuery, sampleFolder, searchQuery])
-
-  // Debounce effect for DB filter changes (category, tags, sort)
-  useEffect(() => {
-    if (!dbIndexed || !sampleFolder) return
-    let cancelled = false
-    const timer = window.setTimeout(() => {
-      if (!cancelled) void runQuery(searchQuery, false)
-    }, 150)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
-  }, [dbIndexed, sampleFolder, selectedCategoryId, selectedTagIds, sortBy, sortDir, runQuery, searchQuery])
+  }, [sampleFolder, dbIndexed, searchQuery, queryDb, queryLegacy])
 
   // Clear selection when the selected sample is no longer in the list.
   // With a unified list the check is straightforward.
@@ -302,18 +385,16 @@ export function useLibraryData(
     return () => { active = false }
   }, [electronAPI])
 
-  const rescanSampleBrowser = useCallback(async () => {
-    if (!dbIndexed) {
-      await queryLegacy(searchQuery, true)
-    }
-    // When indexed, rescan is handled by startLibraryScan.
-  }, [dbIndexed, queryLegacy, searchQuery])
-
   const startLibraryScan = useCallback(async () => {
     if (!sampleFolder) return
     await electronAPI.startScan(sampleFolder)
     setScanProgress({ status: 'scanning', phase: 1, found: 0, processed: 0, total: 0 })
   }, [electronAPI, sampleFolder])
+
+  // Mirror of the tags list for callbacks that need the latest names without
+  // re-subscribing (rename/assign/unassign patch denormalized names).
+  const tagsRef = useRef(tags)
+  useEffect(() => { tagsRef.current = tags }, [tags])
 
   const createTag = useCallback(async (name: string, color?: string) => {
     const tag = await electronAPI.createTag(name, color)
@@ -330,13 +411,71 @@ export function useLibraryData(
     setTags((prev) =>
       prev.map((t) => (t.id === id ? { ...t, name } : t)).sort((a, b) => a.name.localeCompare(b.name))
     )
+    // Per-sample tag names are denormalized into the list items; rewrite them
+    // from the post-rename id -> name mapping (AC-008: rename reflects on all
+    // assigned samples).
+    const renamed = new Map(tagsRef.current.map((t) => [t.id, t.id === id ? name : t.name]))
+    setSamples((prev) =>
+      prev.map((s) =>
+        s.tagIds.includes(id)
+          ? {
+              ...s,
+              tags: s.tagIds
+                .map((tid) => renamed.get(tid))
+                .filter((n): n is string => n !== undefined)
+                .sort((a, b) => a.localeCompare(b))
+            }
+          : s
+      )
+    )
   }, [electronAPI])
 
   const deleteTag = useCallback(async (id: number) => {
     await electronAPI.deleteTag(id)
     setTags((prev) => prev.filter((t) => t.id !== id))
     setSelectedTagIds((prev) => prev.filter((tid) => tid !== id))
+    setSamples((prev) =>
+      prev.map((s) => {
+        const idx = s.tagIds.indexOf(id)
+        if (idx === -1) return s
+        return {
+          ...s,
+          tagIds: s.tagIds.filter((tid) => tid !== id),
+          tags: s.tags.filter((_, i) => i !== idx)
+        }
+      })
+    )
   }, [electronAPI])
+
+  // Updates one loaded list item's denormalized tag fields after an
+  // assign/unassign, without re-running the whole query.
+  const patchSampleTags = useCallback((filepath: string, tagIds: number[], tagNames: string[]) => {
+    setSamples((prev) =>
+      prev.map((s) => (s.filepath === filepath ? { ...s, tagIds, tags: tagNames } : s))
+    )
+  }, [])
+
+  const assignTagToSample = useCallback(async (sample: SampleListItem, tagId: number) => {
+    if (sample.dbId === null || sample.tagIds.includes(tagId)) return
+    await electronAPI.assignTag(sample.dbId, tagId)
+    const nextIds = [...sample.tagIds, tagId].sort((a, b) => a - b)
+    const nextNames = nextIds
+      .map((id) => tagsRef.current.find((t) => t.id === id)?.name)
+      .filter((name): name is string => name !== undefined)
+      .sort((a, b) => a.localeCompare(b))
+    patchSampleTags(sample.filepath, nextIds, nextNames)
+  }, [electronAPI, patchSampleTags])
+
+  const unassignTagFromSample = useCallback(async (sample: SampleListItem, tagId: number) => {
+    if (sample.dbId === null || !sample.tagIds.includes(tagId)) return
+    await electronAPI.unassignTag(sample.dbId, tagId)
+    const nextIds = sample.tagIds.filter((id) => id !== tagId)
+    const nextNames = nextIds
+      .map((id) => tagsRef.current.find((t) => t.id === id)?.name)
+      .filter((name): name is string => name !== undefined)
+      .sort((a, b) => a.localeCompare(b))
+    patchSampleTags(sample.filepath, nextIds, nextNames)
+  }, [electronAPI, patchSampleTags])
 
   const createCategory = useCallback(async (name: string, parentId?: number) => {
     const cat = await electronAPI.createCategory(name, parentId)
@@ -377,15 +516,35 @@ export function useLibraryData(
     setLibraries((prev) => prev.filter((l) => l.id !== id))
   }, [electronAPI])
 
-  const handleSortChange = useCallback((col: 'filename' | 'duration' | 'dateAdded') => {
-    setSortBy((prev) => {
-      if (prev === col) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-        return col
-      }
-      setSortDir('asc')
-      return col
-    })
+  const applyLibrary = useCallback((library: LibraryItem) => {
+    const rule = parseLibraryRule(library.ruleJson)
+    setSearchQuery(rule.textSearch)
+    setSelectedCategoryId(rule.categoryId)
+    setSelectedTagIds(rule.tagIds)
+  }, [])
+
+  const handleSortChange = useCallback((col: SampleSortColumn) => {
+    setSort((prev) =>
+      prev.by === col
+        ? { by: col, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { by: col, dir: 'asc' }
+    )
+  }, [])
+
+  // Compatibility dispatchers so callers can still set column or direction
+  // independently; both funnel into the single sort state.
+  const setSortBy = useCallback<React.Dispatch<React.SetStateAction<SampleSortColumn>>>((action) => {
+    setSort((prev) => ({
+      ...prev,
+      by: typeof action === 'function' ? action(prev.by) : action
+    }))
+  }, [])
+
+  const setSortDir = useCallback<React.Dispatch<React.SetStateAction<SampleSortDirection>>>((action) => {
+    setSort((prev) => ({
+      ...prev,
+      dir: typeof action === 'function' ? action(prev.dir) : action
+    }))
   }, [])
 
   return {
@@ -398,28 +557,33 @@ export function useLibraryData(
     selectedSampleDetail,
     scanProgress,
     totalCount,
+    dbIndexed,
+    hasMoreSamples: dbIndexed && samples.length < totalCount,
     selectedCategoryId,
     selectedTagIds,
-    sortBy,
-    sortDir,
+    sortBy: sort.by,
+    sortDir: sort.dir,
     tags,
     categories,
     libraries,
     setSelectedSampleDetail,
     setSearchQuery,
-    rescanSampleBrowser,
     setSelectedCategoryId,
     setSelectedTagIds,
     setSortBy,
     setSortDir,
     startLibraryScan,
+    loadMoreSamples,
     createTag,
     renameTag,
     deleteTag,
+    assignTagToSample,
+    unassignTagFromSample,
     createCategory,
     deleteCategory,
     saveLibrary,
     deleteLibrary,
+    applyLibrary,
     reloadRecentProjects,
     handleSortChange
   }

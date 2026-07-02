@@ -89,7 +89,7 @@ const paTheme = paThemeJson as Theme
 
 const DEFAULT_THEME_KEY: ThemeKey = 'emerald'
 
-const IMPLEMENTED_THEMES: Readonly<Partial<Record<ThemeKey, Theme>>> = {
+const IMPLEMENTED_THEMES: Readonly<Record<ThemeKey, Theme>> = {
   emerald: emeraldTheme,
   studio: studioTheme,
   rave: raveTheme,
@@ -113,7 +113,7 @@ export function resolveTheme(themeKey: string): Theme {
     return emeraldTheme
   }
 
-  return IMPLEMENTED_THEMES[themeKey] ?? emeraldTheme
+  return IMPLEMENTED_THEMES[themeKey]
 }
 
 export function normalizeThemeKey(themeKey: string): ThemeKey {

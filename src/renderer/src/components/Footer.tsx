@@ -23,10 +23,10 @@ export default function Footer({
       <button
         type="button"
         className="footer-link"
-        title="Choose where MixJam stores its settings and sample database"
+        title="Choose where MixJam saves your projects and session settings"
         onClick={onSelectFolder}
       >
-        Select settings folder
+        Select User Folder
       </button>
       <div className="footer-detail" aria-live="polite">
         {view === 'tracker' && sampleDetail ? (

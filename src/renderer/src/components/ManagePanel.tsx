@@ -15,6 +15,7 @@ interface ManagePanelProps {
   onDeleteCategory: (id: number) => Promise<void>
   onSaveLibrary: (name: string) => Promise<LibraryItem>
   onDeleteLibrary: (id: number) => Promise<void>
+  onApplyLibrary: (library: LibraryItem) => void
 }
 
 const isRootHardcoded = (name: string) => ROOT_CATEGORY_NAMES.includes(name)
@@ -30,6 +31,7 @@ export default function ManagePanel({
   onDeleteCategory,
   onSaveLibrary,
   onDeleteLibrary,
+  onApplyLibrary,
 }: ManagePanelProps) {
   const [tab, setTab] = useState<ManageTab>('tags')
 
@@ -157,7 +159,13 @@ export default function ManagePanel({
           <ul className="manage-list">
             {libraries.map((lib) => (
               <li key={lib.id} className="manage-list-item">
-                <span className="manage-name">{lib.name}</span>
+                <button
+                  type="button"
+                  className="manage-name manage-name-open"
+                  title={`Open ${lib.name} — restores its saved filters`}
+                  aria-label={`Open library ${lib.name}`}
+                  onClick={() => onApplyLibrary(lib)}
+                >{lib.name}</button>
                 <button
                   type="button"
                   className="manage-action manage-action-delete"

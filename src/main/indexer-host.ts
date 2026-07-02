@@ -77,6 +77,17 @@ export class IndexerHost {
       this.emit(IPC_SCAN_PROGRESS, this.progress)
       retire()
     })
+
+    // Safety net: a worker that dies without ever posting done/error (e.g.
+    // killed by the OS) must not leave the UI stuck on "scanning" forever.
+    worker.on('exit', () => {
+      if (!isCurrent()) return
+      this.worker = null
+      if (this.progress.status === 'scanning') {
+        this.progress = { status: 'error', phase: null, found: 0, processed: 0, total: 0 }
+        this.emit(IPC_SCAN_PROGRESS, this.progress)
+      }
+    })
   }
 
   private emit(channel: string, data: unknown): void {

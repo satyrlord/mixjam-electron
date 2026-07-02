@@ -17,7 +17,6 @@ export type AppState = LibraryData & TransportEngine & {
   goToHome: () => Promise<void>
   handleLoadMixJam: () => Promise<void>
   openRecentProject: (project: RecentProjectItem) => Promise<void>
-  openFolderPicker: () => Promise<void>
   openRepo: () => Promise<void>
 }
 
@@ -35,16 +34,19 @@ export function useAppState(
   const [currentProjectName, setCurrentProjectName] = useState<string | null>(null)
 
   const { setView } = engine
-  const { setSelectedSampleDetail, reloadRecentProjects, startLibraryScan, scanProgress } = lib
+  const { setSelectedSampleDetail, reloadRecentProjects, startLibraryScan, scanProgress, dbIndexed } = lib
 
   const goToTracker = useCallback(async () => {
     await electronAPI.resizeToTracker()
     setView('tracker')
-    // Auto-scan on first entry if sample folder is set and never scanned
-    if (sampleFolder && scanProgress.status === 'idle') {
+    // Auto-scan on FIRST entry only: the sample folder is set, no scan is
+    // running, and the library DB has never been populated. Re-entering the
+    // tracker with an indexed library must not re-walk the whole folder — the
+    // user triggers that explicitly with Re-scan.
+    if (sampleFolder && scanProgress.status === 'idle' && !dbIndexed) {
       void startLibraryScan()
     }
-  }, [electronAPI, setView, sampleFolder, scanProgress.status, startLibraryScan])
+  }, [electronAPI, setView, sampleFolder, scanProgress.status, dbIndexed, startLibraryScan])
 
   const goToHome = useCallback(async () => {
     await electronAPI.resizeToHome()
@@ -79,10 +81,6 @@ export function useAppState(
     }
   }, [electronAPI, reloadRecentProjects, goToTracker, engine.view])
 
-  const openFolderPicker = useCallback(async () => {
-    await electronAPI.openFolderPicker()
-  }, [electronAPI])
-
   const openRepo = useCallback(async () => {
     await electronAPI.openExternal(GITHUB_URL)
   }, [electronAPI])
@@ -95,7 +93,6 @@ export function useAppState(
     goToHome,
     handleLoadMixJam,
     openRecentProject,
-    openFolderPicker,
     openRepo
   }
 }

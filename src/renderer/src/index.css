@@ -278,7 +278,6 @@ html[data-theme-ready='true'] body {
 
 .footer-detail-name,
 .footer-detail-path,
-.footer-detail-meta,
 .footer-detail-tags {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -301,7 +300,6 @@ html[data-theme-ready='true'] body {
   max-width: 220px;
 }
 
-.footer-detail-meta,
 .footer-detail-tags {
   max-width: 180px;
 }
@@ -997,17 +995,6 @@ html[data-theme-ready='true'] body {
   pointer-events: none;
 }
 
-.tracker-lane-clip {
-  position: absolute;
-  top: 6px;
-  height: 32px;
-  cursor: grab;
-}
-
-.tracker-lane-clip:active {
-  cursor: grabbing;
-}
-
 /* ── Unified sample bubble (tracker clips, browser tiles, category buttons) ── */
 .sample-bubble {
   background: var(--accent);
@@ -1053,25 +1040,6 @@ html[data-theme-ready='true'] body {
   margin-left: 6px;
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.tracker-lane-clip-label {
-  font-family: var(--font-label);
-  font-size: 10px;
-  color: var(--text);
-  text-shadow: var(--shadow-clip-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Focused lane accent bar (design: inset 2px accent on the lane head) */
-.tracker-lane-focused .tracker-lane-head {
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-
-.tracker-lane-focused .tracker-lane-name {
-  color: var(--highlight);
 }
 
 .middle-strip {
@@ -1693,6 +1661,20 @@ html[data-theme-ready='true'] body {
   white-space: nowrap;
 }
 
+/* Library names double as "open" buttons that restore the saved filters. */
+.manage-name-open {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.manage-name-open:hover {
+  color: var(--highlight);
+  text-decoration: underline;
+}
+
 .manage-action {
   flex-shrink: 0;
   background: transparent;
@@ -1814,14 +1796,20 @@ html[data-theme-ready='true'] body {
   color: var(--text);
 }
 
+/* Informational (non-interactive) line inside a context menu */
+.context-menu-note {
+  display: block;
+  padding: 6px 14px;
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 /* ── Clip flash animation (locate in browser) ── */
 @keyframes clip-flash {
   0%, 100% { opacity: 1; filter: brightness(1); }
   50% { opacity: 0.7; filter: brightness(1.6); }
-}
-
-.tracker-lane-clip-flash {
-  animation: clip-flash 0.3s ease-in-out 3;
 }
 
 .tiles .sample-bubble.clip-flash {
@@ -1975,7 +1963,6 @@ html[data-theme-ready='true'] body {
     border-top-color: var(--highlight);
   }
 
-  .tracker-lane-clip-flash,
   .tiles .sample-bubble.clip-flash {
     animation: none;
     outline: 2px solid var(--clip-select);

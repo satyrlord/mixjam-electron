@@ -1,20 +1,34 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: 'jsdom',
     setupFiles: ['src/renderer/src/test/setup.ts'],
-    environmentMatchGlobs: [
-      // Native-module tests run in Node so better-sqlite3 can load.
-      ['src/main/library.test.ts', 'node']
+    // Split into projects (environmentMatchGlobs/poolMatchGlobs are removed in
+    // Vitest 4): renderer + pure-Node main tests run under jsdom threads, while
+    // the better-sqlite3 tests need a real Node environment in a forked process
+    // so the native addon can load without Vite transforms.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'renderer',
+          environment: 'jsdom',
+          include: ['src/renderer/src/**/*.test.{ts,tsx}', 'src/main/**/*.test.ts'],
+          exclude: [...configDefaults.exclude, 'src/main/library.test.ts']
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: 'native',
+          environment: 'node',
+          pool: 'forks',
+          include: ['src/main/library.test.ts']
+        }
+      }
     ],
-    poolMatchGlobs: [
-      // Run native-addon tests in a forked process (real Node require, no Vite transforms).
-      ['src/main/library.test.ts', 'forks']
-    ],
-    include: ['src/renderer/src/**/*.test.{ts,tsx}', 'src/main/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],

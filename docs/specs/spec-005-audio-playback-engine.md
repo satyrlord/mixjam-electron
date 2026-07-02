@@ -54,6 +54,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   the playhead catches up rather than drifting.
 - The scheduler does not own the transport; it reads from it and calls back
   with `(tick, when)` pairs for steps that need to fire.
+- The playhead anchor folds forward to the last whole tick on every timer pass,
+  so a mid-playback BPM change reinterprets at most one timer interval of
+  elapsed time — the visual playhead stays continuous instead of jumping
+  (fixed 2026-07-02).
 - The scheduler is a standalone module — testable with a mock clock.
 
 ### Audio Engine
@@ -61,7 +65,12 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Owns the single `AudioContext` and the master `GainNode`.
 - Owns a master metering tap (`AnalyserNode` or equivalent) after the master
   gain stage so UI can render overall loudness.
-- Provides a factory for mixer channels (`createChannel()`).
+- Provides a factory for mixer channels (`createChannel(index?)`). The channel
+  registry is keyed by the caller's channel index — lane N always resolves to
+  channel N even when channels are created lazily out of order — so
+  `setChannelPan(index, pan)` targets the right channel. A pan set before a
+  lane's first trigger is stored and applied when its channel is created
+  (fixed 2026-07-02).
 - Provides `triggerVoice(buffer, channel, when, trackIndex)` — creates a new
   `AudioBufferSourceNode`, routes it through the channel's gain/pan chain into
   the master bus, and returns a `Voice` handle.

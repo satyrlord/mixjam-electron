@@ -73,12 +73,24 @@ export function createScheduler(options: SchedulerOptions): Scheduler {
   let anchorTime = 0
 
   function tick(): void {
-    const horizon = options.now() + lookaheadSeconds
+    const now = options.now()
     const stepSeconds = tickDurationSeconds(options.transport.bpm)
     // Guard against a non-finite/non-positive step (bpm <= 0) which would loop
     // forever or schedule garbage.
     if (!(stepSeconds > 0) || !Number.isFinite(stepSeconds)) return
 
+    // Fold the anchor forward to the last whole tick boundary. liveTick()
+    // divides (now - anchorTime) by the *current* step, so without folding a
+    // BPM change would retroactively reinterpret the entire play segment at the
+    // new tempo and jump the playhead. Folding on every pass bounds the
+    // reinterpreted span to one timer interval.
+    const elapsedTicks = Math.floor(Math.max(0, now - anchorTime) / stepSeconds)
+    if (elapsedTicks > 0) {
+      anchorTick += elapsedTicks
+      anchorTime += elapsedTicks * stepSeconds
+    }
+
+    const horizon = now + lookaheadSeconds
     while (nextTickTime < horizon) {
       options.onSchedule(nextTick, nextTickTime)
       nextTick += 1

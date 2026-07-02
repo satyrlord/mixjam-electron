@@ -11,6 +11,27 @@ function makeApi() {
   return createElectronAPI()
 }
 
+function makeDbRow(overrides: Partial<SampleItem> = {}): SampleItem {
+  return {
+    id: 1,
+    filepath: 'C:/a.wav',
+    filename: 'a.wav',
+    ext: '.wav',
+    sizeBytes: 100,
+    duration: 2.5,
+    sampleRate: 44100,
+    channels: 1,
+    bpm: 120,
+    musicalKey: 'C',
+    dateAdded: 0,
+    scanState: 1,
+    categoryId: 1,
+    tagIds: [],
+    tags: [],
+    ...overrides
+  }
+}
+
 describe('useLibraryData', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -51,11 +72,8 @@ describe('useLibraryData', () => {
   it('queries the DB pipeline when DB is indexed', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    const dbRows: SampleItem[] = [
-      { id: 1, filepath: 'C:/a.wav', filename: 'a.wav', ext: '.wav', sizeBytes: 100, duration: 2.5, sampleRate: 44100, channels: 1, bpm: 120, musicalKey: 'C', dateAdded: 0, scanState: 1, categoryId: 1 }
-    ]
     vi.mocked(api.hasSamples).mockResolvedValue(true)
-    vi.mocked(api.querySamples).mockResolvedValue({ rows: dbRows, total: 1 })
+    vi.mocked(api.querySamples).mockResolvedValue({ rows: [makeDbRow()], total: 1 })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
@@ -67,24 +85,18 @@ describe('useLibraryData', () => {
     })
   })
 
-  it('loads every DB sample window when no category is selected', async () => {
+  it('loads one windowed page up front and fetches the next via loadMoreSamples', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    const dbRows: SampleItem[] = Array.from({ length: 501 }, (_, index) => ({
-      id: index + 1,
-      filepath: `C:/samples/sample-${index + 1}.wav`,
-      filename: `sample-${index + 1}.wav`,
-      ext: '.wav',
-      sizeBytes: 100,
-      duration: 2.5,
-      sampleRate: 44100,
-      channels: 1,
-      bpm: 120,
-      musicalKey: 'C',
-      dateAdded: index,
-      scanState: 1,
-      categoryId: (index % 8) + 1
-    }))
+    const dbRows: SampleItem[] = Array.from({ length: 501 }, (_, index) =>
+      makeDbRow({
+        id: index + 1,
+        filepath: `C:/samples/sample-${index + 1}.wav`,
+        filename: `sample-${index + 1}.wav`,
+        dateAdded: index,
+        categoryId: (index % 8) + 1
+      })
+    )
     vi.mocked(api.hasSamples).mockResolvedValue(true)
     vi.mocked(api.querySamples).mockImplementation(async (request) => {
       const offset = request.offset ?? 0
@@ -94,9 +106,21 @@ describe('useLibraryData', () => {
 
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    await waitFor(() => expect(result.current.samples).toHaveLength(501))
-    expect(result.current.selectedCategoryId).toBeUndefined()
+    // Only the first windowed page is loaded eagerly — never the full set
+    // (AGENTS.md hard rule).
+    await waitFor(() => expect(result.current.samples).toHaveLength(500))
+    expect(result.current.totalCount).toBe(501)
+    expect(result.current.hasMoreSamples).toBe(true)
     expect(api.querySamples).toHaveBeenCalledWith(expect.objectContaining({ limit: 500, offset: 0 }))
+    expect(api.querySamples).not.toHaveBeenCalledWith(expect.objectContaining({ offset: 500 }))
+
+    // The grid requests the next page as the user scrolls near the end.
+    act(() => {
+      result.current.loadMoreSamples()
+    })
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(501))
+    expect(result.current.hasMoreSamples).toBe(false)
     expect(api.querySamples).toHaveBeenCalledWith(expect.objectContaining({ limit: 500, offset: 500 }))
   })
 
@@ -497,34 +521,102 @@ describe('useLibraryData', () => {
     expect(api.startScan).not.toHaveBeenCalled()
   })
 
-  it('rescanSampleBrowser does nothing when DB is indexed', async () => {
+  it('applyLibrary restores the saved filter state (AC-013)', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    const dbRows: SampleItem[] = [
-      { id: 1, filepath: 'C:/a.wav', filename: 'a.wav', ext: '.wav', sizeBytes: 100, duration: 2.5, sampleRate: 44100, channels: 1, bpm: 120, musicalKey: 'C', dateAdded: 0, scanState: 1, categoryId: 1 }
-    ]
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
+
+    const ruleJson = JSON.stringify({
+      version: 1,
+      root: {
+        kind: 'group',
+        op: 'and',
+        children: [
+          { kind: 'text', query: 'kick' },
+          { kind: 'category', quantifier: 'any', categoryIds: [3], includeDescendants: true },
+          { kind: 'tag', quantifier: 'any', tagIds: [7, 9] }
+        ]
+      }
+    })
+
+    act(() => {
+      result.current.applyLibrary({ id: 1, name: 'Kicks', createdAt: 0, ruleJson })
+    })
+
+    expect(result.current.searchQuery).toBe('kick')
+    expect(result.current.selectedCategoryId).toBe(3)
+    expect(result.current.selectedTagIds).toEqual([7, 9])
+  })
+
+  it('applyLibrary with malformed ruleJson clears filters instead of crashing', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
+
+    act(() => {
+      result.current.setSearchQuery('before')
+      result.current.setSelectedCategoryId(2)
+    })
+    act(() => {
+      result.current.applyLibrary({ id: 1, name: 'Broken', createdAt: 0, ruleJson: 'not-json' })
+    })
+
+    expect(result.current.searchQuery).toBe('')
+    expect(result.current.selectedCategoryId).toBeUndefined()
+    expect(result.current.selectedTagIds).toEqual([])
+  })
+
+  it('assigns and unassigns a tag on a DB-backed sample', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.listTags).mockResolvedValue([{ id: 7, name: 'Punchy', color: null }])
     vi.mocked(api.hasSamples).mockResolvedValue(true)
-    vi.mocked(api.querySamples).mockResolvedValue({ rows: dbRows, total: 1 })
+    vi.mocked(api.querySamples).mockResolvedValue({ rows: [makeDbRow()], total: 1 })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
 
-    const initialCalls = vi.mocked(api.querySampleBrowser).mock.calls.length
     await act(async () => {
-      await result.current.rescanSampleBrowser()
+      await result.current.assignTagToSample(result.current.samples[0]!, 7)
     })
 
-    expect(vi.mocked(api.querySampleBrowser).mock.calls.length).toBe(initialCalls)
+    expect(api.assignTag).toHaveBeenCalledWith(1, 7)
+    expect(result.current.samples[0]!.tagIds).toEqual([7])
+    expect(result.current.samples[0]!.tags).toEqual(['Punchy'])
+
+    await act(async () => {
+      await result.current.unassignTagFromSample(result.current.samples[0]!, 7)
+    })
+
+    expect(api.unassignTag).toHaveBeenCalledWith(1, 7)
+    expect(result.current.samples[0]!.tagIds).toEqual([])
+    expect(result.current.samples[0]!.tags).toEqual([])
+  })
+
+  it('does not call assignTag for legacy (pre-index) samples', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.hasSamples).mockResolvedValue(false)
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+
+    await act(async () => {
+      await result.current.assignTagToSample(result.current.samples[0]!, 7)
+    })
+
+    expect(api.assignTag).not.toHaveBeenCalled()
   })
 
   it('maps DB sample category name when categoryId matches', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    const dbRows: SampleItem[] = [
-      { id: 1, filepath: 'C:/a.wav', filename: 'a.wav', ext: '.wav', sizeBytes: 100, duration: 2.5, sampleRate: 44100, channels: 1, bpm: 120, musicalKey: 'C', dateAdded: 0, scanState: 1, categoryId: 1 }
-    ]
     vi.mocked(api.hasSamples).mockResolvedValue(true)
-    vi.mocked(api.querySamples).mockResolvedValue({ rows: dbRows, total: 1 })
+    vi.mocked(api.querySamples).mockResolvedValue({ rows: [makeDbRow()], total: 1 })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.samples).toHaveLength(1))

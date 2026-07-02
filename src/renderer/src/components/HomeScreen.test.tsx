@@ -10,7 +10,7 @@ const SET_FOLDER: FolderView = {
 }
 
 const UNSET_FOLDER: FolderView = {
-  status: 'unset',
+  status: 'empty',
   path: null
 }
 

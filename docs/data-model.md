@@ -71,14 +71,12 @@ CREATE TABLE library_rules (
   library_id INTEGER PRIMARY KEY REFERENCES libraries(id) ON DELETE CASCADE,
   rule_json  TEXT NOT NULL
 );
-
--- Roots the user has chosen to index. Drives scan/rescan (see indexing.md).
-CREATE TABLE scan_roots (
-  id            INTEGER PRIMARY KEY,
-  path          TEXT NOT NULL UNIQUE,
-  last_scanned  INTEGER
-);
 ```
+
+A `scan_roots` table existed in early schema versions but was never used — v1
+supports exactly one active Sample Folder (the session's `sampleFolder`), so the
+schema v3 migration drops it. Reintroduce a roots table only if multi-root
+libraries land.
 
 `PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).
 Run in WAL mode (`PRAGMA journal_mode = WAL;`) so the indexer can write while the
@@ -111,9 +109,11 @@ CREATE VIRTUAL TABLE samples_fts USING fts5(
 ```
 
 Use `content=`/`content_rowid=` (external-content) so the FTS index doesn't
-duplicate the text, and maintain it with `AFTER INSERT/UPDATE/DELETE` triggers on
-`samples`. Text conditions in a query (see [query-schema.md](query-schema.md))
-compile to a `samples_fts MATCH ?` subquery.
+duplicate the text, and maintain it with `AFTER INSERT/DELETE` triggers plus an
+`AFTER UPDATE OF filename, filepath` trigger on `samples` — scoping the update
+trigger to the indexed columns keeps scan-state and metadata writes from
+rewriting the FTS row (schema v3). Text conditions in a query (see
+[query-schema.md](query-schema.md)) compile to a `samples_fts MATCH ?` subquery.
 
 ## Category-tree queries
 

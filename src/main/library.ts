@@ -1,4 +1,5 @@
 import { readdirSync } from 'node:fs'
+import type { SampleQueryRequest } from '../shared/ipc'
 import type { DB } from './db'
 
 export interface TagRow {
@@ -35,6 +36,8 @@ export interface SampleRow {
   dateAdded: number
   scanState: number
   categoryId: number | null
+  tagIds: number[]
+  tags: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -133,13 +136,19 @@ export function createCategory(db: DB, name: string, parentId?: number): Categor
 
 export const UNSORTED_CATEGORY = 'Unsorted'
 
+function unsortedCategoryId(db: DB): number {
+  const row = db
+    .prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?')
+    .get(UNSORTED_CATEGORY) as { id: number } | undefined
+  if (row) return row.id
+  const result = db
+    .prepare('INSERT INTO categories (name, parent_id) VALUES (?, NULL)')
+    .run(UNSORTED_CATEGORY)
+  return result.lastInsertRowid as number
+}
+
 export function ensureUnsortedCategory(db: DB): void {
-  const exists = db
-    .prepare('SELECT 1 FROM categories WHERE parent_id IS NULL AND name = ?')
-    .get(UNSORTED_CATEGORY)
-  if (!exists) {
-    db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, NULL)').run(UNSORTED_CATEGORY)
-  }
+  unsortedCategoryId(db)
 }
 
 /**
@@ -179,15 +188,6 @@ export function syncCategoriesFromFolder(db: DB, sampleFolder: string): string[]
 
 export function deleteCategory(db: DB, id: number): void {
   db.prepare('DELETE FROM categories WHERE id = ?').run(id)
-}
-
-/**
- * Returns the hardcoded root-category name, or null for user-created ones.
- * Only "Unsorted" is truly hardcoded; all other root categories are
- * derived from the sample-folder structure.
- */
-export function isHardcodedCategory(name: string): boolean {
-  return name === UNSORTED_CATEGORY
 }
 
 // ---------------------------------------------------------------------------
@@ -234,15 +234,8 @@ export function hasSamples(db: DB): boolean {
   return row !== undefined
 }
 
-export interface SampleQueryOptions {
-  textSearch?: string
-  categoryId?: number
-  tagIds?: number[]
-  limit?: number
-  offset?: number
-  sortBy?: 'filename' | 'duration' | 'dateAdded'
-  sortDir?: 'asc' | 'desc'
-}
+// The query options are exactly the IPC request shape — one definition, no drift.
+export type SampleQueryOptions = SampleQueryRequest
 
 export interface SampleQueryResult {
   rows: SampleRow[]
@@ -338,11 +331,19 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
     .get(...params) as { cnt: number }
   const total = countRow.cnt
 
+  // Tags ride along as aggregated subqueries so the browser and footer can show
+  // per-sample tags without an N+1 query. Names join on the unit separator
+  // (char(31)) because tag names may contain commas.
   const rows = db
     .prepare(
       `SELECT s.id, s.filepath, s.filename, s.ext, s.size_bytes, s.mtime,
               s.duration, s.sample_rate, s.channels, s.bpm, s.musical_key,
-              s.date_added, s.scan_state, s.category_id
+              s.date_added, s.scan_state, s.category_id,
+              (SELECT GROUP_CONCAT(st.tag_id) FROM sample_tags st
+                WHERE st.sample_id = s.id) AS tag_ids,
+              (SELECT GROUP_CONCAT(t.name, char(31)) FROM sample_tags st
+                JOIN tags t ON t.id = st.tag_id
+                WHERE st.sample_id = s.id) AS tag_names
        FROM samples s ${where} ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(...params, limit, offset) as Array<{
@@ -360,6 +361,8 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
     date_added: number
     scan_state: number
     category_id: number | null
+    tag_ids: string | null
+    tag_names: string | null
   }>
 
   return {
@@ -378,7 +381,9 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
       musicalKey: r.musical_key,
       dateAdded: r.date_added,
       scanState: r.scan_state,
-      categoryId: r.category_id
+      categoryId: r.category_id,
+      tagIds: r.tag_ids ? r.tag_ids.split(',').map(Number).sort((a, b) => a - b) : [],
+      tags: r.tag_names ? r.tag_names.split('\u001F').sort((a, b) => a.localeCompare(b)) : []
     }))
   }
 }
@@ -393,8 +398,7 @@ export function upsertStub(
   filename: string,
   ext: string,
   sizeBytes: number,
-  mtime: number,
-  preserveUserData: boolean
+  mtime: number
 ): void {
   const existing = db
     .prepare('SELECT id, scan_state, size_bytes, mtime FROM samples WHERE filepath = ?')
@@ -422,18 +426,12 @@ export function upsertStub(
     return
   }
 
-  if (preserveUserData) {
-    db.prepare(
-      `UPDATE samples SET filename=?, ext=?, size_bytes=?, mtime=?, scan_state=0,
-       duration=NULL, sample_rate=NULL, channels=NULL WHERE id=?`
-    ).run(filename, ext, sizeBytes, mtime, existing.id)
-  } else {
-    db.prepare(
-      `UPDATE samples SET filename=?, ext=?, size_bytes=?, mtime=?, scan_state=0,
-       duration=NULL, sample_rate=NULL, channels=NULL,
-       bpm=NULL, musical_key=NULL WHERE id=?`
-    ).run(filename, ext, sizeBytes, mtime, existing.id)
-  }
+  // User data (tags, categories, bpm, key) always survives a re-scan; only the
+  // extracted audio metadata is reset for phase 2 to re-extract.
+  db.prepare(
+    `UPDATE samples SET filename=?, ext=?, size_bytes=?, mtime=?, scan_state=0,
+     duration=NULL, sample_rate=NULL, channels=NULL WHERE id=?`
+  ).run(filename, ext, sizeBytes, mtime, existing.id)
 }
 
 export function markMissing(db: DB, filepath: string): void {
@@ -466,14 +464,12 @@ export function assignCategoryFromPath(db: DB, filepath: string, sampleFolder: s
     : filepath
   const segments = relative.split(/[\\/]/).filter(Boolean)
 
-  ensureUnsortedCategory(db)
-
   if (segments.length === 0) {
     // File is directly in the sample folder root → Unsorted
-    const unsorted = db
-      .prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?')
-      .get(UNSORTED_CATEGORY) as { id: number }
-    db.prepare('UPDATE samples SET category_id = ? WHERE filepath = ?').run(unsorted.id, filepath)
+    db.prepare('UPDATE samples SET category_id = ? WHERE filepath = ?').run(
+      unsortedCategoryId(db),
+      filepath
+    )
     return
   }
 
@@ -528,8 +524,8 @@ export function assignCategoryFromPath(db: DB, filepath: string, sampleFolder: s
   }
 
   // No matching category found → fall back to Unsorted
-  const unsorted = db
-    .prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?')
-    .get(UNSORTED_CATEGORY) as { id: number }
-  db.prepare('UPDATE samples SET category_id = ? WHERE filepath = ?').run(unsorted.id, filepath)
+  db.prepare('UPDATE samples SET category_id = ? WHERE filepath = ?').run(
+    unsortedCategoryId(db),
+    filepath
+  )
 }

@@ -137,7 +137,7 @@ describe('renameTag (AC-008)', () => {
 
 describe('deleteTag (AC-009)', () => {
   it('deletes a tag and removes it from assigned samples', () => {
-    upsertStub(db, '/samples/kick.wav', 'kick.wav', 'wav', 1024, Date.now(), false)
+    upsertStub(db, '/samples/kick.wav', 'kick.wav', 'wav', 1024, Date.now())
     const sample = db.prepare('SELECT id FROM samples WHERE filepath = ?').get('/samples/kick.wav') as { id: number }
     const tag = createTag(db, 'ToDelete')
     assignTag(db, sample.id, tag.id)
@@ -151,7 +151,7 @@ describe('deleteTag (AC-009)', () => {
 
 describe('assignTag / unassignTag', () => {
   it('assigns and unassigns a tag to a sample', () => {
-    upsertStub(db, '/samples/snare.wav', 'snare.wav', 'wav', 512, Date.now(), false)
+    upsertStub(db, '/samples/snare.wav', 'snare.wav', 'wav', 512, Date.now())
     const sample = db.prepare('SELECT id FROM samples WHERE filepath = ?').get('/samples/snare.wav') as { id: number }
     const tag = createTag(db, 'Snare')
 
@@ -169,7 +169,7 @@ describe('assignTag / unassignTag', () => {
 
 describe('upsertStub', () => {
   it('inserts a new stub row with scan_state=0', () => {
-    upsertStub(db, '/samples/hi-hat.wav', 'hi-hat.wav', 'wav', 2048, 1000, false)
+    upsertStub(db, '/samples/hi-hat.wav', 'hi-hat.wav', 'wav', 2048, 1000)
     const row = db.prepare('SELECT * FROM samples WHERE filepath = ?').get('/samples/hi-hat.wav') as {
       filename: string; scan_state: number; duration: number | null
     }
@@ -179,20 +179,20 @@ describe('upsertStub', () => {
   })
 
   it('updates an existing stub when called again (preserves user data)', () => {
-    upsertStub(db, '/samples/hi-hat.wav', 'hi-hat.wav', 'wav', 2048, 1000, false)
+    upsertStub(db, '/samples/hi-hat.wav', 'hi-hat.wav', 'wav', 2048, 1000)
     const tag = createTag(db, 'HiHat')
     const sample = db.prepare('SELECT id FROM samples WHERE filepath = ?').get('/samples/hi-hat.wav') as { id: number }
     assignTag(db, sample.id, tag.id)
 
-    upsertStub(db, '/samples/hi-hat.wav', 'hi-hat.wav', 'wav', 2049, 2000, true)
+    upsertStub(db, '/samples/hi-hat.wav', 'hi-hat.wav', 'wav', 2049, 2000)
     expect(tagsForSample(db, sample.id).find((t) => t.id === tag.id)).toBeDefined()
   })
 
   it('leaves a fully-scanned row untouched when size and mtime are unchanged', () => {
-    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 2048, 1000, true)
+    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 2048, 1000)
     updateMetadata(db, '/samples/loop.wav', 3.0, 44100, 2)
     // Re-scan with identical size/mtime — should NOT reset to a stub.
-    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 2048, 1000, true)
+    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 2048, 1000)
     const row = db.prepare('SELECT scan_state, duration FROM samples WHERE filepath = ?').get(
       '/samples/loop.wav'
     ) as { scan_state: number; duration: number | null }
@@ -201,9 +201,9 @@ describe('upsertStub', () => {
   })
 
   it('re-stubs a scanned row when size or mtime changes', () => {
-    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 2048, 1000, true)
+    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 2048, 1000)
     updateMetadata(db, '/samples/loop.wav', 3.0, 44100, 2)
-    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 9999, 1000, true)
+    upsertStub(db, '/samples/loop.wav', 'loop.wav', 'wav', 9999, 1000)
     const row = db.prepare('SELECT scan_state, duration FROM samples WHERE filepath = ?').get(
       '/samples/loop.wav'
     ) as { scan_state: number; duration: number | null }
@@ -214,7 +214,7 @@ describe('upsertStub', () => {
 
 describe('updateMetadata', () => {
   it('fills duration/sample_rate/channels and sets scan_state=1', () => {
-    upsertStub(db, '/samples/pad.wav', 'pad.wav', 'wav', 4096, 1000, false)
+    upsertStub(db, '/samples/pad.wav', 'pad.wav', 'wav', 4096, 1000)
     updateMetadata(db, '/samples/pad.wav', 2.5, 44100, 2)
     const row = db.prepare('SELECT * FROM samples WHERE filepath = ?').get('/samples/pad.wav') as {
       duration: number; sample_rate: number; channels: number; scan_state: number
@@ -228,7 +228,7 @@ describe('updateMetadata', () => {
 
 describe('markMissing', () => {
   it('sets scan_state=2 and hides file from normal queries', () => {
-    upsertStub(db, '/samples/gone.wav', 'gone.wav', 'wav', 1024, 1000, false)
+    upsertStub(db, '/samples/gone.wav', 'gone.wav', 'wav', 1024, 1000)
     markMissing(db, '/samples/gone.wav')
     const { rows } = querySamples(db, {})
     expect(rows.find((r) => r.filepath === '/samples/gone.wav')).toBeUndefined()
@@ -242,9 +242,9 @@ describe('markMissing', () => {
 describe('querySamples (AC-004, AC-005, AC-006, AC-011, AC-016)', () => {
   beforeEach(() => {
     ensureUnsortedCategory(db)
-    upsertStub(db, '/s/kick.wav', 'kick.wav', 'wav', 1000, 1000, false)
-    upsertStub(db, '/s/snare.wav', 'snare.wav', 'wav', 1000, 1000, false)
-    upsertStub(db, '/s/bass.mp3', 'bass.mp3', 'mp3', 1000, 1000, false)
+    upsertStub(db, '/s/kick.wav', 'kick.wav', 'wav', 1000, 1000)
+    upsertStub(db, '/s/snare.wav', 'snare.wav', 'wav', 1000, 1000)
+    upsertStub(db, '/s/bass.mp3', 'bass.mp3', 'mp3', 1000, 1000)
     updateMetadata(db, '/s/kick.wav', 0.5, 44100, 1)
     updateMetadata(db, '/s/snare.wav', 1.0, 44100, 2)
     updateMetadata(db, '/s/bass.mp3', 3.0, 44100, 2)
@@ -301,7 +301,7 @@ describe('querySamples paging (AC-004)', () => {
   beforeEach(() => {
     // Insert 10 samples so we can test limit/offset
     for (let i = 1; i <= 10; i++) {
-      upsertStub(db, `/s/sample${String(i).padStart(2, '0')}.wav`, `sample${String(i).padStart(2, '0')}.wav`, 'wav', 1000, 1000, false)
+      upsertStub(db, `/s/sample${String(i).padStart(2, '0')}.wav`, `sample${String(i).padStart(2, '0')}.wav`, 'wav', 1000, 1000)
     }
   })
 
@@ -357,7 +357,7 @@ describe('saveLibrary / listLibraries / deleteLibrary (AC-012, AC-013, AC-014)',
   })
 
   it('AC-014: deleting a library removes only the saved query, not samples or tags', () => {
-    upsertStub(db, '/s/sample.wav', 'sample.wav', 'wav', 1000, 1000, false)
+    upsertStub(db, '/s/sample.wav', 'sample.wav', 'wav', 1000, 1000)
     const tag = createTag(db, 'KeepMe')
     const lib = saveLibrary(db, 'TempLib', '{}')
 
@@ -390,8 +390,8 @@ describe('toFtsPrefixQuery', () => {
 
 describe('querySamples textSearch does not crash on FTS5 metacharacters', () => {
   beforeEach(() => {
-    upsertStub(db, '/s/bass-loop.wav', 'bass-loop.wav', 'wav', 1000, 1000, false)
-    upsertStub(db, '/s/kick(01).wav', 'kick(01).wav', 'wav', 1000, 1000, false)
+    upsertStub(db, '/s/bass-loop.wav', 'bass-loop.wav', 'wav', 1000, 1000)
+    upsertStub(db, '/s/kick(01).wav', 'kick(01).wav', 'wav', 1000, 1000)
   })
 
   for (const term of ['bass-', 'kick(', '"snare', '808:', 'a OR b', 'NEAR']) {
@@ -419,7 +419,7 @@ describe('assignCategoryFromPath + subcategory filtering', () => {
   })
 
   it('finds a sample by its subcategory even though category_id holds the root', () => {
-    upsertStub(db, '/lib/Drums/Kicks/kick.wav', 'kick.wav', 'wav', 1000, 1000, false)
+    upsertStub(db, '/lib/Drums/Kicks/kick.wav', 'kick.wav', 'wav', 1000, 1000)
     assignCategoryFromPath(db, '/lib/Drums/Kicks/kick.wav', sampleFolder)
 
     const drums = listCategories(db).find((c) => c.parentId === null && c.name === 'Drums')!
@@ -435,7 +435,7 @@ describe('assignCategoryFromPath + subcategory filtering', () => {
   })
 
   it('clears stale subcategory membership when a file moves between folders', () => {
-    upsertStub(db, '/lib/Drums/Kicks/x.wav', 'x.wav', 'wav', 1000, 1000, false)
+    upsertStub(db, '/lib/Drums/Kicks/x.wav', 'x.wav', 'wav', 1000, 1000)
     assignCategoryFromPath(db, '/lib/Drums/Kicks/x.wav', sampleFolder)
     const kicks = listCategories(db).find((c) => c.name === 'Kicks')!
 

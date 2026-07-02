@@ -141,6 +141,34 @@ describe('createScheduler', () => {
     expect(scheduler.currentTick()).toBe(3)
   })
 
+  it('keeps the playhead continuous across a BPM change while running', () => {
+    let audioTime = 0
+    const bpm = { value: 120 } // step = 0.0625s
+    const clock = mockClock()
+    const scheduler = createScheduler({
+      now: () => audioTime,
+      transport: { get bpm() { return bpm.value } },
+      onSchedule: () => undefined,
+      clock,
+      lookaheadMs: 0
+    })
+
+    scheduler.start(0)
+    // Play 8 ticks at 120 BPM, with a timer pass folding the anchor forward.
+    audioTime = 0.0625 * 8 + 0.001
+    clock.fire()
+    expect(scheduler.currentTick()).toBe(8)
+
+    // Halve the tempo. Without anchor folding the whole elapsed 0.5s would be
+    // reinterpreted at the new 0.125s step and the playhead would jump to 4.
+    bpm.value = 60
+    expect(scheduler.currentTick()).toBe(8)
+
+    // One tick at the new tempo advances the playhead by exactly one.
+    audioTime += 0.125
+    expect(scheduler.currentTick()).toBe(9)
+  })
+
   it('does not loop forever or schedule when bpm is non-positive', () => {
     for (const bpm of [0, -120]) {
       const clock = mockClock()

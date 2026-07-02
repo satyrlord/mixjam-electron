@@ -27,6 +27,7 @@ const DEFAULT_RECENT_PROJECTS: RecentProjectItem[] = [
 const DEFAULT_SAMPLE_LIST_ITEMS: SampleListItem[] = [
   {
     id: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
+    dbId: null,
     name: 'kick_808.wav',
     filepath: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
     category: 'Drums',
@@ -37,6 +38,7 @@ const DEFAULT_SAMPLE_LIST_ITEMS: SampleListItem[] = [
   },
   {
     id: 'C:\\Samples\\Drums\\Snares\\snare_clap.wav',
+    dbId: null,
     name: 'snare_clap.wav',
     filepath: 'C:\\Samples\\Drums\\Snares\\snare_clap.wav',
     category: 'Drums',
@@ -74,7 +76,6 @@ export function createElectronAPI(): ElectronAPI {
     resizeToTracker: vi.fn().mockResolvedValue(undefined),
     resizeToHome: vi.fn().mockResolvedValue(undefined),
     openFilePicker: vi.fn().mockResolvedValue(null),
-    openFolderPicker: vi.fn().mockResolvedValue(null),
     openExternal: vi.fn().mockResolvedValue(undefined),
     loadSession: vi.fn().mockResolvedValue(DEFAULT_SESSION),
     saveSession: vi.fn().mockResolvedValue(undefined),

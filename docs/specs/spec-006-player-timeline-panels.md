@@ -142,7 +142,9 @@ adjacencies.
 - Left segment: project name (the opened project's display name, "Untitled"
   when none) and the BPM display/editor.
 - Center segment: three transport buttons plus the edit-history pair:
-  - Skip Back (returns to tick 0).
+  - Skip Back (returns to tick 0). Resets the engine scheduler's playhead, not
+    just the UI mirror; while playing it restarts playback from the top
+    (fixed 2026-07-02 — previously a visual-only no-op).
   - Play / Pause (toggles; Play is accent-colored when stopped, Pause when
     playing). Space toggles the same action.
   - Stop (returns to tick 0 and stops).

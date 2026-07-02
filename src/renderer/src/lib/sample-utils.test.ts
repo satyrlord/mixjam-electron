@@ -4,8 +4,7 @@ import {
   categoryColor,
   formatDuration,
   meterFillPct,
-  nearestTick,
-  tileWidth
+  nearestTick
 } from './sample-utils'
 
 describe('ROOT_CATEGORY_NAMES', () => {
@@ -90,29 +89,13 @@ describe('formatDuration', () => {
   })
 })
 
-describe('tileWidth', () => {
-  it('returns 80 for null, zero, or negative durations', () => {
-    expect(tileWidth(null)).toBe(80)
-    expect(tileWidth(0)).toBe(80)
-    expect(tileWidth(-5)).toBe(80)
-  })
-
-  it('returns at least 60 for very short durations', () => {
-    expect(tileWidth(1)).toBe(60)
-  })
-
-  it('scales linearly with duration within the cap', () => {
-    expect(tileWidth(2)).toBe(70)
-  })
-
-  it('caps duration at 40 seconds before scaling', () => {
-    expect(tileWidth(40)).toBe(1400)
-    expect(tileWidth(50)).toBe(1400)
-    expect(tileWidth(999)).toBe(1400)
-  })
-})
-
 describe('nearestTick', () => {
+  it('clamps a snapped drop near the right edge onto the last on-grid slot', () => {
+    // clickX at the far right edge maps to tick 255; snapping to a beat (8)
+    // would round up to 256 (past the grid) without the clamp.
+    expect(nearestTick(1000, 1000, 256, 8)).toBe(248)
+  })
+
   it('returns 0 when container width is zero or negative', () => {
     expect(nearestTick(50, 0, 10)).toBe(0)
     expect(nearestTick(50, -10, 10)).toBe(0)

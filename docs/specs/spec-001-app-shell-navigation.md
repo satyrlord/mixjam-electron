@@ -43,7 +43,7 @@ Implement view switching, the header bar, and the footer.
   - "Load MixJam" link — secondary action, opens a native file picker filtered
     to the project file extension. If the user selects a file, navigates to
     the Player. If the user cancels the picker, stays on the Home Screen.
-- **Footer** (40px): "Select settings folder" link anchored to the left
+- **Footer** (40px): "Select User Folder" link anchored to the left
   margin, version string anchored to the right margin.
 - The Home Screen has no timer and no home link.
 
@@ -98,10 +98,11 @@ Implement view switching, the header bar, and the footer.
 ### Footer (both views)
 
 - Fixed 40px height, full width (same fixed size as the header).
-- **Home Screen state:** left "Select settings folder" link (placeholder —
-  opens a native folder picker but does not persist the selection in this
-  spec), right version string.
-- **Player state:** left "Select settings folder" link, right version string,
+- **Home Screen state:** left "Select User Folder" link (opens the User Folder
+  picker and persists a valid selection to the session — same flow as the Home
+  Screen folder card; renamed and wired 2026-07-02, previously a placeholder
+  that discarded the picked folder), right version string.
+- **Player state:** left "Select User Folder" link, right version string,
   and a center detail slot that may be populated by the Sample Browser
   selection model (spec-004).
 - The center footer slot is empty when no sample is selected.
@@ -117,7 +118,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" button and "Load MixJam" link.
-- [x] **AC-003:** Footer is 40px height (same as header), shows "Select settings folder" left and clickable version string right on both views.
+- [x] **AC-003:** Footer is 40px height (same as header), shows "Select User Folder" left and clickable version string right on both views.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
 - [x] **AC-004:** Clicking "Start New MixJam" resizes the window to 1920×1080 centered, enables the maximize button, and switches the content area to the MixJam Player.

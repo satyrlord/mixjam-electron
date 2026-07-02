@@ -27,7 +27,7 @@ describe('Footer', () => {
         onOpenRepo={vi.fn()}
       />
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Select settings folder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Select User Folder' }))
     expect(onSelectFolder).toHaveBeenCalledTimes(1)
   })
 
@@ -90,7 +90,7 @@ describe('Footer', () => {
     expect(screen.getByText('Percussion')).toBeInTheDocument()
 
     // Left settings link still visible
-    expect(screen.getByRole('button', { name: 'Select settings folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
     // Right version string still visible
     expect(screen.getByRole('button', { name: '1.2.3' })).toBeInTheDocument()
   })

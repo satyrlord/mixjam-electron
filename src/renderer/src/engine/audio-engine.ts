@@ -93,13 +93,24 @@ export class AudioEngine {
     await this.ensureContext().resume()
   }
 
-  createChannel(): Channel {
+  // Creates (or returns) the mixer channel for the given index. The registry is
+  // keyed by the caller's index — lane N always maps to channel N — never by
+  // creation order, so channels created lazily out of order still resolve.
+  // Omitting the index allocates the next sequential slot.
+  createChannel(channelIndex?: number): Channel {
     this.ensureContext()
-    const channel = createChannel(this.context!, this.channelCount)
+    const index = channelIndex ?? this.channelCount
+    const existing = this.channels.get(index)
+    if (existing) return existing
+    const channel = createChannel(this.context!, index)
     channel.output.connect(this.masterGain!)
-    this.channels.set(this.channelCount, channel)
-    this.channelCount++
+    this.channels.set(index, channel)
+    this.channelCount = Math.max(this.channelCount, index + 1)
     return channel
+  }
+
+  getChannel(channelIndex: number): Channel | undefined {
+    return this.channels.get(channelIndex)
   }
 
   setChannelPan(channelIndex: number, pan: number): void {
@@ -192,6 +203,10 @@ export class AudioEngine {
   async close(): Promise<void> {
     this.stopAllVoices()
     this.samples.clear()
+    // Channels belong to the closed context; a later ensureContext() builds a
+    // fresh graph, so stale channel nodes must not survive the close.
+    this.channels.clear()
+    this.channelCount = 0
     if (this.context) {
       await this.context.close()
       this.context = null

@@ -1,4 +1,4 @@
-import { promises as fs, constants, type Dirent } from 'node:fs'
+import { promises as fs, constants, writeFileSync, type Dirent } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import type { FolderRole, RecentProjectItem, SessionPaths } from '../shared/ipc'
 import { canonicalizePath } from './path-utils'
@@ -206,15 +206,31 @@ export async function recordRecentProject(
   )
 }
 
+// Cap the merged recent-projects list so the registry cannot grow unboundedly
+// over years of use.
+const RECENT_PROJECTS_LIMIT = 20
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    return (await fs.stat(path)).isFile()
+  } catch {
+    return false
+  }
+}
+
 export async function listRecentProjects(
   registryFilePath: string,
   userFolder: string | null
 ): Promise<RecentProjectItem[]> {
   const merged = new Map<string, RecentProjectItem>()
 
-  for (const entry of await readRecentProjects(registryFilePath)) {
-    merged.set(canonicalizePath(entry.path), entry)
-  }
+  // Registry entries may point at files that have since been deleted or moved;
+  // drop those instead of offering dead entries.
+  const registered = await readRecentProjects(registryFilePath)
+  const exists = await Promise.all(registered.map((entry) => fileExists(entry.path)))
+  registered.forEach((entry, i) => {
+    if (exists[i]) merged.set(canonicalizePath(entry.path), entry)
+  })
 
   if (userFolder) {
     for (const entry of await discoverMixJamProjects(userFolder)) {
@@ -225,7 +241,7 @@ export async function listRecentProjects(
     }
   }
 
-  return sortRecentProjectItems([...merged.values()])
+  return sortRecentProjectItems([...merged.values()]).slice(0, RECENT_PROJECTS_LIMIT)
 }
 
 export function defaultUserFolderPath(home: string): string {
@@ -257,6 +273,21 @@ export async function writeSessionConfig(paths: SessionPaths, appVersion: string
   const config = buildSessionConfig(paths, appVersion)
   if (!config) return
   await fs.writeFile(
+    join(config.userFolder, CONFIG_FILE_NAME),
+    `${JSON.stringify(config, null, 2)}\n`,
+    'utf8'
+  )
+}
+
+/**
+ * Synchronous variant for the before-quit hook: Electron does not wait for
+ * async work during quit, so the write must complete before the handler
+ * returns or it can be killed mid-flight.
+ */
+export function writeSessionConfigSync(paths: SessionPaths, appVersion: string): void {
+  const config = buildSessionConfig(paths, appVersion)
+  if (!config) return
+  writeFileSync(
     join(config.userFolder, CONFIG_FILE_NAME),
     `${JSON.stringify(config, null, 2)}\n`,
     'utf8'

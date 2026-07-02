@@ -23,8 +23,11 @@ export interface Transport {
 }
 
 // Step resolution: 1/32 note. 8 ticks per beat at 4/4 — every track shares this
-// global grid (see spec-005 Transport).
+// global grid (see spec-005 Transport). These are the single source of truth
+// for grid math; the ruler, lane canvas, and drop snapping all derive from them.
 export const TICKS_PER_BEAT = 8
+export const BEATS_PER_BAR = 4
+export const TICKS_PER_BAR = TICKS_PER_BEAT * BEATS_PER_BAR
 
 export function tickDurationSeconds(bpm: number): number {
   return 60 / bpm / TICKS_PER_BEAT

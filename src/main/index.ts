@@ -22,7 +22,8 @@ import {
   readSession,
   validateFolder,
   writeSession,
-  writeSessionConfig
+  writeSessionConfig,
+  writeSessionConfigSync
 } from './session'
 import { querySampleBrowser, type SampleBrowserCache } from './sample-browser'
 import { openDatabase, type DB } from './db'
@@ -91,16 +92,30 @@ function createWindow(): void {
   const icon = nativeImage.createFromPath(iconPath)
   const preloadPath = buildPreloadPath(__dirname)
 
-  mainWindow = new BrowserWindow(createMainWindowOptions(preloadPath, icon))
+  const window = new BrowserWindow(createMainWindowOptions(preloadPath, icon))
+  mainWindow = window
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow!.show()
+  window.once('ready-to-show', () => {
+    window.show()
+  })
+
+  // The renderer must never open new windows or navigate away; external links
+  // go through the allowlisted shell:open-url IPC channel instead.
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  window.webContents.on('will-navigate', (event) => {
+    event.preventDefault()
+  })
+
+  // Drop the reference on close so IPC handlers never touch a destroyed window
+  // (macOS keeps the app alive after the last window closes until 'activate').
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = null
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    window.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
@@ -118,9 +133,14 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   indexerHost.destroy()
   db?.close()
-  void writeSessionConfig(lastSession, appVersion()).catch((error: unknown) => {
+  db = null
+  // Synchronous on purpose: Electron does not wait for async work during quit,
+  // so a promise-based write could be killed mid-flight.
+  try {
+    writeSessionConfigSync(lastSession, appVersion())
+  } catch (error) {
     console.error('Failed to write mixjam.json on quit:', error)
-  })
+  }
 })
 
 ipcMain.handle(IPC_CHANNELS.appGetVersion, () => appVersion())
@@ -140,14 +160,6 @@ ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [{ name: 'MixJam Project', extensions: ['mixjam'] }]
-  })
-  return result.canceled ? null : result.filePaths[0]
-})
-
-ipcMain.handle(IPC_CHANNELS.dialogOpenFolder, async () => {
-  if (!mainWindow) return null
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory']
   })
   return result.canceled ? null : result.filePaths[0]
 })
@@ -320,17 +332,25 @@ ipcMain.handle(
 
     // Containment check: only files inside the active Sample Folder may be read.
     // The renderer can request arbitrary paths, so confine reads to the folder
-    // the user explicitly selected. Checked after resolution so `..` segments
-    // cannot escape the folder.
-    const folder = canonicalizePath(rawSampleFolder)
-    const file = canonicalizePath(resolvedFile)
+    // the user explicitly selected. Both sides are realpath'd first so neither
+    // `..` segments nor symlinks/junctions inside the folder can escape it.
+    let realFolder: string
+    let realFile: string
+    try {
+      realFolder = await fs.realpath(rawSampleFolder)
+      realFile = await fs.realpath(resolvedFile)
+    } catch {
+      return null
+    }
+    const folder = canonicalizePath(realFolder)
+    const file = canonicalizePath(realFile)
     const folderPrefix = folder.endsWith('\\') || folder.endsWith('/') ? folder : `${folder}\\`
     if (file !== folder && !file.startsWith(folderPrefix) && !file.startsWith(`${folder}/`)) {
       return null
     }
 
     try {
-      const buffer = await fs.readFile(resolvedFile)
+      const buffer = await fs.readFile(realFile)
       // Return an ArrayBuffer (transferable over IPC); slice to the exact view.
       return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
     } catch (error) {

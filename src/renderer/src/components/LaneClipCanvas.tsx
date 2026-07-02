@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import { clipScreenRect, type LaneClip } from '../lib/playerShell'
 import { bubbleTextColor } from '../lib/sample-utils'
+import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 
 interface LaneClipCanvasProps {
   clips: LaneClip[]
@@ -23,9 +24,6 @@ const CLIP_HEIGHT = 32
 const CLIP_TOP = 6
 const CORNER_RADIUS = 6
 const ACCENT_FALLBACK = '#2D8C6F'
-const TICKS_PER_BAR = 32
-const BEATS_PER_BAR = 4
-const TICKS_PER_BEAT = TICKS_PER_BAR / BEATS_PER_BAR
 
 interface ClipHitRect {
   clip: LaneClip
@@ -153,7 +151,7 @@ function buildClipDragGhost(clip: LaneClip, width: number, count: number): HTMLC
   return canvas
 }
 
-export default function LaneClipCanvas({
+function LaneClipCanvas({
   clips,
   totalTicks,
   laneIndex,
@@ -306,11 +304,17 @@ export default function LaneClipCanvas({
     if (e.button !== 0) return
     // Ctrl+click is used for rectangle selection at the TrackerView level
     if (e.ctrlKey) return
+    // Clear any payload left by an earlier mousedown that never became a drag,
+    // so dragging from empty lane space cannot pick up a stale clip id.
+    const container = containerRef.current
+    if (container) {
+      delete container.dataset.dragClipId
+      delete container.dataset.dragGrabX
+    }
     const clip = hitTest(e.clientX)
     if (!clip) return
     // Set up for potential drag — store the clip id for dragstart, plus where
     // inside the clip the grab happened so the drag image stays under the cursor
-    const container = containerRef.current
     if (container) {
       container.dataset.dragClipId = clip.id
       const canvasRect = canvasRef.current?.getBoundingClientRect()
@@ -374,3 +378,8 @@ export default function LaneClipCanvas({
     </div>
   )
 }
+
+// Memoized so the tracker's 10Hz playhead/meter updates skip redrawing every
+// lane canvas; a lane re-renders only when its clips, the selection, or the
+// flash target change.
+export default memo(LaneClipCanvas)

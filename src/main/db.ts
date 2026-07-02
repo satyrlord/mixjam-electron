@@ -4,12 +4,19 @@ import { join } from 'path'
 export type DB = Database.Database
 
 const DB_FILE_NAME = 'library.db'
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
+
+// The update trigger is version-managed (v3 scoped it to the FTS-indexed
+// columns), so its definition lives outside the DDL string where the migration
+// can re-create it.
+const FTS_UPDATE_TRIGGER = `
+CREATE TRIGGER IF NOT EXISTS samples_fts_au AFTER UPDATE OF filename, filepath ON samples BEGIN
+  INSERT INTO samples_fts(samples_fts, rowid, filename, filepath) VALUES ('delete', old.id, old.filename, old.filepath);
+  INSERT INTO samples_fts(rowid, filename, filepath) VALUES (new.id, new.filename, new.filepath);
+END;
+`
 
 const DDL = `
-PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
-
 CREATE TABLE IF NOT EXISTS schema_version (
   version INTEGER NOT NULL
 );
@@ -70,12 +77,6 @@ CREATE TABLE IF NOT EXISTS library_rules (
   rule_json  TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS scan_roots (
-  id           INTEGER PRIMARY KEY,
-  path         TEXT NOT NULL UNIQUE,
-  last_scanned INTEGER
-);
-
 CREATE INDEX IF NOT EXISTS idx_samples_filename   ON samples(filename);
 CREATE INDEX IF NOT EXISTS idx_samples_date_added ON samples(date_added);
 CREATE INDEX IF NOT EXISTS idx_samples_bpm        ON samples(bpm);
@@ -97,10 +98,7 @@ CREATE TRIGGER IF NOT EXISTS samples_fts_ad AFTER DELETE ON samples BEGIN
   INSERT INTO samples_fts(samples_fts, rowid, filename, filepath) VALUES ('delete', old.id, old.filename, old.filepath);
 END;
 
-CREATE TRIGGER IF NOT EXISTS samples_fts_au AFTER UPDATE ON samples BEGIN
-  INSERT INTO samples_fts(samples_fts, rowid, filename, filepath) VALUES ('delete', old.id, old.filename, old.filepath);
-  INSERT INTO samples_fts(rowid, filename, filepath) VALUES (new.id, new.filename, new.filepath);
-END;
+${FTS_UPDATE_TRIGGER}
 `
 
 export function openDatabase(dbPath?: string): DB {
@@ -125,19 +123,31 @@ export function openDatabase(dbPath?: string): DB {
     | undefined
 
   if (!row) {
+    // Fresh database: the DDL above already created the current schema.
     db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(SCHEMA_VERSION)
+    return db
   }
 
   // Migrate v1 -> v2: add category_id column to samples
-  if (!row || row.version < 2) {
+  if (row.version < 2) {
     try {
       db.exec('ALTER TABLE samples ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL')
     } catch {
       // Column already exists — ignore
     }
-    if (row) {
-      db.prepare('UPDATE schema_version SET version = 2').run()
-    }
+  }
+
+  // Migrate v2 -> v3: scope the FTS update trigger to the indexed columns (the
+  // unscoped trigger rewrote the FTS row on every samples update, including
+  // scan-state and metadata writes) and drop the never-used scan_roots table.
+  if (row.version < 3) {
+    db.exec('DROP TRIGGER IF EXISTS samples_fts_au')
+    db.exec(FTS_UPDATE_TRIGGER)
+    db.exec('DROP TABLE IF EXISTS scan_roots')
+  }
+
+  if (row.version < SCHEMA_VERSION) {
+    db.prepare('UPDATE schema_version SET version = ?').run(SCHEMA_VERSION)
   }
 
   return db

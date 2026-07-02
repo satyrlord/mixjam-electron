@@ -14,6 +14,7 @@ import {
   meterFillPct,
   nearestTick,
 } from '../lib/sample-utils'
+import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
 import { useBpmEditor } from '../hooks/useBpmEditor'
 import ScanProgressBar from './ScanProgressBar'
@@ -61,11 +62,12 @@ interface TrackerViewProps {
   masterGain: number
   masterLevelDb: number
   totalCount: number
+  hasMoreSamples: boolean
+  onLoadMoreSamples: () => void
   onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
   onSearchChange: (query: string) => void
-  onRescan: () => void
   onPlaceSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
   onMoveClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
   onDuplicateClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
@@ -95,7 +97,6 @@ interface TrackerViewProps {
   tags: TagItem[]
   categories: CategoryItem[]
   libraries: LibraryItem[]
-  onDbSearchChange: (q: string) => void
   onSelectCategory: (id: number | undefined) => void
   onToggleTagFilter: (id: number) => void
   onSortChange: (col: 'filename' | 'duration' | 'dateAdded') => void
@@ -103,10 +104,13 @@ interface TrackerViewProps {
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
   onDeleteTag: (id: number) => Promise<void>
+  onAssignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
+  onUnassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
   onCreateCategory: (name: string, parentId?: number) => Promise<CategoryItem>
   onDeleteCategory: (id: number) => Promise<void>
   onSaveLibrary: (name: string) => Promise<LibraryItem>
   onDeleteLibrary: (id: number) => Promise<void>
+  onApplyLibrary: (library: LibraryItem) => void
 }
 
 
@@ -126,11 +130,12 @@ export default function TrackerView({
   masterGain,
   masterLevelDb,
   totalCount,
+  hasMoreSamples,
+  onLoadMoreSamples,
   onSetBpm,
   onSetMasterGain,
   onSelectSampleDetail,
   onSearchChange,
-  onRescan,
   onPlaceSampleDetailOnLane,
   onMoveClipOnLane,
   onDuplicateClipOnLane,
@@ -160,7 +165,6 @@ export default function TrackerView({
   tags,
   categories,
   libraries,
-  onDbSearchChange,
   onSelectCategory,
   onToggleTagFilter,
   onSortChange,
@@ -168,16 +172,16 @@ export default function TrackerView({
   onCreateTag,
   onRenameTag,
   onDeleteTag,
+  onAssignTagToSample,
+  onUnassignTagFromSample,
   onCreateCategory,
   onDeleteCategory,
   onSaveLibrary,
   onDeleteLibrary,
+  onApplyLibrary,
 }: TrackerViewProps) {
   const totalTicks = 256
-  const ticksPerBeat = 8
-  const ticksPerBar = 32
-  const beatsPerBar = ticksPerBar / ticksPerBeat
-  const rulerBeatCount = totalTicks / ticksPerBeat
+  const rulerBeatCount = totalTicks / TICKS_PER_BEAT
   const isPlaying = transportState === 'playing'
 
   const [managePanelOpen, setManagePanelOpen] = useState(false)
@@ -212,13 +216,23 @@ export default function TrackerView({
   const [selectionRect, setSelectionRect] = useState<{
     startX: number; startY: number; currentX: number; currentY: number
   } | null>(null)
-  // Tracks the mousemove/mouseup listeners for an in-progress rectangle-select
-  // drag so they can be torn down if TrackerView unmounts mid-drag (e.g. the
-  // user navigates Home while still holding the mouse button).
-  const dragCleanupRef = useRef<(() => void) | null>(null)
+  // Tracks the window mousemove/mouseup listeners of every in-progress drag
+  // (rectangle select, splitters, pan knobs) so they are torn down if
+  // TrackerView unmounts mid-drag (e.g. the user navigates Home while still
+  // holding the mouse button).
+  const dragCleanupsRef = useRef<Set<() => void>>(new Set())
+
+  const trackDragCleanup = useCallback((cleanup: () => void) => {
+    dragCleanupsRef.current.add(cleanup)
+    return () => dragCleanupsRef.current.delete(cleanup)
+  }, [])
 
   useEffect(() => {
-    return () => dragCleanupRef.current?.()
+    const cleanups = dragCleanupsRef.current
+    return () => {
+      for (const cleanup of [...cleanups]) cleanup()
+      cleanups.clear()
+    }
   }, [])
 
   const handleLanesMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -274,13 +288,13 @@ export default function TrackerView({
       setSelectionRect(null)
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
-      dragCleanupRef.current = null
+      untrack()
     }
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-    dragCleanupRef.current = onUp
-  }, [lanes, pixelsPerTick])
+    const untrack = trackDragCleanup(onUp)
+  }, [lanes, pixelsPerTick, trackDragCleanup])
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
@@ -320,33 +334,50 @@ export default function TrackerView({
     project: RecentProjectItem
   } | null>(null)
 
-  // Flash state for "locate in browser"
+  // Sample-tile context menu state (tag assignment, spec-004 AC-007)
+  const [sampleMenu, setSampleMenu] = useState<{
+    x: number
+    y: number
+    sample: SampleListItem
+  } | null>(null)
+
+  const handleSampleContextMenu = useCallback((sample: SampleListItem, e: React.MouseEvent) => {
+    e.preventDefault()
+    setSampleMenu({ x: e.clientX, y: e.clientY, sample })
+  }, [])
+
+  // Flash state for "locate in browser": the target path stays put for the
+  // whole animation while a separate visibility flag blinks, so the effect
+  // below never re-runs (and kills its own interval) mid-flash.
   const [flashSamplePath, setFlashSamplePath] = useState<string | null>(null)
-  const flashCountRef = useRef(0)
+  const [flashVisible, setFlashVisible] = useState(false)
+  const activeFlashPath = flashVisible ? flashSamplePath : null
 
   // Dismiss context menus on any click outside
   useEffect(() => {
-    if (!contextMenu && !recentMenu) return
+    if (!contextMenu && !recentMenu && !sampleMenu) return
     const dismiss = () => {
       setContextMenu(null)
       setRecentMenu(null)
+      setSampleMenu(null)
     }
     window.addEventListener('click', dismiss)
     return () => window.removeEventListener('click', dismiss)
-  }, [contextMenu, recentMenu])
+  }, [contextMenu, recentMenu, sampleMenu])
 
-  // Flash effect: flash 3 times then clear
+  // Flash effect: blink the highlight 3 times (6 visibility toggles) then clear.
   useEffect(() => {
     if (!flashSamplePath) return
-    flashCountRef.current = 0
+    setFlashVisible(true)
+    let toggles = 0
     const timer = setInterval(() => {
-      flashCountRef.current++
-      if (flashCountRef.current >= 6) {
-        setFlashSamplePath(null)
+      toggles++
+      if (toggles >= 6) {
         clearInterval(timer)
+        setFlashVisible(false)
+        setFlashSamplePath(null)
       } else {
-        // Toggle visibility to create flash effect
-        setFlashSamplePath((prev) => (prev ? null : flashSamplePath))
+        setFlashVisible((v) => !v)
       }
     }, 300)
     return () => clearInterval(timer)
@@ -362,19 +393,19 @@ export default function TrackerView({
   const handleContextLocate = useCallback(() => {
     if (!contextMenu) return
     // Search for the sample name to locate it in the browser
-    onDbSearchChange(contextMenu.sampleName.replace(/\.[^.]+$/, ''))
+    onSearchChange(contextMenu.sampleName.replace(/\.[^.]+$/, ''))
     onSelectCategory(undefined)
     // Flash the sample
     setFlashSamplePath(contextMenu.samplePath)
     setContextMenu(null)
-  }, [contextMenu, onDbSearchChange, onSelectCategory])
+  }, [contextMenu, onSearchChange, onSelectCategory])
 
-  const handleSampleDragStart = (event: React.DragEvent, detail: FooterSampleDetail) => {
+  const handleSampleDragStart = useCallback((event: React.DragEvent, detail: FooterSampleDetail) => {
     event.dataTransfer.setData('application/mixjam-sample', JSON.stringify(detail))
     event.dataTransfer.effectAllowed = 'copy'
-  }
+  }, [])
 
-  const handleClipDragStart = (event: React.DragEvent, clipId: string) => {
+  const handleClipDragStart = useCallback((clipId: string, event: React.DragEvent) => {
     if (selectedClipIds.size > 1 && selectedClipIds.has(clipId)) {
       let anchorLaneIndex = 0
       let anchorStartTick = 0
@@ -403,7 +434,7 @@ export default function TrackerView({
     // dropEffect is outside effectAllowed.
     event.dataTransfer.effectAllowed = 'copyMove'
     event.stopPropagation()
-  }
+  }, [selectedClipIds, lanes])
 
   const handleLaneCanvasDragOver = (event: React.DragEvent) => {
     if (!event.dataTransfer.types.includes('application/mixjam-sample') &&
@@ -418,8 +449,8 @@ export default function TrackerView({
 
   const handleLaneCanvasDrop = (laneIndex: number, event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
-    // Default: snap to beat (8 ticks). Hold Alt for freeform (per-tick).
-    const snap = event.altKey ? 1 : ticksPerBeat
+    // Default: snap to beat. Hold Alt for freeform (per-tick).
+    const snap = event.altKey ? 1 : TICKS_PER_BEAT
     const raw = event.dataTransfer.getData('application/mixjam-sample')
     if (raw) {
       try {
@@ -493,10 +524,12 @@ export default function TrackerView({
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      untrack()
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [catsWidth])
+    const untrack = trackDragCleanup(onUp)
+  }, [catsWidth, trackDragCleanup])
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -511,10 +544,12 @@ export default function TrackerView({
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      untrack()
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [browserFlex])
+    const untrack = trackDragCleanup(onUp)
+  }, [browserFlex, trackDragCleanup])
 
   const sortIcon = (col: typeof sortBy) => {
     if (sortBy !== col) return null
@@ -581,8 +616,8 @@ export default function TrackerView({
           <div className="tracker-ruler">
             <div className="tracker-ruler-spacer" />
             {Array.from({ length: rulerBeatCount }, (_, i) => {
-              const isBar = i % beatsPerBar === 0
-              const barNumber = i / beatsPerBar + 1
+              const isBar = i % BEATS_PER_BAR === 0
+              const barNumber = i / BEATS_PER_BAR + 1
               return (
                 <div key={i} className={`tracker-ruler-tick${isBar ? ' tracker-ruler-tick-bar' : ''}`}>
                   {isBar && barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
@@ -653,9 +688,9 @@ export default function TrackerView({
                     clips={lane.clips}
                     totalTicks={totalTicks}
                     laneIndex={lane.index}
-                    flashSamplePath={flashSamplePath}
+                    flashSamplePath={activeFlashPath}
                     selectedClipIds={selectedClipIds}
-                    onClipDragStart={(clipId, e) => handleClipDragStart(e, clipId)}
+                    onClipDragStart={handleClipDragStart}
                     onClipContextMenu={setContextMenu}
                   />
                 </div>
@@ -740,15 +775,12 @@ export default function TrackerView({
             placeholder="Search samples…"
             aria-label="Search samples"
             value={searchQuery}
-            onChange={(e) => {
-              onSearchChange(e.currentTarget.value)
-              onDbSearchChange(e.currentTarget.value)
-            }}
+            onChange={(e) => onSearchChange(e.currentTarget.value)}
           />
           <button
             type="button"
             className="strip-rescan"
-            onClick={() => { onRescan(); void onStartScan() }}
+            onClick={() => void onStartScan()}
             disabled={scanProgress.status === 'scanning'}
             aria-label={scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
             title="Re-scan the Sample Folder into the library"
@@ -871,17 +903,21 @@ export default function TrackerView({
                 {sub.name}
               </button>
             ))}
-            {tags.filter((t) => selectedTagIds.includes(t.id)).map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                className="subcat subcat-tag subcat-active"
-                onClick={() => onToggleTagFilter(tag.id)}
-                aria-pressed={true}
-              >
-                {tag.name} ×
-              </button>
-            ))}
+            {tags.map((tag) => {
+              const active = selectedTagIds.includes(tag.id)
+              return (
+                <button
+                  key={`tag-${tag.id}`}
+                  type="button"
+                  className={`subcat subcat-tag${active ? ' subcat-active' : ''}`}
+                  onClick={() => onToggleTagFilter(tag.id)}
+                  aria-pressed={active}
+                  title={active ? `Stop filtering by ${tag.name}` : `Filter by ${tag.name}`}
+                >
+                  {active ? `${tag.name} ×` : tag.name}
+                </button>
+              )
+            })}
             <span className="subcats-count">
               {resultCount > 0 ? `${resultCount} samples` : ''}
             </span>
@@ -908,14 +944,17 @@ export default function TrackerView({
             bpm={bpm}
             pixelsPerTick={pixelsPerTick}
             selectedSamplePath={selectedSamplePath}
-            flashSamplePath={flashSamplePath}
+            flashSamplePath={activeFlashPath}
             activeCategoryColor={activeCategoryColor}
             categories={categories}
             loading={loading}
             error={error}
+            hasMore={hasMoreSamples}
+            onLoadMore={onLoadMoreSamples}
             onSelectSampleDetail={onSelectSampleDetail}
             onPreviewSample={onPreviewSample}
             onSampleDragStart={handleSampleDragStart}
+            onSampleContextMenu={handleSampleContextMenu}
           />
         </div>
 
@@ -931,6 +970,7 @@ export default function TrackerView({
             onDeleteCategory={onDeleteCategory}
             onSaveLibrary={onSaveLibrary}
             onDeleteLibrary={onDeleteLibrary}
+            onApplyLibrary={onApplyLibrary}
           />
         )}
       </section>
@@ -990,6 +1030,41 @@ export default function TrackerView({
           >
             Copy Path
           </button>
+        </div>
+      )}
+
+      {sampleMenu && (
+        <div
+          className="context-menu"
+          style={{ left: sampleMenu.x, top: sampleMenu.y }}
+          role="menu"
+          aria-label={`Tags for ${sampleMenu.sample.name}`}
+        >
+          {sampleMenu.sample.dbId === null ? (
+            <span className="context-menu-note">Tags are available after the first scan.</span>
+          ) : tags.length === 0 ? (
+            <span className="context-menu-note">No tags yet — create one in the Manage panel.</span>
+          ) : (
+            tags.map((tag) => {
+              const assigned = sampleMenu.sample.tagIds.includes(tag.id)
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className="context-menu-item"
+                  role="menuitemcheckbox"
+                  aria-checked={assigned}
+                  onClick={() => {
+                    if (assigned) void onUnassignTagFromSample(sampleMenu.sample, tag.id)
+                    else void onAssignTagToSample(sampleMenu.sample, tag.id)
+                    setSampleMenu(null)
+                  }}
+                >
+                  {assigned ? `Untag: ${tag.name}` : `Tag: ${tag.name}`}
+                </button>
+              )
+            })
+          )}
         </div>
       )}
 

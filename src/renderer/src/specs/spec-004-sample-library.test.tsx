@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TrackerView from '../components/TrackerView'
 import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
@@ -29,6 +29,7 @@ const SCANNING_PROGRESS: ScanProgress = { status: 'scanning', phase: 1, found: 5
 function makeDbSamples(count: number): SampleListItem[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `/samples/sample_${i}.wav`,
+    dbId: i + 1,
     name: `sample_${i}.wav`,
     filepath: `/samples/sample_${i}.wav`,
     category: 'Unsorted',
@@ -56,11 +57,12 @@ function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {
       masterGain={0.8}
       masterLevelDb={-100}
       totalCount={0}
+      hasMoreSamples={false}
+      onLoadMoreSamples={noop}
       onSetBpm={noop}
       onSetMasterGain={noop}
       onSelectSampleDetail={noop}
       onSearchChange={noop}
-      onRescan={noop}
       onPlaceSampleDetailOnLane={noop}
       onMoveClipOnLane={noop}
       onDuplicateClipOnLane={noop}
@@ -90,7 +92,6 @@ function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {
       tags={[]}
       categories={DEFAULT_CATEGORIES}
       libraries={[]}
-      onDbSearchChange={noop}
       onSelectCategory={noop}
       onToggleTagFilter={noop}
       onSortChange={noop}
@@ -98,10 +99,13 @@ function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {
       onCreateTag={asyncNoop as never}
       onRenameTag={asyncNoop as never}
       onDeleteTag={asyncNoop as never}
+      onAssignTagToSample={asyncNoop as never}
+      onUnassignTagFromSample={asyncNoop as never}
       onCreateCategory={asyncNoop as never}
       onDeleteCategory={asyncNoop as never}
       onSaveLibrary={asyncNoop as never}
       onDeleteLibrary={asyncNoop as never}
+      onApplyLibrary={noop}
       {...overrides}
     />
   )
@@ -130,20 +134,20 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // AC-005 / AC-006: search
   // -------------------------------------------------------------------------
 
-  it('AC-005: typing in the search field calls onDbSearchChange', () => {
-    const onDbSearchChange = vi.fn()
-    renderTracker({ onDbSearchChange })
+  it('AC-005: typing in the search field calls onSearchChange', () => {
+    const onSearchChange = vi.fn()
+    renderTracker({ onSearchChange })
     const input = screen.getByRole('searchbox', { name: /search samples/i })
     fireEvent.change(input, { target: { value: 'kick' } })
-    expect(onDbSearchChange).toHaveBeenCalledWith('kick')
+    expect(onSearchChange).toHaveBeenCalledWith('kick')
   })
 
-  it('AC-006: clearing the search field calls onDbSearchChange with empty string', () => {
-    const onDbSearchChange = vi.fn()
-    renderTracker({ searchQuery: 'kick', onDbSearchChange })
+  it('AC-006: clearing the search field calls onSearchChange with empty string', () => {
+    const onSearchChange = vi.fn()
+    renderTracker({ searchQuery: 'kick', onSearchChange })
     const input = screen.getByRole('searchbox', { name: /search samples/i })
     fireEvent.change(input, { target: { value: '' } })
-    expect(onDbSearchChange).toHaveBeenCalledWith('')
+    expect(onSearchChange).toHaveBeenCalledWith('')
   })
 
   // -------------------------------------------------------------------------
@@ -216,11 +220,14 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
     it('AC-007: newly created tag appears in the list after creation', () => {
       const tags: TagItem[] = [{ id: 1, name: 'Kick', color: null }]
-      renderTracker({ tags })
+      const { container } = renderTracker({ tags })
 
       openManagePanel('Tags')
 
-      expect(screen.getByText('Kick')).toBeInTheDocument()
+      // The tag renders both as a browser filter chip and in the manage list;
+      // AC-007 is about the manage list.
+      const manageList = container.querySelector('.manage-list')!
+      expect(within(manageList as HTMLElement).getByText('Kick')).toBeInTheDocument()
     })
 
     it('AC-008: rename tag calls onRenameTag and updates display', async () => {
@@ -311,14 +318,12 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     expect(screen.getByRole('button', { name: /scanning/i })).toBeDisabled()
   })
 
-  it('AC-003: Re-scan triggers both onSampleRescan and onStartScan', async () => {
-    const onRescan = vi.fn()
+  it('AC-003: Re-scan triggers the library scan', async () => {
     const onStartScan = vi.fn().mockResolvedValue(undefined)
-    renderTracker({ scanProgress: IDLE_PROGRESS, onRescan, onStartScan })
+    renderTracker({ scanProgress: IDLE_PROGRESS, onStartScan })
 
     fireEvent.click(screen.getByRole('button', { name: /re-scan/i }))
 
-    expect(onRescan).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(onStartScan).toHaveBeenCalledTimes(1))
   })
 

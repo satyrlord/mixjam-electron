@@ -48,12 +48,6 @@ async function scanSampleFolder(sampleFolder: string): Promise<SampleListItem[]>
       const extension = extname(entry.name).toLowerCase()
       if (!AUDIO_EXTENSIONS.has(extension)) continue
 
-      try {
-        await fs.stat(childPath)
-      } catch {
-        continue
-      }
-
       const relativePath = toPortableRelativePath(sampleFolder, childPath)
       const absolutePath = canonicalizePath(childPath)
       const category = deriveCategory(relativePath)
@@ -61,6 +55,7 @@ async function scanSampleFolder(sampleFolder: string): Promise<SampleListItem[]>
 
       results.push({
         id: absolutePath,
+        dbId: null,
         name: basename(relativePath),
         filepath: absolutePath,
         category,

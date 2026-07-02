@@ -150,14 +150,39 @@ describe('Player.setBpm', () => {
 })
 
 describe('Player.setChannelPan', () => {
-  it('sets pan on the channel without crashing', async () => {
+  it('pans the channel of a lane whose channel was created out of index order', async () => {
+    // Lane routing to channel 3 while it is the FIRST channel created — the
+    // engine registry must key by the requested index, not creation order.
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, channelIndex: 3, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
     ]
-    const { player } = makePlayer({ lanes })
+    const { player, context } = makePlayer({ lanes })
     await player.start(0)
     await flushAsync()
+
     player.setChannelPan(3, 0.5)
+    // Exactly one channel panner exists (lane 3's); the pan must land on it.
+    expect(context.created.panners).toHaveLength(1)
+    expect(context.created.panners[0]!.pan.value).toBe(0.5)
+    await player.close()
+  })
+
+  it('applies a pan set before the channel exists once the lane first triggers', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, channelIndex: 2, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+    ]
+    const { player, context } = makePlayer({ lanes })
+
+    // Pan the lane before playback ever starts — no channel exists yet.
+    player.setChannelPan(2, -0.75)
+    expect(context.created.panners).toHaveLength(0)
+
+    await player.start(0)
+    await flushAsync()
+
+    // The lazily-created channel picked up the stored pan.
+    expect(context.created.panners).toHaveLength(1)
+    expect(context.created.panners[0]!.pan.value).toBe(-0.75)
     await player.close()
   })
 })

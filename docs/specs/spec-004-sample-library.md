@@ -99,8 +99,11 @@ Strip from spec-006. Its internal layout:
 - Search matches against filename and filepath.
 - Results respect any active tag/category filter (search within filtered set).
 - Empty search query shows all samples (subject to active filters).
-- Clearing the category filter restores all matching samples by requesting every
-  available SQLite result window, not just the first page.
+- Query results load as windowed pages on demand: the first page loads eagerly
+  and the grid requests the next page as the user scrolls near the end of the
+  loaded rows. The renderer never accumulates the full result set up front
+  (revised 2026-07-02 to honour the windowed-pages hard rule; previously the
+  renderer paged the entire set into memory).
 
 ### Browser Toolbar
 
@@ -113,11 +116,20 @@ Strip from spec-006. Its internal layout:
 ### Dynamic Tagging
 
 - Users can create, rename, and delete tags.
-- Tags can be assigned to one or more samples.
+- Tags can be assigned to one or more samples. Assignment UI: right-clicking a
+  sample tile opens a context menu listing every tag with its assignment state;
+  clicking toggles assign/unassign (added 2026-07-02 — assignment previously
+  had no UI surface). Pre-index (legacy browser) samples cannot be tagged; the
+  menu says so.
+- All tags render as filter chips in the browser's subcategory row; clicking a
+  chip toggles that tag in the active filter (added 2026-07-02 — previously
+  only already-active tags rendered, so tag filtering was unreachable).
 - Tags have an optional color for visual identification.
 - Tag assignment is many-to-many: one sample can have many tags, one tag can
   apply to many samples.
 - Deleting a tag removes it from all assigned samples (no orphaned references).
+- `querySamples` returns each row's assigned tag ids and names (aggregated
+  subqueries), so tiles and the footer show tags without N+1 lookups.
 
 ### Category Tree
 
@@ -141,7 +153,10 @@ Strip from spec-006. Its internal layout:
 
 - A library is a named, saved set of filter/search/tag criteria.
 - Creating a library saves the current filter state under a user-chosen name.
-- Opening a library applies its saved filters.
+- Opening a library applies its saved filters: clicking a library's name in the
+  manage panel parses its `rule_json` and restores the search text, category,
+  and tag filters (wired 2026-07-02 — saved libraries previously had no open
+  action).
 - Libraries do not copy or duplicate sample data — they are purely saved
   queries. Editing a sample's tags automatically updates all libraries that
   reference it.

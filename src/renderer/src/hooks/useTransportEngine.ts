@@ -336,8 +336,9 @@ export function useTransportEngine(
     const transport = transportRef.current
     if (!transport) return
     // Resume from the current audio-clock playhead so pause→play continues
-    // rather than restarting.
-    const fromTick = currentTickRef.current
+    // rather than restarting. Read the player directly — the mirrored state in
+    // currentTickRef is sampled at 10Hz and can lag the real playhead.
+    const fromTick = playerRef.current?.currentTick ?? currentTickRef.current
     transport.play()
     void playerRef.current?.start(fromTick)
     setTransportState(transport.state)
@@ -360,7 +361,17 @@ export function useTransportEngine(
   }, [])
 
   const transportSkipBack = useCallback(() => {
-    transportRef.current?.skipBack()
+    const transport = transportRef.current
+    const player = playerRef.current
+    transport?.skipBack()
+    // Reset the scheduler's playhead, not just the UI mirror — otherwise the
+    // 10Hz meter interval immediately restores the old position from the
+    // scheduler, and play would resume from there instead of the start.
+    if (player) {
+      player.stop()
+      // Keep playing from the top when skip-back is hit mid-playback.
+      if (transport?.state === 'playing') void player.start(0)
+    }
     setCurrentTick(0)
     currentTickRef.current = 0
   }, [])

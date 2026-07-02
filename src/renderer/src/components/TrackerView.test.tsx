@@ -21,6 +21,7 @@ const RECENT_PROJECTS: RecentProjectItem[] = [
 const SAMPLES: SampleListItem[] = [
   {
     id: 'C:/Samples/Drums/Kicks/kick_808.wav',
+    dbId: null,
     name: 'kick_808.wav',
     filepath: 'C:/Samples/Drums/Kicks/kick_808.wav',
     category: 'Drums',
@@ -72,11 +73,12 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       masterGain={0.8}
       masterLevelDb={-100}
       totalCount={0}
+      hasMoreSamples={false}
+      onLoadMoreSamples={noop}
       onSetBpm={noop}
       onSetMasterGain={noop}
       onSelectSampleDetail={noop}
       onSearchChange={noop}
-      onRescan={noop}
       onPlaceSampleDetailOnLane={noop}
       onMoveClipOnLane={noop}
       onDuplicateClipOnLane={noop}
@@ -106,7 +108,6 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       tags={[]}
       categories={DEFAULT_CATEGORIES}
       libraries={[]}
-      onDbSearchChange={noop}
       onSelectCategory={noop}
       onToggleTagFilter={noop}
       onSortChange={noop}
@@ -114,10 +115,13 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       onCreateTag={asyncNoop as never}
       onRenameTag={asyncNoop as never}
       onDeleteTag={asyncNoop as never}
+      onAssignTagToSample={asyncNoop as never}
+      onUnassignTagFromSample={asyncNoop as never}
       onCreateCategory={asyncNoop as never}
       onDeleteCategory={asyncNoop as never}
       onSaveLibrary={asyncNoop as never}
       onDeleteLibrary={asyncNoop as never}
+      onApplyLibrary={noop}
       {...props}
     />
   )
@@ -275,7 +279,7 @@ describe('TrackerView', () => {
     const onPreviewSample = vi.fn()
     renderTracker({
       onPreviewSample,
-      samples: [{ id: '/s/kick.wav', name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+      samples: [{ id: '/s/kick.wav', dbId: null, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
       totalCount: 1,
       categories: DEFAULT_CATEGORIES
     })
@@ -522,27 +526,27 @@ describe('TrackerView', () => {
     expect(parseInt(cats.style.width)).toBe(200)
   })
 
-  it('calls onDbSearchChange and onSelectCategory when Locate in Browser is clicked', () => {
-    const onDbSearchChange = vi.fn()
+  it('calls onSearchChange and onSelectCategory when Locate in Browser is clicked', () => {
+    const onSearchChange = vi.fn()
     const onSelectCategory = vi.fn()
     const lanesWithClip: LaneState[] = LANES.map((lane) =>
       lane.index === 0
         ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
         : lane
     )
-    renderTracker({ lanes: lanesWithClip, onDbSearchChange, onSelectCategory })
+    renderTracker({ lanes: lanesWithClip, onSearchChange, onSelectCategory })
 
     const canvasContainer = document.querySelector('[data-clip-names="kick.wav"]')!
     fireEvent.contextMenu(canvasContainer)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Locate in Browser' }))
 
-    expect(onDbSearchChange).toHaveBeenCalledWith('kick')
+    expect(onSearchChange).toHaveBeenCalledWith('kick')
     expect(onSelectCategory).toHaveBeenCalledWith(undefined)
   })
 
   it('sets drag data when a sample tile drag starts', () => {
     renderTracker({
-      samples: [{ id: '/s/kick.wav', name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+      samples: [{ id: '/s/kick.wav', dbId: null, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
       totalCount: 1
     })
 
@@ -566,7 +570,7 @@ describe('TrackerView', () => {
 
   it('renders sample color from categoryId when no category filter is active', () => {
     renderTracker({
-      samples: [{ id: '/s/kick.wav', name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
+      samples: [{ id: '/s/kick.wav', dbId: null, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
       totalCount: 1,
       categories: DEFAULT_CATEGORIES
     })
@@ -737,16 +741,14 @@ describe('TrackerView', () => {
     expect(onSelectCategory).toHaveBeenCalledWith(10)
   })
 
-  it('calls onDbSearchChange and onSearchChange when search input changes', () => {
+  it('calls onSearchChange when search input changes', () => {
     const onSearchChange = vi.fn()
-    const onDbSearchChange = vi.fn()
-    renderTracker({ onSearchChange, onDbSearchChange })
+    renderTracker({ onSearchChange })
 
     const search = screen.getByLabelText('Search samples')
     fireEvent.change(search, { target: { value: 'bass' } })
 
     expect(onSearchChange).toHaveBeenCalledWith('bass')
-    expect(onDbSearchChange).toHaveBeenCalledWith('bass')
   })
 
   it('renders playhead when transport is playing with non-zero tick', () => {

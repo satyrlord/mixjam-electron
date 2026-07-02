@@ -108,12 +108,6 @@ export function formatDuration(seconds: number | null): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-export function tileWidth(seconds: number | null): number {
-  if (!seconds || seconds <= 0) return 80
-  const cappedSeconds = Math.min(seconds, 40)
-  return Math.max(60, Math.round(cappedSeconds * 35))
-}
-
 /**
  * Convert a pixel position to the nearest tick, optionally snapping to a grid.
  * @param snapResolution - Grid resolution in ticks (e.g. 8 = snap to beat, 1 = per-tick freeform).
@@ -133,7 +127,11 @@ export function nearestTick(
   if (!Number.isFinite(tick)) return 0
   const clamped = clamp(tick, 0, totalTicks - 1)
   if (snapResolution <= 1) return clamped
-  return Math.round(clamped / snapResolution) * snapResolution
+  const snapped = Math.round(clamped / snapResolution) * snapResolution
+  // Snapping rounds up, so a drop near the right edge can overshoot the grid
+  // (e.g. tick 255 at snap 8 -> 256). Clamp to the last on-grid slot.
+  const lastSlot = Math.floor((totalTicks - 1) / snapResolution) * snapResolution
+  return Math.min(snapped, lastSlot)
 }
 
 export function meterFillPct(db: number): number {

@@ -6,7 +6,6 @@ const api: ElectronAPI = {
   resizeToTracker: () => ipcRenderer.invoke(IPC_CHANNELS.windowResizeTracker),
   resizeToHome: () => ipcRenderer.invoke(IPC_CHANNELS.windowResizeHome),
   openFilePicker: () => ipcRenderer.invoke(IPC_CHANNELS.dialogOpenFile),
-  openFolderPicker: () => ipcRenderer.invoke(IPC_CHANNELS.dialogOpenFolder),
   openExternal: (url) => ipcRenderer.invoke(IPC_CHANNELS.shellOpenUrl, url),
   loadSession: () => ipcRenderer.invoke(IPC_CHANNELS.sessionLoad),
   saveSession: (paths) => ipcRenderer.invoke(IPC_CHANNELS.sessionSave, paths),

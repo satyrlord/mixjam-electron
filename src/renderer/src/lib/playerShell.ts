@@ -23,7 +23,7 @@ export interface LaneClip {
   sampleName: string
   startTick: number
   durationTicks: number
-  /** Audio duration in seconds — used for tileWidth() so the bubble has the
+  /** Audio duration in seconds — drives the bubble width so a sample has the
    *  same pixel size everywhere (tracker, browser, any view). */
   durationSeconds: number | null
   /** Stable category-derived colour — stored at placement time, never recomputed. */
@@ -229,7 +229,9 @@ export interface ClipGroupEntry {
 
 /** Batch-moves a selection of clips in a single pass over `lanes`, instead of
  *  rebuilding the full lane array once per clip. Source clips are looked up
- *  before any mutation so offsets are resolved against the pre-drag layout. */
+ *  before any mutation so offsets are resolved against the pre-drag layout.
+ *  Lanes that neither lose nor gain a clip keep their identity so memoized
+ *  consumers skip re-rendering them. */
 export function moveClipGroup(lanes: LaneState[], moves: ClipGroupEntry[]): LaneState[] {
   const resolved = moves
     .map(({ clipId, toLaneIndex, newStartTick }) => {
@@ -237,27 +239,26 @@ export function moveClipGroup(lanes: LaneState[], moves: ClipGroupEntry[]): Lane
       return found ? { clipId, toLaneIndex, newStartTick, clip: found.clip } : null
     })
     .filter((entry): entry is { clipId: string; toLaneIndex: number; newStartTick: number; clip: LaneClip } => entry !== null)
+  if (resolved.length === 0) return lanes
 
   const movingIds = new Set(resolved.map((entry) => entry.clipId))
-  const withoutSources = lanes.map((lane) => ({
-    ...lane,
-    clips: lane.clips.filter((c) => !movingIds.has(c.id))
-  }))
-
-  const byLane = new Map(withoutSources.map((lane) => [lane.index, lane]))
+  const gainsByLane = new Map<number, LaneClip[]>()
   for (const entry of resolved) {
-    const targetLane = byLane.get(entry.toLaneIndex)
-    if (!targetLane) continue
-    targetLane.clips = sortClips([
-      ...targetLane.clips,
-      { ...entry.clip, startTick: entry.newStartTick }
-    ])
+    const gains = gainsByLane.get(entry.toLaneIndex) ?? []
+    gains.push({ ...entry.clip, startTick: entry.newStartTick })
+    gainsByLane.set(entry.toLaneIndex, gains)
   }
 
-  return withoutSources
+  return lanes.map((lane) => {
+    const kept = lane.clips.filter((c) => !movingIds.has(c.id))
+    const gains = gainsByLane.get(lane.index)
+    if (kept.length === lane.clips.length && !gains) return lane
+    return { ...lane, clips: sortClips(gains ? [...kept, ...gains] : kept) }
+  })
 }
 
-/** Batch-duplicates a selection of clips in a single pass over `lanes`. */
+/** Batch-duplicates a selection of clips in a single pass over `lanes`.
+ *  Untouched lanes keep their identity. */
 export function duplicateClipGroup(lanes: LaneState[], sources: ClipGroupEntry[]): LaneState[] {
   const resolved = sources
     .map(({ clipId, toLaneIndex, newStartTick }) => {
@@ -265,18 +266,20 @@ export function duplicateClipGroup(lanes: LaneState[], sources: ClipGroupEntry[]
       return found ? { toLaneIndex, newStartTick, clip: found.clip } : null
     })
     .filter((entry): entry is { toLaneIndex: number; newStartTick: number; clip: LaneClip } => entry !== null)
+  if (resolved.length === 0) return lanes
 
-  const byLane = new Map(lanes.map((lane) => [lane.index, { ...lane, clips: [...lane.clips] }]))
+  const gainsByLane = new Map<number, LaneClip[]>()
   for (const entry of resolved) {
-    const targetLane = byLane.get(entry.toLaneIndex)
-    if (!targetLane) continue
-    targetLane.clips = sortClips([
-      ...targetLane.clips,
-      newClipFrom(entry.clip, entry.newStartTick)
-    ])
+    const gains = gainsByLane.get(entry.toLaneIndex) ?? []
+    gains.push(newClipFrom(entry.clip, entry.newStartTick))
+    gainsByLane.set(entry.toLaneIndex, gains)
   }
 
-  return lanes.map((lane) => byLane.get(lane.index) ?? lane)
+  return lanes.map((lane) => {
+    const gains = gainsByLane.get(lane.index)
+    if (!gains) return lane
+    return { ...lane, clips: sortClips([...lane.clips, ...gains]) }
+  })
 }
 
 export function removeClipFromLane(

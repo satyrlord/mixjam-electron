@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { CategoryItem, SampleListItem } from '../../../shared/ipc'
 import type { FooterSampleDetail } from '../lib/playerShell'
@@ -12,6 +12,10 @@ const TILE_HEIGHT_PX = 32
 const TILE_GAP_PX = 6
 const ROW_PITCH_PX = TILE_HEIGHT_PX + TILE_GAP_PX
 const TILES_H_PADDING_PX = 10
+
+// Request the next windowed page when the scroll position is within this many
+// rows of the end of the loaded prefix.
+const LOAD_MORE_ROW_MARGIN = 6
 
 interface TileRow {
   /** Index of the first tile in the row (inclusive). */
@@ -58,18 +62,24 @@ interface SampleTileGridProps {
   categories: CategoryItem[]
   loading: boolean
   error: string | null
+  /** True while more windowed pages exist beyond the loaded prefix. */
+  hasMore: boolean
+  onLoadMore: () => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
   onPreviewSample: (samplePath: string) => void
   onSampleDragStart: (event: React.DragEvent, detail: FooterSampleDetail) => void
+  onSampleContextMenu: (sample: SampleListItem, event: React.MouseEvent) => void
 }
 
 /**
  * Virtualized sample browser grid. Samples are packed into fixed-height rows
  * (flex-wrap equivalent) and only the rows intersecting the viewport are
  * mounted, so libraries of thousands of files stay responsive (AGENTS.md hard
- * rule: never render the full dataset as real DOM nodes).
+ * rule: never render the full dataset as real DOM nodes). Scrolling near the
+ * end of the loaded prefix requests the next windowed page from the DB.
+ * Memoized so the tracker's 10Hz playhead updates skip re-rendering the grid.
  */
-export default function SampleTileGrid({
+function SampleTileGrid({
   samples,
   bpm,
   pixelsPerTick,
@@ -79,9 +89,12 @@ export default function SampleTileGrid({
   categories,
   loading,
   error,
+  hasMore,
+  onLoadMore,
   onSelectSampleDetail,
   onPreviewSample,
-  onSampleDragStart
+  onSampleDragStart,
+  onSampleContextMenu
 }: SampleTileGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
@@ -96,6 +109,11 @@ export default function SampleTileGrid({
     return () => ro.disconnect()
   }, [])
 
+  const categoryNames = useMemo(
+    () => new Map(categories.map((c) => [c.id, c.name])),
+    [categories]
+  )
+
   // Tile width mirrors the tracker's bubble width for the same sample so the
   // bubble is pixel-identical in every view (hard rule).
   const tiles = useMemo(
@@ -103,17 +121,11 @@ export default function SampleTileGrid({
       samples.map((sample) => {
         const durationTicks = sampleDurationTicks(sample.durationSeconds, bpm)
         const width = Math.max(12, durationTicks * pixelsPerTick)
-        const color =
-          activeCategoryColor ??
-          (sample.categoryId !== null
-            ? (() => {
-                const cat = categories.find((c) => c.id === sample.categoryId)
-                return cat ? categoryColor(cat.name) : undefined
-              })()
-            : undefined)
+        const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
+        const color = activeCategoryColor ?? (catName ? categoryColor(catName) : undefined)
         return { sample, width, color }
       }),
-    [samples, bpm, pixelsPerTick, activeCategoryColor, categories]
+    [samples, bpm, pixelsPerTick, activeCategoryColor, categoryNames]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.
@@ -138,6 +150,16 @@ export default function SampleTileGrid({
       ? virtualizer.getVirtualItems().map((item) => ({ index: item.index, start: item.start }))
       : rows.map((_, index) => ({ index, start: index * ROW_PITCH_PX }))
 
+  // Windowed paging: pull the next page once the viewport nears the end of the
+  // loaded rows.
+  const lastVisibleRow = virtualRows.length > 0 ? virtualRows[virtualRows.length - 1].index : -1
+  useEffect(() => {
+    if (!hasMore || loading) return
+    if (rows.length === 0 || lastVisibleRow >= rows.length - LOAD_MORE_ROW_MARGIN) {
+      onLoadMore()
+    }
+  }, [hasMore, loading, lastVisibleRow, rows.length, onLoadMore])
+
   return (
     <div className="tiles" ref={scrollRef}>
       <div className="tiles-virtual-canvas" style={{ height: rows.length * ROW_PITCH_PX }}>
@@ -158,7 +180,7 @@ export default function SampleTileGrid({
                     type="button"
                     className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.filepath ? ' clip-flash' : ''}`}
                     style={{ width: `${width}px`, ...(color ? bubbleStyle(color) : {}) }}
-                    title={`${sample.name} — click to preview, drag onto a lane`}
+                    title={`${sample.name} — click to preview, drag onto a lane, right-click to tag`}
                     draggable
                     onDragStart={(e) =>
                       onSampleDragStart(e, {
@@ -169,12 +191,14 @@ export default function SampleTileGrid({
                         color
                       })
                     }
+                    onContextMenu={(e) => onSampleContextMenu(sample, e)}
                     onClick={() => {
                       onSelectSampleDetail({
                         name: sample.name,
                         filepath: sample.filepath,
                         tags: sample.tags,
-                        duration: sample.durationSeconds
+                        duration: sample.durationSeconds,
+                        color
                       })
                       onPreviewSample(sample.filepath)
                     }}
@@ -196,3 +220,5 @@ export default function SampleTileGrid({
     </div>
   )
 }
+
+export default memo(SampleTileGrid)

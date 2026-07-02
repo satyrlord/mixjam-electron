@@ -78,7 +78,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'v0.test.0' })).toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: 'Select settings folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
 
     await clickStartNewMixJam()
 
@@ -86,7 +86,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('button', { name: 'Select settings folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'v0.test.0' })).toBeInTheDocument()
   })
 

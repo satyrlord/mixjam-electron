@@ -72,7 +72,7 @@ async function phase1(db: DB, sampleFolder: string): Promise<string[]> {
           continue
         }
         const ext = extname(filepath).slice(1).toLowerCase()
-        upsertStub(db, filepath, basename(filepath), ext, stat.size, Math.round(stat.mtimeMs), true)
+        upsertStub(db, filepath, basename(filepath), ext, stat.size, Math.round(stat.mtimeMs))
         processed++
       }
     })
@@ -80,17 +80,17 @@ async function phase1(db: DB, sampleFolder: string): Promise<string[]> {
     send({ type: 'progress', phase: 1, found: total, processed, total })
   }
 
-  // Mark files no longer on disk as missing
+  // Mark files no longer on disk as missing, in one transaction so a large
+  // prune does not pay one WAL commit per file.
   const known = db
     .prepare("SELECT filepath FROM samples WHERE scan_state != 2")
     .all() as Array<{ filepath: string }>
 
   const fileSet = new Set(files)
-  for (const { filepath } of known) {
-    if (!fileSet.has(filepath)) {
-      markMissing(db, filepath)
-    }
-  }
+  const markAllMissing = db.transaction((paths: string[]) => {
+    for (const path of paths) markMissing(db, path)
+  })
+  markAllMissing(known.map((k) => k.filepath).filter((path) => !fileSet.has(path)))
 
   // Synchronise root categories with the sample-folder structure.
   // Creates a category for each top-level subdirectory plus the
@@ -114,6 +114,12 @@ async function phase1(db: DB, sampleFolder: string): Promise<string[]> {
   return files
 }
 
+// How many files phase 2 parses concurrently. Metadata extraction is I/O-bound
+// (read + header parse), so a small pool cuts scan time severalfold without
+// saturating the disk. DB writes stay serialized — better-sqlite3 is
+// synchronous, so each updateMetadata call runs to completion on this thread.
+const PHASE2_CONCURRENCY = 4
+
 async function phase2(db: DB): Promise<void> {
   // Only process stubs (scan_state = 0)
   const stubs = db
@@ -122,28 +128,36 @@ async function phase2(db: DB): Promise<void> {
 
   const total = stubs.length
   let processed = 0
+  let cursor = 0
 
   // Dynamically import music-metadata (ESM package, works in Node worker)
   const { parseFile } = await import('music-metadata')
 
-  for (const { filepath } of stubs) {
-    try {
-      const meta = await parseFile(filepath, { duration: true })
-      updateMetadata(
-        db,
-        filepath,
-        meta.format.duration ?? null,
-        meta.format.sampleRate ?? null,
-        meta.format.numberOfChannels ?? null
-      )
-    } catch {
-      // Leave as stub if metadata extraction fails — not a fatal error
-    }
-    processed++
-    if (processed % 50 === 0 || processed === total) {
-      send({ type: 'progress', phase: 2, found: total, processed, total })
+  async function drain(): Promise<void> {
+    while (cursor < stubs.length) {
+      const { filepath } = stubs[cursor++]
+      try {
+        const meta = await parseFile(filepath, { duration: true })
+        updateMetadata(
+          db,
+          filepath,
+          meta.format.duration ?? null,
+          meta.format.sampleRate ?? null,
+          meta.format.numberOfChannels ?? null
+        )
+      } catch {
+        // Leave as stub if metadata extraction fails — not a fatal error
+      }
+      processed++
+      if (processed % 50 === 0 || processed === total) {
+        send({ type: 'progress', phase: 2, found: total, processed, total })
+      }
     }
   }
+
+  await Promise.all(
+    Array.from({ length: Math.min(PHASE2_CONCURRENCY, stubs.length) }, () => drain())
+  )
 }
 
 async function run(): Promise<void> {

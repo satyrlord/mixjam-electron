@@ -30,6 +30,7 @@ function renderPanel(overrides?: Partial<Parameters<typeof ManagePanel>[0]>) {
     onDeleteCategory: vi.fn(async () => undefined),
     onSaveLibrary: vi.fn(async () => ({ id: 2, name: 'NewLib', createdAt: 200, ruleJson: '{}' })),
     onDeleteLibrary: vi.fn(async () => undefined),
+    onApplyLibrary: vi.fn(),
     ...overrides
   }
   return { ...props, ...render(<ManagePanel {...props} />) }
