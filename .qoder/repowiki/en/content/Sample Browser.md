@@ -9,12 +9,21 @@
 - [preload/index.ts](file://src/preload/index.ts)
 - [ipc.ts](file://src/shared/ipc.ts)
 - [useLibraryData.ts](file://src/renderer/src/hooks/useLibraryData.ts)
+- [useAppState.ts](file://src/renderer/src/hooks/useAppState.ts)
+- [useTransportEngine.ts](file://src/renderer/src/hooks/useTransportEngine.ts)
 - [TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
 - [HomeScreen.tsx](file://src/renderer/src/components/HomeScreen.tsx)
 - [ManagePanel.tsx](file://src/renderer/src/components/ManagePanel.tsx)
 - [FolderCard.tsx](file://src/renderer/src/components/FolderCard.tsx)
+- [Footer.tsx](file://src/renderer/src/components/Footer.tsx)
+- [WaveformPreview.tsx](file://src/renderer/src/components/WaveformPreview.tsx)
 - [ScanOverlay.tsx](file://src/renderer/src/components/ScanOverlay.tsx)
 - [ScanProgressBar.tsx](file://src/renderer/src/components/ScanProgressBar.tsx)
+- [playerShell.ts](file://src/renderer/src/lib/playerShell.ts)
+- [App.tsx](file://src/renderer/src/App.tsx)
+- [audio-engine.ts](file://src/renderer/src/engine/audio-engine.ts)
+- [player.ts](file://src/renderer/src/engine/player.ts)
+- [sample-cache.ts](file://src/renderer/src/engine/sample-cache.ts)
 - [useFolderSession.ts](file://src/renderer/src/hooks/useFolderSession.ts)
 - [useLibraryData.test.ts](file://src/renderer/src/hooks/useLibraryData.test.ts)
 - [spec-004-sample-library.md](file://docs/specs/spec-004-sample-library.md)
@@ -26,10 +35,11 @@
 
 ## Update Summary
 **Changes Made**
-- **Enhanced Paginated Loading System**: Implemented constant page size of 500 items with automatic iteration through all database pages for improved performance on large sample libraries
-- **Automatic Full Library Loading**: Updated behavior where clearing category filters loads all matching samples rather than just the first page
-- **Improved Performance**: Optimized database queries with constant page size for better memory management and faster response times
-- **Enhanced User Experience**: Seamless loading of complete sample sets when category filters are cleared
+- **Enhanced Sample Detail Presentation**: Added WaveformPreview component to display compact waveform visualization in the footer when samples are selected
+- **Conditional Waveform Rendering**: Implemented intelligent rendering that only displays waveforms when samples are actively selected in tracker view
+- **Integrated Sample Cache Sharing**: Waveform rendering now shares the existing sample cache with playback, avoiding redundant audio decoding
+- **Enhanced Footer Integration**: Updated Footer component to conditionally render waveform preview alongside traditional sample details
+- **Performance Optimization**: Waveform computation leverages existing AudioBuffer instances from the engine's sample cache
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,14 +55,14 @@
 11. [Appendices](#appendices)
 
 ## Introduction
-This document explains the enhanced sample browser functionality in MixJam Electron, featuring a unified SampleListItem interface that standardizes data representation across all browsing modes. The system now provides consistent data shapes between the legacy folder browser and database query pipelines, eliminating inconsistencies in cold-start fallback scenarios. The enhanced architecture maintains sophisticated database-backed operations with FTS5 full-text search, hierarchical category filtering, tag-based organization, and an improved paginated loading system with constant page size for optimal performance on large sample libraries.
+This document explains the enhanced sample browser functionality in MixJam Electron, featuring a unified SampleListItem interface that standardizes data representation across all browsing modes. The system now provides consistent data shapes between the legacy folder browser and database query pipelines, eliminating inconsistencies in cold-start fallback scenarios. The enhanced architecture maintains sophisticated database-backed operations with FTS5 full-text search, hierarchical category filtering, tag-based organization, and an improved paginated loading system with constant page size for optimal performance on large sample libraries. **New enhancements include WaveformPreview integration in the footer area, providing visual waveform representation for selected samples with intelligent conditional rendering and cache sharing.**
 
 ## Project Structure
-The enhanced sample browser spans four integrated layers with unified data representation:
+The enhanced sample browser spans four integrated layers with unified data representation and new waveform visualization capabilities:
 - Main process: file system scanning, SQLite database management, FTS5 indexing, and IPC handlers with consistent SampleListItem interface
 - Database layer: schema management, query optimization, and full-text search capabilities
 - Preload bridge: exposes typed IPC methods with unified SampleListItem interface to the renderer
-- Renderer: comprehensive React component ecosystem with advanced filtering and UI patterns
+- Renderer: comprehensive React component ecosystem with advanced filtering, UI patterns, and **waveform visualization integration**
 
 ```mermaid
 graph TB
@@ -63,13 +73,18 @@ MP["ManagePanel.tsx"]
 FC["FolderCard.tsx"]
 SO["ScanOverlay.tsx"]
 SPB["ScanProgressBar.tsx"]
+FOOTER["Footer.tsx"]
+WAVE["WaveformPreview.tsx"]
 end
 subgraph "Renderer Hooks"
 ULD["useLibraryData.ts"]
 UF["useFolderSession.ts"]
+UAE["useAppState.ts"]
+UTE["useTransportEngine.ts"]
 end
 subgraph "Shared"
 IPC["ipc.ts<br/>SampleListItem Interface"]
+PS["playerShell.ts<br/>FooterSampleDetail"]
 end
 subgraph "Main Process"
 IDX["src/main/index.ts"]
@@ -81,14 +96,26 @@ subgraph "Database Layer"
 FTS["FTS5 Virtual Table"]
 IDX["SQLite Indexes"]
 end
+subgraph "Audio Engine"
+AE["audio-engine.ts<br/>SampleCache"]
+PL["player.ts<br/>getSampleBuffer"]
+SC["sample-cache.ts<br/>LRU Cache"]
+end
 TV --> ULD
 HS --> UF
 MP --> ULD
 FC --> UF
 SO --> ULD
 SPB --> ULD
+FOOTER --> WAVE
+FOOTER --> PS
+WAVE --> AE
+AE --> SC
+PL --> AE
 ULD --> IPC
 UF --> IPC
+UAE --> UTE
+UTE --> PL
 IPC --> IDX
 IDX --> SB
 IDX --> LIB
@@ -98,18 +125,20 @@ DB --> IDX
 ```
 
 **Diagram sources**
-- [TrackerView.tsx:1-685](file://src/renderer/src/components/TrackerView.tsx#L1-L685)
-- [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
-- [library.ts:1-536](file://src/main/library.ts#L1-L536)
-- [db.ts:1-145](file://src/main/db.ts#L1-L145)
-- [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
+- [Footer.tsx:1-48](file://src/renderer/src/components/Footer.tsx#L1-L48)
+- [WaveformPreview.tsx:1-84](file://src/renderer/src/components/WaveformPreview.tsx#L1-L84)
+- [useTransportEngine.ts:264-267](file://src/renderer/src/hooks/useTransportEngine.ts#L264-L267)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [audio-engine.ts:48](file://src/renderer/src/engine/audio-engine.ts#L48)
+- [sample-cache.ts:1-106](file://src/renderer/src/engine/sample-cache.ts#L1-L106)
 
 **Section sources**
-- [TrackerView.tsx:1-685](file://src/renderer/src/components/TrackerView.tsx#L1-L685)
-- [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
-- [library.ts:1-536](file://src/main/library.ts#L1-L536)
-- [db.ts:1-145](file://src/main/db.ts#L1-L145)
-- [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
+- [Footer.tsx:1-48](file://src/renderer/src/components/Footer.tsx#L1-L48)
+- [WaveformPreview.tsx:1-84](file://src/renderer/src/components/WaveformPreview.tsx#L1-L84)
+- [useTransportEngine.ts:264-267](file://src/renderer/src/hooks/useTransportEngine.ts#L264-L267)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [audio-engine.ts:48](file://src/renderer/src/engine/audio-engine.ts#L48)
+- [sample-cache.ts:1-106](file://src/renderer/src/engine/sample-cache.ts#L1-L106)
 
 ## Core Components
 
@@ -141,6 +170,23 @@ The system features a comprehensive SQLite-based architecture with:
 - **ScanOverlay**: Progress indication during library scans
 - **ScanProgressBar**: Compact progress display in the toolbar
 - **FolderCard**: Interactive folder selection interface
+- **Footer**: Enhanced with sample detail presentation and **conditional waveform rendering**
+- **WaveformPreview**: **New component** for compact waveform visualization in footer
+
+### Enhanced Footer with Waveform Integration
+**New Feature**: The Footer component now integrates WaveformPreview for enhanced sample visualization:
+- **Conditional Rendering**: Waveform only appears when a sample is selected in tracker view
+- **Sample Detail Display**: Shows name, filepath, and tags alongside waveform visualization
+- **Intelligent Integration**: Uses existing getSampleBuffer function from transport engine
+- **Performance Optimization**: Shares sample cache with playback system
+
+### WaveformPreview Component
+**New Component**: Provides compact waveform visualization for selected samples:
+- **Canvas-based Rendering**: Efficient HTML5 Canvas implementation for waveform display
+- **Peak Computation**: Computes per-bucket peak amplitudes across all channels
+- **Device Pixel Ratio Support**: Automatically scales for high-DPI displays
+- **Color Theming**: Uses CSS custom properties for consistent theming
+- **Memory Efficiency**: Minimal DOM nodes with optimized rendering cycle
 
 **Section sources**
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
@@ -149,12 +195,14 @@ The system features a comprehensive SQLite-based architecture with:
 - [db.ts:87-104](file://src/main/db.ts#L87-L104)
 - [useLibraryData.ts:175-202](file://src/renderer/src/hooks/useLibraryData.ts#L175-L202)
 - [TrackerView.tsx:506-656](file://src/renderer/src/components/TrackerView.tsx#L506-L656)
+- [Footer.tsx:1-48](file://src/renderer/src/components/Footer.tsx#L1-L48)
+- [WaveformPreview.tsx:1-84](file://src/renderer/src/components/WaveformPreview.tsx#L1-L84)
 
 ## Architecture Overview
-The enhanced sample browser implements a sophisticated three-tier architecture with unified data representation and improved pagination:
+The enhanced sample browser implements a sophisticated three-tier architecture with unified data representation, improved pagination, and **new waveform visualization capabilities**:
 - **Main Process**: Heavy I/O operations, database management, and FTS5 indexing with consistent SampleListItem interface
 - **Database Layer**: Schema management, query optimization, and full-text search
-- **Renderer Process**: Rich UI components with advanced filtering and real-time updates
+- **Renderer Process**: Rich UI components with advanced filtering, real-time updates, and **waveform visualization integration**
 
 ```mermaid
 sequenceDiagram
@@ -386,6 +434,78 @@ Iterate --> Results["Return Complete Results"]
 - [useLibraryData.ts:216-248](file://src/renderer/src/hooks/useLibraryData.ts#L216-L248)
 - [library.ts:281-384](file://src/main/library.ts#L281-L384)
 
+### Enhanced Footer with Waveform Integration
+**New Feature**: The Footer component now provides enhanced sample detail presentation with conditional waveform rendering:
+
+```mermaid
+flowchart TD
+View["view === 'tracker'"] --> Detail["sampleDetail ?"]
+Detail --> Render["Render Footer Content"]
+Render --> Name["Sample Name"]
+Render --> Wave["WaveformPreview (if getSampleBuffer)"]
+Render --> Path["Filepath"]
+Render --> Tags["Tags"]
+Wave --> Compute["computePeaks()"]
+Compute --> Canvas["Canvas Rendering"]
+```
+
+**Diagram sources**
+- [Footer.tsx:32-41](file://src/renderer/src/components/Footer.tsx#L32-L41)
+- [WaveformPreview.tsx:34-73](file://src/renderer/src/components/WaveformPreview.tsx#L34-L73)
+
+**Section sources**
+- [Footer.tsx:32-41](file://src/renderer/src/components/Footer.tsx#L32-L41)
+- [WaveformPreview.tsx:34-73](file://src/renderer/src/components/WaveformPreview.tsx#L34-L73)
+
+### WaveformPreview Component Implementation
+**New Component**: Provides compact waveform visualization with intelligent rendering:
+
+```mermaid
+flowchart TD
+Props["filepath, getSampleBuffer"] --> Effect["useEffect Hook"]
+Effect --> Canvas["Canvas Setup"]
+Canvas --> Buffer["getSampleBuffer(filepath)"]
+Buffer --> Peaks["computePeaks(buffer, 100)"]
+Peaks --> Draw["Draw Waveform Bars"]
+Draw --> Theme["Apply CSS Theme Colors"]
+Theme --> Render["Final Canvas Output"]
+```
+
+**Diagram sources**
+- [WaveformPreview.tsx:34-73](file://src/renderer/src/components/WaveformPreview.tsx#L34-L73)
+- [WaveformPreview.tsx:15-32](file://src/renderer/src/components/WaveformPreview.tsx#L15-L32)
+
+**Section sources**
+- [WaveformPreview.tsx:34-73](file://src/renderer/src/components/WaveformPreview.tsx#L34-L73)
+- [WaveformPreview.tsx:15-32](file://src/renderer/src/components/WaveformPreview.tsx#L15-L32)
+
+### Sample Cache Integration for Waveform Rendering
+**Performance Enhancement**: Waveform rendering leverages existing sample cache infrastructure:
+
+```mermaid
+flowchart TD
+Player["useTransportEngine.getSampleBuffer"] --> PlayerCall["getSampleBuffer()"]
+PlayerCall --> PlayerRef["playerRef.current"]
+PlayerRef --> PlayerMethod["player.getSampleBuffer()"]
+PlayerMethod --> AudioEngine["AudioEngine.samples.peek()"]
+AudioEngine --> SampleCache["SampleCache.peek()"]
+SampleCache --> Buffer["AudioBuffer Instance"]
+Buffer --> Waveform["WaveformPreview.computePeaks()"]
+Waveform --> Canvas["Canvas Rendering"]
+```
+
+**Diagram sources**
+- [useTransportEngine.ts:264-267](file://src/renderer/src/hooks/useTransportEngine.ts#L264-L267)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [audio-engine.ts:48](file://src/renderer/src/engine/audio-engine.ts#L48)
+- [sample-cache.ts:27-56](file://src/renderer/src/engine/sample-cache.ts#L27-L56)
+
+**Section sources**
+- [useTransportEngine.ts:264-267](file://src/renderer/src/hooks/useTransportEngine.ts#L264-L267)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [audio-engine.ts:48](file://src/renderer/src/engine/audio-engine.ts#L48)
+- [sample-cache.ts:27-56](file://src/renderer/src/engine/sample-cache.ts#L27-L56)
+
 ## Advanced Features
 
 ### Enhanced Manage Panel Interface
@@ -414,19 +534,31 @@ The category filtering system now provides improved user experience:
 - **Seamless Transition**: Smooth transition from filtered to full library view
 - **Performance Optimization**: Efficient loading of complete sample sets
 
+### Waveform Visualization System
+**New Feature**: Comprehensive waveform visualization system:
+- **Compact Display**: 180px wide by 22px tall waveform bars
+- **Peak Analysis**: 100-bucket histogram across all audio channels
+- **Device Scaling**: Automatic pixel ratio adjustment for crisp rendering
+- **Theme Integration**: Uses CSS custom properties for consistent theming
+- **Performance Sharing**: Leverages existing sample cache to avoid redundant decoding
+- **Conditional Rendering**: Only displays when samples are selected in tracker view
+
 **Section sources**
 - [ManagePanel.tsx:1-242](file://src/renderer/src/components/ManagePanel.tsx#L1-L242)
 - [ScanOverlay.tsx:1-39](file://src/renderer/src/components/ScanOverlay.tsx#L1-L39)
 - [ScanProgressBar.tsx:1-19](file://src/renderer/src/components/ScanProgressBar.tsx#L1-L19)
 - [TrackerView.tsx:241-261](file://src/renderer/src/components/TrackerView.tsx#L241-L261)
 - [useLibraryData.ts:347-351](file://src/renderer/src/hooks/useLibraryData.ts#L347-L351)
+- [Footer.tsx:32-41](file://src/renderer/src/components/Footer.tsx#L32-L41)
+- [WaveformPreview.tsx:34-73](file://src/renderer/src/components/WaveformPreview.tsx#L34-L73)
 
 ## Dependency Analysis
-The enhanced system has sophisticated interdependencies with unified data representation:
+The enhanced system has sophisticated interdependencies with unified data representation and **new waveform visualization dependencies**:
 - **Main Process Dependencies**: SQLite database, FTS5 virtual tables, indexing triggers, unified SampleListItem interface
-- **Renderer Dependencies**: React components, debounced queries, state management, unified SampleListItem interface
+- **Renderer Dependencies**: React components, debounced queries, state management, unified SampleListItem interface, **WaveformPreview integration**
 - **IPC Dependencies**: Typed interfaces, progress callbacks, error handling, unified SampleListItem interface
 - **Database Dependencies**: Schema migrations, index maintenance, trigger synchronization
+- **Audio Engine Dependencies**: **Sample cache integration**, **buffer sharing**, **performance optimization**
 
 ```mermaid
 graph LR
@@ -444,6 +576,12 @@ UI["useLibraryData.ts"] --> PZ
 UI --> TV["TrackerView.tsx"]
 UI --> MP["ManagePanel.tsx"]
 UI --> SampleListItem["Unified Interface"]
+UI --> FOOTER["Footer.tsx"]
+FOOTER --> WAVE["WaveformPreview.tsx"]
+WAVE --> AE["AudioEngine.samples"]
+AE --> SC["SampleCache"]
+SC --> PC["player.getSampleBuffer"]
+PC --> AE
 ```
 
 **Diagram sources**
@@ -452,6 +590,11 @@ UI --> SampleListItem["Unified Interface"]
 - [db.ts:1-145](file://src/main/db.ts#L1-L145)
 - [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
+- [Footer.tsx:1-48](file://src/renderer/src/components/Footer.tsx#L1-L48)
+- [WaveformPreview.tsx:1-84](file://src/renderer/src/components/WaveformPreview.tsx#L1-L84)
+- [audio-engine.ts:48](file://src/renderer/src/engine/audio-engine.ts#L48)
+- [sample-cache.ts:1-106](file://src/renderer/src/engine/sample-cache.ts#L1-L106)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
 
 **Section sources**
 - [sample-browser.ts:1-104](file://src/main/sample-browser.ts#L1-L104)
@@ -459,9 +602,14 @@ UI --> SampleListItem["Unified Interface"]
 - [db.ts:1-145](file://src/main/db.ts#L1-L145)
 - [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
+- [Footer.tsx:1-48](file://src/renderer/src/components/Footer.tsx#L1-L48)
+- [WaveformPreview.tsx:1-84](file://src/renderer/src/components/WaveformPreview.tsx#L1-L84)
+- [audio-engine.ts:48](file://src/renderer/src/engine/audio-engine.ts#L48)
+- [sample-cache.ts:1-106](file://src/renderer/src/engine/sample-cache.ts#L1-L106)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
 
 ## Performance Considerations
-The enhanced system implements multiple optimization strategies with unified data representation:
+The enhanced system implements multiple optimization strategies with unified data representation and **new waveform visualization optimizations**:
 - **FTS5 Indexing**: Virtual table with automatic trigger-based updates
 - **Enhanced Windowed Queries**: Constant 500-item page size with automatic iteration for optimal memory usage
 - **Debounced Queries**: 150ms debounce for search and filter changes
@@ -470,6 +618,9 @@ The enhanced system implements multiple optimization strategies with unified dat
 - **Schema Migration**: Versioned database schema with backward compatibility
 - **Unified Interface**: Reduces data transformation overhead and improves consistency
 - **Automatic Page Accumulation**: Seamless loading of complete sample sets when filters are cleared
+- ****Waveform Cache Sharing**: **Waveform rendering shares existing sample cache to avoid redundant decoding**
+- ****Conditional Rendering**: **Waveform only rendered when samples are selected, minimizing unnecessary computations**
+- ****Device Pixel Ratio Optimization**: **Canvas scaling prevents blurry rendering on high-DPI displays**
 
 ### Performance Benchmarks
 - **Full-text Search**: < 50ms against development dataset, target < 5ms for 100k+ rows
@@ -478,15 +629,19 @@ The enhanced system implements multiple optimization strategies with unified dat
 - **Enhanced Pagination**: 500-item pages with automatic iteration for large libraries
 - **Data Mapping**: Streamlined conversion between legacy and database formats
 - **Memory Usage**: Predictable memory footprint with constant page size
+- ****Waveform Computation**: **Efficient peak analysis with 100-bucket histogram across all channels**
+- ****Sample Cache Efficiency**: **LRU eviction policy with configurable maximum entries (default 64)**
 
 **Section sources**
 - [spec-004-sample-library.md:147-155](file://docs/specs/spec-004-sample-library.md#L147-L155)
 - [library.ts:281-384](file://src/main/library.ts#L281-L384)
 - [db.ts:87-104](file://src/main/db.ts#L87-L104)
 - [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
+- [WaveformPreview.tsx:15-32](file://src/renderer/src/components/WaveformPreview.tsx#L15-L32)
+- [sample-cache.ts:15-40](file://src/renderer/src/engine/sample-cache.ts#L15-L40)
 
 ## Troubleshooting Guide
-Enhanced troubleshooting for the advanced feature set with unified interface:
+Enhanced troubleshooting for the advanced feature set with unified interface and **new waveform visualization capabilities**:
 
 ### Common Issues
 - **FTS5 Search Failures**: Verify virtual table creation and trigger synchronization
@@ -496,6 +651,9 @@ Enhanced troubleshooting for the advanced feature set with unified interface:
 - **Memory Leaks**: Ensure proper cleanup of debounced timers and event listeners
 - **Data Inconsistency**: Verify SampleListItem interface compliance across all pipelines
 - **Page Loading Issues**: Check automatic page iteration logic and 500-item page size
+- ****Waveform Rendering Issues**: **Verify getSampleBuffer function availability and AudioBuffer cache state**
+- ****Canvas Rendering Problems**: **Check device pixel ratio calculations and canvas sizing**
+- ****Performance Degradation**: **Monitor sample cache size and waveform computation frequency**
 
 ### Diagnostic Steps
 - **Database Health**: Verify schema version and migration completion
@@ -505,14 +663,18 @@ Enhanced troubleshooting for the advanced feature set with unified interface:
 - **Component State**: Monitor React component lifecycle and state updates
 - **Interface Compliance**: Ensure all data sources produce consistent SampleListItem format
 - **Page Iteration Logic**: Verify automatic page accumulation and 500-item page size
+- ****Audio Engine Integration**: **Verify SampleCache initialization and buffer sharing**
+- ****Waveform Preview Testing**: **Check WaveformPreview props and canvas rendering state**
 
 **Section sources**
 - [library.ts:123-143](file://src/main/library.ts#L123-L143)
 - [db.ts:106-144](file://src/main/db.ts#L106-L144)
 - [useLibraryData.ts:264-275](file://src/renderer/src/hooks/useLibraryData.ts#L264-L275)
+- [WaveformPreview.tsx:34-73](file://src/renderer/src/components/WaveformPreview.tsx#L34-L73)
+- [audio-engine.ts:48](file://src/renderer/src/engine/audio-engine.ts#L48)
 
 ## Conclusion
-The enhanced sample browser represents a significant advancement in audio library management, featuring sophisticated database architecture, FTS5 full-text search, hierarchical organization, and comprehensive filtering capabilities. The introduction of the unified SampleListItem interface eliminates inconsistencies between legacy folder browser and database query pipelines, providing a consistent data shape across all browsing modes. The enhanced paginated loading system with constant 500-item page size and automatic page iteration significantly improves performance on large sample libraries, while the improved category filter behavior provides a seamless user experience when clearing filters. The system successfully balances performance with functionality, providing users with powerful tools for organizing and discovering large sample collections. The modular architecture ensures maintainability while the comprehensive component ecosystem delivers an intuitive user experience.
+The enhanced sample browser represents a significant advancement in audio library management, featuring sophisticated database architecture, FTS5 full-text search, hierarchical organization, and comprehensive filtering capabilities. The introduction of the unified SampleListItem interface eliminates inconsistencies between legacy folder browser and database query pipelines, providing a consistent data shape across all browsing modes. The enhanced paginated loading system with constant 500-item page size and automatic page iteration significantly improves performance on large sample libraries, while the improved category filter behavior provides a seamless user experience when clearing filters. **The new WaveformPreview integration adds visual waveform representation to the footer area, providing enhanced sample detail presentation with intelligent conditional rendering and cache sharing.** The system successfully balances performance with functionality, providing users with powerful tools for organizing and discovering large sample collections. The modular architecture ensures maintainability while the comprehensive component ecosystem delivers an intuitive user experience. **The addition of waveform visualization enhances the user interface with visual feedback for selected samples, improving the overall sample browsing experience.**
 
 ## Appendices
 
@@ -524,6 +686,7 @@ The enhanced sample browser represents a significant advancement in audio librar
 - **Scan Intervals**: Manual triggering with progress monitoring
 - **Cache Management**: Automatic cache per sample folder with forced refresh
 - **Unified Interface**: Consistent SampleListItem data structure across all pipelines
+- ****Waveform Settings**: **100-bucket histogram with device pixel ratio scaling**
 
 **Section sources**
 - [sample-browser.ts:26-77](file://src/main/sample-browser.ts#L26-L77)
@@ -531,6 +694,7 @@ The enhanced sample browser represents a significant advancement in audio librar
 - [library.ts:281-384](file://src/main/library.ts#L281-L384)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
 - [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
+- [WaveformPreview.tsx:7](file://src/renderer/src/components/WaveformPreview.tsx#L7)
 
 ### Advanced Features
 - **FTS5 Full-Text Search**: Safe prefix matching with operator protection
@@ -542,6 +706,9 @@ The enhanced sample browser represents a significant advancement in audio librar
 - **Unified Data Interface**: Consistent SampleListItem format across all browsing modes
 - **Legacy Fallback**: Improved cold-start scanner with standardized data structure
 - **Automatic Full Library Loading**: Seamless loading of complete sample sets when filters are cleared
+- ****Waveform Visualization**: **Compact waveform display in footer with intelligent conditional rendering**
+- ****Sample Cache Integration**: **Waveform rendering shares existing sample cache with playback system**
+- ****Performance Optimization**: **Device pixel ratio scaling and efficient peak computation algorithms**
 
 **Section sources**
 - [library.ts:252-384](file://src/main/library.ts#L252-L384)
@@ -549,6 +716,8 @@ The enhanced sample browser represents a significant advancement in audio librar
 - [useLibraryData.ts:216-248](file://src/renderer/src/hooks/useLibraryData.ts#L216-L248)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
 - [useLibraryData.ts:347-351](file://src/renderer/src/hooks/useLibraryData.ts#L347-L351)
+- [Footer.tsx:32-41](file://src/renderer/src/components/Footer.tsx#L32-L41)
+- [WaveformPreview.tsx:15-32](file://src/renderer/src/components/WaveformPreview.tsx#L15-L32)
 
 ### Performance Specifications
 - **Search Performance**: < 50ms for development dataset, target < 5ms for 100k+ rows
@@ -558,6 +727,9 @@ The enhanced sample browser represents a significant advancement in audio librar
 - **Database Size**: Scalable SQLite database with proper indexing
 - **Data Consistency**: Unified interface reduces transformation overhead and improves reliability
 - **Page Loading Performance**: Automatic page iteration provides seamless loading experience
+- ****Waveform Computation**: **Efficient peak analysis with minimal CPU overhead**
+- ****Cache Sharing**: **Waveform rendering avoids redundant audio decoding through sample cache**
+- ****Rendering Performance**: **Canvas-based rendering optimized for smooth animation and responsive UI**
 
 **Section sources**
 - [spec-004-sample-library.md:147-155](file://docs/specs/spec-004-sample-library.md#L147-L155)
@@ -565,3 +737,5 @@ The enhanced sample browser represents a significant advancement in audio librar
 - [db.ts:79-85](file://src/main/db.ts#L79-L85)
 - [ipc.ts:139-150](file://src/shared/ipc.ts#L139-L150)
 - [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
+- [WaveformPreview.tsx:15-32](file://src/renderer/src/components/WaveformPreview.tsx#L15-L32)
+- [sample-cache.ts:15-40](file://src/renderer/src/engine/sample-cache.ts#L15-L40)

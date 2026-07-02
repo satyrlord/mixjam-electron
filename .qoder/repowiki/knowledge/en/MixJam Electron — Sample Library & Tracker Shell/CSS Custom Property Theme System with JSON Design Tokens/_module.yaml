@@ -6,9 +6,9 @@ source_files:
     - src/renderer/src/index.css
     - src/renderer/src/theme/themes.ts
     - public/themes/emerald.json
-    - public/themes/rave.json
-    - .design-sync/conventions.md
-    - .design-sync/design-sync-styles.css
-    - ds-bundle/_ds_bundle.css
+    - src/renderer/src/bootstrapApp.tsx
+    - src/renderer/src/main.tsx
+    - docs/specs/spec-002-theming-skin-system.md
 depends_on: []
-related_to: []
+related_to:
+    - path: configuration_system

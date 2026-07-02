@@ -6,8 +6,10 @@ source_files:
     - package.json
     - package-lock.json
     - electron.vite.config.ts
-    - .ds-sync/package.json
-    - tsconfig.node.json
-    - tsconfig.web.json
+    - .fallowrc.json
+    - tsconfig.json
+    - eslint.config.mjs
+    - vitest.config.ts
 depends_on: []
-related_to: []
+related_to:
+    - path: build_system

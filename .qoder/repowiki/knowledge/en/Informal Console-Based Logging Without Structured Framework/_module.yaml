@@ -6,8 +6,6 @@ source_files:
     - src/main/index.ts
     - src/main/indexer-host.ts
     - src/main/library.ts
-    - src/renderer/src/hooks/useLibraryData.ts
-    - src/renderer/src/hooks/useAppState.ts
-    - .qoder/repowiki/knowledge/en/Informal Error Handling via Try_Catch and Console Logging/error_handling.md
+    - src/main/indexer.ts
 depends_on: []
 related_to: []

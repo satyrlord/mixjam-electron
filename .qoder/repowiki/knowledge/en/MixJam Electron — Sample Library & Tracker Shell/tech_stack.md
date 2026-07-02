@@ -1,0 +1,1 @@
+Electron 42.5.0 with React 18, TypeScript, and `electron-vite` for multi-process builds; `better-sqlite3` for native data persistence; Vitest with `jsdom` for renderer testing.

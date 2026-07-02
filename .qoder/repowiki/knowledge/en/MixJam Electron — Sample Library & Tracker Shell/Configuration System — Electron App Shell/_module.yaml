@@ -1,0 +1,20 @@
+schema_version: 1
+module_path: configuration_system
+title: Configuration System — Electron App Shell
+scope: []
+source_files:
+    - electron.vite.config.ts
+    - src/main/session.ts
+    - src/main/index.ts
+    - src/shared/window-config.ts
+    - src/renderer/src/theme/themes.ts
+    - public/themes/emerald.json
+    - vitest.config.ts
+    - eslint.config.mjs
+    - .fallowrc.json
+    - tsconfig.json
+    - tsconfig.node.json
+    - tsconfig.web.json
+depends_on: []
+related_to:
+    - path: frontend_style

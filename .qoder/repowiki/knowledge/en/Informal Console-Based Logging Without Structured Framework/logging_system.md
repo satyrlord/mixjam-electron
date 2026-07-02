@@ -1,88 +1,64 @@
 ## Overview
 
-The MixJam Electron application uses **no dedicated logging framework**. All diagnostic output relies exclusively on built-in `console` methods (`console.error`, `console.warn`). There is no log-level management, no structured logging, no log rotation, no file-based sinks, and no centralized logger initialization.
+MixJam Electron does **not** use a dedicated logging framework (e.g., Winston, Pino, Bunyan, or debug). Instead, it relies exclusively on Node.js's built-in `console` API (`console.log`, `console.error`, `console.warn`) for all diagnostic output.
 
-## Approach and Patterns
+This is an **informal, ad-hoc approach** with no structured logging, no log-level management, no log rotation, and no centralized configuration.
 
-### 1. No Logging Framework
+## What System Is Used
 
-- Zero imports of any logging library (winston, pino, bunyan, debug, etc.)
-- No dedicated `log/` or `logging/` directory exists in the codebase
-- No logger configuration files or initialization modules
-- The `.qoder/repowiki/knowledge/en/Informal Error Handling via Try_Catch and Console Logging/error_handling.md` documentation explicitly confirms this informal approach
+- **Framework**: None — bare `console.*` calls only
+- **Log levels used**: `console.error` (errors), `console.warn` (warnings in example code)
+- **Structured fields**: None — messages are plain strings, sometimes with interpolated values
+- **Sinks**: stdout/stderr (default console behavior)
 
-### 2. Console Methods Only
+## Key Files Using Console Logging
 
-All logging uses native JavaScript console methods:
+| File | Usage |
+|------|-------|
+| `src/main/index.ts` | `console.error` for session config write failures (lines 122, 166) and sample byte read failures (line 337) |
+| `src/main/indexer-host.ts` | `console.error` for indexer worker thread errors (line 75) |
+| `src/main/library.ts` | `console.error` for folder read failures during category sync (line 160) |
+| `.design-sync/generate-theme-tokens.mjs` | `console.error` for build script output (line 54) |
+| `.design-sync/overrides/source-kit.mjs` | Multiple `console.error` calls for design-sync tool diagnostics |
 
-- **`console.error()`** — Used for unexpected failures across both main and renderer processes
-- **`console.warn()`** — Appears only in example/documentation files (`.github/skills/deslop/EXAMPLES.md`), not in production source code
+## Architecture and Conventions
 
-No usage of `console.log()`, `console.info()`, `console.debug()`, or `console.trace()` was found in the actual source files.
+### Current Patterns
 
-### 3. Logging Locations
+1. **Error-only logging**: All production source files (`src/`) use `console.error` exclusively — never `console.log`, `console.info`, or `console.debug`. This indicates a convention of logging only when something goes wrong.
 
-**Main process** (`src/main/`):
-- `index.ts`: Logs IPC handler failures (writing `mixjam.json`, reading sample bytes)
-- `indexer-host.ts`: Logs worker thread errors during sample indexing
-- `library.ts`: Logs filesystem read failures during category synchronization
+2. **No structured format**: Log messages are free-form strings, e.g.:
+   ```typescript
+   console.error('Failed to write mixjam.json:', error)
+   console.error('Indexer worker error:', err)
+   console.error('syncCategoriesFromFolder: failed to read sample folder', sampleFolder, err)
+   ```
 
-**Renderer process** (`src/renderer/src/hooks/`):
-- `useAppState.ts`: Logs recent project recording failures
-- `useLibraryData.ts`: Logs version retrieval, recent projects loading, and sample query failures
+3. **No log suppression in tests**: The codebase has no mechanism to silence console output during test runs.
 
-### 4. Log Message Convention
+4. **Worker-thread error propagation**: The indexer worker (`src/main/indexer.ts`) does not use `console` at all — instead it sends `{ type: 'error', message: string }` messages back to the main process via `parentPort.postMessage()`, where the host logs them.
 
-All `console.error()` calls follow a consistent pattern: a descriptive prefix string followed by the error object:
+### Design Decisions (Inferred)
 
-```typescript
-console.error('Failed to write mixjam.json on quit:', error)
-console.error('Indexer worker error:', err)
-console.error('syncCategoriesFromFolder: failed to read sample folder', sampleFolder, err)
-console.error('Failed to query sample browser:', e)
-```
+- **Simplicity over sophistication**: For a desktop app with a single user, basic console output is sufficient for debugging during development.
+- **No persistent logs**: There is no file-based log sink, no log rotation, and no crash reporting integration.
+- **Renderer has zero logging**: No `console.*` calls exist in any renderer source file (`src/renderer/**/*.{ts,tsx}`), suggesting UI-layer errors are handled through React error boundaries or state-based error display rather than console output.
 
-Prefixes typically start with "Failed to" or describe the component context.
+## Rules Developers Should Follow
 
-### 5. Error Handling Strategy
+1. **Use `console.error` for unexpected failures**: When catching exceptions that should not silently fail, use `console.error` with a descriptive prefix and the error object.
 
-Logging is tightly coupled with a **silent-failure resilience pattern**:
+2. **Avoid `console.log` in production code**: The existing codebase never uses `console.log`, `console.info`, or `console.debug` in `src/` files. Reserve these for temporary debugging only, and remove them before committing.
 
-- Main process operations return safe defaults (`null`, `[]`, `false`) after logging
-- Errors are caught but rarely propagated to users
-- Only one user-facing error message exists: `'Unable to load sample library.'` in `useAppState.ts`
-- IPC boundaries do not translate or propagate errors structurally
+3. **Include context in error messages**: Prefix messages with the function or operation name (e.g., `'syncCategoriesFromFolder: failed to read sample folder'`) to aid troubleshooting.
 
-## Key Files
+4. **Do not introduce a logging framework without team consensus**: Adding Winston, Pino, or similar would be a significant architectural change requiring updates to all error-handling paths.
 
-| File | Role |
-|------|------|
-| `src/main/index.ts` | Main process entry point; logs session save/write failures and sample read errors |
-| `src/main/indexer-host.ts` | Worker thread host; logs indexer errors |
-| `src/main/library.ts` | Database operations; logs folder sync failures |
-| `src/renderer/src/hooks/useLibraryData.ts` | Renderer data fetching; logs query and version errors |
-| `src/renderer/src/hooks/useAppState.ts` | App state orchestration; logs project recording errors |
-| `.qoder/repowiki/knowledge/en/Informal Error Handling via Try_Catch and Console Logging/error_handling.md` | Documentation confirming the informal approach |
+5. **Worker threads should propagate errors via IPC, not console**: Follow the pattern in `indexer.ts` — send structured error messages to the parent, which handles logging.
 
-## Conventions Developers Should Follow
+## Gaps and Risks
 
-1. **Use `console.error()` for unexpected async failures** — Include a descriptive prefix identifying the operation that failed.
-
-2. **Do not introduce custom Error classes or logging frameworks** without team consensus — the codebase has no error type hierarchy or structured logging infrastructure.
-
-3. **Return safe defaults after logging** in the main process (`null`, empty arrays, `false`) rather than throwing — this matches the existing resilience-oriented pattern.
-
-4. **Do not throw across IPC boundaries** — IPC handlers should return nullable values for expected failure cases.
-
-5. **User-facing errors are rare** — Only add new user-visible error states if the failure blocks core functionality. Use concise, non-technical messages.
-
-## Known Gaps
-
-As documented in the repository's own error handling knowledge card:
-
-- No error boundary component in React
-- No structured error logging (no log levels, no correlation IDs, no structured fields)
-- No retry logic for transient failures
-- No error telemetry or crash reporting
-- Generic error messages provide no actionable guidance to users
-- No log file persistence — all output goes to stdout/stderr only
+- **No log aggregation**: Errors in production builds are invisible to developers unless users manually inspect DevTools or terminal output.
+- **No log levels**: Cannot selectively enable/disable verbosity.
+- **No structured fields**: Cannot filter or query logs by component, severity, or correlation ID.
+- **No test isolation**: Console output during tests may clutter test reports.

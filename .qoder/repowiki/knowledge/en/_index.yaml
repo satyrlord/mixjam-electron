@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-07-01T19:07:32Z"
+exported_at: "2026-07-02T11:41:44Z"
 modules:
     "":
-        dir_name: MixJam Electron Sample Library & Tracker
-        title: MixJam Electron Sample Library & Tracker
+        dir_name: MixJam Electron — Sample Library & Tracker Shell
+        title: MixJam Electron — Sample Library & Tracker Shell
         scope:
             - .gitignore
             - .markdownlint-cli2.jsonc
@@ -28,7 +28,13 @@ modules:
             - scripts/
             - .github/
         source_files: []
-        children: []
+        children:
+            - build_system
+            - configuration_system
+            - dependency_management
+            - error_handling
+            - frontend_style
+            - logging_system
         depends_on: []
         related_to: []
     build_system:
@@ -47,7 +53,8 @@ modules:
             - .github/skills/run-quality-gate/REFERENCE.md
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: dependency_management
     configuration_system:
         dir_name: Configuration System — Electron App Shell
         title: Configuration System — Electron App Shell
@@ -67,7 +74,8 @@ modules:
             - tsconfig.web.json
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: frontend_style
     dependency_management:
         dir_name: npm + electron-vite Dependency Management
         title: npm + electron-vite Dependency Management
@@ -82,7 +90,8 @@ modules:
             - vitest.config.ts
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: build_system
     error_handling:
         dir_name: Informal Error Handling via Try_Catch and Console Logging
         title: Informal Error Handling via Try/Catch and Console Logging
@@ -96,7 +105,8 @@ modules:
             - src/preload/index.ts
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: logging_system
     frontend_style:
         dir_name: CSS Custom Property Theme System with JSON Design Tokens
         title: CSS Custom Property Theme System with JSON Design Tokens
@@ -110,7 +120,8 @@ modules:
             - docs/specs/spec-002-theming-skin-system.md
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: configuration_system
     logging_system:
         dir_name: Informal Console-Based Logging Without Structured Framework
         title: Informal Console-Based Logging Without Structured Framework
@@ -124,4 +135,5 @@ modules:
             - .qoder/repowiki/knowledge/en/Informal Error Handling via Try_Catch and Console Logging/error_handling.md
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: error_handling

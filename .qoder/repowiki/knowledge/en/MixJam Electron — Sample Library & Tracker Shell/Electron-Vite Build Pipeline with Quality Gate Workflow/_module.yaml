@@ -13,4 +13,5 @@ source_files:
     - .github/skills/run-quality-gate/skill.md
     - .github/skills/run-quality-gate/REFERENCE.md
 depends_on: []
-related_to: []
+related_to:
+    - path: dependency_management

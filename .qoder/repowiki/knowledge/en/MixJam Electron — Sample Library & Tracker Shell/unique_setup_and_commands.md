@@ -1,0 +1,2 @@
+- Native dependencies require rebuilding against the Electron header via `npm run rebuild:electron` (automated in `predev`/`prebuild` hooks) before `npm run dev` or `npm run build` can succeed.
+- Testing workflows (`npm test`) trigger a separate `npm run rebuild:node` to ensure `better-sqlite3` is compatible with the local Node.js version used by Vitest.

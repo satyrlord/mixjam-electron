@@ -14,6 +14,7 @@
 - [useTransportEngine.ts](file://src/renderer/src/hooks/useTransportEngine.ts)
 - [TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
 - [LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
+- [WaveformPreview.tsx](file://src/renderer/src/components/WaveformPreview.tsx)
 - [sample-utils.ts](file://src/renderer/src/lib/sample-utils.ts)
 - [useAppState.ts](file://src/renderer/src/hooks/useAppState.ts)
 - [App.tsx](file://src/renderer/src/App.tsx)
@@ -33,13 +34,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced timeline panel system with comprehensive beat and bar grid alignment
-- Improved ruler and grid rendering with CSS variable integration
-- Added new getComputedColor utility function for CSS property fallback resolution
-- Implemented beat-snap functionality with nearestTick algorithm for precise clip placement
-- Added Alt-key modifier support for freeform vs beat-snap placement
-- Implemented performance improvements to useLibraryData hook with paginated loading system
-- Replaced single-page database queries with efficient pagination replacing legacy folder scanning
+- Added new getSampleBuffer method to Player class for direct access to decoded audio buffers
+- Enhanced integration with sample cache system for waveform preview functionality
+- Integrated WaveformPreview component for visual sample representation
+- Updated transport synchronization with improved anchor-based calculations
+- Enhanced library data performance with paginated loading system
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,17 +46,19 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Timeline Panel Enhancements](#timeline-panel-enhancements)
-7. [Beat-Snap Functionality](#beat-snap-functionality)
-8. [Library Data Performance Improvements](#library-data-performance-improvements)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
-13. [Appendices](#appendices)
+6. [Waveform Preview System](#waveform-preview-system)
+7. [Enhanced Sample Buffer Access](#enhanced-sample-buffer-access)
+8. [Timeline Panel Enhancements](#timeline-panel-enhancements)
+9. [Beat-Snap Functionality](#beat-snap-functionality)
+10. [Library Data Performance Improvements](#library-data-performance-improvements)
+11. [Dependency Analysis](#dependency-analysis)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
+15. [Appendices](#appendices)
 
 ## Introduction
-This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features. Recent improvements include enhanced player lifecycle management, improved transport synchronization, sophisticated lane evaluation policies, significant performance optimizations for the library data system, and advanced timeline panel functionality with beat-snap precision.
+This document describes MixJam Electron's enhanced audio engine and playback system. The system features a sophisticated transport engine architecture with lookahead scheduling, comprehensive audio processing capabilities, and seamless integration between the tracker interface and real-time audio output. The engine implements a pure TypeScript architecture with Web Audio API integration, providing sample-accurate playback with low-latency scheduling and comprehensive audio processing features. Recent improvements include enhanced player lifecycle management, improved transport synchronization, sophisticated lane evaluation policies, significant performance optimizations for the library data system, advanced timeline panel functionality with beat-snap precision, and new waveform preview capabilities through direct sample buffer access.
 
 ## Project Structure
 The audio engine is organized into distinct layers that work together to provide a complete playback solution. The architecture follows a layered approach with clear separation of concerns:
@@ -65,8 +66,9 @@ The audio engine is organized into distinct layers that work together to provide
 - **Transport Layer**: Handles playhead state, BPM control, and timing calculations
 - **Scheduler Layer**: Manages lookahead scheduling with configurable timing parameters
 - **Audio Engine Layer**: Controls Web Audio API, voice management, and audio routing
-- **Player Orchestration**: Coordinates all components and manages playback lifecycle with improved state management
+- **Player Orchestration**: Coordinates all components and manages playback lifecycle with enhanced state management
 - **UI Integration**: Connects the audio engine to the tracker interface and user controls with synchronized playhead rendering
+- **Waveform Preview System**: Provides visual waveform representation using direct sample buffer access
 - **Timeline Panels**: Enhanced visual timeline with beat/bar grid alignment, CSS variable integration, and precise snapping behavior
 
 ```mermaid
@@ -75,12 +77,13 @@ subgraph "Audio Engine Layers"
 A["Transport Layer<br/>- BPM control<br/>- Playhead state<br/>- Tick calculations<br/>- State machine"]
 B["Scheduler Layer<br/>- Lookahead scheduling<br/>- Timing precision<br/>- Event coordination<br/>- Audio clock synchronization"]
 C["Audio Engine Layer<br/>- Web Audio API<br/>- Voice management<br/>- Channel routing<br/>- Sample caching"]
-D["Player Orchestration<br/>- Component coordination<br/>- Playback lifecycle<br/>- Generation tracking<br/>- Preview scheduling"]
+D["Player Orchestration<br/>- Component coordination<br/>- Playback lifecycle<br/>- Generation tracking<br/>- Preview scheduling<br/>- Sample buffer access"]
 end
 subgraph "UI Integration"
 E["Player Shell<br/>- Lane management<br/>- Clip placement<br/>- Dimming policy<br/>- Visual feedback"]
 F["Tracker Interface<br/>- Playhead visualization<br/>- Transport controls<br/>- Mixer integration<br/>- Transport-aware preview"]
-G["Timeline Panels<br/>- Beat/bar grid alignment<br/>- CSS variable integration<br/>- Enhanced rendering<br/>- Beat-snap functionality<br/>- Performance optimization"]
+G["Waveform Preview<br/>- Direct buffer access<br/>- Peak computation<br/>- Canvas rendering<br/>- Device pixel ratio<br/>- Real-time updates"]
+H["Timeline Panels<br/>- Beat/bar grid alignment<br/>- CSS variable integration<br/>- Enhanced rendering<br/>- Beat-snap functionality<br/>- Performance optimization"]
 end
 A --> B
 B --> C
@@ -88,21 +91,23 @@ C --> D
 E --> D
 F --> D
 G --> F
+H --> F
 ```
 
 **Diagram sources**
 - [transport.ts:1-79](file://src/renderer/src/engine/transport.ts#L1-L79)
 - [scheduler.ts:1-137](file://src/renderer/src/engine/scheduler.ts#L1-L137)
 - [audio-engine.ts:1-204](file://src/renderer/src/engine/audio-engine.ts#L1-L204)
-- [player.ts:1-230](file://src/renderer/src/engine/player.ts#L1-L230)
+- [player.ts:1-241](file://src/renderer/src/engine/player.ts#L1-L241)
 - [playerShell.ts:1-202](file://src/renderer/src/lib/playerShell.ts#L1-L202)
+- [WaveformPreview.tsx:1-85](file://src/renderer/src/components/WaveformPreview.tsx#L1-L85)
 - [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
 
 **Section sources**
 - [transport.ts:1-79](file://src/renderer/src/engine/transport.ts#L1-L79)
 - [scheduler.ts:1-137](file://src/renderer/src/engine/scheduler.ts#L1-L137)
 - [audio-engine.ts:1-204](file://src/renderer/src/engine/audio-engine.ts#L1-L204)
-- [player.ts:1-230](file://src/renderer/src/engine/player.ts#L1-L230)
+- [player.ts:1-241](file://src/renderer/src/engine/player.ts#L1-L241)
 - [playerShell.ts:1-202](file://src/renderer/src/lib/playerShell.ts#L1-L202)
 
 ## Core Components
@@ -155,7 +160,7 @@ The audio engine manages the Web Audio API infrastructure with comprehensive voi
 - [audio-engine.ts:17-204](file://src/renderer/src/engine/audio-engine.ts#L17-L204)
 
 ### Player Orchestration
-The Player class coordinates all audio engine components and manages the complete playback lifecycle with improved state management and generation tracking.
+The Player class coordinates all audio engine components and manages the complete playback lifecycle with enhanced state management and generation tracking.
 
 **Key Features:**
 - Orchestrates transport, scheduler, and audio engine
@@ -164,11 +169,12 @@ The Player class coordinates all audio engine components and manages the complet
 - Implements monophonic playback with voice management
 - Provides preview functionality with transport-aware scheduling
 - Prevents stray voice starts after stop/pause/close operations
+- **New**: Direct sample buffer access for waveform preview functionality
 
-**Updated** Enhanced with playGeneration tracking to prevent race conditions where async buffer loads resolve after playback ends
+**Updated** Enhanced with playGeneration tracking to prevent race conditions where async buffer loads resolve after playback ends, plus new getSampleBuffer method for direct buffer access
 
 **Section sources**
-- [player.ts:18-230](file://src/renderer/src/engine/player.ts#L18-L230)
+- [player.ts:18-241](file://src/renderer/src/engine/player.ts#L18-L241)
 
 ### Audio Processing Pipeline
 Complete audio processing chain from sample data to final output with enhanced error handling and preview capabilities.
@@ -199,6 +205,7 @@ participant Transport as "Transport"
 participant Scheduler as "Scheduler"
 participant Engine as "Audio Engine"
 participant Voice as "Voice"
+participant Waveform as "Waveform Preview"
 UI->>Player : "User presses Play"
 Player->>Transport : "play()"
 Transport-->>Player : "state=playing"
@@ -212,15 +219,20 @@ Engine->>Voice : "createAudioBufferSourceNode"
 Voice-->>Engine : "voiceStarted"
 Engine-->>Player : "voice registered"
 Player->>UI : "Update playhead position via Player.currentTick"
+UI->>Player : "getSampleBuffer(filepath)"
+Player->>Engine : "samples.peek(filepath)"
+Engine-->>Player : "AudioBuffer or null"
+Player-->>UI : "AudioBuffer for waveform rendering"
 ```
 
-**Updated** Enhanced synchronization where UI playhead is derived from Player.currentTick rather than transport state, ensuring perfect visual-audio alignment
+**Updated** Enhanced synchronization where UI playhead is derived from Player.currentTick rather than transport state, ensuring perfect visual-audio alignment, plus new waveform preview integration
 
 **Diagram sources**
 - [useTransportEngine.ts:235-244](file://src/renderer/src/hooks/useTransportEngine.ts#L235-L244)
 - [player.ts:185-194](file://src/renderer/src/engine/player.ts#L185-L194)
 - [scheduler.ts:75-87](file://src/renderer/src/engine/scheduler.ts#L75-L87)
 - [audio-engine.ts:140-154](file://src/renderer/src/engine/audio-engine.ts#L140-L154)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
 
 **Section sources**
 - [useTransportEngine.ts:126-166](file://src/renderer/src/hooks/useTransportEngine.ts#L126-L166)
@@ -348,37 +360,42 @@ C["Scheduler Instance"]
 D["Channel Registry"]
 E["Lane Voice Registry"]
 F["Play Generation Tracking"]
+G["Sample Buffer Access"]
 end
 subgraph "Playback Flow"
-G["start(fromTick)"]
-H["pause()"]
-I["stop()"]
-J["close()"]
-K["previewSample()"]
+H["start(fromTick)"]
+I["pause()"]
+J["stop()"]
+K["close()"]
+L["previewSample()"]
+M["getSampleBuffer()"]
 end
 A --> B
 A --> C
 A --> D
 A --> E
 A --> F
-G --> C
-G --> B
+A --> G
 H --> C
 H --> B
 I --> C
 I --> B
 J --> C
 J --> B
+L --> C
+L --> B
+M --> B
 K --> B
 ```
 
-**Updated** Enhanced with playGeneration tracking to prevent race conditions where async buffer loads resolve after playback ends
+**Updated** Enhanced with playGeneration tracking to prevent race conditions where async buffer loads resolve after playback ends, plus new getSampleBuffer method for direct sample access
 
 **Diagram sources**
 - [player.ts:29-59](file://src/renderer/src/engine/player.ts#L29-L59)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
 
 **Section sources**
-- [player.ts:29-230](file://src/renderer/src/engine/player.ts#L29-L230)
+- [player.ts:29-241](file://src/renderer/src/engine/player.ts#L29-L241)
 
 ### Sample Processing Pipeline
 Complete pipeline for sample loading, caching, and playback preparation with enhanced error handling and preview capabilities.
@@ -453,6 +470,119 @@ SoloCheck2 --> |No| Dim
 
 **Section sources**
 - [playerShell.ts:136-149](file://src/renderer/src/lib/playerShell.ts#L136-L149)
+
+## Waveform Preview System
+
+### Direct Sample Buffer Access
+The new getSampleBuffer method provides direct access to decoded audio buffers for waveform preview functionality, sharing the same cache as the playback system for efficiency.
+
+**Key Features:**
+- Direct access to AudioBuffer instances from the sample cache
+- Cached buffer retrieval with automatic decoding on miss
+- Error handling with graceful fallback to null
+- Shared cache with playback system for single decode cost
+- Asynchronous buffer loading with proper error propagation
+
+**Updated** New method added to Player class for direct sample buffer access
+
+**Section sources**
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+
+### Waveform Preview Component
+The WaveformPreview component renders compact waveform representations using the direct sample buffer access, providing visual feedback for selected samples.
+
+**Key Features:**
+- Canvas-based waveform rendering with device pixel ratio awareness
+- Peak computation across all channels for accurate representation
+- Bucket-based amplitude analysis for performance optimization
+- Real-time rendering with proper cleanup and stale check
+- CSS variable-based color integration for theming support
+
+**Updated** New component added for waveform visualization using direct buffer access
+
+**Section sources**
+- [WaveformPreview.tsx:1-85](file://src/renderer/src/components/WaveformPreview.tsx#L1-L85)
+
+### Peak Computation Algorithm
+The computePeaks function performs efficient amplitude analysis across audio buffers for waveform rendering.
+
+**Key Features:**
+- Per-bucket peak amplitude calculation (0..1) across all channels
+- Sample data aggregation with bucket-based averaging
+- Multi-channel support for stereo and multi-track buffers
+- Performance-optimized with minimal memory allocation
+- Flexible bucket count configuration for different resolutions
+
+**Updated** New algorithm added for efficient waveform peak computation
+
+**Section sources**
+- [WaveformPreview.tsx:15-32](file://src/renderer/src/components/WaveformPreview.tsx#L15-L32)
+
+### UI Integration and Data Flow
+The waveform preview system integrates seamlessly with the tracker interface through the getSampleBuffer callback pattern.
+
+**Key Features:**
+- Callback-based integration allowing flexible buffer access
+- Component isolation with clear props interface
+- Automatic canvas sizing with device pixel ratio scaling
+- Proper cleanup and stale state handling
+- Accessibility support with ARIA labels
+
+**Updated** New UI integration pattern for waveform preview functionality
+
+**Section sources**
+- [WaveformPreview.tsx:34-85](file://src/renderer/src/components/WaveformPreview.tsx#L34-L85)
+- [App.tsx:173-180](file://src/renderer/src/App.tsx#L173-L180)
+- [useTransportEngine.ts:264-267](file://src/renderer/src/hooks/useTransportEngine.ts#L264-L267)
+
+## Enhanced Sample Buffer Access
+
+### Method Implementation Details
+The getSampleBuffer method provides a streamlined interface for accessing decoded audio buffers with proper error handling and cache integration.
+
+**Implementation Features:**
+- Cache-first approach with automatic fallback to decoding
+- Try-catch block for graceful error handling
+- Null return for missing or invalid samples
+- Shared cache instance with playback system
+- Promise-based asynchronous interface
+
+**Updated** New method added to Player class with comprehensive error handling
+
+**Section sources**
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+
+### Integration with Sample Cache System
+The getSampleBuffer method leverages the existing SampleCache system for efficient buffer management and sharing.
+
+**Integration Benefits:**
+- Single decode cost shared between preview and playback
+- Automatic LRU eviction for memory management
+- Deduplicated in-flight decode requests
+- Consistent error handling across all access patterns
+- Configurable cache size for performance tuning
+
+**Updated** Enhanced cache integration for efficient buffer sharing
+
+**Section sources**
+- [sample-cache.ts:27-107](file://src/renderer/src/engine/sample-cache.ts#L27-L107)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+
+### Usage Patterns and Best Practices
+The getSampleBuffer method supports various usage patterns for different UI components and features.
+
+**Common Usage Patterns:**
+- Waveform preview rendering in footer component
+- Sample metadata display with buffer analysis
+- Audio visualization and spectrum analysis
+- Buffer validation and quality checking
+- Performance monitoring and statistics gathering
+
+**Updated** New usage patterns enabled by direct buffer access
+
+**Section sources**
+- [WaveformPreview.tsx:54-69](file://src/renderer/src/components/WaveformPreview.tsx#L54-L69)
+- [useTransportEngine.ts:264-267](file://src/renderer/src/hooks/useTransportEngine.ts#L264-L267)
 
 ## Timeline Panel Enhancements
 
@@ -604,13 +734,14 @@ PlayerShell --> Transport
 UI["useTransportEngine.ts"] --> Player
 UI --> PlayerShell
 UI --> Transport
+Waveform["WaveformPreview.tsx"] --> Player
 Timeline["LaneClipCanvas.tsx"] --> Transport
 Timeline --> CSS["CSS Variables"]
 Timeline --> SnapUtils["sample-utils.ts"]
 Library["useLibraryData.ts"] --> Database["library.ts"]
 ```
 
-**Updated** Enhanced dependency flow with timeline panel integration, snapping utilities, and library data performance improvements
+**Updated** Enhanced dependency flow with timeline panel integration, snapping utilities, library data performance improvements, and new waveform preview system
 
 **Diagram sources**
 - [transport.ts:13](file://src/renderer/src/engine/transport.ts#L13)
@@ -618,6 +749,7 @@ Library["useLibraryData.ts"] --> Database["library.ts"]
 - [audio-engine.ts:9-11](file://src/renderer/src/engine/audio-engine.ts#L9-L11)
 - [player.ts:9-13](file://src/renderer/src/engine/player.ts#L9-L13)
 - [useTransportEngine.ts:18-19](file://src/renderer/src/hooks/useTransportEngine.ts#L18-L19)
+- [WaveformPreview.tsx:11](file://src/renderer/src/components/WaveformPreview.tsx#L11)
 - [LaneClipCanvas.tsx:37-44](file://src/renderer/src/components/LaneClipCanvas.tsx#L37-L44)
 - [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
 - [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
@@ -626,9 +758,10 @@ Library["useLibraryData.ts"] --> Database["library.ts"]
 - [transport.ts:1-79](file://src/renderer/src/engine/transport.ts#L1-L79)
 - [scheduler.ts:1-137](file://src/renderer/src/engine/scheduler.ts#L1-L137)
 - [audio-engine.ts:1-204](file://src/renderer/src/engine/audio-engine.ts#L1-L204)
-- [player.ts:1-230](file://src/renderer/src/engine/player.ts#L1-L230)
+- [player.ts:1-241](file://src/renderer/src/engine/player.ts#L1-L241)
 - [playerShell.ts:1-202](file://src/renderer/src/lib/playerShell.ts#L1-L202)
-- [useTransportEngine.ts:1-315](file://src/renderer/src/hooks/useTransportEngine.ts#L1-L315)
+- [useTransportEngine.ts:1-353](file://src/renderer/src/hooks/useTransportEngine.ts#L1-L353)
+- [WaveformPreview.tsx:1-85](file://src/renderer/src/components/WaveformPreview.tsx#L1-L85)
 - [LaneClipCanvas.tsx:1-265](file://src/renderer/src/components/LaneClipCanvas.tsx#L1-L265)
 - [sample-utils.ts:1-97](file://src/renderer/src/lib/sample-utils.ts#L1-L97)
 - [useLibraryData.ts:1-427](file://src/renderer/src/hooks/useLibraryData.ts#L1-L427)
@@ -696,6 +829,16 @@ The paginated library data system optimizes performance for large sample collect
 - Progressive loading improving perceived performance
 - Efficient error handling with graceful fallback
 
+### Waveform Preview Performance
+The new waveform preview system provides efficient visual feedback with optimized buffer access and rendering.
+
+**Waveform Performance Features:**
+- Direct buffer access eliminates redundant decoding
+- Bucket-based peak computation reduces computational overhead
+- Device pixel ratio scaling ensures crisp rendering
+- Canvas rendering optimized for real-time updates
+- Proper cleanup prevents memory leaks during rapid switching
+
 ## Troubleshooting Guide
 
 ### Common Issues and Solutions
@@ -728,6 +871,13 @@ The paginated library data system optimizes performance for large sample collect
 - Ensure file permissions allow sample access through IPC
 - Check for race conditions where async loads resolve after stop/pause
 
+**Waveform Preview Issues**
+- Verify getSampleBuffer method is properly exposed through useTransportEngine
+- Check that WaveformPreview component receives valid sample path
+- Ensure canvas element is properly sized and device pixel ratio is accounted for
+- Verify computePeaks function receives valid AudioBuffer instance
+- Check for stale state issues in async buffer loading
+
 **Timeline Grid Misalignment**
 - Verify beat and bar calculations match TICKS_PER_BEAT constant
 - Check CSS variable resolution for border and accent colors
@@ -749,18 +899,20 @@ The paginated library data system optimizes performance for large sample collect
 - Ensure error handling provides meaningful user feedback
 - Validate that fallback to legacy scanning works correctly
 
-**Updated** Enhanced troubleshooting guidance for new timeline panel features, beat-snap functionality, and library data performance improvements
+**Updated** Enhanced troubleshooting guidance for new waveform preview system, timeline panel features, beat-snap functionality, and library data performance improvements
 
 **Section sources**
 - [transport.ts:46-66](file://src/renderer/src/engine/transport.ts#L46-L66)
 - [scheduler.ts:75-87](file://src/renderer/src/engine/scheduler.ts#L75-L87)
 - [sample-cache.ts:77-82](file://src/renderer/src/engine/sample-cache.ts#L77-L82)
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [WaveformPreview.tsx:54-69](file://src/renderer/src/components/WaveformPreview.tsx#L54-L69)
 - [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
 - [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
 - [useLibraryData.ts:178-217](file://src/renderer/src/hooks/useLibraryData.ts#L178-L217)
 
 ## Conclusion
-MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback with significant improvements in synchronization, state management, user experience, and performance optimization. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The enhanced player implementation prevents race conditions and stray voice starts, while the improved transport synchronization ensures perfect visual-audio alignment. The sophisticated dimming policy provides clear visual feedback while maintaining flexible audio behavior. The new timeline panel system offers precise beat and bar grid alignment with CSS variable integration, beat-snap functionality for precise clip placement, and the library data system provides optimized performance through paginated loading. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
+MixJam Electron's enhanced audio engine provides a comprehensive, production-ready solution for tracker-style audio playback with significant improvements in synchronization, state management, user experience, and performance optimization. The layered architecture ensures clean separation of concerns while maintaining tight integration between timing, scheduling, and audio processing components. The lookahead scheduler pattern delivers sample-accurate timing with minimal latency, while the orchestration layer manages complex playback scenarios including monophonic behavior, preview functionality, and real-time parameter changes. The enhanced player implementation prevents race conditions and stray voice starts, while the improved transport synchronization ensures perfect visual-audio alignment. The sophisticated dimming policy provides clear visual feedback while maintaining flexible audio behavior. The new timeline panel system offers precise beat and bar grid alignment with CSS variable integration, beat-snap functionality for precise clip placement, and the library data system provides optimized performance through paginated loading. The new waveform preview system adds direct sample buffer access capabilities, enabling efficient waveform rendering and visual feedback. The system's modular design enables future enhancements while maintaining stability and performance for the core tracker playback experience.
 
 ## Appendices
 
@@ -816,10 +968,41 @@ Player->>Player : "reset lastScheduledTick"
 - [player.ts:145-174](file://src/renderer/src/engine/player.ts#L145-L174)
 - [scheduler.ts:94-116](file://src/renderer/src/engine/scheduler.ts#L94-L116)
 
-### Timeline Visualization and Playback Coordination
-The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer. This ensures that the visual playhead never drifts from the audible output, providing a consistent user experience. The enhanced timeline panels provide precise beat and bar grid alignment with CSS variable integration, and the new beat-snap functionality ensures precise clip placement with configurable snapping behavior.
+### Waveform Preview Integration
+```mermaid
+sequenceDiagram
+participant UI as "WaveformPreview Component"
+participant Player as "Player"
+participant Engine as "AudioEngine"
+participant Cache as "SampleCache"
+UI->>Player : "getSampleBuffer(filepath)"
+Player->>Engine : "samples.peek(filepath)"
+Engine->>Cache : "get buffer from cache"
+Cache-->>Engine : "AudioBuffer or undefined"
+Engine-->>Player : "buffer or undefined"
+alt Buffer in cache
+Player-->>UI : "AudioBuffer"
+else Buffer not in cache
+Player->>Engine : "loadBuffer(filepath)"
+Engine->>Cache : "decode and store"
+Cache-->>Engine : "decoded AudioBuffer"
+Engine-->>Player : "decoded buffer"
+Player-->>UI : "AudioBuffer"
+end
+UI->>UI : "computePeaks(buffer, buckets)"
+UI->>UI : "render waveform on canvas"
+```
 
-**Updated** Enhanced synchronization through Player.currentTick integration, improved anchor-based calculations, new timeline panel features, and beat-snap functionality
+**Updated** New waveform preview integration with direct buffer access and peak computation
+
+**Diagram sources**
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [WaveformPreview.tsx:54-69](file://src/renderer/src/components/WaveformPreview.tsx#L54-L69)
+
+### Timeline Visualization and Playback Coordination
+The tracker interface maintains perfect synchronization between visual playhead and audio output through the Player's currentTick property, which is derived from the audio clock rather than a separate timer. This ensures that the visual playhead never drifts from the audible output, providing a consistent user experience. The enhanced timeline panels provide precise beat and bar grid alignment with CSS variable integration, the new beat-snap functionality ensures precise clip placement with configurable snapping behavior, and the waveform preview system provides visual feedback through direct sample buffer access.
+
+**Updated** Enhanced synchronization through Player.currentTick integration, improved anchor-based calculations, new timeline panel features, beat-snap functionality, and waveform preview system
 
 **Section sources**
 - [useTransportEngine.ts:149-154](file://src/renderer/src/hooks/useTransportEngine.ts#L149-L154)
@@ -827,6 +1010,7 @@ The tracker interface maintains perfect synchronization between visual playhead 
 - [TrackerView.tsx:115-122](file://src/renderer/src/components/TrackerView.tsx#L115-L122)
 - [LaneClipCanvas.tsx:105-129](file://src/renderer/src/components/LaneClipCanvas.tsx#L105-L129)
 - [sample-utils.ts:74-89](file://src/renderer/src/lib/sample-utils.ts#L74-L89)
+- [WaveformPreview.tsx:54-69](file://src/renderer/src/components/WaveformPreview.tsx#L54-L69)
 
 ### Enhanced Dimming Policy Implementation
 The player shell implements a sophisticated dimming policy that provides clear visual feedback while maintaining audio flexibility. The policy separates visual dimming from audio audibility rules, ensuring that users receive appropriate visual cues even in complex mute/solo scenarios.
@@ -918,3 +1102,24 @@ The paginated library data system optimizes performance for large sample collect
 - [useLibraryData.ts:71](file://src/renderer/src/hooks/useLibraryData.ts#L71)
 - [useLibraryData.ts:178-217](file://src/renderer/src/hooks/useLibraryData.ts#L178-L217)
 - [library.ts:281-293](file://src/main/library.ts#L281-L293)
+
+### Waveform Preview System Architecture
+The new waveform preview system provides efficient visual feedback through direct sample buffer access and optimized rendering.
+
+**Key Features:**
+- Direct buffer access via getSampleBuffer method
+- Peak computation across all audio channels
+- Canvas-based rendering with device pixel ratio scaling
+- Real-time updates with proper cleanup handling
+- CSS variable-based theming integration
+
+**Updated** New waveform preview system with direct buffer access and efficient rendering
+
+**Diagram sources**
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [WaveformPreview.tsx:54-69](file://src/renderer/src/components/WaveformPreview.tsx#L54-L69)
+
+**Section sources**
+- [player.ts:138-144](file://src/renderer/src/engine/player.ts#L138-L144)
+- [WaveformPreview.tsx:15-32](file://src/renderer/src/components/WaveformPreview.tsx#L15-L32)
+- [WaveformPreview.tsx:54-69](file://src/renderer/src/components/WaveformPreview.tsx#L54-L69)

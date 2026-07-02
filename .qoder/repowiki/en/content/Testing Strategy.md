@@ -18,6 +18,8 @@
 - [src/renderer/src/components/TrackerView.test.tsx](file://src/renderer/src/components/TrackerView.test.tsx)
 - [src/renderer/src/components/TrackerView.tsx](file://src/renderer/src/components/TrackerView.tsx)
 - [src/renderer/src/components/LaneClipCanvas.tsx](file://src/renderer/src/components/LaneClipCanvas.tsx)
+- [src/renderer/src/components/WaveformPreview.test.tsx](file://src/renderer/src/components/WaveformPreview.test.tsx)
+- [src/renderer/src/components/WaveformPreview.tsx](file://src/renderer/src/components/WaveformPreview.tsx)
 - [src/renderer/src/hooks/useAppState.test.ts](file://src/renderer/src/hooks/useAppState.test.ts)
 - [src/renderer/src/hooks/useLibraryData.test.ts](file://src/renderer/src/hooks/useLibraryData.test.ts)
 - [src/renderer/src/engine/transport.test.ts](file://src/renderer/src/engine/transport.test.ts)
@@ -26,13 +28,15 @@
 - [src/renderer/src/lib/sample-utils.test.ts](file://src/renderer/src/lib/sample-utils.test.ts)
 - [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx](file://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx)
 - [src/renderer/src/hooks/useLibraryData.ts](file://src/renderer/src/hooks/useLibraryData.ts)
+- [src/renderer/src/components/Footer.tsx](file://src/renderer/src/components/Footer.tsx)
 </cite>
 
 ## Update Summary
 **Changes Made**
 - Enhanced TrackerView component testing with comprehensive multi-clip selection functionality validation
 - Expanded playerShell group operations testing with over 400 lines of new test coverage
-- Added detailed multi-clip drag-and-drop testing with group manipulation validation
+- Added comprehensive test suite for new WaveformPreview component with canvas-based rendering
+- Added documentation for testing strategies for canvas-based components and mock environment setup
 - Enhanced selection and manipulation features testing with rectangle selection and group operations
 - Improved test coverage for ClipGroupEntry processing and batch operations
 
@@ -43,18 +47,19 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Test Infrastructure](#enhanced-test-infrastructure)
-7. [Multi-Clip Selection and Group Operations Testing](#multi-clip-selection-and-group-operations-testing)
-8. [Advanced UI and Grid Alignment Testing](#advanced-ui-and-grid-alignment-testing)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
-13. [Appendices](#appendices)
+7. [Canvas-Based Component Testing Strategies](#canvas-based-component-testing-strategies)
+8. [Multi-Clip Selection and Group Operations Testing](#multi-clip-selection-and-group-operations-testing)
+9. [Advanced UI and Grid Alignment Testing](#advanced-ui-and-grid-alignment-testing)
+10. [Dependency Analysis](#dependency-analysis)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
+14. [Appendices](#appendices)
 
 ## Introduction
 This document describes MixJam Electron's testing strategy and implementation. It covers Vitest configuration, test setup, mock strategies for Electron APIs, unit testing approaches for React components and main process functions, IPC handler testing, integration and acceptance testing patterns, and test coverage reporting. It also documents testing utilities, helper functions, common patterns, and best practices for Electron cross-process testing.
 
-**Updated** Enhanced testing infrastructure now includes comprehensive coverage for multi-clip selection functionality, expanded playerShell group operations testing with over 400 lines of new test coverage, and detailed validation of new selection and manipulation features including rectangle selection, group drag-and-drop operations, and ClipGroupEntry processing.
+**Updated** Enhanced testing infrastructure now includes comprehensive coverage for multi-clip selection functionality, expanded playerShell group operations testing with over 400 lines of new test coverage, detailed validation of new selection and manipulation features including rectangle selection, group drag-and-drop operations, and ClipGroupEntry processing. Additionally, the testing strategy now includes comprehensive test coverage for the new WaveformPreview component, which renders waveform data in the footer using canvas-based rendering techniques.
 
 ## Project Structure
 The repository organizes tests by responsibility:
@@ -80,6 +85,7 @@ R8["ManagePanel.test.tsx"]
 R9["sample-utils.test.ts"]
 R10["TrackerView.test.tsx"]
 R11["useLibraryData.test.ts"]
+R12["WaveformPreview.test.tsx"]
 end
 subgraph "Main Tests"
 M1["session.test.ts"]
@@ -106,6 +112,7 @@ R8 --> U1
 R9 --> U1
 R10 --> U1
 R11 --> U1
+R12 --> U1
 R3 --> U2
 R1 --> U2
 R2 --> U2
@@ -125,6 +132,7 @@ V1 --> R8
 V1 --> R9
 V1 --> R10
 V1 --> R11
+V1 --> R12
 V1 --> M1
 V1 --> M2
 P1 --> V1
@@ -148,6 +156,7 @@ P1 --> V1
 - [src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx:1-304](file://src/renderer/src/specs/spec-001-app-shell-navigation.test.tsx#L1-L304)
 - [src/renderer/src/components/TrackerView.test.tsx:1-1089](file://src/renderer/src/components/TrackerView.test.tsx#L1-L1089)
 - [src/renderer/src/hooks/useLibraryData.test.ts:1-534](file://src/renderer/src/hooks/useLibraryData.test.ts#L1-L534)
+- [src/renderer/src/components/WaveformPreview.test.tsx:1-101](file://src/renderer/src/components/WaveformPreview.test.tsx#L1-L101)
 - [src/main/session.test.ts:1-291](file://src/main/session.test.ts#L1-L291)
 - [src/main/sample-browser.test.ts:1-67](file://src/main/sample-browser.test.ts#L1-L67)
 
@@ -512,6 +521,76 @@ The setup.ts file now provides:
 **Section sources**
 - [src/renderer/src/test/setup.ts:1-40](file://src/renderer/src/test/setup.ts#L1-L40)
 
+## Canvas-Based Component Testing Strategies
+
+### WaveformPreview Component Testing
+The new WaveformPreview component provides compact waveform visualization in the footer and includes comprehensive test coverage:
+
+#### Canvas Context Mocking Strategy
+- Tests use a custom mock context with scale(), clearRect(), and fillRect() methods
+- Canvas element getContext is spied on and replaced with the mock context
+- Device pixel ratio is mocked to ensure consistent rendering across different screen densities
+- Tests verify proper canvas sizing based on client dimensions and device pixel ratio
+
+#### Audio Buffer Simulation
+- Tests create minimal AudioBuffer mock with getChannelData() method
+- Supports multi-channel audio simulation for realistic waveform processing
+- Tests validate proper peak detection across channels and buckets
+
+#### Peak Computation Testing
+- The computePeaks function is tested independently with various buffer configurations
+- Tests validate peak detection algorithm across different channel combinations
+- Tests ensure proper bucket division and amplitude calculation
+
+#### Lifecycle and Memory Management
+- Tests verify proper cleanup when component unmounts
+- Tests ensure stale callbacks don't cause memory leaks
+- Tests validate proper cancellation of asynchronous operations
+
+#### Accessibility and ARIA Attributes
+- Tests verify proper ARIA attributes for screen reader support
+- Tests ensure canvas is properly hidden when no sample is selected
+- Tests validate accessible labeling for waveform visualization
+
+```mermaid
+flowchart TD
+CanvasInit["Canvas Mount"] --> GetContext["Mock getContext()"]
+GetContext --> ScaleCanvas["Apply devicePixelRatio scaling"]
+ScaleCanvas --> ClearCanvas["Clear canvas context"]
+ClearCanvas --> CheckFilepath{"Has filepath?"}
+CheckFilepath --> |No| HiddenCanvas["Render hidden canvas"]
+CheckFilepath --> |Yes| LoadBuffer["Load sample buffer"]
+LoadBuffer --> ComputePeaks["Compute 100 bucket peaks"]
+ComputePeaks --> DrawBars["Draw waveform bars"]
+DrawBars --> Cleanup["Cleanup on unmount"]
+HiddenCanvas --> Cleanup
+```
+
+**Diagram sources**
+- [src/renderer/src/components/WaveformPreview.tsx:34-84](file://src/renderer/src/components/WaveformPreview.tsx#L34-L84)
+- [src/renderer/src/components/WaveformPreview.test.tsx:40-84](file://src/renderer/src/components/WaveformPreview.test.tsx#L40-L84)
+
+**Section sources**
+- [src/renderer/src/components/WaveformPreview.test.tsx:1-101](file://src/renderer/src/components/WaveformPreview.test.tsx#L1-L101)
+- [src/renderer/src/components/WaveformPreview.tsx:1-85](file://src/renderer/src/components/WaveformPreview.tsx#L1-L85)
+
+### Enhanced Footer Component Integration Testing
+The Footer component integrates WaveformPreview and includes comprehensive tests:
+
+#### Conditional Rendering Logic
+- Tests verify WaveformPreview renders only when getSampleBuffer prop is provided
+- Tests validate proper conditional rendering based on view state and sample detail availability
+- Tests ensure proper cleanup when sample detail changes
+
+#### Integration with WaveformPreview
+- Tests verify proper prop passing (filepath, getSampleBuffer) to WaveformPreview
+- Tests validate proper styling and layout integration within footer structure
+- Tests ensure proper accessibility attribute propagation
+
+**Section sources**
+- [src/renderer/src/components/Footer.test.tsx:1-49](file://src/renderer/src/components/Footer.test.tsx#L1-L49)
+- [src/renderer/src/components/Footer.tsx:1-49](file://src/renderer/src/components/Footer.tsx#L1-L49)
+
 ## Multi-Clip Selection and Group Operations Testing
 
 ### Enhanced TrackerView Testing with Multi-Clip Selection
@@ -734,6 +813,8 @@ Pkg["package.json"] --> V
 - Paginated loading tests optimize memory usage by testing chunked data loading patterns with 500-item page size validation
 - **Updated** Multi-clip selection tests optimize performance by using efficient spatial hit-testing and selection rectangle calculations
 - **Updated** Group operations tests leverage batch processing to minimize array mutations and improve performance for large selections
+- **Updated** WaveformPreview component tests optimize canvas rendering by using minimal context mocks and avoiding actual pixel comparisons
+- **Updated** Canvas-based component testing uses spy-based mocking to avoid expensive DOM operations while maintaining behavioral validation
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -749,6 +830,8 @@ Common issues and resolutions:
   - Use temporary directories and clean up in afterEach to prevent flaky tests
 - Canvas rendering issues:
   - Ensure proper context mocking and devicePixelRatio handling
+  - Use makeMockCtx() helper for consistent canvas context setup
+  - Verify canvas dimensions are set before drawing operations
 - Audio API testing:
   - Use MockAudioContext for Web Audio API compatibility in component tests
 - ResizeObserver errors:
@@ -767,11 +850,21 @@ Common issues and resolutions:
   - Verify batch processing performance and proper error handling
   - Test unique id generation for duplicated clips and collision prevention
   - Ensure proper lane boundary clamping and start tick validation
+- **Updated** WaveformPreview rendering issues:
+  - Verify canvas context mock setup with scale() and fillRect() methods
+  - Ensure proper device pixel ratio handling for different screen densities
+  - Test peak computation algorithm with various buffer configurations
+  - Validate proper cleanup and memory management for asynchronous operations
+- **Updated** Canvas context mocking failures:
+  - Ensure HTMLCanvasElement.prototype.getContext is properly spied on and restored
+  - Test that mock context methods are called with expected parameters
+  - Verify proper canvas sizing based on client dimensions and device pixel ratio
 
 **Section sources**
 - [src/renderer/src/test/setup.ts:36-39](file://src/renderer/src/test/setup.ts#L36-L39)
 - [src/renderer/src/hooks/useAppState.test.ts:14-17](file://src/renderer/src/hooks/useAppState.test.ts#L14-L17)
 - [src/main/session.test.ts:25-31](file://src/main/session.test.ts#L25-L31)
+- [src/renderer/src/components/WaveformPreview.test.tsx:24-38](file://src/renderer/src/components/WaveformPreview.test.tsx#L24-L38)
 
 ## Conclusion
 MixJam Electron employs a layered testing strategy with enhanced capabilities:
@@ -782,12 +875,14 @@ MixJam Electron employs a layered testing strategy with enhanced capabilities:
 - Advanced paginated loading functionality receives thorough testing for performance optimization with 500-item page size validation
 - AC-011 ruler tick alignment validation ensures precise timeline grid consistency
 - Enhanced snapping behavior testing validates accurate timeline precision for drag-and-drop operations
-- **Updated** Multi-clip selection functionality receives comprehensive testing with rectangle selection, group drag-and-drop operations, and ClipGroupEntry processing
+- **Updated** Multi-clip selection functionality receives comprehensive testing with rectangle selection, spatial hit-testing, and group drag-and-drop operations
 - **Updated** playerShell group operations testing includes over 400 lines of new test coverage for batch clip manipulation
+- **Updated** WaveformPreview component testing provides comprehensive coverage for canvas-based rendering with proper context mocking and peak computation validation
+- **Updated** Canvas-based component testing strategies include robust mocking patterns for complex rendering scenarios
 - Acceptance specs ensure cross-process flows meet product specifications
 - Coverage is configured to report on renderer logic, keeping reports actionable and focused
 
-**Updated** The testing strategy now includes comprehensive coverage for multi-clip selection functionality with rectangle selection, spatial hit-testing, and group drag-and-drop operations. Enhanced playerShell group operations testing provides over 400 lines of new test coverage for batch clip manipulation, including moveClipGroup, duplicateClipGroup, and ClipGroupEntry processing. These enhancements significantly improve the reliability and functionality of selection and manipulation features in the tracker view.
+**Updated** The testing strategy now includes comprehensive coverage for multi-clip selection functionality with rectangle selection, spatial hit-testing, and group drag-and-drop operations. Enhanced playerShell group operations testing provides over 400 lines of new test coverage for batch clip manipulation, including moveClipGroup, duplicateClipGroup, and ClipGroupEntry processing. The new WaveformPreview component testing strategy provides robust canvas-based rendering validation with comprehensive context mocking, peak computation testing, and lifecycle management verification. These enhancements significantly improve the reliability and functionality of selection and manipulation features in the tracker view, while establishing best practices for testing complex canvas-based components in the application.
 
 ## Appendices
 

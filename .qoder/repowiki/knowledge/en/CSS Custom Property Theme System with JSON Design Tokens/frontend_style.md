@@ -1,58 +1,35 @@
-## Styling Architecture
+## System Overview
+MixJam Electron uses a **CSS custom property (variable) design system** driven by **JSON design tokens**. There is no CSS preprocessor (Sass/Less) or utility-first framework (Tailwind). Instead, visual consistency is enforced by defining a fixed vocabulary of `--token` names in `src/renderer/src/index.css`, with values supplied by one of eight runtime themes.
 
-The MixJam Electron application uses a **CSS custom property (CSS variable) theme system** driven by JSON design token files. There is no CSS preprocessor (Sass/Less), no utility-first framework (Tailwind), and no component library (MUI, Chakra). All styling is authored as plain CSS in a single stylesheet (`index.css`) with BEM-inspired class names.
+Themes are defined as JSON files in `public/themes/` (e.g., `emerald.json`, `rave.json`). At runtime, `src/renderer/src/theme/themes.ts` reads these JSON files and applies them by setting CSS custom properties directly on the `document.documentElement` via `style.setProperty()`. This allows for instant theme switching without page reloads or complex React context providers for styling.
 
-### Core Approach
+## Key Files and Packages
+- **`src/renderer/src/index.css`**: The core stylesheet. It defines the structural layout (Flexbox/Grid), component classes (`.header`, `.tracker-view`, `.folder-card`), and references all visual values via `var(--token-name)`.
+- **`public/themes/*.json`**: The source of truth for theme values. Each file contains `colors`, `fonts`, `depth` (gradients/shadows), and `radius` definitions.
+- **`src/renderer/src/theme/themes.ts`**: The theme engine. It imports JSON themes, resolves the active theme, and applies tokens to the DOM. It also manages the `data-theme-key` attribute used for CSS selectors.
+- **`.design-sync/conventions.md`**: Documentation for the design system, detailing token vocabulary and component composition rules.
+- **`ds-bundle/_ds_bundle.css`**: A generated static CSS bundle used for design previews and tooling, concatenating `index.css` with static theme blocks.
 
-- **Design tokens**: Defined as JSON files in `public/themes/`. Each theme declares the same set of color, font, and radius keys; only values differ.
-- **CSS custom properties**: Tokens are applied at runtime as CSS variables on `document.documentElement` (e.g., `--accent`, `--bg-base`, `--font-label`).
-- **Single CSS file**: All component styles live in `src/renderer/src/index.css` (~795 lines). No per-component CSS modules or scoped stylesheets.
-- **BEM-style class naming**: Classes follow a flat, descriptive convention (e.g., `.folder-card`, `.folder-card-head`, `.tracker-lane-mute-active`). No CSS-in-JS.
+## Architecture and Conventions
+### Token Vocabulary
+All styling must use the predefined token set. Hardcoding colors (e.g., `#00674F`) in components or CSS is prohibited (spec-002 AC-008). Key token categories include:
+- **Surfaces**: `--bg-base`, `--bg-panel`, `--bg-lane`, `--chrome`.
+- **Text**: `--text`, `--text-muted`, `--highlight`.
+- **Brand/Interaction**: `--accent`, `--accent-dark`.
+- **Typography**: `--font-chrome` (headers), `--font-label` (body), `--font-mono` (data/time).
+- **Depth**: `--gradient-header`, `--shadow-clip-text`.
 
-### Theme System
+### Theme Switching Mechanism
+1. **Bootstrap**: On load, `bootstrapTheme()` applies the default 'emerald' theme and sets `html[data-theme-ready='true']`, which changes `body` visibility from `hidden` to `visible` to prevent FOUC (Flash of Unstyled Content).
+2. **Selection**: `selectTheme(key)` updates the CSS variables on the root element and sets `data-theme-key="<key>"`.
+3. **Specific Overrides**: Some themes (e.g., 'rust', 'screen') use `[data-theme-key='...']` selectors in `index.css` to apply unique pseudo-element effects (noise, scanlines) that are not part of the standard token set.
 
-**Token schema** (from `spec-002-theming-skin-system.md`):
+### Component Styling
+Components are styled using semantic class names (BEM-like but flatter) defined in `index.css`. Layouts rely heavily on **CSS Grid** (for the main tracker view) and **Flexbox** (for headers/footers). The `TrackerView` uses a specific grid template: `grid-template-rows: minmax(0,1fr) 44px minmax(0,1fr)` to ensure the central control strip remains fixed while lanes expand.
 
-| Category | Tokens |
-|---|---|
-| Colors (16) | `accent`, `accent-dark`, `highlight`, `bg-base`, `bg-panel`, `bg-lane`, `bg-grid`, `chrome`, `border`, `header-border`, `text`, `text-muted`, `pill-bg`, `pill-border`, `playhead` |
-| Fonts (3) | `font-chrome` (Josefin Sans), `font-label` (Ubuntu), `font-mono` (JetBrains Mono) |
-| Radius (1) | `radius` |
-
-**Eight named themes** are defined in the spec, but only **Emerald** is fully implemented:
-- Emerald, Flat Studio, Neon Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA
-
-Selecting any non-Emerald theme immediately resets to Emerald (per spec AC-006).
-
-### Bootstrap & Runtime Application
-
-1. **Synchronous bootstrap**: `bootstrapTheme()` runs before React mounts in `bootstrapApp.tsx`, applying Emerald tokens to `:root` and setting `data-theme-ready='true'`.
-2. **FOUC prevention**: `body { visibility: hidden }` until `[data-theme-ready='true']` makes it visible — eliminates flash of unstyled content.
-3. **Runtime switching**: `selectTheme()` writes new CSS variable values via `element.style.setProperty()` and updates `data-theme-key` attribute.
-4. **No persistence**: Theme preference is not persisted across restarts; app always boots into Emerald.
-
-### Typography
-
-Three bundled fonts loaded from local TTF files in `src/renderer/public/fonts/`:
-- **Josefin Sans** — header/chrome UI (`--font-chrome`)
-- **Ubuntu** — body text, labels, buttons (`--font-label`)
-- **JetBrains Mono** — monospace for ruler, timer, metadata (`--font-mono`)
-
-Font faces are declared via `@font-face` rules in `index.css` with `font-display: swap`.
-
-### Responsive Strategy
-
-The app targets a **fixed desktop layout** with no responsive breakpoints or mobile adaptation:
-- Fixed-height header (40px) and footer (40px)
-- Flexbox and CSS Grid for internal layout (e.g., tracker view uses `grid-template-columns: 240px minmax(0, 1fr)`)
-- `overflow: hidden` on `html, body` prevents page-level scrolling; scrollable regions use `overflow: auto` internally
-- No media queries found in the codebase
-
-### Key Conventions for Developers
-
-1. **Never hardcode colors** — all color values must reference CSS custom properties (`var(--token-name)`). This is enforced by spec AC-008.
-2. **Use existing class names** — add new classes to `index.css` following the BEM-like pattern (`.block`, `.block-element`, `.block--modifier`).
-3. **Extend themes via JSON** — to add a new theme, create a JSON file in `public/themes/` matching the token schema, register it in `THEME_OPTIONS`, and add it to `IMPLEMENTED_THEMES` in `themes.ts`.
-4. **Font usage** — reference fonts via `var(--font-chrome)`, `var(--font-label)`, or `var(--font-mono)` rather than font-family literals.
-5. **Border radius** — use `var(--radius)` consistently; do not hardcode pixel/rem values for rounded corners.
-6. **Visibility gating** — if adding new top-level elements, ensure they respect the `data-theme-ready` visibility pattern to avoid FOUC.
+## Rules for Developers
+1. **Never Hardcode Colors**: Always use `var(--token)` in CSS and JSX styles.
+2. **Use ThemeBootstrap**: In preview environments, wrap components in `<ThemeBootstrap>` to ensure tokens are applied and the UI is visible.
+3. **Respect Visibility Hidden**: The app starts with `body { visibility: hidden }`. Do not remove this; it ensures the user never sees an unthemed flash.
+4. **Font Usage**: Use the semantic font tokens (`--font-chrome`, `--font-label`, `--font-mono`) rather than specifying font families directly. The system maps these to specific fonts (Josefin Sans, Ubuntu, JetBrains Mono, Special Elite) per theme.
+5. **Layout Constraints**: When composing `TrackerView`, ensure its parent has a defined height (e.g., `100vh` or `flex: 1` in a flex column) because its grid rows use `minmax(0, 1fr)` which collapses without explicit height.

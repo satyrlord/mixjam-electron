@@ -1,13 +1,14 @@
 schema_version: 1
-module_path: dependency_management
-title: npm + electron-vite Dependency Management
+module_path: build_system
+title: Electron-Vite Build Pipeline & Quality Gates
 scope: []
 source_files:
     - package.json
-    - package-lock.json
     - electron.vite.config.ts
-    - .ds-sync/package.json
+    - vitest.config.ts
+    - tsconfig.json
     - tsconfig.node.json
     - tsconfig.web.json
+    - eslint.config.mjs
 depends_on: []
 related_to: []

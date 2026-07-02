@@ -1,1 +1,0 @@
-An Electron desktop application for browsing large audio sample libraries and managing tracker sessions with a React frontend.

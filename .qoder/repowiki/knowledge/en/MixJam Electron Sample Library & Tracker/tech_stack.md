@@ -1,1 +1,0 @@
-Electron 42.5.0 with React 18 and TypeScript, built using `electron-vite` and `@vitejs/plugin-react`. Testing is handled by Vitest with `jsdom` and `@testing-library/react`. Native SQLite bindings via `better-sqlite3` require `electron-rebuild`.
