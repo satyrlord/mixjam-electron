@@ -180,7 +180,7 @@ function SampleTileGrid({
                     type="button"
                     className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.filepath ? ' clip-flash' : ''}`}
                     style={{ width: `${width}px`, ...(color ? bubbleStyle(color) : {}) }}
-                    title={`${sample.name} — click to preview, drag onto a lane, right-click to tag`}
+                    title={`${sample.name || 'Unknown'} — click to preview, drag onto a lane, right-click to tag`}
                     draggable
                     onDragStart={(e) =>
                       onSampleDragStart(e, {
@@ -203,7 +203,7 @@ function SampleTileGrid({
                       onPreviewSample(sample.filepath)
                     }}
                   >
-                    <b>{sample.name.replace(/\.[^.]+$/, '')}</b>
+                    <b>{(sample.name || 'Unknown').replace(/\.[^.]+$/, '')}</b>
                     <i>{formatDuration(sample.durationSeconds)}</i>
                   </button>
                 )

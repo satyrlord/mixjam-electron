@@ -81,6 +81,17 @@ Implement view switching, the header bar, and the footer.
 - When switching from Player to Home, the window resizes from its current
   size back to 1280×720 and the maximize button is removed.
 
+### Browser-host web mode (non-Electron runtime)
+
+- If the renderer is loaded without the preload bridge (`window.electronAPI`),
+  the app injects a mock Electron API and runs the full feature set in the browser.
+- Mock features include: session persistence (localStorage), library browsing with
+  generated mock samples, tagging, categories, libraries, and all UI views.
+- Audio playback in web mode uses offline Web Audio API buffers instead of
+  reading files from disk (native file I/O is not available in browsers).
+- Folder picking is simplified (no native dialog; uses a mock "local-samples" path).
+- This mode enables full-featured deployment on static hosts like GitHub Pages.
+
 ### Header Bar (both views)
 
 - Fixed 40px height, full width.
@@ -132,6 +143,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
   Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
+- [x] **AC-013:** In a browser-only host where `window.electronAPI` is missing, the renderer injects mock Electron APIs and runs the full app feature set with localStorage session persistence, library browsing, and theming.
 
 ## Non-Goals (deferred to later specs)
 
