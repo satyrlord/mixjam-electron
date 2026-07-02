@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { canonicalizePath } from './path-utils'
 import {
   CONFIG_FILE_NAME,
   RECENT_PROJECTS_FILE_NAME,
@@ -287,12 +288,12 @@ describe('listRecentProjects', () => {
 
     expect(await listRecentProjects(file, userFolder)).toEqual([
       {
-        path: join(userFolder, 'alpha.mixjam').toLowerCase(),
+        path: canonicalizePath(join(userFolder, 'alpha.mixjam')),
         displayName: 'alpha',
         lastOpened: '2026-06-28T15:00:00.000Z'
       },
       {
-        path: join(nested, 'beta.mixjam').toLowerCase(),
+        path: canonicalizePath(join(nested, 'beta.mixjam')),
         displayName: 'beta',
         lastOpened: null
       }
