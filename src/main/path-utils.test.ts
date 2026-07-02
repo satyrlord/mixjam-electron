@@ -7,4 +7,8 @@ describe('canonicalizePath', () => {
       'c:\\users\\test\\documents\\mixjam\\alpha.mixjam'
     )
   })
+
+  it('preserves POSIX path case while normalizing the absolute path', () => {
+    expect(canonicalizePath('/tmp/MixJam/Alpha.mixjam')).toBe('/tmp/MixJam/Alpha.mixjam')
+  })
 })

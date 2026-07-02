@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { querySampleBrowser, type SampleBrowserCache } from './sample-browser'
+import { canonicalizePath } from './path-utils'
 
 let workDir: string
 let cache: SampleBrowserCache
@@ -38,7 +39,7 @@ describe('querySampleBrowser', () => {
     const expectedPaths = [
       join(workDir, 'Drums', 'kick.wav'),
       join(workDir, 'Loops', 'Bass', 'acid.mp3')
-    ].map((p) => p.toLowerCase()).sort()
+    ].map((p) => canonicalizePath(p)).sort()
     expect(rows.map((row) => row.filepath).sort()).toEqual(expectedPaths)
     expect(rows[0]?.category === 'Loops' || rows[0]?.category === 'Drums').toBe(true)
     expect(rows[1]?.category === 'Loops' || rows[1]?.category === 'Drums').toBe(true)
