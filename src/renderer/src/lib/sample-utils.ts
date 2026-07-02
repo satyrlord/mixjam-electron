@@ -82,6 +82,24 @@ export function bubbleTextColor(background: string): string {
   return contrastVsWhite >= contrastVsDark ? BUBBLE_INK_LIGHT : BUBBLE_INK_DARK
 }
 
+/** Inline style for a sample bubble painted in a palette color: background,
+ *  border, and the matching ink. Dark ink drops the theme text-shadow, which
+ *  only reads correctly under light text. Assignable to React.CSSProperties. */
+export function bubbleStyle(color: string): {
+  background: string
+  borderColor: string
+  color: string
+  textShadow?: string
+} {
+  const ink = bubbleTextColor(color)
+  return {
+    background: color,
+    borderColor: color,
+    color: ink,
+    ...(ink !== BUBBLE_INK_LIGHT ? { textShadow: 'none' } : {})
+  }
+}
+
 export function formatDuration(seconds: number | null): string {
   if (seconds === null) return '?'
   if (seconds < 60) return `${seconds.toFixed(1)}s`

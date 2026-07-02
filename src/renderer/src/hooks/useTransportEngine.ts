@@ -13,6 +13,7 @@ import {
   moveClipOnLane,
   placeClipOnLane,
   removeClipFromLane,
+  removeClips,
   sampleDurationTicks,
   setLanePan,
   toEngineLanes,
@@ -24,6 +25,10 @@ import { Player } from '../engine/player'
 import { formatTimer } from '../lib/formatTimer'
 
 const DEFAULT_BPM = 120
+
+// Cap on undo history depth. Snapshots are structurally shared immutable lane
+// arrays, so each entry costs one array of lane references, not a deep copy.
+const UNDO_HISTORY_LIMIT = 100
 
 type View = 'home' | 'tracker'
 
@@ -37,6 +42,8 @@ export interface TransportEngineState {
   masterGain: number
   masterLevelDb: number
   elapsedMs: number
+  canUndo: boolean
+  canRedo: boolean
 }
 
 export interface TransportEngineActions {
@@ -47,6 +54,9 @@ export interface TransportEngineActions {
   moveClipGroup: (moves: ClipGroupEntry[]) => void
   duplicateClipGroup: (sources: ClipGroupEntry[]) => void
   removeClipFromLane: (laneIndex: number, clipId: string) => void
+  removeClips: (clipIds: string[]) => void
+  undo: () => void
+  redo: () => void
   setLanePan: (laneIndex: number, pan: number) => void
   previewSample: (samplePath: string) => void
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
@@ -173,14 +183,63 @@ export function useTransportEngine(
     }
   }, [view, electronAPI])
 
+  // Undo/redo command stack for clip edits (place, move, duplicate, remove).
+  // Each entry is a full lanes snapshot; snapshots share unchanged lane objects
+  // so the cost per entry is small. Mixer state (mute/solo/pan) is deliberately
+  // not tracked — undo is scoped to arrangement edits.
+  const historyRef = useRef<{ past: LaneState[][]; future: LaneState[][] }>({
+    past: [],
+    future: []
+  })
+  // Bumped on every history mutation so canUndo/canRedo re-render. The stacks
+  // themselves stay in a ref because edits happen inside event handlers and
+  // must not re-run on StrictMode double-renders.
+  const [, setHistoryVersion] = useState(0)
+
+  // Applies a clip edit as one undoable step. Reads through lanesRef (kept in
+  // sync below) so batched edits in the same tick never see stale state, and
+  // never mutates inside a setState updater (StrictMode invokes those twice).
+  const applyClipEdit = useCallback((edit: (lanes: LaneState[]) => LaneState[]) => {
+    const current = lanesRef.current
+    const next = edit(current)
+    if (next === current) return
+    const history = historyRef.current
+    history.past.push(current)
+    if (history.past.length > UNDO_HISTORY_LIMIT) history.past.shift()
+    history.future = []
+    lanesRef.current = next
+    setLanes(next)
+    setHistoryVersion((v) => v + 1)
+  }, [])
+
+  const undo = useCallback(() => {
+    const history = historyRef.current
+    const previous = history.past.pop()
+    if (!previous) return
+    history.future.push(lanesRef.current)
+    lanesRef.current = previous
+    setLanes(previous)
+    setHistoryVersion((v) => v + 1)
+  }, [])
+
+  const redo = useCallback(() => {
+    const history = historyRef.current
+    const next = history.future.pop()
+    if (!next) return
+    history.past.push(lanesRef.current)
+    lanesRef.current = next
+    setLanes(next)
+    setHistoryVersion((v) => v + 1)
+  }, [])
+
   const placeSampleDetailOnLane = useCallback(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
       const clipTicks = sampleDurationTicks(detail.duration, bpmRef.current)
-      setLanes((current) =>
+      applyClipEdit((current) =>
         placeClipOnLane(current, laneIndex, detail.filepath, detail.name, startTick, clipTicks, detail.duration, detail.color)
       )
     },
-    []
+    [applyClipEdit]
   )
 
   const handleToggleLaneMute = useCallback((laneIndex: number) => {
@@ -193,37 +252,44 @@ export function useTransportEngine(
 
   const handleMoveClipOnLane = useCallback(
     (clipId: string, toLaneIndex: number, newStartTick: number) => {
-      setLanes((current) => moveClipOnLane(current, clipId, toLaneIndex, newStartTick))
+      applyClipEdit((current) => moveClipOnLane(current, clipId, toLaneIndex, newStartTick))
     },
-    []
+    [applyClipEdit]
   )
 
   const handleDuplicateClipOnLane = useCallback(
     (clipId: string, toLaneIndex: number, newStartTick: number) => {
-      setLanes((current) => duplicateClipOnLane(current, clipId, toLaneIndex, newStartTick))
+      applyClipEdit((current) => duplicateClipOnLane(current, clipId, toLaneIndex, newStartTick))
     },
-    []
+    [applyClipEdit]
   )
 
   const handleMoveClipGroup = useCallback(
     (moves: ClipGroupEntry[]) => {
-      setLanes((current) => moveClipGroup(current, moves))
+      applyClipEdit((current) => moveClipGroup(current, moves))
     },
-    []
+    [applyClipEdit]
   )
 
   const handleDuplicateClipGroup = useCallback(
     (sources: ClipGroupEntry[]) => {
-      setLanes((current) => duplicateClipGroup(current, sources))
+      applyClipEdit((current) => duplicateClipGroup(current, sources))
     },
-    []
+    [applyClipEdit]
   )
 
   const handleRemoveClipFromLane = useCallback(
     (laneIndex: number, clipId: string) => {
-      setLanes((current) => removeClipFromLane(current, laneIndex, clipId))
+      applyClipEdit((current) => removeClipFromLane(current, laneIndex, clipId))
     },
-    []
+    [applyClipEdit]
+  )
+
+  const handleRemoveClips = useCallback(
+    (clipIds: string[]) => {
+      applyClipEdit((current) => removeClips(current, clipIds))
+    },
+    [applyClipEdit]
   )
 
   const handleSetLanePan = useCallback(
@@ -329,6 +395,8 @@ export function useTransportEngine(
     masterGain,
     masterLevelDb,
     elapsedMs,
+    canUndo: historyRef.current.past.length > 0,
+    canRedo: historyRef.current.future.length > 0,
     setView,
     placeSampleDetailOnLane,
     moveClipOnLane: handleMoveClipOnLane,
@@ -336,6 +404,9 @@ export function useTransportEngine(
     moveClipGroup: handleMoveClipGroup,
     duplicateClipGroup: handleDuplicateClipGroup,
     removeClipFromLane: handleRemoveClipFromLane,
+    removeClips: handleRemoveClips,
+    undo,
+    redo,
     setLanePan: handleSetLanePan,
     previewSample: handlePreviewSample,
     getSampleBuffer,

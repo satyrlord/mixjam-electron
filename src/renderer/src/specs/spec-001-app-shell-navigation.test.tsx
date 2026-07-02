@@ -268,8 +268,11 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     await clickStartNewMixJam()
 
-    const recentProjects = await screen.findByText('Recent Projects')
-    const tracker = screen.getByText('Lane 1')
+    // Wait for the Player to mount first: the Home screen also shows a
+    // "Recent Projects" section, so anchoring on the tracker avoids grabbing
+    // the Home node mid-navigation.
+    const tracker = await screen.findByText('Lane 1')
+    const recentProjects = screen.getByText('Recent Projects')
     const middleStrip = screen.getByText('Untitled')
     const songControls = screen.getByText('Song Controls')
     const sampleBrowser = screen.getByRole('region', { name: /sample browser/i })

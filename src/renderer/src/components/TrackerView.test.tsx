@@ -83,6 +83,13 @@ function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
       onMoveClipGroup={noop}
       onDuplicateClipGroup={noop}
       onRemoveClipFromLane={noop}
+      onRemoveClips={noop}
+      onUndo={noop}
+      onRedo={noop}
+      canUndo={false}
+      canRedo={false}
+      projectName={null}
+      onOpenRecentProject={noop}
       onSetLanePan={noop}
       onPreviewSample={noop}
       onToggleLaneMute={noop}
@@ -996,6 +1003,25 @@ describe('TrackerView', () => {
     expect(parsed.clipId).toBe('clip-1')
     expect(parsed.group).toHaveLength(2)
     expect(parsed.group.map((g: { clipId: string }) => g.clipId).sort()).toEqual(['clip-1', 'clip-2'])
+  })
+
+  it('advertises copyMove on clip drag start so Shift+drop (duplicate) is a valid drop', () => {
+    // Regression: effectAllowed='move' made Chromium reject the drop whenever
+    // dragover set dropEffect='copy' (Shift held), so duplicate never fired.
+    const lanesWithClip: LaneState[] = LANES.map((lane) =>
+      lane.index === 0
+        ? { ...lane, clips: [{ id: 'clip-1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 16, durationSeconds: 0.5 }] }
+        : lane
+    )
+    const { container } = renderTracker({ lanes: lanesWithClip })
+
+    const firstContainer = container.querySelectorAll('.lane-clip-canvas-container')[0]! as HTMLElement
+    fireEvent.mouseDown(firstContainer, { button: 0 })
+    expect(firstContainer.dataset.dragClipId).toBe('clip-1')
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+    fireEvent.dragStart(firstContainer, { dataTransfer })
+
+    expect(dataTransfer.effectAllowed).toBe('copyMove')
   })
 
   it('clears multi-selection when a plain mousedown lands on an unselected clip', () => {

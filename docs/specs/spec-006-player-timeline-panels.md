@@ -93,10 +93,13 @@ adjacencies.
 - Height: 44px fixed per lane.
 - **Lane head** (168px wide):
   - Lane name (e.g. "Lane 1"), 11px, truncated with ellipsis.
-  - Mute button (M) — 18×18px, toggle style. Muted lanes are visually dimmed.
-  - Solo button (S) — 18×18px, toggle style. When any lane is soloed,
+  - Mute button (M) — 28×28px, toggle style. Muted lanes are visually dimmed.
+  - Solo button (S) — 28×28px, toggle style. When any lane is soloed,
     non-soloed lanes are dimmed.
-  - Pan knob indicator — 16×16px placeholder.
+  - Pan knob — 30×30px drag-to-pan dial with a highlight-token pointer.
+  - (revised 2026-07-02: M/S grew from 22px and the pan knob from 26px per
+    accessibility review — interactive controls need a 28px+ hit target and the
+    old 2×9px pointer was near-invisible on some themes.)
 - **Lane canvas:** flex:1, position:relative — hosts clip bubbles.
 - **Focused lane:** subtle accent-color left border on the lane head.
 
@@ -136,15 +139,41 @@ adjacencies.
 - Height: 44px, spans the full player width including both left rails.
 - Owns the global transport and song state seam between the tracker and the
   browser.
-- Left segment: project name ("Untitled") and lightweight global status text.
-- Center segment: three transport buttons:
+- Left segment: project name (the opened project's display name, "Untitled"
+  when none) and the BPM display/editor.
+- Center segment: three transport buttons plus the edit-history pair:
   - Skip Back (returns to tick 0).
   - Play / Pause (toggles; Play is accent-colored when stopped, Pause when
-    playing).
+    playing). Space toggles the same action.
   - Stop (returns to tick 0 and stops).
-- Right segment: BPM display/editor and future global status affordances.
+  - Undo / Redo — separated by a seam, disabled when the respective history
+    stack is empty (see Undo/Redo below).
+- Right segment: search, Re-scan, and a "?" help button that opens the
+  keyboard-shortcuts overlay.
 - BPM is editable; changing it updates the engine's transport BPM immediately.
 - Transport buttons call the engine via the bridge layer (spec-005).
+- Transport, BPM, mute/solo, and pan controls carry `title` tooltips including
+  their shortcut hints where one exists.
+
+### Undo/Redo
+
+- A command stack in the transport-engine hook covers clip arrangement edits:
+  place, move, duplicate, group move/duplicate, single delete, and batch
+  delete. Mixer state (mute/solo/pan, volume, BPM) is not tracked.
+- Each entry is an immutable lanes snapshot (structurally shared), capped at
+  100 entries. A new edit clears the redo stack.
+- Bindings: Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes; the Middle Strip
+  buttons mirror the same actions and disable when their stack is empty.
+- A multi-clip Delete is one history entry (batch remove), so one Ctrl+Z
+  restores the whole selection.
+
+### Keyboard shortcuts overlay
+
+- The "?" Middle Strip button and the "?" key open a modal overlay listing all
+  keyboard and mouse shortcuts (transport, clip editing, browser).
+- Esc, the close button, or a backdrop click dismisses it.
+- Global shortcuts (Space, Delete, Ctrl+Z/Y, ?) are suppressed while a text
+  input, textarea, select, or contenteditable element has focus.
 
 ### Left Rails
 
@@ -169,8 +198,16 @@ adjacencies.
     saving the current project or opening an existing `.mixjam` file will
     populate the rail
   - the empty state does not add rail-specific action buttons
-- This spec defines the rail content and persistence in the layout; load/open
-  behavior for an entry is defined by project save/load work.
+- Entries are interactive (revised 2026-07-02 per design-review change
+  request — the rail was previously display-only "dead UI"):
+  - each entry is a full-width click target with a hover state
+  - clicking an entry opens it: the project is recorded as most-recently
+    opened, the rail re-sorts, and the project name appears in the Middle
+    Strip
+  - right-clicking an entry shows a context menu with **Open** and
+    **Copy Path**
+- Full project deserialization (restoring lanes/clips from the `.mixjam`
+  file) remains deferred to project save/load work (spec-011).
 
 #### Song Controls rail
 
@@ -233,6 +270,13 @@ adjacencies.
 - [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; clips whose bounds intersect the rectangle are selected (highlighted with a white border).
 - [x] **AC-020:** Pressing Delete removes all selected clips. Clicking empty space without Ctrl deselects all.
 - [x] **AC-021:** Dragging a clip that is part of a multi-selection moves the entire group, maintaining relative offsets. Shift-dragging the group duplicates all members.
+- [x] **AC-022:** Ctrl+Z undoes the last clip arrangement edit (place, move, duplicate, delete, group operations); Ctrl+Y or Ctrl+Shift+Z redoes it.
+  The Middle Strip Undo/Redo buttons mirror the shortcuts and disable when their history stack is empty. A multi-clip delete undoes as a single step.
+- [x] **AC-023:** The "?" Middle Strip button and the "?" key open a keyboard-shortcuts overlay; Esc, the close button, or a backdrop click dismisses it.
+  Transport, BPM, mute/solo, and pan controls have tooltip hints.
+- [x] **AC-024:** Clicking a Recent Projects rail entry opens it (records it as most-recently opened, re-sorts the rail, and shows its name in the
+  Middle Strip). Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
+- [x] **AC-025:** Space toggles Play/Pause when focus is not in a text control.
 
 ## Non-Goals (deferred to later specs)
 
@@ -245,8 +289,10 @@ adjacencies.
 - No zoom in/out on the timeline.
 - No waveform rendering inside clips.
 - No cut/copy/paste for clips.
-- No undo/redo for clip placement.
 - No BPM automation or tempo changes within a project.
+- Undo/redo covers clip arrangement edits only (see Undo/Redo); mixer and
+  tempo changes are not undoable. (revised 2026-07-02: undo/redo itself moved
+  in scope per design-review change request.)
 
 ## References
 

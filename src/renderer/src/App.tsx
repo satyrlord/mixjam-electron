@@ -37,6 +37,11 @@ export default function App() {
     moveClipGroup,
     duplicateClipGroup,
     removeClipFromLane,
+    removeClips,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     setLanePan,
     previewSample,
     getSampleBuffer,
@@ -54,9 +59,11 @@ export default function App() {
     masterGain,
     setMasterGain,
     masterLevelDb,
+    currentProjectName,
     goToTracker,
     goToHome,
     handleLoadMixJam,
+    openRecentProject,
     openFolderPicker,
     openRepo,
     scanProgress,
@@ -107,6 +114,10 @@ export default function App() {
             userFolder={userFolder}
             sampleFolder={sampleFolder}
             canStart={canStart}
+            recentProjects={recentProjects}
+            activeTheme={activeTheme}
+            onThemeChange={handleThemeChange}
+            onOpenRecentProject={openRecentProject}
             onPickUser={pickUser}
             onPickSample={pickSample}
             onStart={goToTracker}
@@ -139,6 +150,13 @@ export default function App() {
             onMoveClipGroup={moveClipGroup}
             onDuplicateClipGroup={duplicateClipGroup}
             onRemoveClipFromLane={removeClipFromLane}
+            onRemoveClips={removeClips}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            projectName={currentProjectName}
+            onOpenRecentProject={openRecentProject}
             onSetLanePan={setLanePan}
             onPreviewSample={previewSample}
             onToggleLaneMute={toggleLaneMute}

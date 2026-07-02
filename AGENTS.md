@@ -16,6 +16,7 @@ Specs 001-006 fully implemented and tested. Check individual spec files for AC s
 - [docs/indexing.md](docs/indexing.md) — first-run scan, incremental re-scan
 - [docs/audio-engine.md](docs/audio-engine.md) — Web Audio scheduler, native-addon escape hatch
 - [docs/decisions.md](docs/decisions.md) — resolved trade-offs and revisit triggers
+- [.qoder/repowiki](.qoder/repowiki) — Repo Wiki (AI-generated)
 
 ## Commands
 

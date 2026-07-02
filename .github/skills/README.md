@@ -18,6 +18,7 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 
 | Skill | Invocation | Purpose |
 |---|---|---|
+| [`design-critique`](./design-critique/SKILL.md) | Model-invoked | Structured design feedback across usability, visual hierarchy, consistency, accessibility, and MJE-specific conventions. Use for mockup reviews, screenshot critiques, or pre-handoff audits. |
 | [`claude-design-parity`](./claude-design-parity/SKILL.md) | Model-invoked | Extract design tokens from a Claude Design project and patch MixJam Electron's CSS custom properties theming toward parity. |
 | [`improve-codebase-architecture`](./improve-codebase-architecture/SKILL.md) | User-invoked | Scan for architectural friction, generate a visual HTML report, then grill through candidates. |
 

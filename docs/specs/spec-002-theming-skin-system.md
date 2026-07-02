@@ -113,6 +113,17 @@ external CDN or Google Fonts dependency). Font files live in `src/renderer/publi
   token file.
 - Switching between Home Screen and Player does not reset or re-apply the
   theme.
+- Scrollbars are themed (added 2026-07-02 per design-review change request):
+  every scroll surface styles `::-webkit-scrollbar*` from theme tokens
+  (via `color-mix` over `--text`/`--bg-panel`) so the native light Windows
+  scrollbar never appears on dark themes. The standard `scrollbar-color`
+  property is deliberately not set — Chromium disables `::-webkit-scrollbar`
+  styling when it is present, and Electron only renders through Chromium.
+- Reduced motion (added 2026-07-02): a `prefers-reduced-motion: reduce` media
+  block collapses decorative animation — the Screen Maximal CRT flicker and
+  VHS drift, the scan spinner (replaced by a static highlighted ring), the
+  locate-in-browser flash (replaced by a static outline), and all
+  transitions.
 
 ### Theme File Format
 

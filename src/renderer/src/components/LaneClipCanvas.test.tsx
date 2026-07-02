@@ -250,6 +250,63 @@ describe('LaneClipCanvas', () => {
     expect(onDrag.mock.calls[0]![0]).toBe('clip-1')
   })
 
+  it('sets a custom drag image showing only the grabbed clip', () => {
+    vi.useFakeTimers()
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set()}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    fireEvent.mouseDown(el, { button: 0 })
+    mockCtx.fillText.mockClear()
+
+    const setDragImage = vi.fn()
+    fireEvent.dragStart(el, { dataTransfer: { setDragImage } })
+
+    expect(setDragImage).toHaveBeenCalledTimes(1)
+    const ghost = setDragImage.mock.calls[0]![0]
+    expect(ghost).toBeInstanceOf(HTMLCanvasElement)
+    expect(document.body.contains(ghost)).toBe(true)
+    // The ghost renders only the grabbed clip's label — not the lane's other clips
+    expect(mockCtx.fillText).toHaveBeenCalledWith('kick.wav', expect.any(Number), expect.any(Number))
+    expect(mockCtx.fillText).not.toHaveBeenCalledWith('snare.wav', expect.any(Number), expect.any(Number))
+
+    // The helper element is cleaned up right after the browser snapshots it
+    vi.runAllTimers()
+    expect(document.body.contains(ghost)).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it('adds a count badge to the drag image for group drags', () => {
+    const { container } = render(
+      <LaneClipCanvas
+        clips={CLIPS}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set(['clip-1', 'clip-2'])}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
+    fireEvent.mouseDown(el, { button: 0 })
+    mockCtx.fillText.mockClear()
+
+    fireEvent.dragStart(el, { dataTransfer: { setDragImage: vi.fn() } })
+
+    expect(mockCtx.fillText).toHaveBeenCalledWith('×2', expect.any(Number), expect.any(Number))
+  })
+
   it('prevents default on drag start when no clip was mouse-downed', () => {
     const onDrag = vi.fn()
     const { container } = render(

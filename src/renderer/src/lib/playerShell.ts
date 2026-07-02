@@ -290,6 +290,21 @@ export function removeClipFromLane(
   })
 }
 
+/** Batch-removes clips by id across all lanes in a single pass, so a
+ *  multi-clip delete is one state transition (and one undo history entry).
+ *  Returns the input array unchanged when no clip matched. */
+export function removeClips(lanes: LaneState[], clipIds: readonly string[]): LaneState[] {
+  const ids = new Set(clipIds)
+  let changed = false
+  const next = lanes.map((lane) => {
+    const kept = lane.clips.filter((c) => !ids.has(c.id))
+    if (kept.length === lane.clips.length) return lane
+    changed = true
+    return { ...lane, clips: kept }
+  })
+  return changed ? next : lanes
+}
+
 export function setLanePan(lanes: LaneState[], laneIndex: number, pan: number): LaneState[] {
   return lanes.map((lane) =>
     lane.index === laneIndex ? { ...lane, pan: clamp(pan, -1, 1) } : lane

@@ -29,7 +29,16 @@ Implement view switching, the header bar, and the footer.
 - **Header** (40px): brand "MixJam Electron" anchored to the left margin,
   theme selector dropdown (right, non-functional — lists theme names but
   selection has no effect until spec-002).
-- **Content area:** vertically and horizontally centered.
+- **Content area:** two-column layout, vertically and horizontally centered
+  (revised 2026-07-02 per design-review change request — the original single
+  column of folder cards read as a configuration dialog, not a first screen).
+  - Hero column (left): SVG brandmark (accent-gradient tile with a waveform
+    pulse, painted with theme tokens only), "MixJam" wordmark, tagline, three
+    quick-start steps, and a theme-swatch row that switches the active theme
+    (same behavior as the header selector).
+  - Setup column (right): a raised panel holding the two folder cards
+    (spec-003), the launch gate, the Load MixJam link, and — when any exist —
+    up to four recent projects that open on click (spec-006 AC-024).
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
   - "Load MixJam" link — secondary action, opens a native file picker filtered
     to the project file extension. If the user selects a file, navigates to

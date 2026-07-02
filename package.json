@@ -48,6 +48,7 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.5",
     "better-sqlite3": "^12.11.1",
     "music-metadata": "^11.13.0",
     "react": "^18.3.1",

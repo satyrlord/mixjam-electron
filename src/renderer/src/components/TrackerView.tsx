@@ -7,47 +7,43 @@ import {
   RULER_HEIGHT_PX,
   clamp,
   clipScreenRect,
-  sampleDurationTicks,
 } from '../lib/playerShell'
 import {
-  bubbleTextColor,
+  bubbleStyle,
   categoryColor,
-  formatDuration,
   meterFillPct,
   nearestTick,
 } from '../lib/sample-utils'
+import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
+import { useBpmEditor } from '../hooks/useBpmEditor'
 import ScanProgressBar from './ScanProgressBar'
 import ManagePanel from './ManagePanel'
 import LaneClipCanvas from './LaneClipCanvas'
+import SampleTileGrid from './SampleTileGrid'
+import ShortcutsOverlay from './ShortcutsOverlay'
 
-// Transport glyphs as inline SVGs: emoji codepoints render through a color
-// emoji font on Windows and ignore the theme's currentColor.
-const TRANSPORT_ICON_PATHS: Record<'skip-back' | 'play' | 'pause' | 'stop', string> = {
+// Transport and edit glyphs as inline SVGs: emoji codepoints render through a
+// color emoji font on Windows and ignore the theme's currentColor.
+const TRANSPORT_ICON_PATHS: Record<'skip-back' | 'play' | 'pause' | 'stop' | 'undo', string> = {
   'skip-back': 'M3 2.5h2v11H3zM13.5 2.5v11L6 8z',
   play: 'M4.5 2.5v11L13 8z',
   pause: 'M4 2.5h3v11H4zM9 2.5h3v11H9z',
-  stop: 'M3.5 3.5h9v9h-9z'
+  stop: 'M3.5 3.5h9v9h-9z',
+  undo: 'M7.5 1.5 2 6l5.5 4.5V7.75h1.75a2.87 2.87 0 0 1 0 5.75H6.5v2h2.75a4.88 4.88 0 0 0 0-9.75H7.5V1.5z'
 }
 
-function TransportIcon({ shape }: { shape: keyof typeof TRANSPORT_ICON_PATHS }) {
+function TransportIcon({ shape, mirrored = false }: {
+  shape: keyof typeof TRANSPORT_ICON_PATHS
+  mirrored?: boolean
+}) {
   return (
     <svg className="transport-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d={TRANSPORT_ICON_PATHS[shape]} />
+      <path
+        d={TRANSPORT_ICON_PATHS[shape]}
+        {...(mirrored ? { transform: 'scale(-1 1) translate(-16 0)' } : {})}
+      />
     </svg>
   )
-}
-
-// Inline style for a sample bubble painted in a palette color: background,
-// border, and the matching ink. Dark ink drops the theme text-shadow, which
-// only reads correctly under light text.
-function bubbleStyle(color: string): React.CSSProperties {
-  const ink = bubbleTextColor(color)
-  return {
-    background: color,
-    borderColor: color,
-    color: ink,
-    ...(ink !== '#FFFFFF' ? { textShadow: 'none' } : {})
-  }
 }
 
 interface TrackerViewProps {
@@ -76,6 +72,13 @@ interface TrackerViewProps {
   onMoveClipGroup: (moves: ClipGroupEntry[]) => void
   onDuplicateClipGroup: (sources: ClipGroupEntry[]) => void
   onRemoveClipFromLane: (laneIndex: number, clipId: string) => void
+  onRemoveClips: (clipIds: string[]) => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
+  projectName: string | null
+  onOpenRecentProject: (project: RecentProjectItem) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
   onPreviewSample: (samplePath: string) => void
   onToggleLaneMute: (laneIndex: number) => void
@@ -134,6 +137,13 @@ export default function TrackerView({
   onMoveClipGroup,
   onDuplicateClipGroup,
   onRemoveClipFromLane,
+  onRemoveClips,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  projectName,
+  onOpenRecentProject,
   onSetLanePan,
   onPreviewSample,
   onToggleLaneMute,
@@ -172,35 +182,15 @@ export default function TrackerView({
 
   const [managePanelOpen, setManagePanelOpen] = useState(false)
 
-  // BPM inline-edit state for the Middle Strip
-  const [editingBpm, setEditingBpm] = useState(false)
-  const [bpmDraft, setBpmDraft] = useState(String(bpm))
-  const bpmInputRef = useRef<HTMLInputElement>(null)
-
-  const handleBpmEditStart = useCallback(() => {
-    setBpmDraft(String(bpm))
-    setEditingBpm(true)
-  }, [bpm])
-
-  const handleBpmEditCommit = useCallback(() => {
-    const parsed = parseInt(bpmDraft, 10)
-    if (!Number.isNaN(parsed) && parsed >= 50 && parsed <= 200) {
-      onSetBpm(parsed)
-    }
-    setEditingBpm(false)
-  }, [bpmDraft, onSetBpm])
-
-  const handleBpmEditKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleBpmEditCommit()
-    if (e.key === 'Escape') setEditingBpm(false)
-  }, [handleBpmEditCommit])
-
-  useEffect(() => {
-    if (editingBpm && bpmInputRef.current) {
-      bpmInputRef.current.focus()
-      bpmInputRef.current.select()
-    }
-  }, [editingBpm])
+  const {
+    editingBpm,
+    bpmDraft,
+    bpmInputRef,
+    setBpmDraft,
+    handleBpmEditStart,
+    handleBpmEditCommit,
+    handleBpmEditKeyDown
+  } = useBpmEditor({ bpm, onSetBpm })
 
   // Lane content width measurement for consistent bubble widths
   const lanesRef = useRef<HTMLDivElement>(null)
@@ -292,21 +282,26 @@ export default function TrackerView({
     dragCleanupRef.current = onUp
   }, [lanes, pixelsPerTick])
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Delete' || selectedClipIds.size === 0) return
-      for (const lane of lanes) {
-        for (const clip of lane.clips) {
-          if (selectedClipIds.has(clip.id)) {
-            onRemoveClipFromLane(lane.index, clip.id)
-          }
-        }
-      }
-      setSelectedClipIds(new Set())
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedClipIds, lanes, onRemoveClipFromLane])
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  // Refs for values read by the global keyboard shortcut handler so the
+  // listener subscribes once instead of on every selection / transport change.
+  const selectedClipIdsRef = useRef<ReadonlySet<string>>(selectedClipIds)
+  selectedClipIdsRef.current = selectedClipIds
+  const transportStateRef = useRef(transportState)
+  transportStateRef.current = transportState
+
+  useTrackerShortcuts({
+    selectedClipIdsRef,
+    clearSelection: () => setSelectedClipIds(new Set()),
+    transportStateRef,
+    onRemoveClips,
+    onUndo,
+    onRedo,
+    onTransportPlay,
+    onTransportPause,
+    onOpenShortcuts: () => setShortcutsOpen(true)
+  })
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -318,17 +313,27 @@ export default function TrackerView({
     sampleName: string
   } | null>(null)
 
+  // Recent-projects context menu state
+  const [recentMenu, setRecentMenu] = useState<{
+    x: number
+    y: number
+    project: RecentProjectItem
+  } | null>(null)
+
   // Flash state for "locate in browser"
   const [flashSamplePath, setFlashSamplePath] = useState<string | null>(null)
   const flashCountRef = useRef(0)
 
-  // Dismiss context menu on any click outside
+  // Dismiss context menus on any click outside
   useEffect(() => {
-    if (!contextMenu) return
-    const dismiss = () => setContextMenu(null)
+    if (!contextMenu && !recentMenu) return
+    const dismiss = () => {
+      setContextMenu(null)
+      setRecentMenu(null)
+    }
     window.addEventListener('click', dismiss)
     return () => window.removeEventListener('click', dismiss)
-  }, [contextMenu])
+  }, [contextMenu, recentMenu])
 
   // Flash effect: flash 3 times then clear
   useEffect(() => {
@@ -393,7 +398,10 @@ export default function TrackerView({
     } else {
       event.dataTransfer.setData('application/mixjam-clip', JSON.stringify({ clipId }))
     }
-    event.dataTransfer.effectAllowed = 'move'
+    // Must permit 'copy' too: the dragover handler sets dropEffect='copy' when
+    // Shift is held (duplicate), and Chromium cancels the drop entirely if
+    // dropEffect is outside effectAllowed.
+    event.dataTransfer.effectAllowed = 'copyMove'
     event.stopPropagation()
   }
 
@@ -533,8 +541,19 @@ export default function TrackerView({
           <ol className="recent-projects-list">
             {recentProjects.map((project) => (
               <li key={project.path} className="recent-projects-item">
-                <span className="recent-projects-name">{project.displayName}</span>
-                <span className="recent-projects-path">{project.path}</span>
+                <button
+                  type="button"
+                  className="recent-projects-open"
+                  title={`Open ${project.displayName}`}
+                  onClick={() => onOpenRecentProject(project)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setRecentMenu({ x: e.clientX, y: e.clientY, project })
+                  }}
+                >
+                  <span className="recent-projects-name">{project.displayName}</span>
+                  <span className="recent-projects-path">{project.path}</span>
+                </button>
               </li>
             ))}
           </ol>
@@ -586,18 +605,21 @@ export default function TrackerView({
                       type="button"
                       className={`tracker-lane-mute${lane.muted ? ' tracker-lane-mute-active' : ''}`}
                       aria-label={`Mute ${lane.name}`}
+                      title={lane.muted ? 'Unmute lane' : 'Mute lane'}
                       onClick={() => onToggleLaneMute(lane.index)}
                     >M</button>
                     <button
                       type="button"
                       className={`tracker-lane-solo${lane.solo ? ' tracker-lane-solo-active' : ''}`}
                       aria-label={`Solo ${lane.name}`}
+                      title={lane.solo ? 'Unsolo lane' : 'Solo lane'}
                       onClick={() => onToggleLaneSolo(lane.index)}
                     >S</button>
                     <span
                       className="tracker-lane-pan"
                       role="slider"
                       aria-label={`Pan ${lane.name}`}
+                      title="Drag horizontally to pan"
                       aria-valuemin={-100}
                       aria-valuemax={100}
                       aria-valuenow={Math.round(lane.pan * 100)}
@@ -645,7 +667,7 @@ export default function TrackerView({
 
       <section className="middle-strip">
         <div className="strip-left">
-          <span className="strip-proj">Untitled</span>
+          <span className="strip-proj">{projectName ?? 'Untitled'}</span>
           <span className="strip-sep" />
           {editingBpm ? (
             <input
@@ -666,25 +688,48 @@ export default function TrackerView({
               className="strip-bpm"
               onClick={handleBpmEditStart}
               aria-label="Edit BPM"
+              title="Click to edit BPM (50-200), Enter commits, Esc cancels"
             >
               {bpm} BPM
             </button>
           )}
         </div>
         <div className="strip-center">
-          <button type="button" className="transport-button" aria-label="Skip Back" onClick={onTransportSkipBack}>
+          <button type="button" className="transport-button" aria-label="Skip Back" title="Skip back to start" onClick={onTransportSkipBack}>
             <TransportIcon shape="skip-back" />
           </button>
           <button
             type="button"
             className={`transport-button${isPlaying ? ' transport-button-play' : ''}`}
             aria-label={isPlaying ? 'Pause' : 'Play'}
+            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             onClick={isPlaying ? onTransportPause : onTransportPlay}
           >
             <TransportIcon shape={isPlaying ? 'pause' : 'play'} />
           </button>
-          <button type="button" className="transport-button" aria-label="Stop" onClick={onTransportStop}>
+          <button type="button" className="transport-button" aria-label="Stop" title="Stop" onClick={onTransportStop}>
             <TransportIcon shape="stop" />
+          </button>
+          <span className="strip-sep" />
+          <button
+            type="button"
+            className="transport-button"
+            aria-label="Undo"
+            title="Undo (Ctrl+Z)"
+            disabled={!canUndo}
+            onClick={onUndo}
+          >
+            <TransportIcon shape="undo" />
+          </button>
+          <button
+            type="button"
+            className="transport-button"
+            aria-label="Redo"
+            title="Redo (Ctrl+Y)"
+            disabled={!canRedo}
+            onClick={onRedo}
+          >
+            <TransportIcon shape="undo" mirrored />
           </button>
         </div>
         <div className="strip-right">
@@ -706,8 +751,18 @@ export default function TrackerView({
             onClick={() => { onRescan(); void onStartScan() }}
             disabled={scanProgress.status === 'scanning'}
             aria-label={scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
+            title="Re-scan the Sample Folder into the library"
           >
             {scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
+          </button>
+          <button
+            type="button"
+            className="strip-help"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+            onClick={() => setShortcutsOpen(true)}
+          >
+            ?
           </button>
         </div>
       </section>
@@ -848,56 +903,20 @@ export default function TrackerView({
             )}
           </div>
 
-          <div className="tiles">
-            {samples.map((sample) => {
-              const durationTicks = sampleDurationTicks(sample.durationSeconds, bpm)
-              const width = Math.max(12, durationTicks * pixelsPerTick)
-              const isSelected = selectedSamplePath === sample.filepath
-              // Compute the sample's own category colour for drag-to-tracker.
-              // When a category filter is active all visible samples share that
-              // colour; when unfiltered each sample uses its real category.
-              const sampleColor = activeCategoryColor
-                ?? (sample.categoryId !== null
-                  ? (() => {
-                      const cat = categories.find((c) => c.id === sample.categoryId)
-                      return cat ? categoryColor(cat.name) : undefined
-                    })()
-                  : undefined)
-              return (
-                <button
-                  key={sample.id}
-                  type="button"
-                  className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.filepath ? ' clip-flash' : ''}`}
-                  style={{ width: `${width}px`, ...(sampleColor ? bubbleStyle(sampleColor) : {}) }}
-                  draggable
-                  onDragStart={(e) => handleSampleDragStart(e, {
-                    name: sample.name,
-                    filepath: sample.filepath,
-                    tags: sample.tags,
-                    duration: sample.durationSeconds,
-                    color: sampleColor,
-                  })}
-                  onClick={() => {
-                    onSelectSampleDetail({
-                      name: sample.name,
-                      filepath: sample.filepath,
-                      tags: sample.tags,
-                      duration: sample.durationSeconds,
-                    })
-                    onPreviewSample(sample.filepath)
-                  }}
-                >
-                  <b>{sample.name.replace(/\.[^.]+$/, '')}</b>
-                  <i>{formatDuration(sample.durationSeconds)}</i>
-                </button>
-              )
-            })}
-            {!loading && samples.length === 0 && (
-              <p className="tiles-empty">
-                {error ?? 'No samples found. Choose a Sample Folder and Re-scan.'}
-              </p>
-            )}
-          </div>
+          <SampleTileGrid
+            samples={samples}
+            bpm={bpm}
+            pixelsPerTick={pixelsPerTick}
+            selectedSamplePath={selectedSamplePath}
+            flashSamplePath={flashSamplePath}
+            activeCategoryColor={activeCategoryColor}
+            categories={categories}
+            loading={loading}
+            error={error}
+            onSelectSampleDetail={onSelectSampleDetail}
+            onPreviewSample={onPreviewSample}
+            onSampleDragStart={handleSampleDragStart}
+          />
         </div>
 
         {managePanelOpen && (
@@ -940,6 +959,41 @@ export default function TrackerView({
           </button>
         </div>
       )}
+
+      {recentMenu && (
+        <div
+          className="context-menu"
+          style={{ left: recentMenu.x, top: recentMenu.y }}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="context-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onOpenRecentProject(recentMenu.project)
+              setRecentMenu(null)
+            }}
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            className="context-menu-item"
+            role="menuitem"
+            onClick={() => {
+              void navigator.clipboard?.writeText(recentMenu.project.path).catch(() => {
+                // Clipboard access denied — nothing sensible to do.
+              })
+              setRecentMenu(null)
+            }}
+          >
+            Copy Path
+          </button>
+        </div>
+      )}
+
+      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
     </div>
   )
 }

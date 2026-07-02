@@ -328,16 +328,221 @@ html[data-theme-ready='true'] body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-base);
+  padding: 24px 32px;
+  overflow-y: auto;
+  /* Accent glow bleeding from the top gives the first screen the same
+     dimensionality as the tracker chrome without hardcoding a color. */
+  background:
+    radial-gradient(
+      ellipse 90% 70% at 50% -10%,
+      color-mix(in srgb, var(--accent) 20%, transparent),
+      transparent 70%
+    ),
+    var(--bg-base);
 }
 
 .home-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 56px;
+  align-items: center;
+  width: 960px;
+  max-width: 100%;
+}
+
+/* ── Home hero: brand, tagline, quick start, themes ── */
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.home-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.brand-mark {
+  flex-shrink: 0;
+  filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+
+.home-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.home-wordmark {
+  font-family: var(--font-chrome);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  line-height: 1;
+}
+
+.home-tagline {
+  font-family: var(--font-label);
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.home-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.home-step-num {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  color: var(--highlight);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.home-step-text {
+  font-family: var(--font-label);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding-top: 3px;
+}
+
+.home-themes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-themes-label {
+  font-family: var(--font-chrome);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.home-theme-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-theme-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--pill-border);
+  cursor: pointer;
+  padding: 0;
+}
+
+.home-theme-swatch:hover {
+  transform: scale(1.15);
+  border-color: var(--highlight);
+}
+
+.home-theme-swatch-active {
+  outline: 2px solid var(--highlight);
+  outline-offset: 2px;
+}
+
+/* ── Home setup panel: folder cards, launch, recents ── */
+.home-setup {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 16px;
-  width: 420px;
-  max-width: 90%;
+  padding: 24px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.home-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.home-recent-title {
+  font-family: var(--font-chrome);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.home-recent-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-recent-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.home-recent-item:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--border);
+}
+
+.home-recent-item:hover .home-recent-name {
+  color: var(--highlight);
+}
+
+.home-recent-name {
+  font-family: var(--font-label);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.home-recent-path {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* ── Folder cards ────────────────────────────── */
@@ -433,7 +638,7 @@ html[data-theme-ready='true'] body {
   background: var(--accent);
 }
 
-.home-content > .link-secondary {
+.home-setup > .link-secondary {
   align-self: center;
 }
 
@@ -518,11 +723,31 @@ html[data-theme-ready='true'] body {
 }
 
 .recent-projects-item {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Whole recent-project entry is one click target: click opens, right-click
+   shows the context menu. */
+.recent-projects-open {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  padding: 4px 6px 8px;
+  cursor: pointer;
+}
+
+.recent-projects-open:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.recent-projects-open:hover .recent-projects-name {
+  color: var(--highlight);
 }
 
 .recent-projects-name {
@@ -652,21 +877,28 @@ html[data-theme-ready='true'] body {
   margin-left: 6px;
 }
 
+/* Mute/solo: 28px minimum hit target (a11y). */
 .tracker-lane-mute,
 .tracker-lane-solo {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border: 1px solid var(--pill-border);
   border-radius: var(--radius);
   background: var(--pill-bg);
   color: var(--text-muted);
   font-family: var(--font-chrome);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   padding: 0;
   line-height: 1;
+}
+
+.tracker-lane-mute:hover,
+.tracker-lane-solo:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .tracker-lane-mute-active {
@@ -681,14 +913,22 @@ html[data-theme-ready='true'] body {
   border-color: var(--accent-dark);
 }
 
+/* Pan knob: highlight-token pointer stays visible on every theme; inset
+   gradient gives the knob relief so the pointer reads against it. */
 .tracker-lane-pan {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--pill-bg);
+  background:
+    radial-gradient(
+      circle at 50% 32%,
+      color-mix(in srgb, var(--text) 10%, transparent),
+      transparent 62%
+    ),
+    var(--pill-bg);
   border: 1.5px solid var(--pill-border);
-  cursor: pointer;
+  cursor: ew-resize;
   position: relative;
   user-select: none;
 }
@@ -706,13 +946,14 @@ html[data-theme-ready='true'] body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 2px;
-  height: 9px;
-  margin-left: -1px;
-  margin-top: -11px;
-  background: var(--text-muted);
-  border-radius: 1px;
-  transform-origin: 1px 11px;
+  width: 3px;
+  height: 11px;
+  margin-left: -1.5px;
+  margin-top: -13px;
+  background: var(--highlight);
+  border-radius: 1.5px;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
+  transform-origin: 1.5px 13px;
   transform: rotate(var(--pan-angle, 0deg));
 }
 
@@ -725,11 +966,11 @@ html[data-theme-ready='true'] body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 4px;
-  height: 4px;
-  margin-left: -2px;
-  margin-top: -2px;
-  background: var(--text-muted);
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  margin-top: -2.5px;
+  background: color-mix(in srgb, var(--highlight) 55%, var(--pill-border));
   border-radius: 50%;
 }
 
@@ -1045,9 +1286,35 @@ html[data-theme-ready='true'] body {
   line-height: 1;
 }
 
+.transport-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .transport-button-play {
   background: var(--accent);
   border-color: var(--accent-dark);
+}
+
+.strip-help {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  color: var(--text-muted);
+  font-family: var(--font-chrome);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.strip-help:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .transport-icon {
@@ -1310,16 +1577,30 @@ html[data-theme-ready='true'] body {
   color: var(--highlight);
 }
 
-/* Sample tiles grid */
+/* Sample tiles grid — virtualized. `.tiles` is the scroll viewport; rows are
+   packed in JS (SampleTileGrid) and absolutely positioned inside the canvas so
+   only visible rows exist in the DOM. */
 .tiles {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 6px;
   padding: 8px 10px;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.tiles-virtual-canvas {
+  position: relative;
+  width: 100%;
+}
+
+.tiles-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 6px;
+  height: 32px;
 }
 
 .tiles-empty {
@@ -1545,4 +1826,159 @@ html[data-theme-ready='true'] body {
 
 .tiles .sample-bubble.clip-flash {
   animation: clip-flash 0.3s ease-in-out 3;
+}
+
+/* ── Shortcuts overlay ───────────────────────── */
+.shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+}
+
+.shortcuts-panel {
+  width: 560px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--pill-border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  padding: 18px 22px;
+}
+
+.shortcuts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.shortcuts-title {
+  font-family: var(--font-chrome);
+  font-size: 15px;
+  color: var(--text);
+}
+
+.shortcuts-close {
+  width: 24px;
+  height: 24px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.shortcuts-close:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.shortcuts-sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 28px;
+}
+
+.shortcuts-section-title {
+  font-family: var(--font-chrome);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--highlight);
+  margin-bottom: 8px;
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shortcuts-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.shortcuts-keys {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.shortcuts-action {
+  font-family: var(--font-label);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Scrollbars ──────────────────────────────── */
+/* Theme-token scrollbars for every scroll surface. Electron renders through
+   Chromium only, so ::-webkit-scrollbar is authoritative; the standard
+   scrollbar-color property is deliberately not set because Chromium disables
+   ::-webkit-scrollbar styling entirely when it is present. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 22%, var(--bg-panel));
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--text) 38%, var(--bg-panel));
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Reduced motion ──────────────────────────── */
+/* Collapse decorative animation (CRT flicker, VHS drift, spinners, flashes)
+   for users with a system reduced-motion preference. Progress stays visible
+   through the static bar/border styles. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .scan-overlay-spinner {
+    animation: none;
+    border-top-color: var(--highlight);
+  }
+
+  .tracker-lane-clip-flash,
+  .tiles .sample-bubble.clip-flash {
+    animation: none;
+    outline: 2px solid var(--clip-select);
+    outline-offset: -2px;
+  }
 }

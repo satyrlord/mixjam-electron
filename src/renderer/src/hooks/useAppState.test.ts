@@ -595,4 +595,25 @@ describe('useAppState', () => {
     act(() => { result.current.setLanePan(3, -0.5) })
     expect(result.current.lanes[3].pan).toBe(-0.5)
   })
+
+  it('openRecentProject handles recordRecentProject rejection gracefully', async () => {
+    vi.useRealTimers()
+    const electronAPI = createElectronAPI()
+    const testError = new Error('disk full')
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.mocked(electronAPI.recordRecentProject).mockRejectedValueOnce(testError)
+    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    await act(async () => {
+      await result.current.openRecentProject({
+        path: '/tmp/proj.mixjam',
+        displayName: 'proj',
+        lastOpened: '2026-01-01T00:00:00.000Z'
+      })
+    })
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to open recent project:', testError)
+    expect(result.current.currentProjectName).toBe('proj')
+    consoleErrorSpy.mockRestore()
+  })
 })

@@ -1,14 +1,22 @@
-import { useCallback } from 'react'
-import type { ElectronAPI } from '../../../shared/ipc'
+import { useCallback, useState } from 'react'
+import type { ElectronAPI, RecentProjectItem } from '../../../shared/ipc'
 import { useLibraryData, type LibraryData } from './useLibraryData'
 import { useTransportEngine, type TransportEngine } from './useTransportEngine'
 
 const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
+/** Project display name from a .mixjam file path (basename without extension). */
+function projectDisplayName(projectPath: string): string {
+  const base = projectPath.split(/[\\/]/).pop() ?? projectPath
+  return base.replace(/\.[^.]+$/, '')
+}
+
 export type AppState = LibraryData & TransportEngine & {
+  currentProjectName: string | null
   goToTracker: () => Promise<void>
   goToHome: () => Promise<void>
   handleLoadMixJam: () => Promise<void>
+  openRecentProject: (project: RecentProjectItem) => Promise<void>
   openFolderPicker: () => Promise<void>
   openRepo: () => Promise<void>
 }
@@ -24,6 +32,7 @@ export function useAppState(
 ): AppState {
   const lib = useLibraryData(electronAPI, userFolder, sampleFolder)
   const engine = useTransportEngine(electronAPI, sampleFolder)
+  const [currentProjectName, setCurrentProjectName] = useState<string | null>(null)
 
   const { setView } = engine
   const { setSelectedSampleDetail, reloadRecentProjects, startLibraryScan, scanProgress } = lib
@@ -52,9 +61,23 @@ export function useAppState(
       } catch (error) {
         console.error('Failed to record recent project:', error)
       }
+      setCurrentProjectName(projectDisplayName(file))
       await goToTracker()
     }
   }, [electronAPI, reloadRecentProjects, goToTracker])
+
+  const openRecentProject = useCallback(async (project: RecentProjectItem) => {
+    try {
+      await electronAPI.recordRecentProject(project.path)
+      await reloadRecentProjects()
+    } catch (error) {
+      console.error('Failed to open recent project:', error)
+    }
+    setCurrentProjectName(project.displayName)
+    if (engine.view !== 'tracker') {
+      await goToTracker()
+    }
+  }, [electronAPI, reloadRecentProjects, goToTracker, engine.view])
 
   const openFolderPicker = useCallback(async () => {
     await electronAPI.openFolderPicker()
@@ -67,9 +90,11 @@ export function useAppState(
   return {
     ...lib,
     ...engine,
+    currentProjectName,
     goToTracker,
     goToHome,
     handleLoadMixJam,
+    openRecentProject,
     openFolderPicker,
     openRepo
   }

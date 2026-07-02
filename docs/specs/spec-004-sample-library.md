@@ -153,7 +153,11 @@ Strip from spec-006. Its internal layout:
   in-memory JavaScript array operations on the full dataset.
 - The UI requests windowed pages of results, not the entire dataset.
 - Virtualized rendering ensures constant DOM node count regardless of result
-  set size.
+  set size. Implementation (2026-07-02): tiles are packed into fixed-height
+  rows in JS (equivalent to the previous flex-wrap layout, so bubble geometry
+  is unchanged) and rows are virtualized with TanStack Virtual; only rows
+  intersecting the scroll viewport are mounted. An unmeasured viewport
+  (first paint, jsdom) falls back to rendering all rows.
 - Full-text search returns in < 50ms against the development dataset, with
   a target of < 5ms against 100k+ rows (deferred validation).
 

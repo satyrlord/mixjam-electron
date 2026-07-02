@@ -65,6 +65,93 @@ function roundRect(
 
 const SELECTION_BORDER_COLOR = '#FFFFFF'
 const SELECTION_BORDER_WIDTH = 2
+const GHOST_MIN_WIDTH = 48
+const GHOST_BADGE_WIDTH = 22
+const GHOST_BADGE_HEIGHT = 14
+
+/** Draws one clip bubble (body, border, clipped label). Caller sets ctx.font
+ *  and ctx.textBaseline so the lane canvas and the drag ghost stay in sync. */
+function drawClipBubble(
+  ctx: CanvasRenderingContext2D,
+  clip: LaneClip,
+  x: number,
+  y: number,
+  w: number,
+  accent: string,
+  flashing = false
+): void {
+  const color = clip.color || accent
+
+  roundRect(ctx, x, y, w, CLIP_HEIGHT, CORNER_RADIUS)
+  ctx.fillStyle = color
+  ctx.fill()
+
+  if (flashing) {
+    ctx.globalAlpha = 0.4
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.globalAlpha = 1.0
+  }
+
+  roundRect(ctx, x, y, w, CLIP_HEIGHT, CORNER_RADIUS)
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  ctx.fillStyle = bubbleTextColor(color)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x + 8, y, w - 16, CLIP_HEIGHT)
+  ctx.clip()
+  ctx.fillText(clip.sampleName, x + 8, y + CLIP_HEIGHT / 2)
+  ctx.restore()
+}
+
+/**
+ * Builds an offscreen canvas showing only the grabbed clip (plus a ×N badge
+ * for group drags) to use as the drag image. Without it the browser snapshots
+ * the whole lane canvas, so dragging one clip ghosts every clip in the lane.
+ */
+function buildClipDragGhost(clip: LaneClip, width: number, count: number): HTMLCanvasElement | null {
+  const w = Math.max(width, GHOST_MIN_WIDTH)
+  const h = CLIP_HEIGHT
+  const dpr = window.devicePixelRatio || 1
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w * dpr
+  canvas.height = h * dpr
+  canvas.style.width = `${w}px`
+  canvas.style.height = `${h}px`
+  // setDragImage needs the element rendered in the document; park it offscreen.
+  canvas.style.position = 'fixed'
+  canvas.style.top = '-1000px'
+  canvas.style.left = '0'
+  canvas.style.pointerEvents = 'none'
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+
+  ctx.scale(dpr, dpr)
+  const labelFont = getComputedStyle(document.documentElement)
+    .getPropertyValue('--font-label')
+    .trim()
+  ctx.font = `10px ${labelFont || 'sans-serif'}`
+  ctx.textBaseline = 'middle'
+  drawClipBubble(ctx, clip, 0, 0, w, getComputedAccent())
+
+  if (count > 1) {
+    const bx = w - GHOST_BADGE_WIDTH - 6
+    const by = (h - GHOST_BADGE_HEIGHT) / 2
+    roundRect(ctx, bx, by, GHOST_BADGE_WIDTH, GHOST_BADGE_HEIGHT, GHOST_BADGE_HEIGHT / 2)
+    ctx.fillStyle = SELECTION_BORDER_COLOR
+    ctx.fill()
+    ctx.fillStyle = '#111111'
+    ctx.textAlign = 'center'
+    ctx.fillText(`×${count}`, bx + GHOST_BADGE_WIDTH / 2, by + GHOST_BADGE_HEIGHT / 2)
+  }
+
+  return canvas
+}
 
 export default function LaneClipCanvas({
   clips,
@@ -144,36 +231,8 @@ export default function LaneClipCanvas({
 
     for (const clip of clips) {
       const { x, width: w } = clipScreenRect(clip, pixelsPerTick)
-      const color = clip.color || accent
-      const isFlashing = flashSamplePath === clip.samplePath
 
-      // Draw rounded rectangle
-      roundRect(ctx, x, CLIP_TOP, w, CLIP_HEIGHT, CORNER_RADIUS)
-      ctx.fillStyle = color
-      ctx.fill()
-
-      // Flash effect: draw semi-transparent overlay
-      if (isFlashing) {
-        ctx.globalAlpha = 0.4
-        ctx.fillStyle = '#ffffff'
-        ctx.fill()
-        ctx.globalAlpha = 1.0
-      }
-
-      // Draw border (slightly darker)
-      roundRect(ctx, x, CLIP_TOP, w, CLIP_HEIGHT, CORNER_RADIUS)
-      ctx.strokeStyle = color
-      ctx.lineWidth = 1
-      ctx.stroke()
-
-      // Draw label (truncated)
-      ctx.fillStyle = bubbleTextColor(color)
-      ctx.save()
-      ctx.beginPath()
-      ctx.rect(x + 8, CLIP_TOP, w - 16, CLIP_HEIGHT)
-      ctx.clip()
-      ctx.fillText(clip.sampleName, x + 8, CLIP_TOP + CLIP_HEIGHT / 2)
-      ctx.restore()
+      drawClipBubble(ctx, clip, x, CLIP_TOP, w, accent, flashSamplePath === clip.samplePath)
 
       hitRects.push({ clip, x, width: w })
 
@@ -215,7 +274,6 @@ export default function LaneClipCanvas({
     // In test environments (jsdom) the canvas has 0 dimensions; fall back to
     // checking clip pixel-position based on totalTicks and container width.
     if (rect.width === 0) {
-      // Cannot perform spatial hit-test; return first clip as fallback.
       return clips.length > 0 ? clips[0] : null
     }
     const x = clientX - rect.left
@@ -250,10 +308,15 @@ export default function LaneClipCanvas({
     if (e.ctrlKey) return
     const clip = hitTest(e.clientX)
     if (!clip) return
-    // Set up for potential drag — store the clip id for dragstart
+    // Set up for potential drag — store the clip id for dragstart, plus where
+    // inside the clip the grab happened so the drag image stays under the cursor
     const container = containerRef.current
     if (container) {
       container.dataset.dragClipId = clip.id
+      const canvasRect = canvasRef.current?.getBoundingClientRect()
+      const hr = hitRectsRef.current.find((h) => h.clip.id === clip.id)
+      const grabX = canvasRect && hr ? e.clientX - canvasRect.left - hr.x : 0
+      container.dataset.dragGrabX = String(Math.max(0, grabX))
     }
     // If this clip is already part of a multi-selection, stop the mousedown
     // from bubbling to TrackerView's lanes-container handler, which would
@@ -271,9 +334,30 @@ export default function LaneClipCanvas({
       e.preventDefault()
       return
     }
+
+    // Replace the default drag image (a snapshot of the whole lane canvas,
+    // which misleadingly ghosts every clip in the lane) with just this clip.
+    const hr = hitRectsRef.current.find((h) => h.clip.id === clipId)
+    if (hr && e.dataTransfer && typeof e.dataTransfer.setDragImage === 'function') {
+      const count = selectedClipIds.size > 1 && selectedClipIds.has(clipId)
+        ? selectedClipIds.size
+        : 1
+      const ghost = buildClipDragGhost(hr.clip, hr.width, count)
+      if (ghost) {
+        document.body.appendChild(ghost)
+        const ghostWidth = Math.max(hr.width, GHOST_MIN_WIDTH)
+        const grabX = Math.min(Number(container!.dataset.dragGrabX ?? '0'), ghostWidth)
+        e.dataTransfer.setDragImage(ghost, grabX, CLIP_HEIGHT / 2)
+        // The browser snapshots the image synchronously during dragstart, so
+        // the helper element can be removed right after this handler returns.
+        window.setTimeout(() => ghost.remove(), 0)
+      }
+    }
+
     onClipDragStart(clipId, e)
     delete container!.dataset.dragClipId
-  }, [onClipDragStart])
+    delete container!.dataset.dragGrabX
+  }, [onClipDragStart, selectedClipIds])
 
   return (
     <div
