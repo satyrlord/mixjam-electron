@@ -15,7 +15,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "fallow": "fallow dead-code",
-    "package:electron": "electron-builder --config electron-builder.config.cjs",
+    "package:electron": "electron-builder --config electron-builder.config.cjs --publish never",
     "pretest": "npm run rebuild:node",
     "test": "vitest run",
     "pretest:watch": "npm run rebuild:node",
