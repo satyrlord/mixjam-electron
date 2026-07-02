@@ -39,6 +39,7 @@ export default function App() {
     removeClipFromLane,
     setLanePan,
     previewSample,
+    getSampleBuffer,
     toggleLaneMute,
     toggleLaneSolo,
     laneShouldDim,
@@ -175,6 +176,7 @@ export default function App() {
         sampleDetail={selectedSampleDetail}
         onSelectFolder={openFolderPicker}
         onOpenRepo={openRepo}
+        getSampleBuffer={getSampleBuffer}
       />
       <ScanOverlay progress={scanProgress} />
     </div>

@@ -10,6 +10,7 @@ import {
   sampleDurationTicks,
 } from '../lib/playerShell'
 import {
+  bubbleTextColor,
   categoryColor,
   formatDuration,
   meterFillPct,
@@ -18,6 +19,36 @@ import {
 import ScanProgressBar from './ScanProgressBar'
 import ManagePanel from './ManagePanel'
 import LaneClipCanvas from './LaneClipCanvas'
+
+// Transport glyphs as inline SVGs: emoji codepoints render through a color
+// emoji font on Windows and ignore the theme's currentColor.
+const TRANSPORT_ICON_PATHS: Record<'skip-back' | 'play' | 'pause' | 'stop', string> = {
+  'skip-back': 'M3 2.5h2v11H3zM13.5 2.5v11L6 8z',
+  play: 'M4.5 2.5v11L13 8z',
+  pause: 'M4 2.5h3v11H4zM9 2.5h3v11H9z',
+  stop: 'M3.5 3.5h9v9h-9z'
+}
+
+function TransportIcon({ shape }: { shape: keyof typeof TRANSPORT_ICON_PATHS }) {
+  return (
+    <svg className="transport-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d={TRANSPORT_ICON_PATHS[shape]} />
+    </svg>
+  )
+}
+
+// Inline style for a sample bubble painted in a palette color: background,
+// border, and the matching ink. Dark ink drops the theme text-shadow, which
+// only reads correctly under light text.
+function bubbleStyle(color: string): React.CSSProperties {
+  const ink = bubbleTextColor(color)
+  return {
+    background: color,
+    borderColor: color,
+    color: ink,
+    ...(ink !== '#FFFFFF' ? { textShadow: 'none' } : {})
+  }
+}
 
 interface TrackerViewProps {
   recentProjects: RecentProjectItem[]
@@ -642,7 +673,7 @@ export default function TrackerView({
         </div>
         <div className="strip-center">
           <button type="button" className="transport-button" aria-label="Skip Back" onClick={onTransportSkipBack}>
-            <span aria-hidden="true">&#9198;</span>
+            <TransportIcon shape="skip-back" />
           </button>
           <button
             type="button"
@@ -650,10 +681,10 @@ export default function TrackerView({
             aria-label={isPlaying ? 'Pause' : 'Play'}
             onClick={isPlaying ? onTransportPause : onTransportPlay}
           >
-            <span aria-hidden="true">{isPlaying ? '⏸' : '▶'}</span>
+            <TransportIcon shape={isPlaying ? 'pause' : 'play'} />
           </button>
           <button type="button" className="transport-button" aria-label="Stop" onClick={onTransportStop}>
-            <span aria-hidden="true">&#9209;</span>
+            <TransportIcon shape="stop" />
           </button>
         </div>
         <div className="strip-right">
@@ -692,7 +723,10 @@ export default function TrackerView({
       <aside className="tracker-zone song-controls-rail">
         <h2 className="tracker-zone-title">Song Controls</h2>
         <label className="song-control">
-          <span>Master Volume</span>
+          <span className="song-control-head">
+            Master Volume
+            <span className="song-control-value">{Math.round(masterGain * 100)}%</span>
+          </span>
           <input
             type="range"
             min="0"
@@ -718,17 +752,6 @@ export default function TrackerView({
             />
           </div>
         </div>
-        <label className="song-control">
-          <span>BPM</span>
-          <input
-            type="range"
-            min="50"
-            max="200"
-            value={bpm}
-            aria-label="BPM"
-            onChange={(e) => onSetBpm(Number(e.currentTarget.value))}
-          />
-        </label>
       </aside>
 
       <section className="browser-region" aria-label="Sample Browser">
@@ -736,7 +759,8 @@ export default function TrackerView({
           <button
             type="button"
             className="cat-manage-btn"
-            aria-label="Manage tags and libraries"
+            aria-label={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
+            title={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
             onClick={() => setManagePanelOpen((v) => !v)}
           >
             {managePanelOpen ? '×' : '+'}
@@ -752,7 +776,7 @@ export default function TrackerView({
                   role="option"
                   aria-selected={isSelected}
                   className={`sample-bubble bubble-category${isSelected ? ' selected' : ''}`}
-                  style={{ background: color, borderColor: color } as React.CSSProperties}
+                  style={bubbleStyle(color)}
                   onClick={() => onSelectCategory(isSelected ? undefined : cat.id)}
                 >
                   {cat.name}
@@ -844,7 +868,7 @@ export default function TrackerView({
                   key={sample.id}
                   type="button"
                   className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.filepath ? ' clip-flash' : ''}`}
-                  style={{ width: `${width}px`, ...(sampleColor ? { background: sampleColor, borderColor: sampleColor } : {}) } as React.CSSProperties}
+                  style={{ width: `${width}px`, ...(sampleColor ? bubbleStyle(sampleColor) : {}) }}
                   draggable
                   onDragStart={(e) => handleSampleDragStart(e, {
                     name: sample.name,

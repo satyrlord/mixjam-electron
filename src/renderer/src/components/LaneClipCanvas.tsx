@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { clipScreenRect, type LaneClip } from '../lib/playerShell'
+import { bubbleTextColor } from '../lib/sample-utils'
 
 interface LaneClipCanvasProps {
   clips: LaneClip[]
@@ -22,8 +23,6 @@ const CLIP_HEIGHT = 32
 const CLIP_TOP = 6
 const CORNER_RADIUS = 6
 const ACCENT_FALLBACK = '#2D8C6F'
-const TEXT_COLOR = '#EAEAEA'
-const LABEL_FONT = '10px sans-serif'
 const TICKS_PER_BAR = 32
 const BEATS_PER_BAR = 4
 const TICKS_PER_BEAT = TICKS_PER_BAR / BEATS_PER_BAR
@@ -136,7 +135,11 @@ export default function LaneClipCanvas({
     const hitRects: ClipHitRect[] = []
     const accent = getComputedAccent()
 
-    ctx.font = LABEL_FONT
+    // Match the DOM sample bubbles: theme label font, ink picked per clip color.
+    const labelFont = getComputedStyle(document.documentElement)
+      .getPropertyValue('--font-label')
+      .trim()
+    ctx.font = `10px ${labelFont || 'sans-serif'}`
     ctx.textBaseline = 'middle'
 
     for (const clip of clips) {
@@ -164,7 +167,7 @@ export default function LaneClipCanvas({
       ctx.stroke()
 
       // Draw label (truncated)
-      ctx.fillStyle = TEXT_COLOR
+      ctx.fillStyle = bubbleTextColor(color)
       ctx.save()
       ctx.beginPath()
       ctx.rect(x + 8, CLIP_TOP, w - 16, CLIP_HEIGHT)

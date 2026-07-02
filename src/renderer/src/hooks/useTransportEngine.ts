@@ -49,6 +49,7 @@ export interface TransportEngineActions {
   removeClipFromLane: (laneIndex: number, clipId: string) => void
   setLanePan: (laneIndex: number, pan: number) => void
   previewSample: (samplePath: string) => void
+  getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
   toggleLaneMute: (laneIndex: number) => void
   toggleLaneSolo: (laneIndex: number) => void
   laneShouldDim: (lane: LaneState) => boolean
@@ -260,6 +261,11 @@ export function useTransportEngine(
     []
   )
 
+  const getSampleBuffer = useCallback(
+    (samplePath: string) => playerRef.current?.getSampleBuffer(samplePath) ?? Promise.resolve(null),
+    []
+  )
+
   const transportPlay = useCallback(() => {
     const transport = transportRef.current
     if (!transport) return
@@ -332,6 +338,7 @@ export function useTransportEngine(
     removeClipFromLane: handleRemoveClipFromLane,
     setLanePan: handleSetLanePan,
     previewSample: handlePreviewSample,
+    getSampleBuffer,
     toggleLaneMute: handleToggleLaneMute,
     toggleLaneSolo: handleToggleLaneSolo,
     laneShouldDim: dimLane,

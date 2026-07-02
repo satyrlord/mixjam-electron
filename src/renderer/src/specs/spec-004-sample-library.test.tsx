@@ -102,7 +102,7 @@ function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {
 
 // Opens the manage panel and switches to the given tab
 function openManagePanel(tab: 'Tags' | 'Libraries' | 'Categories') {
-  fireEvent.click(screen.getByRole('button', { name: /manage tags and libraries/i }))
+  fireEvent.click(screen.getByRole('button', { name: /manage tags, libraries, and categories/i }))
   fireEvent.click(screen.getByRole('tab', { name: new RegExp(tab, 'i') }))
 }
 

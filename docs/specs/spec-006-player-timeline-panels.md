@@ -208,8 +208,9 @@ adjacencies.
 - [x] **AC-002c:** When the Recent Projects rail has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank rail or rail-specific action buttons.
 - [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
 - [x] **AC-004:** The Song Controls rail is visible by default in the lower-left; widening its right-edge reveal seam may expose mixer content without relocating the sample browser into the left rail.
-- [x] **AC-004a:** The default Song Controls rail shows a Master Volume slider, a master dB loudness meter, and a BPM slider.
-- [x] **AC-004b:** The Song Controls BPM slider ranges from 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
+- [x] **AC-004a:** The default Song Controls rail shows a Master Volume slider and a master dB loudness meter. BPM is edited only via the Middle Strip click-to-edit control
+  (revised 2026-07-02: the former rail BPM slider duplicated the Middle Strip editor and was removed per design-review change request).
+- [x] **AC-004b:** The BPM editor accepts 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
 - [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, M and S buttons, and pan knob placeholder.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
@@ -224,7 +225,8 @@ adjacencies.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
 - [x] **AC-015:** The BPM display shows the current BPM. Clicking it allows editing; changing the value updates the engine's BPM immediately.
-- [x] **AC-015a:** Changing BPM from either the Middle Strip editor or the Song Controls slider updates the same transport state and keeps both controls synchronized.
+- [x] **AC-015a:** The Middle Strip BPM editor is the single BPM control and always reflects the transport's current BPM
+  (revised 2026-07-02: superseded the two-control sync requirement when the rail slider was removed).
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-017:** Clips are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
 - [x] **AC-018:** Shift-dragging a placed clip duplicates it at the drop position; the original remains unchanged.

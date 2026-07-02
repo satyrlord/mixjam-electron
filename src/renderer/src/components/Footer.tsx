@@ -1,4 +1,5 @@
 import type { FooterSampleDetail } from '../lib/playerShell'
+import WaveformPreview from './WaveformPreview'
 
 interface FooterProps {
   view: 'home' | 'tracker'
@@ -6,18 +7,34 @@ interface FooterProps {
   sampleDetail: FooterSampleDetail | null
   onSelectFolder: () => void
   onOpenRepo: () => void
+  getSampleBuffer?: (samplePath: string) => Promise<AudioBuffer | null>
 }
 
-export default function Footer({ view, version, sampleDetail, onSelectFolder, onOpenRepo }: FooterProps) {
+export default function Footer({
+  view,
+  version,
+  sampleDetail,
+  onSelectFolder,
+  onOpenRepo,
+  getSampleBuffer
+}: FooterProps) {
   return (
     <footer className="footer">
-      <button type="button" className="footer-link" onClick={onSelectFolder}>
+      <button
+        type="button"
+        className="footer-link"
+        title="Choose where MixJam stores its settings and sample database"
+        onClick={onSelectFolder}
+      >
         Select settings folder
       </button>
       <div className="footer-detail" aria-live="polite">
         {view === 'tracker' && sampleDetail ? (
           <>
             <span className="footer-detail-name">{sampleDetail.name}</span>
+            {getSampleBuffer ? (
+              <WaveformPreview filepath={sampleDetail.filepath} getSampleBuffer={getSampleBuffer} />
+            ) : null}
             <span className="footer-detail-path">{sampleDetail.filepath}</span>
             <span className="footer-detail-tags">{sampleDetail.tags.join(', ')}</span>
           </>

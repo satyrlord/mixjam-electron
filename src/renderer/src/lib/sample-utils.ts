@@ -54,6 +54,34 @@ export function categoryColor(name: string): string {
   return PALETTE[idx]
 }
 
+// Ink colors for text rendered on top of a palette color. Part of the same
+// sanctioned bubble palette system as PALETTE: the light slots (Synth, Voice,
+// Arp, Pad) leave white text below the 4.5:1 WCAG minimum, so text on them
+// switches to dark ink. Bubbles stay theme-invariant either way.
+const BUBBLE_INK_LIGHT = '#FFFFFF'
+const BUBBLE_INK_DARK = '#141309'
+
+function channelLuminance(channel: number): number {
+  const c = channel / 255
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+}
+
+/**
+ * Pick the higher-contrast ink (white or near-black) for text drawn on the
+ * given hex background color, using WCAG relative luminance.
+ */
+export function bubbleTextColor(background: string): string {
+  const hex = background.startsWith('#') ? background.slice(1) : background
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return BUBBLE_INK_LIGHT
+  const luminance =
+    0.2126 * channelLuminance(parseInt(hex.slice(0, 2), 16)) +
+    0.7152 * channelLuminance(parseInt(hex.slice(2, 4), 16)) +
+    0.0722 * channelLuminance(parseInt(hex.slice(4, 6), 16))
+  const contrastVsWhite = 1.05 / (luminance + 0.05)
+  const contrastVsDark = (luminance + 0.05) / 0.058
+  return contrastVsWhite >= contrastVsDark ? BUBBLE_INK_LIGHT : BUBBLE_INK_DARK
+}
+
 export function formatDuration(seconds: number | null): string {
   if (seconds === null) return '?'
   if (seconds < 60) return `${seconds.toFixed(1)}s`

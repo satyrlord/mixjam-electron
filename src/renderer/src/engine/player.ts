@@ -132,6 +132,17 @@ export class Player {
     })
   }
 
+  // Decoded buffer for a sample, from cache or a fresh load. Used by the UI to
+  // render waveforms; shares the cache with playback so selecting a sample
+  // (which also previews it) costs a single decode.
+  async getSampleBuffer(samplePath: string): Promise<AudioBuffer | null> {
+    try {
+      return this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
+    } catch {
+      return null
+    }
+  }
+
   private stopPreview(): void {
     if (this.previewVoice) {
       this.previewVoice.stop()

@@ -368,23 +368,25 @@ describe('TrackerView', () => {
     expect(screen.getByText(/no mixjam projects yet/i)).toBeInTheDocument()
   })
 
-  // --- AC-004a: Song Controls rail shows Volume, dB meter, BPM slider ---
-  it('AC-004a: Song Controls rail renders Master Volume slider, dB meter, and BPM slider', () => {
+  // --- AC-004a: Song Controls rail shows Volume and dB meter; BPM lives only
+  // in the Middle Strip editor (single control) ---
+  it('AC-004a: Song Controls rail renders Master Volume slider and dB meter, with no BPM slider', () => {
     renderTracker({})
 
     expect(screen.getByRole('slider', { name: 'Master Volume' })).toBeInTheDocument()
     expect(screen.getByRole('meter', { name: 'Master loudness' })).toBeInTheDocument()
-    expect(screen.getByRole('slider', { name: 'BPM' })).toBeInTheDocument()
+    expect(screen.queryByRole('slider', { name: 'BPM' })).not.toBeInTheDocument()
   })
 
-  // --- AC-004b: BPM slider ranges 50-200, defaults to 120 ---
-  it('AC-004b: BPM slider has min=50, max=200, and initializes at 120', () => {
+  // --- AC-004b: BPM editor ranges 50-200, defaults to 120 ---
+  it('AC-004b: BPM editor has min=50, max=200, and initializes at 120', () => {
     renderTracker({ bpm: 120 })
 
-    const slider = screen.getByRole('slider', { name: 'BPM' })
-    expect(slider).toHaveAttribute('min', '50')
-    expect(slider).toHaveAttribute('max', '200')
-    expect(slider).toHaveValue('120')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit BPM' }))
+    const input = screen.getByLabelText('Edit BPM')
+    expect(input).toHaveAttribute('min', '50')
+    expect(input).toHaveAttribute('max', '200')
+    expect(input).toHaveValue(120)
   })
 
   // --- AC-005: 16 lanes render ---
@@ -486,23 +488,12 @@ describe('TrackerView', () => {
     expect(screen.getByRole('button', { name: 'Edit BPM' })).toHaveTextContent('120 BPM')
   })
 
-  // --- AC-015a: BPM sync between Middle Strip and Song Controls ---
-  it('AC-015a: Song Controls BPM slider reflects the same bpm prop as the Middle Strip', () => {
+  // --- AC-015a: the Middle Strip editor is the single BPM control and always
+  // reflects the transport state ---
+  it('AC-015a: Middle Strip BPM display reflects the bpm prop', () => {
     renderTracker({ bpm: 145 })
 
-    // Middle strip shows the current BPM
     expect(screen.getByRole('button', { name: 'Edit BPM' })).toHaveTextContent('145 BPM')
-    // Song Controls slider also reflects the value
-    expect(screen.getByRole('slider', { name: 'BPM' })).toHaveValue('145')
-  })
-
-  it('AC-015a: changing BPM via Song Controls slider calls onSetBpm', () => {
-    const onSetBpm = vi.fn()
-    renderTracker({ bpm: 120, onSetBpm })
-
-    const slider = screen.getByRole('slider', { name: 'BPM' })
-    fireEvent.change(slider, { target: { value: '90' } })
-    expect(onSetBpm).toHaveBeenCalledWith(90)
   })
 
   // --- AC-016: Browser vertical resize handle ---
@@ -649,15 +640,6 @@ describe('TrackerView', () => {
     const slider = screen.getByLabelText('Master Volume')
     fireEvent.change(slider, { target: { value: '50' } })
     expect(onSetMasterGain).toHaveBeenCalledWith(0.5)
-  })
-
-  it('calls onSetBpm when BPM slider changes', () => {
-    const onSetBpm = vi.fn()
-    renderTracker({ bpm: 120, onSetBpm })
-
-    const bpmSlider = screen.getByLabelText('BPM')
-    fireEvent.change(bpmSlider, { target: { value: '140' } })
-    expect(onSetBpm).toHaveBeenCalledWith(140)
   })
 
   it('inline-edits BPM via the strip button and commits on Enter', () => {
