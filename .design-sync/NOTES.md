@@ -206,10 +206,11 @@ guides are ever added to the repo, point `guidelinesGlob` at them.
 
 ## Preview scope
 
-All 9 components (FolderCard, Footer, Header, HomeScreen, LaneClipCanvas,
-ManagePanel, ScanOverlay, ScanProgressBar, TrackerView) are authored and
-graded `good` — full coverage, no floor cards. User confirmed this scope
-up front (small component count made full authoring cheap).
+All 11 components (AppShell, FolderCard, Footer, Header, HomeScreen,
+LaneClipCanvas, ManagePanel, ScanOverlay, ScanProgressBar, TrackerView,
+WaveformPreview) are authored and graded `good` — full coverage, no floor
+cards. User confirmed this scope up front (small component count made full
+authoring cheap); WaveformPreview added 2026-07-02, see above.
 
 ## Theme font/texture pass (2026-07-01)
 
@@ -254,6 +255,40 @@ plus new theme-scoped CSS in `index.css`:
   (`http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg`) — decodes identically at parse
   time, doesn't match the regex. If a future texture needs another data-URI
   SVG, apply the same encoding up front.
+
+## WaveformPreview added (2026-07-02 re-sync)
+
+Latest commit (`668cb85`) added `src/renderer/src/components/WaveformPreview.tsx`
+(footer waveform canvas for the selected sample) — picked up automatically as
+component #11 via the existing `deriveComponentsFromSrc` discovery, no config
+changes needed.
+
+- Needed an authored preview (`.design-sync/previews/WaveformPreview.tsx`):
+  the component draws to a `<canvas>` via `getSampleBuffer(filepath) =>
+  Promise<AudioBuffer | null>`, and jsdom has no real Web Audio API, so the
+  auto-generated preview produced a blank canvas (`[RENDER_BLANK]`, PNG <5KB).
+  Fixed by duck-typing a minimal `AudioBuffer`-shaped fixture (`numberOfChannels`,
+  `length`, `getChannelData()` returning a synthetic sine-envelope
+  `Float32Array`) — only the three members `computePeaks`/the draw loop
+  actually read. Two stories: `Selected` (real waveform, bars visible in
+  `--highlight` teal) and `Empty` (`filepath: null`, correctly renders nothing).
+- Grade file schema note (easy to get wrong): `.design-sync/.cache/review/<Name>.grade.json`
+  is `{"cells": {"<StoryName>": {"verdict": "good"|..., "note": "..."}}}` —
+  NOT a flat map of `{"<StoryName>": {"grade": ...}}`. Check an existing
+  component's `.grade.json` (e.g. `Footer.grade.json`) for the exact shape
+  before hand-writing one.
+- The other 10 components verified `unchanged` via the remote `_ds_sync.json`
+  anchor (fetched with `DesignSync get_file` since local `.sync-diff.json`
+  history didn't carry it) despite a commit landing after the last sync —
+  the commit's font/icon/CSS changes didn't touch those components' source
+  files, only shared CSS, so `styleChanged: true` still forced bundle/styling/
+  fonts re-upload even with 0 component re-verifications needed.
+- Re-run gotcha: calling `resync.mjs` directly (not via `cfg.buildCmd`) means
+  you must pass `--entry ./out/main/does-not-exist.js` yourself — omitting
+  `--entry` makes it default toward resolving `node_modules/<pkg>/package.json`
+  as a real dist entry, which doesn't exist and throws `ENOENT` (this is the
+  same synth-entry trick documented in "Repo shape" above, just easy to forget
+  when invoking the driver ad hoc instead of via the configured `buildCmd`).
 
 ## Re-sync risks
 
