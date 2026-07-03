@@ -42,8 +42,9 @@ Implement view switching, the header bar, and the footer.
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
   - "Load MixJam" link — secondary action. Disabled with a "coming soon"
     tooltip until `.mixjam` save/load ships (spec-011); a load the app cannot
-    perform is not offered as clickable. Once spec-011 lands it opens a native
-    file picker filtered to the project file extension.
+    perform is not offered as clickable. Once spec-011 lands it opens a file
+    picker filtered to the project file extension (the File System Access
+    `showOpenFilePicker`; the Electron shell surfaces it as a native dialog).
 - **Footer** (40px): "Select User Folder" link anchored to the left
   margin, version string anchored to the right margin.
 - The Home Screen has no timer and no home link.
@@ -72,7 +73,7 @@ Implement view switching, the header bar, and the footer.
   with the MixJam Player.
 - "Load MixJam" is disabled until spec-011 ships (amended 2026-07-03 — the
   original behavior opened a picker and discarded the result, promising a load
-  the app could not perform). It will open the native file picker and navigate
+  the app could not perform). It will open the file picker and navigate
   to the Player once real project loading exists.
 - Clicking the home link "&lt; Return to Main Menu" in the Player header
   returns to the Home Screen.
@@ -82,16 +83,27 @@ Implement view switching, the header bar, and the footer.
 - When switching from Player to Home, the window resizes from its current
   size back to 1280×720 and the maximize button is removed.
 
-### Browser-host web mode (non-Electron runtime)
+### Browser host (non-Electron runtime)
 
-- If the renderer is loaded without the preload bridge (`window.electronAPI`),
-  the app injects a mock Electron API and runs the full feature set in the browser.
-- Mock features include: session persistence (localStorage), library browsing with
-  generated mock samples, tagging, categories, libraries, and all UI views.
-- Audio playback in web mode uses offline Web Audio API buffers instead of
-  reading files from disk (native file I/O is not available in browsers).
-- Folder picking is simplified (no native dialog; uses a mock "local-samples" path).
-- This mode enables full-featured deployment on static hosts like GitHub Pages.
+Amended 2026-07-03 (web-first re-architecture): the former mock/demo web mode
+is deleted. The browser build IS the real app — same bundle, same backend.
+
+- The renderer always installs the real browser backend (sqlite-wasm over
+  OPFS, File System Access folders, localStorage session). Host detection only
+  selects the optional `window.shellAPI` (present inside the Electron shell).
+- There is **no demo mode**: with no granted Sample Folder the home screen
+  gates the tracker exactly as on desktop. Onboarding for users without
+  samples is spec-013 (Sample Folder Builder), not fake data.
+- Window-management behaviors (resize to 1280×720 / 1920×1080, maximize
+  button) are Electron-shell capabilities; in the browser the resize calls are
+  no-ops and the app simply fills the tab. The window-sizing acceptance
+  criteria below apply to the Electron host only.
+- Folder picking uses the File System Access directory picker in both hosts
+  (spec-003).
+- The app runs in exactly one tab per origin (opfs-sahpool allows one DB
+  connection); a second tab shows an "already open in another tab" notice.
+- This enables full-featured deployment on static hosts like GitHub Pages
+  (Chromium-only is an accepted constraint).
 
 ### Header Bar (both views)
 
@@ -140,17 +152,17 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
 - [x] **AC-007:** "Load MixJam" is disabled with a "coming soon" tooltip until spec-011 ships
   (amended 2026-07-03 — originally it opened a picker whose result was discarded). Once project
-  loading exists: clicking opens a native file picker, selecting a file navigates to the Player
-  (with window resize), cancelling stays on the Home Screen.
+  loading exists: clicking opens a file picker, selecting a file navigates to the Player
+  (with window resize in the Electron shell), cancelling stays on the Home Screen.
 - [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
 - [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip,
   Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
-- [x] **AC-013:** In a browser-only host where `window.electronAPI` is missing, the renderer
-  injects mock Electron APIs and runs the full app feature set with localStorage session
-  persistence, library browsing, and theming.
+- [x] **AC-013:** In a browser-only host where `window.shellAPI` is missing, the renderer runs the
+  full real app (browser backend, folder gating, theming) with no mock or demo data; window-resize
+  calls are no-ops (amended 2026-07-03 — the former mock web mode is deleted).
 
 ## Non-Goals (deferred to later specs)
 
@@ -168,7 +180,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 
 ## References
 
-- [mixjam-sample-daw spec-002](../_archived/mixjam-sample-daw/specs/002-home-screen-with-skin-support/spec.md) — Home Screen layout, header, footer, version display.
-- [mixjam-sample-daw spec-003](../_archived/mixjam-sample-daw/specs/003-tracker-view-shell/spec.md) — Tracker View shell, view switching, timer, placeholder zones.
-- [mixjam-webjam spec-001](../_archived/mixjam-webjam/specs/001-shell-and-theming/spec.md) — Home page, launch gate, session restore.
-- [mixjam-sample-daw style-guide §1–§3](../_archived/mixjam-sample-daw/docs/style-guide.md) — Shell layout, header bar rules, home screen layout.
+- mixjam-sample-daw spec-002 — archived predecessor-project doc, not tracked in this repo — Home Screen layout, header, footer, version display.
+- mixjam-sample-daw spec-003 — archived predecessor-project doc, not tracked in this repo — Tracker View shell, view switching, timer, placeholder zones.
+- mixjam-webjam spec-001 — archived predecessor-project doc, not tracked in this repo — Home page, launch gate, session restore.
+- mixjam-sample-daw style-guide §1–§3 — archived predecessor-project doc, not tracked in this repo — Shell layout, header bar rules, home screen layout.

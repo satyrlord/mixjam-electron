@@ -21,9 +21,10 @@ than enough for an eJay/Acid-style tracker.
 
 - Decode each sample once into an `AudioBuffer` and cache it (keyed by sample id),
   with an LRU cap so a 35GB library never tries to live in memory.
-- File bytes reach the renderer via a custom Electron protocol (or a main-mediated
-  read) rather than wide `file://` access — keeps the renderer sandbox intact
-  (see [architecture.md](architecture.md#process-model)).
+- File bytes reach the engine through the injected `loadSampleBytes` callback,
+  backed by `BackendAPI.readSampleBytes(rootId, relpath)` — a read through the
+  Sample Folder's File System Access handle, so reads cannot escape the granted
+  folder (see [architecture.md](architecture.md#process-model)).
 - Each voice is a fresh `AudioBufferSourceNode` (they are one-shot) routed through a
   per-track gain/pan node into the master bus.
 
@@ -50,3 +51,8 @@ Until one of those is true and reproduced, Web Audio stays. The UI is unaffected
 the swap: the scheduler/transport sit behind an interface, and only its
 implementation changes. Try an **`AudioWorklet`** before a native addon — it covers
 most custom-DSP needs while staying in the web stack.
+
+Web-first note (2026-07-03): a native addon can only ever serve the Electron
+host — the browser build cannot load it. `AudioWorklet` is the only escape
+hatch that works in both hosts, which is another reason it comes first; a
+native addon would make the affected feature desktop-only.

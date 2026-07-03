@@ -12,7 +12,6 @@
 - [docs/data-model.md](file://docs/data-model.md)
 - [docs/indexing.md](file://docs/indexing.md)
 - [docs/audio-engine.md](file://docs/audio-engine.md)
-- [docs/decisions.md](file://docs/decisions.md)
 - [src/main/index.ts](file://src/main/index.ts)
 - [src/main/library.ts](file://src/main/library.ts)
 - [src/main/session.ts](file://src/main/session.ts)
@@ -53,7 +52,6 @@ Arch["architecture.md<br/>System architecture"]
 Data["data-model.md<br/>Database schema"]
 Index["indexing.md<br/>Scanning & indexing"]
 Audio["audio-engine.md<br/>Playback engine"]
-Dec["decisions.md<br/>Trade-off decisions"]
 end
 subgraph "Application"
 Main["src/main/index.ts<br/>IPC handlers & lifecycle"]
@@ -88,7 +86,6 @@ Renderer --> Main
 - [docs/data-model.md:1-138](file://docs/data-model.md#L1-L138)
 - [docs/indexing.md:1-99](file://docs/indexing.md#L1-L99)
 - [docs/audio-engine.md:1-53](file://docs/audio-engine.md#L1-L53)
-- [docs/decisions.md:1-83](file://docs/decisions.md#L1-L83)
 - [src/main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 - [src/main/library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [src/main/session.ts:1-265](file://src/main/session.ts#L1-L265)
@@ -280,13 +277,11 @@ Goal --> Arch["architecture.md"]
 Goal --> Data["data-model.md"]
 Goal --> Index["indexing.md"]
 Goal --> Audio["audio-engine.md"]
-Goal --> Dec["decisions.md"]
 AddFeat["Add Feature Skill"] --> AG
 AddFeat --> Arch
 AddFeat --> Data
 AddFeat --> Index
 AddFeat --> Audio
-AddFeat --> Dec
 ```
 
 **Diagram sources**
@@ -316,7 +311,6 @@ Arch["architecture.md"]
 Data["data-model.md"]
 Index["indexing.md"]
 Audio["audio-engine.md"]
-Dec["decisions.md"]
 end
 subgraph "Application Dependencies"
 Main["src/main/index.ts"]
@@ -334,13 +328,11 @@ Goal --> Arch
 Goal --> Data
 Goal --> Index
 Goal --> Audio
-Goal --> Dec
 AddFeat --> AG
 AddFeat --> Arch
 AddFeat --> Data
 AddFeat --> Index
 AddFeat --> Audio
-AddFeat --> Dec
 Goal --> Main
 Goal --> Lib
 Goal --> Session
@@ -357,7 +349,6 @@ AddFeat --> Renderer
 - [docs/data-model.md:1-138](file://docs/data-model.md#L1-L138)
 - [docs/indexing.md:1-99](file://docs/indexing.md#L1-L99)
 - [docs/audio-engine.md:1-53](file://docs/audio-engine.md#L1-L53)
-- [docs/decisions.md:1-83](file://docs/decisions.md#L1-L83)
 - [src/main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 - [src/main/library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [src/main/session.ts:1-265](file://src/main/session.ts#L1-L265)
@@ -369,7 +360,6 @@ AddFeat --> Renderer
 - [docs/data-model.md:1-138](file://docs/data-model.md#L1-L138)
 - [docs/indexing.md:1-99](file://docs/indexing.md#L1-L99)
 - [docs/audio-engine.md:1-53](file://docs/audio-engine.md#L1-L53)
-- [docs/decisions.md:1-83](file://docs/decisions.md#L1-L83)
 - [src/main/index.ts:1-342](file://src/main/index.ts#L1-L342)
 - [src/main/library.ts:1-536](file://src/main/library.ts#L1-L536)
 - [src/main/session.ts:1-265](file://src/main/session.ts#L1-L265)

@@ -1,6 +1,7 @@
 # Data model
 
-One SQLite database, owned by the main process. The central design property:
+One SQLite database (sqlite-wasm over OPFS, opfs-sahpool VFS), owned by the
+backend worker. The central design property:
 
 > **A library is a saved query, not a copy of files.** Editing/retagging/deleting a
 > sample automatically updates every library that references it, because libraries
@@ -9,10 +10,18 @@ One SQLite database, owned by the main process. The central design property:
 ## Schema
 
 ```sql
+-- One row per Sample Folder that has ever been scanned. key is the FolderRef
+-- id (the folder handle's IndexedDB key) — browsers have no absolute paths.
+CREATE TABLE scan_roots (
+  id  INTEGER PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE
+);
+
 -- The master index. One row per file on disk.
 CREATE TABLE samples (
   id           INTEGER PRIMARY KEY,
-  filepath     TEXT NOT NULL UNIQUE,   -- absolute path; UNIQUE = the dedup key
+  root_id      INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
+  relpath      TEXT NOT NULL,          -- '/'-separated path relative to the scan root
   filename     TEXT NOT NULL,          -- basename, denormalized for sort/search
   ext          TEXT,                   -- 'wav', 'mp3', ... (lowercased)
   size_bytes   INTEGER,
@@ -24,7 +33,8 @@ CREATE TABLE samples (
   musical_key  TEXT,                   -- e.g. 'Am'; NULL until set
   date_added   INTEGER NOT NULL,       -- epoch ms, first-indexed time
   scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-extracted, 2=missing
-  category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL  -- one primary category per sample (v2)
+  category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,  -- one primary category per sample
+  UNIQUE (root_id, relpath)               -- the dedup key
 );
 
 CREATE TABLE tags (
@@ -73,20 +83,22 @@ CREATE TABLE library_rules (
 );
 ```
 
-A `scan_roots` table existed in early schema versions but was never used — v1
-supports exactly one active Sample Folder (the session's `sampleFolder`), so the
-schema v3 migration drops it. Reintroduce a roots table only if multi-root
-libraries land.
+`scan_roots` is load-bearing: one active Sample Folder is shown at a time (the
+session's `sampleFolder`), but every folder ever scanned keeps its rows, scoped
+by `root_id`, so switching folders switches the visible library instead of
+mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
 
 `PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).
-Run in WAL mode (`PRAGMA journal_mode = WAL;`) so the indexer can write while the
-UI reads.
+There is no WAL under opfs-sahpool — queries and the indexer share the single
+worker connection, so all indexer writes are batched in transactions and the
+scan yields to the worker event loop between batches.
 
 ## Indexes for 100k-row performance
 
 Filtering/sorting must stay in the millisecond range. Create at least:
 
 ```sql
+CREATE INDEX idx_samples_root       ON samples(root_id);
 CREATE INDEX idx_samples_filename   ON samples(filename);
 CREATE INDEX idx_samples_date_added ON samples(date_added);
 CREATE INDEX idx_samples_bpm        ON samples(bpm);
@@ -103,16 +115,16 @@ triggers:
 
 ```sql
 CREATE VIRTUAL TABLE samples_fts USING fts5(
-  filename, filepath,
+  filename, relpath,
   content='samples', content_rowid='id'
 );
 ```
 
 Use `content=`/`content_rowid=` (external-content) so the FTS index doesn't
 duplicate the text, and maintain it with `AFTER INSERT/DELETE` triggers plus an
-`AFTER UPDATE OF filename, filepath` trigger on `samples` — scoping the update
+`AFTER UPDATE OF filename, relpath` trigger on `samples` — scoping the update
 trigger to the indexed columns keeps scan-state and metadata writes from
-rewriting the FTS row (schema v3). Text conditions in a query (see
+rewriting the FTS row. Text conditions in a query (see
 [query-schema.md](query-schema.md)) compile to a `samples_fts MATCH ?` subquery.
 
 ## Category-tree queries
@@ -131,7 +143,9 @@ SELECT sample_id FROM sample_categories WHERE category_id IN (SELECT id FROM sub
 
 ## Migrations
 
-`rule_json` is versioned (see [query-schema.md](query-schema.md)); the schema itself
-should carry a `PRAGMA user_version` bumped by ordered migration steps run at
-startup. Keep migrations forward-only and idempotent so an interrupted first run is
-safe to resume.
+`rule_json` is versioned (see [query-schema.md](query-schema.md)); the schema
+carries a `schema_version` table stamped at init. The OPFS database started at
+schema v1 of the web-first world (the old Electron userData `library.db` and
+its v1-v4 migration chain were abandoned; the index is rebuilt by the first
+scan). Add forward-only, idempotent migration steps from v1 onward in
+`src/renderer/src/backend/schema.ts`.

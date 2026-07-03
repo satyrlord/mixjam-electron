@@ -37,7 +37,6 @@ behavior. Update the owning document instead.
    - `docs/query-schema.md` - `rule_json` predicate-tree format
    - `docs/indexing.md` - First-run scan + incremental re-scan
    - `docs/audio-engine.md` - Web Audio scheduler + native-addon trigger
-   - `docs/decisions.md` - Resolved trade-offs and revisit triggers
 3. Check for existing implementations that might solve the problem
 
 **Never implement without understanding the existing documented context.**
@@ -51,7 +50,6 @@ For **canonical docs** (durable reference documents):
 - query format and compilation -> `docs/query-schema.md`
 - indexing and scanning -> `docs/indexing.md`
 - audio engine decisions -> `docs/audio-engine.md`
-- trade-off decisions and rationale -> `docs/decisions.md`
 - cross-cutting terminology -> `docs/glossary.md` (create lazily, only when needed)
 - durable trade-off decisions -> record in the relevant canonical doc, or create a new doc under `docs/`
   (this project does not use standalone ADRs; no `docs/adr/` tree).

@@ -56,7 +56,7 @@ Every leaf has a `kind` discriminator. Unknown `kind`s must cause a clear error
 // Musical key — membership in a set.
 { "kind": "key", "in": ["Am", "C", "G"] }
 
-// Full-text search over filename/filepath via FTS5.
+// Full-text search over filename/relpath via FTS5.
 { "kind": "text", "query": "kick punchy" }
 
 // Date added. Absolute (epoch ms) or relative; use one style per leaf.

@@ -6,9 +6,10 @@
 
 ## Objective
 
-Establish the theme system: 8 named themes defined as design tokens, a runtime
-theme switching mechanism, and the Emerald theme as the fully implemented
-baseline. All other themes are listed but deferred.
+Establish the theme system: 8 named themes defined as design tokens and a
+runtime theme switching mechanism. All 8 themes (Emerald, Flat Studio, Neon
+Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA) are fully
+implemented with distinct visual appearances; Emerald is the default.
 
 ## User Stories
 
@@ -147,9 +148,8 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
 }
 ```
 
-At minimum, the Emerald theme file exists. Stub files for the other 7 themes
-may exist (with Emerald values copied as placeholders) or be created on demand
-in later specs.
+All 8 theme files exist in `public/themes/` with their own distinct token
+values (no placeholder copies).
 
 ## Acceptance Criteria (testable)
 
@@ -166,7 +166,6 @@ in later specs.
 
 ## Non-Goals (deferred to later specs)
 
-- All 8 themes are fully implemented with distinct visual appearances.
 - No theme import/export — themes are bundled with the app, not loaded from
   external files at runtime.
 - No theme validation/sanitization for untrusted theme files (relevant when
@@ -181,7 +180,7 @@ in later specs.
 
 ## References
 
-- [mixjam-sample-daw spec-002](../_archived/mixjam-sample-daw/specs/002-home-screen-with-skin-support/spec.md) — Emerald theme tokens, WPF resource mapping, font families.
-- [mixjam-webjam spec-001](../_archived/mixjam-webjam/specs/001-shell-and-theming/spec.md) — CSS custom property theme system, 8 themes, `data-theme` switching.
-- [mixjam-sample-daw style-guide §2.2, §5.5](../_archived/mixjam-sample-daw/docs/style-guide.md) — Emerald token table, clip visual treatments per theme.
-- [mixjam-sample-daw tech-stack §5](../_archived/mixjam-sample-daw/docs/tech-stack.md) — Theme JSON schema, WPF + WebView2 dual consumption.
+- mixjam-sample-daw spec-002 — archived predecessor-project doc, not tracked in this repo — Emerald theme tokens, WPF resource mapping, font families.
+- mixjam-webjam spec-001 — archived predecessor-project doc, not tracked in this repo — CSS custom property theme system, 8 themes, `data-theme` switching.
+- mixjam-sample-daw style-guide §2.2, §5.5 — archived predecessor-project doc, not tracked in this repo — Emerald token table, clip visual treatments per theme.
+- mixjam-sample-daw tech-stack §5 — archived predecessor-project doc, not tracked in this repo — Theme JSON schema, WPF + WebView2 dual consumption.

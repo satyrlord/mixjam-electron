@@ -1,6 +1,7 @@
 # MixJam Electron — Developer Guide
 
-A Windows Electron desktop app with two halves:
+A web-first Chromium app (GitHub Pages) with a thin Electron desktop shell,
+in two halves:
 
 1. A **sample-library browser and tagger** over a large local collection (35GB+,
    100,000+ samples, 850+ folders) with dynamic tags, a category/subcategory tree,
@@ -20,27 +21,29 @@ requirements that drive every architectural choice.
 | [query-schema.md](query-schema.md) | The `rule_json` predicate-tree format and how it compiles to SQL |
 | [indexing.md](indexing.md) | First-run scan, background metadata extraction, incremental re-scan |
 | [audio-engine.md](audio-engine.md) | Web Audio lookahead scheduler and the native-addon escape hatch |
-| [decisions.md](decisions.md) | Decision log: resolved trade-offs and the triggers for revisiting them |
 
 ## Prerequisites
 
 - Node.js 20+
-- Windows (the app targets Win32; macOS/Linux are not tested)
-- Python and a C++ build toolchain for `better-sqlite3` native compilation
-  (the Visual Studio Build Tools workload "Desktop development with C++" covers this)
+- A Chromium browser (the app uses the File System Access API and OPFS;
+  Safari/Firefox support is explicitly not a goal)
+
+There are no native modules — SQLite runs as WebAssembly
+(`@sqlite.org/sqlite-wasm`), so no build toolchain or ABI rebuilds are needed.
 
 ## Getting started
 
 ```sh
-npm install       # installs deps and rebuilds better-sqlite3 for the Electron ABI
+npm install
 npm run dev       # starts Electron with hot reload via electron-vite
 ```
 
-The first `npm install` takes longer than usual because `electron-rebuild` compiles
-`better-sqlite3` against the Electron Node ABI. This is expected.
-
 If Electron fails to launch, check whether `ELECTRON_RUN_AS_NODE` is set in your
 environment — remove it before running `dev` or `build`.
+
+The browser build is `out/renderer` after `npm run build` — a static bundle that
+any plain static file server can host (no COOP/COEP headers required; this is
+what the GitHub Pages deploy publishes).
 
 ## Build
 
@@ -57,13 +60,13 @@ npm run test:watch    # run vitest in watch mode
 npm run test:coverage # run with v8 coverage report
 ```
 
-Tests run in Node (not Electron), so `better-sqlite3` is rebuilt for the Node ABI
-before each test run via the `pretest` script. Do not rebuild it manually between
-test and dev runs — the pre-scripts handle it.
+The SQL-layer and indexer suites run against sqlite-wasm with an in-memory
+database in a plain Node vitest project; everything else runs under jsdom.
 
 The test setup does not use vitest globals; `testing-library` auto-cleanup is
 disabled. `afterEach(cleanup)` is called from `src/renderer/src/test/setup.ts`.
-Shared IPC mocks for the renderer live in `src/renderer/src/test/electronApi.ts`.
+The shared BackendAPI mock for the renderer lives in
+`src/renderer/src/test/backendApi.ts`.
 
 ## Type-checking and linting
 
@@ -76,9 +79,12 @@ npm run lint        # eslint
 
 ```text
 src/
-  main/           Node/Electron main process — SQLite, IPC handlers, indexer
-  preload/        contextBridge script — typed API surface exposed to the renderer
+  shared/         BackendAPI contract (backend-api.ts) + shell IPC surface (ipc.ts)
+  main/           Thin Electron shell — window, app:// protocol, permission auto-grant
+  preload/        contextBridge script — the narrow ShellAPI (version, resize, openExternal)
   renderer/       React app — sample browser, tracker, audio engine (Web Audio)
+    backend/      Backend worker — sqlite-wasm (opfs-sahpool), indexer, session,
+                  folder handles (IndexedDB), BackendAPI client facade
     engine/       transport, scheduler, audio engine, sample cache
     hooks/        React hooks — app state, transport, library data
     components/   UI components
@@ -87,14 +93,20 @@ docs/             Architecture and design documentation
 public/themes/    Skin JSON files
 ```
 
-The main process owns all database access. The renderer communicates with it
-exclusively over the typed contextBridge IPC — there is no `nodeIntegration`.
+Some working directories are machine-local and gitignored: `ds-bundle/` and
+`.design-sync/` caches are Claude Design sync artifacts (see
+`.design-sync/NOTES.md`), and `tmp/` holds ad-hoc scratch files, fixtures
+(`tmp/test-samples`), and verification scripts.
+
+The backend worker owns all database access; the UI talks to it through the
+typed BackendAPI facade. The Electron shell adds only host capabilities — the
+renderer stays sandboxed with no `nodeIntegration`.
 
 ## Specs
 
 Feature specifications live in `docs/specs/`. Each spec has a matching test file
-under `src/`. Specs 001-005 are fully implemented. Spec-006 is partial — see
-[AGENTS.md](../AGENTS.md) for the remaining acceptance criteria.
+under `src/`. Specs 001-006 are fully implemented and tested; check individual
+spec files for per-AC status.
 
 ## Skinning
 

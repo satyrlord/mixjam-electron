@@ -1,7 +1,7 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** COMPLETE
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -218,11 +218,8 @@ adjacencies.
 - Default-visible controls:
   - **Master Volume slider** — global output level control for the full mix.
   - **dB loudness meter** — master-output loudness display for the current mix.
-  - **BPM slider** — transport tempo control, 50–200 BPM, default 120 BPM.
 - Owns song-level controls and the right-edge reveal affordance for the future
   mixer panel (spec-007).
-- The BPM slider stays synchronized with the Middle Strip BPM display/editor;
-  changing either control updates the same transport BPM.
 - Dragging the right-edge reveal seam to the right widens the rail; once the
   reveal threshold is crossed, mixer content may appear inside the expanded
   rail without moving into the sample-browser region.
@@ -276,8 +273,9 @@ adjacencies.
   The Middle Strip Undo/Redo buttons mirror the shortcuts and disable when their history stack is empty. A multi-clip delete undoes as a single step.
 - [x] **AC-023:** The "?" Middle Strip button and the "?" key open a keyboard-shortcuts overlay; Esc, the close button, or a backdrop click dismisses it.
   Transport, BPM, mute/solo, and pan controls have tooltip hints.
-- [x] **AC-024:** Clicking a Recent Projects rail entry opens it (records it as most-recently opened, re-sorts the rail, and shows its name in the
-  Middle Strip). Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
+- [x] **AC-024:** Clicking a Recent Projects rail entry records it as most-recently opened, re-sorts the rail, and shows its name in the
+  Middle Strip. Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
+  Full project deserialization (restoring lanes/clips from the `.mixjam` file) remains deferred to spec-011.
 - [x] **AC-025:** Space toggles Play/Pause when focus is not in a text control.
 
 ## Non-Goals (deferred to later specs)
@@ -287,7 +285,7 @@ adjacencies.
   Middle Strip is a fixed seam, not a drag handle.
 - No clip resize once placed.
 - No track reordering (drag lane up/down).
-- No lane add/remove UI (fixed 16 lanes).
+- No lane add/remove UI (fixed 16 lanes). The audio engine supports up to 64 lanes (spec-005), but the UI is currently limited to 16.
 - No zoom in/out on the timeline.
 - No waveform rendering inside clips.
 - No cut/copy/paste for clips.
@@ -298,6 +296,6 @@ adjacencies.
 
 ## References
 
-- [mixjam-sample-daw spec-003](../_archived/mixjam-sample-daw/specs/003-tracker-view-shell/spec.md) — Lane layout, ruler, transport strip, resize handles.
-- [mixjam-sample-daw style-guide §4–§5](../_archived/mixjam-sample-daw/docs/style-guide.md) — Timeline, lane, clip component rules.
+- mixjam-sample-daw spec-003 — archived predecessor-project doc, not tracked in this repo — Lane layout, ruler, transport strip, resize handles.
+- mixjam-sample-daw style-guide §4–§5 — archived predecessor-project doc, not tracked in this repo — Timeline, lane, clip component rules.
 - [Current project architecture.md](../architecture.md) — Virtualization requirement, canvas rendering guidance.

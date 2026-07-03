@@ -18,10 +18,11 @@ keep the UI a real webview).
 
 | Layer | Choice | Why it is constrained this way |
 |---|---|---|
-| Shell | **Electron** | Real Chromium webview → CSS/web-font skins render pixel-perfect with no translation layer. This is the direct fix for the WPF skinning failure. Node backend keeps everything in JS/TS. |
+| Hosts | **Browser-first (Chromium) + thin Electron shell** | One backend, two hosts: the browser build is the primary app (GitHub Pages), and Electron loads the identical bundle from a privileged `app://` origin. Chromium-only is an accepted constraint (Safari/Firefox support is explicitly not a goal). |
 | UI | **React + TypeScript** | React was not the prior bottleneck; virtualization was. Prior React investment is kept. |
 | Large-list rendering | **Virtualized list/grid** (TanStack Virtual or react-window) | ~30–50 DOM rows exist at once, recycled on scroll. Mandatory for any view that can show many samples. |
-| Data layer | **SQLite via `better-sqlite3`** in the main/Node process | Filtering/sorting 100k rows is an indexed SQL query, never in-memory JS array work. FTS5 for fuzzy name search. |
+| Data layer | **SQLite via `@sqlite.org/sqlite-wasm`** (opfs-sahpool VFS) in a backend Web Worker | Filtering/sorting 100k rows is an indexed SQL query, never in-memory JS array work. FTS5 for fuzzy name search. opfs-sahpool needs no COOP/COEP headers (GitHub Pages cannot set them); its cost is one connection in one tab, enforced by a Web Lock. |
+| File access | **File System Access API** | `showDirectoryPicker` grants a `FileSystemDirectoryHandle` persisted in IndexedDB; containment is structural (a handle can only reach its own subtree). The Electron shell auto-grants the `fileSystem` permission for desktop UX parity. |
 | Library concept | **Saved filtered views over one master index** | A "library" is a saved query (`rule_json`), not copied files. See [data-model.md](data-model.md). |
 | Theming | **Plain CSS / Tailwind / CSS variables** | Claude Design HTML/CSS output is a good reference. |
 | Audio | **Web Audio API** lookahead-scheduler | Sample-accurate enough for an eJay/Acid tracker. Native addon escape hatch defined in [audio-engine.md](audio-engine.md). |
@@ -29,35 +30,49 @@ keep the UI a real webview).
 ## Process model
 
 ```text
-┌────────────────────────────────────────────────────────────┐
-│ Electron main process (Node)                                │
-│   • better-sqlite3 — owns the database, runs all queries    │
-│   • IPC handlers — the renderer's only path to data         │
-│   • indexer worker_thread — filesystem scan + metadata      │
-│     (see indexing.md), reports progress over IPC            │
-└───────────────▲────────────────────────────────────────────┘
-                │ contextBridge IPC (typed, no nodeIntegration)
-┌───────────────┴────────────────────────────────────────────┐
-│ Renderer (React + TS)                                       │
-│   • virtualized sample browser  • tag/category UI           │
-│   • tracker/player (Web Audio runs here)                    │
-│   • skinnable via CSS variables                             │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ Renderer (identical bundle in every host)                │
+│                                                          │
+│  UI (React) ──> BackendAPI facade (src/shared/           │
+│                 backend-api.ts, promise-per-message)     │
+│                      │ postMessage                       │
+│  ┌───────────────────▼───────────────────────────────┐  │
+│  │ Backend Worker (src/renderer/src/backend/worker)  │  │
+│  │  • sqlite-wasm + opfs-sahpool — owns the one DB   │  │
+│  │    connection, runs all queries                   │  │
+│  │  • indexer — directory-handle traversal +         │  │
+│  │    music-metadata parseBlob (see indexing.md)     │  │
+│  └───────────────────────────────────────────────────┘  │
+│  Folder handles in IndexedDB · session in localStorage   │
+│  tracker/player (Web Audio) · skinnable via CSS vars     │
+└─────────────────────────────────────────────────────────┘
+   Host A: any Chromium browser (GitHub Pages, https)
+   Host B: thin Electron shell (~270-line main process):
+           window sizing, app:// protocol, auto-granted
+           fileSystem permission, openExternal allowlist
+           (exposed to the renderer as window.shellAPI)
 ```
 
 Rules of the process model:
 
-- **All DB access lives in the main process.** `better-sqlite3` is synchronous and
-  native; it must not run in the renderer. The renderer asks for data over IPC and
-  receives plain JSON (e.g. a page of sample rows for the virtual list).
+- **All DB access lives in the backend worker.** opfs-sahpool requires the
+  worker-only `FileSystemSyncAccessHandle` API and allows exactly one
+  connection, so queries and indexing interleave on the same connection. The UI
+  calls the async `BackendAPI` facade and receives plain JSON (e.g. a page of
+  sample rows for the virtual list).
 - **Renderer requests are windowed.** The virtual list asks for the visible
   slice + buffer (`LIMIT`/`OFFSET` or keyset pagination), never the full result set.
-- **Keep the renderer sandboxed:** `contextIsolation: true`, `nodeIntegration:
-  false`, a `contextBridge` preload exposing a narrow typed API. This matters
-  because the app reads arbitrary local files.
-- **Audio stays in the renderer** (Web Audio API). Only file paths/metadata cross
-  IPC; audio buffers are loaded in the renderer from disk via a custom protocol or
-  `file://` access mediated by main.
+- **No absolute paths anywhere.** Folders are `FolderRef`s (an id keying a
+  persisted directory handle); samples are `(root_id, relpath)`. Reading a file
+  resolves the relpath through the root's handle, so reads cannot escape a
+  granted folder by construction.
+- **One tab.** A Web Lock (`mixjam-app`) is taken before the app mounts; a
+  second tab shows a friendly notice instead of failing on DB open.
+- **Keep the Electron renderer sandboxed:** `contextIsolation: true`,
+  `nodeIntegration: false`, a `contextBridge` preload exposing only the narrow
+  `ShellAPI` (version, window resize, allowlisted openExternal).
+- **Audio stays on the renderer main thread** (Web Audio API). The engine loads
+  sample bytes through `BackendAPI.readSampleBytes(rootId, relpath)`.
 
 ## Non-goals for this phase
 
@@ -70,6 +85,6 @@ Rules of the process model:
 
 This project is **distinct** from MixJam Native (WinUI) and MixJam Web (React/Vite,
 GitHub Pages). Do not share or copy schemas, docs, or code with them, and do not
-assume their conventions apply here. The frontend is deliberately kept portable
-(plain HTML/CSS/JS/React) so the Electron shell could later be swapped for Tauri
-without a UI rewrite — see [decisions.md](decisions.md#d-002-electron-for-v1).
+assume their conventions apply here. Since the web-first re-architecture the entire
+app is a portable web bundle; the Electron shell is ~150 lines and could be swapped
+for any Chromium-based shell (or dropped entirely) without touching the app.

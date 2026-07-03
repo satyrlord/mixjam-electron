@@ -3,79 +3,41 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-07-02T18:16:02Z"
+exported_at: "2026-07-03T10:09:00Z"
 modules:
-    "":
-        dir_name: MixJam Desktop Audio Workstation
-        title: MixJam Desktop Audio Workstation
-        scope:
-            - .gitignore
-            - .markdownlint-cli2.jsonc
-            - .markdownlint.json
-            - AGENTS.md
-            - CLAUDE.md
-            - electron.vite.config.ts
-            - eslint.config.mjs
-            - package-lock.json
+    build_system:
+        dir_name: Electron-Vite Build Pipeline & Quality Gates
+        title: Electron-Vite Build Pipeline & Quality Gates
+        scope: []
+        source_files:
             - package.json
+            - electron.vite.config.ts
+            - vitest.config.ts
             - tsconfig.json
             - tsconfig.node.json
             - tsconfig.web.json
-            - vitest.config.ts
-            - .fallowrc.json
-            - docs/
-            - public/
-            - scripts/
-            - .github/
-        source_files: []
-        children:
-            - build_system
-            - configuration_system
-            - dependency_management
-            - error_handling
-            - frontend_style
-            - logging_system
+            - eslint.config.mjs
+        children: []
         depends_on: []
         related_to: []
-    build_system:
-        dir_name: Electron-Vite Build Pipeline with Quality Gate Workflow
-        title: Electron-Vite Build Pipeline with Quality Gate Workflow
-        scope: []
-        source_files:
-            - package.json
-            - electron.vite.config.ts
-            - vitest.config.ts
-            - tsconfig.json
-            - tsconfig.node.json
-            - tsconfig.web.json
-            - eslint.config.mjs
-            - .github/skills/run-quality-gate/skill.md
-            - .github/skills/run-quality-gate/REFERENCE.md
-        children: []
-        depends_on: []
-        related_to:
-            - path: dependency_management
     configuration_system:
-        dir_name: Configuration System — Electron App Shell
-        title: Configuration System — Electron App Shell
+        dir_name: Configuration System — Build-Time Constants, JSON Theme Tokens, and Electron IPC
+        title: Configuration System — Build-Time Constants, JSON Theme Tokens, and Electron IPC Contracts
         scope: []
         source_files:
             - electron.vite.config.ts
-            - src/main/session.ts
-            - src/main/index.ts
             - src/shared/window-config.ts
+            - src/shared/ipc.ts
             - src/renderer/src/theme/themes.ts
+            - src/main/index.ts
+            - src/main/session.ts
             - public/themes/emerald.json
+            - src/renderer/src/bootstrapApp.tsx
             - vitest.config.ts
-            - eslint.config.mjs
-            - .fallowrc.json
             - tsconfig.json
-            - tsconfig.node.json
-            - tsconfig.web.json
         children: []
         depends_on: []
-        related_to:
-            - path: frontend_style
+        related_to: []
     dependency_management:
         dir_name: npm + electron-vite Dependency Management
         title: npm + electron-vite Dependency Management
@@ -84,29 +46,29 @@ modules:
             - package.json
             - package-lock.json
             - electron.vite.config.ts
-            - .fallowrc.json
-            - tsconfig.json
-            - eslint.config.mjs
-            - vitest.config.ts
+            - .ds-sync/package.json
+            - tsconfig.node.json
+            - tsconfig.web.json
         children: []
         depends_on: []
-        related_to:
-            - path: build_system
+        related_to: []
     error_handling:
         dir_name: Informal Error Handling via Try_Catch and Console Logging
         title: Informal Error Handling via Try/Catch and Console Logging
         scope: []
         source_files:
-            - src/main/session.ts
-            - src/main/sample-browser.ts
             - src/main/index.ts
+            - src/main/session.ts
+            - src/main/library.ts
+            - src/main/indexer-host.ts
+            - src/main/indexer.ts
+            - src/renderer/src/hooks/useLibraryData.ts
             - src/renderer/src/hooks/useAppState.ts
+            - src/renderer/src/engine/sample-cache.ts
             - src/shared/ipc.ts
-            - src/preload/index.ts
         children: []
         depends_on: []
-        related_to:
-            - path: logging_system
+        related_to: []
     frontend_style:
         dir_name: CSS Custom Property Theme System with JSON Design Tokens
         title: CSS Custom Property Theme System with JSON Design Tokens
@@ -115,13 +77,13 @@ modules:
             - src/renderer/src/index.css
             - src/renderer/src/theme/themes.ts
             - public/themes/emerald.json
-            - src/renderer/src/bootstrapApp.tsx
-            - src/renderer/src/main.tsx
-            - docs/specs/spec-002-theming-skin-system.md
+            - public/themes/rave.json
+            - .design-sync/conventions.md
+            - .design-sync/design-sync-styles.css
+            - ds-bundle/_ds_bundle.css
         children: []
         depends_on: []
-        related_to:
-            - path: configuration_system
+        related_to: []
     logging_system:
         dir_name: Informal Console-Based Logging Without Structured Framework
         title: Informal Console-Based Logging Without Structured Framework
@@ -130,10 +92,7 @@ modules:
             - src/main/index.ts
             - src/main/indexer-host.ts
             - src/main/library.ts
-            - src/renderer/src/hooks/useLibraryData.ts
-            - src/renderer/src/hooks/useAppState.ts
-            - .qoder/repowiki/knowledge/en/Informal Error Handling via Try_Catch and Console Logging/error_handling.md
+            - src/main/indexer.ts
         children: []
         depends_on: []
-        related_to:
-            - path: error_handling
+        related_to: []

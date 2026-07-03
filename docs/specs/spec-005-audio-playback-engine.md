@@ -1,7 +1,7 @@
 # Spec 005 — Audio Playback Engine
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ✅ IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-003 (Folder & Session Management)
 
 ## Objective
@@ -90,8 +90,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Samples are decoded once into `AudioBuffer` and cached by sample ID.
 - An LRU eviction policy prevents unbounded memory growth — the cache has a
   configurable maximum size.
-- File bytes reach the audio engine via a defined IPC path from the main
-  process (the engine never accesses the filesystem directly).
+- File bytes reach the audio engine via the injected `loadSampleBytes`
+  callback, backed by `BackendAPI.readSampleBytes(rootId, relpath)` through the
+  Sample Folder's directory handle (the engine never accesses the filesystem
+  directly).
 - Decoding failures are reported as errors — a corrupt or unreadable sample
   does not crash the engine.
 
@@ -179,6 +181,6 @@ the engine never knows who is listening.
 
 ## References
 
-- [mixjam-webjam spec-002](../_archived/mixjam-webjam/specs/002-engine-layer/spec.md) — Transport, Scheduler, AudioEngine, Channel, Voice, Track definitions.
+- mixjam-webjam spec-002 — archived predecessor-project doc, not tracked in this repo — Transport, Scheduler, AudioEngine, Channel, Voice, Track definitions.
 - [Current project audio-engine.md](../audio-engine.md) — Lookahead scheduler pattern, sample loading strategy, native-addon escape hatch.
 - [Current project architecture.md](../architecture.md) — Web Audio API for v1, Electron protocol for file access.

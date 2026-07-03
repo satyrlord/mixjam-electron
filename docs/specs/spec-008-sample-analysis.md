@@ -1,7 +1,7 @@
 # Spec 008 — Sample Analysis & Auto-Categorization
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** NOT IMPLEMENTED
 **Depends on:** spec-004 (Sample Library Browsing, Search & Tagging)
 
 ## Objective
@@ -86,5 +86,5 @@ the sample library metadata and enable auto-categorization.
 
 ## References
 
-- [mixjam-webjam architectural-suggestion-notes §3](../_archived/mixjam-webjam/docs/architectural-suggestion-notes.md) — Heuristic classifier, Web Worker threading.
-- [mixjam-webjam spec-004](../_archived/mixjam-webjam/specs/004-state-architecture/spec.md) — Library slice, analysis status tracking.
+- mixjam-webjam architectural-suggestion-notes §3 — archived predecessor-project doc, not tracked in this repo — Heuristic classifier, Web Worker threading.
+- mixjam-webjam spec-004 — archived predecessor-project doc, not tracked in this repo — Library slice, analysis status tracking.

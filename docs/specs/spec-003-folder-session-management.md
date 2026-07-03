@@ -48,16 +48,20 @@ Each card shows:
 
 - **Icon** and **label** indicating the folder role (e.g. "User Folder",
   "Sample Folder").
-- **"Pick Folder" button** — opens a native folder picker dialog.
-- **Status text** — shows the selected folder path, or a prompt if none
-  selected.
+- **"Pick Folder" button** — opens the File System Access directory picker.
+- **Status text** — shows the selected folder's name, or a prompt if none
+  selected. (Browsers have no absolute paths; a folder is a `FolderRef` whose
+  handle is persisted in IndexedDB.)
+- **"Restore access" button** — shown instead of the plain status when a
+  restored handle needs a user-gesture permission re-grant (browser host only;
+  the Electron shell auto-grants file system access).
 
 **User Folder card:**
 
 - Always enabled. The user can pick or change the output folder at any time.
 - Role: read-write. The app writes projects, exports, and session config into
   this folder.
-- Initial default path on Windows: `%USERPROFILE%\Documents\MixJam`.
+- The picker is hinted to start in the OS Documents folder (`startIn`).
 
 **Sample Folder card:**
 
@@ -81,42 +85,47 @@ Each card shows:
 
 ### Folder Picker Behavior
 
-- Clicking "Pick Folder" opens a native OS folder picker dialog.
-- The dialog title reflects the folder role (e.g. "Select User Folder" /
-  "Select Sample Folder").
+- Clicking "Pick Folder" opens the File System Access directory picker
+  (`showDirectoryPicker`) with the mode matching the folder role
+  (`readwrite` for the User Folder, `read` for the Sample Folder).
+- Picking a folder that was picked before reuses its existing `FolderRef`
+  (via `isSameEntry`), so the folder's scan root and indexed samples survive
+  re-picking.
 - After selection, the app validates the folder is accessible:
-  - User Folder: must be readable and writable.
-  - Sample Folder: must be readable (write access not required).
+  - User Folder: permission granted and writable (probed with a temp file).
+  - Sample Folder: permission granted and readable.
 - If validation fails, an error message is displayed on the card: "Cannot
   access this folder. Check permissions and try again."
-- If validation succeeds, the folder path is displayed on the card.
+- If validation succeeds, the folder's name is displayed on the card.
 - The user can change the folder at any time by clicking "Pick Folder" again.
-- If a previously saved folder is inaccessible on next launch (deleted, moved,
-  permissions revoked), the card shows an error state: "Folder not accessible
-  — pick a new one."
+- If a previously saved folder no longer exists, the card shows an error
+  state: "Folder not accessible — pick a new one."
+- If a previously saved folder exists but its permission has lapsed
+  (`queryPermission() === 'prompt'`, browser host), the card offers
+  "Restore access to <folder>", which re-requests permission in a user
+  gesture. The Electron shell auto-grants, so desktop users never see this.
 
 ### Session Persistence
 
-- Selected folder paths are persisted so they survive app restarts.
+- Selected `FolderRef`s are persisted in localStorage; their directory handles
+  are persisted in IndexedDB. Both survive app restarts on the same origin.
 - On app launch, the persisted folders are loaded and restored into the cards
   automatically.
 - If both folders restore successfully, the "Start New MixJam" button is
   immediately active — the user can enter the tracker without re-picking
   folders.
-- Persistence uses a JSON file stored in the OS app data directory (e.g.
-  `%APPDATA%/mixjam-electron/session.json` on Windows). No network, no
-  cloud sync.
+- No network, no cloud sync.
 
 ### Session Config File
 
 When both folders are selected and the User Folder is accessible, the app
 writes a session configuration file into the User Folder:
 
-- `mixjam.json` — session metadata (app version, folder paths, last opened
+- `mixjam.json` — session metadata (app version, folder names, last opened
   timestamp).
 
-This file is written automatically after folder selection and on app close.
-It is not user-editable.
+This file is written automatically after folder selection (through the User
+Folder's directory handle). It is not user-editable.
 
 ## Acceptance Criteria (testable)
 
@@ -129,13 +138,14 @@ It is not user-editable.
 - [x] **AC-007:** When both folders are set, "Start New MixJam" becomes active and navigates to the MixJam Player on click.
 - [x] **AC-008:** "Load MixJam" is independent of the folder launch gate: folder selection state
   never toggles it. It stays disabled until spec-011 ships (per spec-001, amended 2026-07-03).
-- [x] **AC-009:** Each "Pick Folder" button opens a native OS folder picker with the correct dialog title.
-- [x] **AC-010:** Selected folder paths are displayed on their respective cards after successful validation.
-- [x] **AC-010b:** When no User Folder has been chosen yet, the initial suggested location on Windows is `%USERPROFILE%\Documents\MixJam`.
+- [x] **AC-009:** Each "Pick Folder" button opens the directory picker with the mode matching its folder role.
+- [x] **AC-010:** Selected folder names are displayed on their respective cards after successful validation.
+- [x] **AC-010b:** The User Folder picker is hinted to start in the OS Documents folder.
 - [x] **AC-010a:** If a selected folder is not accessible (permissions error), the card shows: "Cannot access this folder. Check permissions and try again."
 - [x] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
 - [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
 - [x] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
+- [x] **AC-013a:** If a restored handle needs a permission re-grant (browser host), the card offers "Restore access to <folder>"; granting it validates the folder and opens the gate.
 - [x] **AC-014:** A `mixjam.json` session config file is written to the User Folder after both folders are selected.
 - [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
 
@@ -147,12 +157,13 @@ It is not user-editable.
 - No sample analysis or metadata extraction. Sample analysis is spec-008.
 - No folder size calculation, free space check, or disk health validation.
 - No multi-folder sample library (only one Sample Folder at a time).
-- No drag-and-drop folder selection — native picker dialog only.
+- No drag-and-drop folder selection — the directory picker only.
 - No cloud folder support (OneDrive, Google Drive, etc.) — local filesystem
   only.
-- No folder watching for live changes (folder watch is spec-004).
+- No folder watching for live changes — out of scope for v1 across all specs;
+  manual/startup re-scan covers it (see [indexing.md](../indexing.md#live-watching-optional-later)).
 
 ## References
 
-- [mixjam-webjam spec-001](../_archived/mixjam-webjam/specs/001-shell-and-theming/spec.md) — Two-folder model, launch gate, session restore, `mixjam.json`.
-- [mixjam-webjam README](../_archived/mixjam-webjam/README.md) — File System Access API, IndexedDB persistence, Chromium-only constraint.
+- mixjam-webjam spec-001 — archived predecessor-project doc, not tracked in this repo — Two-folder model, launch gate, session restore, `mixjam.json`.
+- mixjam-webjam README — archived predecessor-project doc, not tracked in this repo — File System Access API, IndexedDB persistence, Chromium-only constraint.

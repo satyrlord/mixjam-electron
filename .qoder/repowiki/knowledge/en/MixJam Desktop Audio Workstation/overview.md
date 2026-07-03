@@ -1,1 +1,0 @@
-Root of the MixJam Electron app that wires together Electron-Vite multi-process builds, typed IPC contracts, native SQLite persistence, and a JSON-driven CSS theme system into a skinnable desktop audio workstation.

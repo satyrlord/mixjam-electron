@@ -13,6 +13,12 @@
 - [scripts/distribute-samples.ps1](file://scripts/distribute-samples.ps1)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated versioning scheme documentation to reflect git-commit-based numbering system
+- Added security measures for CI/CD pipeline with explicit publish prevention
+- Enhanced build safety with environment-specific configuration safeguards
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -27,6 +33,8 @@
 
 ## Introduction
 This document describes the CI/CD pipeline and build system for the Electron application. It explains how development, testing, linting, packaging, and distribution are orchestrated using npm scripts, Vite-based tooling, TypeScript configuration, ESLint, Vitest, and electron-builder. The goal is to provide a clear, end-to-end understanding of how code is transformed into distributable artifacts and how quality gates are enforced locally and in automation.
+
+**Updated** Enhanced security measures have been implemented to prevent accidental publishing during builds, and the versioning system now uses git-commit-based numbering for more precise build tracking.
 
 ## Project Structure
 The build and CI-related configuration is centralized in a small set of files:
@@ -81,7 +89,7 @@ Scripts --> Samples["Sample Distribution<br/>scripts/distribute-samples.ps1"]
   - Dev server with hot reload and pre-rebuild steps.
   - Production build that compiles main, preload, and renderer.
   - Preview of production output.
-  - Packaging into platform-specific artifacts.
+  - Packaging into platform-specific artifacts with safety guards.
 - Build-time configuration:
   - electron-vite config sets entry points, plugins, and CSP injection for the renderer.
   - TypeScript project references split Node and Web builds.
@@ -94,6 +102,8 @@ Scripts --> Samples["Sample Distribution<br/>scripts/distribute-samples.ps1"]
 - Utilities:
   - Sample distribution script for organizing test assets.
 
+**Updated** Security enhancements include explicit publish prevention flags and git-commit-based versioning for better build traceability.
+
 **Section sources**
 - [package.json:6-24](file://package.json#L6-L24)
 - [electron.vite.config.ts:7-31](file://electron.vite.config.ts#L7-L31)
@@ -104,7 +114,7 @@ Scripts --> Samples["Sample Distribution<br/>scripts/distribute-samples.ps1"]
 - [scripts/distribute-samples.ps1:1-119](file://scripts/distribute-samples.ps1#L1-L119)
 
 ## Architecture Overview
-The build pipeline transforms source code into runnable and distributable artifacts through a sequence of stages: type checking, linting, unit testing, bundling, and packaging.
+The build pipeline transforms source code into runnable and distributable artifacts through a sequence of stages: type checking, linting, unit testing, bundling, and packaging with enhanced security controls.
 
 ```mermaid
 sequenceDiagram
@@ -128,7 +138,8 @@ NPM->>VT : "vitest run"
 NPM->>EB : "electron-vite build"
 EB-->>FS : "Emit out/** bundles"
 Dev->>NPM : "npm run package : electron"
-NPM->>EBC : "electron-builder --config ..."
+NPM->>NPM : "Apply --publish never safety guard"
+NPM->>EBC : "electron-builder --config ... --publish never"
 EBC-->>FS : "Create dist-electron/* artifacts"
 ```
 
@@ -151,6 +162,7 @@ EBC-->>FS : "Create dist-electron/* artifacts"
   - Tests run via Vitest with coverage support.
 - Packaging:
   - electron-builder uses its config to produce platform artifacts.
+  - **Security Enhancement**: Explicit `--publish never` flag prevents accidental publishing during local builds and CI runs.
 
 ```mermaid
 flowchart TD
@@ -162,7 +174,8 @@ NextStep --> Action{"Which action?"}
 Action --> |dev| DevServer["Start electron-vite dev"]
 Action --> |build| ProdBuild["Run electron-vite build"]
 Action --> |test| RunTests["Run vitest (projects + coverage)"]
-Action --> |package:electron| Package["Run electron-builder"]
+Action --> |package:electron| SafetyCheck["Apply --publish never safety guard"]
+SafetyCheck --> Package["Run electron-builder"]
 DevServer --> End(["Done"])
 ProdBuild --> End
 RunTests --> End
@@ -175,6 +188,32 @@ Package --> End
 **Section sources**
 - [package.json:6-24](file://package.json#L6-L24)
 
+### Versioning System (Git-Commit-Based)
+**New** The application now uses a dynamic versioning system based on git commit history:
+
+- **Primary Method**: Git commit count generates versions in format `0.<commit-count>` (e.g., `0.43`)
+- **Fallback Method**: Falls back to package.json version when git is unavailable (CI without full clone)
+- **Build-Time Injection**: Version is computed during build and injected as `__APP_VERSION__` constant
+- **Consistent Tracking**: Provides unique, incremental version numbers for every build
+
+```mermaid
+flowchart TD
+BuildStart["Build Process Start"] --> GitCheck{"Git Available?"}
+GitCheck --> |Yes| GetCount["git rev-list --count HEAD"]
+GetCount --> FormatVersion["Format: 0.<count>"]
+GitCheck --> |No| Fallback["Use package.json version"]
+FormatVersion --> InjectConst["Inject __APP_VERSION__ constant"]
+Fallback --> InjectConst
+InjectConst --> BuildComplete["Build Complete with Version"]
+```
+
+**Diagram sources**
+- [electron.vite.config.ts:35-47](file://electron.vite.config.ts#L35-L47)
+
+**Section sources**
+- [electron.vite.config.ts:35-47](file://electron.vite.config.ts#L35-L47)
+- [package.json:3](file://package.json#L3)
+
 ### Bundling and App Shell (electron-vite)
 - Targets:
   - Main process entry and indexer worker entry are explicitly defined.
@@ -183,7 +222,8 @@ Package --> End
   - React plugin enabled.
   - Custom plugin injects Content-Security-Policy meta tag at build time.
 - Versioning:
-  - Application version is read from package.json and injected as a constant.
+  - Application version is derived from git commit count or falls back to package.json.
+  - Version is injected as a constant for runtime access.
 
 ```mermaid
 classDiagram
@@ -199,19 +239,27 @@ class InjectCspPlugin {
 class DefineConstants {
 +__APP_VERSION__ : string
 }
+class VersionDerivation {
++deriveAppVersion() string
++gitCommitCount : number
++fallbackVersion : string
+}
 ElectronViteConfig --> InjectCspPlugin : "uses"
 ElectronViteConfig --> DefineConstants : "defines"
+ElectronViteConfig --> VersionDerivation : "uses"
 ```
 
 **Diagram sources**
 - [electron.vite.config.ts:7-31](file://electron.vite.config.ts#L7-L31)
 - [electron.vite.config.ts:33-54](file://electron.vite.config.ts#L33-L54)
 - [electron.vite.config.ts:56-62](file://electron.vite.config.ts#L56-L62)
+- [electron.vite.config.ts:35-47](file://electron.vite.config.ts#L35-L47)
 
 **Section sources**
 - [electron.vite.config.ts:7-31](file://electron.vite.config.ts#L7-L31)
 - [electron.vite.config.ts:33-54](file://electron.vite.config.ts#L33-L54)
 - [electron.vite.config.ts:56-62](file://electron.vite.config.ts#L56-L62)
+- [electron.vite.config.ts:35-47](file://electron.vite.config.ts#L35-L47)
 
 ### Packaging (electron-builder)
 - App identity and product name configured.
@@ -224,6 +272,7 @@ ElectronViteConfig --> DefineConstants : "defines"
   - macOS: DMG
 - Native module rebuild disabled during packaging; prepack rebuild handles ABI alignment.
 - Extra metadata overrides main entry path for packaged runtime.
+- **Security Enhancement**: Always uses `--publish never` flag to prevent accidental artifact publication.
 
 ```mermaid
 flowchart TD
@@ -231,7 +280,8 @@ PkgStart(["electron-builder start"]) --> ReadCfg["Read electron-builder.config.c
 ReadCfg --> SetMeta["Set appId/productName"]
 SetMeta --> IncludeFiles["Include out/**, package.json, public/**, node_modules/**"]
 IncludeFiles --> Asar["Enable ASAR"]
-Asar --> Targets{"Platform target?"}
+Asar --> SafetyGuard["Apply --publish never safety guard"]
+SafetyGuard --> Targets{"Platform target?"}
 Targets --> |Linux| AppImage["AppImage"]
 Targets --> |Windows| Portable["Portable"]
 Targets --> |macOS| DMG["DMG"]
@@ -242,9 +292,11 @@ DMG --> PkgEnd
 
 **Diagram sources**
 - [electron-builder.config.cjs:3-31](file://electron-builder.config.cjs#L3-L31)
+- [package.json:13](file://package.json#L13)
 
 **Section sources**
 - [electron-builder.config.cjs:3-31](file://electron-builder.config.cjs#L3-L31)
+- [package.json:13](file://package.json#L13)
 
 ### Type Checking (TypeScript Projects)
 - Root tsconfig aggregates two composite projects:
@@ -357,14 +409,17 @@ TSC --> TSCW["tsconfig.web.json"]
 EVITE --> REACT["@vitejs/plugin-react"]
 EVITE --> EXTD["externalizeDepsPlugin"]
 EVITE --> CSP["inject-csp plugin"]
+EVITE --> VERSION["git-commit versioning"]
 EBCFG --> OUT["out/**"]
 EBCFG --> PUB["public/**"]
 EBCFG --> NM["node_modules/**"]
+PKG --> SAFETY["--publish never safety guard"]
 ```
 
 **Diagram sources**
 - [package.json:6-24](file://package.json#L6-L24)
 - [electron.vite.config.ts:38-62](file://electron.vite.config.ts#L38-L62)
+- [electron.vite.config.ts:35-47](file://electron.vite.config.ts#L35-L47)
 - [electron-builder.config.cjs:3-31](file://electron-builder.config.cjs#L3-L31)
 - [vitest.config.ts:4-50](file://vitest.config.ts#L4-L50)
 - [eslint.config.mjs:1-26](file://eslint.config.mjs#L1-L26)
@@ -375,6 +430,7 @@ EBCFG --> NM["node_modules/**"]
 **Section sources**
 - [package.json:6-24](file://package.json#L6-L24)
 - [electron.vite.config.ts:38-62](file://electron.vite.config.ts#L38-L62)
+- [electron.vite.config.ts:35-47](file://electron.vite.config.ts#L35-L47)
 - [electron-builder.config.cjs:3-31](file://electron-builder.config.cjs#L3-L31)
 - [vitest.config.ts:4-50](file://vitest.config.ts#L4-L50)
 - [eslint.config.mjs:1-26](file://eslint.config.mjs#L1-L26)
@@ -388,8 +444,7 @@ EBCFG --> NM["node_modules/**"]
 - Split tests into jsdom and native projects to avoid unnecessary transforms for native addons.
 - Restrict coverage include paths to renderer code to speed up coverage collection.
 - Avoid rebuilding native modules unless necessary; rely on pre* hooks to align ABIs.
-
-[No sources needed since this section provides general guidance]
+- **Optimization**: Git-commit-based versioning eliminates manual version management overhead.
 
 ## Troubleshooting Guide
 - Native module ABI mismatches:
@@ -403,20 +458,27 @@ EBCFG --> NM["node_modules/**"]
 - Packaging issues:
   - Verify extraMetadata.main points to the correct bundled entry.
   - Ensure required files (out/**, public/**, node_modules/**) are included.
+  - **Security**: Confirm `--publish never` flag is present to prevent accidental publishing.
+- Versioning problems:
+  - Check git availability for commit-based versioning.
+  - Verify fallback to package.json version when git is unavailable.
 - Sample indexing problems:
   - Use the sample distribution script to organize test assets, then re-scan the library.
+
+**Updated** Added troubleshooting guidance for new versioning system and security measures.
 
 **Section sources**
 - [package.json:6-24](file://package.json#L6-L24)
 - [electron.vite.config.ts:7-31](file://electron.vite.config.ts#L7-L31)
+- [electron.vite.config.ts:35-47](file://electron.vite.config.ts#L35-L47)
 - [vitest.config.ts:12-30](file://vitest.config.ts#L12-L30)
 - [electron-builder.config.cjs:26-29](file://electron-builder.config.cjs#L26-L29)
 - [scripts/distribute-samples.ps1:1-119](file://scripts/distribute-samples.ps1#L1-L119)
 
 ## Conclusion
-The build and CI system combines npm scripts, Vite, TypeScript, ESLint, Vitest, and electron-builder to deliver a robust development experience and reliable packaging pipeline. Clear separation of concerns across configuration files enables maintainability, while pre* hooks and project-scoped settings ensure native modules and environments are correctly handled. Following the documented flows and troubleshooting tips will help keep builds fast, tests stable, and artifacts consistent across platforms.
+The build and CI system combines npm scripts, Vite, TypeScript, ESLint, Vitest, and electron-builder to deliver a robust development experience and reliable packaging pipeline. Clear separation of concerns across configuration files enables maintainability, while pre* hooks and project-scoped settings ensure native modules and environments are correctly handled. 
 
-[No sources needed since this section summarizes without analyzing specific files]
+**Enhanced Features**: The recent updates introduce git-commit-based versioning for precise build tracking and comprehensive security measures including explicit publish prevention flags. These improvements provide better build traceability and prevent accidental artifact publication during development and CI processes. Following the documented flows and troubleshooting tips will help keep builds fast, tests stable, and artifacts consistent across platforms.
 
 ## Appendices
 
@@ -428,7 +490,9 @@ The build and CI system combines npm scripts, Vite, TypeScript, ESLint, Vitest, 
 - Type check: see typecheck script.
 - Lint: see lint script.
 - Unit tests: see test scripts (run, watch, coverage).
-- Package apps: see package:electron script.
+- Package apps: see package:electron script (includes safety guards).
+
+**Updated** All packaging commands now include safety measures to prevent accidental publishing.
 
 **Section sources**
 - [package.json:6-24](file://package.json#L6-L24)

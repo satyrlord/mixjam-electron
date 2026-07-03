@@ -1,3 +1,0 @@
-- IPC channels are declared as string constants in the shared contract (`src/shared/ipc.ts`) and referenced uniformly from Main, Preload, and Renderer code.
-- Renderer hooks receive the `electronAPI` dependency explicitly rather than reading `window.electronAPI` globally, enabling unit-test mocking.
-- Main-process file I/O uses `node:fs/promises` with explicit error handling and fallback defaults for missing configuration files.

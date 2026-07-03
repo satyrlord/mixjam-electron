@@ -8,23 +8,29 @@ afterward, without freezing the UI.
 
 ## Where it runs
 
-Indexing runs in a **Node `worker_thread`** (or Electron `utilityProcess`) spawned
-by the main process — never on the UI thread and never in the renderer. The worker
-owns its own `better-sqlite3` connection (WAL mode lets it write while the UI reads).
-Progress and lifecycle events are posted to main, which relays them to the renderer
-over IPC.
+Indexing runs inside the **backend Web Worker** (`src/renderer/src/backend/`) —
+never on the UI thread. opfs-sahpool allows exactly one DB connection, so the
+indexer shares the query connection: scan work is batched in transactions and
+yields to the worker's event loop between batches, letting queries interleave
+with an in-flight scan. Progress and lifecycle events are posted to the
+BackendAPI facade on the UI thread.
 
 ```text
-renderer ──"start scan(root)"──▶ main ──spawn──▶ indexer worker
-   ▲                              │                  │ walk + insert (phase 1)
-   └──progress/done events◀───────┘◀──postMessage────┘ extract metadata (phase 2)
+UI thread ──startScan(FolderRef)──▶ backend worker
+   ▲                                  │ load handle from IndexedDB
+   │                                  │ walk handle + upsert stubs (phase 1)
+   └──scan-progress / scan-done ◀─────┘ parseBlob metadata (phase 2)
 ```
+
+The traversal walks the Sample Folder's `FileSystemDirectoryHandle`; file
+identity is the `(root_id, relpath)` pair, and `File.size`/`File.lastModified`
+replace `stat()`.
 
 ## Two-phase scan (so the browser is usable fast)
 
 **Phase 1 — enumerate (fast, makes the library appear quickly).**
-Recursively walk each `scan_roots` path. For every audio file, upsert a *stub* row:
-`filepath, filename, ext, size_bytes, mtime, date_added`, with `scan_state = 0`
+Recursively walk the root's directory handle. For every audio file, upsert a *stub* row:
+`relpath, filename, ext, size_bytes, mtime, date_added`, with `scan_state = 0`
 (stub) and metadata columns NULL. Insert in **batched transactions** (e.g. 1–5k
 rows per transaction) — this is the difference between seconds and minutes at 100k
 files. Report progress as `{ found, inserted }`.
@@ -58,21 +64,20 @@ For example, `Drums/Kicks/kick_808.wav` → primary category `Drums`, subcategor
 `Kicks`. Samples directly in the sample-folder root (no subdirectory) are
 assigned to **"Unsorted"**.
 
-See `syncCategoriesFromFolder()` and `assignCategoryFromPath()` in
-`src/main/library.ts`. A sample belongs to exactly one primary category but may
+See `syncCategoriesFromNames()` and `assignCategoryFromPath()` in
+`src/renderer/src/backend/library.ts`. A sample belongs to exactly one primary category but may
 have multiple subcategory assignments (via the `sample_categories` join table).
 
 ## Per-root scoping (one DB, many Sample Folders)
 
-Every Sample Folder that has ever been scanned gets a row in `scan_roots`, and
-each `samples` row carries the `root_id` of the root it was found under. Browser
-queries (`querySamples`, `hasSamples`) are scoped to the active Sample Folder's
-root, so switching folders never shows another folder's rows — a folder that has
-not been scanned yet reads as empty and triggers the first-entry scan. Re-scans
-are scoped the same way: marking missing files only touches rows under the root
-being scanned, so rows belonging to other roots survive untouched. Rows indexed
-before scoping existed (`root_id` NULL after the v4 migration) are adopted by
-path prefix on the next scan of their root.
+Every Sample Folder that has ever been scanned gets a row in `scan_roots`
+(keyed by its FolderRef id), and each `samples` row carries the `root_id` of
+the root it was found under. Browser queries (`querySamples`, `hasSamples`) are
+scoped to the active Sample Folder's root, so switching folders never shows
+another folder's rows — a folder that has not been scanned yet reads as empty
+and triggers the first-entry scan. Re-scans are scoped the same way: marking
+missing files only touches rows under the root being scanned, so rows belonging
+to other roots survive untouched.
 
 ## Change detection & incremental re-scan
 
@@ -92,19 +97,19 @@ The cheap, reliable change key is **`(size_bytes, mtime)`**. On re-scan of a roo
    browsing by default.
 
 Content hashing (for move/rename detection and true dedup) is **out of scope for
-v1**; `filepath` UNIQUE is the dedup key. Hashing can be added later as opt-in
-because it is expensive at 35GB.
+v1**; `UNIQUE(root_id, relpath)` is the dedup key. Hashing can be added later as
+opt-in because it is expensive at 35GB.
 
 ## Live watching (optional, later)
 
-A `chokidar` watcher on the scan roots could trigger incremental updates without a
-manual re-scan. Deferred for v1 — watching 850 folders has its own resource cost and
-the manual/startup re-scan covers the common case.
+The Chromium `FileSystemObserver` API (or a periodic incremental re-scan) could
+trigger updates without a manual re-scan. Deferred for v1 — watching 850 folders
+has its own resource cost and the manual/startup re-scan covers the common case.
 
 ## Failure & resume
 
 - The walk and each batch are independent transactions, so an interrupted first run
-  resumes cleanly: phase 1 re-upserts (idempotent on `filepath`), phase 2 simply
-  finds the remaining `scan_state = 0` rows.
+  resumes cleanly: phase 1 re-upserts (idempotent on `(root_id, relpath)`), phase 2
+  simply finds the remaining `scan_state = 0` rows.
 - Unreadable/locked files are logged and left as stubs (or marked missing); one bad
   file never aborts the scan.

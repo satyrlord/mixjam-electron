@@ -1,7 +1,7 @@
 # Spec 011 — Project Save & Load
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** NOT IMPLEMENTED
 **Depends on:** spec-006 (Player Timeline & Panel Layout), spec-007 (Mixer)
 
 ## Objective
@@ -145,5 +145,5 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 
 ## References
 
-- [mixjam-webjam architectural-suggestion-notes §6](../_archived/mixjam-webjam/docs/architectural-suggestion-notes.md) — Versioned JSON schema, relative path references.
-- [mixjam-webjam spec-004](../_archived/mixjam-webjam/specs/004-state-architecture/spec.md) — Project file schema, migration strategy.
+- mixjam-webjam architectural-suggestion-notes §6 — archived predecessor-project doc, not tracked in this repo — Versioned JSON schema, relative path references.
+- mixjam-webjam spec-004 — archived predecessor-project doc, not tracked in this repo — Project file schema, migration strategy.

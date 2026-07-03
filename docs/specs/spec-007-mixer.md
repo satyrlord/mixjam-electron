@@ -1,7 +1,7 @@
 # Spec 007 — Mixer
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** NOT IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline & Panel Layout)
 
 ## Objective
@@ -61,6 +61,8 @@ Each channel strip is a vertical stack:
 - Default: 16 channels pre-routed to 16 default lanes (1:1 mapping).
 - The user can add channels (up to 99 total). New channels are not
   automatically routed to a lane — the user assigns lane routing.
+  Note: the UI currently supports only 16 lanes (spec-006), so channels
+  beyond 16 have no lanes to route to until lane add/remove UI is added.
 - The user can remove channels. Removing a channel unmaps any lanes routed to
   it (those lanes become silent until re-routed).
 - Channel reordering: channels can be dragged to reorder in the mixer.
@@ -104,6 +106,6 @@ Each channel strip is a vertical stack:
 
 ## References
 
-- [mixjam-webjam spec-004](../_archived/mixjam-webjam/specs/004-state-architecture/spec.md) — ChannelData shape, N-channel model, default routing.
-- [mixjam-webjam architectural-suggestion-notes §3, §6](../_archived/mixjam-webjam/docs/architectural-suggestion-notes.md) — N-channel from day one, pre-built GainNode/PannerNode chains.
-- [mixjam-sample-daw style-guide §4](../_archived/mixjam-sample-daw/docs/style-guide.md) — Control column layout, mixer zone.
+- mixjam-webjam spec-004 — archived predecessor-project doc, not tracked in this repo — ChannelData shape, N-channel model, default routing.
+- mixjam-webjam architectural-suggestion-notes §3, §6 — archived predecessor-project doc, not tracked in this repo — N-channel from day one, pre-built GainNode/PannerNode chains.
+- mixjam-sample-daw style-guide §4 — archived predecessor-project doc, not tracked in this repo — Control column layout, mixer zone.

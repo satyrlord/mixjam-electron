@@ -1,7 +1,7 @@
 # Spec 004 — Sample Library Browsing, Search & Tagging
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ✅ IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-003 (Folder & Session Management)
 
 ## Objective
@@ -36,8 +36,9 @@ categories. Libraries are saved queries, not file copies.
 
 - On first launch after the Sample Folder is selected, the app scans the folder
   for audio files (`.wav`, `.mp3`, `.flac`, `.ogg`, `.aiff`).
-- Each file is registered in the SQLite database with: filepath, filename,
-  extension, file size, modification time, and import date.
+- Each file is registered in the SQLite database with: scan root + relpath
+  (path relative to the Sample Folder), filename, extension, file size,
+  modification time, and import date.
 - **Phase 1 (fast):** file enumeration — files appear in the browser within
   seconds. Metadata columns (duration, sample rate, channels) are left empty.
 - **Phase 2 (background):** metadata extraction — audio headers are parsed to
@@ -96,7 +97,7 @@ Strip from spec-006. Its internal layout:
 
 - A search input lives in the browser toolbar at the top of the sample pane.
 - As the user types, results filter in real-time (debounced, ~150ms).
-- Search matches against filename and filepath.
+- Search matches against filename and relpath.
 - Results respect any active tag/category filter (search within filtered set).
 - Empty search query shows all samples (subject to active filters).
 - Query results load as windowed pages on demand: the first page loads eagerly
@@ -207,7 +208,8 @@ Strip from spec-006. Its internal layout:
 - No waveform preview or audio playback from the browser.
 - No 100k+ scale validation — development uses `tmp/test-samples` (~67 files).
 - No content-hashing for dedup or move/rename detection.
-- No live folder watching (file system events) — manual re-scan only.
+- No live folder watching (file system events) — out of scope for v1 across
+  all specs; manual re-scan only (see [indexing.md](../indexing.md#live-watching-optional-later)).
 - No drag-and-drop within the browser itself (reordering tiles). Drag to tracker lane is the primary placement mechanism (see spec-006).
 - No dedicated detail pane inside the browser region; selected-sample details
   are footer-hosted.
@@ -220,5 +222,4 @@ Strip from spec-006. Its internal layout:
 - [Current project data-model.md](../data-model.md) — SQLite schema, FTS5, indexes, category tree queries.
 - [Current project indexing.md](../indexing.md) — Two-phase scan, change detection, incremental re-scan.
 - [Current project query-schema.md](../query-schema.md) — `rule_json` predicate-tree format for saved libraries.
-- [Current project architecture.md](../architecture.md) — Virtualization requirement, SQLite-in-main-process constraint.
-- [mixjam-sample-daw tech-stack §3–§4](../_archived/mixjam-sample-daw/docs/tech-stack.md) — SQLite schema, FTS5 queries, virtualized sample browser.
+- [Current project architecture.md](../architecture.md) — Virtualization requirement, SQLite-in-backend-worker constraint.

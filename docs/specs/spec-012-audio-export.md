@@ -1,7 +1,7 @@
 # Spec 012 — Audio Export
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** NOT IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine), spec-007 (Mixer)
 
 ## Objective
@@ -93,5 +93,5 @@ at the project BPM with time-stretching applied.
 
 ## References
 
-- [mixjam-webjam architectural-suggestion-notes §2](../_archived/mixjam-webjam/docs/architectural-suggestion-notes.md) — WAV/MP3 export, offline rendering, lamejs.
-- [mixjam-webjam spec-002](../_archived/mixjam-webjam/specs/002-engine-layer/spec.md) — OfflineRenderer, WavEncoder, Mp3Encoder.
+- mixjam-webjam architectural-suggestion-notes §2 — archived predecessor-project doc, not tracked in this repo — WAV/MP3 export, offline rendering, lamejs.
+- mixjam-webjam spec-002 — archived predecessor-project doc, not tracked in this repo — OfflineRenderer, WavEncoder, Mp3Encoder.

@@ -1,7 +1,7 @@
 # Spec 009 — Time-Stretching
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** ⏳ NOT IMPLEMENTED
+**Spec Implementation Status:** NOT IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -89,5 +89,5 @@ native tempos.
 
 ## References
 
-- [mixjam-webjam architectural-suggestion-notes §2](../_archived/mixjam-webjam/docs/architectural-suggestion-notes.md) — Time-stretch library options, quality A/B testing.
-- [mixjam-webjam spec-002](../_archived/mixjam-webjam/specs/002-engine-layer/spec.md) — StretchEngine interface.
+- mixjam-webjam architectural-suggestion-notes §2 — archived predecessor-project doc, not tracked in this repo — Time-stretch library options, quality A/B testing.
+- mixjam-webjam spec-002 — archived predecessor-project doc, not tracked in this repo — StretchEngine interface.
