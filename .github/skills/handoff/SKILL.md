@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Produce a **state-transfer document** — the minimum payload a fresh agent
 needs to resume this session without re-litigating decisions already made.
-Save to the temporary directory of the user's OS, not the current workspace.
+Save to the tmp folder of the current workspace.
 
 ## Self-Critique Phase (Before Writing)
 

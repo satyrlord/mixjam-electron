@@ -38,7 +38,9 @@ Implement view switching, the header bar, and the footer.
     (same behavior as the header selector).
   - Setup column (right): a raised panel holding the two folder cards
     (spec-003), the launch gate, the Load MixJam link, and — when any exist —
-    up to four recent projects that open on click (spec-006 AC-024).
+    up to four recent projects that are selectable on click (shows project
+    name in the Middle Strip; full project loading is deferred to spec-011,
+    see spec-006 AC-024).
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
   - "Load MixJam" link — secondary action. Disabled with a "coming soon"
     tooltip until `.mixjam` save/load ships (spec-011); a load the app cannot

@@ -183,6 +183,9 @@ adjacencies.
 
 - Occupies the upper-left region of the active Player layout.
 - Uses the same width as the Song Controls rail to keep the left seam aligned.
+- Includes a collapse/expand toggle (state persisted to localStorage as
+  `mixjam:recents-rail-collapsed`). When collapsed, only the toggle button is
+  visible.
 - Lists two merged sources:
   - recently opened `.mixjam` files from the persisted recent-project registry
   - `.mixjam` files discovered by recursively scanning the current User Folder
@@ -236,9 +239,9 @@ adjacencies.
 
 - [x] **AC-001:** The active Player layout renders five primary regions matching the mock-up: Recent Projects rail,
   Tracker region, full-width Middle Strip, Song Controls rail, and Sample Browser region.
-- [x] **AC-002:** The Recent Projects rail remains visible in the upper-left of the active Player, shares the same width as the Song
-  Controls rail below it, and shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current
-  User Folder.
+- [x] **AC-002:** The Recent Projects rail is visible in the upper-left of the active Player by default, shares the same width as the Song
+  Controls rail below it, shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current
+  User Folder, and can be collapsed/expanded via a toggle button (state persisted to localStorage).
 - [x] **AC-002a:** The User Folder contribution to the Recent Projects rail includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
 - [x] **AC-002b:** The Recent Projects rail sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
 - [x] **AC-002c:** When the Recent Projects rail has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank rail or rail-specific action buttons.

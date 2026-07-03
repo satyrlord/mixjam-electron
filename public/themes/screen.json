@@ -19,7 +19,10 @@
     "playhead": "#4DE3BC",
     "clip-text": "#FFFFFF",
     "clip-select": "#FFE066",
-    "clip-missing": "#FF6D6D"
+    "clip-missing": "#FF6D6D",
+    "meter-green": "#4CAF50",
+    "meter-yellow": "#FFC107",
+    "meter-red": "#F44336"
   },
   "fonts": {
     "chrome": "JetBrains Mono",

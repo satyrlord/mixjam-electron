@@ -37,7 +37,7 @@ keep the UI a real webview).
 │                 backend-api.ts, promise-per-message)     │
 │                      │ postMessage                       │
 │  ┌───────────────────▼───────────────────────────────┐  │
-│  │ Backend Worker (src/renderer/src/backend/worker)  │  │
+│  │ Backend Worker (src/renderer/src/backend/worker.ts)│  │
 │  │  • sqlite-wasm + opfs-sahpool — owns the one DB   │  │
 │  │    connection, runs all queries                   │  │
 │  │  • indexer — directory-handle traversal +         │  │
@@ -47,7 +47,7 @@ keep the UI a real webview).
 │  tracker/player (Web Audio) · skinnable via CSS vars     │
 └─────────────────────────────────────────────────────────┘
    Host A: any Chromium browser (GitHub Pages, https)
-   Host B: thin Electron shell (~270-line main process):
+   Host B: thin Electron shell (~150-line main process):
            window sizing, app:// protocol, auto-granted
            fileSystem permission, openExternal allowlist
            (exposed to the renderer as window.shellAPI)

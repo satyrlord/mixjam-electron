@@ -105,6 +105,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Channels are reusable — the same node chain serves all voices routed through
   that channel.
 - Up to 99 channels supported in the data model (UI gates at 16, per spec-007).
+  The 99-channel ceiling is an arbitrary two-digit safety bound for the data
+  model — channels have no per-unit UI cost until a lane is routed to them
+  (spec-017).
 
 ### Voice
 
@@ -118,6 +121,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 
 - Represents one of up to 64 monophonic stereo lanes in the MixJam Player.
   Default: 16 lanes active; users can add more up to the 64-lane limit.
+  The 64-lane ceiling is a UI constraint (44px per lane head, multiplied by 64,
+  is already extreme vertical scroll) rather than a data-model limit. The
+  channel data model supports up to 99 channels independently — the asymmetry
+  is intentional (spec-017).
 - **Monophonic:** if a new sample bubble overlaps a currently playing one on the
   same lane, the previous voice is cut off immediately (classic eJay/Acid
   behavior).

@@ -51,13 +51,19 @@ elements consistently.
 
 ### Typography Tokens
 
-| Token | Role | Font Family |
-|---|---|---|
-| `--font-chrome` | Header, chrome UI | Josefin Sans |
-| `--font-label` | Body, labels, buttons | Ubuntu |
-| `--font-mono` | Monospace (ruler, timer, code) | JetBrains Mono |
+Each theme defines font families for three typographic roles. The families listed
+below are the **Emerald defaults**; individual themes may override any role with
+a different bundled font (e.g. the Rust theme sets both chrome and label to
+Special Elite). Every font listed in the table is bundled with the app.
 
-All three fonts must be bundled with the app and loaded from local files (no
+| Token | Role | Emerald Default | Also Used By |
+|---|---|---|---|
+| `--font-chrome` | Header, chrome UI | Josefin Sans | Special Elite (Rust) |
+| `--font-label` | Body, labels, buttons | Ubuntu | Special Elite (Rust), JetBrains Mono (IDE, Rave, PA, Screen) |
+| `--font-mono` | Monospace (ruler, timer, code) | JetBrains Mono | — |
+| *(none)* | — | Special Elite | Rust theme (chrome + label) |
+
+All fonts must be bundled with the app and loaded from local files (no
 external CDN or Google Fonts dependency). Font files live in `src/renderer/public/fonts/`.
 
 ### Eight Themes

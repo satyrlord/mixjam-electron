@@ -57,6 +57,9 @@ categories. Libraries are saved queries, not file copies.
 - Missing files: marked as missing (not deleted) so tags survive a temporarily
   disconnected drive. Hidden from normal browsing.
 - A manual "Re-scan" action triggers a full check of the Sample Folder.
+- A "Cancel scan" action is available during an active scan. Cancelling bumps a
+  generation counter; the in-flight scan aborts at the next batch boundary and
+  discards its results. The progress indicator resets to idle immediately.
 
 ### Sample Browser Container
 
@@ -183,7 +186,7 @@ Strip from spec-006. Its internal layout:
 - [x] **AC-002:** Indexed samples appear in the browser list as they are discovered (phase 1).
 - [x] **AC-003:** Sample metadata (duration, sample rate, channels) fills in incrementally (phase 2) without blocking browsing.
 - [x] **AC-004:** The sample list is virtualized — scrolling through all indexed samples is smooth with no layout jank.
-- [x] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, and a manual "Re-scan" action.
+- [x] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, a manual "Re-scan" action, and a "Cancel scan" action (visible only while a scan is running).
 - [x] **AC-005:** Typing in the search field filters the sample list in real-time, matching against filename.
 - [x] **AC-006:** Clearing the search field restores the full sample list.
 - [x] **AC-006b:** Clearing or unselecting a category restores all matching samples across every SQLite result window, not only the first page.

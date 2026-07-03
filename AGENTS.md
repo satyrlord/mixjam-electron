@@ -6,7 +6,7 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 
 ## Status
 
-Specs 001-006 fully implemented and tested. Check individual spec files for AC status.
+Specs 001-007 fully implemented and tested. Check individual spec files for AC status.
 
 ## Key docs
 

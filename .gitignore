@@ -60,6 +60,7 @@ Thumbs.db
 # Generated one-off outputs
 logs/
 .qoder/repowiki/
+.qoder/skills/
 
 # Claude Design sync — staged converter scripts, build output, and machine state
 .ds-sync/

@@ -4,6 +4,8 @@
   "description": "MixJam Electron — sample-library browser and tracker",
   "main": "out/main/index.js",
   "scripts": {
+    "setup": "node scripts/setup-skills-junction.mjs",
+    "postinstall": "npm run setup",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
