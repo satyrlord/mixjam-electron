@@ -16,79 +16,7 @@ export default function App() {
   const resolvedUserFolder = userFolder.status === 'set' ? userFolder.path : null
   const resolvedSampleFolder = sampleFolder.status === 'set' ? sampleFolder.path : null
 
-  const {
-    view,
-    version,
-    timerText,
-    recentProjects,
-    samples,
-    searchQuery,
-    loading,
-    error,
-    totalCount,
-    hasMoreSamples,
-    loadMoreSamples,
-    selectedSampleDetail,
-    setSelectedSampleDetail,
-    setSearchQuery,
-    lanes,
-    placeSampleDetailOnLane,
-    moveClipOnLane,
-    duplicateClipOnLane,
-    moveClipGroup,
-    duplicateClipGroup,
-    removeClipFromLane,
-    removeClips,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    setLanePan,
-    previewSample,
-    getSampleBuffer,
-    toggleLaneMute,
-    toggleLaneSolo,
-    laneShouldDim,
-    transportState,
-    currentTick,
-    transportPlay,
-    transportPause,
-    transportStop,
-    transportSkipBack,
-    bpm,
-    setBpm,
-    masterGain,
-    setMasterGain,
-    masterLevelDb,
-    currentProjectName,
-    goToTracker,
-    goToHome,
-    handleLoadMixJam,
-    openRecentProject,
-    openRepo,
-    scanProgress,
-    selectedCategoryId,
-    setSelectedCategoryId,
-    selectedTagIds,
-    setSelectedTagIds,
-    sortBy,
-    sortDir,
-    handleSortChange,
-    tags,
-    categories,
-    libraries,
-    startLibraryScan,
-    createTag,
-    renameTag,
-    deleteTag,
-    assignTagToSample,
-    unassignTagFromSample,
-    createCategory,
-    deleteCategory,
-    saveLibrary,
-    deleteLibrary,
-    applyLibrary
-  } = useAppState(window.electronAPI, resolvedUserFolder, resolvedSampleFolder)
+  const app = useAppState(window.electronAPI, resolvedUserFolder, resolvedSampleFolder)
 
   const [activeTheme, setActiveTheme] = useState('emerald')
 
@@ -96,6 +24,7 @@ export default function App() {
     setActiveTheme(selectTheme(requestedThemeKey))
   }, [])
 
+  const { setSelectedTagIds } = app
   const handleToggleTagFilter = useCallback((id: number) => {
     setSelectedTagIds((prev) =>
       prev.includes(id) ? prev.filter((tid) => tid !== id) : [...prev, id]
@@ -105,104 +34,106 @@ export default function App() {
   return (
     <div className="app">
       <Header
-        view={view}
-        timer={timerText}
+        view={app.view}
+        timer={app.timerText}
         theme={activeTheme}
-        onHome={goToHome}
+        onHome={app.goToHome}
         onThemeChange={handleThemeChange}
       />
       <main className="content">
-        {view === 'home' ? (
+        {app.view === 'home' ? (
           <HomeScreen
             userFolder={userFolder}
             sampleFolder={sampleFolder}
             canStart={canStart}
-            recentProjects={recentProjects}
+            recentProjects={app.recentProjects}
             activeTheme={activeTheme}
             onThemeChange={handleThemeChange}
-            onOpenRecentProject={openRecentProject}
             onPickUser={pickUser}
             onPickSample={pickSample}
-            onStart={goToTracker}
-            onLoad={handleLoadMixJam}
+            onStart={app.goToTracker}
           />
         ) : (
           <TrackerView
-            recentProjects={recentProjects}
-            samples={samples}
-            searchQuery={searchQuery}
-            loading={loading}
-            error={error}
-            selectedSamplePath={selectedSampleDetail?.filepath ?? null}
-            lanes={lanes}
-            laneShouldDim={laneShouldDim}
-            transportState={transportState}
-            currentTick={currentTick}
-            bpm={bpm}
-            masterGain={masterGain}
-            masterLevelDb={masterLevelDb}
-            totalCount={totalCount}
-            hasMoreSamples={hasMoreSamples}
-            onLoadMoreSamples={loadMoreSamples}
-            onSetBpm={setBpm}
-            onSetMasterGain={setMasterGain}
-            onSelectSampleDetail={setSelectedSampleDetail}
-            onSearchChange={setSearchQuery}
-            onPlaceSampleDetailOnLane={placeSampleDetailOnLane}
-            onMoveClipOnLane={moveClipOnLane}
-            onDuplicateClipOnLane={duplicateClipOnLane}
-            onMoveClipGroup={moveClipGroup}
-            onDuplicateClipGroup={duplicateClipGroup}
-            onRemoveClipFromLane={removeClipFromLane}
-            onRemoveClips={removeClips}
-            onUndo={undo}
-            onRedo={redo}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            projectName={currentProjectName}
-            onOpenRecentProject={openRecentProject}
-            onSetLanePan={setLanePan}
-            onPreviewSample={previewSample}
-            onToggleLaneMute={toggleLaneMute}
-            onToggleLaneSolo={toggleLaneSolo}
-            onTransportPlay={transportPlay}
-            onTransportPause={transportPause}
-            onTransportStop={transportStop}
-            onTransportSkipBack={transportSkipBack}
-            scanProgress={scanProgress}
-            selectedCategoryId={selectedCategoryId}
-            selectedTagIds={selectedTagIds}
-            sortBy={sortBy}
-            sortDir={sortDir}
-            tags={tags}
-            categories={categories}
-            libraries={libraries}
-            onSelectCategory={setSelectedCategoryId}
-            onToggleTagFilter={handleToggleTagFilter}
-            onSortChange={handleSortChange}
-            onStartScan={startLibraryScan}
-            onCreateTag={createTag}
-            onRenameTag={renameTag}
-            onDeleteTag={deleteTag}
-            onAssignTagToSample={assignTagToSample}
-            onUnassignTagFromSample={unassignTagFromSample}
-            onCreateCategory={createCategory}
-            onDeleteCategory={deleteCategory}
-            onSaveLibrary={saveLibrary}
-            onDeleteLibrary={deleteLibrary}
-            onApplyLibrary={applyLibrary}
+            recentProjects={app.recentProjects}
+            browser={{
+              samples: app.samples,
+              searchQuery: app.searchQuery,
+              loading: app.loading,
+              error: app.error,
+              totalCount: app.totalCount,
+              hasMoreSamples: app.hasMoreSamples,
+              selectedSamplePath: app.selectedSampleDetail?.filepath ?? null,
+              selectedCategoryId: app.selectedCategoryId,
+              selectedTagIds: app.selectedTagIds,
+              sortBy: app.sortBy,
+              sortDir: app.sortDir,
+              tags: app.tags,
+              categories: app.categories,
+              libraries: app.libraries,
+              scanProgress: app.scanProgress,
+              onSearchChange: app.setSearchQuery,
+              onLoadMoreSamples: app.loadMoreSamples,
+              onSelectSampleDetail: app.setSelectedSampleDetail,
+              onPreviewSample: app.previewSample,
+              onSelectCategory: app.setSelectedCategoryId,
+              onToggleTagFilter: handleToggleTagFilter,
+              onSortChange: app.handleSortChange,
+              onStartScan: app.startLibraryScan,
+              onCreateTag: app.createTag,
+              onRenameTag: app.renameTag,
+              onDeleteTag: app.deleteTag,
+              onAssignTagToSample: app.assignTagToSample,
+              onUnassignTagFromSample: app.unassignTagFromSample,
+              onCreateCategory: app.createCategory,
+              onDeleteCategory: app.deleteCategory,
+              onSaveLibrary: app.saveLibrary,
+              onDeleteLibrary: app.deleteLibrary,
+              onApplyLibrary: app.applyLibrary
+            }}
+            arrangement={{
+              lanes: app.lanes,
+              laneShouldDim: app.laneShouldDim,
+              currentTick: app.currentTick,
+              onPlaceSampleDetailOnLane: app.placeSampleDetailOnLane,
+              onMoveClipOnLane: app.moveClipOnLane,
+              onDuplicateClipOnLane: app.duplicateClipOnLane,
+              onMoveClipGroup: app.moveClipGroup,
+              onDuplicateClipGroup: app.duplicateClipGroup,
+              onRemoveClipFromLane: app.removeClipFromLane,
+              onRemoveClips: app.removeClips,
+              onSetLanePan: app.setLanePan,
+              onToggleLaneMute: app.toggleLaneMute,
+              onToggleLaneSolo: app.toggleLaneSolo
+            }}
+            transport={{
+              transportState: app.transportState,
+              bpm: app.bpm,
+              masterGain: app.masterGain,
+              masterLevelDb: app.masterLevelDb,
+              canUndo: app.canUndo,
+              canRedo: app.canRedo,
+              onSetBpm: app.setBpm,
+              onSetMasterGain: app.setMasterGain,
+              onUndo: app.undo,
+              onRedo: app.redo,
+              onTransportPlay: app.transportPlay,
+              onTransportPause: app.transportPause,
+              onTransportStop: app.transportStop,
+              onTransportSkipBack: app.transportSkipBack
+            }}
           />
         )}
       </main>
       <Footer
-        view={view}
-        version={version}
-        sampleDetail={selectedSampleDetail}
+        view={app.view}
+        version={app.version}
+        sampleDetail={app.selectedSampleDetail}
         onSelectFolder={pickUser}
-        onOpenRepo={openRepo}
-        getSampleBuffer={getSampleBuffer}
+        onOpenRepo={app.openRepo}
+        getSampleBuffer={app.getSampleBuffer}
       />
-      <ScanOverlay progress={scanProgress} />
+      <ScanOverlay progress={app.scanProgress} />
     </div>
   )
 }

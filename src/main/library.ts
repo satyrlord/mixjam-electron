@@ -1,6 +1,7 @@
 import { readdirSync } from 'node:fs'
 import type { SampleQueryRequest } from '../shared/ipc'
 import type { DB } from './db'
+import { canonicalizePath } from './path-utils'
 
 export interface TagRow {
   id: number
@@ -134,6 +135,49 @@ export function createCategory(db: DB, name: string, parentId?: number): Categor
   return { id, name, parentId: parentId ?? null }
 }
 
+// ---------------------------------------------------------------------------
+// Scan roots (per-Sample-Folder scoping)
+// ---------------------------------------------------------------------------
+
+/** LIKE-escapes a path prefix using '!' (backslash would collide with Windows
+ *  separators in the prefix itself). */
+function escapeLikePrefix(prefix: string): string {
+  return prefix.replace(/[!%_]/g, (match) => `!${match}`)
+}
+
+/** Resolves the scan_roots id for a Sample Folder path, or undefined when the
+ *  folder has never been scanned. */
+export function scanRootId(db: DB, rootPath: string): number | undefined {
+  const row = db
+    .prepare('SELECT id FROM scan_roots WHERE path = ?')
+    .get(canonicalizePath(rootPath)) as { id: number } | undefined
+  return row?.id
+}
+
+/**
+ * Resolves-or-creates the scan root for a Sample Folder and adopts any samples
+ * indexed before per-root scoping existed (root_id NULL after the v4
+ * migration) whose filepath lives under the folder. Adoption matters so the
+ * per-root missing-file prune and root-scoped queries see pre-v4 rows after
+ * one rescan instead of stranding them invisible forever.
+ */
+export function ensureScanRoot(db: DB, sampleFolder: string): number {
+  const key = canonicalizePath(sampleFolder)
+  const result = db.prepare('INSERT OR IGNORE INTO scan_roots (path) VALUES (?)').run(key)
+  const id =
+    result.changes > 0
+      ? (result.lastInsertRowid as number)
+      : (db.prepare('SELECT id FROM scan_roots WHERE path = ?').get(key) as { id: number }).id
+
+  const base = escapeLikePrefix(sampleFolder.replace(/[\\/]+$/, ''))
+  db.prepare(
+    `UPDATE samples SET root_id = ?
+     WHERE root_id IS NULL AND (filepath LIKE ? ESCAPE '!' OR filepath LIKE ? ESCAPE '!')`
+  ).run(id, `${base}\\%`, `${base}/%`)
+
+  return id
+}
+
 export const UNSORTED_CATEGORY = 'Unsorted'
 
 function unsortedCategoryId(db: DB): number {
@@ -228,8 +272,20 @@ export function deleteLibrary(db: DB, id: number): void {
 // Sample queries
 // ---------------------------------------------------------------------------
 
-/** Returns true if the DB has been populated by at least one completed scan. */
-export function hasSamples(db: DB): boolean {
+/**
+ * Returns true when the given Sample Folder has been populated by at least one
+ * completed scan. Without a rootPath the check spans every root (used by
+ * tooling/tests, not the browser).
+ */
+export function hasSamples(db: DB, rootPath?: string): boolean {
+  if (rootPath !== undefined) {
+    const rootId = scanRootId(db, rootPath)
+    if (rootId === undefined) return false
+    const row = db
+      .prepare('SELECT 1 FROM samples WHERE root_id = ? LIMIT 1')
+      .get(rootId) as { 1: number } | undefined
+    return row !== undefined
+  }
   const row = db.prepare('SELECT 1 FROM samples LIMIT 1').get() as { 1: number } | undefined
   return row !== undefined
 }
@@ -276,6 +332,7 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
     textSearch,
     categoryId,
     tagIds,
+    rootPath,
     limit = 200,
     offset = 0,
     sortBy = 'filename',
@@ -284,6 +341,14 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
 
   const conditions: string[] = ['s.scan_state != 2']
   const params: (string | number)[] = []
+
+  if (rootPath !== undefined) {
+    const rootId = scanRootId(db, rootPath)
+    // A folder that has never been scanned has no rows by definition.
+    if (rootId === undefined) return { rows: [], total: 0 }
+    conditions.push('s.root_id = ?')
+    params.push(rootId)
+  }
 
   if (textSearch && textSearch.trim()) {
     const match = toFtsPrefixQuery(textSearch)
@@ -394,6 +459,7 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
 
 export function upsertStub(
   db: DB,
+  rootId: number,
   filepath: string,
   filename: string,
   ext: string,
@@ -408,9 +474,9 @@ export function upsertStub(
 
   if (!existing) {
     db.prepare(
-      `INSERT INTO samples (filepath, filename, ext, size_bytes, mtime, date_added, scan_state)
-       VALUES (?, ?, ?, ?, ?, ?, 0)`
-    ).run(filepath, filename, ext, sizeBytes, mtime, Date.now())
+      `INSERT INTO samples (filepath, filename, ext, size_bytes, mtime, date_added, scan_state, root_id)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?)`
+    ).run(filepath, filename, ext, sizeBytes, mtime, Date.now(), rootId)
     return
   }
 
@@ -429,9 +495,9 @@ export function upsertStub(
   // User data (tags, categories, bpm, key) always survives a re-scan; only the
   // extracted audio metadata is reset for phase 2 to re-extract.
   db.prepare(
-    `UPDATE samples SET filename=?, ext=?, size_bytes=?, mtime=?, scan_state=0,
+    `UPDATE samples SET filename=?, ext=?, size_bytes=?, mtime=?, scan_state=0, root_id=?,
      duration=NULL, sample_rate=NULL, channels=NULL WHERE id=?`
-  ).run(filename, ext, sizeBytes, mtime, existing.id)
+  ).run(filename, ext, sizeBytes, mtime, rootId, existing.id)
 }
 
 export function markMissing(db: DB, filepath: string): void {
@@ -510,11 +576,13 @@ export function assignCategoryFromPath(db: DB, filepath: string, sampleFolder: s
         const result = db
           .prepare('INSERT OR IGNORE INTO categories (name, parent_id) VALUES (?, ?)')
           .run(subName, parentId)
-        sub = (result.changes > 0
-          ? { id: result.lastInsertRowid as number }
-          : (db
-              .prepare('SELECT id FROM categories WHERE parent_id = ? AND name = ?')
-              .get(parentId, subName) as { id: number }))
+        if (result.changes > 0) {
+          sub = { id: result.lastInsertRowid as number }
+        } else {
+          sub = db
+            .prepare('SELECT id FROM categories WHERE parent_id = ? AND name = ?')
+            .get(parentId, subName) as { id: number }
+        }
       }
       db.prepare('INSERT OR IGNORE INTO sample_categories (sample_id, category_id) VALUES (?, ?)')
         .run(sampleRow.id, sub.id)

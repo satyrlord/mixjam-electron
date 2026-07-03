@@ -174,36 +174,17 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(timer?.closest('.header-right')).toBeNull()
   })
 
-  it('AC-007: Load MixJam opens picker; selection moves to Player, cancel stays on Home', async () => {
-    vi.mocked(window.electronAPI.openFilePicker).mockResolvedValueOnce('D:/test/project.mixjam')
-
-    const firstRender = render(<App />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Load MixJam' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
-    })
-
-    expect(vi.mocked(window.electronAPI.openFilePicker)).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(window.electronAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
-
-    firstRender.unmount()
-
-    vi.clearAllMocks()
-    vi.mocked(window.electronAPI.openFilePicker).mockResolvedValueOnce(null)
-
+  it('AC-007: Load MixJam is disabled with a coming-soon hint until spec-011 ships', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Load MixJam' }))
+    const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
+    expect(loadButton).toBeDisabled()
+    expect(loadButton).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
 
-    await waitFor(() => {
-      expect(vi.mocked(window.electronAPI.openFilePicker)).toHaveBeenCalledTimes(1)
-    })
+    fireEvent.click(loadButton)
 
-    expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeInTheDocument()
+    expect(vi.mocked(window.electronAPI.openFilePicker)).not.toHaveBeenCalled()
     expect(screen.queryByText('Lane 1')).not.toBeInTheDocument()
-    expect(vi.mocked(window.electronAPI.resizeToTracker)).not.toHaveBeenCalled()
   })
 
   it('AC-008: Return to Main Menu restores Home and requests home window resize behavior', async () => {

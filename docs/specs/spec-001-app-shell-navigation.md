@@ -40,9 +40,10 @@ Implement view switching, the header bar, and the footer.
     (spec-003), the launch gate, the Load MixJam link, and — when any exist —
     up to four recent projects that open on click (spec-006 AC-024).
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
-  - "Load MixJam" link — secondary action, opens a native file picker filtered
-    to the project file extension. If the user selects a file, navigates to
-    the Player. If the user cancels the picker, stays on the Home Screen.
+  - "Load MixJam" link — secondary action. Disabled with a "coming soon"
+    tooltip until `.mixjam` save/load ships (spec-011); a load the app cannot
+    perform is not offered as clickable. Once spec-011 lands it opens a native
+    file picker filtered to the project file extension.
 - **Footer** (40px): "Select User Folder" link anchored to the left
   margin, version string anchored to the right margin.
 - The Home Screen has no timer and no home link.
@@ -69,10 +70,10 @@ Implement view switching, the header bar, and the footer.
 
 - Clicking "Start New MixJam" on the Home Screen replaces the content area
   with the MixJam Player.
-- Clicking "Load MixJam" opens the native file picker. If the user selects a
-  file, the content area switches to the Player (the file is not
-  actually loaded — the picker result is discarded in this spec). If the
-  user cancels the picker, the app stays on the Home Screen.
+- "Load MixJam" is disabled until spec-011 ships (amended 2026-07-03 — the
+  original behavior opened a picker and discarded the result, promising a load
+  the app could not perform). It will open the native file picker and navigate
+  to the Player once real project loading exists.
 - Clicking the home link "&lt; Return to Main Menu" in the Player header
   returns to the Home Screen.
 - View switching must be instantaneous (no page reload, no navigation delay).
@@ -117,8 +118,9 @@ Implement view switching, the header bar, and the footer.
   and a center detail slot that may be populated by the Sample Browser
   selection model (spec-004).
 - The center footer slot is empty when no sample is selected.
-- Version string is derived from app metadata version (format: semantic
-  version string, e.g. `0.5.0`). Clicking the version link opens the default
+- Version string is derived from the number of git commits at build time
+  (format: `0.<commit-count>`, e.g. `0.43`). Falls back to the package.json
+  version when git is unavailable. Clicking the version link opens the default
   system browser to `https://github.com/satyrlord/mixjam-electron`.
 
 ## Acceptance Criteria (testable)
@@ -136,14 +138,19 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
 - [x] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
 - [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
-- [x] **AC-007:** Clicking "Load MixJam" opens a native file picker. Selecting a file navigates to the Player (with window resize). Cancelling the picker stays on the Home Screen.
+- [x] **AC-007:** "Load MixJam" is disabled with a "coming soon" tooltip until spec-011 ships
+  (amended 2026-07-03 — originally it opened a picker whose result was discarded). Once project
+  loading exists: clicking opens a native file picker, selecting a file navigates to the Player
+  (with window resize), cancelling stays on the Home Screen.
 - [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
 - [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip,
   Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
-- [x] **AC-013:** In a browser-only host where `window.electronAPI` is missing, the renderer injects mock Electron APIs and runs the full app feature set with localStorage session persistence, library browsing, and theming.
+- [x] **AC-013:** In a browser-only host where `window.electronAPI` is missing, the renderer
+  injects mock Electron APIs and runs the full app feature set with localStorage session
+  persistence, library browsing, and theming.
 
 ## Non-Goals (deferred to later specs)
 
@@ -155,7 +162,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - No folder selection for sample libraries. Folder management is spec-003.
 - No sample data, no clip rendering, no lane interaction. Tracker timeline is spec-006.
 - No settings persistence — the settings link in the footer is a placeholder.
-- The file picker from "Load MixJam" does not read or validate the selected file.
+- "Load MixJam" stays disabled until spec-011 provides real file loading.
 - No keyboard shortcuts.
 - No window resize constraints beyond the full-viewport rule.
 

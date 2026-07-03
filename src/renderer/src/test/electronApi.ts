@@ -4,7 +4,8 @@ import type {
   ElectronAPI,
   LibraryItem,
   RecentProjectItem,
-  SampleListItem,
+  SampleItem,
+  SampleQueryRequest,
   SampleQueryResponse,
   ScanProgress,
   TagItem
@@ -24,28 +25,40 @@ const DEFAULT_RECENT_PROJECTS: RecentProjectItem[] = [
   }
 ]
 
-const DEFAULT_SAMPLE_LIST_ITEMS: SampleListItem[] = [
+export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
   {
-    id: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
-    dbId: null,
-    name: 'kick_808.wav',
+    id: 1,
     filepath: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
-    category: 'Drums',
-    durationSeconds: null,
-    tags: ['Drums', 'WAV'],
-    categoryId: null,
-    tagIds: []
+    filename: 'kick_808.wav',
+    ext: 'wav',
+    sizeBytes: 1024,
+    duration: null,
+    sampleRate: null,
+    channels: null,
+    bpm: null,
+    musicalKey: null,
+    dateAdded: 0,
+    scanState: 1,
+    categoryId: 2,
+    tagIds: [],
+    tags: []
   },
   {
-    id: 'C:\\Samples\\Drums\\Snares\\snare_clap.wav',
-    dbId: null,
-    name: 'snare_clap.wav',
+    id: 2,
     filepath: 'C:\\Samples\\Drums\\Snares\\snare_clap.wav',
-    category: 'Drums',
-    durationSeconds: null,
-    tags: ['Drums', 'WAV'],
-    categoryId: null,
-    tagIds: []
+    filename: 'snare_clap.wav',
+    ext: 'wav',
+    sizeBytes: 2048,
+    duration: null,
+    sampleRate: null,
+    channels: null,
+    bpm: null,
+    musicalKey: null,
+    dateAdded: 1,
+    scanState: 1,
+    categoryId: 2,
+    tagIds: [],
+    tags: []
   }
 ]
 
@@ -70,6 +83,28 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
 ]
 const DEFAULT_LIBRARIES: LibraryItem[] = []
 
+/** In-memory stand-in for the main process's windowed SQL query: text filter,
+ *  category/tag filters, and limit/offset paging over the default rows. */
+function queryDefaultRows(request: SampleQueryRequest): SampleQueryResponse {
+  let rows = DEFAULT_SAMPLE_ROWS
+  if (request.textSearch) {
+    const query = request.textSearch.trim().toLowerCase()
+    rows = rows.filter((row) =>
+      `${row.filename} ${row.filepath}`.toLowerCase().includes(query)
+    )
+  }
+  if (request.categoryId !== undefined) {
+    rows = rows.filter((row) => row.categoryId === request.categoryId)
+  }
+  if (request.tagIds && request.tagIds.length > 0) {
+    rows = rows.filter((row) => request.tagIds!.some((id) => row.tagIds.includes(id)))
+  }
+  const total = rows.length
+  const offset = request.offset ?? 0
+  const limit = request.limit ?? 200
+  return { rows: rows.slice(offset, offset + limit), total }
+}
+
 export function createElectronAPI(): ElectronAPI {
   return {
     getVersion: vi.fn().mockResolvedValue('v0.test.0'),
@@ -81,19 +116,14 @@ export function createElectronAPI(): ElectronAPI {
     saveSession: vi.fn().mockResolvedValue(undefined),
     loadRecentProjects: vi.fn().mockResolvedValue(DEFAULT_RECENT_PROJECTS),
     recordRecentProject: vi.fn().mockResolvedValue(undefined),
-    querySampleBrowser: vi.fn().mockImplementation(async (_sampleFolder, searchQuery: string) => {
-      const query = searchQuery.trim().toLowerCase()
-      if (!query) return DEFAULT_SAMPLE_LIST_ITEMS
-      return DEFAULT_SAMPLE_LIST_ITEMS.filter((item) =>
-        `${item.name} ${item.filepath}`.toLowerCase().includes(query)
-      )
-    }),
     pickFolder: vi.fn().mockResolvedValue(null),
     validateFolder: vi.fn().mockResolvedValue(true),
-    hasSamples: vi.fn().mockResolvedValue(false),
+    hasSamples: vi.fn().mockResolvedValue(true),
     startScan: vi.fn().mockResolvedValue(undefined),
     getScanProgress: vi.fn().mockResolvedValue(IDLE_PROGRESS),
-    querySamples: vi.fn().mockResolvedValue({ rows: [], total: 0 } as SampleQueryResponse),
+    querySamples: vi
+      .fn()
+      .mockImplementation(async (request: SampleQueryRequest) => queryDefaultRows(request)),
     listTags: vi.fn().mockResolvedValue(DEFAULT_TAGS),
     createTag: vi.fn().mockImplementation(async (name: string, color?: string) => ({
       id: Date.now(),

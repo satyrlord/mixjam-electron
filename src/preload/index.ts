@@ -13,13 +13,6 @@ const api: ElectronAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.recentProjectsList, userFolder),
   recordRecentProject: (projectPath) =>
     ipcRenderer.invoke(IPC_CHANNELS.recentProjectsRecord, projectPath),
-  querySampleBrowser: (sampleFolder, searchQuery, forceRescan = false) =>
-    ipcRenderer.invoke(
-      IPC_CHANNELS.sampleBrowserQuery,
-      sampleFolder,
-      searchQuery,
-      forceRescan
-    ),
   pickFolder: (role) => ipcRenderer.invoke(IPC_CHANNELS.folderPick, role),
   validateFolder: (path, role) => ipcRenderer.invoke(IPC_CHANNELS.folderValidate, path, role),
   startScan: (sampleFolder) => ipcRenderer.invoke(IPC_CHANNELS.libraryStartScan, sampleFolder),
@@ -40,7 +33,7 @@ const api: ElectronAPI = {
   saveLibrary: (name, ruleJson) =>
     ipcRenderer.invoke(IPC_CHANNELS.librarySaveLibrary, name, ruleJson),
   deleteLibrary: (id) => ipcRenderer.invoke(IPC_CHANNELS.libraryDeleteLibrary, id),
-  hasSamples: () => ipcRenderer.invoke(IPC_CHANNELS.libraryHasSamples),
+  hasSamples: (sampleFolder) => ipcRenderer.invoke(IPC_CHANNELS.libraryHasSamples, sampleFolder),
   readSampleBytes: (sampleFolder, filePath) =>
     ipcRenderer.invoke(IPC_CHANNELS.sampleReadBytes, sampleFolder, filePath),
   onScanProgress: (cb) => {

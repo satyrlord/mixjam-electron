@@ -11,7 +11,6 @@ export const IPC_CHANNELS = {
   sessionSave: 'session:save',
   recentProjectsList: 'recent-projects:list',
   recentProjectsRecord: 'recent-projects:record',
-  sampleBrowserQuery: 'sample-browser:query',
   folderPick: 'folder:pick',
   folderValidate: 'folder:validate',
   libraryStartScan: 'library:start-scan',
@@ -89,6 +88,9 @@ export interface SampleQueryRequest {
   textSearch?: string
   categoryId?: number
   tagIds?: number[]
+  /** Absolute Sample Folder path; scopes results to that folder's scan root.
+   *  A folder that has never been scanned returns an empty result. */
+  rootPath?: string
   limit?: number
   offset?: number
   sortBy?: 'filename' | 'duration' | 'dateAdded'
@@ -117,6 +119,7 @@ export function normalizeSampleQueryRequest(raw: unknown): SampleQueryRequest {
     textSearch: typeof record.textSearch === 'string' ? record.textSearch : undefined,
     categoryId: typeof record.categoryId === 'number' ? record.categoryId : undefined,
     tagIds: isNumberArray(record.tagIds) ? record.tagIds : undefined,
+    rootPath: typeof record.rootPath === 'string' ? record.rootPath : undefined,
     limit: typeof record.limit === 'number' ? record.limit : undefined,
     offset: typeof record.offset === 'number' ? record.offset : undefined,
     sortBy: isSortCol(record.sortBy) ? record.sortBy : undefined,
@@ -129,13 +132,10 @@ export interface SampleQueryResponse {
   total: number
 }
 
-/** Unified browser list item -- absolute filepath, common shape for both legacy
- *  folder scanner (cold-start fallback) and DB query pipelines. */
+/** Browser list item -- the renderer-facing projection of a DB sample row. */
 export interface SampleListItem {
   id: string
-  /** DB row id when the item comes from the indexed pipeline; null for the
-   *  legacy folder scanner (pre-index), where tag assignment is unavailable. */
-  dbId: number | null
+  dbId: number
   name: string
   filepath: string
   category: string
@@ -163,11 +163,6 @@ export interface ElectronAPI {
   saveSession: (paths: SessionPaths) => Promise<void>
   loadRecentProjects: (userFolder: string | null) => Promise<RecentProjectItem[]>
   recordRecentProject: (projectPath: string) => Promise<void>
-  querySampleBrowser: (
-    sampleFolder: string | null,
-    searchQuery: string,
-    forceRescan?: boolean
-  ) => Promise<SampleListItem[]>
   pickFolder: (role: FolderRole) => Promise<string | null>
   validateFolder: (path: string, role: FolderRole) => Promise<boolean>
   startScan: (sampleFolder: string) => Promise<void>
@@ -185,10 +180,10 @@ export interface ElectronAPI {
   listLibraries: () => Promise<LibraryItem[]>
   saveLibrary: (name: string, ruleJson: string) => Promise<LibraryItem>
   deleteLibrary: (id: number) => Promise<void>
-  // Returns true when at least one sample row exists in the library DB (i.e. a
-  // scan has completed at least once). Used by the renderer to switch from the
-  // legacy folder browser to the indexed DB browser.
-  hasSamples: () => Promise<boolean>
+  // Returns true when the given Sample Folder has at least one indexed sample
+  // row (i.e. a scan of that folder has completed at least once). Gates the
+  // browser's empty pre-index state and the first-entry auto-scan.
+  hasSamples: (sampleFolder: string) => Promise<boolean>
   // Reads the raw bytes of a sample file from disk (main-mediated, so the audio
   // engine never touches the filesystem). Returns null if the file is
   // unreadable. The path must resolve inside the active Sample Folder.

@@ -119,8 +119,8 @@ Strip from spec-006. Its internal layout:
 - Tags can be assigned to one or more samples. Assignment UI: right-clicking a
   sample tile opens a context menu listing every tag with its assignment state;
   clicking toggles assign/unassign (added 2026-07-02 — assignment previously
-  had no UI surface). Pre-index (legacy browser) samples cannot be tagged; the
-  menu says so.
+  had no UI surface). Every browser item is an indexed DB row (the pre-index
+  legacy folder browser was retired 2026-07-03), so tagging is always available.
 - All tags render as filter chips in the browser's subcategory row; clicking a
   chip toggles that tag in the active filter (added 2026-07-02 — previously
   only already-active tags rendered, so tag filtering was unreachable).

@@ -75,8 +75,9 @@ Each card shows:
   above to start."
 - Once both folders are set, the button becomes active and clicking it
   navigates to the MixJam Player (per spec-001).
-- The "Load MixJam" link remains functional regardless of folder selection
-  state — it opens the file picker per spec-001 and does not require folders.
+- The "Load MixJam" link is independent of folder selection state — it is not
+  part of the launch gate. It stays disabled until spec-011 ships real project
+  loading (per spec-001, amended 2026-07-03).
 
 ### Folder Picker Behavior
 
@@ -126,7 +127,8 @@ It is not user-editable.
 - [x] **AC-005:** "Start New MixJam" button is disabled when either folder is unset.
 - [x] **AC-006:** A hint label appears below the disabled button: "Select both folders above to start."
 - [x] **AC-007:** When both folders are set, "Start New MixJam" becomes active and navigates to the MixJam Player on click.
-- [x] **AC-008:** "Load MixJam" link works regardless of folder selection state (per spec-001).
+- [x] **AC-008:** "Load MixJam" is independent of the folder launch gate: folder selection state
+  never toggles it. It stays disabled until spec-011 ships (per spec-001, amended 2026-07-03).
 - [x] **AC-009:** Each "Pick Folder" button opens a native OS folder picker with the correct dialog title.
 - [x] **AC-010:** Selected folder paths are displayed on their respective cards after successful validation.
 - [x] **AC-010b:** When no User Folder has been chosen yet, the initial suggested location on Windows is `%USERPROFILE%\Documents\MixJam`.

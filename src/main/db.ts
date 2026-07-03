@@ -4,7 +4,7 @@ import { join } from 'path'
 export type DB = Database.Database
 
 const DB_FILE_NAME = 'library.db'
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 // The update trigger is version-managed (v3 scoped it to the FTS-indexed
 // columns), so its definition lives outside the DDL string where the migration
@@ -21,6 +21,14 @@ CREATE TABLE IF NOT EXISTS schema_version (
   version INTEGER NOT NULL
 );
 
+-- One row per Sample Folder that has ever been scanned. samples.root_id scopes
+-- every sample to the root it was found under, so switching the active Sample
+-- Folder switches the visible library instead of mixing rows across folders.
+CREATE TABLE IF NOT EXISTS scan_roots (
+  id   INTEGER PRIMARY KEY,
+  path TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS samples (
   id          INTEGER PRIMARY KEY,
   filepath    TEXT NOT NULL UNIQUE,
@@ -35,11 +43,13 @@ CREATE TABLE IF NOT EXISTS samples (
   musical_key TEXT,
   date_added  INTEGER NOT NULL,
   scan_state  INTEGER NOT NULL DEFAULT 0,
-  category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
+  category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+  root_id     INTEGER REFERENCES scan_roots(id) ON DELETE SET NULL
 );
 
--- Note: the category_id column above is added to pre-existing (v1) samples
--- tables by the version-gated ALTER TABLE migration in openDatabase().
+-- Note: the category_id (v2) and root_id (v4) columns above are added to
+-- pre-existing samples tables by the version-gated ALTER TABLE migrations in
+-- openDatabase().
 
 CREATE TABLE IF NOT EXISTS tags (
   id    INTEGER PRIMARY KEY,
@@ -139,12 +149,32 @@ export function openDatabase(dbPath?: string): DB {
 
   // Migrate v2 -> v3: scope the FTS update trigger to the indexed columns (the
   // unscoped trigger rewrote the FTS row on every samples update, including
-  // scan-state and metadata writes) and drop the never-used scan_roots table.
+  // scan-state and metadata writes) and drop the then-unused scan_roots table.
   if (row.version < 3) {
     db.exec('DROP TRIGGER IF EXISTS samples_fts_au')
     db.exec(FTS_UPDATE_TRIGGER)
     db.exec('DROP TABLE IF EXISTS scan_roots')
   }
+
+  // Migrate v3 -> v4: reintroduce scan_roots (this time used) and scope samples
+  // to their root. Existing rows keep root_id NULL until the next scan of their
+  // folder adopts them (see ensureScanRoot in library.ts).
+  if (row.version < 4) {
+    // Recreate explicitly: on a v1/v2 database the v3 step above just dropped
+    // the table the initial DDL created.
+    db.exec('CREATE TABLE IF NOT EXISTS scan_roots (id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE)')
+    try {
+      db.exec('ALTER TABLE samples ADD COLUMN root_id INTEGER REFERENCES scan_roots(id) ON DELETE SET NULL')
+    } catch {
+      // Column already exists — ignore
+    }
+  }
+
+  // idx_samples_root is created here (not in the static DDL) because on a
+  // pre-v4 database the root_id column does not exist yet when db.exec(DDL)
+  // runs. The v4 migration above adds the column; this ensures the index
+  // exists for both fresh and migrated databases.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_samples_root ON samples(root_id)')
 
   if (row.version < SCHEMA_VERSION) {
     db.prepare('UPDATE schema_version SET version = ?').run(SCHEMA_VERSION)

@@ -108,13 +108,27 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(vi.mocked(api().resizeToTracker)).toHaveBeenCalledTimes(1)
   })
 
-  it('AC-008: Load MixJam works regardless of folder selection state', async () => {
+  it('AC-008: Load MixJam is independent of folder state (disabled until spec-011)', async () => {
+    // With no folders selected the launch gate blocks Start, but Load MixJam is
+    // not part of the gate — its disabled state comes from spec-011 not having
+    // shipped, signalled by the coming-soon tooltip rather than the gate hint.
     await renderFirstLaunch()
-    vi.mocked(api().openFilePicker).mockResolvedValueOnce('C:/projects/song.mixjam')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Load MixJam' }))
+    const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
+    expect(loadButton).toBeDisabled()
+    expect(loadButton).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
 
-    await waitFor(() => expect(screen.getByText('Lane 1')).toBeInTheDocument())
+    // Selecting folders opens the launch gate but does not change Load MixJam.
+    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    fireEvent.click(pickButton('User Folder'))
+    await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
+    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Samples')
+    fireEvent.click(pickButton('Sample Folder'))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeEnabled()
+    )
+
+    expect(screen.getByRole('button', { name: 'Load MixJam' })).toBeDisabled()
   })
 
   it('AC-009: each Pick Folder invokes the native picker with the matching role', async () => {

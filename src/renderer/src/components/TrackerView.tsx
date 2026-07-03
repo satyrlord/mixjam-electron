@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CategoryItem, LibraryItem, RecentProjectItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
-import type { ClipGroupEntry, FooterSampleDetail, LaneState } from '../lib/playerShell'
+import type { RecentProjectItem } from '../../../shared/ipc'
+import type { ClipGroupEntry, FooterSampleDetail } from '../lib/playerShell'
+import type {
+  TrackerArrangementProps,
+  TrackerBrowserProps,
+  TrackerTransportProps
+} from './trackerProps'
 import {
   LANE_HEAD_WIDTH_PX,
   LANE_HEIGHT_PX,
@@ -8,193 +13,34 @@ import {
   clamp,
   clipScreenRect,
 } from '../lib/playerShell'
-import {
-  bubbleStyle,
-  categoryColor,
-  meterFillPct,
-  nearestTick,
-} from '../lib/sample-utils'
+import { nearestTick } from '../lib/sample-utils'
 import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
-import { useBpmEditor } from '../hooks/useBpmEditor'
-import ScanProgressBar from './ScanProgressBar'
-import ManagePanel from './ManagePanel'
+import RecentProjectsRail from './RecentProjectsRail'
+import TransportStrip from './TransportStrip'
+import SongControlsRail from './SongControlsRail'
+import SampleBrowser from './SampleBrowser'
 import LaneClipCanvas from './LaneClipCanvas'
-import SampleTileGrid from './SampleTileGrid'
 import ShortcutsOverlay from './ShortcutsOverlay'
 
-// Transport and edit glyphs as inline SVGs: emoji codepoints render through a
-// color emoji font on Windows and ignore the theme's currentColor.
-const TRANSPORT_ICON_PATHS: Record<'skip-back' | 'play' | 'pause' | 'stop' | 'undo', string> = {
-  'skip-back': 'M3 2.5h2v11H3zM13.5 2.5v11L6 8z',
-  play: 'M4.5 2.5v11L13 8z',
-  pause: 'M4 2.5h3v11H4zM9 2.5h3v11H9z',
-  stop: 'M3.5 3.5h9v9h-9z',
-  undo: 'M7.5 1.5 2 6l5.5 4.5V7.75h1.75a2.87 2.87 0 0 1 0 5.75H6.5v2h2.75a4.88 4.88 0 0 0 0-9.75H7.5V1.5z'
-}
-
-function TransportIcon({ shape, mirrored = false }: {
-  shape: keyof typeof TRANSPORT_ICON_PATHS
-  mirrored?: boolean
-}) {
-  return (
-    <svg className="transport-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d={TRANSPORT_ICON_PATHS[shape]}
-        {...(mirrored ? { transform: 'scale(-1 1) translate(-16 0)' } : {})}
-      />
-    </svg>
-  )
-}
-
-interface TrackerViewProps {
+export interface TrackerViewProps {
   recentProjects: RecentProjectItem[]
-  samples: SampleListItem[]
-  searchQuery: string
-  loading: boolean
-  error: string | null
-  selectedSamplePath: string | null
-  lanes: LaneState[]
-  laneShouldDim: (lane: LaneState) => boolean
-  transportState: 'stopped' | 'playing' | 'paused'
-  currentTick: number
-  bpm: number
-  masterGain: number
-  masterLevelDb: number
-  totalCount: number
-  hasMoreSamples: boolean
-  onLoadMoreSamples: () => void
-  onSetBpm: (bpm: number) => void
-  onSetMasterGain: (value: number) => void
-  onSelectSampleDetail: (detail: FooterSampleDetail) => void
-  onSearchChange: (query: string) => void
-  onPlaceSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
-  onMoveClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
-  onDuplicateClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
-  onMoveClipGroup: (moves: ClipGroupEntry[]) => void
-  onDuplicateClipGroup: (sources: ClipGroupEntry[]) => void
-  onRemoveClipFromLane: (laneIndex: number, clipId: string) => void
-  onRemoveClips: (clipIds: string[]) => void
-  onUndo: () => void
-  onRedo: () => void
-  canUndo: boolean
-  canRedo: boolean
-  projectName: string | null
-  onOpenRecentProject: (project: RecentProjectItem) => void
-  onSetLanePan: (laneIndex: number, pan: number) => void
-  onPreviewSample: (samplePath: string) => void
-  onToggleLaneMute: (laneIndex: number) => void
-  onToggleLaneSolo: (laneIndex: number) => void
-  onTransportPlay: () => void
-  onTransportPause: () => void
-  onTransportStop: () => void
-  onTransportSkipBack: () => void
-  scanProgress: ScanProgress
-  selectedCategoryId: number | undefined
-  selectedTagIds: number[]
-  sortBy: 'filename' | 'duration' | 'dateAdded'
-  sortDir: 'asc' | 'desc'
-  tags: TagItem[]
-  categories: CategoryItem[]
-  libraries: LibraryItem[]
-  onSelectCategory: (id: number | undefined) => void
-  onToggleTagFilter: (id: number) => void
-  onSortChange: (col: 'filename' | 'duration' | 'dateAdded') => void
-  onStartScan: () => void
-  onCreateTag: (name: string, color?: string) => Promise<TagItem>
-  onRenameTag: (id: number, name: string) => Promise<void>
-  onDeleteTag: (id: number) => Promise<void>
-  onAssignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
-  onUnassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
-  onCreateCategory: (name: string, parentId?: number) => Promise<CategoryItem>
-  onDeleteCategory: (id: number) => Promise<void>
-  onSaveLibrary: (name: string) => Promise<LibraryItem>
-  onDeleteLibrary: (id: number) => Promise<void>
-  onApplyLibrary: (library: LibraryItem) => void
+  browser: TrackerBrowserProps
+  arrangement: TrackerArrangementProps
+  transport: TrackerTransportProps
 }
-
-
 
 export default function TrackerView({
   recentProjects,
-  samples,
-  searchQuery,
-  loading,
-  error,
-  selectedSamplePath,
-  lanes,
-  laneShouldDim,
-  transportState,
-  currentTick,
-  bpm,
-  masterGain,
-  masterLevelDb,
-  totalCount,
-  hasMoreSamples,
-  onLoadMoreSamples,
-  onSetBpm,
-  onSetMasterGain,
-  onSelectSampleDetail,
-  onSearchChange,
-  onPlaceSampleDetailOnLane,
-  onMoveClipOnLane,
-  onDuplicateClipOnLane,
-  onMoveClipGroup,
-  onDuplicateClipGroup,
-  onRemoveClipFromLane,
-  onRemoveClips,
-  onUndo,
-  onRedo,
-  canUndo,
-  canRedo,
-  projectName,
-  onOpenRecentProject,
-  onSetLanePan,
-  onPreviewSample,
-  onToggleLaneMute,
-  onToggleLaneSolo,
-  onTransportPlay,
-  onTransportPause,
-  onTransportStop,
-  onTransportSkipBack,
-  scanProgress,
-  selectedCategoryId,
-  selectedTagIds,
-  sortBy,
-  sortDir,
-  tags,
-  categories,
-  libraries,
-  onSelectCategory,
-  onToggleTagFilter,
-  onSortChange,
-  onStartScan,
-  onCreateTag,
-  onRenameTag,
-  onDeleteTag,
-  onAssignTagToSample,
-  onUnassignTagFromSample,
-  onCreateCategory,
-  onDeleteCategory,
-  onSaveLibrary,
-  onDeleteLibrary,
-  onApplyLibrary,
+  browser,
+  arrangement,
+  transport
 }: TrackerViewProps) {
+  const { lanes, laneShouldDim, currentTick } = arrangement
+  const { transportState } = transport
+
   const totalTicks = 256
   const rulerBeatCount = totalTicks / TICKS_PER_BEAT
-  const isPlaying = transportState === 'playing'
-
-  const [managePanelOpen, setManagePanelOpen] = useState(false)
-
-  const {
-    editingBpm,
-    bpmDraft,
-    bpmInputRef,
-    setBpmDraft,
-    handleBpmEditStart,
-    handleBpmEditCommit,
-    handleBpmEditKeyDown
-  } = useBpmEditor({ bpm, onSetBpm })
 
   // Lane content width measurement for consistent bubble widths
   const lanesRef = useRef<HTMLDivElement>(null)
@@ -217,7 +63,7 @@ export default function TrackerView({
     startX: number; startY: number; currentX: number; currentY: number
   } | null>(null)
   // Tracks the window mousemove/mouseup listeners of every in-progress drag
-  // (rectangle select, splitters, pan knobs) so they are torn down if
+  // (rectangle select, splitter, pan knobs) so they are torn down if
   // TrackerView unmounts mid-drag (e.g. the user navigates Home while still
   // holding the mouse button).
   const dragCleanupsRef = useRef<Set<() => void>>(new Set())
@@ -242,10 +88,8 @@ export default function TrackerView({
     }
     const container = lanesRef.current
     if (!container) return
-    // Capture geometry once at drag start — the container doesn't resize or
-    // reposition mid-drag, so re-measuring on every mousemove is wasted work.
-    // Also capture scroll offsets so the rendered selection-rect and the
-    // hit-testing stay correct if the lanes list is scrolled mid-drag.
+    // Capture geometry once at drag start — re-measuring on every mousemove is
+    // wasted work, and scroll offsets keep hit-testing correct if the list scrolls.
     const rect = container.getBoundingClientRect()
     const localX = e.clientX - rect.left
     const localY = e.clientY - rect.top
@@ -309,15 +153,14 @@ export default function TrackerView({
     selectedClipIdsRef,
     clearSelection: () => setSelectedClipIds(new Set()),
     transportStateRef,
-    onRemoveClips,
-    onUndo,
-    onRedo,
-    onTransportPlay,
-    onTransportPause,
+    onRemoveClips: arrangement.onRemoveClips,
+    onUndo: transport.onUndo,
+    onRedo: transport.onRedo,
+    onTransportPlay: transport.onTransportPlay,
+    onTransportPause: transport.onTransportPause,
     onOpenShortcuts: () => setShortcutsOpen(true)
   })
 
-  // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
@@ -327,43 +170,20 @@ export default function TrackerView({
     sampleName: string
   } | null>(null)
 
-  // Recent-projects context menu state
-  const [recentMenu, setRecentMenu] = useState<{
-    x: number
-    y: number
-    project: RecentProjectItem
-  } | null>(null)
-
-  // Sample-tile context menu state (tag assignment, spec-004 AC-007)
-  const [sampleMenu, setSampleMenu] = useState<{
-    x: number
-    y: number
-    sample: SampleListItem
-  } | null>(null)
-
-  const handleSampleContextMenu = useCallback((sample: SampleListItem, e: React.MouseEvent) => {
-    e.preventDefault()
-    setSampleMenu({ x: e.clientX, y: e.clientY, sample })
-  }, [])
-
   // Flash state for "locate in browser": the target path stays put for the
-  // whole animation while a separate visibility flag blinks, so the effect
-  // below never re-runs (and kills its own interval) mid-flash.
+  // whole animation while a visibility flag blinks, so the effect below never
+  // re-runs (and kills its own interval) mid-flash.
   const [flashSamplePath, setFlashSamplePath] = useState<string | null>(null)
   const [flashVisible, setFlashVisible] = useState(false)
   const activeFlashPath = flashVisible ? flashSamplePath : null
 
-  // Dismiss context menus on any click outside
+  // Dismiss the clip context menu on any click outside
   useEffect(() => {
-    if (!contextMenu && !recentMenu && !sampleMenu) return
-    const dismiss = () => {
-      setContextMenu(null)
-      setRecentMenu(null)
-      setSampleMenu(null)
-    }
+    if (!contextMenu) return
+    const dismiss = () => setContextMenu(null)
     window.addEventListener('click', dismiss)
     return () => window.removeEventListener('click', dismiss)
-  }, [contextMenu, recentMenu, sampleMenu])
+  }, [contextMenu])
 
   // Flash effect: blink the highlight 3 times (6 visibility toggles) then clear.
   useEffect(() => {
@@ -383,22 +203,19 @@ export default function TrackerView({
     return () => clearInterval(timer)
   }, [flashSamplePath])
 
-  // Context menu actions
   const handleContextDelete = useCallback(() => {
     if (!contextMenu) return
-    onRemoveClipFromLane(contextMenu.laneIndex, contextMenu.clipId)
+    arrangement.onRemoveClipFromLane(contextMenu.laneIndex, contextMenu.clipId)
     setContextMenu(null)
-  }, [contextMenu, onRemoveClipFromLane])
+  }, [contextMenu, arrangement])
 
   const handleContextLocate = useCallback(() => {
     if (!contextMenu) return
-    // Search for the sample name to locate it in the browser
-    onSearchChange(contextMenu.sampleName.replace(/\.[^.]+$/, ''))
-    onSelectCategory(undefined)
-    // Flash the sample
+    browser.onSearchChange(contextMenu.sampleName.replace(/\.[^.]+$/, ''))
+    browser.onSelectCategory(undefined)
     setFlashSamplePath(contextMenu.samplePath)
     setContextMenu(null)
-  }, [contextMenu, onSearchChange, onSelectCategory])
+  }, [contextMenu, browser])
 
   const handleSampleDragStart = useCallback((event: React.DragEvent, detail: FooterSampleDetail) => {
     event.dataTransfer.setData('application/mixjam-sample', JSON.stringify(detail))
@@ -458,7 +275,7 @@ export default function TrackerView({
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
         const tick = nearestTick(clickX, rect.width, totalTicks, snap)
-        onPlaceSampleDetailOnLane(detail, laneIndex, tick)
+        arrangement.onPlaceSampleDetailOnLane(detail, laneIndex, tick)
       } catch { /* malformed drag data */ }
       return
     }
@@ -480,11 +297,15 @@ export default function TrackerView({
             toLaneIndex: clamp(laneIndex + g.laneOffset, 0, lanes.length - 1),
             newStartTick: clamp(anchorTick + g.tickOffset, 0, totalTicks - 1)
           }))
-          const applyGroup = event.shiftKey ? onDuplicateClipGroup : onMoveClipGroup
+          const applyGroup = event.shiftKey
+            ? arrangement.onDuplicateClipGroup
+            : arrangement.onMoveClipGroup
           applyGroup(entries)
           setSelectedClipIds(new Set())
         } else {
-          const applySingle = event.shiftKey ? onDuplicateClipOnLane : onMoveClipOnLane
+          const applySingle = event.shiftKey
+            ? arrangement.onDuplicateClipOnLane
+            : arrangement.onMoveClipOnLane
           applySingle(parsed.clipId, laneIndex, anchorTick)
           setSelectedClipIds(new Set())
         }
@@ -492,44 +313,9 @@ export default function TrackerView({
     }
   }
 
-  const rootCategories = categories.filter((c) => c.parentId === null)
-  const childCategories = (parentId: number) => categories.filter((c) => c.parentId === parentId)
-
-  const subcatChips: CategoryItem[] = selectedCategoryId !== undefined
-    ? childCategories(selectedCategoryId)
-    : []
-
-  // Compute the active category color for sample bubbles
-  const activeCategoryColor = selectedCategoryId !== undefined
-    ? categoryColor(
-        categories.find((c) => c.id === selectedCategoryId)?.name ?? ''
-      )
-    : undefined
-
   // Browser/tracker split: fraction of remaining space given to the browser
   // region.  1 = equal split with the tracker region.
   const [browserFlex, setBrowserFlex] = useState(1)
-
-  // Browser internal vertical resize: category-tree width in px.
-  const [catsWidth, setCatsWidth] = useState(152)
-
-  const handleBrowserResizeVStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    const startX = e.clientX
-    const startWidth = catsWidth
-    const onMove = (moveEvent: MouseEvent) => {
-      const newWidth = startWidth + (moveEvent.clientX - startX)
-      setCatsWidth(Math.max(80, Math.min(400, newWidth)))
-    }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      untrack()
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    const untrack = trackDragCleanup(onUp)
-  }, [catsWidth, trackDragCleanup])
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -551,13 +337,6 @@ export default function TrackerView({
     const untrack = trackDragCleanup(onUp)
   }, [browserFlex, trackDragCleanup])
 
-  const sortIcon = (col: typeof sortBy) => {
-    if (sortBy !== col) return null
-    return <span aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
-  }
-
-  const resultCount = totalCount
-
   return (
     <div
       className="tracker-view"
@@ -565,35 +344,7 @@ export default function TrackerView({
         gridTemplateRows: `minmax(0, 1fr) 44px 6px minmax(0, ${browserFlex}fr)`
       }}
     >
-      <aside className="tracker-zone recent-projects-rail">
-        <h2 className="tracker-zone-title">Recent Projects</h2>
-        {recentProjects.length === 0 ? (
-          <p className="recent-projects-empty">
-            No MixJam projects yet. Save the current project or open an existing .mixjam file to
-            populate this rail.
-          </p>
-        ) : (
-          <ol className="recent-projects-list">
-            {recentProjects.map((project) => (
-              <li key={project.path} className="recent-projects-item">
-                <button
-                  type="button"
-                  className="recent-projects-open"
-                  title={`Open ${project.displayName}`}
-                  onClick={() => onOpenRecentProject(project)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    setRecentMenu({ x: e.clientX, y: e.clientY, project })
-                  }}
-                >
-                  <span className="recent-projects-name">{project.displayName}</span>
-                  <span className="recent-projects-path">{project.path}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
-      </aside>
+      <RecentProjectsRail recentProjects={recentProjects} />
 
       <section className="tracker-zone tracker-region">
         {transportState !== 'stopped' && currentTick < totalTicks && (
@@ -641,14 +392,14 @@ export default function TrackerView({
                       className={`tracker-lane-mute${lane.muted ? ' tracker-lane-mute-active' : ''}`}
                       aria-label={`Mute ${lane.name}`}
                       title={lane.muted ? 'Unmute lane' : 'Mute lane'}
-                      onClick={() => onToggleLaneMute(lane.index)}
+                      onClick={() => arrangement.onToggleLaneMute(lane.index)}
                     >M</button>
                     <button
                       type="button"
                       className={`tracker-lane-solo${lane.solo ? ' tracker-lane-solo-active' : ''}`}
                       aria-label={`Solo ${lane.name}`}
                       title={lane.solo ? 'Unsolo lane' : 'Solo lane'}
-                      onClick={() => onToggleLaneSolo(lane.index)}
+                      onClick={() => arrangement.onToggleLaneSolo(lane.index)}
                     >S</button>
                     <span
                       className="tracker-lane-pan"
@@ -665,7 +416,7 @@ export default function TrackerView({
                         const startPan = lane.pan
                         const onMove = (moveEvent: MouseEvent) => {
                           const delta = (moveEvent.clientX - startX) * 0.01
-                          onSetLanePan(lane.index, Math.max(-1, Math.min(1, startPan + delta)))
+                          arrangement.onSetLanePan(lane.index, Math.max(-1, Math.min(1, startPan + delta)))
                         }
                         const onUp = () => {
                           window.removeEventListener('mousemove', onMove)
@@ -700,104 +451,24 @@ export default function TrackerView({
         </div>
       </section>
 
-      <section className="middle-strip">
-        <div className="strip-left">
-          <span className="strip-proj">{projectName ?? 'Untitled'}</span>
-          <span className="strip-sep" />
-          {editingBpm ? (
-            <input
-              ref={bpmInputRef}
-              type="number"
-              className="strip-bpm-input"
-              min={50}
-              max={200}
-              value={bpmDraft}
-              onChange={(e) => setBpmDraft(e.currentTarget.value)}
-              onBlur={handleBpmEditCommit}
-              onKeyDown={handleBpmEditKeyDown}
-              aria-label="Edit BPM"
-            />
-          ) : (
-            <button
-              type="button"
-              className="strip-bpm"
-              onClick={handleBpmEditStart}
-              aria-label="Edit BPM"
-              title="Click to edit BPM (50-200), Enter commits, Esc cancels"
-            >
-              {bpm} BPM
-            </button>
-          )}
-        </div>
-        <div className="strip-center">
-          <button type="button" className="transport-button" aria-label="Skip Back" title="Skip back to start" onClick={onTransportSkipBack}>
-            <TransportIcon shape="skip-back" />
-          </button>
-          <button
-            type="button"
-            className={`transport-button${isPlaying ? ' transport-button-play' : ''}`}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-            onClick={isPlaying ? onTransportPause : onTransportPlay}
-          >
-            <TransportIcon shape={isPlaying ? 'pause' : 'play'} />
-          </button>
-          <button type="button" className="transport-button" aria-label="Stop" title="Stop" onClick={onTransportStop}>
-            <TransportIcon shape="stop" />
-          </button>
-          <span className="strip-sep" />
-          <button
-            type="button"
-            className="transport-button"
-            aria-label="Undo"
-            title="Undo (Ctrl+Z)"
-            disabled={!canUndo}
-            onClick={onUndo}
-          >
-            <TransportIcon shape="undo" />
-          </button>
-          <button
-            type="button"
-            className="transport-button"
-            aria-label="Redo"
-            title="Redo (Ctrl+Y)"
-            disabled={!canRedo}
-            onClick={onRedo}
-          >
-            <TransportIcon shape="undo" mirrored />
-          </button>
-        </div>
-        <div className="strip-right">
-          <ScanProgressBar progress={scanProgress} />
-          <input
-            type="search"
-            className="strip-search"
-            placeholder="Search samples…"
-            aria-label="Search samples"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.currentTarget.value)}
-          />
-          <button
-            type="button"
-            className="strip-rescan"
-            onClick={() => void onStartScan()}
-            disabled={scanProgress.status === 'scanning'}
-            aria-label={scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
-            title="Re-scan the Sample Folder into the library"
-          >
-            {scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
-          </button>
-          <button
-            type="button"
-            className="strip-help"
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts (?)"
-            onClick={() => setShortcutsOpen(true)}
-          >
-            ?
-          </button>
-        </div>
-      </section>
+      <TransportStrip
+        transportState={transportState}
+        bpm={transport.bpm}
+        onSetBpm={transport.onSetBpm}
+        canUndo={transport.canUndo}
+        canRedo={transport.canRedo}
+        onUndo={transport.onUndo}
+        onRedo={transport.onRedo}
+        onTransportPlay={transport.onTransportPlay}
+        onTransportPause={transport.onTransportPause}
+        onTransportStop={transport.onTransportStop}
+        onTransportSkipBack={transport.onTransportSkipBack}
+        searchQuery={browser.searchQuery}
+        onSearchChange={browser.onSearchChange}
+        scanProgress={browser.scanProgress}
+        onStartScan={browser.onStartScan}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+      />
 
       <div
         className="browser-resize-h"
@@ -807,173 +478,19 @@ export default function TrackerView({
         onMouseDown={handleResizeStart}
       />
 
-      <aside className="tracker-zone song-controls-rail">
-        <h2 className="tracker-zone-title">Song Controls</h2>
-        <label className="song-control">
-          <span className="song-control-head">
-            Master Volume
-            <span className="song-control-value">{Math.round(masterGain * 100)}%</span>
-          </span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(masterGain * 100)}
-            aria-label="Master Volume"
-            onChange={(e) => onSetMasterGain(Number(e.currentTarget.value) / 100)}
-          />
-        </label>
-        <div className="song-control">
-          <span>dB Loudness</span>
-          <div
-            className="loudness-meter"
-            role="meter"
-            aria-label="Master loudness"
-            aria-valuemin={-100}
-            aria-valuemax={0}
-            aria-valuenow={Math.round(masterLevelDb)}
-          >
-            <div
-              className="loudness-meter-fill"
-              style={{ width: `${meterFillPct(masterLevelDb)}%` }}
-            />
-          </div>
-        </div>
-      </aside>
+      <SongControlsRail
+        masterGain={transport.masterGain}
+        masterLevelDb={transport.masterLevelDb}
+        onSetMasterGain={transport.onSetMasterGain}
+      />
 
-      <section className="browser-region" aria-label="Sample Browser">
-        <div className="cats" style={{ width: catsWidth }}>
-          <button
-            type="button"
-            className="cat-manage-btn"
-            aria-label={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
-            title={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
-            onClick={() => setManagePanelOpen((v) => !v)}
-          >
-            {managePanelOpen ? '×' : '+'}
-          </button>
-          <div className="cat-grid" role="listbox" aria-label="Sample categories">
-            {rootCategories.map((cat) => {
-              const color = categoryColor(cat.name)
-              const isSelected = selectedCategoryId === cat.id
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  className={`sample-bubble bubble-category${isSelected ? ' selected' : ''}`}
-                  style={bubbleStyle(color)}
-                  onClick={() => onSelectCategory(isSelected ? undefined : cat.id)}
-                >
-                  {cat.name}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div
-          className="browser-resize-v"
-          role="separator"
-          aria-label="Resize category tree"
-          aria-orientation="vertical"
-          onMouseDown={handleBrowserResizeVStart}
-        />
-
-        <div className="tiles-section">
-          <div className="subcats-row">
-            {selectedCategoryId !== undefined && (
-              <button
-                type="button"
-                className="subcat subcat-clear"
-                onClick={() => onSelectCategory(undefined)}
-                aria-label="Clear category filter"
-              >
-                All
-              </button>
-            )}
-            {subcatChips.map((sub) => (
-              <button
-                key={sub.id}
-                type="button"
-                className={`subcat${selectedCategoryId === sub.id ? ' subcat-active' : ''}`}
-                onClick={() => onSelectCategory(selectedCategoryId === sub.id ? undefined : sub.id)}
-              >
-                {sub.name}
-              </button>
-            ))}
-            {tags.map((tag) => {
-              const active = selectedTagIds.includes(tag.id)
-              return (
-                <button
-                  key={`tag-${tag.id}`}
-                  type="button"
-                  className={`subcat subcat-tag${active ? ' subcat-active' : ''}`}
-                  onClick={() => onToggleTagFilter(tag.id)}
-                  aria-pressed={active}
-                  title={active ? `Stop filtering by ${tag.name}` : `Filter by ${tag.name}`}
-                >
-                  {active ? `${tag.name} ×` : tag.name}
-                </button>
-              )
-            })}
-            <span className="subcats-count">
-              {resultCount > 0 ? `${resultCount} samples` : ''}
-            </span>
-            {totalCount > 0 && (
-              <span className="sort-row">
-                {(['filename', 'duration', 'dateAdded'] as const).map((col) => (
-                  <button
-                    key={col}
-                    type="button"
-                    className={`sort-btn${sortBy === col ? ' sort-btn-active' : ''}`}
-                    onClick={() => onSortChange(col)}
-                    aria-sort={sortBy === col ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  >
-                    {col === 'filename' ? 'Name' : col === 'duration' ? 'Dur' : 'Date'}
-                    {sortIcon(col)}
-                  </button>
-                ))}
-              </span>
-            )}
-          </div>
-
-          <SampleTileGrid
-            samples={samples}
-            bpm={bpm}
-            pixelsPerTick={pixelsPerTick}
-            selectedSamplePath={selectedSamplePath}
-            flashSamplePath={activeFlashPath}
-            activeCategoryColor={activeCategoryColor}
-            categories={categories}
-            loading={loading}
-            error={error}
-            hasMore={hasMoreSamples}
-            onLoadMore={onLoadMoreSamples}
-            onSelectSampleDetail={onSelectSampleDetail}
-            onPreviewSample={onPreviewSample}
-            onSampleDragStart={handleSampleDragStart}
-            onSampleContextMenu={handleSampleContextMenu}
-          />
-        </div>
-
-        {managePanelOpen && (
-          <ManagePanel
-            tags={tags}
-            libraries={libraries}
-            categories={categories}
-            onCreateTag={onCreateTag}
-            onRenameTag={onRenameTag}
-            onDeleteTag={onDeleteTag}
-            onCreateCategory={onCreateCategory}
-            onDeleteCategory={onDeleteCategory}
-            onSaveLibrary={onSaveLibrary}
-            onDeleteLibrary={onDeleteLibrary}
-            onApplyLibrary={onApplyLibrary}
-          />
-        )}
-      </section>
+      <SampleBrowser
+        browser={browser}
+        bpm={transport.bpm}
+        pixelsPerTick={pixelsPerTick}
+        flashSamplePath={activeFlashPath}
+        onSampleDragStart={handleSampleDragStart}
+      />
 
       {contextMenu && (
         <div
@@ -997,74 +514,6 @@ export default function TrackerView({
           >
             Locate in Browser
           </button>
-        </div>
-      )}
-
-      {recentMenu && (
-        <div
-          className="context-menu"
-          style={{ left: recentMenu.x, top: recentMenu.y }}
-          role="menu"
-        >
-          <button
-            type="button"
-            className="context-menu-item"
-            role="menuitem"
-            onClick={() => {
-              onOpenRecentProject(recentMenu.project)
-              setRecentMenu(null)
-            }}
-          >
-            Open
-          </button>
-          <button
-            type="button"
-            className="context-menu-item"
-            role="menuitem"
-            onClick={() => {
-              void navigator.clipboard?.writeText(recentMenu.project.path).catch(() => {
-                // Clipboard access denied — nothing sensible to do.
-              })
-              setRecentMenu(null)
-            }}
-          >
-            Copy Path
-          </button>
-        </div>
-      )}
-
-      {sampleMenu && (
-        <div
-          className="context-menu"
-          style={{ left: sampleMenu.x, top: sampleMenu.y }}
-          role="menu"
-          aria-label={`Tags for ${sampleMenu.sample.name}`}
-        >
-          {sampleMenu.sample.dbId === null ? (
-            <span className="context-menu-note">Tags are available after the first scan.</span>
-          ) : tags.length === 0 ? (
-            <span className="context-menu-note">No tags yet — create one in the Manage panel.</span>
-          ) : (
-            tags.map((tag) => {
-              const assigned = sampleMenu.sample.tagIds.includes(tag.id)
-              return (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className="context-menu-item"
-                  role="menuitemcheckbox"
-                  aria-checked={assigned}
-                  onClick={() => {
-                    if (assigned) void onUnassignTagFromSample(sampleMenu.sample, tag.id)
-                    else void onAssignTagToSample(sampleMenu.sample, tag.id)
-                    setSampleMenu(null)
-                  }}
-                >
-                  {assigned ? `Untag: ${tag.name}` : `Tag: ${tag.name}`}
-                </button>
-              )
-            })
-          )}
         </div>
       )}
 

@@ -17,8 +17,8 @@ export type SampleSortDirection = 'asc' | 'desc'
 export interface LibraryDataState {
   version: string
   recentProjects: RecentProjectItem[]
-  /** Unified sample list — populated from the DB browser after the first scan,
-   *  falling back to the legacy folder scanner before any scan has run. */
+  /** The loaded prefix of the current windowed DB query; empty until the
+   *  active Sample Folder's first scan completes. */
   samples: SampleListItem[]
   searchQuery: string
   loading: boolean
@@ -26,7 +26,7 @@ export interface LibraryDataState {
   selectedSampleDetail: FooterSampleDetail | null
   scanProgress: ScanProgress
   totalCount: number
-  /** True once the library DB holds at least one sample (a scan completed). */
+  /** True once the active Sample Folder has been indexed (a scan completed). */
   dbIndexed: boolean
   /** True while more windowed pages exist beyond the loaded prefix. */
   hasMoreSamples: boolean
@@ -167,7 +167,6 @@ export function useLibraryData(
     setSamples((prev) => {
       let changed = false
       const next = prev.map((s) => {
-        if (s.dbId === null) return s
         const name =
           (s.categoryId !== null ? categoryNames.get(s.categoryId) : undefined) ?? 'Unsorted'
         if (name === s.category) return s
@@ -205,19 +204,24 @@ export function useLibraryData(
     void reloadRecentProjects()
   }, [reloadRecentProjects])
 
-  // Check whether the DB has been indexed (at least one sample row exists).
-  // Re-check whenever the sample folder changes or a scan completes.
+  // Check whether the active Sample Folder has been indexed. Re-check whenever
+  // the folder changes or a scan completes.
   const refreshDbIndexed = useCallback(async () => {
+    if (!sampleFolder) return
     try {
-      setDbIndexed(await electronAPI.hasSamples())
+      setDbIndexed(await electronAPI.hasSamples(sampleFolder))
     } catch {
-      // Keep dbIndexed false on error — legacy fallback stays active.
+      // Keep dbIndexed false on error — the browser stays in its empty state.
     }
-  }, [electronAPI])
+  }, [electronAPI, sampleFolder])
 
   useEffect(() => {
-    if (sampleFolder) void refreshDbIndexed()
-    else {
+    if (sampleFolder) {
+      // Assume un-indexed until the check for the new folder answers, so a
+      // just-switched folder never briefly renders as indexed.
+      setDbIndexed(false)
+      void refreshDbIndexed()
+    } else {
       setDbIndexed(false)
       setSamples([])
       setTotalCount(0)
@@ -225,41 +229,12 @@ export function useLibraryData(
     }
   }, [sampleFolder, refreshDbIndexed])
 
-  // Legacy folder-browser query (used only before the first DB scan).
-  const queryLegacy = useCallback(
-    async (q: string) => {
-      if (!sampleFolder) {
-        setSamples([])
-        setLoading(false)
-        setError(null)
-        return
-      }
-      const seq = ++querySeqRef.current
-      setLoading(true)
-      try {
-        const rows = await electronAPI.querySampleBrowser(sampleFolder, q, false)
-        if (seq !== querySeqRef.current) return
-        setSamples(rows)
-        setTotalCount(rows.length)
-        setError(null)
-      } catch (e) {
-        if (seq !== querySeqRef.current) return
-        console.error('Failed to query sample browser:', e)
-        setSamples([])
-        setTotalCount(0)
-        setError('Unable to load sample library.')
-      } finally {
-        if (seq === querySeqRef.current) setLoading(false)
-      }
-    },
-    [electronAPI, sampleFolder]
-  )
-
-  // DB-backed query (used after the first scan has completed). Fetches only the
-  // first windowed page; the grid requests more via loadMoreSamples as the user
+  // Windowed DB query, scoped to the active Sample Folder's scan root. Fetches
+  // only the first page; the grid requests more via loadMoreSamples as the user
   // scrolls, so the renderer never holds the full result set (AGENTS.md hard
   // rule: windowed pages over IPC, never full result sets).
   const queryDb = useCallback(async () => {
+    if (!sampleFolder) return
     const seq = ++querySeqRef.current
     setLoading(true)
     try {
@@ -267,6 +242,7 @@ export function useLibraryData(
         textSearch: searchQuery || undefined,
         categoryId: selectedCategoryId,
         tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        rootPath: sampleFolder,
         sortBy: sort.by,
         sortDir: sort.dir,
         limit: DB_SAMPLE_PAGE_SIZE,
@@ -287,10 +263,10 @@ export function useLibraryData(
     } finally {
       if (seq === querySeqRef.current) setLoading(false)
     }
-  }, [electronAPI, searchQuery, selectedCategoryId, selectedTagIds, sort])
+  }, [electronAPI, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort])
 
   const loadMoreSamples = useCallback(() => {
-    if (!dbIndexed || loadingMoreRef.current) return
+    if (!dbIndexed || !sampleFolder || loadingMoreRef.current) return
     const seq = querySeqRef.current
     const offset = nextOffsetRef.current
     loadingMoreRef.current = true
@@ -299,6 +275,7 @@ export function useLibraryData(
         textSearch: searchQuery || undefined,
         categoryId: selectedCategoryId,
         tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        rootPath: sampleFolder,
         sortBy: sort.by,
         sortDir: sort.dir,
         limit: DB_SAMPLE_PAGE_SIZE,
@@ -320,10 +297,11 @@ export function useLibraryData(
       .finally(() => {
         loadingMoreRef.current = false
       })
-  }, [electronAPI, dbIndexed, searchQuery, selectedCategoryId, selectedTagIds, sort])
+  }, [electronAPI, dbIndexed, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort])
 
-  // Debounced query: one effect covers search, filter, and sort changes, and
-  // chooses the legacy or DB pipeline based on dbIndexed.
+  // Debounced query: one effect covers search, filter, and sort changes.
+  // Before the active folder's first scan completes there is nothing to query;
+  // the browser shows its empty state until onScanDone flips dbIndexed.
   useEffect(() => {
     if (!sampleFolder) {
       setSamples([])
@@ -333,17 +311,23 @@ export function useLibraryData(
       setSelectedSampleDetail(null)
       return
     }
+    if (!dbIndexed) {
+      setSamples([])
+      setTotalCount(0)
+      setLoading(false)
+      setError(null)
+      return
+    }
     let cancelled = false
     const timer = window.setTimeout(() => {
       if (cancelled) return
-      if (dbIndexed) void queryDb()
-      else void queryLegacy(searchQuery)
+      void queryDb()
     }, 150)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [sampleFolder, dbIndexed, searchQuery, queryDb, queryLegacy])
+  }, [sampleFolder, dbIndexed, queryDb])
 
   // Clear selection when the selected sample is no longer in the list.
   // With a unified list the check is straightforward.
@@ -456,7 +440,7 @@ export function useLibraryData(
   }, [])
 
   const assignTagToSample = useCallback(async (sample: SampleListItem, tagId: number) => {
-    if (sample.dbId === null || sample.tagIds.includes(tagId)) return
+    if (sample.tagIds.includes(tagId)) return
     await electronAPI.assignTag(sample.dbId, tagId)
     const nextIds = [...sample.tagIds, tagId].sort((a, b) => a - b)
     const nextNames = nextIds
@@ -467,7 +451,7 @@ export function useLibraryData(
   }, [electronAPI, patchSampleTags])
 
   const unassignTagFromSample = useCallback(async (sample: SampleListItem, tagId: number) => {
-    if (sample.dbId === null || !sample.tagIds.includes(tagId)) return
+    if (!sample.tagIds.includes(tagId)) return
     await electronAPI.unassignTag(sample.dbId, tagId)
     const nextIds = sample.tagIds.filter((id) => id !== tagId)
     const nextNames = nextIds

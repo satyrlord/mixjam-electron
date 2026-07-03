@@ -3,6 +3,11 @@ import { resolve } from 'node:path'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import TrackerView from './TrackerView'
+import type {
+  TrackerArrangementProps,
+  TrackerBrowserProps,
+  TrackerTransportProps
+} from './trackerProps'
 import type { RecentProjectItem, SampleListItem } from '../../../shared/ipc'
 import type { LaneState } from '../lib/playerShell'
 
@@ -21,7 +26,7 @@ const RECENT_PROJECTS: RecentProjectItem[] = [
 const SAMPLES: SampleListItem[] = [
   {
     id: 'C:/Samples/Drums/Kicks/kick_808.wav',
-    dbId: null,
+    dbId: 1,
     name: 'kick_808.wav',
     filepath: 'C:/Samples/Drums/Kicks/kick_808.wav',
     category: 'Drums',
@@ -56,73 +61,89 @@ const DEFAULT_CATEGORIES = [
 
 const IDLE_PROGRESS = { status: 'idle' as const, phase: null, found: 0, processed: 0, total: 0 }
 
-function renderTracker(props: Partial<Parameters<typeof TrackerView>[0]> = {}) {
+const DEFAULT_BROWSER: TrackerBrowserProps = {
+  samples: [],
+  searchQuery: '',
+  loading: false,
+  error: null,
+  totalCount: 0,
+  hasMoreSamples: false,
+  selectedSamplePath: null,
+  selectedCategoryId: undefined,
+  selectedTagIds: [],
+  sortBy: 'filename',
+  sortDir: 'asc',
+  tags: [],
+  categories: DEFAULT_CATEGORIES,
+  libraries: [],
+  scanProgress: IDLE_PROGRESS,
+  onSearchChange: noop,
+  onLoadMoreSamples: noop,
+  onSelectSampleDetail: noop,
+  onPreviewSample: noop,
+  onSelectCategory: noop,
+  onToggleTagFilter: noop,
+  onSortChange: noop,
+  onStartScan: asyncNoop,
+  onCreateTag: asyncNoop as never,
+  onRenameTag: asyncNoop as never,
+  onDeleteTag: asyncNoop as never,
+  onAssignTagToSample: asyncNoop as never,
+  onUnassignTagFromSample: asyncNoop as never,
+  onCreateCategory: asyncNoop as never,
+  onDeleteCategory: asyncNoop as never,
+  onSaveLibrary: asyncNoop as never,
+  onDeleteLibrary: asyncNoop as never,
+  onApplyLibrary: noop
+}
+
+const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
+  lanes: LANES,
+  laneShouldDim: () => false,
+  currentTick: 0,
+  onPlaceSampleDetailOnLane: noop,
+  onMoveClipOnLane: noop,
+  onDuplicateClipOnLane: noop,
+  onMoveClipGroup: noop,
+  onDuplicateClipGroup: noop,
+  onRemoveClipFromLane: noop,
+  onRemoveClips: noop,
+  onSetLanePan: noop,
+  onToggleLaneMute: noop,
+  onToggleLaneSolo: noop
+}
+
+const DEFAULT_TRANSPORT: TrackerTransportProps = {
+  transportState: 'stopped',
+  bpm: 120,
+  masterGain: 0.8,
+  masterLevelDb: -100,
+  canUndo: false,
+  canRedo: false,
+  onSetBpm: noop,
+  onSetMasterGain: noop,
+  onUndo: noop,
+  onRedo: noop,
+  onTransportPlay: noop,
+  onTransportPause: noop,
+  onTransportStop: noop,
+  onTransportSkipBack: noop
+}
+
+interface TrackerOverrides {
+  recentProjects?: RecentProjectItem[]
+  browser?: Partial<TrackerBrowserProps>
+  arrangement?: Partial<TrackerArrangementProps>
+  transport?: Partial<TrackerTransportProps>
+}
+
+function renderTracker(overrides: TrackerOverrides = {}) {
   return render(
     <TrackerView
-      recentProjects={[]}
-      samples={[]}
-      searchQuery=""
-      loading={false}
-      error={null}
-      selectedSamplePath={null}
-      lanes={LANES}
-      laneShouldDim={() => false}
-      transportState="stopped"
-      currentTick={0}
-      bpm={120}
-      masterGain={0.8}
-      masterLevelDb={-100}
-      totalCount={0}
-      hasMoreSamples={false}
-      onLoadMoreSamples={noop}
-      onSetBpm={noop}
-      onSetMasterGain={noop}
-      onSelectSampleDetail={noop}
-      onSearchChange={noop}
-      onPlaceSampleDetailOnLane={noop}
-      onMoveClipOnLane={noop}
-      onDuplicateClipOnLane={noop}
-      onMoveClipGroup={noop}
-      onDuplicateClipGroup={noop}
-      onRemoveClipFromLane={noop}
-      onRemoveClips={noop}
-      onUndo={noop}
-      onRedo={noop}
-      canUndo={false}
-      canRedo={false}
-      projectName={null}
-      onOpenRecentProject={noop}
-      onSetLanePan={noop}
-      onPreviewSample={noop}
-      onToggleLaneMute={noop}
-      onToggleLaneSolo={noop}
-      onTransportPlay={noop}
-      onTransportPause={noop}
-      onTransportStop={noop}
-      onTransportSkipBack={noop}
-      scanProgress={IDLE_PROGRESS}
-      selectedCategoryId={undefined}
-      selectedTagIds={[]}
-      sortBy="filename"
-      sortDir="asc"
-      tags={[]}
-      categories={DEFAULT_CATEGORIES}
-      libraries={[]}
-      onSelectCategory={noop}
-      onToggleTagFilter={noop}
-      onSortChange={noop}
-      onStartScan={asyncNoop}
-      onCreateTag={asyncNoop as never}
-      onRenameTag={asyncNoop as never}
-      onDeleteTag={asyncNoop as never}
-      onAssignTagToSample={asyncNoop as never}
-      onUnassignTagFromSample={asyncNoop as never}
-      onCreateCategory={asyncNoop as never}
-      onDeleteCategory={asyncNoop as never}
-      onSaveLibrary={asyncNoop as never}
-      onDeleteLibrary={asyncNoop as never}
-      onApplyLibrary={noop}
-      {...props}
+      recentProjects={overrides.recentProjects ?? []}
+      browser={{ ...DEFAULT_BROWSER, ...overrides.browser }}
+      arrangement={{ ...DEFAULT_ARRANGEMENT, ...overrides.arrangement }}
+      transport={{ ...DEFAULT_TRANSPORT, ...overrides.transport }}
     />
   )
 }
@@ -131,8 +152,7 @@ describe('TrackerView', () => {
   it('renders the player shell regions and recent projects rail', () => {
     renderTracker({
       recentProjects: RECENT_PROJECTS,
-      samples: SAMPLES,
-      totalCount: 1
+      browser: { samples: SAMPLES, totalCount: 1 }
     })
 
     expect(screen.getByText('Recent Projects')).toBeInTheDocument()
@@ -141,6 +161,14 @@ describe('TrackerView', () => {
     expect(screen.getByText('Song Controls')).toBeInTheDocument()
     expect(screen.getByRole('listbox', { name: /sample categories/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
+  })
+
+  it('lists recent projects as disabled until project load ships (spec-011)', () => {
+    renderTracker({ recentProjects: RECENT_PROJECTS })
+
+    const entry = screen.getByRole('button', { name: /club-night/ })
+    expect(entry).toBeDisabled()
+    expect(entry).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
   })
 
   it('renders clip bubbles on a lane after placement', () => {
@@ -162,7 +190,7 @@ describe('TrackerView', () => {
         : lane
     )
 
-    renderTracker({ lanes: lanesWithClip })
+    renderTracker({ arrangement: { lanes: lanesWithClip } })
     // Clips are rendered on canvas; verify via data attributes on the canvas container.
     const containers = document.querySelectorAll('[data-clip-count]')
     const withClips = Array.from(containers).filter((el) => el.getAttribute('data-clip-count') !== '0')
@@ -180,7 +208,7 @@ describe('TrackerView', () => {
       duration: 0.5
     }
 
-    renderTracker({ onPlaceSampleDetailOnLane })
+    renderTracker({ arrangement: { onPlaceSampleDetailOnLane } })
 
     const laneCanvas = screen.getByRole('region', { name: 'Lane 1 track area' })
     fireEvent.drop(laneCanvas, {
@@ -195,7 +223,7 @@ describe('TrackerView', () => {
 
   it('fires onToggleLaneMute when clicking the M button', () => {
     const onToggleLaneMute = vi.fn()
-    renderTracker({ onToggleLaneMute })
+    renderTracker({ arrangement: { onToggleLaneMute } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Mute Lane 1' }))
     expect(onToggleLaneMute).toHaveBeenCalledWith(0)
@@ -203,7 +231,7 @@ describe('TrackerView', () => {
 
   it('fires onToggleLaneSolo when clicking the S button', () => {
     const onToggleLaneSolo = vi.fn()
-    renderTracker({ onToggleLaneSolo })
+    renderTracker({ arrangement: { onToggleLaneSolo } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Solo Lane 2' }))
     expect(onToggleLaneSolo).toHaveBeenCalledWith(1)
@@ -213,7 +241,7 @@ describe('TrackerView', () => {
     const mutedLanes = LANES.map((lane) =>
       lane.index === 3 ? { ...lane, muted: true } : lane
     )
-    renderTracker({ lanes: mutedLanes })
+    renderTracker({ arrangement: { lanes: mutedLanes } })
 
     const muteBtn = screen.getByRole('button', { name: 'Mute Lane 4' })
     expect(muteBtn.className).toContain('tracker-lane-mute-active')
@@ -224,8 +252,10 @@ describe('TrackerView', () => {
       lane.index === 5 ? { ...lane, solo: true } : lane
     )
     renderTracker({
-      lanes: soloLanes,
-      laneShouldDim: (lane) => lane.index !== 5
+      arrangement: {
+        lanes: soloLanes,
+        laneShouldDim: (lane) => lane.index !== 5
+      }
     })
 
     const soloBtn = screen.getByRole('button', { name: 'Solo Lane 6' })
@@ -237,8 +267,10 @@ describe('TrackerView', () => {
       lane.index === 0 ? { ...lane, solo: true } : lane
     )
     renderTracker({
-      lanes: soloLanes,
-      laneShouldDim: (lane) => lane.index !== 0
+      arrangement: {
+        lanes: soloLanes,
+        laneShouldDim: (lane) => lane.index !== 0
+      }
     })
 
     const dimmedLane = document.querySelector('.tracker-lane-dimmed')
@@ -252,10 +284,12 @@ describe('TrackerView', () => {
     const onTransportSkipBack = vi.fn()
 
     renderTracker({
-      onTransportPlay,
-      onTransportPause,
-      onTransportStop,
-      onTransportSkipBack
+      transport: {
+        onTransportPlay,
+        onTransportPause,
+        onTransportStop,
+        onTransportSkipBack
+      }
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))
@@ -269,7 +303,7 @@ describe('TrackerView', () => {
   })
 
   it('shows Pause button when transport is playing', () => {
-    renderTracker({ transportState: 'playing' })
+    renderTracker({ transport: { transportState: 'playing' } })
 
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument()
@@ -278,10 +312,12 @@ describe('TrackerView', () => {
   it('fires onPreviewSample when clicking a sample tile', () => {
     const onPreviewSample = vi.fn()
     renderTracker({
-      onPreviewSample,
-      samples: [{ id: '/s/kick.wav', dbId: null, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
-      totalCount: 1,
-      categories: DEFAULT_CATEGORIES
+      browser: {
+        onPreviewSample,
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+        totalCount: 1,
+        categories: DEFAULT_CATEGORIES
+      }
     })
 
     // The accessible name is "kick 1.5s" (inner b + i text)
@@ -296,7 +332,7 @@ describe('TrackerView', () => {
         ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
         : lane
     )
-    renderTracker({ lanes: lanesWithClip })
+    renderTracker({ arrangement: { lanes: lanesWithClip } })
 
     // Clips are on canvas; fire contextMenu on the canvas container within lane 1.
     const canvasContainer = document.querySelector('[data-clip-names="kick.wav"]')!
@@ -313,7 +349,7 @@ describe('TrackerView', () => {
         ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
         : lane
     )
-    renderTracker({ lanes: lanesWithClip, onRemoveClipFromLane })
+    renderTracker({ arrangement: { lanes: lanesWithClip, onRemoveClipFromLane } })
 
     // Clips are on canvas; fire contextMenu on the canvas container.
     const canvasContainer = document.querySelector('[data-clip-names="kick.wav"]')!
@@ -330,7 +366,7 @@ describe('TrackerView', () => {
         ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
         : lane
     )
-    renderTracker({ lanes: lanesWithClip, onMoveClipOnLane })
+    renderTracker({ arrangement: { lanes: lanesWithClip, onMoveClipOnLane } })
 
     const canvas = screen.getByRole('region', { name: 'Lane 3 track area' })
     // Simulate drag over first (to allow drop) with matching types
@@ -349,7 +385,7 @@ describe('TrackerView', () => {
 
   it('fires onSetLanePan on pan dial mouse interaction', () => {
     const onSetLanePan = vi.fn()
-    renderTracker({ onSetLanePan })
+    renderTracker({ arrangement: { onSetLanePan } })
 
     const panDial = screen.getByRole('slider', { name: 'Pan Lane 1' })
     fireEvent.mouseDown(panDial, { clientX: 100, button: 0 })
@@ -361,13 +397,13 @@ describe('TrackerView', () => {
   })
 
   it('transport-button-play class only appears when playing', () => {
-    renderTracker({ transportState: 'stopped' })
+    renderTracker({ transport: { transportState: 'stopped' } })
     const btn = screen.getByRole('button', { name: 'Play' })
     expect(btn.className).not.toContain('transport-button-play')
   })
 
   it('transport-button-play class present when playing', () => {
-    renderTracker({ transportState: 'playing' })
+    renderTracker({ transport: { transportState: 'playing' } })
     const btn = screen.getByRole('button', { name: 'Pause' })
     expect(btn.className).toContain('transport-button-play')
   })
@@ -391,7 +427,7 @@ describe('TrackerView', () => {
 
   // --- AC-004b: BPM editor ranges 50-200, defaults to 120 ---
   it('AC-004b: BPM editor has min=50, max=200, and initializes at 120', () => {
-    renderTracker({ bpm: 120 })
+    renderTracker({ transport: { bpm: 120 } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit BPM' }))
     const input = screen.getByLabelText('Edit BPM')
@@ -415,7 +451,7 @@ describe('TrackerView', () => {
 
   // --- AC-010: Playhead visible during playback ---
   it('AC-010: playhead is visible during playback at correct position', () => {
-    renderTracker({ transportState: 'playing', currentTick: 64 })
+    renderTracker({ transport: { transportState: 'playing' }, arrangement: { currentTick: 64 } })
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
@@ -424,7 +460,7 @@ describe('TrackerView', () => {
   })
 
   it('AC-010: playhead is hidden when transport is stopped', () => {
-    renderTracker({ transportState: 'stopped', currentTick: 0 })
+    renderTracker({ transport: { transportState: 'stopped' }, arrangement: { currentTick: 0 } })
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).toBeNull()
@@ -464,7 +500,7 @@ describe('TrackerView', () => {
   // --- AC-015: BPM click-to-edit ---
   it('AC-015: clicking BPM opens editor, typing new value and pressing Enter commits it', () => {
     const onSetBpm = vi.fn()
-    renderTracker({ bpm: 120, onSetBpm })
+    renderTracker({ transport: { bpm: 120, onSetBpm } })
 
     // Initially shows BPM button
     const bpmBtn = screen.getByRole('button', { name: 'Edit BPM' })
@@ -487,7 +523,7 @@ describe('TrackerView', () => {
 
   it('AC-015: pressing Escape discards BPM edit without committing', () => {
     const onSetBpm = vi.fn()
-    renderTracker({ bpm: 120, onSetBpm })
+    renderTracker({ transport: { bpm: 120, onSetBpm } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit BPM' }))
     const input = screen.getByLabelText('Edit BPM')
@@ -502,7 +538,7 @@ describe('TrackerView', () => {
   // --- AC-015a: the Middle Strip editor is the single BPM control and always
   // reflects the transport state ---
   it('AC-015a: Middle Strip BPM display reflects the bpm prop', () => {
-    renderTracker({ bpm: 145 })
+    renderTracker({ transport: { bpm: 145 } })
 
     expect(screen.getByRole('button', { name: 'Edit BPM' })).toHaveTextContent('145 BPM')
   })
@@ -534,7 +570,10 @@ describe('TrackerView', () => {
         ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
         : lane
     )
-    renderTracker({ lanes: lanesWithClip, onSearchChange, onSelectCategory })
+    renderTracker({
+      arrangement: { lanes: lanesWithClip },
+      browser: { onSearchChange, onSelectCategory }
+    })
 
     const canvasContainer = document.querySelector('[data-clip-names="kick.wav"]')!
     fireEvent.contextMenu(canvasContainer)
@@ -546,8 +585,10 @@ describe('TrackerView', () => {
 
   it('sets drag data when a sample tile drag starts', () => {
     renderTracker({
-      samples: [{ id: '/s/kick.wav', dbId: null, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
-      totalCount: 1
+      browser: {
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+        totalCount: 1
+      }
     })
 
     const tile = screen.getByText(/kick/i).closest('button')!
@@ -570,9 +611,11 @@ describe('TrackerView', () => {
 
   it('renders sample color from categoryId when no category filter is active', () => {
     renderTracker({
-      samples: [{ id: '/s/kick.wav', dbId: null, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
-      totalCount: 1,
-      categories: DEFAULT_CATEGORIES
+      browser: {
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
+        totalCount: 1,
+        categories: DEFAULT_CATEGORIES
+      }
     })
 
     const tile = screen.getByText(/kick/i).closest('button')! as HTMLElement
@@ -585,8 +628,10 @@ describe('TrackerView', () => {
       { id: 9, name: 'SubBass', parentId: 1 }
     ]
     renderTracker({
-      categories: categoriesWithChildren,
-      selectedCategoryId: 1
+      browser: {
+        categories: categoriesWithChildren,
+        selectedCategoryId: 1
+      }
     })
 
     expect(screen.getByText('All')).toBeInTheDocument()
@@ -596,9 +641,11 @@ describe('TrackerView', () => {
   it('renders tag filter chips and calls onToggleTagFilter on click', () => {
     const onToggleTagFilter = vi.fn()
     renderTracker({
-      tags: [{ id: 5, name: 'Cool', color: '#f00' }],
-      selectedTagIds: [5],
-      onToggleTagFilter
+      browser: {
+        tags: [{ id: 5, name: 'Cool', color: '#f00' }],
+        selectedTagIds: [5],
+        onToggleTagFilter
+      }
     })
 
     const chip = screen.getByText(/Cool/)
@@ -607,14 +654,14 @@ describe('TrackerView', () => {
   })
 
   it('shows error message when samples fail to load', () => {
-    renderTracker({ error: 'Database locked', loading: false, samples: [] })
+    renderTracker({ browser: { error: 'Database locked', loading: false, samples: [] } })
 
     expect(screen.getByText('Database locked')).toBeInTheDocument()
   })
 
   it('calls onTransportPlay when Play button is clicked while stopped', () => {
     const onTransportPlay = vi.fn()
-    renderTracker({ transportState: 'stopped', onTransportPlay })
+    renderTracker({ transport: { transportState: 'stopped', onTransportPlay } })
 
     fireEvent.click(screen.getByLabelText('Play'))
     expect(onTransportPlay).toHaveBeenCalled()
@@ -622,7 +669,7 @@ describe('TrackerView', () => {
 
   it('calls onTransportPause when Pause button is clicked while playing', () => {
     const onTransportPause = vi.fn()
-    renderTracker({ transportState: 'playing', onTransportPause })
+    renderTracker({ transport: { transportState: 'playing', onTransportPause } })
 
     fireEvent.click(screen.getByLabelText('Pause'))
     expect(onTransportPause).toHaveBeenCalled()
@@ -630,7 +677,7 @@ describe('TrackerView', () => {
 
   it('calls onTransportStop when Stop button is clicked', () => {
     const onTransportStop = vi.fn()
-    renderTracker({ onTransportStop })
+    renderTracker({ transport: { onTransportStop } })
 
     fireEvent.click(screen.getByLabelText('Stop'))
     expect(onTransportStop).toHaveBeenCalled()
@@ -638,7 +685,7 @@ describe('TrackerView', () => {
 
   it('calls onTransportSkipBack when Skip Back button is clicked', () => {
     const onTransportSkipBack = vi.fn()
-    renderTracker({ onTransportSkipBack })
+    renderTracker({ transport: { onTransportSkipBack } })
 
     fireEvent.click(screen.getByLabelText('Skip Back'))
     expect(onTransportSkipBack).toHaveBeenCalled()
@@ -646,7 +693,7 @@ describe('TrackerView', () => {
 
   it('calls onSetMasterGain when Master Volume slider changes', () => {
     const onSetMasterGain = vi.fn()
-    renderTracker({ masterGain: 0.8, onSetMasterGain })
+    renderTracker({ transport: { masterGain: 0.8, onSetMasterGain } })
 
     const slider = screen.getByLabelText('Master Volume')
     fireEvent.change(slider, { target: { value: '50' } })
@@ -655,7 +702,7 @@ describe('TrackerView', () => {
 
   it('inline-edits BPM via the strip button and commits on Enter', () => {
     const onSetBpm = vi.fn()
-    renderTracker({ bpm: 120, onSetBpm })
+    renderTracker({ transport: { bpm: 120, onSetBpm } })
 
     const bpmButton = screen.getByLabelText('Edit BPM')
     fireEvent.click(bpmButton)
@@ -670,7 +717,7 @@ describe('TrackerView', () => {
 
   it('cancels BPM inline edit on Escape', () => {
     const onSetBpm = vi.fn()
-    renderTracker({ bpm: 120, onSetBpm })
+    renderTracker({ transport: { bpm: 120, onSetBpm } })
 
     const bpmButton = screen.getByLabelText('Edit BPM')
     fireEvent.click(bpmButton)
@@ -689,9 +736,11 @@ describe('TrackerView', () => {
       { id: 9, name: 'SubBass', parentId: 1 }
     ]
     renderTracker({
-      categories: categoriesWithChildren,
-      selectedCategoryId: 1,
-      onSelectCategory
+      browser: {
+        categories: categoriesWithChildren,
+        selectedCategoryId: 1,
+        onSelectCategory
+      }
     })
 
     fireEvent.click(screen.getByLabelText('Clear category filter'))
@@ -705,9 +754,11 @@ describe('TrackerView', () => {
       { id: 9, name: 'SubBass', parentId: 1 }
     ]
     renderTracker({
-      categories: categoriesWithChildren,
-      selectedCategoryId: 1,
-      onSelectCategory
+      browser: {
+        categories: categoriesWithChildren,
+        selectedCategoryId: 1,
+        onSelectCategory
+      }
     })
 
     fireEvent.click(screen.getByText('SubBass'))
@@ -730,9 +781,11 @@ describe('TrackerView', () => {
     ]
     // selectedCategoryId=9 shows children of 9 => [DeepBass]
     renderTracker({
-      categories: categoriesWithChildren,
-      selectedCategoryId: 9,
-      onSelectCategory
+      browser: {
+        categories: categoriesWithChildren,
+        selectedCategoryId: 9,
+        onSelectCategory
+      }
     })
 
     // DeepBass is a child of 9, so clicking it when selectedCategoryId===9
@@ -743,7 +796,7 @@ describe('TrackerView', () => {
 
   it('calls onSearchChange when search input changes', () => {
     const onSearchChange = vi.fn()
-    renderTracker({ onSearchChange })
+    renderTracker({ browser: { onSearchChange } })
 
     const search = screen.getByLabelText('Search samples')
     fireEvent.change(search, { target: { value: 'bass' } })
@@ -752,13 +805,19 @@ describe('TrackerView', () => {
   })
 
   it('renders playhead when transport is playing with non-zero tick', () => {
-    const { container } = renderTracker({ transportState: 'playing', currentTick: 64 })
+    const { container } = renderTracker({
+      transport: { transportState: 'playing' },
+      arrangement: { currentTick: 64 }
+    })
     const playhead = container.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
   })
 
   it('does not render playhead when transport is stopped', () => {
-    const { container } = renderTracker({ transportState: 'stopped', currentTick: 64 })
+    const { container } = renderTracker({
+      transport: { transportState: 'stopped' },
+      arrangement: { currentTick: 64 }
+    })
     const playhead = container.querySelector('.tracker-playhead')
     expect(playhead).toBeNull()
   })
@@ -788,13 +847,13 @@ describe('TrackerView', () => {
         ? { ...lane, clips: [{ id: 'clip1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 0.5, color: '#ff0000' }] }
         : lane
     )
-    renderTracker({ lanes: lanesWithClips })
+    renderTracker({ arrangement: { lanes: lanesWithClips } })
     expect(screen.getByLabelText('Lane 1 track area')).toBeInTheDocument()
   })
 
   it('handles sample drop on lane track area', () => {
     const onPlaceSampleDetailOnLane = vi.fn()
-    renderTracker({ onPlaceSampleDetailOnLane })
+    renderTracker({ arrangement: { onPlaceSampleDetailOnLane } })
 
     const trackArea = screen.getByLabelText('Lane 1 track area')
     const sampleData = JSON.stringify({ name: 'kick.wav', filepath: '/s/kick.wav', duration: 0.5, tags: [] })
@@ -815,7 +874,7 @@ describe('TrackerView', () => {
 
   it('handles clip move drop on lane track area', () => {
     const onMoveClipOnLane = vi.fn()
-    renderTracker({ onMoveClipOnLane })
+    renderTracker({ arrangement: { onMoveClipOnLane } })
 
     const trackArea = screen.getByLabelText('Lane 2 track area')
     const clipData = JSON.stringify({ clipId: 'clip1' })
@@ -835,7 +894,7 @@ describe('TrackerView', () => {
 
   it('handles clip duplicate drop on lane track area with Shift', () => {
     const onDuplicateClipOnLane = vi.fn()
-    renderTracker({ onDuplicateClipOnLane })
+    renderTracker({ arrangement: { onDuplicateClipOnLane } })
 
     const trackArea = screen.getByLabelText('Lane 1 track area')
     const clipData = JSON.stringify({ clipId: 'clip1' })
@@ -862,7 +921,7 @@ describe('TrackerView', () => {
 
   it('handles group move drop with multiple clips', () => {
     const onMoveClipGroup = vi.fn()
-    renderTracker({ onMoveClipGroup })
+    renderTracker({ arrangement: { onMoveClipGroup } })
 
     const trackArea = screen.getByLabelText('Lane 1 track area')
     const clipData = JSON.stringify({
@@ -888,7 +947,7 @@ describe('TrackerView', () => {
 
   it('handles group duplicate drop with Shift', () => {
     const onDuplicateClipGroup = vi.fn()
-    renderTracker({ onDuplicateClipGroup })
+    renderTracker({ arrangement: { onDuplicateClipGroup } })
 
     const trackArea = screen.getByLabelText('Lane 1 track area')
     const clipData = JSON.stringify({
@@ -973,7 +1032,7 @@ describe('TrackerView', () => {
       return lane
     })
 
-    const { container } = renderTracker({ lanes: lanesWithClips })
+    const { container } = renderTracker({ arrangement: { lanes: lanesWithClips } })
 
     const lanesEl = container.querySelector('.tracker-lanes')!
     Object.defineProperty(lanesEl, 'getBoundingClientRect', {
@@ -1015,7 +1074,7 @@ describe('TrackerView', () => {
         ? { ...lane, clips: [{ id: 'clip-1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 16, durationSeconds: 0.5 }] }
         : lane
     )
-    const { container } = renderTracker({ lanes: lanesWithClip })
+    const { container } = renderTracker({ arrangement: { lanes: lanesWithClip } })
 
     const firstContainer = container.querySelectorAll('.lane-clip-canvas-container')[0]! as HTMLElement
     fireEvent.mouseDown(firstContainer, { button: 0 })
@@ -1037,7 +1096,7 @@ describe('TrackerView', () => {
       return lane
     })
 
-    const { container } = renderTracker({ lanes: lanesWithClips })
+    const { container } = renderTracker({ arrangement: { lanes: lanesWithClips } })
 
     const lanesEl = container.querySelector('.tracker-lanes')!
     Object.defineProperty(lanesEl, 'getBoundingClientRect', {
@@ -1086,7 +1145,7 @@ describe('TrackerView', () => {
         ? { ...lane, clips: [{ id: 'clip-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
         : lane
     )
-    renderTracker({ lanes: lanesWithClip })
+    renderTracker({ arrangement: { lanes: lanesWithClip } })
 
     const canvasContainer = document.querySelector('[data-clip-names="kick.wav"]')!
     fireEvent.contextMenu(canvasContainer)

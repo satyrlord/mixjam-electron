@@ -3,8 +3,8 @@ import { type EngineLane } from '../engine/lane-evaluation'
 import { tickDurationSeconds } from '../engine/transport'
 
 /** Detail passed around the UI after a user selects or drags a sample. All paths
- *  are absolute filepaths (the sample-browser and DB pipelines both normalise to
- *  absolute paths before surfacing items to the renderer). */
+ *  are absolute filepaths (the DB query pipeline normalises to absolute paths
+ *  before surfacing items to the renderer). */
 export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'filepath' | 'tags'> & {
   duration: number | null
   /** Category-derived colour, stored so placed clips keep their colour permanently. */

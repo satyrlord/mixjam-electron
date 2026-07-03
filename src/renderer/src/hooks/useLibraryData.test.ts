@@ -54,30 +54,29 @@ describe('useLibraryData', () => {
     await waitFor(() => expect(result.current.libraries).toHaveLength(0))
   })
 
-  it('queries the legacy folder browser when DB is not indexed', async () => {
+  it('shows an empty browser and queries nothing before the active folder is indexed', async () => {
     vi.useRealTimers()
     const api = makeApi()
     vi.mocked(api.hasSamples).mockResolvedValue(false)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    await waitFor(() => {
-      expect(api.querySampleBrowser).toHaveBeenCalledWith(SAMPLE_FOLDER, '', false)
-    })
-    await waitFor(() => {
-      expect(result.current.samples).toHaveLength(2)
-      expect(result.current.totalCount).toBe(2)
-    })
+    await waitFor(() => expect(api.hasSamples).toHaveBeenCalledWith(SAMPLE_FOLDER))
+    expect(result.current.dbIndexed).toBe(false)
+    expect(result.current.samples).toHaveLength(0)
+    expect(result.current.loading).toBe(false)
+    expect(api.querySamples).not.toHaveBeenCalled()
   })
 
-  it('queries the DB pipeline when DB is indexed', async () => {
+  it('queries the DB pipeline scoped to the active folder once indexed', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [makeDbRow()], total: 1 })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
-      expect(api.querySamples).toHaveBeenCalled()
+      expect(api.querySamples).toHaveBeenCalledWith(
+        expect.objectContaining({ rootPath: SAMPLE_FOLDER })
+      )
     })
     await waitFor(() => {
       expect(result.current.samples).toHaveLength(1)
@@ -97,7 +96,6 @@ describe('useLibraryData', () => {
         categoryId: (index % 8) + 1
       })
     )
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
     vi.mocked(api.querySamples).mockImplementation(async (request) => {
       const offset = request.offset ?? 0
       const limit = request.limit ?? 500
@@ -124,24 +122,9 @@ describe('useLibraryData', () => {
     expect(api.querySamples).toHaveBeenCalledWith(expect.objectContaining({ limit: 500, offset: 500 }))
   })
 
-  it('sets an error when the legacy query fails', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
-    vi.mocked(api.querySampleBrowser).mockRejectedValue(new Error('disk fail'))
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => {
-      expect(result.current.error).toBe('Unable to load sample library.')
-    })
-    consoleSpy.mockRestore()
-  })
-
   it('sets an error when the DB query fails', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
     vi.mocked(api.querySamples).mockRejectedValue(new Error('db locked'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
@@ -280,7 +263,6 @@ describe('useLibraryData', () => {
   it('saves a library with current filters encoded as ruleJson', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
     vi.mocked(api.saveLibrary).mockResolvedValue({ id: 1, name: 'MyLib', createdAt: 100, ruleJson: '{}' })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -492,7 +474,6 @@ describe('useLibraryData', () => {
   it('saves a library with no active filters', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
     vi.mocked(api.saveLibrary).mockResolvedValue({ id: 1, name: 'Empty', createdAt: 100, ruleJson: '{}' })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -595,21 +576,6 @@ describe('useLibraryData', () => {
     expect(api.unassignTag).toHaveBeenCalledWith(1, 7)
     expect(result.current.samples[0]!.tagIds).toEqual([])
     expect(result.current.samples[0]!.tags).toEqual([])
-  })
-
-  it('does not call assignTag for legacy (pre-index) samples', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => expect(result.current.samples).toHaveLength(2))
-
-    await act(async () => {
-      await result.current.assignTagToSample(result.current.samples[0]!, 7)
-    })
-
-    expect(api.assignTag).not.toHaveBeenCalled()
   })
 
   it('maps DB sample category name when categoryId matches', async () => {
@@ -717,13 +683,13 @@ describe('useLibraryData', () => {
     expect(api.unassignTag).not.toHaveBeenCalled()
   })
 
-  it('loadMoreSamples does nothing when DB is not indexed', async () => {
+  it('loadMoreSamples does nothing when the active folder is not indexed', async () => {
     vi.useRealTimers()
     const api = makeApi()
     vi.mocked(api.hasSamples).mockResolvedValue(false)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
 
     act(() => {
       result.current.loadMoreSamples()
@@ -894,19 +860,6 @@ describe('useLibraryData', () => {
     expect(result.current.samples[0]!.tags).toEqual(['Punchy'])
   })
 
-  it('category name remapping skips non-DB samples (dbId null)', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
-    // Initially returns legacy samples (dbId = null)
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => expect(result.current.samples).toHaveLength(2))
-    // Legacy samples have dbId null and a pre-set category name
-    expect(result.current.samples[0]!.dbId).toBeNull()
-    expect(result.current.samples[0]!.category).toBe('Drums')
-  })
-
   it('debounced query clears state when sampleFolder becomes null', async () => {
     vi.useRealTimers()
     const api = makeApi()
@@ -1033,12 +986,11 @@ describe('useLibraryData', () => {
   it('debounced query cancels pending timer when deps change rapidly', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.samples).toHaveLength(2))
 
-    const initialCalls = vi.mocked(api.querySampleBrowser).mock.calls.length
+    const initialCalls = vi.mocked(api.querySamples).mock.calls.length
 
     // Rapidly change search query multiple times within the debounce window
     act(() => { result.current.setSearchQuery('a') })
@@ -1047,12 +999,12 @@ describe('useLibraryData', () => {
 
     // Only the last query should fire after debounce
     await waitFor(() => {
-      const lastCall = vi.mocked(api.querySampleBrowser).mock.calls.at(-1)
-      expect(lastCall?.[1]).toBe('abc')
+      const lastCall = vi.mocked(api.querySamples).mock.calls.at(-1)
+      expect(lastCall?.[0]).toEqual(expect.objectContaining({ textSearch: 'abc' }))
     })
 
     // Fewer calls than one-per-change proves debounce + cancellation
-    const totalCalls = vi.mocked(api.querySampleBrowser).mock.calls.length - initialCalls
+    const totalCalls = vi.mocked(api.querySamples).mock.calls.length - initialCalls
     expect(totalCalls).toBeLessThanOrEqual(3)
   })
 
@@ -1125,10 +1077,9 @@ describe('useLibraryData', () => {
     await waitFor(() => expect(result.current.samples).toBe(prevSamples))
   })
 
-  it('queryLegacy with search text filters samples', async () => {
+  it('search text narrows the windowed DB query', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.samples).toHaveLength(2))

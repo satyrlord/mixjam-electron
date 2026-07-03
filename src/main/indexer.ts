@@ -8,7 +8,7 @@ import { basename, extname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import type { DB } from './db'
 import { AUDIO_EXTENSIONS } from './path-utils'
-import { upsertStub, markMissing, updateMetadata, syncCategoriesFromFolder, assignCategoryFromPath } from './library'
+import { ensureScanRoot, upsertStub, markMissing, updateMetadata, syncCategoriesFromFolder, assignCategoryFromPath } from './library'
 
 const BATCH_SIZE = 500
 
@@ -60,19 +60,22 @@ async function phase1(db: DB, sampleFolder: string): Promise<string[]> {
 
   db.pragma('synchronous = NORMAL')
 
+  // Resolve this folder's scan root (creating it on first scan) and adopt any
+  // pre-v4 rows under it, so the prune below and root-scoped queries see them.
+  const rootId = ensureScanRoot(db, sampleFolder)
+
   for (let i = 0; i < files.length; i += BATCH_SIZE) {
     const batch = files.slice(i, i + BATCH_SIZE)
     const upsertBatch = db.transaction((items: string[]) => {
       for (const filepath of items) {
         let stat: { size: number; mtimeMs: number }
         try {
-          // Synchronous stat inside the batch transaction.
           stat = statSync(filepath)
         } catch {
           continue
         }
         const ext = extname(filepath).slice(1).toLowerCase()
-        upsertStub(db, filepath, basename(filepath), ext, stat.size, Math.round(stat.mtimeMs))
+        upsertStub(db, rootId, filepath, basename(filepath), ext, stat.size, Math.round(stat.mtimeMs))
         processed++
       }
     })
@@ -81,10 +84,11 @@ async function phase1(db: DB, sampleFolder: string): Promise<string[]> {
   }
 
   // Mark files no longer on disk as missing, in one transaction so a large
-  // prune does not pay one WAL commit per file.
+  // prune does not pay one WAL commit per file. Scoped to this scan's root so
+  // rescanning one Sample Folder never soft-deletes another folder's rows.
   const known = db
-    .prepare("SELECT filepath FROM samples WHERE scan_state != 2")
-    .all() as Array<{ filepath: string }>
+    .prepare('SELECT filepath FROM samples WHERE scan_state != 2 AND root_id = ?')
+    .all(rootId) as Array<{ filepath: string }>
 
   const fileSet = new Set(files)
   const markAllMissing = db.transaction((paths: string[]) => {
@@ -121,7 +125,6 @@ async function phase1(db: DB, sampleFolder: string): Promise<string[]> {
 const PHASE2_CONCURRENCY = 4
 
 async function phase2(db: DB): Promise<void> {
-  // Only process stubs (scan_state = 0)
   const stubs = db
     .prepare('SELECT filepath FROM samples WHERE scan_state = 0')
     .all() as Array<{ filepath: string }>

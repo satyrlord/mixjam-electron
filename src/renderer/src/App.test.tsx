@@ -45,8 +45,10 @@ describe('App', () => {
     const kickRow = await screen.findByRole('button', { name: /kick_808/ })
     fireEvent.click(kickRow)
 
+    // The full path only renders in the footer detail, so finding it proves the
+    // selection was mirrored. Tag rendering is covered by Footer.test.tsx; the
+    // shared mock's DB rows carry no tags.
     expect(screen.getByText('C:\\Samples\\Drums\\Kicks\\kick_808.wav')).toBeInTheDocument()
-    expect(screen.getByText('Drums, WAV')).toBeInTheDocument()
   })
 
   it('applies the Emerald theme by default and switches to selected theme', () => {

@@ -1,4 +1,4 @@
-import type { SampleListItem, TagItem, CategoryItem } from '../../../shared/ipc'
+import type { SampleItem, TagItem, CategoryItem } from '../../../shared/ipc'
 
 export function generateMockTags(): TagItem[] {
   const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
@@ -39,36 +39,6 @@ export function generateMockCategories(): CategoryItem[] {
     { id: 11, name: 'Ambient', parentId: null }
   ]
 }
-
-const DRUM_KICKS = [
-  'Kick_DeepSub_808',
-  'Kick_House_Punchy',
-  'Kick_Tech_Tight',
-  'Kick_Acoustic_Thump',
-  'Kick_Minimal_Click',
-  'Kick_DubStep_Heavy',
-  'Kick_Trap_Rattling',
-  'Kick_Electro_Pitched'
-]
-
-const DRUM_SNARES = [
-  'Snare_Crisp_Pop',
-  'Snare_Reverb_Tail',
-  'Snare_Clap_Tight',
-  'Snare_Acoustic_Hard',
-  'Snare_Pitched_Down',
-  'Snare_Rimshot_Click',
-  'Snare_Layered_Rich'
-]
-
-const DRUM_HIHATS = [
-  'HiHat_Closed_Crisp',
-  'HiHat_Open_Shimmer',
-  'HiHat_Pedal_Control',
-  'HiHat_Sizzle_Vintage',
-  'HiHat_Tight_Trap',
-  'HiHat_Swung_Groove'
-]
 
 interface SampleTemplate {
   name: string
@@ -118,28 +88,32 @@ const SAMPLE_TEMPLATES: SampleTemplate[] = [
   { name: 'Ambient_Forest_Soundscape', categoryId: 11, duration: 15.0, tagIds: [9, 11] }
 ]
 
-export function generateMockSamples(tags: TagItem[], categories: CategoryItem[]): SampleListItem[] {
-  let dbId = 1
-
-  return SAMPLE_TEMPLATES.map((template) => {
+export function generateMockSamples(tags: TagItem[], categories: CategoryItem[]): SampleItem[] {
+  return SAMPLE_TEMPLATES.map((template, index) => {
+    const id = index + 1
     const category = categories.find((c) => c.id === template.categoryId)
-    // Ensure name is always a string
-    const sampleName = template.name || `Sample_${dbId}`
+    const sampleName = template.name || `Sample_${id}`
     // Filter out invalid tag ids and map to names
     const validTags = template.tagIds
       .map((tid) => tags.find((t) => t.id === tid)?.name)
-      .filter((name) => name !== undefined && name !== null && name !== '')
-    
+      .filter((name): name is string => typeof name === 'string' && name !== '')
+
     return {
-      id: `sample_${dbId}`,
-      dbId: dbId++,
-      name: sampleName,
+      id,
       filepath: `samples/${category?.name ?? 'uncategorized'}/${sampleName}.wav`,
-      category: category?.name ?? 'Uncategorized',
-      durationSeconds: Math.round(template.duration * 100) / 100,
-      tags: validTags as string[],
+      filename: `${sampleName}.wav`,
+      ext: 'wav',
+      sizeBytes: Math.round(template.duration * 44100 * 4),
+      duration: Math.round(template.duration * 100) / 100,
+      sampleRate: 44100,
+      channels: 2,
+      bpm: template.bpm ?? null,
+      musicalKey: template.key ?? null,
+      dateAdded: id,
+      scanState: 1,
       categoryId: template.categoryId,
-      tagIds: template.tagIds
+      tagIds: template.tagIds,
+      tags: validTags
     }
   })
 }

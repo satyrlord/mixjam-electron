@@ -6,6 +6,12 @@ import { THEME_OPTIONS, resolveTheme } from '../theme/themes'
 
 const HOME_RECENT_LIMIT = 4
 
+// Project load requires .mixjam persistence (spec-011), which has not shipped.
+// The affordances stay visible but disabled so the UI does not promise a load
+// it cannot perform yet.
+export const PROJECT_LOAD_COMING_SOON =
+  'Coming soon — opening projects arrives with .mixjam save/load (spec-011)'
+
 interface HomeScreenProps {
   userFolder: FolderView
   sampleFolder: FolderView
@@ -13,11 +19,9 @@ interface HomeScreenProps {
   recentProjects: RecentProjectItem[]
   activeTheme: string
   onThemeChange: (themeKey: string) => void
-  onOpenRecentProject: (project: RecentProjectItem) => void
   onPickUser: () => void
   onPickSample: () => void
   onStart: () => void
-  onLoad: () => void
 }
 
 const userIcon = (
@@ -49,11 +53,9 @@ export default function HomeScreen({
   recentProjects,
   activeTheme,
   onThemeChange,
-  onOpenRecentProject,
   onPickUser,
   onPickSample,
-  onStart,
-  onLoad
+  onStart
 }: HomeScreenProps) {
   const sampleDisabled = userFolder.status !== 'set'
   const homeRecent = recentProjects.slice(0, HOME_RECENT_LIMIT)
@@ -131,7 +133,7 @@ export default function HomeScreen({
             {!canStart && <p className="home-launch-hint">Select both folders above to start.</p>}
           </div>
 
-          <button className="link-secondary" onClick={onLoad}>
+          <button className="link-secondary" disabled title={PROJECT_LOAD_COMING_SOON}>
             Load MixJam
           </button>
 
@@ -144,8 +146,8 @@ export default function HomeScreen({
                     <button
                       type="button"
                       className="home-recent-item"
-                      title={project.path}
-                      onClick={() => onOpenRecentProject(project)}
+                      disabled
+                      title={PROJECT_LOAD_COMING_SOON}
                     >
                       <span className="home-recent-name">{project.displayName}</span>
                       <span className="home-recent-path">{project.path}</span>

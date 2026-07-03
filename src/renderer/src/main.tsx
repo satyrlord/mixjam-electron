@@ -1,5 +1,4 @@
 import './index.css'
-import ReactDOM from 'react-dom/client'
 import { mountApp } from './bootstrapApp'
 import type { ElectronAPI } from '../../shared/ipc'
 import { createMockElectronAPI } from './api/mockElectronApi'

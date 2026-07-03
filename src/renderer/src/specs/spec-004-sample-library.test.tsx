@@ -1,6 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import TrackerView from '../components/TrackerView'
+import type {
+  TrackerArrangementProps,
+  TrackerBrowserProps,
+  TrackerTransportProps
+} from '../components/trackerProps'
 import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
 import type { LaneState } from '../lib/playerShell'
 
@@ -40,73 +45,82 @@ function makeDbSamples(count: number): SampleListItem[] {
   }))
 }
 
-function renderTracker(overrides: Partial<Parameters<typeof TrackerView>[0]> = {}) {
+const DEFAULT_BROWSER: TrackerBrowserProps = {
+  samples: [],
+  searchQuery: '',
+  loading: false,
+  error: null,
+  totalCount: 0,
+  hasMoreSamples: false,
+  selectedSamplePath: null,
+  selectedCategoryId: undefined,
+  selectedTagIds: [],
+  sortBy: 'filename',
+  sortDir: 'asc',
+  tags: [],
+  categories: DEFAULT_CATEGORIES,
+  libraries: [],
+  scanProgress: IDLE_PROGRESS,
+  onSearchChange: noop,
+  onLoadMoreSamples: noop,
+  onSelectSampleDetail: noop,
+  onPreviewSample: noop,
+  onSelectCategory: noop,
+  onToggleTagFilter: noop,
+  onSortChange: noop,
+  onStartScan: asyncNoop,
+  onCreateTag: asyncNoop as never,
+  onRenameTag: asyncNoop as never,
+  onDeleteTag: asyncNoop as never,
+  onAssignTagToSample: asyncNoop as never,
+  onUnassignTagFromSample: asyncNoop as never,
+  onCreateCategory: asyncNoop as never,
+  onDeleteCategory: asyncNoop as never,
+  onSaveLibrary: asyncNoop as never,
+  onDeleteLibrary: asyncNoop as never,
+  onApplyLibrary: noop
+}
+
+const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
+  lanes: LANES,
+  laneShouldDim: () => false,
+  currentTick: 0,
+  onPlaceSampleDetailOnLane: noop,
+  onMoveClipOnLane: noop,
+  onDuplicateClipOnLane: noop,
+  onMoveClipGroup: noop,
+  onDuplicateClipGroup: noop,
+  onRemoveClipFromLane: noop,
+  onRemoveClips: noop,
+  onSetLanePan: noop,
+  onToggleLaneMute: noop,
+  onToggleLaneSolo: noop
+}
+
+const DEFAULT_TRANSPORT: TrackerTransportProps = {
+  transportState: 'stopped',
+  bpm: 120,
+  masterGain: 0.8,
+  masterLevelDb: -100,
+  canUndo: false,
+  canRedo: false,
+  onSetBpm: noop,
+  onSetMasterGain: noop,
+  onUndo: noop,
+  onRedo: noop,
+  onTransportPlay: noop,
+  onTransportPause: noop,
+  onTransportStop: noop,
+  onTransportSkipBack: noop
+}
+
+function renderTracker(browserOverrides: Partial<TrackerBrowserProps> = {}) {
   return render(
     <TrackerView
       recentProjects={[]}
-      samples={[]}
-      searchQuery=""
-      loading={false}
-      error={null}
-      selectedSamplePath={null}
-      lanes={LANES}
-      laneShouldDim={() => false}
-      transportState="stopped"
-      currentTick={0}
-      bpm={120}
-      masterGain={0.8}
-      masterLevelDb={-100}
-      totalCount={0}
-      hasMoreSamples={false}
-      onLoadMoreSamples={noop}
-      onSetBpm={noop}
-      onSetMasterGain={noop}
-      onSelectSampleDetail={noop}
-      onSearchChange={noop}
-      onPlaceSampleDetailOnLane={noop}
-      onMoveClipOnLane={noop}
-      onDuplicateClipOnLane={noop}
-      onMoveClipGroup={noop}
-      onDuplicateClipGroup={noop}
-      onRemoveClipFromLane={noop}
-      onRemoveClips={noop}
-      onUndo={noop}
-      onRedo={noop}
-      canUndo={false}
-      canRedo={false}
-      projectName={null}
-      onOpenRecentProject={noop}
-      onSetLanePan={noop}
-      onPreviewSample={noop}
-      onToggleLaneMute={noop}
-      onToggleLaneSolo={noop}
-      onTransportPlay={noop}
-      onTransportPause={noop}
-      onTransportStop={noop}
-      onTransportSkipBack={noop}
-      scanProgress={IDLE_PROGRESS}
-      selectedCategoryId={undefined}
-      selectedTagIds={[]}
-      sortBy="filename"
-      sortDir="asc"
-      tags={[]}
-      categories={DEFAULT_CATEGORIES}
-      libraries={[]}
-      onSelectCategory={noop}
-      onToggleTagFilter={noop}
-      onSortChange={noop}
-      onStartScan={asyncNoop}
-      onCreateTag={asyncNoop as never}
-      onRenameTag={asyncNoop as never}
-      onDeleteTag={asyncNoop as never}
-      onAssignTagToSample={asyncNoop as never}
-      onUnassignTagFromSample={asyncNoop as never}
-      onCreateCategory={asyncNoop as never}
-      onDeleteCategory={asyncNoop as never}
-      onSaveLibrary={asyncNoop as never}
-      onDeleteLibrary={asyncNoop as never}
-      onApplyLibrary={noop}
-      {...overrides}
+      browser={{ ...DEFAULT_BROWSER, ...browserOverrides }}
+      arrangement={DEFAULT_ARRANGEMENT}
+      transport={DEFAULT_TRANSPORT}
     />
   )
 }

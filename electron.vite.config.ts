@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
@@ -30,10 +30,19 @@ function injectCspPlugin(): Plugin {
   }
 }
 
-// The app version is a build-time constant. Inlining it from package.json keeps
-// the footer/mixjam.json correct in every runtime — dev, packaged, and when the
-// built main entry is launched directly (where app.getAppPath() has no manifest).
-const appVersion = (JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }).version
+// The app version is derived from the git commit count at build time.
+// Format: 0.<commit-count> (e.g. 0.43). Falls back to package.json version
+// when git is unavailable (e.g. in CI without a full clone).
+function deriveAppVersion(): string {
+  try {
+    const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
+    return `0.${count}`
+  } catch {
+    const { version } = JSON.parse(require('fs').readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
+    return version
+  }
+}
+const appVersion = deriveAppVersion()
 
 export default defineConfig({
   main: {

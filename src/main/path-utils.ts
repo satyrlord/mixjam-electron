@@ -1,8 +1,7 @@
 import { normalize, resolve, win32 } from 'node:path'
 
-// The audio file extensions the library recognises. Shared by the background
-// indexer (indexer.ts) and the legacy folder browser (sample-browser.ts) so the
-// two scanners always agree on what counts as a sample.
+// The audio file extensions the library recognises (used by the background
+// indexer in indexer.ts).
 export const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.flac', '.ogg', '.aiff'])
 
 function isWindowsStylePath(filePath: string): boolean {

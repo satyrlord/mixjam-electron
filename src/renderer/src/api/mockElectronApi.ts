@@ -2,9 +2,7 @@ import type {
   ElectronAPI,
   SessionPaths,
   RecentProjectItem,
-  SampleListItem,
-  SampleQueryRequest,
-  SampleQueryResponse,
+  SampleItem,
   TagItem,
   CategoryItem,
   LibraryItem,
@@ -17,7 +15,9 @@ const STORAGE_KEY_RECENT_PROJECTS = 'mixjam:recent-projects'
 const STORAGE_KEY_TAGS = 'mixjam:tags'
 const STORAGE_KEY_CATEGORIES = 'mixjam:categories'
 const STORAGE_KEY_LIBRARIES = 'mixjam:libraries'
-const STORAGE_KEY_SAMPLE_TAGS = 'mixjam:sample-tags'
+
+/** Version string reported to the renderer in web mode. */
+const MOCK_APP_VERSION = '0.43-web'
 
 // In-memory library state for this session
 let currentScanProgress: ScanProgress = {
@@ -29,11 +29,11 @@ let currentScanProgress: ScanProgress = {
 }
 
 let isScanning = false
-let scanProgressListeners: Set<(progress: ScanProgress) => void> = new Set()
-let scanDoneListeners: Set<() => void> = new Set()
+const scanProgressListeners: Set<(progress: ScanProgress) => void> = new Set()
+const scanDoneListeners: Set<() => void> = new Set()
 
 // Mock library state
-let mockSamples: SampleListItem[] = []
+let mockSamples: SampleItem[] = []
 let mockTags: TagItem[] = []
 let mockCategories: CategoryItem[] = []
 let mockLibraries: LibraryItem[] = []
@@ -42,35 +42,35 @@ let categoryNextId = 1
 let libraryNextId = 1
 
 function initializeLibraryState() {
-  // Load from storage or initialize
-  const storedTags = localStorage.getItem(STORAGE_KEY_TAGS)
-  if (storedTags) {
-    mockTags = JSON.parse(storedTags)
-    tagNextId = Math.max(...mockTags.map((t) => t.id), 0) + 1
-  } else {
-    mockTags = generateMockTags()
-    tagNextId = Math.max(...mockTags.map((t) => t.id), 0) + 1
-    localStorage.setItem(STORAGE_KEY_TAGS, JSON.stringify(mockTags))
+  // Load from storage or initialize — each collection follows the same pattern:
+  // try localStorage first, fall back to generated defaults, track next ID.
+  function loadCollection<T extends { id: number }>(
+    key: string,
+    generate: () => T[]
+  ): { items: T[]; nextId: number } {
+    const stored = localStorage.getItem(key)
+    if (stored) {
+      const items: T[] = JSON.parse(stored)
+      const nextId = Math.max(...items.map((x) => x.id), 0) + 1
+      return { items, nextId }
+    }
+    const items = generate()
+    const nextId = Math.max(...items.map((x) => x.id), 0) + 1
+    localStorage.setItem(key, JSON.stringify(items))
+    return { items, nextId }
   }
 
-  const storedCategories = localStorage.getItem(STORAGE_KEY_CATEGORIES)
-  if (storedCategories) {
-    mockCategories = JSON.parse(storedCategories)
-    categoryNextId = Math.max(...mockCategories.map((c) => c.id), 0) + 1
-  } else {
-    mockCategories = generateMockCategories()
-    categoryNextId = Math.max(...mockCategories.map((c) => c.id), 0) + 1
-    localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(mockCategories))
-  }
+  const tagsResult = loadCollection(STORAGE_KEY_TAGS, generateMockTags)
+  mockTags = tagsResult.items
+  tagNextId = tagsResult.nextId
 
-  const storedLibraries = localStorage.getItem(STORAGE_KEY_LIBRARIES)
-  if (storedLibraries) {
-    mockLibraries = JSON.parse(storedLibraries)
-    libraryNextId = Math.max(...mockLibraries.map((l) => l.id), 0) + 1
-  } else {
-    mockLibraries = []
-    localStorage.setItem(STORAGE_KEY_LIBRARIES, JSON.stringify(mockLibraries))
-  }
+  const catsResult = loadCollection(STORAGE_KEY_CATEGORIES, generateMockCategories)
+  mockCategories = catsResult.items
+  categoryNextId = catsResult.nextId
+
+  const libsResult = loadCollection(STORAGE_KEY_LIBRARIES, () => [])
+  mockLibraries = libsResult.items
+  libraryNextId = libsResult.nextId
 
   mockSamples = generateMockSamples(mockTags, mockCategories)
 }
@@ -85,6 +85,7 @@ function notifyScanDone() {
 }
 
 async function simulateScan(sampleFolder: string) {
+  void sampleFolder // unused in mock; folder path is ignored
   mockSamples = generateMockSamples(mockTags, mockCategories)
   const total = mockSamples.length
 
@@ -149,14 +150,12 @@ export function createMockElectronAPI(): ElectronAPI {
   }
 
   return {
-    getVersion: async () => '0.5.0-web',
+    getVersion: async () => MOCK_APP_VERSION,
 
     resizeToTracker: async () => {
-      // No-op in browser
     },
 
     resizeToHome: async () => {
-      // No-op in browser
     },
 
     openFilePicker: async () => {
@@ -211,25 +210,12 @@ export function createMockElectronAPI(): ElectronAPI {
       localStorage.setItem(STORAGE_KEY_RECENT_PROJECTS, JSON.stringify(projects))
     },
 
-    querySampleBrowser: async (sampleFolder, searchQuery) => {
-      if (!searchQuery) return mockSamples
-
-      const q = searchQuery.toLowerCase()
-      return mockSamples.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.category.toLowerCase().includes(q) ||
-          s.tags.some((t) => t.toLowerCase().includes(q))
-      )
-    },
-
     pickFolder: async () => {
       // In browser, use a mock folder path
       return 'local-samples'
     },
 
     validateFolder: async () => {
-      // Always valid in browser mode
       return true
     },
 
@@ -255,8 +241,8 @@ export function createMockElectronAPI(): ElectronAPI {
         const q = req.textSearch.toLowerCase()
         results = results.filter(
           (s) =>
-            s.name.toLowerCase().includes(q) ||
-            s.category.toLowerCase().includes(q) ||
+            s.filename.toLowerCase().includes(q) ||
+            s.filepath.toLowerCase().includes(q) ||
             s.tags.some((t) => t.toLowerCase().includes(q))
         )
       }
@@ -279,23 +265,22 @@ export function createMockElectronAPI(): ElectronAPI {
 
       if (sortBy === 'filename') {
         results.sort((a, b) =>
-          sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+          sortDir === 'asc'
+            ? a.filename.localeCompare(b.filename)
+            : b.filename.localeCompare(a.filename)
         )
       } else if (sortBy === 'duration') {
         results.sort((a, b) => {
-          const aDur = a.durationSeconds ?? 0
-          const bDur = b.durationSeconds ?? 0
+          const aDur = a.duration ?? 0
+          const bDur = b.duration ?? 0
           return sortDir === 'asc' ? aDur - bDur : bDur - aDur
         })
       } else if (sortBy === 'dateAdded') {
-        results.sort((a, b) => {
-          const aDate = new Date(a.filepath).getTime()
-          const bDate = new Date(b.filepath).getTime()
-          return sortDir === 'asc' ? aDate - bDate : bDate - aDate
-        })
+        results.sort((a, b) =>
+          sortDir === 'asc' ? a.dateAdded - b.dateAdded : b.dateAdded - a.dateAdded
+        )
       }
 
-      // Apply pagination
       const offset = req.offset ?? 0
       const limit = req.limit ?? 50
       const rows = results.slice(offset, offset + limit)
@@ -332,7 +317,7 @@ export function createMockElectronAPI(): ElectronAPI {
     },
 
     assignTag: async (sampleId, tagId) => {
-      const sample = mockSamples.find((s) => s.id === `${sampleId}`)
+      const sample = mockSamples.find((s) => s.id === sampleId)
       const tag = mockTags.find((t) => t.id === tagId)
       if (sample && tag && !sample.tagIds.includes(tagId)) {
         sample.tagIds.push(tagId)
@@ -342,7 +327,7 @@ export function createMockElectronAPI(): ElectronAPI {
     },
 
     unassignTag: async (sampleId, tagId) => {
-      const sample = mockSamples.find((s) => s.id === `${sampleId}`)
+      const sample = mockSamples.find((s) => s.id === sampleId)
       if (sample) {
         const idx = sample.tagIds.indexOf(tagId)
         if (idx >= 0) {
@@ -396,7 +381,9 @@ export function createMockElectronAPI(): ElectronAPI {
       localStorage.setItem(STORAGE_KEY_LIBRARIES, JSON.stringify(mockLibraries))
     },
 
-    hasSamples: async () => {
+    // Web mode has a single virtual sample folder, so the root path is ignored.
+    hasSamples: async (sampleFolder) => {
+      void sampleFolder
       return mockSamples.length > 0
     },
 

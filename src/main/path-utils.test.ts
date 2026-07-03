@@ -9,6 +9,11 @@ describe('canonicalizePath', () => {
   })
 
   it('preserves POSIX path case while normalizing the absolute path', () => {
-    expect(canonicalizePath('/tmp/MixJam/Alpha.mixjam')).toBe('/tmp/MixJam/Alpha.mixjam')
+    // resolve() is platform-dependent for POSIX-style input (on win32 it
+    // prefixes the cwd drive and flips separators), so assert the invariant —
+    // segment case survives — rather than an exact platform-specific string.
+    expect(canonicalizePath('/tmp/MixJam/Alpha.mixjam')).toMatch(
+      /tmp[\\/]MixJam[\\/]Alpha\.mixjam$/
+    )
   })
 })

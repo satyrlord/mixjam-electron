@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RecentProjectItem, SampleListItem } from '../../../shared/ipc'
-import { createElectronAPI } from '../test/electronApi'
+import type { RecentProjectItem } from '../../../shared/ipc'
+import { createElectronAPI, DEFAULT_SAMPLE_ROWS } from '../test/electronApi'
 import { useAppState } from './useAppState'
 
 const USER_FOLDER = 'C:/Users/test/MixJam'
@@ -33,7 +33,9 @@ describe('useAppState', () => {
     expect(electronAPI.loadRecentProjects).toHaveBeenCalledWith(USER_FOLDER)
 
     await waitFor(() => {
-      expect(electronAPI.querySampleBrowser).toHaveBeenCalledWith(SAMPLE_FOLDER, '', false)
+      expect(electronAPI.querySamples).toHaveBeenCalledWith(
+        expect.objectContaining({ rootPath: SAMPLE_FOLDER })
+      )
     })
   })
 
@@ -91,34 +93,6 @@ describe('useAppState', () => {
     expect(result.current.view).toBe('home')
     expect(result.current.timerText).toBe('00:00.0')
     expect(electronAPI.resizeToHome).toHaveBeenCalledTimes(1)
-  })
-
-  it('opens the file picker and switches to tracker when a file is selected', async () => {
-    const electronAPI = createElectronAPI()
-    vi.mocked(electronAPI.openFilePicker).mockResolvedValueOnce('/tmp/project.mixjam')
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    await act(async () => {
-      await result.current.handleLoadMixJam()
-    })
-
-    expect(electronAPI.openFilePicker).toHaveBeenCalledTimes(1)
-    expect(electronAPI.recordRecentProject).toHaveBeenCalledWith('/tmp/project.mixjam')
-    expect(electronAPI.resizeToTracker).toHaveBeenCalledTimes(1)
-    expect(result.current.view).toBe('tracker')
-  })
-
-  it('stays on home when the file picker is cancelled', async () => {
-    const electronAPI = createElectronAPI()
-    vi.mocked(electronAPI.openFilePicker).mockResolvedValueOnce(null)
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    await act(async () => {
-      await result.current.handleLoadMixJam()
-    })
-
-    expect(result.current.view).toBe('home')
-    expect(electronAPI.resizeToTracker).not.toHaveBeenCalled()
   })
 
   it('routes footer actions through the injected electronAPI', async () => {
@@ -239,20 +213,20 @@ describe('useAppState', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('handles querySampleBrowser rejection', async () => {
+  it('handles querySamples rejection', async () => {
     vi.useRealTimers()
     const electronAPI = createElectronAPI()
     const testError = new Error('db locked')
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    vi.mocked(electronAPI.querySampleBrowser).mockRejectedValueOnce(testError)
+    vi.mocked(electronAPI.querySamples).mockRejectedValueOnce(testError)
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Unable to load sample library.')
+      expect(result.current.error).toBe('Unable to query library.')
     })
 
     expect(result.current.samples).toEqual([])
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to query sample browser:', testError)
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to query DB samples:', testError)
   })
 
   it('clears selected sample detail when that sample is no longer visible', async () => {
@@ -278,7 +252,7 @@ describe('useAppState', () => {
     expect(result.current.selectedSampleDetail?.filepath).toBe(visiblePath)
 
     // Simulate search that returns rows without the selected sample
-    vi.mocked(electronAPI.querySampleBrowser).mockResolvedValueOnce([])
+    vi.mocked(electronAPI.querySamples).mockResolvedValueOnce({ rows: [], total: 0 })
     act(() => {
       result.current.setSearchQuery('nonexistent')
     })
@@ -286,23 +260,6 @@ describe('useAppState', () => {
     await waitFor(() => {
       expect(result.current.selectedSampleDetail).toBeNull()
     })
-  })
-
-  it('handles recordRecentProject failure in handleLoadMixJam', async () => {
-    vi.useRealTimers()
-    const electronAPI = createElectronAPI()
-    const testError = new Error('disk full')
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    vi.mocked(electronAPI.openFilePicker).mockResolvedValueOnce('/tmp/project.mixjam')
-    vi.mocked(electronAPI.recordRecentProject).mockRejectedValueOnce(testError)
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    await act(async () => {
-      await result.current.handleLoadMixJam()
-    })
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to record recent project:', testError)
-    expect(result.current.view).toBe('tracker')
   })
 
   it('toggles lane mute', async () => {
@@ -451,13 +408,9 @@ describe('useAppState', () => {
     const electronAPI = createElectronAPI()
 
     // First call will be slow, second fast
-    vi.mocked(electronAPI.querySampleBrowser)
-      .mockResolvedValueOnce([
-        { id: '/old/old.wav', dbId: null, name: 'old.wav', filepath: '/old/old.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
-      ] as SampleListItem[])
-      .mockResolvedValueOnce([
-        { id: '/new/new.wav', dbId: null, name: 'new.wav', filepath: '/new/new.wav', category: '', durationSeconds: null, tags: [], categoryId: null, tagIds: [] }
-      ] as SampleListItem[])
+    vi.mocked(electronAPI.querySamples)
+      .mockResolvedValueOnce({ rows: [DEFAULT_SAMPLE_ROWS[0]], total: 1 })
+      .mockResolvedValueOnce({ rows: [DEFAULT_SAMPLE_ROWS[1]], total: 1 })
 
     const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -593,26 +546,5 @@ describe('useAppState', () => {
 
     act(() => { result.current.setLanePan(3, -0.5) })
     expect(result.current.lanes[3].pan).toBe(-0.5)
-  })
-
-  it('openRecentProject handles recordRecentProject rejection gracefully', async () => {
-    vi.useRealTimers()
-    const electronAPI = createElectronAPI()
-    const testError = new Error('disk full')
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    vi.mocked(electronAPI.recordRecentProject).mockRejectedValueOnce(testError)
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    await act(async () => {
-      await result.current.openRecentProject({
-        path: '/tmp/proj.mixjam',
-        displayName: 'proj',
-        lastOpened: '2026-01-01T00:00:00.000Z'
-      })
-    })
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to open recent project:', testError)
-    expect(result.current.currentProjectName).toBe('proj')
-    consoleErrorSpy.mockRestore()
   })
 })

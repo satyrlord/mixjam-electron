@@ -27,23 +27,26 @@ const RECENT_PROJECTS: RecentProjectItem[] = [
   }
 ]
 
+function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
+  return render(
+    <HomeScreen
+      userFolder={SET_FOLDER}
+      sampleFolder={SET_FOLDER}
+      canStart={true}
+      recentProjects={[]}
+      activeTheme="emerald"
+      onThemeChange={vi.fn()}
+      onPickUser={vi.fn()}
+      onPickSample={vi.fn()}
+      onStart={vi.fn()}
+      {...overrides}
+    />
+  )
+}
+
 describe('HomeScreen', () => {
   it('renders start button disabled when canStart is false', () => {
-    render(
-      <HomeScreen
-        userFolder={SET_FOLDER}
-        sampleFolder={UNSET_FOLDER}
-        canStart={false}
-        recentProjects={[]}
-        activeTheme="emerald"
-        onThemeChange={vi.fn()}
-        onOpenRecentProject={vi.fn()}
-        onPickUser={vi.fn()}
-        onPickSample={vi.fn()}
-        onStart={vi.fn()}
-        onLoad={vi.fn()}
-      />
-    )
+    renderHome({ sampleFolder: UNSET_FOLDER, canStart: false })
 
     const btn = screen.getByRole('button', { name: 'Start New MixJam' })
     expect(btn).toBeTruthy()
@@ -52,21 +55,7 @@ describe('HomeScreen', () => {
 
   it('calls onStart when Start New MixJam is clicked and canStart is true', () => {
     const onStart = vi.fn()
-    render(
-      <HomeScreen
-        userFolder={SET_FOLDER}
-        sampleFolder={SET_FOLDER}
-        canStart={true}
-        recentProjects={[]}
-        activeTheme="emerald"
-        onThemeChange={vi.fn()}
-        onOpenRecentProject={vi.fn()}
-        onPickUser={vi.fn()}
-        onPickSample={vi.fn()}
-        onStart={onStart}
-        onLoad={vi.fn()}
-      />
-    )
+    renderHome({ onStart })
 
     fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
     expect(onStart).toHaveBeenCalledTimes(1)
@@ -74,21 +63,7 @@ describe('HomeScreen', () => {
 
   it('calls onThemeChange when a theme swatch is clicked', () => {
     const onThemeChange = vi.fn()
-    render(
-      <HomeScreen
-        userFolder={SET_FOLDER}
-        sampleFolder={SET_FOLDER}
-        canStart={true}
-        recentProjects={[]}
-        activeTheme="emerald"
-        onThemeChange={onThemeChange}
-        onOpenRecentProject={vi.fn()}
-        onPickUser={vi.fn()}
-        onPickSample={vi.fn()}
-        onStart={vi.fn()}
-        onLoad={vi.fn()}
-      />
-    )
+    renderHome({ onThemeChange })
 
     // Click a non-active theme swatch
     const swatch = screen.getByLabelText('Switch to Rust Industrial theme')
@@ -97,46 +72,22 @@ describe('HomeScreen', () => {
   })
 
   it('renders recent projects when provided', () => {
-    render(
-      <HomeScreen
-        userFolder={SET_FOLDER}
-        sampleFolder={SET_FOLDER}
-        canStart={true}
-        recentProjects={RECENT_PROJECTS}
-        activeTheme="emerald"
-        onThemeChange={vi.fn()}
-        onOpenRecentProject={vi.fn()}
-        onPickUser={vi.fn()}
-        onPickSample={vi.fn()}
-        onStart={vi.fn()}
-        onLoad={vi.fn()}
-      />
-    )
+    renderHome({ recentProjects: RECENT_PROJECTS })
 
     expect(screen.getByText('club-night')).toBeTruthy()
     expect(screen.getByText('ambient-set')).toBeTruthy()
   })
 
-  it('calls onOpenRecentProject when a recent project is clicked', () => {
-    const onOpenRecentProject = vi.fn()
-    render(
-      <HomeScreen
-        userFolder={SET_FOLDER}
-        sampleFolder={SET_FOLDER}
-        canStart={true}
-        recentProjects={RECENT_PROJECTS}
-        activeTheme="emerald"
-        onThemeChange={vi.fn()}
-        onOpenRecentProject={onOpenRecentProject}
-        onPickUser={vi.fn()}
-        onPickSample={vi.fn()}
-        onStart={vi.fn()}
-        onLoad={vi.fn()}
-      />
-    )
+  it('disables Load MixJam and recent project entries until spec-011 ships', () => {
+    renderHome({ recentProjects: RECENT_PROJECTS })
 
-    fireEvent.click(screen.getByText('club-night'))
-    expect(onOpenRecentProject).toHaveBeenCalledWith(RECENT_PROJECTS[0])
+    const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
+    expect(loadButton).toBeDisabled()
+    expect(loadButton).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
+
+    const recentEntry = screen.getByText('club-night').closest('button')!
+    expect(recentEntry).toBeDisabled()
+    expect(recentEntry).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
   })
 
   it('shows only up to 4 recent projects', () => {
@@ -146,21 +97,7 @@ describe('HomeScreen', () => {
       lastOpened: '2026-01-01T00:00:00.000Z'
     }))
 
-    render(
-      <HomeScreen
-        userFolder={SET_FOLDER}
-        sampleFolder={SET_FOLDER}
-        canStart={true}
-        recentProjects={many}
-        activeTheme="emerald"
-        onThemeChange={vi.fn()}
-        onOpenRecentProject={vi.fn()}
-        onPickUser={vi.fn()}
-        onPickSample={vi.fn()}
-        onStart={vi.fn()}
-        onLoad={vi.fn()}
-      />
-    )
+    renderHome({ recentProjects: many })
 
     expect(screen.getByText('project-0')).toBeTruthy()
     expect(screen.getByText('project-3')).toBeTruthy()

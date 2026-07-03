@@ -62,6 +62,18 @@ See `syncCategoriesFromFolder()` and `assignCategoryFromPath()` in
 `src/main/library.ts`. A sample belongs to exactly one primary category but may
 have multiple subcategory assignments (via the `sample_categories` join table).
 
+## Per-root scoping (one DB, many Sample Folders)
+
+Every Sample Folder that has ever been scanned gets a row in `scan_roots`, and
+each `samples` row carries the `root_id` of the root it was found under. Browser
+queries (`querySamples`, `hasSamples`) are scoped to the active Sample Folder's
+root, so switching folders never shows another folder's rows — a folder that has
+not been scanned yet reads as empty and triggers the first-entry scan. Re-scans
+are scoped the same way: marking missing files only touches rows under the root
+being scanned, so rows belonging to other roots survive untouched. Rows indexed
+before scoping existed (`root_id` NULL after the v4 migration) are adopted by
+path prefix on the next scan of their root.
+
 ## Change detection & incremental re-scan
 
 The cheap, reliable change key is **`(size_bytes, mtime)`**. On re-scan of a root:

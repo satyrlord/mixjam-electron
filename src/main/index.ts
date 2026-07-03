@@ -25,7 +25,6 @@ import {
   writeSessionConfig,
   writeSessionConfigSync
 } from './session'
-import { querySampleBrowser, type SampleBrowserCache } from './sample-browser'
 import { openDatabase, type DB } from './db'
 import {
   ensureUnsortedCategory,
@@ -49,14 +48,13 @@ import { IndexerHost } from './indexer-host'
 let mainWindow: BrowserWindow | null = null
 let lastSession: SessionPaths = { userFolder: null, sampleFolder: null }
 const ALLOWED_EXTERNAL_HOSTS = new Set(['github.com', 'www.github.com'])
-const sampleBrowserCache: SampleBrowserCache = new Map()
 let db: DB | null = null
 const indexerHost = new IndexerHost()
 
 // app.getVersion() returns Electron's own version in an unpackaged run rather
 // than this app's. __APP_VERSION__ is inlined from package.json at build time
 // (see electron.vite.config.ts) so the footer and mixjam.json always report the
-// app version (e.g. 0.5.0) in every environment.
+// app version (e.g. 0.43) in every environment.
 declare const __APP_VERSION__: string | undefined
 function appVersion(): string {
   return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : app.getVersion()
@@ -189,17 +187,6 @@ ipcMain.handle(IPC_CHANNELS.recentProjectsRecord, async (_event, rawProjectPath:
   await recordRecentProject(recentProjectsFilePath(), rawProjectPath)
 })
 
-ipcMain.handle(
-  IPC_CHANNELS.sampleBrowserQuery,
-  async (_event, rawSampleFolder: unknown, rawSearchQuery: unknown, rawForceRescan: unknown) => {
-    const sampleFolder = typeof rawSampleFolder === 'string' ? rawSampleFolder : null
-    const searchQuery = typeof rawSearchQuery === 'string' ? rawSearchQuery : ''
-    const forceRescan = rawForceRescan === true
-
-    return querySampleBrowser(sampleBrowserCache, sampleFolder, searchQuery, forceRescan)
-  }
-)
-
 ipcMain.handle(IPC_CHANNELS.folderPick, async (_event, rawRole: unknown) => {
   if (!mainWindow || !isFolderRole(rawRole)) return null
   const title = rawRole === 'user' ? 'Select User Folder' : 'Select Sample Folder'
@@ -248,7 +235,10 @@ ipcMain.handle(IPC_CHANNELS.libraryQuerySamples, (_event, rawReq: unknown) => {
   return querySamples(getDb(), normalizeSampleQueryRequest(rawReq))
 })
 
-ipcMain.handle(IPC_CHANNELS.libraryHasSamples, () => hasSamples(getDb()))
+ipcMain.handle(IPC_CHANNELS.libraryHasSamples, (_event, rawSampleFolder: unknown) => {
+  if (typeof rawSampleFolder !== 'string') return false
+  return hasSamples(getDb(), rawSampleFolder)
+})
 
 ipcMain.handle(IPC_CHANNELS.libraryListTags, () => listTags(getDb()))
 
