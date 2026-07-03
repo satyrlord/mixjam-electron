@@ -1,11 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RecentProjectItem } from '../../../shared/ipc'
-import { createElectronAPI, DEFAULT_SAMPLE_ROWS } from '../test/electronApi'
+import type { RecentProjectItem } from '../../../shared/backend-api'
+import { createBackendAPI, DEFAULT_SAMPLE_ROWS, TEST_SAMPLE_FOLDER, TEST_USER_FOLDER } from '../test/backendApi'
 import { useAppState } from './useAppState'
 
-const USER_FOLDER = 'C:/Users/test/MixJam'
-const SAMPLE_FOLDER = 'C:/Samples'
+const USER_FOLDER = TEST_USER_FOLDER
+const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
 
 describe('useAppState', () => {
   beforeEach(() => {
@@ -19,8 +19,8 @@ describe('useAppState', () => {
 
   it('loads version data and starts in home view', async () => {
     vi.useRealTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     expect(result.current.view).toBe('home')
     expect(result.current.timerText).toBe('00:00.0')
@@ -29,42 +29,38 @@ describe('useAppState', () => {
       expect(result.current.version).toBe('v0.test.0')
     })
 
-    expect(electronAPI.getVersion).toHaveBeenCalledTimes(1)
-    expect(electronAPI.loadRecentProjects).toHaveBeenCalledWith(USER_FOLDER)
+    expect(backendAPI.getVersion).toHaveBeenCalledTimes(1)
+    expect(backendAPI.loadRecentProjects).toHaveBeenCalledWith(USER_FOLDER)
 
     await waitFor(() => {
-      expect(electronAPI.querySamples).toHaveBeenCalledWith(
-        expect.objectContaining({ rootPath: SAMPLE_FOLDER })
+      expect(backendAPI.querySamples).toHaveBeenCalledWith(
+        expect.objectContaining({ rootId: SAMPLE_FOLDER.id })
       )
     })
   })
 
   it('falls back to a safe version string when getVersion fails', async () => {
     vi.useRealTimers()
-    const electronAPI = createElectronAPI()
-    const testError = new Error('ipc unavailable')
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    vi.mocked(electronAPI.getVersion).mockRejectedValueOnce(testError)
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    vi.mocked(backendAPI.getVersion).mockRejectedValueOnce(new Error('ipc unavailable'))
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
       expect(result.current.version).toBe('version unavailable')
     })
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to read app version:', testError)
   })
 
   it('moves to tracker and increments the timer while playing', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.goToTracker()
     })
 
     expect(result.current.view).toBe('tracker')
-    expect(electronAPI.resizeToTracker).toHaveBeenCalledTimes(1)
+    expect(backendAPI.resizeToTracker).toHaveBeenCalledTimes(1)
 
     // Timer should be at 00:00.0 until playback starts
     expect(result.current.timerText).toBe('00:00.0')
@@ -82,8 +78,8 @@ describe('useAppState', () => {
   })
 
   it('returns to home and clears the timer', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.goToTracker()
@@ -92,18 +88,18 @@ describe('useAppState', () => {
 
     expect(result.current.view).toBe('home')
     expect(result.current.timerText).toBe('00:00.0')
-    expect(electronAPI.resizeToHome).toHaveBeenCalledTimes(1)
+    expect(backendAPI.resizeToHome).toHaveBeenCalledTimes(1)
   })
 
-  it('routes footer actions through the injected electronAPI', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+  it('routes footer actions through the injected backendAPI', async () => {
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.openRepo()
     })
 
-    expect(electronAPI.openExternal).toHaveBeenCalledWith(
+    expect(backendAPI.openExternal).toHaveBeenCalledWith(
       'https://github.com/satyrlord/mixjam-electron'
     )
   })
@@ -111,8 +107,8 @@ describe('useAppState', () => {
   it('clears the running timer when unmounted from the tracker view', async () => {
     vi.useFakeTimers()
     const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
-    const electronAPI = createElectronAPI()
-    const { result, unmount } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result, unmount } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.goToTracker()
@@ -124,8 +120,8 @@ describe('useAppState', () => {
   })
 
   it('stores selected sample detail for the footer surface', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
       expect(result.current.samples.length).toBeGreaterThan(0)
@@ -134,7 +130,7 @@ describe('useAppState', () => {
     act(() => {
       result.current.setSelectedSampleDetail({
         name: 'kick_808.wav',
-        filepath: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
+        relpath: 'Drums/Kicks/kick_808.wav',
         tags: ['Drums', 'Kick'],
         duration: null
       })
@@ -144,19 +140,19 @@ describe('useAppState', () => {
   })
 
   it('starts a library scan when requested', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.startLibraryScan()
     })
 
-    expect(electronAPI.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER)
+    expect(backendAPI.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER)
   })
 
   it('places a sample clip on a lane via drag-and-drop', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
       expect(result.current.samples.length).toBeGreaterThan(0)
@@ -164,7 +160,7 @@ describe('useAppState', () => {
 
     act(() => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick_808.wav', filepath: 'Drums/Kicks/kick_808.wav', tags: [], duration: null },
+        { name: 'kick_808.wav', relpath: 'Drums/Kicks/kick_808.wav', tags: [], duration: null },
         0,
         0
       )
@@ -179,22 +175,18 @@ describe('useAppState', () => {
 
   it('falls back when loadRecentProjects fails', async () => {
     vi.useRealTimers()
-    const electronAPI = createElectronAPI()
-    const testError = new Error('session unavailable')
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    vi.mocked(electronAPI.loadRecentProjects).mockRejectedValueOnce(testError)
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    vi.mocked(backendAPI.loadRecentProjects).mockRejectedValueOnce(new Error('session unavailable'))
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
       expect(result.current.recentProjects).toEqual([])
     })
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to load recent projects:', testError)
   })
 
   it('clears sample state when sampleFolder is null', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, null))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, null))
 
     expect(result.current.samples).toEqual([])
     expect(result.current.loading).toBe(false)
@@ -207,7 +199,7 @@ describe('useAppState', () => {
       await result.current.startLibraryScan()
     })
 
-    expect(electronAPI.startScan).not.toHaveBeenCalled()
+    expect(backendAPI.startScan).not.toHaveBeenCalled()
     expect(result.current.samples).toEqual([])
     expect(result.current.loading).toBe(false)
     expect(result.current.error).toBeNull()
@@ -215,23 +207,20 @@ describe('useAppState', () => {
 
   it('handles querySamples rejection', async () => {
     vi.useRealTimers()
-    const electronAPI = createElectronAPI()
-    const testError = new Error('db locked')
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    vi.mocked(electronAPI.querySamples).mockRejectedValueOnce(testError)
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    vi.mocked(backendAPI.querySamples).mockRejectedValueOnce(new Error('db locked'))
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
       expect(result.current.error).toBe('Unable to query library.')
     })
 
     expect(result.current.samples).toEqual([])
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to query DB samples:', testError)
   })
 
   it('clears selected sample detail when that sample is no longer visible', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
       expect(result.current.samples.length).toBeGreaterThan(0)
@@ -239,20 +228,20 @@ describe('useAppState', () => {
 
     // Pick a path that actually exists in the current rows so the effect
     // does not immediately clear it.
-    const visiblePath = result.current.samples[0].filepath
+    const visiblePath = result.current.samples[0].relpath
     act(() => {
       result.current.setSelectedSampleDetail({
         name: 'kick_808.wav',
-        filepath: visiblePath,
+        relpath: visiblePath,
         tags: ['Drums', 'Kick'],
         duration: null
       })
     })
 
-    expect(result.current.selectedSampleDetail?.filepath).toBe(visiblePath)
+    expect(result.current.selectedSampleDetail?.relpath).toBe(visiblePath)
 
     // Simulate search that returns rows without the selected sample
-    vi.mocked(electronAPI.querySamples).mockResolvedValueOnce({ rows: [], total: 0 })
+    vi.mocked(backendAPI.querySamples).mockResolvedValueOnce({ rows: [], total: 0 })
     act(() => {
       result.current.setSearchQuery('nonexistent')
     })
@@ -263,8 +252,8 @@ describe('useAppState', () => {
   })
 
   it('toggles lane mute', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     act(() => {
       result.current.toggleLaneMute(0)
@@ -282,8 +271,8 @@ describe('useAppState', () => {
   })
 
   it('toggles lane solo', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     act(() => {
       result.current.toggleLaneSolo(0)
@@ -301,8 +290,8 @@ describe('useAppState', () => {
   })
 
   it('reports lane dim state', async () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     // Default: nothing soloed, no lane dimmed
     const initialDim = result.current.laneShouldDim(result.current.lanes[0])
@@ -322,8 +311,8 @@ describe('useAppState', () => {
 
   it('creates and destroys transport with tracker lifecycle', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     // Initially no transport
     expect(result.current.transportState).toBe('stopped')
@@ -345,8 +334,8 @@ describe('useAppState', () => {
 
   it('transport play sets state to playing', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.goToTracker()
@@ -361,8 +350,8 @@ describe('useAppState', () => {
 
   it('transport pause and stop transitions', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.goToTracker()
@@ -389,8 +378,8 @@ describe('useAppState', () => {
 
   it('transport skipBack is callable', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
       await result.current.goToTracker()
@@ -405,14 +394,14 @@ describe('useAppState', () => {
 
   it('ignores stale sample query responses when a newer query is in flight', async () => {
     vi.useRealTimers()
-    const electronAPI = createElectronAPI()
+    const backendAPI = createBackendAPI()
 
     // First call will be slow, second fast
-    vi.mocked(electronAPI.querySamples)
+    vi.mocked(backendAPI.querySamples)
       .mockResolvedValueOnce({ rows: [DEFAULT_SAMPLE_ROWS[0]], total: 1 })
       .mockResolvedValueOnce({ rows: [DEFAULT_SAMPLE_ROWS[1]], total: 1 })
 
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     // Wait for first query to settle — the debounce means the second call
     // supersedes it before the first resolves, per mock ordering.
@@ -426,8 +415,8 @@ describe('useAppState', () => {
   })
 
   it('transport operations are no-ops when not in tracker view', () => {
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     // In home view, transportRef.current is null
     expect(result.current.transportState).toBe('stopped')
@@ -445,17 +434,17 @@ describe('useAppState', () => {
 
   it('handles unmount during pending version fetch', async () => {
     vi.useRealTimers()
-    const electronAPI = createElectronAPI()
+    const backendAPI = createBackendAPI()
 
     // Delay getVersion so we can unmount while it is pending.
     let resolveVersion: (v: string) => void
-    vi.mocked(electronAPI.getVersion).mockReturnValueOnce(
+    vi.mocked(backendAPI.getVersion).mockReturnValueOnce(
       new Promise((resolve) => {
         resolveVersion = resolve
       })
     )
 
-    const { unmount } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const { unmount } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     // Unmount before the promise resolves — isMounted becomes false.
     unmount()
@@ -468,16 +457,16 @@ describe('useAppState', () => {
 
   it('handles unmount during pending recent-projects fetch', async () => {
     vi.useRealTimers()
-    const electronAPI = createElectronAPI()
+    const backendAPI = createBackendAPI()
 
     let resolveProjects: (projects: RecentProjectItem[]) => void
-    vi.mocked(electronAPI.loadRecentProjects).mockReturnValueOnce(
+    vi.mocked(backendAPI.loadRecentProjects).mockReturnValueOnce(
       new Promise((resolve) => {
         resolveProjects = resolve
       })
     )
 
-    const { unmount } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const { unmount } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     unmount()
 
@@ -487,8 +476,8 @@ describe('useAppState', () => {
 
   it('setBpm updates the BPM state', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => { await result.current.goToTracker() })
 
@@ -498,8 +487,8 @@ describe('useAppState', () => {
 
   it('setMasterGain updates the master gain', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => { await result.current.goToTracker() })
 
@@ -509,12 +498,12 @@ describe('useAppState', () => {
 
   it('moveClipOnLane repositions a clip across lanes', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => { await result.current.goToTracker() })
 
-    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', filepath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
     const cid = result.current.lanes[0].clips[0].id
 
     act(() => { result.current.moveClipOnLane(cid, 2, 64) })
@@ -525,12 +514,12 @@ describe('useAppState', () => {
 
   it('removeClipFromLane deletes a clip', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => { await result.current.goToTracker() })
 
-    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', filepath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
     const cid = result.current.lanes[0].clips[0].id
 
     act(() => { result.current.removeClipFromLane(0, cid) })
@@ -539,8 +528,8 @@ describe('useAppState', () => {
 
   it('setLanePan updates pan value', async () => {
     vi.useFakeTimers()
-    const electronAPI = createElectronAPI()
-    const { result } = renderHook(() => useAppState(electronAPI, USER_FOLDER, SAMPLE_FOLDER))
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => { await result.current.goToTracker() })
 

@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createElectronAPI } from '../test/electronApi'
+import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
 import { useTransportEngine } from './useTransportEngine'
 
-const SAMPLE_FOLDER = 'C:/Samples'
+const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
 
 describe('useTransportEngine', () => {
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe('useTransportEngine', () => {
 
   it('setLanePan updates lane pan and calls player.setChannelPan', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     // Wait for the Player to be created by the useEffect
@@ -31,7 +31,7 @@ describe('useTransportEngine', () => {
 
   it('previewSample schedules at next downbeat when transport is playing', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     vi.mocked(api.readSampleBytes).mockResolvedValue(new ArrayBuffer(8))
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
@@ -62,7 +62,7 @@ describe('useTransportEngine', () => {
 
   it('previewSample returns early when player is not created (view=home)', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'home'))
 
     // No player created because view is 'home' — calling previewSample should return early
@@ -73,7 +73,7 @@ describe('useTransportEngine', () => {
 
   it('setLanePan updates lane state but skips player.setChannelPan when player is null (view=home)', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'home'))
 
     await act(async () => {
@@ -85,7 +85,7 @@ describe('useTransportEngine', () => {
 
   it('previewSample handles null sample folder gracefully', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, null, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
@@ -99,7 +99,7 @@ describe('useTransportEngine', () => {
 
   it('getSampleBuffer returns null when player is not initialized', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     // Start on 'home' so the Player is never created
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'home'))
 
@@ -109,7 +109,7 @@ describe('useTransportEngine', () => {
 
   it('getSampleBuffer returns null for a missing sample', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     vi.mocked(api.readSampleBytes).mockResolvedValue(null)
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
@@ -121,7 +121,7 @@ describe('useTransportEngine', () => {
 
   it('removeClipFromLane with non-existent clip is a no-op', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
@@ -132,14 +132,14 @@ describe('useTransportEngine', () => {
 
   it('removeClipFromLane removes a placed clip', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', filepath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
         0, 0
       )
     })
@@ -152,18 +152,18 @@ describe('useTransportEngine', () => {
 
   it('removeClips batch-removes multiple clips', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'a.wav', filepath: '/s/a.wav', tags: [], duration: 0.5 },
+        { name: 'a.wav', relpath: '/s/a.wav', tags: [], duration: 0.5 },
         0, 0
       )
       result.current.placeSampleDetailOnLane(
-        { name: 'b.wav', filepath: '/s/b.wav', tags: [], duration: 0.5 },
+        { name: 'b.wav', relpath: '/s/b.wav', tags: [], duration: 0.5 },
         0, 32
       )
     })
@@ -176,14 +176,14 @@ describe('useTransportEngine', () => {
 
   it('duplicateClipGroup duplicates clips across lanes', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', filepath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
         0, 0
       )
     })
@@ -201,7 +201,7 @@ describe('useTransportEngine', () => {
 
   it('undo is a no-op when history is empty', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
@@ -213,7 +213,7 @@ describe('useTransportEngine', () => {
 
   it('redo is a no-op when future stack is empty', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
@@ -225,7 +225,7 @@ describe('useTransportEngine', () => {
 
   it('undo reverts the last clip placement', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
@@ -234,7 +234,7 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', filepath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
         0, 0
       )
     })
@@ -249,14 +249,14 @@ describe('useTransportEngine', () => {
 
   it('redo restores an undone placement', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', filepath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
         0, 0
       )
     })
@@ -269,14 +269,14 @@ describe('useTransportEngine', () => {
 
   it('moveClipOnLane moves a clip to a different lane', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', filepath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
         0, 0
       )
     })
@@ -294,18 +294,18 @@ describe('useTransportEngine', () => {
 
   it('moveClipGroup moves multiple clips in one operation', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', filepath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
         0, 0
       )
       result.current.placeSampleDetailOnLane(
-        { name: 'snare.wav', filepath: '/s/snare.wav', tags: [], duration: 0.5 },
+        { name: 'snare.wav', relpath: '/s/snare.wav', tags: [], duration: 0.5 },
         1, 0
       )
     })
@@ -327,7 +327,7 @@ describe('useTransportEngine', () => {
 
   it('pauses and resumes transport', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     vi.mocked(api.readSampleBytes).mockResolvedValue(new ArrayBuffer(8))
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
@@ -349,7 +349,7 @@ describe('useTransportEngine', () => {
 
   it('resets elapsed time when leaving tracker while playing', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     vi.mocked(api.readSampleBytes).mockResolvedValue(new ArrayBuffer(8))
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
@@ -367,14 +367,14 @@ describe('useTransportEngine', () => {
 
   it('duplicateClipOnLane copies a clip to another lane', async () => {
     vi.useRealTimers()
-    const api = createElectronAPI()
+    const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
     await waitFor(() => expect(result.current.lanes).toBeDefined())
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', filepath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
         0, 0
       )
     })

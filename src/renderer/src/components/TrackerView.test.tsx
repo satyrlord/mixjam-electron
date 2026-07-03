@@ -8,7 +8,7 @@ import type {
   TrackerBrowserProps,
   TrackerTransportProps
 } from './trackerProps'
-import type { RecentProjectItem, SampleListItem } from '../../../shared/ipc'
+import type { RecentProjectItem, SampleListItem } from '../../../shared/backend-api'
 import type { LaneState } from '../lib/playerShell'
 
 const INDEX_CSS_PATH = resolve(process.cwd(), 'src/renderer/src/index.css')
@@ -28,7 +28,7 @@ const SAMPLES: SampleListItem[] = [
     id: 'C:/Samples/Drums/Kicks/kick_808.wav',
     dbId: 1,
     name: 'kick_808.wav',
-    filepath: 'C:/Samples/Drums/Kicks/kick_808.wav',
+    relpath: 'C:/Samples/Drums/Kicks/kick_808.wav',
     category: 'Drums',
     durationSeconds: null,
     tags: ['Drums', 'WAV'],
@@ -314,7 +314,7 @@ describe('TrackerView', () => {
     renderTracker({
       browser: {
         onPreviewSample,
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
         totalCount: 1,
         categories: DEFAULT_CATEGORIES
       }
@@ -586,7 +586,7 @@ describe('TrackerView', () => {
   it('sets drag data when a sample tile drag starts', () => {
     renderTracker({
       browser: {
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
         totalCount: 1
       }
     })
@@ -612,7 +612,7 @@ describe('TrackerView', () => {
   it('renders sample color from categoryId when no category filter is active', () => {
     renderTracker({
       browser: {
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', filepath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
         totalCount: 1,
         categories: DEFAULT_CATEGORIES
       }
@@ -856,7 +856,7 @@ describe('TrackerView', () => {
     renderTracker({ arrangement: { onPlaceSampleDetailOnLane } })
 
     const trackArea = screen.getByLabelText('Lane 1 track area')
-    const sampleData = JSON.stringify({ name: 'kick.wav', filepath: '/s/kick.wav', duration: 0.5, tags: [] })
+    const sampleData = JSON.stringify({ name: 'kick.wav', relpath: '/s/kick.wav', duration: 0.5, tags: [] })
 
     const dataTransfer = {
       types: ['application/mixjam-sample'],

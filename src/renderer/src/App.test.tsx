@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('renders home actions and fetches version through electronAPI', async () => {
+  it('renders home actions and fetches version through backendAPI', async () => {
     render(<App />)
 
     expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeInTheDocument()
@@ -13,7 +13,7 @@ describe('App', () => {
       expect(screen.getByRole('button', { name: 'v0.test.0' })).toBeInTheDocument()
     })
 
-    expect(vi.mocked(window.electronAPI.getVersion)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.backendAPI.getVersion)).toHaveBeenCalledTimes(1)
   })
 
   it('switches to the tracker view when Start New MixJam is clicked', async () => {
@@ -27,7 +27,7 @@ describe('App', () => {
       expect(screen.getByText('Recent Projects')).toBeInTheDocument()
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
-    expect(vi.mocked(window.electronAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.backendAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
   })
 
   it('renders recent projects in the tracker rail and mirrors sample selection into the footer', async () => {
@@ -45,10 +45,10 @@ describe('App', () => {
     const kickRow = await screen.findByRole('button', { name: /kick_808/ })
     fireEvent.click(kickRow)
 
-    // The full path only renders in the footer detail, so finding it proves the
-    // selection was mirrored. Tag rendering is covered by Footer.test.tsx; the
-    // shared mock's DB rows carry no tags.
-    expect(screen.getByText('C:\\Samples\\Drums\\Kicks\\kick_808.wav')).toBeInTheDocument()
+    // The full relpath only renders in the footer detail, so finding it proves
+    // the selection was mirrored. Tag rendering is covered by Footer.test.tsx;
+    // the shared mock's DB rows carry no tags.
+    expect(screen.getByText('Drums/Kicks/kick_808.wav')).toBeInTheDocument()
   })
 
   it('applies the Emerald theme by default and switches to selected theme', () => {

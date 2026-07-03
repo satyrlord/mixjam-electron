@@ -4,7 +4,7 @@ import type {
   SampleListItem,
   ScanProgress,
   TagItem
-} from '../../../shared/ipc'
+} from '../../../shared/backend-api'
 import type { ClipGroupEntry, FooterSampleDetail, LaneState } from '../lib/playerShell'
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
 

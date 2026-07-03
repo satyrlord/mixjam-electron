@@ -1,4 +1,4 @@
-import type { RecentProjectItem } from '../../../shared/ipc'
+import type { RecentProjectItem } from '../../../shared/backend-api'
 import { PROJECT_LOAD_COMING_SOON } from './HomeScreen'
 
 interface RecentProjectsRailProps {

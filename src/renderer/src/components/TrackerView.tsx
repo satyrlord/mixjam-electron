@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { RecentProjectItem } from '../../../shared/ipc'
+import type { RecentProjectItem } from '../../../shared/backend-api'
 import type { ClipGroupEntry, FooterSampleDetail } from '../lib/playerShell'
 import type {
   TrackerArrangementProps,

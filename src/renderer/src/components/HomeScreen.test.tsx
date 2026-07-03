@@ -2,16 +2,16 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import HomeScreen from './HomeScreen'
 import type { FolderView } from '../hooks/useFolderSession'
-import type { RecentProjectItem } from '../../../shared/ipc'
+import type { RecentProjectItem } from '../../../shared/backend-api'
 
 const SET_FOLDER: FolderView = {
   status: 'set',
-  path: 'C:/Users/test/MixJam'
+  ref: { id: 'test-user-folder', name: 'MixJam' }
 }
 
 const UNSET_FOLDER: FolderView = {
   status: 'empty',
-  path: null
+  ref: null
 }
 
 const RECENT_PROJECTS: RecentProjectItem[] = [
@@ -38,6 +38,8 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
       onThemeChange={vi.fn()}
       onPickUser={vi.fn()}
       onPickSample={vi.fn()}
+      onRestoreUser={vi.fn()}
+      onRestoreSample={vi.fn()}
       onStart={vi.fn()}
       {...overrides}
     />

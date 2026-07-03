@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/ipc'
+import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/backend-api'
 import { ROOT_CATEGORY_NAMES } from '../lib/sample-utils'
 
 type ManageTab = 'tags' | 'libraries' | 'categories'

@@ -90,6 +90,19 @@ html[data-theme-ready='true'] body {
   position: relative;
 }
 
+/* Second-tab guard: opfs-sahpool allows one DB connection, so the app runs in
+   exactly one tab (see main.tsx). */
+.app-single-tab-notice {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text);
+}
+
 /* ── Rust Industrial: noise + scratches over solid surfaces ── */
 [data-theme-key='rust'] .app::before,
 [data-theme-key='rust'] .app::after {

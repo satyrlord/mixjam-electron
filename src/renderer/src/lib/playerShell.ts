@@ -1,11 +1,10 @@
-import type { SampleListItem } from '../../../shared/ipc'
+import type { SampleListItem } from '../../../shared/backend-api'
 import { type EngineLane } from '../engine/lane-evaluation'
 import { tickDurationSeconds } from '../engine/transport'
 
-/** Detail passed around the UI after a user selects or drags a sample. All paths
- *  are absolute filepaths (the DB query pipeline normalises to absolute paths
- *  before surfacing items to the renderer). */
-export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'filepath' | 'tags'> & {
+/** Detail passed around the UI after a user selects or drags a sample. All
+ *  paths are relpaths within the active Sample Folder's scan root. */
+export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags'> & {
   duration: number | null
   /** Category-derived colour, stored so placed clips keep their colour permanently. */
   color?: string

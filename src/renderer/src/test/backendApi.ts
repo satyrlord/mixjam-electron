@@ -1,7 +1,8 @@
 import { vi } from 'vitest'
 import type {
+  BackendAPI,
   CategoryItem,
-  ElectronAPI,
+  FolderRef,
   LibraryItem,
   RecentProjectItem,
   SampleItem,
@@ -9,17 +10,20 @@ import type {
   SampleQueryResponse,
   ScanProgress,
   TagItem
-} from '../../../shared/ipc'
+} from '../../../shared/backend-api'
 
-const DEFAULT_SESSION = { userFolder: 'C:/Users/test/MixJam', sampleFolder: 'C:/Samples' }
+export const TEST_USER_FOLDER: FolderRef = { id: 'test-user-folder', name: 'MixJam' }
+export const TEST_SAMPLE_FOLDER: FolderRef = { id: 'test-sample-folder', name: 'Samples' }
+
+const DEFAULT_SESSION = { userFolder: TEST_USER_FOLDER, sampleFolder: TEST_SAMPLE_FOLDER }
 const DEFAULT_RECENT_PROJECTS: RecentProjectItem[] = [
   {
-    path: 'c:/users/test/mixjam/club-night.mixjam',
+    path: 'club-night.mixjam',
     displayName: 'club-night',
     lastOpened: '2026-06-28T12:00:00.000Z'
   },
   {
-    path: 'c:/users/test/mixjam/archive/sunrise.mixjam',
+    path: 'archive/sunrise.mixjam',
     displayName: 'sunrise',
     lastOpened: null
   }
@@ -28,7 +32,7 @@ const DEFAULT_RECENT_PROJECTS: RecentProjectItem[] = [
 export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
   {
     id: 1,
-    filepath: 'C:\\Samples\\Drums\\Kicks\\kick_808.wav',
+    relpath: 'Drums/Kicks/kick_808.wav',
     filename: 'kick_808.wav',
     ext: 'wav',
     sizeBytes: 1024,
@@ -45,7 +49,7 @@ export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
   },
   {
     id: 2,
-    filepath: 'C:\\Samples\\Drums\\Snares\\snare_clap.wav',
+    relpath: 'Drums/Snares/snare_clap.wav',
     filename: 'snare_clap.wav',
     ext: 'wav',
     sizeBytes: 2048,
@@ -83,14 +87,14 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
 ]
 const DEFAULT_LIBRARIES: LibraryItem[] = []
 
-/** In-memory stand-in for the main process's windowed SQL query: text filter,
+/** In-memory stand-in for the backend worker's windowed SQL query: text filter,
  *  category/tag filters, and limit/offset paging over the default rows. */
 function queryDefaultRows(request: SampleQueryRequest): SampleQueryResponse {
   let rows = DEFAULT_SAMPLE_ROWS
   if (request.textSearch) {
     const query = request.textSearch.trim().toLowerCase()
     rows = rows.filter((row) =>
-      `${row.filename} ${row.filepath}`.toLowerCase().includes(query)
+      `${row.filename} ${row.relpath}`.toLowerCase().includes(query)
     )
   }
   if (request.categoryId !== undefined) {
@@ -105,19 +109,19 @@ function queryDefaultRows(request: SampleQueryRequest): SampleQueryResponse {
   return { rows: rows.slice(offset, offset + limit), total }
 }
 
-export function createElectronAPI(): ElectronAPI {
+export function createBackendAPI(): BackendAPI {
   return {
     getVersion: vi.fn().mockResolvedValue('v0.test.0'),
     resizeToTracker: vi.fn().mockResolvedValue(undefined),
     resizeToHome: vi.fn().mockResolvedValue(undefined),
-    openFilePicker: vi.fn().mockResolvedValue(null),
     openExternal: vi.fn().mockResolvedValue(undefined),
     loadSession: vi.fn().mockResolvedValue(DEFAULT_SESSION),
     saveSession: vi.fn().mockResolvedValue(undefined),
     loadRecentProjects: vi.fn().mockResolvedValue(DEFAULT_RECENT_PROJECTS),
     recordRecentProject: vi.fn().mockResolvedValue(undefined),
     pickFolder: vi.fn().mockResolvedValue(null),
-    validateFolder: vi.fn().mockResolvedValue(true),
+    validateFolder: vi.fn().mockResolvedValue('ok'),
+    requestFolderAccess: vi.fn().mockResolvedValue(true),
     hasSamples: vi.fn().mockResolvedValue(true),
     startScan: vi.fn().mockResolvedValue(undefined),
     getScanProgress: vi.fn().mockResolvedValue(IDLE_PROGRESS),

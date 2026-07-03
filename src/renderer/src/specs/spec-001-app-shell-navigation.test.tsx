@@ -90,13 +90,13 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(screen.getByRole('button', { name: 'v0.test.0' })).toBeInTheDocument()
   })
 
-  it('AC-003a: clicking version opens the GitHub URL via electronAPI', async () => {
+  it('AC-003a: clicking version opens the GitHub URL via backendAPI', async () => {
     render(<App />)
 
     const versionButton = await screen.findByRole('button', { name: 'v0.test.0' })
     fireEvent.click(versionButton)
 
-    expect(vi.mocked(window.electronAPI.openExternal)).toHaveBeenCalledWith(GITHUB_URL)
+    expect(vi.mocked(window.backendAPI.openExternal)).toHaveBeenCalledWith(GITHUB_URL)
   })
 
   it('AC-004: Start New MixJam switches to Player and requests tracker window resize behavior', async () => {
@@ -123,7 +123,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
-    expect(vi.mocked(window.electronAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.backendAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
   })
 
   it('AC-005: Player header shows home link, brand, and timer', async () => {
@@ -183,7 +183,6 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     fireEvent.click(loadButton)
 
-    expect(vi.mocked(window.electronAPI.openFilePicker)).not.toHaveBeenCalled()
     expect(screen.queryByText('Lane 1')).not.toBeInTheDocument()
   })
 
@@ -219,7 +218,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeInTheDocument()
     })
 
-    expect(vi.mocked(window.electronAPI.resizeToHome)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
   it('AC-009: roundtrip Home -> Player -> Home -> Player works with no state leak', async () => {
@@ -240,8 +239,8 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
-    expect(vi.mocked(window.electronAPI.resizeToTracker)).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(window.electronAPI.resizeToHome)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.backendAPI.resizeToTracker)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
   it('AC-010: Player content has five labeled shell regions', async () => {

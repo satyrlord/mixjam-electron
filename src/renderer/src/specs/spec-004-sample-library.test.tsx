@@ -6,7 +6,7 @@ import type {
   TrackerBrowserProps,
   TrackerTransportProps
 } from '../components/trackerProps'
-import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/ipc'
+import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
 import type { LaneState } from '../lib/playerShell'
 
 const noop = () => undefined
@@ -36,7 +36,7 @@ function makeDbSamples(count: number): SampleListItem[] {
     id: `/samples/sample_${i}.wav`,
     dbId: i + 1,
     name: `sample_${i}.wav`,
-    filepath: `/samples/sample_${i}.wav`,
+    relpath: `/samples/sample_${i}.wav`,
     category: 'Unsorted',
     durationSeconds: i * 0.5 + 0.1,
     tags: [],
@@ -397,7 +397,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     // tile shows filename without extension: "sample_0"
     fireEvent.click(screen.getByRole('button', { name: /sample_0/i }))
     expect(onSelectSampleDetail).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'sample_0.wav', filepath: '/samples/sample_0.wav' })
+      expect.objectContaining({ name: 'sample_0.wav', relpath: '/samples/sample_0.wav' })
     )
   })
 

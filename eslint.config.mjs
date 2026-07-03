@@ -21,5 +21,15 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn'
     }
+  },
+  {
+    // Build scripts run under Node.js.
+    files: ['scripts/**/*.{mjs,js}'],
+    languageOptions: { globals: { ...globals.node } }
+  },
+  {
+    // E2E test files run under Node.js / Playwright.
+    files: ['tests/**/*.{ts,js}'],
+    languageOptions: { globals: { ...globals.node } }
   }
 )

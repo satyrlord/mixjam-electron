@@ -11,6 +11,27 @@ Produce a **state-transfer document** — the minimum payload a fresh agent
 needs to resume this session without re-litigating decisions already made.
 Save to the temporary directory of the user's OS, not the current workspace.
 
+## Self-Critique Phase (Before Writing)
+
+Before composing the handoff, run a brief self-critique to surface gaps and
+unstated assumptions. Log the results; do not start fixing them — that turns
+two minutes into another hour. The handoff carries them forward.
+
+1. **What are you least confident about?** List what you did not properly
+   investigate. For each item, name a concrete command or test that would
+   verify or disprove it. If you cannot name a cheap check, the uncertainty
+   is likely filler.
+2. **What did you skip, defer, or not investigate?** Be explicit — not "the
+   tests pass" but "edge case X was never tested; error path Y was not
+   exercised."
+3. **What assumptions went unstated?** Surface reasoning shortcuts you took
+   for granted. Overconfident errors are harder to spot than uncertain ones.
+4. **What is the biggest thing the user might be missing?** Surface blind
+   spots you see but they have not considered.
+
+Capture these findings under the "Open questions" section (below) or as a
+short appendix at the end of the handoff.
+
 ## Completion Criterion
 
 The handoff is done when a fresh agent, given only this document and the

@@ -1,16 +1,16 @@
 export {}
 
 if (typeof window !== 'undefined') {
-  const { createElectronAPI } = await import('./electronApi')
+  const { createBackendAPI } = await import('./backendApi')
   const { bootstrapTheme } = await import('../theme/themes')
   const { cleanup } = await import('@testing-library/react')
   const { afterEach } = await import('vitest')
   const { MockAudioContext } = await import('./mockAudioContext')
   await import('@testing-library/jest-dom/vitest')
 
-  Object.defineProperty(window, 'electronAPI', {
+  Object.defineProperty(window, 'backendAPI', {
     configurable: true,
-    value: createElectronAPI()
+    value: createBackendAPI()
   })
 
   // jsdom has no Web Audio API; provide the engine's mock so the Player can be

@@ -7,9 +7,11 @@ import type { Plugin } from 'vite'
 // Strict CSP for the packaged renderer. Injected at build time only — the dev
 // server needs inline scripts (react-refresh preamble) and websockets (HMR),
 // which a static meta tag in index.html would break.
+// 'wasm-unsafe-eval' is required to compile the sqlite-wasm module.
 const RENDERER_CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
+  "worker-src 'self'",
   // Inline styles: theme tokens are written to element style attributes.
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
@@ -49,23 +51,30 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     define: {
       __APP_VERSION__: JSON.stringify(appVersion)
-    },
-    build: {
-      rollupOptions: {
-        // The indexer runs in a worker_thread and is spawned by path
-        // (out/main/indexer.js), so it needs its own entry alongside the main
-        // process entry. Without this electron-vite only emits index.js.
-        input: {
-          index: resolve(__dirname, 'src/main/index.ts'),
-          indexer: resolve(__dirname, 'src/main/indexer.ts')
-        }
-      }
     }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    plugins: [react(), injectCspPlugin()]
+    build: {
+      // Source maps are required for e2e coverage (v8-to-istanbul maps
+      // bundled coverage back to source files via the sourceMappingURL).
+      sourcemap: true
+    },
+    plugins: [react(), injectCspPlugin()],
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion)
+    },
+    // The backend worker uses dynamic import (music-metadata lazy-load), which
+    // the default iife worker format cannot express.
+    worker: {
+      format: 'es'
+    },
+    optimizeDeps: {
+      // sqlite-wasm resolves its .wasm asset relative to import.meta.url;
+      // pre-bundling would break that resolution in dev.
+      exclude: ['@sqlite.org/sqlite-wasm']
+    }
   }
 })

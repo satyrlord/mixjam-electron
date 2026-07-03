@@ -124,7 +124,8 @@ the machine.
 - [ ] **AC-005:** The feature is unreachable without a writable Sample Folder handle.
 - [ ] **AC-006:** Semantic search returns cosine-similarity-ranked results for natural-language queries; results are deterministically ordered for the same query and DB state.
 - [ ] **AC-007:** "Find similar" on a sample returns the top-N most similar samples excluding itself; the source sample ranks first (similarity 1.0) when the full library is inspected in a test assertion.
-- [ ] **AC-008:** A library indexed before embedding support is available shows a "compute embeddings" prompt or re-index affordance; semantic search is gracefully disabled (not broken) until embeddings exist.
+- [ ] **AC-008:** A library indexed before embedding support is available shows a "compute embeddings" prompt or re-index affordance;
+semantic search is gracefully disabled (not broken) until embeddings exist.
 
 ## Non-Goals
 

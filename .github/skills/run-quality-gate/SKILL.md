@@ -70,15 +70,31 @@ coverage policy details, final report template, and stop conditions.
      and that absence is reported.
 
 7. **Coverage gate**
-   - Run coverage tooling for the relevant suites (`npm run test:coverage` or
-     equivalent).
+   - Run unit coverage (`npm run test:coverage`).
+   - Run e2e coverage (`npm run test:e2e:coverage`) — collects V8 coverage from
+     Playwright browser tests via `page.coverage.startJSCoverage()`, converts
+     raw V8 data to Istanbul format with `scripts/convert-e2e-coverage.mjs`,
+     and writes `coverage-e2e/coverage-final.json`.
+   - Generate the combined coverage report (`npm run coverage:report` or
+     `node scripts/merge-coverage.mjs`). This script presents unit and e2e
+     coverage side-by-side; **unit coverage is the primary quality-gate check**
+     because it instruments source TSX/TS directly. E2E coverage instruments
+     the production bundle via source maps, so statement/branch IDs differ and
+     cannot be naively merged.
    - Fix low-coverage gaps by adding or improving tests, not by excluding code,
      unless the user explicitly approves exclusions.
-   - Threshold rule: each reported coverage cell must be at least 80%. Treat
-     Statements, Branches, Functions, and Lines as separate cells wherever
-     reported (global and per-file/module tables).
-   - Completion criterion: coverage report shows >=80% in every reported cell,
-     or blockers are explicitly documented with exact cells and values.
+   - **Threshold rule (unit coverage only):** each reported cell in the unit
+     coverage report must be at least 80%. Treat Statements, Branches,
+     Functions, and Lines as separate cells wherever reported (global and
+     per-file/module tables).
+   - **The 80% threshold does NOT apply to e2e coverage.** E2E coverage
+     instruments the entire production bundle (including node_modules) and
+     typically lands around 50-70%. Do not attempt to push e2e coverage to
+     80% — it is supplementary, validating that the integrated app boots and
+     core flows work. Only unit coverage is gated.
+   - Completion criterion: unit coverage report shows >=80% in every reported
+     cell, and the combined report is generated, or blockers are explicitly
+     documented with exact cells and values.
 
 ## Failure handling
 

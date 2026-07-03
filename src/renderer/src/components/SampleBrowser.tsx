@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CategoryItem, SampleListItem } from '../../../shared/ipc'
+import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/playerShell'
 import { bubbleStyle, categoryColor } from '../lib/sample-utils'
 import type { TrackerBrowserProps } from './trackerProps'

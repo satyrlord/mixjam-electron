@@ -4,31 +4,28 @@
   "description": "MixJam Electron — sample-library browser and tracker",
   "main": "out/main/index.js",
   "scripts": {
-    "postinstall": "electron-rebuild -f -w better-sqlite3",
-    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
-    "rebuild:node": "cd node_modules/better-sqlite3 && node-gyp rebuild",
-    "predev": "npm run rebuild:electron",
     "dev": "electron-vite dev",
-    "prebuild": "npm run rebuild:electron",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "fallow": "fallow dead-code",
     "package:electron": "electron-builder --config electron-builder.config.cjs --publish never",
-    "pretest": "npm run rebuild:node",
     "test": "vitest run",
-    "pretest:watch": "npm run rebuild:node",
     "test:watch": "vitest",
-    "pretest:coverage": "npm run rebuild:node",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "npm run build && npx playwright test --project=browser-e2e",
+    "test:e2e:coverage": "npm run test:e2e && node scripts/convert-e2e-coverage.mjs",
+    "test:e2e:electron": "npm run build && npx playwright test --project=electron-smoke",
+    "test:all": "npm run test && npm run test:e2e",
+    "coverage:all": "npm run test:coverage && npm run test:e2e:coverage",
+    "coverage:report": "node scripts/merge-coverage.mjs"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.6",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.2.0",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -46,12 +43,13 @@
     "playwright-core": "^1.61.1",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.62.0",
+    "v8-to-istanbul": "^9.3.0",
     "vite": "^7.1.12",
     "vitest": "^4.1.9"
   },
   "dependencies": {
+    "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
     "@tanstack/react-virtual": "^3.14.5",
-    "better-sqlite3": "^12.11.1",
     "music-metadata": "^11.13.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -60,6 +58,6 @@
     "electron@42.5.0": true,
     "esbuild@0.25.12": true,
     "esbuild@0.28.1": true,
-    "better-sqlite3@12.11.1": true
+    "electron-winstaller@5.4.0": true
   }
 }

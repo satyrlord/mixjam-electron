@@ -1,4 +1,4 @@
-import type { ScanProgress } from '../../../shared/ipc'
+import type { ScanProgress } from '../../../shared/backend-api'
 import { useBpmEditor } from '../hooks/useBpmEditor'
 import ScanProgressBar from './ScanProgressBar'
 

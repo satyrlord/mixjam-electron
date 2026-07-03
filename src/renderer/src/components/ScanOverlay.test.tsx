@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import ScanOverlay from './ScanOverlay'
-import type { ScanProgress } from '../../../shared/ipc'
+import type { ScanProgress } from '../../../shared/backend-api'
 
 const SCANNING: ScanProgress = {
   status: 'scanning',

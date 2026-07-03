@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { ElectronAPI } from '../../../shared/ipc'
+import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { useLibraryData, type LibraryData } from './useLibraryData'
 import { useTransportEngine, type TransportEngine } from './useTransportEngine'
 
@@ -20,18 +20,18 @@ export type AppState = LibraryData & TransportEngine & {
  * those affordances instead of promising a load that discards its result.
  */
 export function useAppState(
-  electronAPI: ElectronAPI,
-  userFolder: string | null,
-  sampleFolder: string | null
+  backendAPI: BackendAPI,
+  userFolder: FolderRef | null,
+  sampleFolder: FolderRef | null
 ): AppState {
-  const lib = useLibraryData(electronAPI, userFolder, sampleFolder)
-  const engine = useTransportEngine(electronAPI, sampleFolder)
+  const lib = useLibraryData(backendAPI, userFolder, sampleFolder)
+  const engine = useTransportEngine(backendAPI, sampleFolder)
 
   const { setView } = engine
   const { setSelectedSampleDetail, startLibraryScan, scanProgress, dbIndexed } = lib
 
   const goToTracker = useCallback(async () => {
-    await electronAPI.resizeToTracker()
+    await backendAPI.resizeToTracker()
     setView('tracker')
     // Auto-scan on FIRST entry only: the sample folder is set, no scan is
     // running, and this folder has never been indexed. Re-entering the tracker
@@ -40,17 +40,17 @@ export function useAppState(
     if (sampleFolder && scanProgress.status === 'idle' && !dbIndexed) {
       void startLibraryScan()
     }
-  }, [electronAPI, setView, sampleFolder, scanProgress.status, dbIndexed, startLibraryScan])
+  }, [backendAPI, setView, sampleFolder, scanProgress.status, dbIndexed, startLibraryScan])
 
   const goToHome = useCallback(async () => {
-    await electronAPI.resizeToHome()
+    await backendAPI.resizeToHome()
     setSelectedSampleDetail(null)
     setView('home')
-  }, [electronAPI, setSelectedSampleDetail, setView])
+  }, [backendAPI, setSelectedSampleDetail, setView])
 
   const openRepo = useCallback(async () => {
-    await electronAPI.openExternal(GITHUB_URL)
-  }, [electronAPI])
+    await backendAPI.openExternal(GITHUB_URL)
+  }, [backendAPI])
 
   return {
     ...lib,

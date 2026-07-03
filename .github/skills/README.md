@@ -33,7 +33,7 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 | Skill | Invocation | Purpose |
 |---|---|---|
 | [`grill-me`](./grill-me/SKILL.md) | Model-invoked | Interview the user relentlessly about a plan or design before building. |
-| [`handoff`](./handoff/SKILL.md) | User-invoked | Compact the conversation into a handoff document for another agent to continue. |
+| [`handoff`](./handoff/SKILL.md) | User-invoked | Compact the conversation into a handoff document for another agent to continue. Includes a self-critique phase that surfaces uninvestigated gaps, skipped work, and unstated assumptions. |
 | [`teach`](./teach/SKILL.md) | User-invoked | Multi-session teaching of a new skill or concept. |
 | [`writing-great-skills`](./writing-great-skills/SKILL.md) | User-invoked | Reference for authoring skills: vocabulary and principles. |
 

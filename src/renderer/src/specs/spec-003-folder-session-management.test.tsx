@@ -1,13 +1,16 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
-import type { ElectronAPI, SessionPaths } from '../../../shared/ipc'
+import type { BackendAPI, FolderRef, SessionPaths } from '../../../shared/backend-api'
 
 const PICK_ERROR = 'Cannot access this folder. Check permissions and try again.'
 const RESTORE_ERROR = 'Folder not accessible — pick a new one.'
 const LAUNCH_HINT = 'Select both folders above to start.'
 
-const api = (): ElectronAPI => window.electronAPI
+const USER_REF: FolderRef = { id: 'user-1', name: 'MixJam' }
+const SAMPLE_REF: FolderRef = { id: 'sample-1', name: 'Samples' }
+
+const api = (): BackendAPI => window.backendAPI
 
 function card(label: string): HTMLElement {
   const heading = screen.getByText(label)
@@ -36,7 +39,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api().loadSession).mockResolvedValue({ userFolder: null, sampleFolder: null })
-    vi.mocked(api().validateFolder).mockResolvedValue(true)
+    vi.mocked(api().validateFolder).mockResolvedValue('ok')
     vi.mocked(api().pickFolder).mockResolvedValue(null)
     vi.mocked(api().saveSession).mockResolvedValue(undefined)
   })
@@ -66,7 +69,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     await renderFirstLaunch()
     expect(pickButton('Sample Folder')).toBeDisabled()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
 
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
@@ -80,7 +83,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(start).toBeDisabled()
     expect(screen.getByText(LAUNCH_HINT)).toBeInTheDocument()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
 
@@ -92,11 +95,11 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
   it('AC-007: with both folders set Start enables and navigates to the Player', async () => {
     await renderFirstLaunch()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Samples')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(SAMPLE_REF)
     fireEvent.click(pickButton('Sample Folder'))
 
     const start = await screen.findByRole('button', { name: 'Start New MixJam' })
@@ -119,10 +122,10 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(loadButton).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
 
     // Selecting folders opens the launch gate but does not change Load MixJam.
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Samples')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(SAMPLE_REF)
     fireEvent.click(pickButton('Sample Folder'))
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeEnabled()
@@ -131,35 +134,35 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(screen.getByRole('button', { name: 'Load MixJam' })).toBeDisabled()
   })
 
-  it('AC-009: each Pick Folder invokes the native picker with the matching role', async () => {
+  it('AC-009: each Pick Folder invokes the directory picker with the matching role', async () => {
     await renderFirstLaunch()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
     await waitFor(() => expect(api().pickFolder).toHaveBeenCalledWith('user'))
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Samples')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(SAMPLE_REF)
     fireEvent.click(pickButton('Sample Folder'))
     await waitFor(() => expect(api().pickFolder).toHaveBeenCalledWith('sample'))
   })
 
-  it('AC-010: a validated folder path is shown on its card', async () => {
+  it('AC-010: a validated folder name is shown on its card', async () => {
     await renderFirstLaunch()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
 
     await waitFor(() => {
-      expect(within(card('User Folder')).getByText('C:/Users/me/MixJam')).toBeInTheDocument()
+      expect(within(card('User Folder')).getByText(USER_REF.name)).toBeInTheDocument()
     })
   })
 
   it('AC-010a: a folder that fails validation shows the permission error', async () => {
     await renderFirstLaunch()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/locked')
-    vi.mocked(api().validateFolder).mockResolvedValueOnce(false)
+    vi.mocked(api().pickFolder).mockResolvedValueOnce({ id: 'locked-1', name: 'locked' })
+    vi.mocked(api().validateFolder).mockResolvedValueOnce('invalid')
     fireEvent.click(pickButton('User Folder'))
 
     await waitFor(() => {
@@ -168,24 +171,26 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(pickButton('Sample Folder')).toBeDisabled()
   })
 
-  it('AC-011 / AC-012: a fully restored session shows paths and opens the gate', async () => {
-    vi.mocked(api().validateFolder).mockResolvedValue(true)
-    await renderRestored({ userFolder: 'C:/Users/me/MixJam', sampleFolder: 'C:/Samples' })
+  it('AC-011 / AC-012: a fully restored session shows folder names and opens the gate', async () => {
+    vi.mocked(api().validateFolder).mockResolvedValue('ok')
+    await renderRestored({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
 
     await waitFor(() => {
-      expect(within(card('User Folder')).getByText('C:/Users/me/MixJam')).toBeInTheDocument()
+      expect(within(card('User Folder')).getByText(USER_REF.name)).toBeInTheDocument()
     })
-    expect(within(card('Sample Folder')).getByText('C:/Samples')).toBeInTheDocument()
+    expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
 
     const start = screen.getByRole('button', { name: 'Start New MixJam' })
     await waitFor(() => expect(start).toBeEnabled())
-    expect(api().validateFolder).toHaveBeenCalledWith('C:/Users/me/MixJam', 'user')
-    expect(api().validateFolder).toHaveBeenCalledWith('C:/Samples', 'sample')
+    expect(api().validateFolder).toHaveBeenCalledWith(USER_REF, 'user')
+    expect(api().validateFolder).toHaveBeenCalledWith(SAMPLE_REF, 'sample')
   })
 
   it('AC-013: a restored folder that is no longer accessible shows the restore error', async () => {
-    vi.mocked(api().validateFolder).mockImplementation(async (_path, role) => role !== 'user')
-    await renderRestored({ userFolder: 'C:/gone', sampleFolder: 'C:/Samples' })
+    vi.mocked(api().validateFolder).mockImplementation(async (_ref: FolderRef, role) =>
+      role === 'user' ? 'invalid' : 'ok'
+    )
+    await renderRestored({ userFolder: { id: 'gone-1', name: 'gone' }, sampleFolder: SAMPLE_REF })
 
     await waitFor(() => {
       expect(within(card('User Folder')).getByText(RESTORE_ERROR)).toBeInTheDocument()
@@ -193,20 +198,45 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeDisabled()
   })
 
+  it('AC-013a: a restored handle needing a permission re-grant offers Restore access', async () => {
+    vi.mocked(api().validateFolder).mockImplementation(async (_ref: FolderRef, role) =>
+      role === 'sample' ? 'needs-permission' : 'ok'
+    )
+    await renderRestored({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
+
+    const restore = await within(card('Sample Folder')).findByRole('button', {
+      name: `Restore access to ${SAMPLE_REF.name}`
+    })
+    expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeDisabled()
+
+    // Granting access flips the card to set and opens the gate.
+    vi.mocked(api().requestFolderAccess).mockResolvedValueOnce(true)
+    vi.mocked(api().validateFolder).mockResolvedValue('ok')
+    fireEvent.click(restore)
+
+    await waitFor(() => {
+      expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
+    })
+    expect(api().requestFolderAccess).toHaveBeenCalledWith(SAMPLE_REF, 'sample')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeEnabled()
+    )
+  })
+
   it('AC-014: selecting both folders persists the session via saveSession', async () => {
     await renderFirstLaunch()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Samples')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(SAMPLE_REF)
     fireEvent.click(pickButton('Sample Folder'))
 
     await waitFor(() => {
       expect(vi.mocked(api().saveSession)).toHaveBeenCalledWith({
-        userFolder: 'C:/Users/me/MixJam',
-        sampleFolder: 'C:/Samples'
+        userFolder: USER_REF,
+        sampleFolder: SAMPLE_REF
       })
     })
   })
@@ -214,26 +244,27 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
   it('AC-015: changing the User Folder does not clear an existing Sample Folder', async () => {
     await renderFirstLaunch()
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Users/me/MixJam')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('C:/Samples')
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(SAMPLE_REF)
     fireEvent.click(pickButton('Sample Folder'))
     await waitFor(() => {
-      expect(within(card('Sample Folder')).getByText('C:/Samples')).toBeInTheDocument()
+      expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
     })
 
-    vi.mocked(api().pickFolder).mockResolvedValueOnce('D:/Users/me/MixJam2')
+    const newUserRef: FolderRef = { id: 'user-2', name: 'MixJam2' }
+    vi.mocked(api().pickFolder).mockResolvedValueOnce(newUserRef)
     fireEvent.click(pickButton('User Folder'))
 
     await waitFor(() => {
-      expect(within(card('User Folder')).getByText('D:/Users/me/MixJam2')).toBeInTheDocument()
+      expect(within(card('User Folder')).getByText(newUserRef.name)).toBeInTheDocument()
     })
-    expect(within(card('Sample Folder')).getByText('C:/Samples')).toBeInTheDocument()
+    expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
     expect(vi.mocked(api().saveSession)).toHaveBeenLastCalledWith({
-      userFolder: 'D:/Users/me/MixJam2',
-      sampleFolder: 'C:/Samples'
+      userFolder: newUserRef,
+      sampleFolder: SAMPLE_REF
     })
   })
 })

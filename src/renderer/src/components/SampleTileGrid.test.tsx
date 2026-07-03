@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SampleTileGrid from './SampleTileGrid'
-import type { CategoryItem, SampleListItem } from '../../../shared/ipc'
+import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 
 const CATEGORIES: CategoryItem[] = [
   { id: 1, name: 'Bass', parentId: null },
@@ -13,7 +13,7 @@ function makeSample(overrides: Partial<SampleListItem> = {}): SampleListItem {
     id: 'C:/a.wav',
     dbId: 1,
     name: 'a.wav',
-    filepath: 'C:/a.wav',
+    relpath: 'C:/a.wav',
     category: 'Bass',
     durationSeconds: 2.0,
     tags: [],
@@ -33,7 +33,7 @@ describe('SampleTileGrid', () => {
   })
 
   it('renders sample bubbles for provided samples', () => {
-    const samples = [makeSample(), makeSample({ id: 'C:/b.wav', filepath: 'C:/b.wav', name: 'b.wav', dbId: 2 })]
+    const samples = [makeSample(), makeSample({ id: 'C:/b.wav', relpath: 'C:/b.wav', name: 'b.wav', dbId: 2 })]
     const { container } = render(
       <SampleTileGrid
         samples={samples}

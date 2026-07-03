@@ -53,7 +53,7 @@ describe('Footer', () => {
         version="1.2.3"
         sampleDetail={{
           name: 'kick_808.wav',
-          filepath: 'C:/Samples/Drums/Kicks/kick_808.wav',
+          relpath: 'C:/Samples/Drums/Kicks/kick_808.wav',
           tags: ['Drums', 'Kick'],
           duration: null
         }}
@@ -75,7 +75,7 @@ describe('Footer', () => {
         version="1.2.3"
         sampleDetail={{
           name: 'snare.wav',
-          filepath: 'C:/Samples/snare.wav',
+          relpath: 'C:/Samples/snare.wav',
           tags: ['Percussion'],
           duration: 0.8
         }}

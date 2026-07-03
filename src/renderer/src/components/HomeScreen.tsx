@@ -1,7 +1,7 @@
 import FolderCard from './FolderCard'
 import BrandMark from './BrandMark'
 import type { FolderView } from '../hooks/useFolderSession'
-import type { RecentProjectItem } from '../../../shared/ipc'
+import type { RecentProjectItem } from '../../../shared/backend-api'
 import { THEME_OPTIONS, resolveTheme } from '../theme/themes'
 
 const HOME_RECENT_LIMIT = 4
@@ -21,6 +21,8 @@ interface HomeScreenProps {
   onThemeChange: (themeKey: string) => void
   onPickUser: () => void
   onPickSample: () => void
+  onRestoreUser: () => void
+  onRestoreSample: () => void
   onStart: () => void
 }
 
@@ -55,6 +57,8 @@ export default function HomeScreen({
   onThemeChange,
   onPickUser,
   onPickSample,
+  onRestoreUser,
+  onRestoreSample,
   onStart
 }: HomeScreenProps) {
   const sampleDisabled = userFolder.status !== 'set'
@@ -110,20 +114,22 @@ export default function HomeScreen({
           <FolderCard
             label="User Folder"
             icon={userIcon}
-            path={userFolder.path}
+            folderName={userFolder.ref?.name ?? null}
             status={userFolder.status}
             disabled={false}
             emptyPrompt="Choose where MixJam saves your projects and exports."
             onPick={onPickUser}
+            onRestore={onRestoreUser}
           />
           <FolderCard
             label="Sample Folder"
             icon={sampleIcon}
-            path={sampleFolder.path}
+            folderName={sampleFolder.ref?.name ?? null}
             status={sampleFolder.status}
             disabled={sampleDisabled}
             emptyPrompt="Choose the folder that holds your sample library."
             onPick={onPickSample}
+            onRestore={onRestoreSample}
           />
 
           <div className="home-launch">

@@ -1,20 +1,20 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CategoryItem, SampleItem, TagItem } from '../../../shared/ipc'
-import { createElectronAPI } from '../test/electronApi'
+import type { CategoryItem, FolderRef, SampleItem, TagItem } from '../../../shared/backend-api'
+import { createBackendAPI, TEST_SAMPLE_FOLDER, TEST_USER_FOLDER } from '../test/backendApi'
 import { useLibraryData } from './useLibraryData'
 
-const USER_FOLDER = 'C:/Users/test/MixJam'
-const SAMPLE_FOLDER = 'C:/Samples'
+const USER_FOLDER = TEST_USER_FOLDER
+const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
 
 function makeApi() {
-  return createElectronAPI()
+  return createBackendAPI()
 }
 
 function makeDbRow(overrides: Partial<SampleItem> = {}): SampleItem {
   return {
     id: 1,
-    filepath: 'C:/a.wav',
+    relpath: 'C:/a.wav',
     filename: 'a.wav',
     ext: '.wav',
     sizeBytes: 100,
@@ -75,7 +75,7 @@ describe('useLibraryData', () => {
 
     await waitFor(() => {
       expect(api.querySamples).toHaveBeenCalledWith(
-        expect.objectContaining({ rootPath: SAMPLE_FOLDER })
+        expect.objectContaining({ rootId: SAMPLE_FOLDER.id })
       )
     })
     await waitFor(() => {
@@ -90,7 +90,7 @@ describe('useLibraryData', () => {
     const dbRows: SampleItem[] = Array.from({ length: 501 }, (_, index) =>
       makeDbRow({
         id: index + 1,
-        filepath: `C:/samples/sample-${index + 1}.wav`,
+        relpath: `C:/samples/sample-${index + 1}.wav`,
         filename: `sample-${index + 1}.wav`,
         dateAdded: index,
         categoryId: (index % 8) + 1
@@ -140,7 +140,7 @@ describe('useLibraryData', () => {
     const api = makeApi()
     const { result, rerender } = renderHook(
       ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
-      { initialProps: { folder: SAMPLE_FOLDER as string | null } }
+      { initialProps: { folder: SAMPLE_FOLDER as FolderRef | null } }
     )
 
     await waitFor(() => expect(result.current.samples).toHaveLength(2))
@@ -357,7 +357,7 @@ describe('useLibraryData', () => {
     expect(result.current.sortDir).toBe('asc')
   })
 
-  it('startLibraryScan calls electronAPI.startScan and sets progress', async () => {
+  it('startLibraryScan calls backendAPI.startScan and sets progress', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
@@ -372,7 +372,7 @@ describe('useLibraryData', () => {
     expect(result.current.scanProgress.status).toBe('scanning')
   })
 
-  it('reloadRecentProjects refreshes from electronAPI', async () => {
+  it('reloadRecentProjects refreshes from backendAPI', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
@@ -865,7 +865,7 @@ describe('useLibraryData', () => {
     const api = makeApi()
     const { result, rerender } = renderHook(
       ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
-      { initialProps: { folder: SAMPLE_FOLDER as string | null } }
+      { initialProps: { folder: SAMPLE_FOLDER as FolderRef | null } }
     )
 
     await waitFor(() => expect(result.current.samples).toHaveLength(2))

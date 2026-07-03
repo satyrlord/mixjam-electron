@@ -1,4 +1,4 @@
-import type { ScanProgress } from '../../../shared/ipc'
+import type { ScanProgress } from '../../../shared/backend-api'
 
 interface ScanOverlayProps {
   progress: ScanProgress

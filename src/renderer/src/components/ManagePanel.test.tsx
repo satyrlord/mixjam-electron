@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ManagePanel from './ManagePanel'
-import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/ipc'
+import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/backend-api'
 
 const TAGS: TagItem[] = [
   { id: 1, name: 'Alpha', color: '#aaa' },

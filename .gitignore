@@ -42,6 +42,7 @@ src/preload/*.js
 src/preload/*.d.ts
 coverage/
 coverage-unit/
+coverage-e2e/
 .nyc_output/
 playwright-report/
 test-results/
@@ -58,6 +59,7 @@ Thumbs.db
 
 # Generated one-off outputs
 logs/
+.qoder/repowiki/
 
 # Claude Design sync — staged converter scripts, build output, and machine state
 .ds-sync/

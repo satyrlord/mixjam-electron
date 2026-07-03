@@ -1,37 +1,39 @@
 import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
+// The two DB-backed backend suites run under plain Node (sqlite-wasm loads
+// fine there with an in-memory database); everything else runs under jsdom.
+const NODE_BACKEND_TESTS = [
+  'src/renderer/src/backend/library.test.ts',
+  'src/renderer/src/backend/indexer.test.ts'
+]
+
 export default defineConfig({
   plugins: [react()],
   test: {
     setupFiles: ['src/renderer/src/test/setup.ts'],
-    // Split into projects (environmentMatchGlobs/poolMatchGlobs are removed in
-    // Vitest 4): renderer + pure-Node main tests run under jsdom threads, while
-    // the better-sqlite3 tests need a real Node environment in a forked process
-    // so the native addon can load without Vite transforms.
     projects: [
       {
         extends: true,
         test: {
           name: 'renderer',
           environment: 'jsdom',
-          include: ['src/renderer/src/**/*.test.{ts,tsx}', 'src/main/**/*.test.ts'],
-          exclude: [...configDefaults.exclude, 'src/main/library.test.ts']
+          include: ['src/renderer/src/**/*.test.{ts,tsx}'],
+          exclude: [...configDefaults.exclude, ...NODE_BACKEND_TESTS]
         }
       },
       {
         extends: true,
         test: {
-          name: 'native',
+          name: 'backend',
           environment: 'node',
-          pool: 'forks',
-          include: ['src/main/library.test.ts']
+          include: NODE_BACKEND_TESTS
         }
       }
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
+      reporter: ['text', 'html', 'lcov', 'json'],
       reportsDirectory: './coverage-unit',
       all: false,
       include: ['src/renderer/src/**/*.{ts,tsx}'],
@@ -43,7 +45,14 @@ export default defineConfig({
         'electron.vite.config.*',
         'src/renderer/src/**/*.d.ts',
         'src/renderer/src/main.tsx',
-        'src/renderer/src/test/**'
+        'src/renderer/src/test/**',
+        // Backend glue files depend on browser APIs (Worker, IndexedDB,
+        // FileSystemDirectoryHandle) that cannot be mocked in the jsdom
+        // unit-test environment. They are exercised by the e2e suite instead.
+        'src/renderer/src/backend/client.ts',
+        'src/renderer/src/backend/folder-access.ts',
+        'src/renderer/src/backend/handle-store.ts',
+        'src/renderer/src/backend/worker.ts'
       ]
     }
   }

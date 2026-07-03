@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ElectronAPI } from '../../../shared/ipc'
+import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
   type ClipGroupEntry,
@@ -74,8 +74,8 @@ export interface TransportEngineActions {
 export type TransportEngine = TransportEngineState & TransportEngineActions
 
 export function useTransportEngine(
-  electronAPI: ElectronAPI,
-  sampleFolder: string | null,
+  backendAPI: BackendAPI,
+  sampleFolder: FolderRef | null,
   initialView: View = 'home'
 ): TransportEngine {
   const [view, setView] = useState<View>(initialView)
@@ -84,7 +84,7 @@ export function useTransportEngine(
   const transportRef = useRef<Transport | null>(null)
   const playerRef = useRef<Player | null>(null)
   const lanesRef = useRef<LaneState[]>(lanes)
-  const sampleFolderRef = useRef<string | null>(sampleFolder)
+  const sampleFolderRef = useRef<FolderRef | null>(sampleFolder)
   const [transportState, setTransportState] = useState<Transport['state']>('stopped')
   const [currentTick, setCurrentTick] = useState(0)
   // Mirrors currentTick so transport callbacks can read the latest playhead
@@ -158,7 +158,7 @@ export function useTransportEngine(
       loadSampleBytes: (samplePath) => {
         const folder = sampleFolderRef.current
         if (!folder) return Promise.resolve(null)
-        return electronAPI.readSampleBytes(folder, samplePath)
+        return backendAPI.readSampleBytes(folder.id, samplePath)
       }
     })
     player.setMasterGain(masterGainRef.current)
@@ -181,7 +181,7 @@ export function useTransportEngine(
       setCurrentTick(0)
       setMasterLevelDb(-100)
     }
-  }, [view, electronAPI])
+  }, [view, backendAPI])
 
   // Undo/redo command stack for clip edits (place, move, duplicate, remove).
   // Each entry is a full lanes snapshot; snapshots share unchanged lane objects
@@ -236,7 +236,7 @@ export function useTransportEngine(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
       const clipTicks = sampleDurationTicks(detail.duration, bpmRef.current)
       applyClipEdit((current) =>
-        placeClipOnLane(current, laneIndex, detail.filepath, detail.name, startTick, clipTicks, detail.duration, detail.color)
+        placeClipOnLane(current, laneIndex, detail.relpath, detail.name, startTick, clipTicks, detail.duration, detail.color)
       )
     },
     [applyClipEdit]

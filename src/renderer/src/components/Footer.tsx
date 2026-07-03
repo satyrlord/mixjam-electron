@@ -33,9 +33,9 @@ export default function Footer({
           <>
             <span className="footer-detail-name">{sampleDetail.name}</span>
             {getSampleBuffer ? (
-              <WaveformPreview filepath={sampleDetail.filepath} getSampleBuffer={getSampleBuffer} />
+              <WaveformPreview filepath={sampleDetail.relpath} getSampleBuffer={getSampleBuffer} />
             ) : null}
-            <span className="footer-detail-path">{sampleDetail.filepath}</span>
+            <span className="footer-detail-path">{sampleDetail.relpath}</span>
             <span className="footer-detail-tags">{sampleDetail.tags.join(', ')}</span>
           </>
         ) : null}

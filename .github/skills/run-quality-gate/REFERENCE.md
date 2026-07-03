@@ -100,20 +100,36 @@ If none exists:
 
 Preferred script order:
 
-1. npm run test:coverage
+1. npm run test:coverage (unit coverage — primary gate check)
+2. npm run test:e2e:coverage (e2e V8 coverage — supplementary)
+3. npm run coverage:report (side-by-side summary via scripts/merge-coverage.mjs)
 
-2. npm run coverage
+E2E coverage pipeline:
 
-3. npx vitest run --coverage
+- Playwright collects V8 JS coverage via page.coverage.startJSCoverage()
+  (wired in tests/e2e/fixtures.ts)
+- Raw coverage is written per-test to coverage-e2e/raw/<test>.json
+- scripts/convert-e2e-coverage.mjs converts raw V8 data to Istanbul format
+  using v8-to-istanbul, producing coverage-e2e/coverage-final.json
+- The production build must include source maps (build.sourcemap: true in
+  electron.vite.config.ts) for v8-to-istanbul to map bundled coverage back
+  to source files
+- scripts/merge-coverage.mjs presents unit and e2e coverage side-by-side;
+  unit coverage is the quality-gate check, e2e is supplementary
 
 Coverage policy:
 
-- Minimum 80% for each reported cell.
-
+- Minimum 80% for each reported cell (unit coverage only).
 - Cells include Statements, Branches, Functions, Lines.
-
-- Apply threshold to global summary and per-file/module table rows when
-  reported.
+- Apply threshold to unit coverage summary and per-file/module table rows
+  when reported.
+- **The 80% threshold does NOT apply to e2e coverage.** E2E coverage
+  instruments the full production bundle (including node_modules) and
+  typically lands around 50-70%. It is supplementary — validating the
+  integrated app — and should never be pushed toward 80%.
+- Backend glue files (client.ts, folder-access.ts, handle-store.ts,
+  worker.ts) depend on browser APIs and are excluded from unit coverage;
+  they are exercised by the e2e suite.
 
 Allowed remediation:
 

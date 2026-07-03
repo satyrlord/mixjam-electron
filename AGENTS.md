@@ -72,6 +72,28 @@ Learned from the web-first re-architecture session (2026-07-03):
   headers) is the accepted stand-in for a real GitHub Pages origin. Do not push branches or trigger
   deploys just to test an origin unless the task explicitly authorizes it; note that the real-origin
   confirmation happens on the next push to main.
+- **Close-out ritual before finishing or writing a handoff.** Run a self-critique pass:
+  1. **What are you least confident about?** List what you did not properly investigate. For
+     each item, name a concrete command or test that would verify or disprove it (not "investigate
+     this"). If you cannot name a cheap check, the uncertainty is likely filler.
+  2. **What did you skip, defer, or not investigate?** Be explicit — not "the tests pass" but
+     "edge case X was never tested; error path Y was not exercised."
+  3. **What assumptions went unstated?** Surface reasoning shortcuts you took for granted.
+     Overconfident errors are harder to spot than uncertain ones.
+  4. **What is the biggest thing the user might be missing?** Surface blind spots you see but
+     they have not considered.
+  Log the results in the session handoff. Do not start fixing uncovered gaps in the close-out
+  — that turns two minutes into another hour. Let the handoff carry them forward.
+- **Fresh-eyes audit for critical work.** When a session produces a large or risky change, the
+  agent should recommend a fresh-eyes review: paste the final output or handoff doc into a new
+  agent context and ask it to "Evaluate this. Anything missed?" A clean-room audit (different
+  provider, no skills/memories) catches confidently-wrong assumptions the original agent cannot
+  see.
+- **Anti-pattern: asking the agent to investigate its own doubts without concrete verification
+  steps.** The agent will use the same assumptions that created the doubt and return reassured.
+  Always pair an uncertainty with a specific check.
+- **Anti-pattern: repeated "are you sure?"** The agent will just double down. Use the concrete
+  verification step instead.
 
 ## Hard rules — do not violate
 
@@ -81,7 +103,8 @@ Learned from the web-first re-architecture session (2026-07-03):
 - Never string-concatenate user input into SQL. All queries use parameterized statements.
 - All DB access stays in the backend worker (`src/renderer/src/backend/`) — opfs-sahpool is worker-only and single-connection. Never open a second connection or touch the DB from the UI thread.
 - No absolute paths in the data model or contract. Folders are `FolderRef`s keying persisted directory handles; samples are `(root_id, relpath)`.
-- Keep the Electron renderer sandboxed: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `contextBridge` preload exposing only the narrow `ShellAPI`. Everything else must work without the shell.
+- Keep the Electron renderer sandboxed: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `contextBridge` preload exposing only the narrow `ShellAPI`.
+Everything else must work without the shell.
 - Audio stays on the renderer main thread (Web Audio API); the engine loads bytes via `readSampleBytes(rootId, relpath)`.
 - No emoji in code, docs, specs, or skills.
 - Update specs after each bug fix or change request in the chat. Specific user requests overrule spec decisions.

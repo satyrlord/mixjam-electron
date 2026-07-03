@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { CategoryItem, SampleListItem } from '../../../shared/ipc'
+import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/playerShell'
 import { sampleDurationTicks } from '../lib/playerShell'
 import { bubbleStyle, categoryColor, formatDuration } from '../lib/sample-utils'
@@ -173,19 +173,19 @@ function SampleTileGrid({
               style={{ transform: `translateY(${start}px)` }}
             >
               {tiles.slice(row.start, row.end).map(({ sample, width, color }) => {
-                const isSelected = selectedSamplePath === sample.filepath
+                const isSelected = selectedSamplePath === sample.relpath
                 return (
                   <button
                     key={sample.id}
                     type="button"
-                    className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.filepath ? ' clip-flash' : ''}`}
+                    className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' clip-flash' : ''}`}
                     style={{ width: `${width}px`, ...(color ? bubbleStyle(color) : {}) }}
                     title={`${sample.name || 'Unknown'} — click to preview, drag onto a lane, right-click to tag`}
                     draggable
                     onDragStart={(e) =>
                       onSampleDragStart(e, {
                         name: sample.name,
-                        filepath: sample.filepath,
+                        relpath: sample.relpath,
                         tags: sample.tags,
                         duration: sample.durationSeconds,
                         color
@@ -195,12 +195,12 @@ function SampleTileGrid({
                     onClick={() => {
                       onSelectSampleDetail({
                         name: sample.name,
-                        filepath: sample.filepath,
+                        relpath: sample.relpath,
                         tags: sample.tags,
                         duration: sample.durationSeconds,
                         color
                       })
-                      onPreviewSample(sample.filepath)
+                      onPreviewSample(sample.relpath)
                     }}
                   >
                     <b>{(sample.name || 'Unknown').replace(/\.[^.]+$/, '')}</b>

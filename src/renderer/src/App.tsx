@@ -9,14 +9,13 @@ import { useFolderSession } from './hooks/useFolderSession'
 import { selectTheme } from './theme/themes'
 
 export default function App() {
-  const { userFolder, sampleFolder, canStart, pickUser, pickSample } = useFolderSession(
-    window.electronAPI
-  )
+  const { userFolder, sampleFolder, canStart, pickUser, pickSample, restoreUser, restoreSample } =
+    useFolderSession(window.backendAPI)
 
-  const resolvedUserFolder = userFolder.status === 'set' ? userFolder.path : null
-  const resolvedSampleFolder = sampleFolder.status === 'set' ? sampleFolder.path : null
+  const resolvedUserFolder = userFolder.status === 'set' ? userFolder.ref : null
+  const resolvedSampleFolder = sampleFolder.status === 'set' ? sampleFolder.ref : null
 
-  const app = useAppState(window.electronAPI, resolvedUserFolder, resolvedSampleFolder)
+  const app = useAppState(window.backendAPI, resolvedUserFolder, resolvedSampleFolder)
 
   const [activeTheme, setActiveTheme] = useState('emerald')
 
@@ -51,6 +50,8 @@ export default function App() {
             onThemeChange={handleThemeChange}
             onPickUser={pickUser}
             onPickSample={pickSample}
+            onRestoreUser={restoreUser}
+            onRestoreSample={restoreSample}
             onStart={app.goToTracker}
           />
         ) : (
@@ -63,7 +64,7 @@ export default function App() {
               error: app.error,
               totalCount: app.totalCount,
               hasMoreSamples: app.hasMoreSamples,
-              selectedSamplePath: app.selectedSampleDetail?.filepath ?? null,
+              selectedSamplePath: app.selectedSampleDetail?.relpath ?? null,
               selectedCategoryId: app.selectedCategoryId,
               selectedTagIds: app.selectedTagIds,
               sortBy: app.sortBy,
