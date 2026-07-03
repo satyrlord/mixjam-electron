@@ -98,6 +98,9 @@ ctx.onmessage = (event) => {
   void dbReady
     .then((db) => {
       const calls = buildCalls(db)
+      if (!Object.prototype.hasOwnProperty.call(calls, op)) {
+        throw new Error(`Unknown backend op: ${String(op)}`)
+      }
       const fn = calls[op] as ((...callArgs: unknown[]) => unknown) | undefined
       if (typeof fn !== 'function') throw new Error(`Unknown backend op: ${String(op)}`)
       return fn(...args)
