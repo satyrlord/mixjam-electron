@@ -565,3 +565,19 @@ describe('syncCategoriesFromNames', () => {
     expect(unsorted).toHaveLength(1)
   })
 })
+
+describe('initSchema', () => {
+  it('stamps a fresh database once and leaves existing schema version rows unchanged', () => {
+    const initial = db.prepare('SELECT version FROM schema_version').all<{ version: number }>()
+    expect(initial).toEqual([{ version: 1 }])
+
+    initSchema(db)
+
+    expect(db.prepare('SELECT version FROM schema_version').all<{ version: number }>()).toEqual(initial)
+  })
+
+  it('enables foreign-key enforcement for the connection', () => {
+    const row = db.prepare('PRAGMA foreign_keys').get<{ foreign_keys: number }>()
+    expect(row?.foreign_keys).toBe(1)
+  })
+})

@@ -1,7 +1,6 @@
 // Message protocol between the main-thread BackendAPI facade (client.ts) and
 // the backend worker (worker.ts). Requests are promise-per-message; scan
-// progress fans out as unsolicited events — mirroring the shape of the former
-// indexer-host IPC events.
+// progress fans out as unsolicited events.
 
 import type {
   CategoryItem,

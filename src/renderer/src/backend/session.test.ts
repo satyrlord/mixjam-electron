@@ -1,18 +1,30 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { loadFolderHandle } from './handle-store'
+import { resolveFileHandle } from './folder-access'
 import {
   RECENT_PROJECTS_STORAGE_KEY,
   SESSION_STORAGE_KEY,
   buildSessionConfig,
   loadSession,
+  listRecentProjects,
   normalizeRecentProjects,
   normalizeSession,
   readRecentProjects,
   recordRecentProject,
   saveSession,
   upsertRecentProject,
-  writeRecentProjects
+  writeRecentProjects,
+  writeSessionConfig
 } from './session'
 import type { FolderRef } from '../../../shared/backend-api'
+
+vi.mock('./handle-store', () => ({
+  loadFolderHandle: vi.fn()
+}))
+
+vi.mock('./folder-access', () => ({
+  resolveFileHandle: vi.fn()
+}))
 
 const USER_REF: FolderRef = { id: 'user-1', name: 'MixJam' }
 const SAMPLE_REF: FolderRef = { id: 'sample-1', name: 'Samples' }
@@ -36,6 +48,8 @@ let storage: Storage
 
 beforeEach(() => {
   storage = makeStorage()
+  vi.mocked(loadFolderHandle).mockReset()
+  vi.mocked(resolveFileHandle).mockReset()
 })
 
 describe('normalizeSession', () => {
@@ -152,5 +166,125 @@ describe('buildSessionConfig', () => {
   it('returns null unless both folders are set', () => {
     expect(buildSessionConfig({ userFolder: USER_REF, sampleFolder: null }, '1')).toBeNull()
     expect(buildSessionConfig({ userFolder: null, sampleFolder: SAMPLE_REF }, '1')).toBeNull()
+  })
+})
+
+function fakeFile(name: string): FileSystemFileHandle {
+  return { kind: 'file', name } as unknown as FileSystemFileHandle
+}
+
+function fakeDir(
+  name: string,
+  entries: [string, FileSystemDirectoryHandle | FileSystemFileHandle][] = [],
+  permission: PermissionState = 'granted'
+): FileSystemDirectoryHandle {
+  return {
+    kind: 'directory',
+    name,
+    queryPermission: vi.fn(async () => permission),
+    entries: async function* () {
+      for (const entry of entries) yield entry
+    }
+  } as unknown as FileSystemDirectoryHandle
+}
+
+function throwingDir(name: string): FileSystemDirectoryHandle {
+  return {
+    kind: 'directory',
+    name,
+    entries: async function* () {
+      yield* []
+      throw new Error('unreadable')
+    }
+  } as unknown as FileSystemDirectoryHandle
+}
+
+describe('listRecentProjects', () => {
+  it('returns an empty list without an accessible user folder', async () => {
+    expect(await listRecentProjects(null, storage)).toEqual([])
+
+    vi.mocked(loadFolderHandle).mockResolvedValueOnce(null)
+    expect(await listRecentProjects(USER_REF, storage)).toEqual([])
+
+    vi.mocked(loadFolderHandle).mockRejectedValueOnce(new Error('idb unavailable'))
+    expect(await listRecentProjects(USER_REF, storage)).toEqual([])
+
+    vi.mocked(loadFolderHandle).mockResolvedValueOnce(fakeDir('User', [], 'denied'))
+    expect(await listRecentProjects(USER_REF, storage)).toEqual([])
+  })
+
+  it('merges verified registry entries with discovered projects and skips stale files', async () => {
+    const root = fakeDir('User', [
+      ['loose.mixjam', fakeFile('loose.mixjam')],
+      ['notes.txt', fakeFile('notes.txt')],
+      ['Sets', fakeDir('Sets', [['zeta.mixjam', fakeFile('zeta.mixjam')]])],
+      ['Broken', throwingDir('Broken')]
+    ])
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+    vi.mocked(resolveFileHandle).mockImplementation(async (_dir, relpath) =>
+      relpath === 'registered.mixjam' ? fakeFile('registered.mixjam') : null
+    )
+    writeRecentProjects(
+      [
+        { path: 'registered.mixjam', displayName: 'Registered', lastOpened: '2026-07-03T10:00:00.000Z' },
+        { path: 'missing.mixjam', displayName: 'Missing', lastOpened: '2026-07-04T10:00:00.000Z' }
+      ],
+      storage
+    )
+
+    const projects = await listRecentProjects(USER_REF, storage)
+
+    expect(projects.map((project) => project.path)).toEqual([
+      'registered.mixjam',
+      'loose.mixjam',
+      'Sets/zeta.mixjam'
+    ])
+    expect(resolveFileHandle).toHaveBeenCalledWith(root, 'registered.mixjam')
+    expect(resolveFileHandle).toHaveBeenCalledWith(root, 'missing.mixjam')
+  })
+
+  it('caps the merged recent-project list', async () => {
+    const files = Array.from({ length: 25 }, (_, index) =>
+      [`project-${String(index).padStart(2, '0')}.mixjam`, fakeFile(`project-${index}.mixjam`)] as [
+        string,
+        FileSystemFileHandle
+      ]
+    )
+    vi.mocked(loadFolderHandle).mockResolvedValue(fakeDir('User', files))
+    vi.mocked(resolveFileHandle).mockResolvedValue(null)
+
+    const projects = await listRecentProjects(USER_REF, storage)
+
+    expect(projects).toHaveLength(20)
+    expect(projects[0].displayName).toBe('project-00')
+  })
+})
+
+describe('writeSessionConfig', () => {
+  it('does not touch storage when a complete session or handle is missing', async () => {
+    await writeSessionConfig({ userFolder: USER_REF, sampleFolder: null }, '1.0')
+    expect(loadFolderHandle).not.toHaveBeenCalled()
+
+    vi.mocked(loadFolderHandle).mockResolvedValueOnce(null)
+    await writeSessionConfig({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, '1.0')
+    expect(loadFolderHandle).toHaveBeenCalledWith(USER_REF.id)
+  })
+
+  it('writes mixjam.json into the user folder', async () => {
+    const write = vi.fn(async () => undefined)
+    const close = vi.fn(async () => undefined)
+    const getFileHandle = vi.fn(async () => ({
+      kind: 'file',
+      name: 'mixjam.json',
+      createWritable: async () => ({ write, close })
+    } as unknown as FileSystemFileHandle))
+    vi.mocked(loadFolderHandle).mockResolvedValue({ getFileHandle } as unknown as FileSystemDirectoryHandle)
+
+    await writeSessionConfig({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, '1.2.3')
+
+    expect(getFileHandle).toHaveBeenCalledWith('mixjam.json', { create: true })
+    expect(write).toHaveBeenCalledWith(expect.stringContaining('"appVersion": "1.2.3"'))
+    expect(write).toHaveBeenCalledWith(expect.stringContaining('"userFolder": "MixJam"'))
+    expect(close).toHaveBeenCalledTimes(1)
   })
 })

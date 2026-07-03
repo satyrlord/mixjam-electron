@@ -104,7 +104,7 @@ async function phase1(
 
     const upsertBatch = db.transaction((items: Array<{ relpath: string; file: File }>) => {
       for (const { relpath, file } of items) {
-        const filename = relpath.split('/').pop() ?? relpath
+        const filename = relpath.slice(relpath.lastIndexOf('/') + 1)
         const ext = extOf(filename).slice(1)
         upsertStub(db, rootId, relpath, filename, ext, file.size, Math.round(file.lastModified))
         processed++

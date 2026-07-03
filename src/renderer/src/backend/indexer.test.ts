@@ -41,6 +41,29 @@ function fakeDirHandle(name: string, tree: FakeTree): FileSystemDirectoryHandle 
   } as unknown as FileSystemDirectoryHandle
 }
 
+function fakeEntriesDir(
+  name: string,
+  entries: [string, FileSystemDirectoryHandle | FileSystemFileHandle][]
+): FileSystemDirectoryHandle {
+  return {
+    kind: 'directory',
+    name,
+    entries: async function* () {
+      for (const entry of entries) yield entry
+    }
+  } as unknown as FileSystemDirectoryHandle
+}
+
+function unreadableFileHandle(name: string): FileSystemFileHandle {
+  return {
+    kind: 'file',
+    name,
+    getFile: async () => {
+      throw new Error('file disappeared')
+    }
+  } as unknown as FileSystemFileHandle
+}
+
 /** Minimal valid PCM WAV so music-metadata can extract real format data. */
 function makeWav(durationSec: number, sampleRate = 8000, channels = 1): File {
   const frames = Math.round(durationSec * sampleRate)
@@ -98,7 +121,8 @@ describe('runScan', () => {
       Drums: {
         'snare.wav': makeWav(0.05),
         'readme.txt': new File(['nope'], 'readme.txt', { lastModified: 1000 })
-      }
+      },
+      LICENSE: new File(['no extension'], 'LICENSE', { lastModified: 1000 })
     })
 
     const { rows, total } = querySamples(db, { rootId: ROOT_KEY })
@@ -154,6 +178,24 @@ describe('runScan', () => {
     const second = querySamples(db, { rootId: ROOT_KEY }).rows[0]
     expect(second.scanState).toBe(1)
     expect(second.dateAdded).toBe(first.dateAdded)
+  })
+
+  it('skips files that disappear before their snapshot can be read', async () => {
+    const events: ScanProgress[] = []
+    await runScan(
+      db,
+      ROOT_KEY,
+      fakeEntriesDir('Samples', [
+        ['bad.wav', unreadableFileHandle('bad.wav')],
+        ['good.wav', fakeFileHandle('good.wav', makeWav(0.05))]
+      ]),
+      (progress) => events.push(progress)
+    )
+
+    const { rows, total } = querySamples(db, { rootId: ROOT_KEY })
+    expect(total).toBe(1)
+    expect(rows[0].relpath).toBe('good.wav')
+    expect(events.find((event) => event.phase === 1)?.found).toBe(2)
   })
 
   it('reports phase 1 and phase 2 progress and never regresses processed counts', async () => {
