@@ -56,6 +56,7 @@ function makeBrowser(overrides: Partial<TrackerBrowserProps> = {}): TrackerBrows
     onToggleTagFilter: noop,
     onSortChange: noop,
     onStartScan: asyncNoop,
+    onCancelScan: asyncNoop,
     onCreateTag: asyncNoop as never,
     onRenameTag: asyncNoop as never,
     onDeleteTag: asyncNoop as never,

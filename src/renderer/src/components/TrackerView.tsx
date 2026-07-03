@@ -4,6 +4,7 @@ import type { ClipGroupEntry, FooterSampleDetail } from '../lib/playerShell'
 import type {
   TrackerArrangementProps,
   TrackerBrowserProps,
+  TrackerMixerProps,
   TrackerTransportProps
 } from './trackerProps'
 import {
@@ -16,11 +17,12 @@ import {
 import { nearestTick } from '../lib/sample-utils'
 import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
+import { useDragResize } from '../hooks/useDragResize'
 import RecentProjectsRail from './RecentProjectsRail'
 import TransportStrip from './TransportStrip'
 import SongControlsRail from './SongControlsRail'
 import SampleBrowser from './SampleBrowser'
-import LaneClipCanvas from './LaneClipCanvas'
+import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
 
 export interface TrackerViewProps {
@@ -28,13 +30,15 @@ export interface TrackerViewProps {
   browser: TrackerBrowserProps
   arrangement: TrackerArrangementProps
   transport: TrackerTransportProps
+  mixer: TrackerMixerProps
 }
 
 export default function TrackerView({
   recentProjects,
   browser,
   arrangement,
-  transport
+  transport,
+  mixer
 }: TrackerViewProps) {
   const { lanes, laneShouldDim, currentTick } = arrangement
   const { transportState } = transport
@@ -141,6 +145,7 @@ export default function TrackerView({
   }, [lanes, pixelsPerTick, trackDragCleanup])
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [recentProjectsCollapsed, setRecentProjectsCollapsed] = useState(false)
 
   // Refs for values read by the global keyboard shortcut handler so the
   // listener subscribes once instead of on every selection / transport change.
@@ -253,7 +258,7 @@ export default function TrackerView({
     event.stopPropagation()
   }, [selectedClipIds, lanes])
 
-  const handleLaneCanvasDragOver = (event: React.DragEvent) => {
+  const handleLaneCanvasDragOver = useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer.types.includes('application/mixjam-sample') &&
         !event.dataTransfer.types.includes('application/mixjam-clip')) return
     event.preventDefault()
@@ -262,9 +267,9 @@ export default function TrackerView({
     } else {
       event.dataTransfer.dropEffect = 'copy'
     }
-  }
+  }, [])
 
-  const handleLaneCanvasDrop = (laneIndex: number, event: React.DragEvent<HTMLDivElement>) => {
+  const handleLaneCanvasDrop = useCallback((laneIndex: number, event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     // Default: snap to beat. Hold Alt for freeform (per-tick).
     const snap = event.altKey ? 1 : TICKS_PER_BEAT
@@ -311,40 +316,49 @@ export default function TrackerView({
         }
       } catch { /* malformed drag data */ }
     }
-  }
+  }, [lanes.length, totalTicks, arrangement])
 
   // Browser/tracker split: fraction of remaining space given to the browser
   // region.  1 = equal split with the tracker region.
   const [browserFlex, setBrowserFlex] = useState(1)
 
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    const startY = e.clientY
-    const startFlex = browserFlex
-    const onMove = (moveEvent: MouseEvent) => {
-      const deltaY = startY - moveEvent.clientY
+  const handleResizeStart = useDragResize(
+    useCallback(() => browserFlex, [browserFlex]),
+    useCallback((_dx, dy, startFlex) => {
       // Convert pixel delta to flex ratio (heuristic: ~600px = 1fr unit)
-      const newFlex = Math.max(0.3, Math.min(3, startFlex + deltaY / 600))
+      const newFlex = Math.max(0.3, Math.min(3, startFlex - dy / 600))
       setBrowserFlex(newFlex)
-    }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      untrack()
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    const untrack = trackDragCleanup(onUp)
-  }, [browserFlex, trackDragCleanup])
+    }, [])
+  )
+
+  // Left-column resize seam: drag the right edge of column 1 to widen it,
+  // revealing the mixer column when width exceeds 272px (168px + 104px).
+  const trackerViewRef = useRef<HTMLDivElement>(null)
+
+  const handleLeftColResizeStart = useDragResize(
+    useCallback(() => {
+      const el = trackerViewRef.current
+      return el ? parseFloat(getComputedStyle(el).getPropertyValue('--left-col-w')) || 168 : 168
+    }, []),
+    useCallback((dx, _dy, initialPx) => {
+      const el = trackerViewRef.current
+      if (!el) return
+      el.style.setProperty('--left-col-w', `${Math.max(168, initialPx + dx)}px`)
+    }, [])
+  )
 
   return (
     <div
-      className="tracker-view"
+      ref={trackerViewRef}
+      className={`tracker-view${recentProjectsCollapsed ? ' recent-projects-collapsed' : ''}`}
       style={{
         gridTemplateRows: `minmax(0, 1fr) 44px 6px minmax(0, ${browserFlex}fr)`
       }}
     >
-      <RecentProjectsRail recentProjects={recentProjects} />
+      <RecentProjectsRail
+        recentProjects={recentProjects}
+        onCollapsedChange={setRecentProjectsCollapsed}
+      />
 
       <section className="tracker-zone tracker-region">
         {transportState !== 'stopped' && currentTick < totalTicks && (
@@ -379,73 +393,22 @@ export default function TrackerView({
           {lanes.map((lane) => {
             const dimmed = laneShouldDim(lane)
             return (
-              <div
+              <LaneRow
                 key={lane.index}
-                className={`tracker-lane${dimmed ? ' tracker-lane-dimmed' : ''}`}
-                style={{ height: LANE_HEIGHT_PX }}
-              >
-                <div className="tracker-lane-head" style={{ width: LANE_HEAD_WIDTH_PX }}>
-                  <span className="tracker-lane-name">{lane.name}</span>
-                  <div className="tracker-lane-controls">
-                    <button
-                      type="button"
-                      className={`tracker-lane-mute${lane.muted ? ' tracker-lane-mute-active' : ''}`}
-                      aria-label={`Mute ${lane.name}`}
-                      title={lane.muted ? 'Unmute lane' : 'Mute lane'}
-                      onClick={() => arrangement.onToggleLaneMute(lane.index)}
-                    >M</button>
-                    <button
-                      type="button"
-                      className={`tracker-lane-solo${lane.solo ? ' tracker-lane-solo-active' : ''}`}
-                      aria-label={`Solo ${lane.name}`}
-                      title={lane.solo ? 'Unsolo lane' : 'Solo lane'}
-                      onClick={() => arrangement.onToggleLaneSolo(lane.index)}
-                    >S</button>
-                    <span
-                      className="tracker-lane-pan"
-                      role="slider"
-                      aria-label={`Pan ${lane.name}`}
-                      title="Drag horizontally to pan"
-                      aria-valuemin={-100}
-                      aria-valuemax={100}
-                      aria-valuenow={Math.round(lane.pan * 100)}
-                      style={{ '--pan-angle': `${lane.pan * 135}deg` } as React.CSSProperties}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        const startX = e.clientX
-                        const startPan = lane.pan
-                        const onMove = (moveEvent: MouseEvent) => {
-                          const delta = (moveEvent.clientX - startX) * 0.01
-                          arrangement.onSetLanePan(lane.index, Math.max(-1, Math.min(1, startPan + delta)))
-                        }
-                        const onUp = () => {
-                          window.removeEventListener('mousemove', onMove)
-                          window.removeEventListener('mouseup', onUp)
-                        }
-                        window.addEventListener('mousemove', onMove)
-                        window.addEventListener('mouseup', onUp)
-                      }}
-                    />
-                  </div>
-                </div>
-                <div
-                  className="tracker-lane-canvas"
-                  onDragOver={handleLaneCanvasDragOver}
-                  onDrop={(event) => handleLaneCanvasDrop(lane.index, event)}
-                  role="region"
-                  aria-label={`Lane ${lane.index + 1} track area`}
-                >
-                  <LaneClipCanvas
-                    clips={lane.clips}
-                    totalTicks={totalTicks}
-                    laneIndex={lane.index}
-                    flashSamplePath={activeFlashPath}
-                    selectedClipIds={selectedClipIds}
-                    onClipDragStart={handleClipDragStart}
-                    onClipContextMenu={setContextMenu}
-                  />
-                </div>
-              </div>
+                lane={lane}
+                dimmed={dimmed}
+                totalTicks={totalTicks}
+                flashSamplePath={activeFlashPath}
+                selectedClipIds={selectedClipIds}
+                onToggleLaneMute={arrangement.onToggleLaneMute}
+                onToggleLaneSolo={arrangement.onToggleLaneSolo}
+                onSetLanePan={arrangement.onSetLanePan}
+                onClipDragStart={handleClipDragStart}
+                onClipContextMenu={setContextMenu}
+                onDragOver={handleLaneCanvasDragOver}
+                onDrop={handleLaneCanvasDrop}
+                trackDragCleanup={trackDragCleanup}
+              />
             )
           })}
         </div>
@@ -467,6 +430,7 @@ export default function TrackerView({
         onSearchChange={browser.onSearchChange}
         scanProgress={browser.scanProgress}
         onStartScan={browser.onStartScan}
+        onCancelScan={browser.onCancelScan}
         onOpenShortcuts={() => setShortcutsOpen(true)}
       />
 
@@ -482,6 +446,22 @@ export default function TrackerView({
         masterGain={transport.masterGain}
         masterLevelDb={transport.masterLevelDb}
         onSetMasterGain={transport.onSetMasterGain}
+        mixerChannels={mixer.channels}
+        mixerChannelLevels={mixer.channelLevels}
+        mixerChannelPeaks={mixer.channelPeaks}
+        onSetChannelGain={mixer.onSetChannelGain}
+        onSetChannelPan={mixer.onSetChannelPan}
+        onToggleChannelMute={mixer.onToggleChannelMute}
+        onToggleChannelSolo={mixer.onToggleChannelSolo}
+        onRemoveChannel={mixer.onRemoveChannel}
+      />
+
+      <div
+        className="left-col-resize-seam"
+        role="separator"
+        aria-label="Resize left column"
+        aria-orientation="vertical"
+        onMouseDown={handleLeftColResizeStart}
       />
 
       <SampleBrowser

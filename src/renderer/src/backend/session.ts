@@ -151,18 +151,24 @@ export function recordRecentProject(
   writeRecentProjects(upsertRecentProject(readRecentProjects(storage), projectRelpath, now), storage)
 }
 
+// Maximum directory depth to walk when discovering .mixjam project files.
+// Prevents blocking the worker on extremely deep User Folder structures while
+// still allowing typical project nesting (genre/artist/project patterns).
+const DISCOVER_MAX_DEPTH = 8
+
 async function discoverMixJamProjects(
   root: FileSystemDirectoryHandle
 ): Promise<RecentProjectItem[]> {
   const discovered: RecentProjectItem[] = []
 
-  async function walk(dir: FileSystemDirectoryHandle, prefix: string): Promise<void> {
+  async function walk(dir: FileSystemDirectoryHandle, prefix: string, depth: number): Promise<void> {
+    if (depth > DISCOVER_MAX_DEPTH) return
     let iterator: AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>
     try {
       iterator = dir.entries()
       for await (const [name, entry] of iterator) {
         if (entry.kind === 'directory') {
-          await walk(entry, `${prefix}${name}/`)
+          await walk(entry, `${prefix}${name}/`, depth + 1)
           continue
         }
         if (!isMixJamProjectPath(name)) continue
@@ -178,7 +184,7 @@ async function discoverMixJamProjects(
     }
   }
 
-  await walk(root, '')
+  await walk(root, '', 0)
   return discovered
 }
 

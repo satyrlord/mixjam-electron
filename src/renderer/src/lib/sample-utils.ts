@@ -1,4 +1,6 @@
-import { clamp } from './playerShell'
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
 
 // 8-colour palette from the Emerald theme design project (§8 Color Palette System).
 // Well-known category names get a fixed slot; unknown names get a deterministic

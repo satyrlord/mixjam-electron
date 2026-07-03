@@ -30,12 +30,12 @@ entering the Tracker View. Session state persists across app restarts.
 
 ### Home Screen — Modified Layout
 
-The Home Screen content area is extended with two folder selection cards,
-inserted between the existing header/footer and the action buttons. The
-modified content area:
+The Home Screen content area is extended with two folder selection cards
+within the setup column of the two-column layout (see spec-001). The
+modified setup column:
 
 ```text
-.home-content (centered column)
+.setup-column (raised panel, right side of two-column layout)
   ├── User Folder card      — output folder picker
   ├── Sample Folder card    — input folder picker (initially disabled)
   ├── "Start New MixJam" button  — disabled until both folders set

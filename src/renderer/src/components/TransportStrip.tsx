@@ -42,6 +42,7 @@ interface TransportStripProps {
   onSearchChange: (query: string) => void
   scanProgress: ScanProgress
   onStartScan: () => void
+  onCancelScan: () => void
   onOpenShortcuts: () => void
 }
 
@@ -61,6 +62,7 @@ export default function TransportStrip({
   onSearchChange,
   scanProgress,
   onStartScan,
+  onCancelScan,
   onOpenShortcuts
 }: TransportStripProps) {
   const isPlaying = transportState === 'playing'
@@ -159,11 +161,22 @@ export default function TransportStrip({
           className="strip-rescan"
           onClick={() => void onStartScan()}
           disabled={scanProgress.status === 'scanning'}
-          aria-label={scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
+          aria-label={scanProgress.status === 'scanning' ? 'Scanning...' : 'Re-scan'}
           title="Re-scan the Sample Folder into the library"
         >
-          {scanProgress.status === 'scanning' ? 'Scanning…' : 'Re-scan'}
+          {scanProgress.status === 'scanning' ? 'Scanning...' : 'Re-scan'}
         </button>
+        {scanProgress.status === 'scanning' && (
+          <button
+            type="button"
+            className="strip-cancel-scan"
+            onClick={() => void onCancelScan()}
+            aria-label="Cancel scan"
+            title="Cancel the current re-scan"
+          >
+            Cancel
+          </button>
+        )}
         <button
           type="button"
           className="strip-help"

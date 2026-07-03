@@ -32,13 +32,18 @@ function emitEvent(message: WorkerMessage): void {
   ctx.postMessage(message)
 }
 
-const dbReady: Promise<DB> = (async () => {
+interface ReadyState {
+  db: DB
+  calls: BackendCalls
+}
+
+const ready: Promise<ReadyState> = (async () => {
   const sqlite3 = await sqlite3InitModule()
   const poolUtil = await sqlite3.installOpfsSAHPoolVfs({ name: 'mixjam' })
   const db = new DB(sqlite3, new poolUtil.OpfsSAHPoolDb('/library.db'))
   initSchema(db)
   library.ensureUnsortedCategory(db)
-  return db
+  return { db, calls: buildCalls(db) }
 })()
 
 function startScan(db: DB, rootKey: string): void {
@@ -57,7 +62,7 @@ function startScan(db: DB, rootKey: string): void {
         if (!isCurrent()) return
         progress = next
         emitEvent({ type: 'scan-progress', progress })
-      })
+      }, isCurrent)
 
       if (!isCurrent()) return
       progress = { ...IDLE }
@@ -71,12 +76,21 @@ function startScan(db: DB, rootKey: string): void {
   })()
 }
 
+function cancelScan(): void {
+  scanGeneration++
+  progress = { ...IDLE }
+  emitEvent({ type: 'scan-progress', progress })
+}
+
+// Built once after the DB is ready so each incoming message does not
+// reconstruct the dispatch table.
 function buildCalls(db: DB): BackendCalls {
   return {
     querySamples: (req: SampleQueryRequest) =>
       library.querySamples(db, normalizeSampleQueryRequest(req)),
     hasSamples: (rootKey) => library.hasSamples(db, rootKey),
     startScan: (rootKey) => startScan(db, rootKey),
+    cancelScan: () => cancelScan(),
     getScanProgress: () => ({ ...progress }),
     listTags: () => library.listTags(db),
     createTag: (name, color) => library.createTag(db, name, color),
@@ -95,9 +109,8 @@ function buildCalls(db: DB): BackendCalls {
 
 ctx.onmessage = (event) => {
   const { seq, op, args } = event.data
-  void dbReady
-    .then((db) => {
-      const calls = buildCalls(db)
+  void ready
+    .then(({ calls }) => {
       if (!Object.prototype.hasOwnProperty.call(calls, op)) {
         throw new Error(`Unknown backend op: ${String(op)}`)
       }

@@ -9,6 +9,7 @@
 import { type Channel, createChannel } from './channel'
 import { type Voice, createVoice } from './voice'
 import { SampleCache, type SampleCacheOptions } from './sample-cache'
+import { clamp } from '../lib/sample-utils'
 
 // Factory injected so tests can supply a mock AudioContext. In production this
 // is `() => new AudioContext()`.
@@ -29,37 +30,51 @@ export interface TriggerVoiceParams {
 }
 
 const SILENCE_DB = -100
+// FFT size for per-channel analysers — small for low-latency meter reads.
+const CHANNEL_METER_FFT = 256
 
 function defaultContextFactory(): AudioContext {
   return new AudioContext()
 }
 
+// Deferred-init audio nodes — all created together by ensureContext(), never
+// individually. Access through the `ctx` getter so there is never a null check
+// or non-null assertion at the call site.
+interface AudioNodes {
+  context: AudioContext
+  masterGain: GainNode
+  analyser: AnalyserNode
+  meterBuffer: Float32Array<ArrayBuffer>
+  bypassNode: GainNode
+}
+
 export class AudioEngine {
-  private context: AudioContext | null = null
-  private masterGain: GainNode | null = null
-  private analyser: AnalyserNode | null = null
-  private meterBuffer: Float32Array<ArrayBuffer> | null = null
+  private nodes: AudioNodes | null = null
   private readonly createContextImpl: AudioContextFactory
   private readonly meterFftSize: number
   private readonly activeVoices = new Set<Voice>()
   private masterGainValue = 1
   private channelCount = 0
   private readonly channels = new Map<number, Channel>()
+  // Per-channel analyser nodes inserted after the channel pan node, before master.
+  private readonly channelAnalysers = new Map<number, AnalyserNode>()
+  // Per-channel meter read buffers (reused across frames).
+  private readonly channelMeterBuffers = new Map<number, Float32Array>()
   readonly samples: SampleCache
 
   constructor(options: AudioEngineOptions = {}) {
     this.createContextImpl = options.createContext ?? defaultContextFactory
     this.meterFftSize = options.meterFftSize ?? 1024
     this.samples = new SampleCache(
-      (bytes) => this.ensureContext().decodeAudioData(bytes),
+      (bytes) => this.ctx.context.decodeAudioData(bytes),
       options.sampleCache
     )
   }
 
-  // The AudioContext is created lazily on first use so nothing starts before a
-  // user gesture (browser autoplay policy).
-  ensureContext(): AudioContext {
-    if (this.context) return this.context
+  /** Guaranteed-non-null access to the deferred-init audio graph. Every public
+   *  method calls this instead of `ensureContext()` + `!` assertions. */
+  private get ctx(): AudioNodes {
+    if (this.nodes) return this.nodes
 
     const context = this.createContextImpl()
     const masterGain = context.createGain()
@@ -68,42 +83,63 @@ export class AudioEngine {
     const analyser = context.createAnalyser()
     analyser.fftSize = this.meterFftSize
 
-    // Master bus: channels -> masterGain -> analyser(tap) -> destination. The
-    // analyser sits after the gain stage so the meter reflects real output.
+    // Master bus: channels -> masterGain -> analyser(tap) -> destination.
     masterGain.connect(analyser)
     analyser.connect(context.destination)
 
-    this.context = context
-    this.masterGain = masterGain
-    this.analyser = analyser
-    this.meterBuffer = new Float32Array(analyser.fftSize)
-    return context
+    // Master bypass bus for orphan lanes: unity-gain node feeding directly into
+    // the master gain.
+    const bypassNode = context.createGain()
+    bypassNode.gain.value = 1
+    bypassNode.connect(masterGain)
+
+    const nodes: AudioNodes = {
+      context,
+      masterGain,
+      analyser,
+      meterBuffer: new Float32Array(analyser.fftSize),
+      bypassNode
+    }
+    this.nodes = nodes
+    return nodes
   }
 
+  /** Creates the AudioContext if it does not exist yet and returns it. Kept for
+   *  external callers (Player, tests) that need the raw context reference. */
+  ensureContext(): AudioContext {
+    return this.ctx.context
+  }
+
+  /** Exposed for the Player to pass to the scheduler clock. */
   get currentTime(): number {
-    return this.context?.currentTime ?? 0
+    return this.nodes?.context.currentTime ?? 0
   }
 
   get activeVoiceCount(): number {
     return this.activeVoices.size
   }
 
-  // Resume the AudioContext after a user gesture (autoplay policy).
+  /** Resume the AudioContext after a user gesture (autoplay policy). */
   async resume(): Promise<void> {
-    await this.ensureContext().resume()
+    await this.ctx.context.resume()
   }
 
-  // Creates (or returns) the mixer channel for the given index. The registry is
-  // keyed by the caller's index — lane N always maps to channel N — never by
-  // creation order, so channels created lazily out of order still resolve.
-  // Omitting the index allocates the next sequential slot.
+  // Creates (or returns) the mixer channel for the given index.
   createChannel(channelIndex?: number): Channel {
-    this.ensureContext()
+    const { context, masterGain } = this.ctx
     const index = channelIndex ?? this.channelCount
     const existing = this.channels.get(index)
     if (existing) return existing
-    const channel = createChannel(this.context!, index)
-    channel.output.connect(this.masterGain!)
+    const channel = createChannel(context, index)
+
+    const analyser = context.createAnalyser()
+    analyser.fftSize = CHANNEL_METER_FFT
+    channel.output.connect(analyser)
+    analyser.connect(masterGain)
+
+    this.channelAnalysers.set(index, analyser)
+    this.channelMeterBuffers.set(index, new Float32Array(CHANNEL_METER_FFT))
+
     this.channels.set(index, channel)
     this.channelCount = Math.max(this.channelCount, index + 1)
     return channel
@@ -118,18 +154,44 @@ export class AudioEngine {
     if (channel) channel.setPan(pan)
   }
 
-  // Play a one-shot preview of a buffer through a dedicated temporary gain node
-  // connected directly to the master bus. Returns the voice so the caller can
-  // stop it early if needed.
-  // `when` defaults to 0 (immediate); pass a future AudioContext time to
-  // schedule the preview at a specific moment (e.g. next downbeat).
+  setChannelGain(channelIndex: number, gain: number): void {
+    const channel = this.channels.get(channelIndex)
+    if (channel) channel.setGain(gain)
+  }
+
+  getChannelAnalyser(channelIndex: number): AnalyserNode | undefined {
+    return this.channelAnalysers.get(channelIndex)
+  }
+
+  removeChannel(channelIndex: number): void {
+    const channel = this.channels.get(channelIndex)
+    const analyser = this.channelAnalysers.get(channelIndex)
+    if (channel) {
+      channel.disconnect()
+      this.channels.delete(channelIndex)
+    }
+    if (analyser) {
+      analyser.disconnect()
+      this.channelAnalysers.delete(channelIndex)
+      this.channelMeterBuffers.delete(channelIndex)
+    }
+  }
+
+  /** The master bypass bus — a unity-gain GainNode that orphan lanes connect
+   *  to. Lazily created on first access. */
+  get masterBypass(): GainNode {
+    return this.ctx.bypassNode
+  }
+
+  /** Preview a buffer as a one-shot through a temporary gain node connected
+   *  directly to the master bus. */
   previewBuffer(buffer: AudioBuffer, when = 0, onEnded?: (voice: Voice) => void): Voice {
-    this.ensureContext()
-    const previewGain = this.context!.createGain()
+    const { context, masterGain } = this.ctx
+    const previewGain = context.createGain()
     previewGain.gain.value = 0.8
-    previewGain.connect(this.masterGain!)
+    previewGain.connect(masterGain)
     const voice = createVoice({
-      context: this.context!,
+      context,
       buffer,
       destination: previewGain,
       when,
@@ -146,14 +208,21 @@ export class AudioEngine {
     return voice
   }
 
-  // Creates a new AudioBufferSourceNode, routes it through the channel's
-  // gain/pan chain into the master bus, and registers it as an active voice.
   triggerVoice({ buffer, channel, when, trackIndex }: TriggerVoiceParams): Voice {
-    this.ensureContext()
-    const voice = createVoice({
-      context: this.context!,
+    return this.triggerVoiceTo({
       buffer,
       destination: channel.input,
+      when,
+      trackIndex
+    })
+  }
+
+  triggerVoiceTo({ buffer, destination, when, trackIndex }: { buffer: AudioBuffer; destination: AudioNode; when: number; trackIndex: number }): Voice {
+    const { context } = this.ctx
+    const voice = createVoice({
+      context,
+      buffer,
+      destination,
       when,
       trackIndex,
       events: {
@@ -164,35 +233,33 @@ export class AudioEngine {
     return voice
   }
 
-  // 0..1, applied after all channel routing.
   setMasterGain(value: number): void {
-    this.masterGainValue = Math.min(1, Math.max(0, value))
-    if (this.masterGain) this.masterGain.gain.value = this.masterGainValue
+    this.masterGainValue = clamp(value, 0, 1)
+    if (this.nodes) this.nodes.masterGain.gain.value = this.masterGainValue
   }
 
   get masterGainLevel(): number {
     return this.masterGainValue
   }
 
-  // Current master output loudness in dBFS (<= 0), computed as RMS over the
-  // analyser's time-domain window. Returns SILENCE_DB before the context exists
-  // or when the bus is silent. Drives the Song Controls meter.
+  /** Current master output loudness in dBFS (<= 0), computed as RMS over the
+   *  analyser's time-domain window. Returns SILENCE_DB before the context
+   *  exists or when the bus is silent. */
   getMasterLevelDb(): number {
-    if (!this.analyser || !this.meterBuffer) return SILENCE_DB
-    this.analyser.getFloatTimeDomainData(this.meterBuffer)
+    const { analyser, meterBuffer } = this.nodes ?? {}
+    if (!analyser || !meterBuffer) return SILENCE_DB
+    analyser.getFloatTimeDomainData(meterBuffer)
 
     let sumSquares = 0
-    for (let i = 0; i < this.meterBuffer.length; i++) {
-      const sample = this.meterBuffer[i]
+    for (let i = 0; i < meterBuffer.length; i++) {
+      const sample = meterBuffer[i]
       sumSquares += sample * sample
     }
-    const rms = Math.sqrt(sumSquares / this.meterBuffer.length)
+    const rms = Math.sqrt(sumSquares / meterBuffer.length)
     if (rms <= 0) return SILENCE_DB
     return Math.max(SILENCE_DB, 20 * Math.log10(rms))
   }
 
-  // Immediately stops all active voices. Each voice's onended handler removes it
-  // from the registry, but we clear eagerly so the count drops synchronously.
   stopAllVoices(): void {
     for (const voice of this.activeVoices) {
       voice.stop()
@@ -203,16 +270,13 @@ export class AudioEngine {
   async close(): Promise<void> {
     this.stopAllVoices()
     this.samples.clear()
-    // Channels belong to the closed context; a later ensureContext() builds a
-    // fresh graph, so stale channel nodes must not survive the close.
     this.channels.clear()
+    this.channelAnalysers.clear()
+    this.channelMeterBuffers.clear()
     this.channelCount = 0
-    if (this.context) {
-      await this.context.close()
-      this.context = null
-      this.masterGain = null
-      this.analyser = null
-      this.meterBuffer = null
+    if (this.nodes) {
+      await this.nodes.context.close()
+      this.nodes = null
     }
   }
 }

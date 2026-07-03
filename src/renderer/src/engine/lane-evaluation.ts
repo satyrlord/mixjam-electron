@@ -17,6 +17,8 @@ export interface EngineLane {
   index: number
   muted: boolean
   solo: boolean
+  /** Lane-level pan (-1..1), independent of channel pan. */
+  pan: number
   channelIndex: number
   clips: EngineClip[]
 }
@@ -25,6 +27,8 @@ export interface LaneTrigger {
   laneIndex: number
   channelIndex: number
   samplePath: string
+  /** Lane-level pan value carried through to the per-lane panner node. */
+  pan: number
   clip: EngineClip
 }
 
@@ -62,6 +66,7 @@ export function triggersForTick(lanes: readonly EngineLane[], tick: number): Lan
           laneIndex: lane.index,
           channelIndex: lane.channelIndex,
           samplePath: clip.samplePath,
+          pan: lane.pan,
           clip
         })
       }

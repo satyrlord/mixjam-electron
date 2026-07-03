@@ -2,10 +2,11 @@ import { useCallback } from 'react'
 import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { useLibraryData, type LibraryData } from './useLibraryData'
 import { useTransportEngine, type TransportEngine } from './useTransportEngine'
+import { useMixer, type Mixer } from './useMixer'
 
 const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
-export type AppState = LibraryData & TransportEngine & {
+export type AppState = LibraryData & TransportEngine & Mixer & {
   goToTracker: () => Promise<void>
   goToHome: () => Promise<void>
   openRepo: () => Promise<void>
@@ -26,6 +27,7 @@ export function useAppState(
 ): AppState {
   const lib = useLibraryData(backendAPI, userFolder, sampleFolder)
   const engine = useTransportEngine(backendAPI, sampleFolder)
+  const mixer = useMixer(engine.playerRef, engine.view)
 
   const { setView } = engine
   const { setSelectedSampleDetail, startLibraryScan, scanProgress, dbIndexed } = lib
@@ -55,6 +57,7 @@ export function useAppState(
   return {
     ...lib,
     ...engine,
+    ...mixer,
     goToTracker,
     goToHome,
     openRepo

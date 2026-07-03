@@ -8,6 +8,10 @@ import type { Database, PreparedStatement, Sqlite3Static, SqlValue } from '@sqli
 
 export type BindValue = SqlValue
 
+/** The honest return type from sqlite-wasm's `stmt.get({})`: a column-name-keyed
+ *  record of SqlValue. Used as the constraint bound for Statement's generic. */
+type SqlRow = Record<string, SqlValue>
+
 interface RunResult {
   changes: number
   lastInsertRowid: number
@@ -34,7 +38,12 @@ class Statement {
     return { changes: this.owner.changes(), lastInsertRowid: this.owner.lastInsertRowid() }
   }
 
-  get<T = Record<string, SqlValue>>(...params: BindValue[]): T | undefined {
+  /** Returns the current row as a column-name-keyed record, or undefined when
+   *  the query produced no rows. The generic `T` is an assertion by the caller
+   *  about expected column names and value types — sqlite-wasm does not
+   *  validate the shape at runtime. Concrete row interfaces in library.ts
+   *  (TagRow, CategoryRow, etc.) are the canonical shape definitions. */
+  get<T extends SqlRow = SqlRow>(...params: BindValue[]): T | undefined {
     try {
       this.bindParams(params)
       if (!this.stmt.step()) return undefined
@@ -44,7 +53,8 @@ class Statement {
     }
   }
 
-  all<T = Record<string, SqlValue>>(...params: BindValue[]): T[] {
+  /** Returns all remaining rows. Same assertion semantics as `get()`. */
+  all<T extends SqlRow = SqlRow>(...params: BindValue[]): T[] {
     const rows: T[] = []
     try {
       this.bindParams(params)

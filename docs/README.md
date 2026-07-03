@@ -105,7 +105,7 @@ renderer stays sandboxed with no `nodeIntegration`.
 ## Specs
 
 Feature specifications live in `docs/specs/`. Each spec has a matching test file
-under `src/`. Specs 001-006 are fully implemented and tested; check individual
+under `src/`. Specs 001-007 are fully implemented and tested; check individual
 spec files for per-AC status.
 
 ## Skinning

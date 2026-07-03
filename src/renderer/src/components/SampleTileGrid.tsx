@@ -104,9 +104,18 @@ function SampleTileGrid({
     if (!el) return
     const measure = () => setViewport({ width: el.clientWidth, height: el.clientHeight })
     measure()
-    const ro = new ResizeObserver(measure)
+    // Debounce ResizeObserver callbacks so rapid resize events (e.g. window
+    // drag) do not trigger an expensive row-repack on every frame.
+    let rafId = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(measure)
+    })
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(rafId)
+      ro.disconnect()
+    }
   }, [])
 
   const categoryNames = useMemo(

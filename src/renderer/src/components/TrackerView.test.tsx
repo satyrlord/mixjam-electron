@@ -6,6 +6,7 @@ import TrackerView from './TrackerView'
 import type {
   TrackerArrangementProps,
   TrackerBrowserProps,
+  TrackerMixerProps,
   TrackerTransportProps
 } from './trackerProps'
 import type { RecentProjectItem, SampleListItem } from '../../../shared/backend-api'
@@ -85,6 +86,7 @@ const DEFAULT_BROWSER: TrackerBrowserProps = {
   onToggleTagFilter: noop,
   onSortChange: noop,
   onStartScan: asyncNoop,
+  onCancelScan: asyncNoop,
   onCreateTag: asyncNoop as never,
   onRenameTag: asyncNoop as never,
   onDeleteTag: asyncNoop as never,
@@ -130,11 +132,23 @@ const DEFAULT_TRANSPORT: TrackerTransportProps = {
   onTransportSkipBack: noop
 }
 
+const DEFAULT_MIXER: TrackerMixerProps = {
+  channels: [],
+  channelLevels: new Map(),
+  channelPeaks: new Map(),
+  onSetChannelGain: noop,
+  onSetChannelPan: noop,
+  onToggleChannelMute: noop,
+  onToggleChannelSolo: noop,
+  onRemoveChannel: noop
+}
+
 interface TrackerOverrides {
   recentProjects?: RecentProjectItem[]
   browser?: Partial<TrackerBrowserProps>
   arrangement?: Partial<TrackerArrangementProps>
   transport?: Partial<TrackerTransportProps>
+  mixer?: Partial<TrackerMixerProps>
 }
 
 function renderTracker(overrides: TrackerOverrides = {}) {
@@ -144,6 +158,7 @@ function renderTracker(overrides: TrackerOverrides = {}) {
       browser={{ ...DEFAULT_BROWSER, ...overrides.browser }}
       arrangement={{ ...DEFAULT_ARRANGEMENT, ...overrides.arrangement }}
       transport={{ ...DEFAULT_TRANSPORT, ...overrides.transport }}
+      mixer={{ ...DEFAULT_MIXER, ...overrides.mixer }}
     />
   )
 }
@@ -396,6 +411,48 @@ describe('TrackerView', () => {
     expect(onSetLanePan).toHaveBeenCalledWith(0, expect.any(Number))
   })
 
+  it('pan knob ArrowRight increases pan value', () => {
+    const onSetLanePan = vi.fn()
+    renderTracker({ arrangement: { onSetLanePan } })
+
+    const panDial = screen.getByRole('slider', { name: 'Pan Lane 1' })
+    fireEvent.keyDown(panDial, { key: 'ArrowRight' })
+
+    expect(onSetLanePan).toHaveBeenCalledWith(0, 0.05)
+  })
+
+  it('pan knob ArrowLeft decreases pan value', () => {
+    const onSetLanePan = vi.fn()
+    renderTracker({ arrangement: { onSetLanePan } })
+
+    const panDial = screen.getByRole('slider', { name: 'Pan Lane 1' })
+    fireEvent.keyDown(panDial, { key: 'ArrowLeft' })
+
+    expect(onSetLanePan).toHaveBeenCalledWith(0, -0.05)
+  })
+
+  it('pan knob Home key resets pan to center', () => {
+    const onSetLanePan = vi.fn()
+    const lanes = LANES.map((l, i) => i === 0 ? { ...l, pan: 0.5 } : l)
+    renderTracker({ arrangement: { onSetLanePan, lanes } })
+
+    const panDial = screen.getByRole('slider', { name: 'Pan Lane 1' })
+    fireEvent.keyDown(panDial, { key: 'Home' })
+
+    expect(onSetLanePan).toHaveBeenCalledWith(0, 0)
+  })
+
+  it('pan knob double-click resets pan to center', () => {
+    const onSetLanePan = vi.fn()
+    const lanes = LANES.map((l, i) => i === 0 ? { ...l, pan: -0.7 } : l)
+    renderTracker({ arrangement: { onSetLanePan, lanes } })
+
+    const panDial = screen.getByRole('slider', { name: 'Pan Lane 1' })
+    fireEvent.doubleClick(panDial)
+
+    expect(onSetLanePan).toHaveBeenCalledWith(0, 0)
+  })
+
   it('transport-button-play class only appears when playing', () => {
     renderTracker({ transport: { transportState: 'stopped' } })
     const btn = screen.getByRole('button', { name: 'Play' })
@@ -413,6 +470,42 @@ describe('TrackerView', () => {
     renderTracker({ recentProjects: [] })
 
     expect(screen.getByText(/no mixjam projects yet/i)).toBeInTheDocument()
+  })
+
+  it('recent projects rail can be collapsed and expanded via toggle button', () => {
+    renderTracker({ recentProjects: RECENT_PROJECTS })
+    const trackerView = document.querySelector('.tracker-view')
+    expect(trackerView).not.toBeNull()
+
+    // Starts expanded
+    expect(screen.getByText('club-night')).toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Collapse recent projects' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(trackerView!.className).not.toContain('recent-projects-collapsed')
+
+    // Click to collapse
+    fireEvent.click(toggle)
+    expect(screen.queryByText('club-night')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand recent projects' })).toHaveAttribute('aria-expanded', 'false')
+    expect(trackerView!.className).toContain('recent-projects-collapsed')
+
+    // Click to expand again
+    fireEvent.click(screen.getByRole('button', { name: 'Expand recent projects' }))
+    expect(screen.getByText('club-night')).toBeInTheDocument()
+    expect(trackerView!.className).not.toContain('recent-projects-collapsed')
+  })
+
+  it('collapsed recent projects rail persists state in localStorage', () => {
+    renderTracker({ recentProjects: RECENT_PROJECTS })
+
+    const toggle = screen.getByRole('button', { name: 'Collapse recent projects' })
+    fireEvent.click(toggle)
+
+    expect(localStorage.getItem('mixjam:recents-rail-collapsed')).toBe('1')
+
+    // Expand again
+    fireEvent.click(screen.getByRole('button', { name: 'Expand recent projects' }))
+    expect(localStorage.getItem('mixjam:recents-rail-collapsed')).toBeNull()
   })
 
   // --- AC-004a: Song Controls rail shows Volume and dB meter; BPM lives only
@@ -1153,5 +1246,41 @@ describe('TrackerView', () => {
 
     vi.advanceTimersByTime(1800)
     vi.useRealTimers()
+  })
+
+  it('left-column resize seam handles drag correctly', () => {
+    renderTracker({})
+
+    const seam = screen.getByRole('separator', { name: 'Resize left column' })
+    fireEvent.mouseDown(seam, { clientX: 168 })
+    fireEvent.mouseMove(window, { clientX: 268 })
+    fireEvent.mouseUp(window)
+
+    // The tracker-view element should have an updated --left-col-w style
+    const trackerView = document.querySelector('.tracker-view') as HTMLElement
+    expect(trackerView.style.getPropertyValue('--left-col-w')).toContain('px')
+  })
+
+  it('opens shortcuts overlay when ? key is pressed', () => {
+    renderTracker({})
+
+    // Press ? key to open shortcuts overlay
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+    })
+
+    // The ShortcutsOverlay should now be visible
+    expect(screen.getByText(/shortcuts/i)).toBeInTheDocument()
+  })
+
+  it('hides playhead when currentTick exceeds totalTicks', () => {
+    // totalTicks is hardcoded to 256 in TrackerView
+    renderTracker({
+      transport: { transportState: 'playing' },
+      arrangement: { currentTick: 300 }
+    })
+
+    const playhead = document.querySelector('.tracker-playhead')
+    expect(playhead).toBeNull()
   })
 })

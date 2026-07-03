@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/playerShell'
 import { bubbleStyle, categoryColor } from '../lib/sample-utils'
 import type { TrackerBrowserProps } from './trackerProps'
+import { useDragResize } from '../hooks/useDragResize'
 import ManagePanel from './ManagePanel'
 import SampleTileGrid from './SampleTileGrid'
+
+/** Pixel overlap so the manage panel's left edge covers the splitter gutter
+ *  between the category tree and the sample grid. */
+const MANAGE_PANEL_OVERLAP_PX = 0
 
 interface SampleBrowserProps {
   browser: TrackerBrowserProps
@@ -43,28 +48,12 @@ export default function SampleBrowser({
   // Browser internal vertical resize: category-tree width in px.
   const [catsWidth, setCatsWidth] = useState(152)
 
-  // Tears down the splitter's window listeners if the browser unmounts
-  // mid-drag (e.g. the user navigates Home while still holding the button).
-  const dragCleanupRef = useRef<(() => void) | null>(null)
-  useEffect(() => () => dragCleanupRef.current?.(), [])
-
-  const handleCatsResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    const startX = e.clientX
-    const startWidth = catsWidth
-    const onMove = (moveEvent: MouseEvent) => {
-      const newWidth = startWidth + (moveEvent.clientX - startX)
-      setCatsWidth(Math.max(80, Math.min(400, newWidth)))
-    }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      dragCleanupRef.current = null
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    dragCleanupRef.current = onUp
-  }, [catsWidth])
+  const handleCatsResizeStart = useDragResize(
+    useCallback(() => catsWidth, [catsWidth]),
+    useCallback((dx, _dy, startWidth) => {
+      setCatsWidth(Math.max(80, Math.min(400, startWidth + dx)))
+    }, [])
+  )
 
   // Sample-tile context menu state (tag assignment, spec-004 AC-007)
   const [sampleMenu, setSampleMenu] = useState<{
@@ -115,7 +104,7 @@ export default function SampleBrowser({
           title={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
           onClick={() => setManagePanelOpen((v) => !v)}
         >
-          {managePanelOpen ? '×' : '+'}
+          {managePanelOpen ? '× Close' : '+ Manage'}
         </button>
         <div className="cat-grid" role="listbox" aria-label="Sample categories">
           {rootCategories.map((cat) => {
@@ -228,6 +217,7 @@ export default function SampleBrowser({
           tags={tags}
           libraries={libraries}
           categories={categories}
+          leftOffset={catsWidth + MANAGE_PANEL_OVERLAP_PX}
           onCreateTag={browser.onCreateTag}
           onRenameTag={browser.onRenameTag}
           onDeleteTag={browser.onDeleteTag}

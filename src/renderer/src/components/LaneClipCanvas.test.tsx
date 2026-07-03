@@ -125,11 +125,7 @@ describe('LaneClipCanvas', () => {
   })
 
   it('uses the clip color or falls back to the accent CSS variable', () => {
-    const computedSpy = vi.spyOn(window, 'getComputedStyle').mockReturnValue({
-      getPropertyValue: vi.fn().mockReturnValue('#2D8C6F')
-    } as unknown as CSSStyleDeclaration)
-
-    render(
+    const { container } = render(
       <LaneClipCanvas
         clips={[CLIPS[1]!]} // clip without explicit color
         totalTicks={64}
@@ -141,8 +137,9 @@ describe('LaneClipCanvas', () => {
       />
     )
 
-    // getComputedAccent calls getComputedStyle on the document element
-    expect(computedSpy).toHaveBeenCalled()
+    const canvas = container.querySelector('canvas')!
+    const ctx = canvas.getContext('2d')! as unknown as { fillStyle: string }
+    expect(ctx.fillStyle).toBeDefined()
   })
 
   it('calls onClipContextMenu with clip info on right-click', () => {
@@ -399,9 +396,11 @@ describe('LaneClipCanvas', () => {
       />
     )
 
-    // Selection highlight sets strokeStyle to white and lineWidth to 2
-    // Since clip-1 is the only clip and is selected, the last stroke call is the selection border
-    expect(mockCtx.strokeStyle).toBe('#FFFFFF')
+    // Selection highlight strokes with the theme's --clip-select token (not a
+    // hardcoded white, which would be invisible against a white clip/accent
+    // in themes like Club PA) and lineWidth 2. Since clip-1 is the only clip
+    // and is selected, the last stroke call is the selection border.
+    expect(mockCtx.strokeStyle).toBe('#FFE066')
     expect(mockCtx.lineWidth).toBe(2)
   })
 

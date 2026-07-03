@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import ErrorBoundary from './components/ErrorBoundary'
 import { bootstrapTheme } from './theme/themes'
 
 interface AppRoot {
@@ -13,7 +14,9 @@ export function mountApp(rootElement: HTMLElement, createRoot: CreateRoot = Reac
   bootstrapTheme()
   createRoot(rootElement).render(
     <React.StrictMode>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </React.StrictMode>
   )
 }

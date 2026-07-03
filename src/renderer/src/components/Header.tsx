@@ -25,6 +25,7 @@ export default function Header({ view, timer, theme, onHome, onThemeChange }: He
       )}
 
       <div className="header-right">
+        <span className="theme-swatch-dot" aria-hidden="true" />
         <select
           className="theme-selector"
           aria-label="Theme"

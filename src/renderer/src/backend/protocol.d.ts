@@ -17,6 +17,7 @@ export interface BackendCalls {
   querySamples: (req: SampleQueryRequest) => SampleQueryResponse
   hasSamples: (rootKey: string) => boolean
   startScan: (rootKey: string) => void
+  cancelScan: () => void
   getScanProgress: () => ScanProgress
   listTags: () => TagItem[]
   createTag: (name: string, color?: string) => TagItem

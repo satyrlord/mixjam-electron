@@ -27,6 +27,11 @@ const PHASE2_CONCURRENCY = 4
 
 export type ScanEmit = (progress: ScanProgress) => void
 
+/** Returns true while the scan should continue. The caller bumps a generation
+ *  counter on cancel; when this returns false the scan aborts at the next
+ *  batch boundary instead of walking to completion. */
+export type ScanIsCurrent = () => boolean
+
 interface FoundFile {
   relpath: string
   handle: FileSystemFileHandle
@@ -78,7 +83,8 @@ async function phase1(
   rootId: number,
   walked: WalkResult,
   fileByRelpath: Map<string, File>,
-  emit: ScanEmit
+  emit: ScanEmit,
+  isCurrent: ScanIsCurrent
 ): Promise<void> {
   const { files, topLevelDirs } = walked
   const total = files.length
@@ -113,7 +119,10 @@ async function phase1(
     upsertBatch(snapshots)
     emit({ status: 'scanning', phase: 1, found: total, processed, total })
     await yieldToEvents()
+    if (!isCurrent()) return
   }
+
+  if (!isCurrent()) return
 
   // Mark files no longer on disk as missing, in one transaction so a large
   // prune does not pay one commit per file. Scoped to this scan's root so
@@ -143,6 +152,7 @@ async function phase1(
     })
     assignBatch(batch)
     await yieldToEvents()
+    if (!isCurrent()) return
   }
 
   emit({ status: 'scanning', phase: 1, found: total, processed: total, total })
@@ -152,7 +162,8 @@ async function phase2(
   db: DB,
   rootId: number,
   fileByRelpath: Map<string, File>,
-  emit: ScanEmit
+  emit: ScanEmit,
+  isCurrent: ScanIsCurrent
 ): Promise<void> {
   const stubs = db
     .prepare('SELECT relpath FROM samples WHERE scan_state = 0 AND root_id = ?')
@@ -168,6 +179,7 @@ async function phase2(
 
   const drain = async (): Promise<void> => {
     while (cursor < stubs.length) {
+      if (!isCurrent()) return
       const { relpath } = stubs[cursor++]
       try {
         const file = fileByRelpath.get(relpath)
@@ -198,16 +210,20 @@ async function phase2(
 /**
  * Runs a full two-phase scan of the given root handle. Progress is reported
  * through `emit`; the caller owns terminal-state reporting ('done'/'error').
+ * `isCurrent` returns false when the scan has been cancelled, allowing the
+ * scan to abort at the next batch boundary instead of walking to completion.
  */
 export async function runScan(
   db: DB,
   rootKey: string,
   root: FileSystemDirectoryHandle,
-  emit: ScanEmit
+  emit: ScanEmit,
+  isCurrent: ScanIsCurrent
 ): Promise<void> {
   const rootId = ensureScanRoot(db, rootKey)
   const walked = await walkAudio(root)
   const fileByRelpath = new Map<string, File>()
-  await phase1(db, rootId, walked, fileByRelpath, emit)
-  await phase2(db, rootId, fileByRelpath, emit)
+  await phase1(db, rootId, walked, fileByRelpath, emit, isCurrent)
+  if (!isCurrent()) return
+  await phase2(db, rootId, fileByRelpath, emit, isCurrent)
 }

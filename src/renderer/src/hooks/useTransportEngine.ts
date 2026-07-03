@@ -23,6 +23,8 @@ import {
 import { type Transport, createTransport, TICKS_PER_BEAT } from '../engine/transport'
 import { Player } from '../engine/player'
 import { formatTimer } from '../lib/formatTimer'
+import { useSyncedRef } from './useSyncedRef'
+import { useUndoHistory } from './useUndoHistory'
 
 const DEFAULT_BPM = 120
 
@@ -44,6 +46,8 @@ export interface TransportEngineState {
   elapsedMs: number
   canUndo: boolean
   canRedo: boolean
+  /** Ref to the Player instance for hooks that need engine access (e.g. useMixer). */
+  playerRef: React.RefObject<Player | null>
 }
 
 export interface TransportEngineActions {
@@ -80,16 +84,15 @@ export function useTransportEngine(
 ): TransportEngine {
   const [view, setView] = useState<View>(initialView)
   const [elapsedMs, setElapsedMs] = useState(0)
-  const [lanes, setLanes] = useState<LaneState[]>(() => createDefaultLanes())
+  const lanesHistory = useUndoHistory<LaneState[]>(createDefaultLanes(), UNDO_HISTORY_LIMIT)
   const transportRef = useRef<Transport | null>(null)
   const playerRef = useRef<Player | null>(null)
-  const lanesRef = useRef<LaneState[]>(lanes)
-  const sampleFolderRef = useRef<FolderRef | null>(sampleFolder)
+  const sampleFolderRef = useSyncedRef(sampleFolder)
   const [transportState, setTransportState] = useState<Transport['state']>('stopped')
   const [currentTick, setCurrentTick] = useState(0)
   // Mirrors currentTick so transport callbacks can read the latest playhead
   // (driven by the audio clock) without re-subscribing.
-  const currentTickRef = useRef(0)
+  const currentTickRef = useSyncedRef(currentTick)
   const [bpm, setBpmState] = useState(DEFAULT_BPM)
   const [masterGain, setMasterGainState] = useState(0.8)
   const [masterLevelDb, setMasterLevelDb] = useState(-100)
@@ -136,11 +139,6 @@ export function useTransportEngine(
     }
   }, [view, transportState])
 
-  // Sync refs to state
-  useEffect(() => { lanesRef.current = lanes }, [lanes])
-  useEffect(() => { sampleFolderRef.current = sampleFolder }, [sampleFolder])
-  useEffect(() => { currentTickRef.current = currentTick }, [currentTick])
-
   // Transport + Player lifecycle — created when entering tracker, destroyed on
   // leaving.
   useEffect(() => {
@@ -154,7 +152,7 @@ export function useTransportEngine(
 
     const player = new Player({
       bpm: bpmRef.current,
-      getLanes: () => toEngineLanes(lanesRef.current),
+      getLanes: () => toEngineLanes(lanesHistory.currentRef.current),
       loadSampleBytes: (samplePath) => {
         const folder = sampleFolderRef.current
         if (!folder) return Promise.resolve(null)
@@ -181,124 +179,80 @@ export function useTransportEngine(
       setCurrentTick(0)
       setMasterLevelDb(-100)
     }
-  }, [view, backendAPI])
+  }, [view, backendAPI, sampleFolderRef, lanesHistory.currentRef])
 
-  // Undo/redo command stack for clip edits (place, move, duplicate, remove).
-  // Each entry is a full lanes snapshot; snapshots share unchanged lane objects
-  // so the cost per entry is small. Mixer state (mute/solo/pan) is deliberately
-  // not tracked — undo is scoped to arrangement edits.
-  const historyRef = useRef<{ past: LaneState[][]; future: LaneState[][] }>({
-    past: [],
-    future: []
-  })
-  // Bumped on every history mutation so canUndo/canRedo re-render. The stacks
-  // themselves stay in a ref because edits happen inside event handlers and
-  // must not re-run on StrictMode double-renders.
-  const [, setHistoryVersion] = useState(0)
-
-  // Applies a clip edit as one undoable step. Reads through lanesRef (kept in
-  // sync below) so batched edits in the same tick never see stale state, and
-  // never mutates inside a setState updater (StrictMode invokes those twice).
-  const applyClipEdit = useCallback((edit: (lanes: LaneState[]) => LaneState[]) => {
-    const current = lanesRef.current
-    const next = edit(current)
-    if (next === current) return
-    const history = historyRef.current
-    history.past.push(current)
-    if (history.past.length > UNDO_HISTORY_LIMIT) history.past.shift()
-    history.future = []
-    lanesRef.current = next
-    setLanes(next)
-    setHistoryVersion((v) => v + 1)
-  }, [])
-
-  const undo = useCallback(() => {
-    const history = historyRef.current
-    const previous = history.past.pop()
-    if (!previous) return
-    history.future.push(lanesRef.current)
-    lanesRef.current = previous
-    setLanes(previous)
-    setHistoryVersion((v) => v + 1)
-  }, [])
-
-  const redo = useCallback(() => {
-    const history = historyRef.current
-    const next = history.future.pop()
-    if (!next) return
-    history.past.push(lanesRef.current)
-    lanesRef.current = next
-    setLanes(next)
-    setHistoryVersion((v) => v + 1)
-  }, [])
+  // Undo/redo via useUndoHistory — clip edits (place, move, duplicate, remove)
+  // push through pushEdit; mute/solo/pan bypass undo via setCurrent.
+  const { pushEdit, undo, redo, setCurrent } = lanesHistory
 
   const placeSampleDetailOnLane = useCallback(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
       const clipTicks = sampleDurationTicks(detail.duration, bpmRef.current)
-      applyClipEdit((current) =>
+      pushEdit((current) =>
         placeClipOnLane(current, laneIndex, detail.relpath, detail.name, startTick, clipTicks, detail.duration, detail.color)
       )
     },
-    [applyClipEdit]
+    [pushEdit]
   )
 
   const handleToggleLaneMute = useCallback((laneIndex: number) => {
-    setLanes((current) => toggleLaneMute(current, laneIndex))
-  }, [])
+    setCurrent(toggleLaneMute(lanesHistory.currentRef.current, laneIndex))
+  }, [setCurrent, lanesHistory.currentRef])
 
   const handleToggleLaneSolo = useCallback((laneIndex: number) => {
-    setLanes((current) => toggleLaneSolo(current, laneIndex))
-  }, [])
+    setCurrent(toggleLaneSolo(lanesHistory.currentRef.current, laneIndex))
+  }, [setCurrent, lanesHistory.currentRef])
 
   const handleMoveClipOnLane = useCallback(
     (clipId: string, toLaneIndex: number, newStartTick: number) => {
-      applyClipEdit((current) => moveClipOnLane(current, clipId, toLaneIndex, newStartTick))
+      pushEdit((current) => moveClipOnLane(current, clipId, toLaneIndex, newStartTick))
     },
-    [applyClipEdit]
+    [pushEdit]
   )
 
   const handleDuplicateClipOnLane = useCallback(
     (clipId: string, toLaneIndex: number, newStartTick: number) => {
-      applyClipEdit((current) => duplicateClipOnLane(current, clipId, toLaneIndex, newStartTick))
+      pushEdit((current) => duplicateClipOnLane(current, clipId, toLaneIndex, newStartTick))
     },
-    [applyClipEdit]
+    [pushEdit]
   )
 
   const handleMoveClipGroup = useCallback(
     (moves: ClipGroupEntry[]) => {
-      applyClipEdit((current) => moveClipGroup(current, moves))
+      pushEdit((current) => moveClipGroup(current, moves))
     },
-    [applyClipEdit]
+    [pushEdit]
   )
 
   const handleDuplicateClipGroup = useCallback(
     (sources: ClipGroupEntry[]) => {
-      applyClipEdit((current) => duplicateClipGroup(current, sources))
+      pushEdit((current) => duplicateClipGroup(current, sources))
     },
-    [applyClipEdit]
+    [pushEdit]
   )
 
   const handleRemoveClipFromLane = useCallback(
     (laneIndex: number, clipId: string) => {
-      applyClipEdit((current) => removeClipFromLane(current, laneIndex, clipId))
+      pushEdit((current) => removeClipFromLane(current, laneIndex, clipId))
     },
-    [applyClipEdit]
+    [pushEdit]
   )
 
   const handleRemoveClips = useCallback(
     (clipIds: string[]) => {
-      applyClipEdit((current) => removeClips(current, clipIds))
+      pushEdit((current) => removeClips(current, clipIds))
     },
-    [applyClipEdit]
+    [pushEdit]
   )
 
   const handleSetLanePan = useCallback(
     (laneIndex: number, pan: number) => {
-      setLanes((current) => setLanePan(current, laneIndex, pan))
-      const player = playerRef.current
-      if (player) player.setChannelPan(laneIndex, pan)
+      setCurrent(setLanePan(lanesHistory.currentRef.current, laneIndex, pan))
+      // Update the per-lane persistent panner directly so live knob changes
+      // affect already-sounding voices without waiting for the next trigger.
+      playerRef.current?.setLanePan(laneIndex, pan)
     },
-    []
+    [setCurrent, lanesHistory.currentRef]
   )
 
   // Monophonic preview with transport-aware scheduling.
@@ -342,7 +296,7 @@ export function useTransportEngine(
     transport.play()
     void playerRef.current?.start(fromTick)
     setTransportState(transport.state)
-  }, [])
+  }, [currentTickRef])
 
   const transportPause = useCallback(() => {
     transportRef.current?.pause()
@@ -358,7 +312,7 @@ export function useTransportEngine(
     currentTickRef.current = 0
     elapsedBaseRef.current = 0
     setElapsedMs(0)
-  }, [])
+  }, [currentTickRef])
 
   const transportSkipBack = useCallback(() => {
     const transport = transportRef.current
@@ -374,7 +328,7 @@ export function useTransportEngine(
     }
     setCurrentTick(0)
     currentTickRef.current = 0
-  }, [])
+  }, [currentTickRef])
 
   const setBpm = useCallback((nextBpm: number) => {
     setBpmState(nextBpm)
@@ -390,6 +344,7 @@ export function useTransportEngine(
   }, [])
 
   const timerText = useMemo(() => formatTimer(elapsedMs), [elapsedMs])
+  const lanes = lanesHistory.current
   const anySoloed = useMemo(() => anyLaneSoloed(lanes), [lanes])
   const dimLane = useCallback(
     (lane: LaneState) => laneShouldDim(lane, anySoloed),
@@ -406,8 +361,9 @@ export function useTransportEngine(
     masterGain,
     masterLevelDb,
     elapsedMs,
-    canUndo: historyRef.current.past.length > 0,
-    canRedo: historyRef.current.future.length > 0,
+    canUndo: lanesHistory.canUndo,
+    canRedo: lanesHistory.canRedo,
+    playerRef,
     setView,
     placeSampleDetailOnLane,
     moveClipOnLane: handleMoveClipOnLane,

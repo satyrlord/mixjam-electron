@@ -24,6 +24,11 @@ const CLIP_HEIGHT = 32
 const CLIP_TOP = 6
 const CORNER_RADIUS = 6
 const ACCENT_FALLBACK = '#2D8C6F'
+const SELECTION_BORDER_COLOR = '#FFFFFF'
+const SELECTION_BORDER_WIDTH = 2
+const GHOST_MIN_WIDTH = 48
+const GHOST_BADGE_WIDTH = 22
+const GHOST_BADGE_HEIGHT = 14
 
 interface ClipHitRect {
   clip: LaneClip
@@ -31,13 +36,39 @@ interface ClipHitRect {
   width: number
 }
 
-function getComputedColor(token: string, fallback: string): string {
-  const val = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-  return val || fallback
+// Cache theme tokens and refresh when the active theme changes.
+const themeTokenCache = {
+  accent: ACCENT_FALLBACK,
+  clipSelect: SELECTION_BORDER_COLOR,
+  border: '#1A4D3E',
+  fontLabel: 'sans-serif',
+  _version: 0
+}
+
+/** Refresh cached theme tokens from computed styles. */
+export function refreshThemeTokens(): void {
+  const style = getComputedStyle(document.documentElement)
+  themeTokenCache.accent = style.getPropertyValue('--accent').trim() || ACCENT_FALLBACK
+  themeTokenCache.clipSelect = style.getPropertyValue('--clip-select').trim() || SELECTION_BORDER_COLOR
+  themeTokenCache.border = style.getPropertyValue('--border').trim() || '#1A4D3E'
+  themeTokenCache.fontLabel = style.getPropertyValue('--font-label').trim() || 'sans-serif'
+  themeTokenCache._version++
+}
+
+if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+  const observer = new MutationObserver(refreshThemeTokens)
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme-key', 'data-theme-ready', 'style']
+  })
 }
 
 function getComputedAccent(): string {
-  return getComputedColor('--accent', ACCENT_FALLBACK)
+  return themeTokenCache.accent
+}
+
+function getComputedSelectColor(): string {
+  return themeTokenCache.clipSelect
 }
 
 function roundRect(
@@ -60,12 +91,6 @@ function roundRect(
   ctx.arcTo(x, y, x + r, y, r)
   ctx.closePath()
 }
-
-const SELECTION_BORDER_COLOR = '#FFFFFF'
-const SELECTION_BORDER_WIDTH = 2
-const GHOST_MIN_WIDTH = 48
-const GHOST_BADGE_WIDTH = 22
-const GHOST_BADGE_HEIGHT = 14
 
 /** Draws one clip bubble (body, border, clipped label). Caller sets ctx.font
  *  and ctx.textBaseline so the lane canvas and the drag ghost stay in sync. */
@@ -130,10 +155,7 @@ function buildClipDragGhost(clip: LaneClip, width: number, count: number): HTMLC
   if (!ctx) return null
 
   ctx.scale(dpr, dpr)
-  const labelFont = getComputedStyle(document.documentElement)
-    .getPropertyValue('--font-label')
-    .trim()
-  ctx.font = `10px ${labelFont || 'sans-serif'}`
+  ctx.font = `10px ${themeTokenCache.fontLabel}`
   ctx.textBaseline = 'middle'
   drawClipBubble(ctx, clip, 0, 0, w, getComputedAccent())
 
@@ -164,7 +186,6 @@ function LaneClipCanvas({
   const hitRectsRef = useRef<ClipHitRect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Draw clips on the canvas
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     const container = containerRef.current
@@ -186,8 +207,7 @@ function LaneClipCanvas({
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
 
-    // --- Grid lines ---
-    const borderColor = getComputedColor('--border', '#1A4D3E')
+    const borderColor = themeTokenCache.border
     const pixelsPerTick = canvasWidth / totalTicks
 
     // Beat lines (more transparent)
@@ -216,15 +236,11 @@ function LaneClipCanvas({
       ctx.stroke()
     }
 
-    // --- Clips ---
     const hitRects: ClipHitRect[] = []
     const accent = getComputedAccent()
 
     // Match the DOM sample bubbles: theme label font, ink picked per clip color.
-    const labelFont = getComputedStyle(document.documentElement)
-      .getPropertyValue('--font-label')
-      .trim()
-    ctx.font = `10px ${labelFont || 'sans-serif'}`
+    ctx.font = `10px ${themeTokenCache.fontLabel}`
     ctx.textBaseline = 'middle'
 
     for (const clip of clips) {
@@ -235,13 +251,11 @@ function LaneClipCanvas({
       hitRects.push({ clip, x, width: w })
 
       if (selectedClipIds.has(clip.id)) {
-        // Stroked on the clip's own bounding box (inset by half the line
-        // width) so the selection highlight never grows the clip's visual
-        // footprint beyond its normal w x CLIP_HEIGHT bubble size.
+        // Keep selection stroke inside the bubble bounds.
         const inset = SELECTION_BORDER_WIDTH / 2
         ctx.globalAlpha = 0.8
         roundRect(ctx, x + inset, CLIP_TOP + inset, w - SELECTION_BORDER_WIDTH, CLIP_HEIGHT - SELECTION_BORDER_WIDTH, CORNER_RADIUS)
-        ctx.strokeStyle = SELECTION_BORDER_COLOR
+        ctx.strokeStyle = getComputedSelectColor()
         ctx.lineWidth = SELECTION_BORDER_WIDTH
         ctx.stroke()
         ctx.globalAlpha = 1.0
@@ -251,7 +265,6 @@ function LaneClipCanvas({
     hitRectsRef.current = hitRects
   }, [clips, totalTicks, flashSamplePath, selectedClipIds])
 
-  // Redraw on clips change or resize
   useEffect(() => {
     draw()
   }, [draw])
@@ -302,10 +315,7 @@ function LaneClipCanvas({
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
-    // Ctrl+click is used for rectangle selection at the TrackerView level
     if (e.ctrlKey) return
-    // Clear any payload left by an earlier mousedown that never became a drag,
-    // so dragging from empty lane space cannot pick up a stale clip id.
     const container = containerRef.current
     if (container) {
       delete container.dataset.dragClipId
@@ -313,8 +323,6 @@ function LaneClipCanvas({
     }
     const clip = hitTest(e.clientX)
     if (!clip) return
-    // Set up for potential drag — store the clip id for dragstart, plus where
-    // inside the clip the grab happened so the drag image stays under the cursor
     if (container) {
       container.dataset.dragClipId = clip.id
       const canvasRect = canvasRef.current?.getBoundingClientRect()
@@ -322,10 +330,7 @@ function LaneClipCanvas({
       const grabX = canvasRect && hr ? e.clientX - canvasRect.left - hr.x : 0
       container.dataset.dragGrabX = String(Math.max(0, grabX))
     }
-    // If this clip is already part of a multi-selection, stop the mousedown
-    // from bubbling to TrackerView's lanes-container handler, which would
-    // otherwise clear selectedClipIds before dragstart fires and silently
-    // downgrade the drag to a single clip instead of the whole group.
+    // Preserve multi-selection drag by preventing parent mousedown clear.
     if (selectedClipIds.has(clip.id)) {
       e.stopPropagation()
     }
@@ -339,8 +344,6 @@ function LaneClipCanvas({
       return
     }
 
-    // Replace the default drag image (a snapshot of the whole lane canvas,
-    // which misleadingly ghosts every clip in the lane) with just this clip.
     const hr = hitRectsRef.current.find((h) => h.clip.id === clipId)
     if (hr && e.dataTransfer && typeof e.dataTransfer.setDragImage === 'function') {
       const count = selectedClipIds.size > 1 && selectedClipIds.has(clipId)
@@ -352,8 +355,6 @@ function LaneClipCanvas({
         const ghostWidth = Math.max(hr.width, GHOST_MIN_WIDTH)
         const grabX = Math.min(Number(container!.dataset.dragGrabX ?? '0'), ghostWidth)
         e.dataTransfer.setDragImage(ghost, grabX, CLIP_HEIGHT / 2)
-        // The browser snapshots the image synchronously during dragstart, so
-        // the helper element can be removed right after this handler returns.
         window.setTimeout(() => ghost.remove(), 0)
       }
     }

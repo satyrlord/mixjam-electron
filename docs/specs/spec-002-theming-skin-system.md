@@ -47,6 +47,12 @@ elements consistently.
 | `--pill-bg` | Pill/control background | Buttons, chips, dropdowns |
 | `--pill-border` | Pill/control border | Button borders, chip borders |
 | `--playhead` | Playhead line color | Playhead vertical bar |
+| `--clip-text` | Clip label text color | Clip bubble text |
+| `--clip-select` | Selection highlight color | Selected clip border |
+| `--clip-missing` | Missing-sample indicator | Clips referencing absent files |
+| `--meter-green` | Meter safe zone | Channel dB meter (-60 to -12 dB) |
+| `--meter-yellow` | Meter caution zone | Channel dB meter (-12 to -3 dB) |
+| `--meter-red` | Meter danger zone | Channel dB meter (-3 to 0 dB) |
 | `--radius` | Border radius | Clips, buttons, panels |
 
 ### Typography Tokens
@@ -143,12 +149,36 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
   "colors": {
     "accent": "#00674F",
     "accent-dark": "#004434",
-    ...
+    "highlight": "#8FBCB2",
+    "bg-base": "#081715",
+    "bg-panel": "#051411",
+    "bg-lane": "#091613",
+    "bg-grid": "#020C0A",
+    "chrome": "#0F2722",
+    "border": "#1A4D3E",
+    "header-border": "#1D5C4A",
+    "text": "#E8F0EC",
+    "text-muted": "#B8D0C8",
+    "pill-bg": "#0C2D32",
+    "pill-border": "#2D6B5E",
+    "playhead": "#E74C3C",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFE066",
+    "clip-missing": "#FF6D6D",
+    "meter-green": "#4CAF50",
+    "meter-yellow": "#FFC107",
+    "meter-red": "#F44336"
   },
   "fonts": {
     "chrome": "Josefin Sans",
     "label": "Ubuntu",
     "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, ...)",
+    "gradient-ruler": "linear-gradient(180deg, ...)",
+    "gradient-lane": "linear-gradient(180deg, ...)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
   },
   "radius": "0.22rem"
 }
@@ -160,8 +190,8 @@ values (no placeholder copies).
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
-- [x] **AC-002:** The Emerald theme uses the exact token values listed in the table above (all 16 color tokens + `--radius`).
-- [x] **AC-003:** The three bundled fonts (Josefin Sans, Ubuntu, JetBrains Mono) are loaded from local files — no external network requests for fonts.
+- [x] **AC-002:** The Emerald theme uses the exact token values listed in the table above (all 22 color tokens + `--radius`).
+- [x] **AC-003:** The four bundled fonts (Josefin Sans, Ubuntu, JetBrains Mono, Special Elite) are loaded from local files — no external network requests for fonts.
 - [x] **AC-004:** The theme selector dropdown in the tracker header lists all 8 theme names in order: Emerald, Flat Studio, Neon Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA.
 - [x] **AC-005:** Default selection in the theme selector is "Emerald".
 - [x] **AC-006:** Selecting any theme from the dropdown immediately applies that theme across the entire UI.

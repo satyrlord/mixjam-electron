@@ -41,6 +41,15 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
   const progressListeners = new Set<(progress: ScanProgress) => void>()
   const doneListeners = new Set<() => void>()
 
+  // Cache the app version for the session lifetime so saveSession does not
+  // round-trip to IPC on every folder pick.
+  let cachedVersion: string | null = null
+  async function getVersionCached(): Promise<string> {
+    if (cachedVersion !== null) return cachedVersion
+    cachedVersion = shell ? await shell.getVersion() : appVersion()
+    return cachedVersion
+  }
+
   worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     const message = event.data
     if (message.type === 'response') {
@@ -84,7 +93,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
   }
 
   return {
-    getVersion: () => (shell ? shell.getVersion() : Promise.resolve(appVersion())),
+    getVersion: () => getVersionCached(),
     resizeToTracker: () => shell?.resizeToTracker() ?? Promise.resolve(),
     resizeToHome: () => shell?.resizeToHome() ?? Promise.resolve(),
     openExternal: (url) => {
@@ -97,7 +106,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     saveSession: async (paths: SessionPaths) => {
       saveSession(paths)
       try {
-        await writeSessionConfig(paths, await (shell ? shell.getVersion() : appVersion()))
+        await writeSessionConfig(paths, await getVersionCached())
       } catch (error) {
         console.error('Failed to write mixjam.json:', error)
       }
@@ -116,6 +125,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
       requestStoragePersistence()
       await call('startScan', sampleFolder.id)
     },
+    cancelScan: () => call('cancelScan'),
     getScanProgress: () => call('getScanProgress'),
     querySamples: (req) => call('querySamples', req),
     listTags: () => call('listTags'),

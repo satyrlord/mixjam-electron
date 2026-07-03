@@ -116,7 +116,7 @@ describe('spec-005 audio playback engine', () => {
       const clock = mockClock()
       const audioTime = 0
       const lanes: EngineLane[] = [
-        { index: 0, muted: false, solo: false, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 16, samplePath: 'kick.wav' }] }
+        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 16, samplePath: 'kick.wav' }] }
       ]
       const loadSampleBytes = vi.fn(async () => new ArrayBuffer(16))
 
@@ -150,6 +150,7 @@ describe('spec-005 audio playback engine', () => {
           index: 0,
           muted: false,
           solo: false,
+          pan: 0,
           channelIndex: 0,
           clips: [
             { startTick: 0, durationTicks: 8, samplePath: 's.wav' },
@@ -181,7 +182,7 @@ describe('spec-005 audio playback engine', () => {
     it('stop() halts all voices and resets', async () => {
       const context = createMockContext()
       const lanes: EngineLane[] = [
-        { index: 0, muted: false, solo: false, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 's.wav' }] }
+        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 's.wav' }] }
       ]
       const player = new Player({
         createContext: () => context as unknown as AudioContext,
@@ -206,7 +207,7 @@ describe('spec-005 audio playback engine', () => {
         throw new Error('corrupt')
       })
       const lanes: EngineLane[] = [
-        { index: 0, muted: false, solo: false, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'bad.wav' }] }
+        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'bad.wav' }] }
       ]
       const player = new Player({
         createContext: () => context as unknown as AudioContext,

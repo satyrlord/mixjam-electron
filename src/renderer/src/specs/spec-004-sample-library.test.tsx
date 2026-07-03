@@ -4,6 +4,7 @@ import TrackerView from '../components/TrackerView'
 import type {
   TrackerArrangementProps,
   TrackerBrowserProps,
+  TrackerMixerProps,
   TrackerTransportProps
 } from '../components/trackerProps'
 import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
@@ -69,6 +70,7 @@ const DEFAULT_BROWSER: TrackerBrowserProps = {
   onToggleTagFilter: noop,
   onSortChange: noop,
   onStartScan: asyncNoop,
+  onCancelScan: asyncNoop,
   onCreateTag: asyncNoop as never,
   onRenameTag: asyncNoop as never,
   onDeleteTag: asyncNoop as never,
@@ -114,6 +116,17 @@ const DEFAULT_TRANSPORT: TrackerTransportProps = {
   onTransportSkipBack: noop
 }
 
+const DEFAULT_MIXER: TrackerMixerProps = {
+  channels: [],
+  channelLevels: new Map(),
+  channelPeaks: new Map(),
+  onSetChannelGain: noop,
+  onSetChannelPan: noop,
+  onToggleChannelMute: noop,
+  onToggleChannelSolo: noop,
+  onRemoveChannel: noop
+}
+
 function renderTracker(browserOverrides: Partial<TrackerBrowserProps> = {}) {
   return render(
     <TrackerView
@@ -121,6 +134,7 @@ function renderTracker(browserOverrides: Partial<TrackerBrowserProps> = {}) {
       browser={{ ...DEFAULT_BROWSER, ...browserOverrides }}
       arrangement={DEFAULT_ARRANGEMENT}
       transport={DEFAULT_TRANSPORT}
+      mixer={DEFAULT_MIXER}
     />
   )
 }

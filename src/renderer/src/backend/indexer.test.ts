@@ -110,11 +110,63 @@ afterEach(() => {
 
 async function scan(tree: FakeTree): Promise<ScanProgress[]> {
   const events: ScanProgress[] = []
-  await runScan(db, ROOT_KEY, fakeDirHandle('Samples', tree), (p) => events.push(p))
+  await runScan(db, ROOT_KEY, fakeDirHandle('Samples', tree), (p) => events.push(p), () => true)
   return events
 }
 
 describe('runScan', () => {
+  it('aborts phase 1 when isCurrent returns false mid-batch', async () => {
+    let emitCount = 0
+    await runScan(
+      db,
+      ROOT_KEY,
+      fakeDirHandle('Samples', {
+        Drums: { 'a.wav': makeWav(0.05), 'b.wav': makeWav(0.05) },
+        Bass: { 'c.wav': makeWav(0.05) }
+      }),
+      () => { emitCount++ },
+      // Cancel after the first progress emission (mid-phase-1)
+      () => emitCount < 1
+    )
+
+    // The scan was cut short — fewer rows than a full scan would produce
+    const { total } = querySamples(db, { rootId: ROOT_KEY })
+    expect(total).toBeLessThanOrEqual(3)
+  })
+
+  it('aborts between phases when isCurrent returns false after phase 1', async () => {
+    const events: ScanProgress[] = []
+    await runScan(
+      db,
+      ROOT_KEY,
+      fakeDirHandle('Samples', { 'kick.wav': makeWav(0.05) }),
+      (p) => events.push(p),
+      // Cancel after phase 1 completes (phase === 1 emitted) but before phase 2
+      () => !events.some((e) => e.phase === 1 && e.processed === e.total)
+    )
+
+    // Phase 1 inserted the stub, but phase 2 never ran (scan_state stays 0)
+    const { rows } = querySamples(db, { rootId: ROOT_KEY })
+    expect(rows).toHaveLength(1)
+    expect(rows[0].scanState).toBe(0)
+  })
+
+  it('handles corrupted files gracefully in phase 2 (parseBlob catch)', async () => {
+    // A .wav extension but invalid binary content triggers the catch in phase 2
+    const corruptedWav = new File([new ArrayBuffer(10)], 'broken.wav', {
+      type: 'audio/wav',
+      lastModified: 1000
+    })
+    await scan({ 'broken.wav': corruptedWav })
+
+    // Phase 2 should complete without throwing; the sample remains as a stub
+    // with scan_state = 0 (metadata extraction failed silently)
+    const { rows } = querySamples(db, { rootId: ROOT_KEY })
+    expect(rows).toHaveLength(1)
+    // Duration stays null when parse fails
+    expect(rows[0].duration).toBeNull()
+  })
+
   it('indexes audio files with root-relative paths and skips other files', async () => {
     await scan({
       'kick.wav': makeWav(0.05),
@@ -189,7 +241,8 @@ describe('runScan', () => {
         ['bad.wav', unreadableFileHandle('bad.wav')],
         ['good.wav', fakeFileHandle('good.wav', makeWav(0.05))]
       ]),
-      (progress) => events.push(progress)
+      (progress) => events.push(progress),
+      () => true
     )
 
     const { rows, total } = querySamples(db, { rootId: ROOT_KEY })

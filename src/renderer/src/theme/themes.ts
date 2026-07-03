@@ -1,3 +1,5 @@
+import { bubbleTextColor } from '../lib/sample-utils'
+import { refreshThemeTokens } from '../components/LaneClipCanvas'
 import emeraldThemeJson from '../../../../public/themes/emerald.json'
 import studioThemeJson from '../../../../public/themes/studio.json'
 import raveThemeJson from '../../../../public/themes/rave.json'
@@ -44,6 +46,12 @@ export interface ThemeColors {
   'clip-text': string
   'clip-select': string
   'clip-missing': string
+  /** Meter zone: green (safe, -60 to -12 dB). */
+  'meter-green': string
+  /** Meter zone: yellow (warning, -12 to -3 dB). */
+  'meter-yellow': string
+  /** Meter zone: red (clipping, -3 to 0 dB). */
+  'meter-red': string
 }
 
 export interface ThemeFonts {
@@ -78,14 +86,39 @@ export interface Theme {
 }
 
 /** Canonical, fully-implemented baseline theme (spec-002 US-001). */
-export const emeraldTheme = emeraldThemeJson as Theme
-export const studioTheme = studioThemeJson as Theme
-const raveTheme = raveThemeJson as Theme
-const analogTheme = analogThemeJson as Theme
-const ideTheme = ideThemeJson as Theme
-const rustTheme = rustThemeJson as Theme
-const screenTheme = screenThemeJson as Theme
-const paTheme = paThemeJson as Theme
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isTheme(value: unknown): value is Theme {
+  if (!isRecord(value)) return false
+  if (typeof value.name !== 'string' || typeof value.key !== 'string') return false
+  if (!isRecord(value.colors) || !isRecord(value.fonts) || !isRecord(value.depth)) return false
+  if (typeof value.radius !== 'string') return false
+  // Check a few canonical color keys exist and are strings.
+  const { colors } = value
+  return (
+    typeof colors.accent === 'string' &&
+    typeof colors['bg-base'] === 'string' &&
+    typeof colors.text === 'string'
+  )
+}
+
+function validateTheme(json: unknown, label: string): Theme {
+  if (isTheme(json)) return json
+  console.warn(`Theme "${label}" failed validation — falling back to Emerald.`)
+  return emeraldThemeJson as Theme
+}
+
+export const emeraldTheme = validateTheme(emeraldThemeJson, 'emerald')
+export const studioTheme = validateTheme(studioThemeJson, 'studio')
+const raveTheme = validateTheme(raveThemeJson, 'rave')
+const analogTheme = validateTheme(analogThemeJson, 'analog')
+const ideTheme = validateTheme(ideThemeJson, 'ide')
+const rustTheme = validateTheme(rustThemeJson, 'rust')
+const screenTheme = validateTheme(screenThemeJson, 'screen')
+const paTheme = validateTheme(paThemeJson, 'pa')
 
 const DEFAULT_THEME_KEY: ThemeKey = 'emerald'
 
@@ -132,6 +165,12 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   for (const [token, value] of Object.entries(theme.depth)) {
     root.style.setProperty(`--${token}`, value)
   }
+  // Derived, not authored: the WCAG-correct ink for text/icons drawn directly
+  // on a solid --accent/--highlight fill (buttons, active mute/solo, hovered
+  // menu items). Reuses the same luminance-based picker as sample bubbles so
+  // "text on a color swatch" resolves identically everywhere in the app.
+  root.style.setProperty('--on-accent', bubbleTextColor(theme.colors.accent))
+  root.style.setProperty('--on-highlight', bubbleTextColor(theme.colors.highlight))
   root.style.setProperty('--radius', theme.radius)
   root.style.setProperty('--font-chrome', fontStack(theme.fonts.chrome, 'system-ui, sans-serif'))
   root.style.setProperty('--font-label', fontStack(theme.fonts.label, 'system-ui, sans-serif'))
@@ -148,5 +187,7 @@ export function selectTheme(themeKey: string, root: HTMLElement = document.docum
 export function bootstrapTheme(root: HTMLElement = document.documentElement): Theme {
   selectTheme(DEFAULT_THEME_KEY, root)
   root.setAttribute('data-theme-ready', 'true')
+  // Refresh the canvas theme-token cache now that tokens are applied.
+  refreshThemeTokens()
   return emeraldTheme
 }

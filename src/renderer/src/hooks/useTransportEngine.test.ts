@@ -14,7 +14,7 @@ describe('useTransportEngine', () => {
     vi.useRealTimers()
   })
 
-  it('setLanePan updates lane pan and calls player.setChannelPan', async () => {
+  it('setLanePan updates lane pan without affecting channel pan (independent, spec-007)', async () => {
     vi.useRealTimers()
     const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
@@ -71,7 +71,7 @@ describe('useTransportEngine', () => {
     })
   })
 
-  it('setLanePan updates lane state but skips player.setChannelPan when player is null (view=home)', async () => {
+  it('setLanePan updates lane state when player is null (view=home)', async () => {
     vi.useRealTimers()
     const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'home'))

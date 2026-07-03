@@ -20,8 +20,15 @@ test.describe('Electron smoke', () => {
       return
     }
 
+    // ELECTRON_RUN_AS_NODE makes the Electron binary run as plain Node, so
+    // the app never opens a window and launch fails. Strip it in case it is
+    // set user-wide on the machine running the tests.
+    const env = { ...process.env } as Record<string, string>
+    delete env.ELECTRON_RUN_AS_NODE
+
     const electronApp = await electron.launch({
-      args: process.env['CI'] ? [MAIN_ENTRY, '--no-sandbox'] : [MAIN_ENTRY]
+      args: process.env['CI'] ? [MAIN_ENTRY, '--no-sandbox'] : [MAIN_ENTRY],
+      env
     })
 
     try {

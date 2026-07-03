@@ -5,6 +5,7 @@ function lane(partial: Partial<EngineLane> & { index: number }): EngineLane {
   return {
     muted: false,
     solo: false,
+    pan: 0,
     channelIndex: partial.index,
     clips: [],
     ...partial

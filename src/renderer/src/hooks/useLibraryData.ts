@@ -11,6 +11,10 @@ import type {
   TagItem
 } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/playerShell'
+import { useSyncedRef } from './useSyncedRef'
+import { useSampleTags } from './useSampleTags'
+import { useSampleCategories } from './useSampleCategories'
+import { useSampleLibraries } from './useSampleLibraries'
 
 export type SampleSortColumn = 'filename' | 'duration' | 'dateAdded'
 export type SampleSortDirection = 'asc' | 'desc'
@@ -48,6 +52,7 @@ export interface LibraryDataActions {
   setSortBy: React.Dispatch<React.SetStateAction<SampleSortColumn>>
   setSortDir: React.Dispatch<React.SetStateAction<SampleSortDirection>>
   startLibraryScan: () => Promise<void>
+  cancelLibraryScan: () => Promise<void>
   /** Fetches the next windowed page of the current query (DB pipeline only). */
   loadMoreSamples: () => void
   createTag: (name: string, color?: string) => Promise<TagItem>
@@ -82,39 +87,6 @@ function dbSampleToListItem(
     categoryId: s.categoryId,
     tagIds: s.tagIds
   }
-}
-
-// Shape of the rule_json written by saveLibrary below. Parsed defensively when
-// a library is applied — a malformed blob restores nothing rather than crashing.
-interface RuleNode {
-  kind?: unknown
-  query?: unknown
-  categoryIds?: unknown
-  tagIds?: unknown
-}
-
-function parseLibraryRule(ruleJson: string): {
-  textSearch: string
-  categoryId: number | undefined
-  tagIds: number[]
-} {
-  const result = { textSearch: '', categoryId: undefined as number | undefined, tagIds: [] as number[] }
-  try {
-    const parsed = JSON.parse(ruleJson) as { root?: { children?: RuleNode[] } }
-    for (const child of parsed.root?.children ?? []) {
-      if (child.kind === 'text' && typeof child.query === 'string') {
-        result.textSearch = child.query
-      } else if (child.kind === 'category' && Array.isArray(child.categoryIds)) {
-        const first = child.categoryIds[0]
-        if (typeof first === 'number') result.categoryId = first
-      } else if (child.kind === 'tag' && Array.isArray(child.tagIds)) {
-        result.tagIds = child.tagIds.filter((id): id is number => typeof id === 'number')
-      }
-    }
-  } catch {
-    return result
-  }
-  return result
 }
 
 const DB_SAMPLE_PAGE_SIZE = 500
@@ -154,8 +126,7 @@ export function useLibraryData(
     () => new Map(categories.map((c) => [c.id, c.name])),
     [categories]
   )
-  const categoryNamesRef = useRef(categoryNames)
-  useEffect(() => { categoryNamesRef.current = categoryNames }, [categoryNames])
+  const categoryNamesRef = useSyncedRef(categoryNames)
 
   // Items loaded before the category list arrived resolved their category name
   // against an empty map; re-map in place when categories change rather than
@@ -257,7 +228,7 @@ export function useLibraryData(
     } finally {
       if (seq === querySeqRef.current) setLoading(false)
     }
-  }, [backendAPI, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort])
+  }, [backendAPI, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort, categoryNamesRef])
 
   const loadMoreSamples = useCallback(() => {
     if (!dbIndexed || !sampleFolder || loadingMoreRef.current) return
@@ -291,7 +262,7 @@ export function useLibraryData(
       .finally(() => {
         loadingMoreRef.current = false
       })
-  }, [backendAPI, dbIndexed, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort])
+  }, [backendAPI, dbIndexed, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort, categoryNamesRef])
 
   // Debounced query: one effect covers search, filter, and sort changes.
   // Before the active folder's first scan completes there is nothing to query;
@@ -369,60 +340,8 @@ export function useLibraryData(
     setScanProgress({ status: 'scanning', phase: 1, found: 0, processed: 0, total: 0 })
   }, [backendAPI, sampleFolder])
 
-  // Mirror of the tags list for callbacks that need the latest names without
-  // re-subscribing (rename/assign/unassign patch denormalized names).
-  const tagsRef = useRef(tags)
-  useEffect(() => { tagsRef.current = tags }, [tags])
-
-  const createTag = useCallback(async (name: string, color?: string) => {
-    const tag = await backendAPI.createTag(name, color)
-    setTags((prev) =>
-      (prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]).sort((a, b) =>
-        a.name.localeCompare(b.name)
-      )
-    )
-    return tag
-  }, [backendAPI])
-
-  const renameTag = useCallback(async (id: number, name: string) => {
-    await backendAPI.renameTag(id, name)
-    setTags((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, name } : t)).sort((a, b) => a.name.localeCompare(b.name))
-    )
-    // Per-sample tag names are denormalized into the list items; rewrite them
-    // from the post-rename id -> name mapping (AC-008: rename reflects on all
-    // assigned samples).
-    const renamed = new Map(tagsRef.current.map((t) => [t.id, t.id === id ? name : t.name]))
-    setSamples((prev) =>
-      prev.map((s) =>
-        s.tagIds.includes(id)
-          ? {
-              ...s,
-              tags: s.tagIds
-                .map((tid) => renamed.get(tid))
-                .filter((n): n is string => n !== undefined)
-                .sort((a, b) => a.localeCompare(b))
-            }
-          : s
-      )
-    )
-  }, [backendAPI])
-
-  const deleteTag = useCallback(async (id: number) => {
-    await backendAPI.deleteTag(id)
-    setTags((prev) => prev.filter((t) => t.id !== id))
-    setSelectedTagIds((prev) => prev.filter((tid) => tid !== id))
-    setSamples((prev) =>
-      prev.map((s) => {
-        const idx = s.tagIds.indexOf(id)
-        if (idx === -1) return s
-        return {
-          ...s,
-          tagIds: s.tagIds.filter((tid) => tid !== id),
-          tags: s.tags.filter((_, i) => i !== idx)
-        }
-      })
-    )
+  const cancelLibraryScan = useCallback(async () => {
+    await backendAPI.cancelScan()
   }, [backendAPI])
 
   // Updates one loaded list item's denormalized tag fields after an
@@ -433,73 +352,29 @@ export function useLibraryData(
     )
   }, [])
 
-  const assignTagToSample = useCallback(async (sample: SampleListItem, tagId: number) => {
-    if (sample.tagIds.includes(tagId)) return
-    await backendAPI.assignTag(sample.dbId, tagId)
-    const nextIds = [...sample.tagIds, tagId].sort((a, b) => a - b)
-    const nextNames = nextIds
-      .map((id) => tagsRef.current.find((t) => t.id === id)?.name)
-      .filter((name): name is string => name !== undefined)
-      .sort((a, b) => a.localeCompare(b))
-    patchSampleTags(sample.relpath, nextIds, nextNames)
-  }, [backendAPI, patchSampleTags])
+  const patchAllSamples = useCallback(
+    (updater: (prev: SampleListItem[]) => SampleListItem[]) => setSamples(updater),
+    []
+  )
 
-  const unassignTagFromSample = useCallback(async (sample: SampleListItem, tagId: number) => {
-    if (!sample.tagIds.includes(tagId)) return
-    await backendAPI.unassignTag(sample.dbId, tagId)
-    const nextIds = sample.tagIds.filter((id) => id !== tagId)
-    const nextNames = nextIds
-      .map((id) => tagsRef.current.find((t) => t.id === id)?.name)
-      .filter((name): name is string => name !== undefined)
-      .sort((a, b) => a.localeCompare(b))
-    patchSampleTags(sample.relpath, nextIds, nextNames)
-  }, [backendAPI, patchSampleTags])
+  // --- Composed sub-hooks ---
 
-  const createCategory = useCallback(async (name: string, parentId?: number) => {
-    const cat = await backendAPI.createCategory(name, parentId)
-    setCategories((prev) => (prev.some((c) => c.id === cat.id) ? prev : [...prev, cat]))
-    return cat
-  }, [backendAPI])
+  const tagActions = useSampleTags(
+    backendAPI, tags, setTags, setSelectedTagIds,
+    patchSampleTags, patchAllSamples
+  )
 
-  const deleteCategory = useCallback(async (id: number) => {
-    await backendAPI.deleteCategory(id)
-    setCategories((prev) => prev.filter((c) => c.id !== id))
-    if (selectedCategoryId === id) setSelectedCategoryId(undefined)
-  }, [backendAPI, selectedCategoryId])
+  const categoryActions = useSampleCategories(
+    backendAPI, setCategories, selectedCategoryId, setSelectedCategoryId
+  )
 
-  const saveLibrary = useCallback(async (name: string) => {
-    const ruleJson = JSON.stringify({
-      version: 1,
-      root: {
-        kind: 'group',
-        op: 'and',
-        children: [
-          ...(searchQuery ? [{ kind: 'text', query: searchQuery }] : []),
-          ...(selectedCategoryId !== undefined
-            ? [{ kind: 'category', quantifier: 'any' as const, categoryIds: [selectedCategoryId], includeDescendants: true }]
-            : []),
-          ...(selectedTagIds.length > 0
-            ? [{ kind: 'tag', quantifier: 'any' as const, tagIds: selectedTagIds }]
-            : [])
-        ]
-      }
-    })
-    const lib = await backendAPI.saveLibrary(name, ruleJson)
-    setLibraries((prev) => [...prev, lib].sort((a, b) => a.name.localeCompare(b.name)))
-    return lib
-  }, [backendAPI, searchQuery, selectedCategoryId, selectedTagIds])
+  const libraryActions = useSampleLibraries(
+    backendAPI, setLibraries,
+    searchQuery, selectedCategoryId, selectedTagIds,
+    setSearchQuery, setSelectedCategoryId, setSelectedTagIds
+  )
 
-  const deleteLibrary = useCallback(async (id: number) => {
-    await backendAPI.deleteLibrary(id)
-    setLibraries((prev) => prev.filter((l) => l.id !== id))
-  }, [backendAPI])
-
-  const applyLibrary = useCallback((library: LibraryItem) => {
-    const rule = parseLibraryRule(library.ruleJson)
-    setSearchQuery(rule.textSearch)
-    setSelectedCategoryId(rule.categoryId)
-    setSelectedTagIds(rule.tagIds)
-  }, [])
+  // ---
 
   const handleSortChange = useCallback((col: SampleSortColumn) => {
     setSort((prev) =>
@@ -551,17 +426,18 @@ export function useLibraryData(
     setSortBy,
     setSortDir,
     startLibraryScan,
+    cancelLibraryScan,
     loadMoreSamples,
-    createTag,
-    renameTag,
-    deleteTag,
-    assignTagToSample,
-    unassignTagFromSample,
-    createCategory,
-    deleteCategory,
-    saveLibrary,
-    deleteLibrary,
-    applyLibrary,
+    createTag: tagActions.createTag,
+    renameTag: tagActions.renameTag,
+    deleteTag: tagActions.deleteTag,
+    assignTagToSample: tagActions.assignTagToSample,
+    unassignTagFromSample: tagActions.unassignTagFromSample,
+    createCategory: categoryActions.createCategory,
+    deleteCategory: categoryActions.deleteCategory,
+    saveLibrary: libraryActions.saveLibrary,
+    deleteLibrary: libraryActions.deleteLibrary,
+    applyLibrary: libraryActions.applyLibrary,
     reloadRecentProjects,
     handleSortChange
   }

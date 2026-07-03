@@ -1,6 +1,8 @@
 import type { SampleListItem } from '../../../shared/backend-api'
 import { type EngineLane } from '../engine/lane-evaluation'
 import { tickDurationSeconds } from '../engine/transport'
+import { clamp } from './sample-utils'
+
 
 /** Detail passed around the UI after a user selects or drags a sample. All
  *  paths are relpaths within the active Sample Folder's scan root. */
@@ -43,9 +45,8 @@ export interface LaneState {
 // never collide on id, which would make delete/select-by-id affect both.
 let clipIdSequence = 0
 
-export function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
+// Re-export so existing consumers (TrackerView) keep working.
+export { clamp } from './sample-utils'
 
 /** Pixel-space rect for a clip's bubble, shared by canvas drawing and
  *  rectangle-selection hit-testing so the two never drift apart. */
@@ -74,6 +75,7 @@ export function toEngineLanes(lanes: readonly LaneState[]): EngineLane[] {
     index: lane.index,
     muted: lane.muted,
     solo: lane.solo,
+    pan: lane.pan,
     channelIndex: lane.index,
     clips: lane.clips.map((clip) => ({
       startTick: clip.startTick,
@@ -188,22 +190,26 @@ export function moveClipOnLane(
   const found = findClipById(lanes, clipId)
   if (!found) return lanes
 
-  const withoutSource = lanes.map((lane) =>
-    lane.index === found.laneIndex
-      ? { ...lane, clips: lane.clips.filter((c) => c.id !== clipId) }
-      : lane
-  )
+  // Preserve clip identity (same id) so undo/redo and multi-select tracking
+  // stay consistent. Remove from the source lane, place on the target lane
+  // with the original id intact.
+  const movedClip: LaneClip = { ...found.clip, startTick: newStartTick }
 
-  return placeClipOnLane(
-    withoutSource,
-    toLaneIndex,
-    found.clip.samplePath,
-    found.clip.sampleName,
-    newStartTick,
-    found.clip.durationTicks,
-    found.clip.durationSeconds,
-    found.clip.color
-  )
+  return lanes.map((lane) => {
+    if (lane.index === found.laneIndex && lane.index === toLaneIndex) {
+      // Same lane: replace in place.
+      return { ...lane, clips: sortClips(lane.clips.map((c) => (c.id === clipId ? movedClip : c))) }
+    }
+    if (lane.index === found.laneIndex) {
+      // Source lane: remove.
+      return { ...lane, clips: lane.clips.filter((c) => c.id !== clipId) }
+    }
+    if (lane.index === toLaneIndex) {
+      // Target lane: insert.
+      return { ...lane, clips: sortClips([...lane.clips, movedClip]) }
+    }
+    return lane
+  })
 }
 
 export function duplicateClipOnLane(

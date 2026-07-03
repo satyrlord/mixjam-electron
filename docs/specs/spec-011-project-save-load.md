@@ -98,12 +98,11 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - The app persists a recent-project registry separate from the project files
   themselves.
 - Each entry stores at minimum:
-  - canonical project file path
+  - project file path relative to the User Folder ('/'-separated)
   - display name derived from the filename
   - last-opened timestamp
-- Canonicalization preserves native path case on POSIX filesystems and only
-  lowercases drive-based Windows paths, so stored entries still point at real
-  files on case-sensitive systems.
+- Deduplication uses the relative path as the canonical key (no absolute
+  filesystem paths are stored, consistent with the web-first data model).
 - Successfully opening a `.mixjam` file updates or inserts its registry entry.
 - Successfully saving a new project path updates or inserts its registry entry.
 - The Recent Projects rail (spec-006) merges this registry with `.mixjam`

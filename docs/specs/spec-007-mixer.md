@@ -44,14 +44,19 @@ container during drag (no React re-renders until mouseup). The mixer column is
 `overflow: hidden` — users reveal more strips by widening the column, not by
 scrolling.
 
+When the upper Recent Projects rail is collapsed, it collapses horizontally to
+a narrow tab and the tracker region expands across the full top row. This
+preserves full Song Controls + Mixer width in the lower-left rail while
+maximizing tracker editing surface above.
+
 ### Channel Strip (per channel)
 
 Each channel strip is 40px wide and a vertical stack:
 
 - **Channel label** — channel number, 9px muted text.
-- **Remove button (×)** — hover-revealed at top-right of strip. Removes the
-  channel immediately (no confirmation). Channels above shift down to fill the
-  gap (index compaction).
+- **Remove button (x)** — hover-revealed at top-right of strip. Removes the
+  channel immediately (no confirmation). Strips above shift down visually to
+  fill the gap (display labels renumber).
 - **VOL slider** — vertical range input, 0–100% (maps to 0–1 gain).
 - **dB meter** — CSS-rendered vertical bar overlaid on the VOL slider
   background. Fill height set via style prop as a percentage mapped from dB.
@@ -73,7 +78,9 @@ No stereo width control — deferred until DSP is implemented (spec-010).
 - Channel count is **capped at 16** for spec 007. Adding channels beyond 16 is
   deferred to spec-017 (no routing UI exists to assign lanes to new channels).
 - The user can remove channels. Removing channel N unmaps lane N. Remaining
-  channels and lanes compact indices: channel N+1 becomes channel N, etc.
+  channel strips shift down visually to fill the gap and display labels
+  renumber (the strip formerly labeled N+1 becomes N). Internal engine routing
+  indices remain stable so the audio graph is not rebuilt on removal.
 - **Orphan lane routing:** When a channel is removed and a lane becomes
   unrouted, that lane's audio is routed to a **master bypass bus** — a direct
   path to the master output that skips the mixer channel strip entirely. The
@@ -184,9 +191,10 @@ Swapping to `var(--left-col-w, 168px)` is safe — custom properties are valid i
 track lists. The `168px` values inside column 2 (`.tracker-ruler-spacer`,
 `LANE_HEAD_WIDTH_PX` inline widths) must NOT adopt the variable; they are
 ruler-alignment constants per spec-006. Setting `--left-col-w` imperatively via
-`element.style.setProperty` during drag survives React re-renders (including
-the 10Hz meter/playhead re-renders during playback) because React's style
-diffing only touches keys present in the JSX `style` prop.
+`element.style.setProperty` during drag survives React re-renders because the
+JSX `style` prop does NOT include `--left-col-w`; React's style diffing only
+touches keys present in the JSX `style` prop, leaving the imperative value
+intact. The CSS fallback (`var(--left-col-w, 168px)`) provides the initial width.
 
 ## Acceptance Criteria (testable)
 
@@ -197,7 +205,7 @@ diffing only touches keys present in the JSX `style` prop.
 - [x] **AC-005:** Clicking a channel's S button soloes it — all other channels go silent. Clicking another channel's S transfers the solo.
 - [x] **AC-006:** Lane-level mute/solo and channel-level mute/solo are independent ANDed gates. A lane is audible only when both its own mute AND its channel's mute are off, and it passes both solo filters.
 - [x] **AC-008:** User can remove a channel via hover-revealed x button; the corresponding lane is re-routed to the master bypass bus
-  (audible at unity gain with lane pan applied). Remaining channels compact indices.
+  (audible at unity gain with lane pan applied). Remaining strips shift down and display labels renumber.
 - [x] **AC-009:** Dragging the left-column right-edge resize seam past 272px (168px + 104px threshold) reveals the mixer column. Dragging below 272px hides it. The column has no horizontal scrollbar.
 - [x] **AC-011:** Channel state (gain, pan, mute, solo) persists across page refreshes via localStorage.
 - [x] **AC-012:** The lane-head pan knob and mixer-strip pan knob control independent values (lane pan and channel pan respectively); both are applied in the audio chain.

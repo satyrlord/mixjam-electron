@@ -124,6 +124,7 @@ export function createBackendAPI(): BackendAPI {
     requestFolderAccess: vi.fn().mockResolvedValue(true),
     hasSamples: vi.fn().mockResolvedValue(true),
     startScan: vi.fn().mockResolvedValue(undefined),
+    cancelScan: vi.fn().mockResolvedValue(undefined),
     getScanProgress: vi.fn().mockResolvedValue(IDLE_PROGRESS),
     querySamples: vi
       .fn()

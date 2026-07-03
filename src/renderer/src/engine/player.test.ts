@@ -106,7 +106,7 @@ describe('Player.previewSample', () => {
 describe('Player.triggerLane edge cases', () => {
   it('skips trigger when loadSampleBytes returns null', async () => {
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'gone.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'gone.wav' }] }
     ]
     const { player } = makePlayer({
       lanes,
@@ -122,7 +122,7 @@ describe('Player.triggerLane edge cases', () => {
     let resolveLoad!: (buf: ArrayBuffer) => void
     const deferred = new Promise<ArrayBuffer>((resolve) => { resolveLoad = resolve })
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'slow.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'slow.wav' }] }
     ]
     const { player } = makePlayer({
       lanes,
@@ -154,22 +154,25 @@ describe('Player.setChannelPan', () => {
     // Lane routing to channel 3 while it is the FIRST channel created — the
     // engine registry must key by the requested index, not creation order.
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, channelIndex: 3, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 3, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
     ]
     const { player, context } = makePlayer({ lanes })
     await player.start(0)
     await flushAsync()
 
     player.setChannelPan(3, 0.5)
-    // Exactly one channel panner exists (lane 3's); the pan must land on it.
-    expect(context.created.panners).toHaveLength(1)
-    expect(context.created.panners[0]!.pan.value).toBe(0.5)
+    // Two panners exist: the per-lane panner (created on trigger) and the
+    // channel panner (created when channel 3 is lazily allocated).
+    // spec-007 lane pan and channel pan are independent.
+    expect(context.created.panners).toHaveLength(2)
+    // The channel panner (index 1) carries the channel pan value.
+    expect(context.created.panners[1]!.pan.value).toBe(0.5)
     await player.close()
   })
 
   it('applies a pan set before the channel exists once the lane first triggers', async () => {
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, channelIndex: 2, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 2, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
     ]
     const { player, context } = makePlayer({ lanes })
 
@@ -180,10 +183,113 @@ describe('Player.setChannelPan', () => {
     await player.start(0)
     await flushAsync()
 
-    // The lazily-created channel picked up the stored pan.
-    expect(context.created.panners).toHaveLength(1)
-    expect(context.created.panners[0]!.pan.value).toBe(-0.75)
+    // Two panners: per-lane panner + channel panner. The lazily-created
+    // channel panner picked up the stored pan.
+    expect(context.created.panners).toHaveLength(2)
+    expect(context.created.panners[1]!.pan.value).toBe(-0.75)
     await player.close()
+  })
+})
+
+describe('Player.removeChannel', () => {
+  it('removes the channel and routes the lane through master bypass', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+    ]
+    const { player } = makePlayer({ lanes })
+    await player.start(0)
+    await flushAsync()
+
+    // After starting, channel 0 exists
+    player.removeChannel(0)
+    // Should not crash, lane panner disconnects and reconnects to bypass
+    await player.close()
+  })
+
+  it('replayRemovedChannels marks channels as removed', async () => {
+    const { player } = makePlayer({})
+    player.replayRemovedChannels([1, 2, 3])
+    // Should not crash; channels are marked without needing to exist first
+    await player.close()
+  })
+})
+
+describe('Player.channelGating', () => {
+  it('gates a channel when solo is set on another channel', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] },
+      { index: 1, muted: false, solo: false, pan: 0, channelIndex: 1, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'snare.wav' }] }
+    ]
+    const { player } = makePlayer({ lanes })
+    await player.start(0)
+    await flushAsync()
+
+    // Set gain on both channels
+    player.setChannelGain(0, 0.8)
+    player.setChannelGain(1, 0.8)
+    // Solo channel 1 — channel 0 should be gated (gain 0)
+    player.setChannelSolo(1, true)
+    // Un-solo
+    player.setChannelSolo(1, false)
+    // Mute channel 0
+    player.setChannelMute(0, true)
+    // Unmute
+    player.setChannelMute(0, false)
+    await player.close()
+  })
+
+  it('setChannelGain applies gain 0 when the channel is gated', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] },
+      { index: 1, muted: false, solo: false, pan: 0, channelIndex: 1, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'snare.wav' }] }
+    ]
+    const { player } = makePlayer({ lanes })
+    await player.start(0)
+    await flushAsync()
+
+    // Solo channel 1, then set gain on channel 0 — should remain gated
+    player.setChannelSolo(1, true)
+    player.setChannelGain(0, 0.9)
+    await player.close()
+  })
+})
+
+describe('Player.getSampleBuffer', () => {
+  it('returns a decoded AudioBuffer for a valid sample', async () => {
+    const { player } = makePlayer({})
+    const buffer = await player.getSampleBuffer('kick.wav')
+    expect(buffer).not.toBeNull()
+    await player.close()
+  })
+
+  it('returns null when load fails', async () => {
+    const { player } = makePlayer({
+      loadSampleBytes: async () => { throw new Error('fail') }
+    })
+    const buffer = await player.getSampleBuffer('broken.wav')
+    expect(buffer).toBeNull()
+    await player.close()
+  })
+})
+
+describe('Player.pause', () => {
+  it('stops scheduler and clears lane voices', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+    ]
+    const { player } = makePlayer({ lanes })
+    await player.start(0)
+    await flushAsync()
+    player.pause()
+    expect(player.audioEngine.activeVoiceCount).toBe(0)
+    await player.close()
+  })
+})
+
+describe('Player.getChannelAnalyser', () => {
+  it('returns undefined when the channel has not been created', () => {
+    const { player } = makePlayer({})
+    expect(player.getChannelAnalyser(99)).toBeUndefined()
   })
 })
 

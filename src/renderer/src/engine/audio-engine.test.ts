@@ -40,21 +40,23 @@ describe('AudioEngine', () => {
   })
 
   // AC-006
-  it('triggerVoice connects source -> channel gain/pan -> master gain -> destination', () => {
+  it('triggerVoice connects source -> channel gain/pan -> analyser -> master gain -> destination', () => {
     const { engine, context } = makeEngine()
     const channel = engine.createChannel()
     engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, trackIndex: 0 })
 
     const source = context.created.sources[0]
-    // The channel's gain is the first gain after the master gain; its pan node
-    // is the channel output. source -> channel gain -> channel pan -> master.
+    // Signal flow: source -> channel gain -> channel pan -> channel analyser -> master.
+    // Gains: [masterGain, bypassGain, channelGain]
     const masterGain = context.created.gains[0]
-    const channelGain = context.created.gains[1]
+    const channelGain = context.created.gains[2]
     const channelPan = context.created.panners[0]
+    const channelAnalyser = context.created.analysers[1] // per-channel analyser
     void channel
     expect(source.connectedTo).toContain(channelGain)
     expect(channelGain.connectedTo).toContain(channelPan)
-    expect(channelPan.connectedTo).toContain(masterGain)
+    expect(channelPan.connectedTo).toContain(channelAnalyser)
+    expect(channelAnalyser.connectedTo).toContain(masterGain)
   })
 
   // AC-007
@@ -172,9 +174,9 @@ describe('AudioEngine', () => {
     expect(voice.trackIndex).toBe(-1)
     expect(engine.activeVoiceCount).toBe(1)
 
-    // Verify the preview gain node exists and is connected to master
+    // Gains: [masterGain, bypassGain, previewGain]
     const masterGain = context.created.gains[0]
-    const previewGain = context.created.gains[1]
+    const previewGain = context.created.gains[2]
     expect(previewGain.gain.value).toBe(0.8)
     expect(previewGain.connectedTo).toContain(masterGain)
 
@@ -203,8 +205,8 @@ describe('AudioEngine', () => {
 
     channel.disconnect()
     const masterGain = context.created.gains[0]
-    // Gain node should be disconnected
-    expect(context.created.gains[1].disconnected).toBe(true)
+    // Gains: [masterGain, bypassGain, channelGain]. Channel gain is at index 2.
+    expect(context.created.gains[2].disconnected).toBe(true)
     // Pan node should be disconnected
     expect(context.created.panners[0].disconnected).toBe(true)
     // Master gain should NOT be disconnected (it's the bus, not the channel)

@@ -8,6 +8,9 @@ interface ManagePanelProps {
   tags: TagItem[]
   libraries: LibraryItem[]
   categories: CategoryItem[]
+  /** Left offset in px — must track the resizable category-tree width so the
+   *  panel's edge stays aligned with the splitter it overlays. */
+  leftOffset: number
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
   onDeleteTag: (id: number) => Promise<void>
@@ -24,6 +27,7 @@ export default function ManagePanel({
   tags,
   libraries,
   categories,
+  leftOffset,
   onCreateTag,
   onRenameTag,
   onDeleteTag,
@@ -76,7 +80,7 @@ export default function ManagePanel({
   const rootCategories = categories.filter((c) => c.parentId === null)
 
   return (
-    <div className="manage-panel">
+    <div className="manage-panel" style={{ left: leftOffset }}>
       <div className="manage-tabs" role="tablist">
         {(['tags', 'libraries', 'categories'] as const).map((t) => (
           <button

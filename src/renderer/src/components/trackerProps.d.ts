@@ -7,6 +7,7 @@ import type {
 } from '../../../shared/backend-api'
 import type { ClipGroupEntry, FooterSampleDetail, LaneState } from '../lib/playerShell'
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
+import type { ChannelState } from '../hooks/useMixer'
 
 /**
  * TrackerView's prop surface, grouped by domain slice so the component tree
@@ -39,6 +40,7 @@ export interface TrackerBrowserProps {
   onToggleTagFilter: (id: number) => void
   onSortChange: (col: SampleSortColumn) => void
   onStartScan: () => void
+  onCancelScan: () => void
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
   onDeleteTag: (id: number) => Promise<void>
@@ -87,4 +89,15 @@ export interface TrackerTransportProps {
   onTransportPause: () => void
   onTransportStop: () => void
   onTransportSkipBack: () => void
+}
+
+export interface TrackerMixerProps {
+  channels: ChannelState[]
+  channelLevels: ReadonlyMap<number, number>
+  channelPeaks: ReadonlyMap<number, number>
+  onSetChannelGain: (channelIndex: number, gain: number) => void
+  onSetChannelPan: (channelIndex: number, pan: number) => void
+  onToggleChannelMute: (channelIndex: number) => void
+  onToggleChannelSolo: (channelIndex: number) => void
+  onRemoveChannel: (channelIndex: number) => void
 }

@@ -49,7 +49,10 @@ const EXPECTED_EMERALD_COLORS = {
   playhead: '#E74C3C',
   'clip-text': '#FFFFFF',
   'clip-select': '#FFE066',
-  'clip-missing': '#FF6D6D'
+  'clip-missing': '#FF6D6D',
+  'meter-green': '#4CAF50',
+  'meter-yellow': '#FFC107',
+  'meter-red': '#F44336'
 } as const
 
 const EXPECTED_EMERALD_DEPTH = {
@@ -241,7 +244,10 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'playhead',
       'clip-text',
       'clip-select',
-      'clip-missing'
+      'clip-missing',
+      'meter-green',
+      'meter-yellow',
+      'meter-red'
     ])
     expect(Object.keys(parsed.fonts)).toEqual(['chrome', 'label', 'mono'])
     expect(Object.keys(parsed.depth)).toEqual([

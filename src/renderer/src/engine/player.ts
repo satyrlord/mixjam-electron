@@ -29,13 +29,17 @@ export interface PlayerOptions extends AudioEngineOptions {
 export class Player {
   private readonly engine: AudioEngine
   private readonly scheduler: Scheduler
-  // Pan per channel index, applied to the channel when it exists and replayed
-  // onto lazily-created channels so a pan set before a lane's first trigger is
-  // not lost.
+  // Persist channel controls so lazily-created channels can replay state.
   private readonly channelPans = new Map<number, number>()
+  private readonly channelGains = new Map<number, number>()
+  private readonly channelMutes = new Map<number, boolean>()
+  private readonly channelSolos = new Map<number, boolean>()
+  // Persistent lane panners let live pan updates affect sounding voices.
+  private readonly lanePanners = new Map<number, StereoPannerNode>()
   // The single voice currently sounding on each lane (monophonic): a new
   // trigger cuts off the previous one.
   private readonly laneVoices = new Map<number, Voice>()
+  private readonly removedChannels = new Set<number>()
   private currentBpm: number
   private lastScheduledTick = -1
   // Bumped on every stop()/pause()/close() so a trigger whose async buffer load
@@ -65,6 +69,11 @@ export class Player {
     return this.engine
   }
 
+  // fallow-ignore-next-line unused-class-member
+  get activeVoiceCount(): number {
+    return this.engine.activeVoiceCount
+  }
+
   // The playhead tick derived from the audio clock, so the UI playhead stays in
   // lock-step with the audible scheduling rather than a separate wall-clock timer.
   get currentTick(): number {
@@ -86,6 +95,76 @@ export class Player {
   setChannelPan(channelIndex: number, pan: number): void {
     this.channelPans.set(channelIndex, pan)
     this.engine.setChannelPan(channelIndex, pan)
+  }
+
+  // fallow-ignore-next-line unused-class-member
+  setLanePan(laneIndex: number, pan: number): void {
+    const panner = this.lanePanners.get(laneIndex)
+    if (panner) panner.pan.value = pan
+  }
+
+  // fallow-ignore-next-line unused-class-member
+  setChannelGain(channelIndex: number, gain: number): void {
+    this.channelGains.set(channelIndex, gain)
+    if (!this.isChannelGated(channelIndex)) {
+      this.engine.setChannelGain(channelIndex, gain)
+    }
+  }
+
+  private isChannelGated(channelIndex: number): boolean {
+    if (this.removedChannels.has(channelIndex)) return false
+    const muted = this.channelMutes.get(channelIndex) ?? false
+    const solo = this.channelSolos.get(channelIndex) ?? false
+    const anySoloed = this.hasAnySolo()
+    if (anySoloed) return !solo
+    return muted
+  }
+
+  private hasAnySolo(): boolean {
+    for (const s of this.channelSolos.values()) {
+      if (s) return true
+    }
+    return false
+  }
+
+  // fallow-ignore-next-line unused-class-member
+  setChannelMute(channelIndex: number, muted: boolean): void {
+    this.channelMutes.set(channelIndex, muted)
+    this.applyChannelSoloMuteGating()
+  }
+
+  // fallow-ignore-next-line unused-class-member
+  setChannelSolo(channelIndex: number, solo: boolean): void {
+    this.channelSolos.set(channelIndex, solo)
+    this.applyChannelSoloMuteGating()
+  }
+
+  // fallow-ignore-next-line unused-class-member
+  removeChannel(channelIndex: number): void {
+    const lanePanner = this.lanePanners.get(channelIndex)
+    if (lanePanner) {
+      lanePanner.disconnect()
+      lanePanner.connect(this.engine.masterBypass)
+    }
+
+    this.engine.removeChannel(channelIndex)
+    this.removedChannels.add(channelIndex)
+    this.channelPans.delete(channelIndex)
+    this.channelGains.delete(channelIndex)
+    this.channelMutes.delete(channelIndex)
+    this.channelSolos.delete(channelIndex)
+  }
+
+  // fallow-ignore-next-line unused-class-member
+  replayRemovedChannels(indices: number[]): void {
+    for (const idx of indices) {
+      this.removedChannels.add(idx)
+    }
+  }
+
+  // fallow-ignore-next-line unused-class-member
+  getChannelAnalyser(channelIndex: number): AnalyserNode | undefined {
+    return this.engine.getChannelAnalyser(channelIndex)
   }
 
   // Preview a sample as a one-shot.
@@ -185,8 +264,16 @@ export class Player {
   async close(): Promise<void> {
     this.playGeneration++
     this.scheduler.stop()
+    for (const panner of this.lanePanners.values()) {
+      panner.disconnect()
+    }
+    this.lanePanners.clear()
     await this.engine.close()
     this.channelPans.clear()
+    this.channelGains.clear()
+    this.channelMutes.clear()
+    this.channelSolos.clear()
+    this.removedChannels.clear()
     this.laneVoices.clear()
   }
 
@@ -194,10 +281,46 @@ export class Player {
     const existing = this.engine.getChannel(channelIndex)
     if (existing) return existing
     const channel = this.engine.createChannel(channelIndex)
-    // Replay a pan that was set before this channel existed.
     const pan = this.channelPans.get(channelIndex)
     if (pan !== undefined) channel.setPan(pan)
+    const gain = this.channelGains.get(channelIndex)
+    if (gain !== undefined) {
+      const effectiveGain = this.isChannelGated(channelIndex) ? 0 : gain
+      channel.setGain(effectiveGain)
+    }
     return channel
+  }
+
+  private voiceDestination(laneIndex: number, channelIndex: number, lanePan: number): AudioNode {
+    let lanePanner = this.lanePanners.get(laneIndex)
+    if (!lanePanner) {
+      lanePanner = this.engine.ensureContext().createStereoPanner()
+      this.lanePanners.set(laneIndex, lanePanner)
+    }
+    lanePanner.pan.value = lanePan
+
+    if (this.removedChannels.has(channelIndex)) {
+      lanePanner.disconnect()
+      lanePanner.connect(this.engine.masterBypass)
+      return lanePanner
+    }
+
+    const channel = this.channelFor(channelIndex)
+    lanePanner.disconnect()
+    lanePanner.connect(channel.input)
+    return lanePanner
+  }
+
+  private applyChannelSoloMuteGating(): void {
+    const anySoloed = this.hasAnySolo()
+    for (const [index] of this.channelGains) {
+      if (this.removedChannels.has(index)) continue
+      const muted = this.channelMutes.get(index) ?? false
+      const solo = this.channelSolos.get(index) ?? false
+      const gated = anySoloed ? !solo : muted
+      const storedGain = this.channelGains.get(index) ?? 0.8
+      this.engine.setChannelGain(index, gated ? 0 : storedGain)
+    }
   }
 
   private handleScheduledTick(tick: number, when: number): void {
@@ -207,7 +330,13 @@ export class Player {
 
     const triggers = triggersForTick(this.options.getLanes(), tick)
     for (const trigger of triggers) {
-      void this.triggerLane(trigger.laneIndex, trigger.channelIndex, trigger.samplePath, when)
+      void this.triggerLane(
+        trigger.laneIndex,
+        trigger.channelIndex,
+        trigger.samplePath,
+        trigger.pan,
+        when
+      )
     }
   }
 
@@ -215,6 +344,7 @@ export class Player {
     laneIndex: number,
     channelIndex: number,
     samplePath: string,
+    lanePan: number,
     when: number
   ): Promise<void> {
     const generation = this.playGeneration
@@ -234,8 +364,14 @@ export class Player {
     // Monophonic: cut off the voice currently sounding on this lane.
     this.laneVoices.get(laneIndex)?.stop()
 
-    const channel = this.channelFor(channelIndex)
-    const voice = this.engine.triggerVoice({ buffer, channel, when, trackIndex: laneIndex })
+    const destination = this.voiceDestination(laneIndex, channelIndex, lanePan)
+
+    const voice = this.engine.triggerVoiceTo({
+      buffer,
+      destination,
+      when,
+      trackIndex: laneIndex
+    })
     this.laneVoices.set(laneIndex, voice)
   }
 

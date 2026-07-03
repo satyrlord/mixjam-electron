@@ -162,6 +162,7 @@ export interface BackendAPI {
    *  Returns true when access was (re-)granted. */
   requestFolderAccess: (ref: FolderRef, role: FolderRole) => Promise<boolean>
   startScan: (sampleFolder: FolderRef) => Promise<void>
+  cancelScan: () => Promise<void>
   getScanProgress: () => Promise<ScanProgress>
   querySamples: (req: SampleQueryRequest) => Promise<SampleQueryResponse>
   listTags: () => Promise<TagItem[]>

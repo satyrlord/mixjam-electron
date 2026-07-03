@@ -23,6 +23,7 @@ function renderPanel(overrides?: Partial<Parameters<typeof ManagePanel>[0]>) {
     tags: TAGS,
     libraries: LIBRARIES,
     categories: CATEGORIES,
+    leftOffset: 157,
     onCreateTag: vi.fn(async () => ({ id: 99, name: 'New', color: null })),
     onRenameTag: vi.fn(async () => undefined),
     onDeleteTag: vi.fn(async () => undefined),

@@ -3,21 +3,20 @@
 //
 // Engine boundary: pure TypeScript over the Web Audio API. No React, no DOM.
 
+import { clamp } from '../lib/sample-utils'
+
 export interface Channel {
   readonly index: number
   // The node a voice connects into. Audio flows: voice -> input -> pan -> output.
   readonly input: AudioNode
-  // The node that connects to the master bus.
+  // The last node in the channel strip (StereoPannerNode). The engine inserts
+  // an AnalyserNode after this before connecting to the master bus.
   readonly output: AudioNode
   readonly gain: number
   readonly pan: number
   setGain(value: number): void
   setPan(value: number): void
   disconnect(): void
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
 }
 
 export function createChannel(context: BaseAudioContext, index: number): Channel {
