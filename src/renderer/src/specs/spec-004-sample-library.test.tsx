@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import TrackerView from '../components/TrackerView'
 import type {
   TrackerArrangementProps,
@@ -120,11 +120,13 @@ const DEFAULT_MIXER: TrackerMixerProps = {
   channels: [],
   channelLevels: new Map(),
   channelPeaks: new Map(),
+  canRestoreChannel: false,
   onSetChannelGain: noop,
   onSetChannelPan: noop,
   onToggleChannelMute: noop,
   onToggleChannelSolo: noop,
-  onRemoveChannel: noop
+  onRemoveChannel: noop,
+  onRestoreChannel: noop
 }
 
 function renderTracker(browserOverrides: Partial<TrackerBrowserProps> = {}) {
@@ -229,10 +231,6 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // -------------------------------------------------------------------------
 
   describe('tag management (Tags tab)', () => {
-    beforeEach(() => {
-      // Switch to Tags tab before each test — done inside each test via openManagePanel
-    })
-
     it('AC-007: user can create a tag via the Tags tab', async () => {
       const onCreateTag = vi.fn().mockResolvedValue({ id: 1, name: 'Kick', color: null } as TagItem)
       renderTracker({ onCreateTag })

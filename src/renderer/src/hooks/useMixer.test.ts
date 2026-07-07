@@ -20,6 +20,7 @@ function createMockPlayer() {
     setChannelMute: vi.fn(),
     setChannelSolo: vi.fn(),
     removeChannel: vi.fn(),
+    restoreChannel: vi.fn(),
     replayRemovedChannels: vi.fn()
   }
 }
@@ -396,5 +397,78 @@ describe('useMixer', () => {
     expect(result.current.channels.find((ch) => ch.channelIndex === 0)).toBeUndefined()
     expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
     expect(result.current.channels[0]!.channelIndex).toBe(1)
+  })
+
+  // --- 2026-07-07 amendments (spec-007 AC-016, AC-017) ---
+
+  it('canRestoreChannel is false at full 16 channels and true after a removal', () => {
+    const playerRef = createPlayerRef()
+    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+
+    expect(result.current.canRestoreChannel).toBe(false)
+    act(() => { result.current.removeChannel(3) })
+    expect(result.current.canRestoreChannel).toBe(true)
+  })
+
+  it('restoreChannel re-adds the lowest removed channel at default state (AC-017)', () => {
+    const mockPlayer = createMockPlayer()
+    const playerRef = createPlayerRef(mockPlayer)
+    // Tracker view so the apply-state effect pushes channel state to the player.
+    const { result } = renderHook(() => useMixer(playerRef, 'tracker'))
+
+    act(() => {
+      result.current.removeChannel(5)
+      result.current.removeChannel(2)
+    })
+    act(() => { result.current.restoreChannel() })
+
+    const restored = result.current.channels.find((ch) => ch.channelIndex === 2)
+    expect(restored).toEqual({ channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false })
+    expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
+    // Lane re-route happens synchronously; gain/mute are re-applied by the
+    // apply-state effect on the resulting commit.
+    expect(mockPlayer.restoreChannel).toHaveBeenCalledWith(2)
+    expect(mockPlayer.setChannelGain).toHaveBeenCalledWith(2, 0.8)
+    expect(mockPlayer.setChannelMute).toHaveBeenCalledWith(2, false)
+    // Channels stay sorted by channelIndex after restore.
+    const indices = result.current.channels.map((ch) => ch.channelIndex)
+    expect(indices).toEqual([...indices].sort((a, b) => a - b))
+  })
+
+  it('restore encodes removal by channel absence, not a separate removed list', () => {
+    const playerRef = createPlayerRef()
+    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+
+    act(() => { result.current.removeChannel(4) })
+    act(() => { result.current.restoreChannel() })
+
+    // Persisted channels array is the single source of truth: channel 4 present.
+    const stored = JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? '[]')
+    expect(stored.some((ch: { channelIndex: number }) => ch.channelIndex === 4)).toBe(true)
+    expect(result.current.canRestoreChannel).toBe(false)
+    // No separate removed-indices key is written.
+    expect(localStorage.getItem('mixjam-mixer-removed')).toBeNull()
+  })
+
+  it('restoreChannel no-ops at the 16 channel cap', () => {
+    const mockPlayer = createMockPlayer()
+    const playerRef = createPlayerRef(mockPlayer)
+    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+
+    act(() => { result.current.restoreChannel() })
+
+    expect(result.current.channels).toHaveLength(16)
+    expect(mockPlayer.restoreChannel).not.toHaveBeenCalled()
+  })
+
+  it('restoreChannel does not crash when player is null', () => {
+    const playerRef = { current: null } as unknown as React.RefObject<Player | null>
+    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+
+    act(() => { result.current.removeChannel(0) })
+    expect(() => {
+      act(() => { result.current.restoreChannel() })
+    }).not.toThrow()
+    expect(result.current.channels).toHaveLength(16)
   })
 })

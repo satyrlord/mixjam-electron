@@ -7,10 +7,6 @@ import { useDragResize } from '../hooks/useDragResize'
 import ManagePanel from './ManagePanel'
 import SampleTileGrid from './SampleTileGrid'
 
-/** Pixel overlap so the manage panel's left edge covers the splitter gutter
- *  between the category tree and the sample grid. */
-const MANAGE_PANEL_OVERLAP_PX = 0
-
 interface SampleBrowserProps {
   browser: TrackerBrowserProps
   bpm: number
@@ -217,7 +213,7 @@ export default function SampleBrowser({
           tags={tags}
           libraries={libraries}
           categories={categories}
-          leftOffset={catsWidth + MANAGE_PANEL_OVERLAP_PX}
+          leftOffset={catsWidth}
           onCreateTag={browser.onCreateTag}
           onRenameTag={browser.onRenameTag}
           onDeleteTag={browser.onDeleteTag}

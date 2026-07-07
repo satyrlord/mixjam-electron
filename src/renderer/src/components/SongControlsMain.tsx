@@ -30,11 +30,11 @@ export default function SongControlsMain({
         />
       </label>
       <div className="song-control">
-        <span>dB Loudness</span>
+        <span>Output Level</span>
         <div
           className="loudness-meter"
           role="meter"
-          aria-label="Master loudness"
+          aria-label="Output Level"
           aria-valuemin={-100}
           aria-valuemax={0}
           aria-valuenow={Math.round(masterLevelDb)}

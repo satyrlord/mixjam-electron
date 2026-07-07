@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import TrackerView from './TrackerView'
 import type {
   TrackerArrangementProps,
@@ -136,11 +136,13 @@ const DEFAULT_MIXER: TrackerMixerProps = {
   channels: [],
   channelLevels: new Map(),
   channelPeaks: new Map(),
+  canRestoreChannel: false,
   onSetChannelGain: noop,
   onSetChannelPan: noop,
   onToggleChannelMute: noop,
   onToggleChannelSolo: noop,
-  onRemoveChannel: noop
+  onRemoveChannel: noop,
+  onRestoreChannel: noop
 }
 
 interface TrackerOverrides {
@@ -164,6 +166,12 @@ function renderTracker(overrides: TrackerOverrides = {}) {
 }
 
 describe('TrackerView', () => {
+  // The seam-drag tests persist the left-column width; clear it after each test
+  // so a failing assertion can't leak a stored width into later mounts.
+  afterEach(() => {
+    localStorage.removeItem('mixjam-left-col-w')
+  })
+
   it('renders the player shell regions and recent projects rail', () => {
     renderTracker({
       recentProjects: RECENT_PROJECTS,
@@ -514,7 +522,7 @@ describe('TrackerView', () => {
     renderTracker({})
 
     expect(screen.getByRole('slider', { name: 'Master Volume' })).toBeInTheDocument()
-    expect(screen.getByRole('meter', { name: 'Master loudness' })).toBeInTheDocument()
+    expect(screen.getByRole('meter', { name: 'Output Level' })).toBeInTheDocument()
     expect(screen.queryByRole('slider', { name: 'BPM' })).not.toBeInTheDocument()
   })
 
@@ -858,21 +866,16 @@ describe('TrackerView', () => {
     expect(onSelectCategory).toHaveBeenCalledWith(9)
   })
 
-  it('toggles subcategory off when clicked while already selected', () => {
+  it('selects a deeper subcategory chip while its parent subcategory is selected', () => {
     const onSelectCategory = vi.fn()
-    // To test the toggle-off path, selectedCategoryId must equal a subcategory's id
-    // while that subcategory is still visible. Create a deeper nesting:
-    // Bass (id:1) -> SubBass (id:9) -> DeepBass (id:10)
-    // When selectedCategoryId=9, subcatChips = children of 9 = [DeepBass]
-    // But we need to test clicking a chip whose id === selectedCategoryId.
-    // Use parentId=1 so when selectedCategoryId=1, SubBass chip is shown.
-    // Then test that clicking SubBass calls onSelectCategory(9) since 1 !== 9
+    // Bass (id:1) -> SubBass (id:9) -> DeepBass (id:10). With 9 selected the
+    // chips are the children of 9, so a chip never equals the selection —
+    // clicking DeepBass takes the select branch, not toggle-off.
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
       { id: 9, name: 'SubBass', parentId: 1 },
       { id: 10, name: 'DeepBass', parentId: 9 }
     ]
-    // selectedCategoryId=9 shows children of 9 => [DeepBass]
     renderTracker({
       browser: {
         categories: categoriesWithChildren,
@@ -881,8 +884,6 @@ describe('TrackerView', () => {
       }
     })
 
-    // DeepBass is a child of 9, so clicking it when selectedCategoryId===9
-    // tests: selectedCategoryId !== sub.id (9 !== 10) => selects 10
     fireEvent.click(screen.getByText('DeepBass'))
     expect(onSelectCategory).toHaveBeenCalledWith(10)
   })
@@ -1282,5 +1283,75 @@ describe('TrackerView', () => {
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).toBeNull()
+  })
+
+  // --- spec-007 2026-07-07 amendments ---
+
+  const CHANNEL = (channelIndex: number) => ({
+    channelIndex,
+    gain: 0.8,
+    pan: 0,
+    muted: false,
+    solo: false
+  })
+
+  it('AC-016 (rev 2): dragging the seam persists the column width for the next session', () => {
+    renderTracker({ mixer: { channels: [CHANNEL(0)] } })
+
+    const seam = screen.getByRole('separator', { name: 'Resize left column' })
+    fireEvent.mouseDown(seam, { clientX: 420 })
+    fireEvent.mouseMove(window, { clientX: 220 })
+    fireEvent.mouseUp(window)
+
+    const stored = parseFloat(localStorage.getItem('mixjam-left-col-w') ?? '')
+    expect(stored).toBeGreaterThanOrEqual(168)
+  })
+
+  it('AC-016 (rev 2): a persisted column width is applied on mount', () => {
+    localStorage.setItem('mixjam-left-col-w', '200')
+    renderTracker({ mixer: { channels: [CHANNEL(0)] } })
+
+    const trackerView = document.querySelector('.tracker-view') as HTMLElement
+    expect(trackerView.style.getPropertyValue('--left-col-w')).toBe('200px')
+  })
+
+  it('AC-016 (rev 2): the Mixer toggle button no longer exists', () => {
+    renderTracker({ mixer: { channels: [CHANNEL(0)] } })
+    expect(screen.queryByRole('button', { name: /mixer/i })).toBeNull()
+  })
+
+  it('AC-017: restore button shows only when a channel can be restored and fires onRestoreChannel', () => {
+    const onRestoreChannel = vi.fn()
+    renderTracker({
+      mixer: { channels: [CHANNEL(0)], canRestoreChannel: true, onRestoreChannel }
+    })
+
+    const restore = screen.getByRole('button', { name: 'Restore removed channel' })
+    fireEvent.click(restore)
+    expect(onRestoreChannel).toHaveBeenCalled()
+  })
+
+  it('AC-017: restore button is absent at the full channel count', () => {
+    renderTracker({ mixer: { channels: [CHANNEL(0)], canRestoreChannel: false } })
+    expect(screen.queryByRole('button', { name: 'Restore removed channel' })).toBeNull()
+  })
+
+  it('AC-020: strip labels are stable channelIndex + 1 with gaps after removal', () => {
+    // Channels 0 and 2 present, channel 1 removed: labels must read 1 and 3.
+    renderTracker({ mixer: { channels: [CHANNEL(0), CHANNEL(2)], canRestoreChannel: true } })
+
+    const labels = Array.from(
+      document.querySelectorAll('.mixer-channel-label > span')
+    ).map((el) => el.textContent)
+    expect(labels).toEqual(['1', '3'])
+    // The aria-labels agree with the visible labels.
+    expect(screen.getByRole('slider', { name: 'Channel 1 Pan' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Channel 3 Pan' })).toBeInTheDocument()
+  })
+
+  it('AC-024: master meter label reads Output Level', () => {
+    renderTracker({})
+    expect(screen.getByText('Output Level')).toBeInTheDocument()
+    expect(screen.queryByText('dB Loudness')).toBeNull()
   })
 })

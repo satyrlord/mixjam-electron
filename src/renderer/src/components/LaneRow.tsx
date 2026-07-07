@@ -86,6 +86,9 @@ function LaneRow({
               }
             }}
             onMouseDown={(e) => {
+              // Ignore right/middle press — it must not start a pan scrub (the
+              // browser context menu handles right-click).
+              if (e.button > 0) return
               e.preventDefault()
               const startX = e.clientX
               const startPan = lane.pan

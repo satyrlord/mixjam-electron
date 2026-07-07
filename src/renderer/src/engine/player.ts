@@ -12,6 +12,9 @@ import { createScheduler, type Scheduler, type SchedulerClock } from './schedule
 import { type EngineLane, triggersForTick } from './lane-evaluation'
 import { type Voice } from './voice'
 
+// Default per-channel gain (matches the mixer's createDefaultChannel).
+const DEFAULT_CHANNEL_GAIN = 0.8
+
 // Returns the raw bytes for a sample path, or null if unreadable.
 export type LoadSampleBytes = (samplePath: string) => Promise<ArrayBuffer | null>
 
@@ -103,7 +106,6 @@ export class Player {
     if (panner) panner.pan.value = pan
   }
 
-  // fallow-ignore-next-line unused-class-member
   setChannelGain(channelIndex: number, gain: number): void {
     this.channelGains.set(channelIndex, gain)
     if (!this.isChannelGated(channelIndex)) {
@@ -127,19 +129,16 @@ export class Player {
     return false
   }
 
-  // fallow-ignore-next-line unused-class-member
   setChannelMute(channelIndex: number, muted: boolean): void {
     this.channelMutes.set(channelIndex, muted)
     this.applyChannelSoloMuteGating()
   }
 
-  // fallow-ignore-next-line unused-class-member
   setChannelSolo(channelIndex: number, solo: boolean): void {
     this.channelSolos.set(channelIndex, solo)
     this.applyChannelSoloMuteGating()
   }
 
-  // fallow-ignore-next-line unused-class-member
   removeChannel(channelIndex: number): void {
     const lanePanner = this.lanePanners.get(channelIndex)
     if (lanePanner) {
@@ -153,16 +152,42 @@ export class Player {
     this.channelGains.delete(channelIndex)
     this.channelMutes.delete(channelIndex)
     this.channelSolos.delete(channelIndex)
+    // Re-apply gating: removing a soloed channel changes hasAnySolo(), so the
+    // remaining channels' gains must be recomputed or they stay stuck at 0.
+    this.applyChannelSoloMuteGating()
   }
 
   // fallow-ignore-next-line unused-class-member
+  restoreChannel(channelIndex: number): void {
+    this.removedChannels.delete(channelIndex)
+    // Reseed the state maps removeChannel wiped so the channel is self-consistent
+    // without relying on the caller to re-push every value; a bare restore would
+    // otherwise leave the fresh channel at the Web Audio default gain (1.0) and
+    // invisible to solo/mute gating (which iterates channelGains).
+    if (!this.channelGains.has(channelIndex)) {
+      this.channelGains.set(channelIndex, DEFAULT_CHANNEL_GAIN)
+    }
+    if (!this.channelPans.has(channelIndex)) this.channelPans.set(channelIndex, 0)
+    if (!this.channelMutes.has(channelIndex)) this.channelMutes.set(channelIndex, false)
+    if (!this.channelSolos.has(channelIndex)) this.channelSolos.set(channelIndex, false)
+    // Re-route the lane (1:1 routing: lane N → channel N) from the master
+    // bypass back into the channel strip chain so already-sounding voices
+    // regain channel processing immediately, not just on the next trigger.
+    const lanePanner = this.lanePanners.get(channelIndex)
+    if (lanePanner) {
+      const channel = this.channelFor(channelIndex)
+      lanePanner.disconnect()
+      lanePanner.connect(channel.input)
+    }
+    this.applyChannelSoloMuteGating()
+  }
+
   replayRemovedChannels(indices: number[]): void {
     for (const idx of indices) {
       this.removedChannels.add(idx)
     }
   }
 
-  // fallow-ignore-next-line unused-class-member
   getChannelAnalyser(channelIndex: number): AnalyserNode | undefined {
     return this.engine.getChannelAnalyser(channelIndex)
   }
@@ -219,7 +244,6 @@ export class Player {
   // render waveforms; shares the cache with playback so selecting a sample
   // (which also previews it) costs a single decode.
   // Called via optional chaining on a ref in useTransportEngine.
-  // fallow-ignore-next-line unused-class-member
   async getSampleBuffer(samplePath: string): Promise<AudioBuffer | null> {
     try {
       return this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))

@@ -4,8 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 // Mock useAppState so that tags and selectedTagIds are pre-populated with a
 // real useState setter. This ensures handleToggleTagFilter's updater function
-// body (lines 86-87) is actually executed by React, not just recorded as a
-// mock call.
+// body is actually executed by React, not just recorded as a mock call.
 vi.mock('./hooks/useAppState', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./hooks/useAppState')>()
   return {

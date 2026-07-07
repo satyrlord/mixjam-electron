@@ -127,15 +127,19 @@ export default function App() {
     channels: app.channels,
     channelLevels: app.channelLevels,
     channelPeaks: app.channelPeaks,
+    canRestoreChannel: app.canRestoreChannel,
     onSetChannelGain: app.setChannelGain,
     onSetChannelPan: app.setChannelPan,
     onToggleChannelMute: app.toggleChannelMute,
     onToggleChannelSolo: app.toggleChannelSolo,
-    onRemoveChannel: app.removeChannel
+    onRemoveChannel: app.removeChannel,
+    onRestoreChannel: app.restoreChannel
   }), [
     app.channels, app.channelLevels, app.channelPeaks,
+    app.canRestoreChannel,
     app.setChannelGain, app.setChannelPan,
-    app.toggleChannelMute, app.toggleChannelSolo, app.removeChannel
+    app.toggleChannelMute, app.toggleChannelSolo, app.removeChannel,
+    app.restoreChannel
   ])
 
   return (

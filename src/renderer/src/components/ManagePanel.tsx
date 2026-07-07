@@ -35,7 +35,7 @@ export default function ManagePanel({
   onDeleteCategory,
   onSaveLibrary,
   onDeleteLibrary,
-  onApplyLibrary,
+  onApplyLibrary
 }: ManagePanelProps) {
   const [tab, setTab] = useState<ManageTab>('tags')
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { RecentProjectItem } from '../../../shared/backend-api'
 import type { ClipGroupEntry, FooterSampleDetail } from '../lib/playerShell'
 import type {
@@ -10,9 +10,13 @@ import type {
 import {
   LANE_HEAD_WIDTH_PX,
   LANE_HEIGHT_PX,
+  LEFT_COL_DEFAULT_PX,
+  LEFT_COL_MAX_FRACTION,
+  LEFT_COL_MIN_PX,
+  LEFT_COL_MIXER_THRESHOLD_PX,
   RULER_HEIGHT_PX,
   clamp,
-  clipScreenRect,
+  clipScreenRect
 } from '../lib/playerShell'
 import { nearestTick } from '../lib/sample-utils'
 import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
@@ -24,6 +28,8 @@ import SongControlsRail from './SongControlsRail'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
+
+const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
 
 export interface TrackerViewProps {
   recentProjects: RecentProjectItem[]
@@ -331,19 +337,69 @@ export default function TrackerView({
     }, [])
   )
 
-  // Left-column resize seam: drag the right edge of column 1 to widen it,
-  // revealing the mixer column when width exceeds 272px (168px + 104px).
+  // Left-column resize seam: drag the right edge of column 1 to resize it.
+  // The mixer column shows when width exceeds 272px (168px + 104px); the
+  // 420px default keeps it visible on first entry. The 168px drag minimum
+  // still lets users narrow the column below the mixer threshold, which is
+  // how the mixer is hidden. The dragged width persists so a hidden mixer
+  // stays hidden across reloads.
   const trackerViewRef = useRef<HTMLDivElement>(null)
+
+  // Clamp a left-column width to [min, viewport fraction] so a persisted or
+  // dragged value can never push column 2 (and the seam itself) off-screen —
+  // there is no in-app way to recover from an off-viewport seam.
+  const clampLeftColWidth = useCallback((px: number): number => {
+    const max = Math.max(LEFT_COL_MIN_PX, window.innerWidth * LEFT_COL_MAX_FRACTION)
+    return clamp(px, LEFT_COL_MIN_PX, max)
+  }, [])
+
+  // Write the width to the CSS var and mark the mixer hidden below the reveal
+  // threshold. The `mixer-hidden` class makes the clipped mixer inert (CSS)
+  // so keyboard focus can't land on off-screen strips and force-scroll the
+  // rail past the master section.
+  const applyLeftColWidth = useCallback((px: number): void => {
+    const el = trackerViewRef.current
+    if (!el) return
+    const width = clampLeftColWidth(px)
+    el.style.setProperty('--left-col-w', `${width}px`)
+    el.classList.toggle('mixer-hidden', width < LEFT_COL_MIXER_THRESHOLD_PX)
+  }, [clampLeftColWidth])
+
+  // Apply the persisted width imperatively before paint (useLayoutEffect, not
+  // useEffect) so a hidden mixer never flashes at the wider CSS default on
+  // tracker entry. The JSX style prop must never contain --left-col-w or
+  // React's style diffing would clobber the imperative drag value.
+  useLayoutEffect(() => {
+    const stored = parseFloat(localStorage.getItem(LEFT_COL_STORAGE_KEY) ?? '')
+    // Apply the stored width, or sync the hidden-class for the CSS default.
+    applyLeftColWidth(
+      Number.isFinite(stored) && stored >= LEFT_COL_MIN_PX ? stored : LEFT_COL_DEFAULT_PX
+    )
+  }, [applyLeftColWidth])
 
   const handleLeftColResizeStart = useDragResize(
     useCallback(() => {
       const el = trackerViewRef.current
-      return el ? parseFloat(getComputedStyle(el).getPropertyValue('--left-col-w')) || 168 : 168
+      return el
+        ? parseFloat(getComputedStyle(el).getPropertyValue('--left-col-w')) ||
+            LEFT_COL_DEFAULT_PX
+        : LEFT_COL_DEFAULT_PX
     }, []),
     useCallback((dx, _dy, initialPx) => {
-      const el = trackerViewRef.current
-      if (!el) return
-      el.style.setProperty('--left-col-w', `${Math.max(168, initialPx + dx)}px`)
+      applyLeftColWidth(initialPx + dx)
+    }, [applyLeftColWidth]),
+    useCallback(() => {
+      // Inline style, not computed: it holds the value the drag just wrote.
+      const width = parseFloat(
+        trackerViewRef.current?.style.getPropertyValue('--left-col-w') ?? ''
+      )
+      if (Number.isFinite(width)) {
+        try {
+          localStorage.setItem(LEFT_COL_STORAGE_KEY, String(width))
+        } catch {
+          // Storage full or unavailable — non-critical.
+        }
+      }
     }, [])
   )
 
@@ -449,11 +505,13 @@ export default function TrackerView({
         mixerChannels={mixer.channels}
         mixerChannelLevels={mixer.channelLevels}
         mixerChannelPeaks={mixer.channelPeaks}
+        canRestoreChannel={mixer.canRestoreChannel}
         onSetChannelGain={mixer.onSetChannelGain}
         onSetChannelPan={mixer.onSetChannelPan}
         onToggleChannelMute={mixer.onToggleChannelMute}
         onToggleChannelSolo={mixer.onToggleChannelSolo}
         onRemoveChannel={mixer.onRemoveChannel}
+        onRestoreChannel={mixer.onRestoreChannel}
       />
 
       <div

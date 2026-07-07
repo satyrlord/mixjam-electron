@@ -66,8 +66,7 @@ describe('Header', () => {
     fireEvent.change(select, { target: { value: 'studio' } })
     expect(onThemeChange).toHaveBeenCalledWith('studio')
     // The select value stays on 'emerald' because the theme prop is controlled
-    // and the mock doesn't update it — same as production where non-Emerald
-    // selections collapse back.
+    // and this test never updates it.
     expect(select).toHaveValue('emerald')
   })
 })

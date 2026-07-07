@@ -291,5 +291,4 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       expect(countKeyOccurrences(rawJson, key)).toBe(count)
     }
   })
-
 })

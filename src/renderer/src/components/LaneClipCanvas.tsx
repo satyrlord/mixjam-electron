@@ -180,7 +180,7 @@ function LaneClipCanvas({
   flashSamplePath,
   selectedClipIds,
   onClipDragStart,
-  onClipContextMenu,
+  onClipContextMenu
 }: LaneClipCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const hitRectsRef = useRef<ClipHitRect[]>([])
@@ -309,7 +309,7 @@ function LaneClipCanvas({
       laneIndex,
       clipId: clip.id,
       samplePath: clip.samplePath,
-      sampleName: clip.sampleName,
+      sampleName: clip.sampleName
     })
   }, [hitTest, laneIndex, onClipContextMenu])
 

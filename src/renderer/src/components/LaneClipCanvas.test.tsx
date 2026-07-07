@@ -557,17 +557,10 @@ describe('LaneClipCanvas', () => {
     const el = container.querySelector('.lane-clip-canvas-container')! as HTMLElement
     fireEvent.mouseDown(el, { button: 0 })
 
-    // Override getContext to return null for any NEW canvas (the ghost)
+    // The lane canvas already got its context during render; from here on only
+    // the ghost canvas calls getContext, so returning null simulates its failure.
     const origGetContext = HTMLCanvasElement.prototype.getContext
-    let callNum = 0
-    HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation(function (this: HTMLCanvasElement) {
-      callNum++
-      // The lane canvas getContext was already called during render.
-      // For dragStart, buildClipDragGhost creates a new canvas and calls getContext.
-      // Return null to simulate failure.
-      if (callNum > 0) return null
-      return mockCtx
-    })
+    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(null)
 
     const setDragImage = vi.fn()
     fireEvent.dragStart(el, { dataTransfer: { setDragImage } })

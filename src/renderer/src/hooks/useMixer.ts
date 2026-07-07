@@ -21,6 +21,8 @@ export interface MixerState {
   channelLevels: ReadonlyMap<number, number>
   /** Peak hold level per channel index. */
   channelPeaks: ReadonlyMap<number, number>
+  /** True when at least one channel has been removed and can be restored. */
+  canRestoreChannel: boolean
 }
 
 export interface MixerActions {
@@ -29,26 +31,22 @@ export interface MixerActions {
   toggleChannelMute: (channelIndex: number) => void
   toggleChannelSolo: (channelIndex: number) => void
   removeChannel: (channelIndex: number) => void
+  restoreChannel: () => void
 }
 
 export type Mixer = MixerState & MixerActions
 
 const STORAGE_KEY = 'mixjam-mixer-channels'
-const REMOVED_STORAGE_KEY = 'mixjam-mixer-removed'
 
 function loadChannelState(): ChannelState[] {
+  // Accept a persisted empty array: removing all channels is a legitimate
+  // state that must survive reload. Rejecting it here resurrected 16 default
+  // strips while the removed-indices list still routed every lane to the
+  // master bypass — a mixer whose controls silently did nothing.
   return safeJsonParse(
     localStorage.getItem(STORAGE_KEY) ?? '',
     createDefaultChannels(),
-    (v): v is ChannelState[] => Array.isArray(v) && v.length > 0
-  )
-}
-
-function loadRemovedIndices(): number[] {
-  return safeJsonParse(
-    localStorage.getItem(REMOVED_STORAGE_KEY) ?? '',
-    [] as number[],
-    (v): v is number[] => Array.isArray(v)
+    (v): v is ChannelState[] => Array.isArray(v)
   )
 }
 
@@ -60,22 +58,24 @@ function saveChannelState(channels: ChannelState[]): void {
   }
 }
 
-function saveRemovedIndices(indices: number[]): void {
-  try {
-    localStorage.setItem(REMOVED_STORAGE_KEY, JSON.stringify(indices))
-  } catch {
-    // Storage full or unavailable — non-critical.
-  }
+const DEFAULT_CHANNEL_GAIN = 0.8
+
+function createDefaultChannel(channelIndex: number): ChannelState {
+  return { channelIndex, gain: DEFAULT_CHANNEL_GAIN, pan: 0, muted: false, solo: false }
 }
 
 function createDefaultChannels(): ChannelState[] {
-  return Array.from({ length: DEFAULT_CHANNEL_COUNT }, (_, i) => ({
-    channelIndex: i,
-    gain: 0.8,
-    pan: 0,
-    muted: false,
-    solo: false
-  }))
+  return Array.from({ length: DEFAULT_CHANNEL_COUNT }, (_, i) => createDefaultChannel(i))
+}
+
+/** Indices in [0, DEFAULT_CHANNEL_COUNT) that are absent from `channels`. */
+function removedIndicesOf(channels: ChannelState[]): number[] {
+  const present = new Set(channels.map((ch) => ch.channelIndex))
+  const removed: number[] = []
+  for (let i = 0; i < DEFAULT_CHANNEL_COUNT; i++) {
+    if (!present.has(i)) removed.push(i)
+  }
+  return removed
 }
 
 function rmsToDb(rms: number): number {
@@ -100,9 +100,6 @@ export function useMixer(
   const [channelLevels, setChannelLevels] = useState<Map<number, number>>(new Map())
   const [channelPeaks, setChannelPeaks] = useState<Map<number, number>>(new Map())
 
-  // Track which channels have been removed (persisted across reloads).
-  const removedIndicesRef = useRef<number[]>(loadRemovedIndices())
-
   // Keep a ref copy for the rAF loop so it never captures stale state.
   const channelsRef = useRef(channels)
   channelsRef.current = channels
@@ -114,14 +111,11 @@ export function useMixer(
   // Per-channel reusable Float32Array buffers for analyser reads.
   const meterBuffersRef = useRef(new Map<number, Float32Array>())
 
-  // Persist channel state to localStorage on every change.
+  // Persist channel state to localStorage on every change. Removed channels are
+  // encoded by their absence from this array — there is no separate removed
+  // list to drift out of sync (removed indices are derived on reload).
   useEffect(() => {
     saveChannelState(channels)
-  }, [channels])
-
-  // Persist removed indices.
-  useEffect(() => {
-    saveRemovedIndices(removedIndicesRef.current)
   }, [channels])
 
   // Previous frame's levels — kept outside state so the rAF loop can diff
@@ -148,12 +142,11 @@ export function useMixer(
       if (player.activeVoiceCount === 0) {
         const prevLevels = prevLevelsRef.current
         if (prevLevels.size > 0) {
-          let anySilent = false
-          for (const [idx, db] of prevLevels) {
-            if (db > SILENCE_DB) { anySilent = true; break }
-            void idx
+          let anyAudible = false
+          for (const db of prevLevels.values()) {
+            if (db > SILENCE_DB) { anyAudible = true; break }
           }
-          if (anySilent) {
+          if (anyAudible) {
             const silentLevels = new Map<number, number>()
             const silentPeaks = new Map<number, number>()
             for (const ch of channelsRef.current) {
@@ -244,7 +237,7 @@ export function useMixer(
 
     // Replay removed channels first so their indices are marked before we
     // push gain/pan/mute/solo (which would otherwise create the channels).
-    player.replayRemovedChannels(removedIndicesRef.current)
+    player.replayRemovedChannels(removedIndicesOf(channels))
 
     for (const ch of channels) {
       player.setChannelGain(ch.channelIndex, ch.gain)
@@ -303,22 +296,38 @@ export function useMixer(
 
   const removeChannel = useCallback((channelIndex: number) => {
     setChannels((prev) => prev.filter((ch) => ch.channelIndex !== channelIndex))
-    // Track removed indices so they survive page reload (the Player's
-    // removedChannels set is cleared on close()).
-    if (!removedIndicesRef.current.includes(channelIndex)) {
-      removedIndicesRef.current = [...removedIndicesRef.current, channelIndex]
-    }
     playerRef.current?.removeChannel(channelIndex)
+  }, [playerRef])
+
+  // Add-back of a removed channel (not add-new): re-adds the lowest missing
+  // channelIndex at default state and re-routes its lane from the master bypass
+  // back through the channel. Side effects run outside the setChannels updater
+  // (which must stay pure — React double-invokes updaters under StrictMode and
+  // may run them for discarded renders); the missing index is derived from the
+  // current channels array, mirroring removeChannel.
+  const restoreChannel = useCallback(() => {
+    const removed = removedIndicesOf(channelsRef.current)
+    const lowest = removed[0]
+    if (lowest === undefined) return
+    const restored = createDefaultChannel(lowest)
+    // Re-route the lane back into its channel strip. Gain/pan/mute/solo are
+    // re-pushed to the player by the apply-state effect on the next commit.
+    playerRef.current?.restoreChannel(lowest)
+    setChannels((prev) =>
+      [...prev, restored].sort((a, b) => a.channelIndex - b.channelIndex)
+    )
   }, [playerRef])
 
   return {
     channels,
     channelLevels,
     channelPeaks,
+    canRestoreChannel: channels.length < DEFAULT_CHANNEL_COUNT,
     setChannelGain,
     setChannelPan,
     toggleChannelMute,
     toggleChannelSolo,
-    removeChannel
+    removeChannel,
+    restoreChannel
   }
 }

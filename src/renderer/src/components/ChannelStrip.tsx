@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { clamp } from '../lib/playerShell'
 import { meterFillPct } from '../lib/sample-utils'
 
@@ -26,6 +26,18 @@ function dbColorZoneVar(db: number): string {
   return 'var(--meter-green)'
 }
 
+const PAN_KEY_STEP = 0.05
+// Pan values accumulate floating-point residue from repeated 0.05 key steps
+// (e.g. +3 then -3 lands on ~1.4e-17, not 0), so the right-click cycle compares
+// against this tolerance instead of exact 0/±1.
+const PAN_EPSILON = 1e-6
+
+function panValueText(pan: number): string {
+  const pct = Math.round(Math.abs(pan) * 100)
+  if (pct === 0) return 'Center'
+  return pan < 0 ? `${pct}% left` : `${pct}% right`
+}
+
 export default function ChannelStrip({
   channelIndex,
   label,
@@ -46,6 +58,8 @@ export default function ChannelStrip({
   const dragCleanupRef = useRef<(() => void) | null>(null)
   useEffect(() => () => dragCleanupRef.current?.(), [])
 
+  const [volDragging, setVolDragging] = useState(false)
+
   const handleVolChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       onSetGain(channelIndex, Number(e.currentTarget.value) / 100)
@@ -53,8 +67,20 @@ export default function ChannelStrip({
     [channelIndex, onSetGain]
   )
 
+  const handleVolPointerDown = useCallback((e: React.PointerEvent) => {
+    // Ignore non-primary buttons (right/middle) — a right-click would otherwise
+    // flip the readout on and leave it stuck when the context menu eats the
+    // matching pointerup. Primary press and touch both report button 0.
+    if (e.button > 0) return
+    setVolDragging(true)
+  }, [])
+  const handleVolPointerUp = useCallback(() => setVolDragging(false), [])
+
   const handlePanMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      // Ignore right/middle press — it must not start a scrub drag, or it races
+      // the right-click cycle (AC-018) and audibly sweeps pan.
+      if (e.button > 0) return
       e.preventDefault()
       const startX = e.clientX
       const startPan = pan
@@ -78,11 +104,51 @@ export default function ChannelStrip({
     [channelIndex, pan, onSetPan]
   )
 
+  // Right-click steps a three-position cycle (spec-007 amendment, AC-018):
+  // any freely-dragged position recenters first, then C → 100% R → 100% L → C.
+  // Compared with a tolerance so key-step residue near 0/±1 still cycles.
+  const handlePanContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      const next =
+        Math.abs(pan) < PAN_EPSILON ? 1 : pan >= 1 - PAN_EPSILON ? -1 : 0
+      onSetPan(channelIndex, next)
+    },
+    [channelIndex, pan, onSetPan]
+  )
+
+  const handlePanKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      let next: number
+      switch (e.key) {
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          next = clamp(pan - PAN_KEY_STEP, -1, 1)
+          break
+        case 'ArrowRight':
+        case 'ArrowUp':
+          next = clamp(pan + PAN_KEY_STEP, -1, 1)
+          break
+        case 'Home':
+          next = 0
+          break
+        case 'End':
+          next = 1
+          break
+        default:
+          return
+      }
+      e.preventDefault()
+      onSetPan(channelIndex, next)
+    },
+    [channelIndex, pan, onSetPan]
+  )
+
   const levelPct = meterFillPct(levelDb)
   const peakPct = meterFillPct(peakDb)
 
   return (
-    <div className="mixer-channel-strip">
+    <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}`}>
       <div className="mixer-channel-label">
         <span>{label}</span>
         <button
@@ -96,6 +162,10 @@ export default function ChannelStrip({
       </div>
 
       <div className="mixer-channel-vol-wrap">
+        {volDragging && (
+          <div className="mixer-channel-vol-readout">{Math.round(gain * 100)}%</div>
+        )}
+        <div className="mixer-channel-unity-tick" aria-hidden="true" />
         <input
           type="range"
           className="mixer-channel-vol"
@@ -104,6 +174,10 @@ export default function ChannelStrip({
           value={Math.round(gain * 100)}
           aria-label={`Channel ${channelIndex + 1} Volume`}
           onChange={handleVolChange}
+          onPointerDown={handleVolPointerDown}
+          onPointerUp={handleVolPointerUp}
+          onPointerCancel={handleVolPointerUp}
+          onBlur={handleVolPointerUp}
         />
         <div className="mixer-channel-meter">
           <div
@@ -123,12 +197,16 @@ export default function ChannelStrip({
       <div
         className="mixer-channel-pan"
         role="slider"
+        tabIndex={0}
         aria-label={`Channel ${channelIndex + 1} Pan`}
         aria-valuemin={-1}
         aria-valuemax={1}
         aria-valuenow={Math.round(pan * 100) / 100}
+        aria-valuetext={panValueText(pan)}
         style={{ '--pan-angle': `${pan * 135}deg` } as React.CSSProperties}
         onMouseDown={handlePanMouseDown}
+        onContextMenu={handlePanContextMenu}
+        onKeyDown={handlePanKeyDown}
       />
 
       <div className="mixer-channel-buttons">

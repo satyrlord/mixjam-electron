@@ -85,8 +85,6 @@ export interface Theme {
   radius: string
 }
 
-/** Canonical, fully-implemented baseline theme (spec-002 US-001). */
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -96,13 +94,12 @@ function isTheme(value: unknown): value is Theme {
   if (typeof value.name !== 'string' || typeof value.key !== 'string') return false
   if (!isRecord(value.colors) || !isRecord(value.fonts) || !isRecord(value.depth)) return false
   if (typeof value.radius !== 'string') return false
-  // Check a few canonical color keys exist and are strings.
+  // Every color that applyTheme feeds to bubbleTextColor must be a string, or
+  // theme application throws mid-way and leaves a half-applied theme. Keep this
+  // list in sync with the --on-* derivations in applyTheme.
   const { colors } = value
-  return (
-    typeof colors.accent === 'string' &&
-    typeof colors['bg-base'] === 'string' &&
-    typeof colors.text === 'string'
-  )
+  const required = ['accent', 'bg-base', 'text', 'highlight', 'meter-red']
+  return required.every((key) => typeof colors[key] === 'string')
 }
 
 function validateTheme(json: unknown, label: string): Theme {
@@ -111,6 +108,7 @@ function validateTheme(json: unknown, label: string): Theme {
   return emeraldThemeJson as Theme
 }
 
+/** Canonical, fully-implemented baseline theme (spec-002 US-001). */
 export const emeraldTheme = validateTheme(emeraldThemeJson, 'emerald')
 export const studioTheme = validateTheme(studioThemeJson, 'studio')
 const raveTheme = validateTheme(raveThemeJson, 'rave')
@@ -171,6 +169,10 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   // "text on a color swatch" resolves identically everywhere in the app.
   root.style.setProperty('--on-accent', bubbleTextColor(theme.colors.accent))
   root.style.setProperty('--on-highlight', bubbleTextColor(theme.colors.highlight))
+  // Mute-active fills use --meter-red (the accent fill fails the 3:1 non-text
+  // contrast minimum against --pill-bg in some themes; meter zone colors are
+  // bright by design and pass in all of them — spec-007 AC-022).
+  root.style.setProperty('--on-meter-red', bubbleTextColor(theme.colors['meter-red']))
   root.style.setProperty('--radius', theme.radius)
   root.style.setProperty('--font-chrome', fontStack(theme.fonts.chrome, 'system-ui, sans-serif'))
   root.style.setProperty('--font-label', fontStack(theme.fonts.label, 'system-ui, sans-serif'))

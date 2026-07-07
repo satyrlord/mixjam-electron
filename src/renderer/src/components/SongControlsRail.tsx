@@ -9,11 +9,13 @@ interface SongControlsRailProps {
   mixerChannels: ChannelState[]
   mixerChannelLevels: ReadonlyMap<number, number>
   mixerChannelPeaks: ReadonlyMap<number, number>
+  canRestoreChannel: boolean
   onSetChannelGain: (channelIndex: number, gain: number) => void
   onSetChannelPan: (channelIndex: number, pan: number) => void
   onToggleChannelMute: (channelIndex: number) => void
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
+  onRestoreChannel: () => void
 }
 
 export default function SongControlsRail({
@@ -23,11 +25,13 @@ export default function SongControlsRail({
   mixerChannels,
   mixerChannelLevels,
   mixerChannelPeaks,
+  canRestoreChannel,
   onSetChannelGain,
   onSetChannelPan,
   onToggleChannelMute,
   onToggleChannelSolo,
-  onRemoveChannel
+  onRemoveChannel,
+  onRestoreChannel
 }: SongControlsRailProps) {
   return (
     <aside className="tracker-zone song-controls-rail">
@@ -40,11 +44,13 @@ export default function SongControlsRail({
         channels={mixerChannels}
         channelLevels={mixerChannelLevels}
         channelPeaks={mixerChannelPeaks}
+        canRestoreChannel={canRestoreChannel}
         onSetChannelGain={onSetChannelGain}
         onSetChannelPan={onSetChannelPan}
         onToggleChannelMute={onToggleChannelMute}
         onToggleChannelSolo={onToggleChannelSolo}
         onRemoveChannel={onRemoveChannel}
+        onRestoreChannel={onRestoreChannel}
       />
     </aside>
   )

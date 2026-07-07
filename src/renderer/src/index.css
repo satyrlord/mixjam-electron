@@ -712,7 +712,9 @@ html[data-theme-ready='true'] body {
 .tracker-view {
   flex: 1;
   display: grid;
-  grid-template-columns: var(--left-col-w, 168px) minmax(0, 1fr);
+  /* 420px default keeps the mixer visible on first entry (spec-007 AC-014);
+     the drag seam still allows narrowing down to 168px. */
+  grid-template-columns: var(--left-col-w, 420px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) 44px minmax(0, 1fr);
   background: var(--bg-base);
   overflow: hidden;
@@ -1453,9 +1455,11 @@ html[data-theme-ready='true'] body {
   background: var(--chrome);
 }
 
-.mixer-column-empty {
-  align-items: center;
-  justify-content: center;
+/* Below the 272px reveal threshold the mixer is clipped by the rail. Hide it
+   from layout and the tab order so keyboard focus can't land on off-screen
+   strips and force-scroll the rail past the master section. */
+.tracker-view.mixer-hidden .mixer-column {
+  visibility: hidden;
 }
 
 .mixer-empty-text {
@@ -1464,15 +1468,55 @@ html[data-theme-ready='true'] body {
   color: var(--text-muted);
 }
 
+.mixer-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding-right: 8px;
+}
+
 .mixer-column-title {
   padding: 8px 8px 4px;
   flex-shrink: 0;
 }
 
+.mixer-restore {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--pill-border);
+  border-radius: 2px;
+  background: var(--pill-bg);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mixer-restore:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* Horizontal scroll keeps every strip reachable at any column width
+   (spec-007 AC-015; supersedes the original overflow: hidden). */
 .mixer-strips {
   flex: 1;
   display: flex;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.mixer-strips-empty {
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── Channel Strip (40px wide) ── */
@@ -1523,7 +1567,8 @@ html[data-theme-ready='true'] body {
   transition: opacity 0.1s;
 }
 
-.mixer-channel-strip:hover .mixer-channel-remove {
+.mixer-channel-strip:hover .mixer-channel-remove,
+.mixer-channel-remove:focus-visible {
   opacity: 1;
 }
 
@@ -1540,6 +1585,35 @@ html[data-theme-ready='true'] body {
   display: flex;
   align-items: stretch;
   min-height: 0;
+}
+
+.mixer-channel-vol-readout {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text);
+  background: var(--chrome);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 1px 3px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Unity (100%) reference at the fader's top-of-travel (thumb center ~8px). */
+.mixer-channel-unity-tick {
+  position: absolute;
+  top: 8px;
+  left: 4px;
+  right: 4px;
+  height: 1px;
+  background: var(--text-muted);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .mixer-channel-vol {
@@ -1610,6 +1684,12 @@ html[data-theme-ready='true'] body {
   border-color: var(--accent);
 }
 
+.mixer-channel-pan:focus-visible {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .mixer-channel-pan::before {
   content: '';
   position: absolute;
@@ -1675,10 +1755,22 @@ html[data-theme-ready='true'] body {
   border-color: var(--accent);
 }
 
+/* --meter-red, not --accent: the accent fill fails the 3:1 non-text contrast
+   minimum against --pill-bg in some themes (spec-007 AC-022). */
 .mixer-channel-m-active {
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: var(--accent-dark);
+  background: var(--meter-red);
+  color: var(--on-meter-red);
+  border-color: var(--meter-red);
+}
+
+/* Dim a muted strip's controls; M/S buttons and the drag readout stay at
+   full strength so the active mute state and live value remain readable. */
+.mixer-channel-strip-muted .mixer-channel-label,
+.mixer-channel-strip-muted .mixer-channel-vol,
+.mixer-channel-strip-muted .mixer-channel-meter,
+.mixer-channel-strip-muted .mixer-channel-unity-tick,
+.mixer-channel-strip-muted .mixer-channel-pan {
+  opacity: 0.4;
 }
 
 .mixer-channel-s-active {
@@ -1688,19 +1780,53 @@ html[data-theme-ready='true'] body {
 }
 
 /* ── Left-column resize seam ── */
+/* Confined to the Song Controls rail row (grid-row 4), the band it actually
+   resizes. Spanning the full height (rows 1/5) put the seam and its grip over
+   the tracker/browser clip area when the Recent Projects rail is collapsed
+   (that region spans columns 1/3), stealing clip clicks and drags. */
 .left-col-resize-seam {
   grid-column: 1;
-  grid-row: 1 / 5;
+  grid-row: 4;
   justify-self: end;
   width: 4px;
   cursor: col-resize;
   background: transparent;
   z-index: 20;
   transition: background 0.15s;
+  position: relative;
 }
 
 .left-col-resize-seam:hover {
   background: var(--accent);
+}
+
+/* Always-visible grip so the seam reads as draggable (drag left past the
+   272px threshold to hide the mixer). A bordered pill with three dots that
+   protrudes over both sides of the 4px seam. */
+.left-col-resize-seam::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 48px;
+  border-radius: 5px;
+  border: 1px solid var(--pill-border);
+  background:
+    radial-gradient(circle at 50% 14px, var(--text-muted) 1.2px, transparent 1.8px),
+    radial-gradient(circle at 50% 23px, var(--text-muted) 1.2px, transparent 1.8px),
+    radial-gradient(circle at 50% 32px, var(--text-muted) 1.2px, transparent 1.8px),
+    var(--chrome);
+}
+
+.left-col-resize-seam:hover::after {
+  border-color: var(--accent);
+  background:
+    radial-gradient(circle at 50% 14px, var(--on-accent) 1.2px, transparent 1.8px),
+    radial-gradient(circle at 50% 23px, var(--on-accent) 1.2px, transparent 1.8px),
+    radial-gradient(circle at 50% 32px, var(--on-accent) 1.2px, transparent 1.8px),
+    var(--accent);
 }
 
 .song-control {

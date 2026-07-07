@@ -117,6 +117,108 @@ describe('ChannelStrip', () => {
     expect(panSlider).toHaveAttribute('aria-valuenow', '0.5')
   })
 
+  // --- 2026-07-07 amendments (spec-007 AC-018, AC-020..023) ---
+
+  it('right-click on pan cycles C to 100% R to 100% L to C and suppresses the menu (AC-018)', () => {
+    const onSetPan = vi.fn()
+    const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} pan={0.4} onSetPan={onSetPan} />)
+    const panKnob = () => screen.getByRole('slider', { name: 'Channel 1 Pan' })
+
+    // Any freely-dragged position recenters first.
+    const menuShown = fireEvent.contextMenu(panKnob())
+    expect(menuShown).toBe(false) // preventDefault fired
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 0)
+
+    rerender(<ChannelStrip {...DEFAULT_PROPS} pan={0} onSetPan={onSetPan} />)
+    fireEvent.contextMenu(panKnob())
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 1)
+
+    rerender(<ChannelStrip {...DEFAULT_PROPS} pan={1} onSetPan={onSetPan} />)
+    fireEvent.contextMenu(panKnob())
+    expect(onSetPan).toHaveBeenLastCalledWith(0, -1)
+
+    rerender(<ChannelStrip {...DEFAULT_PROPS} pan={-1} onSetPan={onSetPan} />)
+    fireEvent.contextMenu(panKnob())
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 0)
+  })
+
+  it('pan knob is focusable and arrow keys adjust pan by 0.05 clamped (AC-021)', () => {
+    const onSetPan = vi.fn()
+    const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} pan={0} onSetPan={onSetPan} />)
+    const panKnob = () => screen.getByRole('slider', { name: 'Channel 1 Pan' })
+
+    expect(panKnob()).toHaveAttribute('tabindex', '0')
+
+    fireEvent.keyDown(panKnob(), { key: 'ArrowRight' })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 0.05)
+    fireEvent.keyDown(panKnob(), { key: 'ArrowLeft' })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, -0.05)
+    // ArrowUp/ArrowDown mirror Right/Left (WAI-ARIA slider pattern).
+    fireEvent.keyDown(panKnob(), { key: 'ArrowUp' })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 0.05)
+    fireEvent.keyDown(panKnob(), { key: 'ArrowDown' })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, -0.05)
+
+    // Home centers, End goes hard right.
+    fireEvent.keyDown(panKnob(), { key: 'Home' })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 0)
+    fireEvent.keyDown(panKnob(), { key: 'End' })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 1)
+
+    // Clamped at the extremes.
+    rerender(<ChannelStrip {...DEFAULT_PROPS} pan={1} onSetPan={onSetPan} />)
+    fireEvent.keyDown(panKnob(), { key: 'ArrowRight' })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 1)
+
+    // Unrelated keys are ignored.
+    onSetPan.mockClear()
+    fireEvent.keyDown(panKnob(), { key: 'a' })
+    expect(onSetPan).not.toHaveBeenCalled()
+  })
+
+  it('right-click cycles from key-step residue near center (AC-018 epsilon)', () => {
+    const onSetPan = vi.fn()
+    // ArrowRight×3 then ArrowLeft×3 lands on ~1.4e-17, which reads as Center but
+    // is not exactly 0; the first right-click must still step to 100% R.
+    const residue = 1.3877787807814457e-17
+    render(<ChannelStrip {...DEFAULT_PROPS} pan={residue} onSetPan={onSetPan} />)
+    fireEvent.contextMenu(screen.getByRole('slider', { name: 'Channel 1 Pan' }))
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 1)
+  })
+
+  it('pan knob exposes aria-valuetext for its position (AC-021)', () => {
+    const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} pan={0} />)
+    const panKnob = () => screen.getByRole('slider', { name: 'Channel 1 Pan' })
+
+    expect(panKnob()).toHaveAttribute('aria-valuetext', 'Center')
+    rerender(<ChannelStrip {...DEFAULT_PROPS} pan={-0.4} />)
+    expect(panKnob()).toHaveAttribute('aria-valuetext', '40% left')
+    rerender(<ChannelStrip {...DEFAULT_PROPS} pan={1} />)
+    expect(panKnob()).toHaveAttribute('aria-valuetext', '100% right')
+  })
+
+  it('muted strip gets the dimming class on its root (AC-022)', () => {
+    render(<ChannelStrip {...DEFAULT_PROPS} muted />)
+    expect(document.querySelector('.mixer-channel-strip')!.className)
+      .toContain('mixer-channel-strip-muted')
+  })
+
+  it('shows the gain readout only while the fader is being dragged (AC-023)', () => {
+    render(<ChannelStrip {...DEFAULT_PROPS} gain={0.8} />)
+    const volSlider = screen.getByRole('slider', { name: 'Channel 1 Volume' })
+
+    expect(document.querySelector('.mixer-channel-vol-readout')).not.toBeInTheDocument()
+    fireEvent.pointerDown(volSlider)
+    expect(screen.getByText('80%')).toBeInTheDocument()
+    fireEvent.pointerUp(volSlider)
+    expect(document.querySelector('.mixer-channel-vol-readout')).not.toBeInTheDocument()
+  })
+
+  it('renders the unity tick mark (AC-023)', () => {
+    render(<ChannelStrip {...DEFAULT_PROPS} />)
+    expect(document.querySelector('.mixer-channel-unity-tick')).toBeInTheDocument()
+  })
+
   it('cleans up window listeners on unmount during pan drag', () => {
     const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
     render(<ChannelStrip {...DEFAULT_PROPS} />)

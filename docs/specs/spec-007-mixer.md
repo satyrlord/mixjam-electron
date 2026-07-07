@@ -33,7 +33,8 @@ SongControlsRail) resizes via a drag seam on its right edge and defaults to
 420px (amended 2026-07-07 — originally 168px, which kept the mixer entirely
 off-screen). The mixer column appears inside SongControlsRail to the right of
 SongControlsMain when the left column exceeds 272px (168px master section +
-104px threshold) AND the mixer visibility toggle is on:
+104px threshold); below that width the mixer is hidden (there is no separate
+toggle — decision 32 replaced it with the drag seam):
 
 ```text
 SongControlsRail (flex row, overflow: hidden)

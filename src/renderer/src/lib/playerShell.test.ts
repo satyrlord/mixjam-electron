@@ -106,7 +106,7 @@ describe('placeClipOnLane', () => {
     expect(clips?.[1]?.durationTicks).toBe(32)
   })
 
-  it('removes clips that start after the new clip end but overlap from the other side', () => {
+  it('keeps both clips when the second starts after the first one ends', () => {
     const lanes = createDefaultLanes()
     let next = placeClipOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0)
     // Place a second clip that starts at tick 64 (after the first one ends at 32)

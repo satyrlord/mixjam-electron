@@ -52,7 +52,6 @@ describe('AudioEngine', () => {
     const channelGain = context.created.gains[2]
     const channelPan = context.created.panners[0]
     const channelAnalyser = context.created.analysers[1] // per-channel analyser
-    void channel
     expect(source.connectedTo).toContain(channelGain)
     expect(channelGain.connectedTo).toContain(channelPan)
     expect(channelPan.connectedTo).toContain(channelAnalyser)

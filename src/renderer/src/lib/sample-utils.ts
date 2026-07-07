@@ -113,7 +113,7 @@ export function formatDuration(seconds: number | null): string {
 /**
  * Convert a pixel position to the nearest tick, optionally snapping to a grid.
  * @param snapResolution - Grid resolution in ticks (e.g. 8 = snap to beat, 1 = per-tick freeform).
- *   Defaults to 1 (per-tick, no grid snap) for backward compatibility.
+ *   Defaults to 1 (per-tick, no grid snap).
  */
 export function nearestTick(
   clickX: number,

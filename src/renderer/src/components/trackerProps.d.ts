@@ -95,9 +95,11 @@ export interface TrackerMixerProps {
   channels: ChannelState[]
   channelLevels: ReadonlyMap<number, number>
   channelPeaks: ReadonlyMap<number, number>
+  canRestoreChannel: boolean
   onSetChannelGain: (channelIndex: number, gain: number) => void
   onSetChannelPan: (channelIndex: number, pan: number) => void
   onToggleChannelMute: (channelIndex: number) => void
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
+  onRestoreChannel: () => void
 }
