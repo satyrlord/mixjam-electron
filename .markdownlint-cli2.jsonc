@@ -12,7 +12,6 @@
     ".git/**",
     "**/node_modules/**",
     "**/HTML-REPORT.md",
-    "playwright-report/**",
-
+    "playwright-report/**"
   ]
 }

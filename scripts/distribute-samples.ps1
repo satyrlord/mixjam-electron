@@ -112,7 +112,6 @@ Write-Host ""
 Write-Host "Done. Moved $total samples into $($categories.Keys.Count) category folders." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Delete the MixJam DB so it picks up the new structure:" -ForegroundColor White
-Write-Host "     Remove-Item `"`$env:APPDATA\mixjam-electron\library.db`"" -ForegroundColor Gray
-Write-Host "  2. Launch MixJam, go to Tracker" -ForegroundColor White
-Write-Host "  3. Click Re-scan to re-index with the new folder layout" -ForegroundColor White
+Write-Host "  1. Launch MixJam, go to Tracker" -ForegroundColor White
+Write-Host "  2. Click Re-scan to re-index with the new folder layout" -ForegroundColor White
+Write-Host "     (moved files are marked missing and re-added under their new paths)" -ForegroundColor Gray

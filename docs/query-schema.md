@@ -1,7 +1,7 @@
 # `rule_json` query schema
 
-A library is a saved query. This document defines the JSON that is stored in
-`library_rules.rule_json` and the rules for compiling it to SQL. The same format is
+A library is a saved query. The JSON below is stored in
+`library_rules.rule_json` and compiled to SQL. The same format is
 used for ad-hoc browser filtering (an unsaved query) and for saved libraries.
 
 > **Resolves open item #1.** This was flagged as "must be nailed down before

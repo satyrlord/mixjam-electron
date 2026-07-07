@@ -10,21 +10,11 @@
     ".fallow/**",
     "dist/**",
     "playwright-report/**",
-    "test-results/**",
-    "src/state/libraryStore.ts",
-    "src/state/projectStore.ts",
-    "src/state/selectors.ts"
+    "test-results/**"
   ],
-  "ignoreDependencies": ["zundo", "playwright-core", "v8-to-istanbul"],
+  "ignoreDependencies": ["playwright-core", "v8-to-istanbul"],
   "usedClassMembers": [
-    "initProject", "trackCount", "hasClipboardPattern", "play", "pause",
-    "stop", "setBpm", "backToStart", "goToEnd", "setLoopEnabled",
-    "toggleLoop", "toggleStep", "toggleMute", "toggleSolo", "setTrackPan",
-    "setTrackGain", "clearPattern", "copyPattern", "copyStepRange",
-    "copyPatternToClipboard", "pastePatternFromClipboard", "undo", "redo",
-    "addTrack", "removeTrack", "listInputSamples", "listTestSamples",
-    "assignSample", "assignTestSample", "assignFromBrowser", "previewSample",
-    "onScheduleTick", "dispose"
+    "play", "pause", "stop", "setBpm", "previewSample", "undo", "redo"
   ],
   "rules": {
     "unused-files": "error",

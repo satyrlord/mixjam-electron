@@ -57,7 +57,7 @@ adjacencies.
   ├── .middle-strip     — 44px, full-width transport + global status band
   └── .lower-work       — flex row, main bottom work band
       ├── .song-controls-rail — left rail, default-visible control region
-      │   └── .mixer-reveal    — hidden by default, revealed by widening rail
+      │   └── .mixer-reveal    — mixer column, shown/hidden via the rail's drag seam (spec-007; visible by default since its 2026-07-07 amendment)
       └── .browser-region      — lower-right sample browser (spec-004)
           ├── .category-tree
           ├── .browser-resize-v — 5px, internal vertical drag handle

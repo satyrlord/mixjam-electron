@@ -78,8 +78,7 @@ Strip from spec-006. Its internal layout:
 ```
 
 - The Song Controls rail is a separate lower-left region from spec-006. The
-  hidden-by-default mixer reveal from spec-007 does not live inside the sample
-  browser.
+  mixer column (spec-007) does not live inside the sample browser.
 - A vertical resize handle separates the category tree from the sample list
   inside the browser region (defined in spec-006).
 - Selected sample details do not open a third pane inside the browser region.

@@ -11,7 +11,7 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 | [`diagnose`](./diagnose/SKILL.md) | Model-invoked | Structured debugging loop for hard bugs and performance regressions. Build a feedback loop, hypothesise, instrument, fix. |
 | [`dead-code-audit`](./dead-code-audit/SKILL.md) | Model-invoked | Audit TS code for dead code, orphan files, and unused symbols across main and renderer processes. Optionally remove provably dead code. |
 | [`refactor`](./refactor/SKILL.md) | Model-invoked | Surgical, behavior-preserving cleanup. Watch for IPC lifecycle traps, React stale closures, Web Audio lifecycle, and SQLite query hazards. |
-| [`deslop`](./deslop/SKILL.md) | Model-invoked | Remove AI-generated code slop from the branch diff: unnecessary comments, defensive cruft, `any` casts, deep nesting, and style inconsistencies. |
+| [`deslop`](./deslop/SKILL.md) | Model-invoked | Full-repo slop removal across code, docs, config, and data: unnecessary comments, defensive cruft, `any` casts, prose tells, ghost artifacts, and style inconsistencies. |
 | [`run-quality-gate`](./run-quality-gate/SKILL.md) | Model-invoked | Deterministic quality gate: clear Problems, markdownlint, ESLint, Fallow, unit/e2e tests, and enforce >=80% in every coverage cell without suppression by default. |
 
 ## Design & Architecture

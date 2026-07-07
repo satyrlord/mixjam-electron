@@ -16,9 +16,9 @@ the full session. Samples are referenced by relative path, never embedded.
   working on it later.
 - **US-002:** As a user, I can open a saved .mixjam file and the Player restores
   all lanes, clips, mixer settings, BPM, and routing exactly as I left them.
-- **US-003:** As a user, if a sample referenced in a .mixjam file file is missing,
+- **US-003:** As a user, if a sample referenced in a .mixjam file is missing,
   I see a clear warning but the rest of the project still loads.
-- **US-004:** As a user, my .mixjam file files include a format version so future
+- **US-004:** As a user, my .mixjam files include a format version so future
   versions of the app can migrate old projects.
 - **US-005:** As a user, projects I save or open appear in the Recent Projects
   rail so I can reopen them quickly later.
