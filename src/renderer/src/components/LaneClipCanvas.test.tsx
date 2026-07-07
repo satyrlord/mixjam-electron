@@ -400,7 +400,7 @@ describe('LaneClipCanvas', () => {
     // hardcoded white, which would be invisible against a white clip/accent
     // in themes like Club PA) and lineWidth 2. Since clip-1 is the only clip
     // and is selected, the last stroke call is the selection border.
-    expect(mockCtx.strokeStyle).toBe('#FFE066')
+    expect(mockCtx.strokeStyle).toBe('#FDE047')
     expect(mockCtx.lineWidth).toBe(2)
   })
 

@@ -18,11 +18,13 @@
     "pill-border": "rgba(217,154,61,0.38)",
     "playhead": "#F2C879",
     "clip-text": "#FFFFFF",
-    "clip-select": "#FFE066",
-    "clip-missing": "#FF6D6D",
-    "meter-green": "#4CAF50",
-    "meter-yellow": "#FFC107",
-    "meter-red": "#F44336"
+    "clip-select": "#FFDB70",
+    "clip-missing": "#FF8264",
+    "meter-green": "#86B94E",
+    "meter-yellow": "#F5C542",
+    "meter-red": "#E05B3A",
+    "transport": "#C89F5E",
+    "transport-active": "#D9820F"
   },
   "fonts": {
     "chrome": "Josefin Sans",
@@ -32,8 +34,13 @@
   "depth": {
     "gradient-header": "linear-gradient(90deg, #1F150A, #2A1C0D)",
     "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
-    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
-    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+    "gradient-lane": "linear-gradient(180deg, rgba(217,154,61,0.07), rgba(26,16,6,0.3) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)",
+    "gradient-transport": "radial-gradient(circle at 35% 30%, #F2E3C2, #C89F5E 58%, #7A5C2E)",
+    "gradient-transport-active": "radial-gradient(circle at 50% 38%, #FFD98F, #D9820F 72%, #8F5406)",
+    "shadow-transport": "inset 0 1px 1px rgba(255,255,255,0.5), 0 2px 3px rgba(0,0,0,0.55)",
+    "shadow-transport-active": "inset 0 1px 1px rgba(255,255,255,0.55), 0 0 9px rgba(242,200,121,0.7)"
   },
-  "radius": "0.22rem"
+  "radius": "0.22rem",
+  "radius-transport": "50%"
 }

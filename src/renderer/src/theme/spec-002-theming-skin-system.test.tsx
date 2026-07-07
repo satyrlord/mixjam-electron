@@ -12,7 +12,7 @@ import {
   normalizeThemeKey,
   resolveTheme,
   selectTheme,
-  studioTheme
+  enterpriseTheme
 } from './themes'
 
 const REPO_ROOT = process.cwd()
@@ -22,7 +22,7 @@ const PUBLIC_FONTS_PATH = resolve(REPO_ROOT, 'src/renderer/public/fonts')
 
 const EXPECTED_THEME_NAMES = [
   'Emerald',
-  'Flat Studio',
+  'Enterprise',
   'Neon Rave',
   'Warm Analog',
   'IDE',
@@ -48,18 +48,24 @@ const EXPECTED_EMERALD_COLORS = {
   'pill-border': '#2D6B5E',
   playhead: '#E74C3C',
   'clip-text': '#FFFFFF',
-  'clip-select': '#FFE066',
-  'clip-missing': '#FF6D6D',
-  'meter-green': '#4CAF50',
-  'meter-yellow': '#FFC107',
-  'meter-red': '#F44336'
+  'clip-select': '#FDE047',
+  'clip-missing': '#FB8A7E',
+  'meter-green': '#34D399',
+  'meter-yellow': '#FBBF24',
+  'meter-red': '#F87171',
+  transport: '#0C2D32',
+  'transport-active': '#00674F'
 } as const
 
 const EXPECTED_EMERALD_DEPTH = {
   'gradient-header': 'linear-gradient(90deg, #07291F, #0A362A)',
   'gradient-ruler': 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))',
-  'gradient-lane': 'linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)',
-  'shadow-clip-text': '1.5px 1.5px 2px rgba(0,0,0,0.55)'
+  'gradient-lane': 'linear-gradient(180deg, rgba(143,188,178,0.07), rgba(2,18,14,0.28) 86%)',
+  'shadow-clip-text': '1.5px 1.5px 2px rgba(0,0,0,0.55)',
+  'gradient-transport': 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.16)), #0C2D32',
+  'gradient-transport-active': 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.12)), #00674F',
+  'shadow-transport': '0 1px 2px rgba(0,0,0,0.35)',
+  'shadow-transport-active': '0 1px 3px rgba(0,0,0,0.4)'
 } as const
 
 function readUtf8(absolutePath: string): string {
@@ -100,6 +106,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(emeraldTheme.colors).toEqual(EXPECTED_EMERALD_COLORS)
     expect(emeraldTheme.depth).toEqual(EXPECTED_EMERALD_DEPTH)
     expect(emeraldTheme.radius).toBe('0.22rem')
+    expect(emeraldTheme['radius-transport']).toBe('8px')
   })
 
   it('AC-003: bundled fonts are loaded from local files with no external font URL', () => {
@@ -111,7 +118,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'Ubuntu-Regular.ttf',
       'Ubuntu-Medium.ttf',
       'JetBrainsMono-Regular.ttf',
-      'JetBrainsMono-Medium.ttf'
+      'JetBrainsMono-Medium.ttf',
+      'IBMPlexSans-Regular.woff2',
+      'IBMPlexSans-Medium.woff2'
     ]
 
     for (const fontFile of expectedFontFiles) {
@@ -151,10 +160,10 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     const select = screen.getByLabelText('Theme')
     expect(select).toHaveValue('emerald')
 
-    fireEvent.change(select, { target: { value: 'studio' } })
+    fireEvent.change(select, { target: { value: 'enterprise' } })
 
-    expect(select).toHaveValue('studio')
-    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00B58C')
+    expect(select).toHaveValue('enterprise')
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#2F81F7')
   })
 
   it('AC-007: selecting Emerald when already active is a no-op', () => {
@@ -178,9 +187,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     const root = document.createElement('html')
     bootstrapTheme(root)
 
-    expect(resolveTheme('studio')).toBe(studioTheme)
+    expect(resolveTheme('enterprise')).toBe(enterpriseTheme)
     expect(resolveTheme('not-a-theme')).toBe(emeraldTheme)
-    expect(normalizeThemeKey('studio')).toBe('studio')
+    expect(normalizeThemeKey('enterprise')).toBe('enterprise')
     expect(selectTheme('not-a-theme', root)).toBe('emerald')
     expect(root.style.getPropertyValue('--accent')).toBe('#00674F')
     expect(root.getAttribute('data-theme-key')).toBe('emerald')
@@ -225,7 +234,15 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
 
     expect(parsed).toEqual(emeraldTheme)
 
-    expect(Object.keys(parsed)).toEqual(['name', 'key', 'colors', 'fonts', 'depth', 'radius'])
+    expect(Object.keys(parsed)).toEqual([
+      'name',
+      'key',
+      'colors',
+      'fonts',
+      'depth',
+      'radius',
+      'radius-transport'
+    ])
     expect(Object.keys(parsed.colors)).toEqual([
       'accent',
       'accent-dark',
@@ -247,14 +264,20 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'clip-missing',
       'meter-green',
       'meter-yellow',
-      'meter-red'
+      'meter-red',
+      'transport',
+      'transport-active'
     ])
     expect(Object.keys(parsed.fonts)).toEqual(['chrome', 'label', 'mono'])
     expect(Object.keys(parsed.depth)).toEqual([
       'gradient-header',
       'gradient-ruler',
       'gradient-lane',
-      'shadow-clip-text'
+      'shadow-clip-text',
+      'gradient-transport',
+      'gradient-transport-active',
+      'shadow-transport',
+      'shadow-transport-active'
     ])
 
     const expectedKeyCounts: Record<string, number> = {
@@ -264,6 +287,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       fonts: 1,
       depth: 1,
       radius: 1,
+      'radius-transport': 1,
       accent: 1,
       'accent-dark': 1,
       highlight: 1,
@@ -284,7 +308,13 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'gradient-header': 1,
       'gradient-ruler': 1,
       'gradient-lane': 1,
-      'shadow-clip-text': 1
+      'shadow-clip-text': 1,
+      transport: 1,
+      'transport-active': 1,
+      'gradient-transport': 1,
+      'gradient-transport-active': 1,
+      'shadow-transport': 1,
+      'shadow-transport-active': 1
     }
 
     for (const [key, count] of Object.entries(expectedKeyCounts)) {

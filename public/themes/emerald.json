@@ -18,11 +18,13 @@
     "pill-border": "#2D6B5E",
     "playhead": "#E74C3C",
     "clip-text": "#FFFFFF",
-    "clip-select": "#FFE066",
-    "clip-missing": "#FF6D6D",
-    "meter-green": "#4CAF50",
-    "meter-yellow": "#FFC107",
-    "meter-red": "#F44336"
+    "clip-select": "#FDE047",
+    "clip-missing": "#FB8A7E",
+    "meter-green": "#34D399",
+    "meter-yellow": "#FBBF24",
+    "meter-red": "#F87171",
+    "transport": "#0C2D32",
+    "transport-active": "#00674F"
   },
   "fonts": {
     "chrome": "Josefin Sans",
@@ -32,8 +34,13 @@
   "depth": {
     "gradient-header": "linear-gradient(90deg, #07291F, #0A362A)",
     "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
-    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
-    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+    "gradient-lane": "linear-gradient(180deg, rgba(143,188,178,0.07), rgba(2,18,14,0.28) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)",
+    "gradient-transport": "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.16)), #0C2D32",
+    "gradient-transport-active": "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.12)), #00674F",
+    "shadow-transport": "0 1px 2px rgba(0,0,0,0.35)",
+    "shadow-transport-active": "0 1px 3px rgba(0,0,0,0.4)"
   },
-  "radius": "0.22rem"
+  "radius": "0.22rem",
+  "radius-transport": "8px"
 }

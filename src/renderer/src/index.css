@@ -54,6 +54,22 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/IBMPlexSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/IBMPlexSans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -1367,10 +1383,11 @@ html[data-theme-ready='true'] body {
 .transport-button {
   width: 30px;
   height: 30px;
-  border-radius: var(--radius);
-  background: var(--pill-bg);
+  border-radius: var(--radius-transport, var(--radius));
+  background: var(--gradient-transport, var(--pill-bg));
   border: 1px solid var(--pill-border);
-  color: var(--text);
+  color: var(--on-transport, var(--text));
+  box-shadow: var(--shadow-transport, none);
   display: grid;
   place-items: center;
   font-size: 12px;
@@ -1385,9 +1402,9 @@ html[data-theme-ready='true'] body {
 }
 
 .transport-button-play {
-  background: var(--accent);
-  border-color: var(--accent-dark);
-  color: var(--on-accent);
+  background: var(--gradient-transport-active, var(--accent));
+  color: var(--on-transport-active, var(--on-accent));
+  box-shadow: var(--shadow-transport-active, none);
 }
 
 .strip-help {

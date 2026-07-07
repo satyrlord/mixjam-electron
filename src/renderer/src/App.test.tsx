@@ -58,10 +58,10 @@ describe('App', () => {
     expect(select).toHaveValue('emerald')
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00674F')
 
-    fireEvent.change(select, { target: { value: 'studio' } })
+    fireEvent.change(select, { target: { value: 'enterprise' } })
 
-    expect(select).toHaveValue('studio')
-    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#00B58C')
+    expect(select).toHaveValue('enterprise')
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#2F81F7')
   })
 
   it('places a clip on the tracker lane when a sample tile is dragged onto a lane', async () => {

@@ -7,9 +7,12 @@
 ## Objective
 
 Establish the theme system: 8 named themes defined as design tokens and a
-runtime theme switching mechanism. All 8 themes (Emerald, Flat Studio, Neon
+runtime theme switching mechanism. All 8 themes (Emerald, Enterprise, Neon
 Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA) are fully
 implemented with distinct visual appearances; Emerald is the default.
+(Amended 2026-07-07: Flat Studio (`studio`) was replaced by Enterprise
+(`enterprise`) — a dark cloud-platform look with blue accent `#2F81F7`.
+Saved `studio` keys fall back to Emerald via `normalizeThemeKey`.)
 
 ## User Stories
 
@@ -53,7 +56,10 @@ elements consistently.
 | `--meter-green` | Meter safe zone | Channel dB meter (-60 to -12 dB) |
 | `--meter-yellow` | Meter caution zone | Channel dB meter (-12 to -3 dB) |
 | `--meter-red` | Meter danger zone | Channel dB meter (-3 to 0 dB) |
+| `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink (amended 2026-07-07) | Transport strip buttons |
+| `--transport-active` | Active transport button base color; drives `--on-transport-active` (amended 2026-07-07) | Playing transport button |
 | `--radius` | Border radius | Clips, buttons, panels |
+| `--radius-transport` | Transport button corner shape | Transport strip buttons (play/pause/stop/skip/undo/redo); `50%` = round hardware buttons (Analog, Rust), rounded-rect values for modern themes (amended 2026-07-07) |
 
 ### Typography Tokens
 
@@ -64,10 +70,16 @@ Special Elite). Every font listed in the table is bundled with the app.
 
 | Token | Role | Emerald Default | Also Used By |
 |---|---|---|---|
-| `--font-chrome` | Header, chrome UI | Josefin Sans | Special Elite (Rust) |
-| `--font-label` | Body, labels, buttons | Ubuntu | Special Elite (Rust), JetBrains Mono (IDE, Rave, PA, Screen) |
+| `--font-chrome` | Header, chrome UI | Josefin Sans | Special Elite (Rust), IBM Plex Sans (Enterprise) |
+| `--font-label` | Body, labels, buttons | Ubuntu | Special Elite (Rust), JetBrains Mono (IDE, Rave, PA, Screen), IBM Plex Sans (Enterprise) |
 | `--font-mono` | Monospace (ruler, timer, code) | JetBrains Mono | — |
 | *(none)* | — | Special Elite | Rust theme (chrome + label) |
+| *(none)* | — | IBM Plex Sans | Enterprise theme (chrome + label) |
+
+New themes bundle their own font files by default (amended 2026-07-07) —
+a theme's authentic typeface is part of its identity, so implementation
+downloads the real family into `src/renderer/public/fonts/` rather than
+substituting an already-bundled face.
 
 All fonts must be bundled with the app and loaded from local files (no
 external CDN or Google Fonts dependency). Font files live in `src/renderer/public/fonts/`.
@@ -77,7 +89,7 @@ external CDN or Google Fonts dependency). Font files live in `src/renderer/publi
 | # | Theme Name | Token File Key | Status |
 |---|---|---|---|
 | 1 | Emerald | `emerald` | Fully implemented |
-| 2 | Flat Studio | `studio` | Fully implemented |
+| 2 | Enterprise | `enterprise` | Fully implemented |
 | 3 | Neon Rave | `rave` | Fully implemented |
 | 4 | Warm Analog | `analog` | Fully implemented |
 | 5 | IDE | `ide` | Fully implemented |
@@ -163,11 +175,11 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
     "pill-border": "#2D6B5E",
     "playhead": "#E74C3C",
     "clip-text": "#FFFFFF",
-    "clip-select": "#FFE066",
-    "clip-missing": "#FF6D6D",
-    "meter-green": "#4CAF50",
-    "meter-yellow": "#FFC107",
-    "meter-red": "#F44336"
+    "clip-select": "#FDE047",
+    "clip-missing": "#FB8A7E",
+    "meter-green": "#34D399",
+    "meter-yellow": "#FBBF24",
+    "meter-red": "#F87171"
   },
   "fonts": {
     "chrome": "Josefin Sans",
@@ -178,21 +190,34 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
     "gradient-header": "linear-gradient(90deg, ...)",
     "gradient-ruler": "linear-gradient(180deg, ...)",
     "gradient-lane": "linear-gradient(180deg, ...)",
-    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)",
+    "gradient-transport": "linear-gradient(180deg, ...) | radial-gradient(...) | flat color",
+    "gradient-transport-active": "backlit lamp / LED / flat accent background",
+    "shadow-transport": "box-shadow or none",
+    "shadow-transport-active": "glow box-shadow or none"
   },
-  "radius": "0.22rem"
+  "radius": "0.22rem",
+  "radius-transport": "8px"
 }
 ```
 
 All 8 theme files exist in `public/themes/` with their own distinct token
 values (no placeholder copies).
 
+Per-theme signal palettes (amended 2026-07-07): the meter triad
+(`--meter-green/-yellow/-red`), `--clip-select`, `--clip-missing`, and
+`depth.gradient-lane` are tuned per theme rather than shared across all 8.
+Every value must pass a 3:1 non-text contrast gate: meter colors against
+`--bg-base` (the meter track), `--meter-red` against `--pill-bg`
+(mute-active fill, spec-007 AC-022), and `--clip-select`/`--clip-missing`
+against `--bg-lane` (selection/focus outline and missing-clip fill).
+
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
 - [x] **AC-002:** The Emerald theme uses the exact token values listed in the table above (all 22 color tokens + `--radius`).
-- [x] **AC-003:** The four bundled fonts (Josefin Sans, Ubuntu, JetBrains Mono, Special Elite) are loaded from local files — no external network requests for fonts.
-- [x] **AC-004:** The theme selector dropdown in the tracker header lists all 8 theme names in order: Emerald, Flat Studio, Neon Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA.
+- [x] **AC-003:** All bundled fonts are loaded from local files — no external network requests for fonts.
+- [x] **AC-004:** The theme selector dropdown in the tracker header lists all 8 theme names in order: Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial, Screen Maximal, Club PA.
 - [x] **AC-005:** Default selection in the theme selector is "Emerald".
 - [x] **AC-006:** Selecting any theme from the dropdown immediately applies that theme across the entire UI.
 - [x] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.

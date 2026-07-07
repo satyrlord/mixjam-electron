@@ -1,7 +1,7 @@
 import { bubbleTextColor } from '../lib/sample-utils'
 import { refreshThemeTokens } from '../components/LaneClipCanvas'
 import emeraldThemeJson from '../../../../public/themes/emerald.json'
-import studioThemeJson from '../../../../public/themes/studio.json'
+import enterpriseThemeJson from '../../../../public/themes/enterprise.json'
 import raveThemeJson from '../../../../public/themes/rave.json'
 import analogThemeJson from '../../../../public/themes/analog.json'
 import ideThemeJson from '../../../../public/themes/ide.json'
@@ -11,7 +11,7 @@ import paThemeJson from '../../../../public/themes/pa.json'
 
 export const THEME_OPTIONS = [
   { name: 'Emerald', key: 'emerald' },
-  { name: 'Flat Studio', key: 'studio' },
+  { name: 'Enterprise', key: 'enterprise' },
   { name: 'Neon Rave', key: 'rave' },
   { name: 'Warm Analog', key: 'analog' },
   { name: 'IDE', key: 'ide' },
@@ -52,6 +52,15 @@ export interface ThemeColors {
   'meter-yellow': string
   /** Meter zone: red (clipping, -3 to 0 dB). */
   'meter-red': string
+  /**
+   * Solid base color of an idle transport button. The visible surface is
+   * depth.gradient-transport; this token exists so applyTheme can derive
+   * --on-transport (glyph ink) from a single luminance — light metal buttons
+   * (Analog) need dark glyphs, dark bakelite (Rust) needs light ones.
+   */
+  transport: string
+  /** Solid base color of the active (playing) transport button; drives --on-transport-active. */
+  'transport-active': string
 }
 
 export interface ThemeFonts {
@@ -74,6 +83,14 @@ export interface ThemeDepth {
   'gradient-ruler': string
   'gradient-lane': string
   'shadow-clip-text': string
+  /** Full background value for idle transport buttons (may layer a gradient over a base color). */
+  'gradient-transport': string
+  /** Full background value for the active (playing) transport button — backlit lamp / LED / flat accent. */
+  'gradient-transport-active': string
+  /** box-shadow for idle transport buttons ("none" for flat themes). */
+  'shadow-transport': string
+  /** box-shadow for the active transport button (glow for lamp/LED themes). */
+  'shadow-transport-active': string
 }
 
 export interface Theme {
@@ -83,6 +100,12 @@ export interface Theme {
   fonts: ThemeFonts
   depth: ThemeDepth
   radius: string
+  /**
+   * Transport button corner shape, independent of the global --radius.
+   * Analog-era themes use "50%" (round hardware buttons); modern themes use
+   * a rounded-rectangle value; terminal themes stay near-square.
+   */
+  'radius-transport': string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -94,11 +117,12 @@ function isTheme(value: unknown): value is Theme {
   if (typeof value.name !== 'string' || typeof value.key !== 'string') return false
   if (!isRecord(value.colors) || !isRecord(value.fonts) || !isRecord(value.depth)) return false
   if (typeof value.radius !== 'string') return false
+  if (typeof value['radius-transport'] !== 'string') return false
   // Every color that applyTheme feeds to bubbleTextColor must be a string, or
   // theme application throws mid-way and leaves a half-applied theme. Keep this
   // list in sync with the --on-* derivations in applyTheme.
   const { colors } = value
-  const required = ['accent', 'bg-base', 'text', 'highlight', 'meter-red']
+  const required = ['accent', 'bg-base', 'text', 'highlight', 'meter-red', 'transport', 'transport-active']
   return required.every((key) => typeof colors[key] === 'string')
 }
 
@@ -110,7 +134,7 @@ function validateTheme(json: unknown, label: string): Theme {
 
 /** Canonical, fully-implemented baseline theme (spec-002 US-001). */
 export const emeraldTheme = validateTheme(emeraldThemeJson, 'emerald')
-export const studioTheme = validateTheme(studioThemeJson, 'studio')
+export const enterpriseTheme = validateTheme(enterpriseThemeJson, 'enterprise')
 const raveTheme = validateTheme(raveThemeJson, 'rave')
 const analogTheme = validateTheme(analogThemeJson, 'analog')
 const ideTheme = validateTheme(ideThemeJson, 'ide')
@@ -122,7 +146,7 @@ const DEFAULT_THEME_KEY: ThemeKey = 'emerald'
 
 const IMPLEMENTED_THEMES: Readonly<Record<ThemeKey, Theme>> = {
   emerald: emeraldTheme,
-  studio: studioTheme,
+  enterprise: enterpriseTheme,
   rave: raveTheme,
   analog: analogTheme,
   ide: ideTheme,
@@ -173,7 +197,12 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   // contrast minimum against --pill-bg in some themes; meter zone colors are
   // bright by design and pass in all of them — spec-007 AC-022).
   root.style.setProperty('--on-meter-red', bubbleTextColor(theme.colors['meter-red']))
+  // Transport glyph ink derives from the button's solid base color, not the
+  // gradient painted over it — light hardware buttons need dark glyphs.
+  root.style.setProperty('--on-transport', bubbleTextColor(theme.colors.transport))
+  root.style.setProperty('--on-transport-active', bubbleTextColor(theme.colors['transport-active']))
   root.style.setProperty('--radius', theme.radius)
+  root.style.setProperty('--radius-transport', theme['radius-transport'])
   root.style.setProperty('--font-chrome', fontStack(theme.fonts.chrome, 'system-ui, sans-serif'))
   root.style.setProperty('--font-label', fontStack(theme.fonts.label, 'system-ui, sans-serif'))
   root.style.setProperty('--font-mono', fontStack(theme.fonts.mono, "'Consolas', monospace"))

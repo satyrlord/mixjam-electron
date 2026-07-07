@@ -18,11 +18,13 @@
     "pill-border": "#555555",
     "playhead": "#FFFFFF",
     "clip-text": "#FFFFFF",
-    "clip-select": "#FFE066",
-    "clip-missing": "#FF6D6D",
-    "meter-green": "#4CAF50",
-    "meter-yellow": "#FFC107",
-    "meter-red": "#F44336"
+    "clip-select": "#FFE500",
+    "clip-missing": "#FF5C5C",
+    "meter-green": "#00E676",
+    "meter-yellow": "#FFEA00",
+    "meter-red": "#FF1744",
+    "transport": "#111111",
+    "transport-active": "#FFFFFF"
   },
   "fonts": {
     "chrome": "JetBrains Mono",
@@ -32,8 +34,13 @@
   "depth": {
     "gradient-header": "linear-gradient(90deg, #0A0A0A, #111111)",
     "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))",
-    "gradient-lane": "linear-gradient(180deg, rgba(122,160,220,0.08), rgba(8,18,48,0.24) 86%)",
-    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)"
+    "gradient-lane": "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.3) 86%)",
+    "shadow-clip-text": "1.5px 1.5px 2px rgba(0,0,0,0.55)",
+    "gradient-transport": "#111111",
+    "gradient-transport-active": "#FFFFFF",
+    "shadow-transport": "none",
+    "shadow-transport-active": "none"
   },
-  "radius": "0"
+  "radius": "0",
+  "radius-transport": "0"
 }

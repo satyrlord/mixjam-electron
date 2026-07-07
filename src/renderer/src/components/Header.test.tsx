@@ -54,7 +54,7 @@ describe('Header', () => {
     const optionNames = Array.from(screen.getAllByRole('option')).map((option) => option.textContent)
     expect(optionNames).toEqual([
       'Emerald',
-      'Flat Studio',
+      'Enterprise',
       'Neon Rave',
       'Warm Analog',
       'IDE',
@@ -63,8 +63,8 @@ describe('Header', () => {
       'Club PA'
     ])
 
-    fireEvent.change(select, { target: { value: 'studio' } })
-    expect(onThemeChange).toHaveBeenCalledWith('studio')
+    fireEvent.change(select, { target: { value: 'enterprise' } })
+    expect(onThemeChange).toHaveBeenCalledWith('enterprise')
     // The select value stays on 'emerald' because the theme prop is controlled
     // and this test never updates it.
     expect(select).toHaveValue('emerald')
