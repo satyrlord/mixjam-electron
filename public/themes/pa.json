@@ -39,8 +39,14 @@
     "gradient-transport": "#111111",
     "gradient-transport-active": "#FFFFFF",
     "shadow-transport": "none",
-    "shadow-transport-active": "none"
+    "shadow-transport-active": "none",
+    "shadow-pill": "none",
+    "shadow-lane": "none",
+    "shadow-playhead": "none",
+    "shadow-clip": "none",
+    "border-clip": "none"
   },
   "radius": "0",
-  "radius-transport": "0"
+  "radius-transport": "0",
+  "radius-clip": "6px"
 }

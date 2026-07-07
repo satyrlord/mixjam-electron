@@ -1,0 +1,52 @@
+{
+  "name": "Arcade",
+  "key": "arcade",
+  "colors": {
+    "accent": "#6D4AFF",
+    "accent-dark": "#4502FF",
+    "highlight": "#FFDA14",
+    "bg-base": "#140C38",
+    "bg-panel": "#190F44",
+    "bg-lane": "#1D1250",
+    "bg-grid": "#0D0726",
+    "chrome": "#1F1454",
+    "border": "#0A0620",
+    "header-border": "#0A0620",
+    "text": "#F2EFFF",
+    "text-muted": "#9C8FD6",
+    "pill-bg": "#241866",
+    "pill-border": "#0A0620",
+    "playhead": "#FFDA14",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FFDA14",
+    "clip-missing": "#FF004D",
+    "meter-green": "#00E436",
+    "meter-yellow": "#FFEC27",
+    "meter-red": "#FF004D",
+    "transport": "#241866",
+    "transport-active": "#6D4AFF"
+  },
+  "fonts": {
+    "chrome": "Silkscreen",
+    "label": "VT323",
+    "mono": "VT323"
+  },
+  "depth": {
+    "gradient-header": "#1F1454",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.25))",
+    "gradient-lane": "linear-gradient(180deg, rgba(109,74,255,0.08), rgba(0,0,0,0.3))",
+    "shadow-clip-text": "none",
+    "gradient-transport": "radial-gradient(circle at 42% 35%, #2E2080, #241866 70%)",
+    "gradient-transport-active": "radial-gradient(circle at 42% 35%, #9B7FFF, #4502FF 75%)",
+    "shadow-transport": "2px 2px 0 #0A0620, inset 0 0 0 1px #0A0620",
+    "shadow-transport-active": "2px 2px 0 #0A0620, inset 0 0 0 1px #0A0620",
+    "shadow-pill": "2px 2px 0 #0A0620, inset 0 0 0 1px #0A0620",
+    "shadow-lane": "none",
+    "shadow-playhead": "none",
+    "shadow-clip": "2px 2px 0px #0A0620",
+    "border-clip": "2px #0A0620"
+  },
+  "radius": "0px",
+  "radius-transport": "50%",
+  "radius-clip": "0px"
+}

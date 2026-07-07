@@ -1,0 +1,52 @@
+{
+  "name": "Cosmic",
+  "key": "cosmic",
+  "colors": {
+    "accent": "#3B82F6",
+    "accent-dark": "#1D4ED8",
+    "highlight": "#8B5CF6",
+    "bg-base": "#0A0E1E",
+    "bg-panel": "#0D1226",
+    "bg-lane": "#0F142C",
+    "bg-grid": "#060918",
+    "chrome": "#111737",
+    "border": "rgba(139,92,246,0.2)",
+    "header-border": "rgba(139,92,246,0.35)",
+    "text": "#DEE4FA",
+    "text-muted": "#8B93BD",
+    "pill-bg": "#141B3E",
+    "pill-border": "rgba(59,130,246,0.45)",
+    "playhead": "#C084FC",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#FDE047",
+    "clip-missing": "#FB7185",
+    "meter-green": "#34D399",
+    "meter-yellow": "#FBBF24",
+    "meter-red": "#F87171",
+    "transport": "#141B3E",
+    "transport-active": "#3B82F6"
+  },
+  "fonts": {
+    "chrome": "Orbitron",
+    "label": "Exo 2",
+    "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "linear-gradient(90deg, #0E1330, #131A3E)",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.25))",
+    "gradient-lane": "linear-gradient(180deg, rgba(139,92,246,0.08), rgba(4,6,24,0.4))",
+    "shadow-clip-text": "1px 1px 1px rgba(0,0,0,0.45)",
+    "gradient-transport": "radial-gradient(circle at 38% 32%, #1E2856, #141B3E 70%)",
+    "gradient-transport-active": "radial-gradient(circle at 50% 40%, #60A5FA, #2563EB 75%)",
+    "shadow-transport": "0 1px 2px rgba(0,0,0,0.5)",
+    "shadow-transport-active": "0 0 8px rgba(59,130,246,0.8)",
+    "shadow-pill": "none",
+    "shadow-lane": "none",
+    "shadow-playhead": "0 0 6px rgba(192,132,252,0.9)",
+    "shadow-clip": "0px 0px 8px rgba(59,130,246,0.55)",
+    "border-clip": "none"
+  },
+  "radius": "6px",
+  "radius-transport": "50%",
+  "radius-clip": "6px"
+}

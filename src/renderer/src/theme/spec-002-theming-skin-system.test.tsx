@@ -27,8 +27,16 @@ const EXPECTED_THEME_NAMES = [
   'Warm Analog',
   'IDE',
   'Rust Industrial',
-  'Screen Maximal',
-  'Club PA'
+  'Club PA',
+  'Beton Brut',
+  'Mono',
+  'Cosmic',
+  'Neon',
+  'Vintage',
+  'Rack',
+  'Soft',
+  'Riso',
+  'Arcade'
 ]
 
 const EXPECTED_EMERALD_COLORS = {
@@ -65,7 +73,12 @@ const EXPECTED_EMERALD_DEPTH = {
   'gradient-transport': 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.16)), #0C2D32',
   'gradient-transport-active': 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.12)), #00674F',
   'shadow-transport': '0 1px 2px rgba(0,0,0,0.35)',
-  'shadow-transport-active': '0 1px 3px rgba(0,0,0,0.4)'
+  'shadow-transport-active': '0 1px 3px rgba(0,0,0,0.4)',
+  'shadow-pill': 'none',
+  'shadow-lane': 'none',
+  'shadow-playhead': 'none',
+  'shadow-clip': 'none',
+  'border-clip': 'none'
 } as const
 
 function readUtf8(absolutePath: string): string {
@@ -107,6 +120,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(emeraldTheme.depth).toEqual(EXPECTED_EMERALD_DEPTH)
     expect(emeraldTheme.radius).toBe('0.22rem')
     expect(emeraldTheme['radius-transport']).toBe('8px')
+    expect(emeraldTheme['radius-clip']).toBe('6px')
   })
 
   it('AC-003: bundled fonts are loaded from local files with no external font URL', () => {
@@ -120,7 +134,31 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'JetBrainsMono-Regular.ttf',
       'JetBrainsMono-Medium.ttf',
       'IBMPlexSans-Regular.woff2',
-      'IBMPlexSans-Medium.woff2'
+      'IBMPlexSans-Medium.woff2',
+      'SpaceGrotesk-Regular.woff2',
+      'SpaceGrotesk-Medium.woff2',
+      'SpaceMono-Regular.woff2',
+      'SpaceMono-Bold.woff2',
+      'Orbitron-Regular.woff2',
+      'Orbitron-Medium.woff2',
+      'Exo2-Regular.woff2',
+      'Exo2-Medium.woff2',
+      'ChakraPetch-Regular.woff2',
+      'ChakraPetch-Medium.woff2',
+      'Arimo-Regular.woff2',
+      'Arimo-Bold.woff2',
+      'Cousine-Regular.woff2',
+      'Cousine-Bold.woff2',
+      'Barlow-Regular.woff2',
+      'Barlow-Medium.woff2',
+      'Nunito-Regular.woff2',
+      'Nunito-SemiBold.woff2',
+      'Archivo-Regular.woff2',
+      'Archivo-SemiBold.woff2',
+      'ArchivoBlack-Regular.woff2',
+      'Silkscreen-Regular.woff2',
+      'Silkscreen-Bold.woff2',
+      'VT323-Regular.woff2'
     ]
 
     for (const fontFile of expectedFontFiles) {
@@ -132,7 +170,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(css).not.toMatch(/fonts\.googleapis|gstatic/i)
   })
 
-  it('AC-004: tracker header theme selector lists all 8 theme names in order', () => {
+  it('AC-004: tracker header theme selector lists all 16 theme names in order', () => {
     render(
       <Header
         view="tracker"
@@ -241,7 +279,8 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'fonts',
       'depth',
       'radius',
-      'radius-transport'
+      'radius-transport',
+      'radius-clip'
     ])
     expect(Object.keys(parsed.colors)).toEqual([
       'accent',
@@ -277,7 +316,12 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'gradient-transport',
       'gradient-transport-active',
       'shadow-transport',
-      'shadow-transport-active'
+      'shadow-transport-active',
+      'shadow-pill',
+      'shadow-lane',
+      'shadow-playhead',
+      'shadow-clip',
+      'border-clip'
     ])
 
     const expectedKeyCounts: Record<string, number> = {
@@ -314,7 +358,13 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'gradient-transport': 1,
       'gradient-transport-active': 1,
       'shadow-transport': 1,
-      'shadow-transport-active': 1
+      'shadow-transport-active': 1,
+      'shadow-pill': 1,
+      'shadow-lane': 1,
+      'shadow-playhead': 1,
+      'shadow-clip': 1,
+      'border-clip': 1,
+      'radius-clip': 1
     }
 
     for (const [key, count] of Object.entries(expectedKeyCounts)) {

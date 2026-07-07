@@ -1,0 +1,52 @@
+{
+  "name": "Beton Brut",
+  "key": "beton",
+  "colors": {
+    "accent": "#1A1A18",
+    "accent-dark": "#000000",
+    "highlight": "#DD614C",
+    "bg-base": "#D8D5CC",
+    "bg-panel": "#CCC9BF",
+    "bg-lane": "#E2DFD6",
+    "bg-grid": "#B4B1A6",
+    "chrome": "#CCC9BF",
+    "border": "#000000",
+    "header-border": "#000000",
+    "text": "#141412",
+    "text-muted": "#55534C",
+    "pill-bg": "#E2DFD6",
+    "pill-border": "#000000",
+    "playhead": "#DD614C",
+    "clip-text": "#FFFFFF",
+    "clip-select": "#B03418",
+    "clip-missing": "#8A2A17",
+    "meter-green": "#3E7A28",
+    "meter-yellow": "#8A6200",
+    "meter-red": "#C03018",
+    "transport": "#E2DFD6",
+    "transport-active": "#DD614C"
+  },
+  "fonts": {
+    "chrome": "Space Grotesk",
+    "label": "Space Grotesk",
+    "mono": "Space Mono"
+  },
+  "depth": {
+    "gradient-header": "#CCC9BF",
+    "gradient-ruler": "none",
+    "gradient-lane": "none",
+    "shadow-clip-text": "none",
+    "gradient-transport": "#E2DFD6",
+    "gradient-transport-active": "#DD614C",
+    "shadow-transport": "inset 0 0 0 1px #000000",
+    "shadow-transport-active": "inset 0 0 0 1px #000000",
+    "shadow-pill": "inset 0 0 0 1px #000000",
+    "shadow-lane": "none",
+    "shadow-playhead": "none",
+    "shadow-clip": "none",
+    "border-clip": "2px #000000"
+  },
+  "radius": "0px",
+  "radius-transport": "0px",
+  "radius-clip": "0px"
+}

@@ -39,8 +39,14 @@
     "gradient-transport": "radial-gradient(circle at 35% 30%, #F2E3C2, #C89F5E 58%, #7A5C2E)",
     "gradient-transport-active": "radial-gradient(circle at 50% 38%, #FFD98F, #D9820F 72%, #8F5406)",
     "shadow-transport": "inset 0 1px 1px rgba(255,255,255,0.5), 0 2px 3px rgba(0,0,0,0.55)",
-    "shadow-transport-active": "inset 0 1px 1px rgba(255,255,255,0.55), 0 0 9px rgba(242,200,121,0.7)"
+    "shadow-transport-active": "inset 0 1px 1px rgba(255,255,255,0.55), 0 0 9px rgba(242,200,121,0.7)",
+    "shadow-pill": "none",
+    "shadow-lane": "none",
+    "shadow-playhead": "none",
+    "shadow-clip": "none",
+    "border-clip": "none"
   },
   "radius": "0.22rem",
-  "radius-transport": "50%"
+  "radius-transport": "50%",
+  "radius-clip": "6px"
 }

@@ -6,9 +6,19 @@ import raveThemeJson from '../../../../public/themes/rave.json'
 import analogThemeJson from '../../../../public/themes/analog.json'
 import ideThemeJson from '../../../../public/themes/ide.json'
 import rustThemeJson from '../../../../public/themes/rust.json'
-import screenThemeJson from '../../../../public/themes/screen.json'
 import paThemeJson from '../../../../public/themes/pa.json'
+import betonThemeJson from '../../../../public/themes/beton.json'
+import monoThemeJson from '../../../../public/themes/mono.json'
+import cosmicThemeJson from '../../../../public/themes/cosmic.json'
+import neonThemeJson from '../../../../public/themes/neon.json'
+import vintageThemeJson from '../../../../public/themes/vintage.json'
+import rackThemeJson from '../../../../public/themes/rack.json'
+import softThemeJson from '../../../../public/themes/soft.json'
+import risoThemeJson from '../../../../public/themes/riso.json'
+import arcadeThemeJson from '../../../../public/themes/arcade.json'
 
+// Saved keys of retired themes ('studio', 'screen') fall back to Emerald via
+// normalizeThemeKey — resolveTheme returns emeraldTheme for unknown keys.
 export const THEME_OPTIONS = [
   { name: 'Emerald', key: 'emerald' },
   { name: 'Enterprise', key: 'enterprise' },
@@ -16,8 +26,16 @@ export const THEME_OPTIONS = [
   { name: 'Warm Analog', key: 'analog' },
   { name: 'IDE', key: 'ide' },
   { name: 'Rust Industrial', key: 'rust' },
-  { name: 'Screen Maximal', key: 'screen' },
-  { name: 'Club PA', key: 'pa' }
+  { name: 'Club PA', key: 'pa' },
+  { name: 'Beton Brut', key: 'beton' },
+  { name: 'Mono', key: 'mono' },
+  { name: 'Cosmic', key: 'cosmic' },
+  { name: 'Neon', key: 'neon' },
+  { name: 'Vintage', key: 'vintage' },
+  { name: 'Rack', key: 'rack' },
+  { name: 'Soft', key: 'soft' },
+  { name: 'Riso', key: 'riso' },
+  { name: 'Arcade', key: 'arcade' }
 ] as const
 
 export type ThemeKey = (typeof THEME_OPTIONS)[number]['key']
@@ -91,6 +109,28 @@ export interface ThemeDepth {
   'shadow-transport': string
   /** box-shadow for the active transport button (glow for lamp/LED themes). */
   'shadow-transport-active': string
+  /**
+   * box-shadow for pill-family chrome (theme selector, mute/solo, mixer strips,
+   * M/S buttons). Carries the theme's construction language: neumorphic
+   * extrusion, Win9x bevels (inset white/dark), arcade offset slabs, riso
+   * overprint. "none" for flat themes.
+   */
+  'shadow-pill': string
+  /** Inset box-shadow that sinks the lane clip area into a well ("none" = flat). */
+  'shadow-lane': string
+  /** box-shadow on the playhead line (neon/cosmic glow; "none" otherwise). */
+  'shadow-playhead': string
+  /**
+   * Clip drop-shadow, drawn by the lane canvas. Strict format
+   * "<x>px <y>px <blur>px <color>" or "none" — the canvas parses it, so it
+   * cannot be an arbitrary multi-shadow list like the CSS-only tokens.
+   */
+  'shadow-clip': string
+  /**
+   * Clip outline, drawn by the lane canvas. Strict format "<width>px <color>"
+   * or "none". Gives brutalist/arcade themes their hard ink border.
+   */
+  'border-clip': string
 }
 
 export interface Theme {
@@ -106,6 +146,12 @@ export interface Theme {
    * a rounded-rectangle value; terminal themes stay near-square.
    */
   'radius-transport': string
+  /**
+   * Corner radius for clips and sample bubbles, in px (the lane canvas parses
+   * it as a number). "6px" preserves the historical hardcoded bubble radius;
+   * print/terminal themes use "0px" for hard-edged slabs.
+   */
+  'radius-clip': string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -118,6 +164,7 @@ function isTheme(value: unknown): value is Theme {
   if (!isRecord(value.colors) || !isRecord(value.fonts) || !isRecord(value.depth)) return false
   if (typeof value.radius !== 'string') return false
   if (typeof value['radius-transport'] !== 'string') return false
+  if (typeof value['radius-clip'] !== 'string') return false
   // Every color that applyTheme feeds to bubbleTextColor must be a string, or
   // theme application throws mid-way and leaves a half-applied theme. Keep this
   // list in sync with the --on-* derivations in applyTheme.
@@ -139,8 +186,16 @@ const raveTheme = validateTheme(raveThemeJson, 'rave')
 const analogTheme = validateTheme(analogThemeJson, 'analog')
 const ideTheme = validateTheme(ideThemeJson, 'ide')
 const rustTheme = validateTheme(rustThemeJson, 'rust')
-const screenTheme = validateTheme(screenThemeJson, 'screen')
 const paTheme = validateTheme(paThemeJson, 'pa')
+const betonTheme = validateTheme(betonThemeJson, 'beton')
+const monoTheme = validateTheme(monoThemeJson, 'mono')
+const cosmicTheme = validateTheme(cosmicThemeJson, 'cosmic')
+const neonTheme = validateTheme(neonThemeJson, 'neon')
+const vintageTheme = validateTheme(vintageThemeJson, 'vintage')
+const rackTheme = validateTheme(rackThemeJson, 'rack')
+const softTheme = validateTheme(softThemeJson, 'soft')
+const risoTheme = validateTheme(risoThemeJson, 'riso')
+const arcadeTheme = validateTheme(arcadeThemeJson, 'arcade')
 
 const DEFAULT_THEME_KEY: ThemeKey = 'emerald'
 
@@ -151,8 +206,16 @@ const IMPLEMENTED_THEMES: Readonly<Record<ThemeKey, Theme>> = {
   analog: analogTheme,
   ide: ideTheme,
   rust: rustTheme,
-  screen: screenTheme,
-  pa: paTheme
+  pa: paTheme,
+  beton: betonTheme,
+  mono: monoTheme,
+  cosmic: cosmicTheme,
+  neon: neonTheme,
+  vintage: vintageTheme,
+  rack: rackTheme,
+  soft: softTheme,
+  riso: risoTheme,
+  arcade: arcadeTheme
 }
 
 function fontStack(family: string, fallback: string): string {
@@ -203,6 +266,7 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   root.style.setProperty('--on-transport-active', bubbleTextColor(theme.colors['transport-active']))
   root.style.setProperty('--radius', theme.radius)
   root.style.setProperty('--radius-transport', theme['radius-transport'])
+  root.style.setProperty('--radius-clip', theme['radius-clip'])
   root.style.setProperty('--font-chrome', fontStack(theme.fonts.chrome, 'system-ui, sans-serif'))
   root.style.setProperty('--font-label', fontStack(theme.fonts.label, 'system-ui, sans-serif'))
   root.style.setProperty('--font-mono', fontStack(theme.fonts.mono, "'Consolas', monospace"))

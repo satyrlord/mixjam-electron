@@ -1,0 +1,52 @@
+{
+  "name": "Neon",
+  "key": "neon",
+  "colors": {
+    "accent": "#BBF351",
+    "accent-dark": "#85B22C",
+    "highlight": "#00BCFF",
+    "bg-base": "#0A0A0F",
+    "bg-panel": "#0C0C13",
+    "bg-lane": "#0E0E17",
+    "bg-grid": "#06060B",
+    "chrome": "#10101A",
+    "border": "rgba(187,243,81,0.18)",
+    "header-border": "rgba(187,243,81,0.35)",
+    "text": "#EAF6DA",
+    "text-muted": "#8C9C7E",
+    "pill-bg": "#13131F",
+    "pill-border": "rgba(0,188,255,0.4)",
+    "playhead": "#00BCFF",
+    "clip-text": "#111605",
+    "clip-select": "#FFFFFF",
+    "clip-missing": "#FF4D6D",
+    "meter-green": "#8AF425",
+    "meter-yellow": "#FFD60A",
+    "meter-red": "#FF3B5C",
+    "transport": "#13131F",
+    "transport-active": "#BBF351"
+  },
+  "fonts": {
+    "chrome": "Chakra Petch",
+    "label": "Chakra Petch",
+    "mono": "JetBrains Mono"
+  },
+  "depth": {
+    "gradient-header": "#10101A",
+    "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.25))",
+    "gradient-lane": "linear-gradient(180deg, rgba(0,188,255,0.05), rgba(0,0,0,0.3))",
+    "shadow-clip-text": "none",
+    "gradient-transport": "radial-gradient(circle at 38% 32%, #1B1B2C, #13131F 70%)",
+    "gradient-transport-active": "radial-gradient(circle at 50% 40%, #D5FF85, #A4E23A 75%)",
+    "shadow-transport": "0 1px 2px rgba(0,0,0,0.5)",
+    "shadow-transport-active": "0 0 9px rgba(187,243,81,0.75)",
+    "shadow-pill": "none",
+    "shadow-lane": "none",
+    "shadow-playhead": "0 0 7px rgba(0,188,255,0.8)",
+    "shadow-clip": "0px 0px 9px rgba(187,243,81,0.5)",
+    "border-clip": "none"
+  },
+  "radius": "4px",
+  "radius-transport": "50%",
+  "radius-clip": "4px"
+}

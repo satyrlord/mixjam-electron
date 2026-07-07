@@ -59,8 +59,16 @@ describe('Header', () => {
       'Warm Analog',
       'IDE',
       'Rust Industrial',
-      'Screen Maximal',
-      'Club PA'
+      'Club PA',
+      'Beton Brut',
+      'Mono',
+      'Cosmic',
+      'Neon',
+      'Vintage',
+      'Rack',
+      'Soft',
+      'Riso',
+      'Arcade'
     ])
 
     fireEvent.change(select, { target: { value: 'enterprise' } })

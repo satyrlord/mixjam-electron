@@ -70,6 +70,198 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/SpaceGrotesk-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/SpaceGrotesk-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/fonts/SpaceMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Space Mono';
+  src: url('/fonts/SpaceMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/Orbitron-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/Orbitron-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Exo 2';
+  src: url('/fonts/Exo2-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Exo 2';
+  src: url('/fonts/Exo2-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('/fonts/ChakraPetch-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('/fonts/ChakraPetch-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Arimo';
+  src: url('/fonts/Arimo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Arimo';
+  src: url('/fonts/Arimo-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Cousine';
+  src: url('/fonts/Cousine-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Cousine';
+  src: url('/fonts/Cousine-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  src: url('/fonts/Barlow-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  src: url('/fonts/Barlow-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('/fonts/Nunito-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('/fonts/Nunito-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/Archivo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/Archivo-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('/fonts/ArchivoBlack-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('/fonts/Silkscreen-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('/fonts/Silkscreen-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'VT323';
+  src: url('/fonts/VT323-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -144,50 +336,25 @@ html[data-theme-ready='true'] body {
     repeating-linear-gradient(67deg, transparent 0 53px, rgba(255,255,255,0.04) 53px 54px, transparent 54px 97px);
 }
 
-/* ── Screen Maximal: CRT scanlines + pixelated imperfections + VHS drift ── */
-[data-theme-key='screen'] .app::before,
-[data-theme-key='screen'] .app::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
+/* ── Beton Brut / Mono / Arcade: shouted chrome ──
+   These themes set structural labels in caps (poster stencils, terminal
+   prompts, cabinet marquees). Case is typography, not color, so it lives
+   here rather than in the token JSON. */
+[data-theme-key='beton'] .brand,
+[data-theme-key='mono'] .brand,
+[data-theme-key='arcade'] .brand {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
-[data-theme-key='screen'] .app::before {
-  opacity: 0.5;
-  background-image:
-    repeating-linear-gradient(180deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px),
-    url("data:image/svg+xml,%3Csvg xmlns='http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 100% 3px, 120px 120px;
-  mix-blend-mode: overlay;
-  animation: screen-flicker 6s steps(60) infinite;
-}
-
-[data-theme-key='screen'] .app::after {
-  opacity: 0.16;
-  mix-blend-mode: screen;
-  background-image: repeating-linear-gradient(
-    90deg,
-    rgba(255,0,60,0.5) 0 1px,
-    rgba(0,255,60,0.4) 1px 2px,
-    rgba(40,80,255,0.5) 2px 3px,
-    transparent 3px 4px
-  );
-  animation: screen-vhs-drift 9s ease-in-out infinite;
-}
-
-@keyframes screen-flicker {
-  0%, 96%, 100% { opacity: 0.5; }
-  97% { opacity: 0.38; }
-  98% { opacity: 0.56; }
-}
-
-@keyframes screen-vhs-drift {
-  0%, 100% { transform: translateX(0); opacity: 0.16; }
-  40% { transform: translateX(1px); opacity: 0.12; }
-  55% { transform: translateX(-1px); opacity: 0.2; }
-  80% { transform: translateX(0.5px); opacity: 0.14; }
+[data-theme-key='beton'] .tracker-lane-name,
+[data-theme-key='beton'] .mixer-channel-label,
+[data-theme-key='mono'] .tracker-lane-name,
+[data-theme-key='mono'] .mixer-channel-label,
+[data-theme-key='arcade'] .tracker-lane-name,
+[data-theme-key='arcade'] .mixer-channel-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* ── Header ─────────────────────────────────── */
@@ -275,6 +442,7 @@ html[data-theme-ready='true'] body {
   padding: 3px 8px;
   cursor: pointer;
   border-radius: var(--radius);
+  box-shadow: var(--shadow-pill, none);
   outline: none;
 }
 
@@ -770,8 +938,13 @@ html[data-theme-ready='true'] body {
   padding: 10px 8px 6px;
 }
 
+/* The tracker claims both columns, and a margin equal to the collapsed rail
+   width keeps lane heads clear of the rail overlay. Without the margin the
+   rail (z-index 6) paints over the first 30px of every lane head and the
+   ruler spacer — lane names render clipped ("Lane 1" → "e 1"). */
 .tracker-view.recent-projects-collapsed .tracker-region {
   grid-column: 1 / 3;
+  margin-left: 30px;
 }
 
 .tracker-view.recent-projects-collapsed .recent-projects-rail {
@@ -892,6 +1065,7 @@ html[data-theme-ready='true'] body {
   width: 2px;
   margin-left: -1px;
   background: var(--playhead);
+  box-shadow: var(--shadow-playhead, none);
   pointer-events: none;
   z-index: 5;
 }
@@ -996,6 +1170,7 @@ html[data-theme-ready='true'] body {
   border: 1px solid var(--pill-border);
   border-radius: var(--radius);
   background: var(--pill-bg);
+  box-shadow: var(--shadow-pill, none);
   color: var(--text-muted);
   font-family: var(--font-chrome);
   font-size: 11px;
@@ -1038,6 +1213,9 @@ html[data-theme-ready='true'] body {
     ),
     var(--pill-bg);
   border: 1.5px solid var(--pill-border);
+  /* Themes with a transparent pill-border (Soft) rely on the pill shadow to
+     lift the knob off the same-colored panel behind it. */
+  box-shadow: var(--shadow-pill, none);
   cursor: ew-resize;
   position: relative;
   user-select: none;
@@ -1094,6 +1272,9 @@ html[data-theme-ready='true'] body {
   position: relative;
   cursor: pointer;
   min-width: 0;
+  /* Inset well (skeuomorphic/neumorphic themes). The clip canvas child is
+     transparent outside its clips, so the parent's inset shadow reads through. */
+  box-shadow: var(--shadow-lane, none);
 }
 
 .tracker-lane-canvas:hover {
@@ -1116,7 +1297,8 @@ html[data-theme-ready='true'] body {
 .sample-bubble {
   background: var(--accent);
   border: 1px solid var(--accent-dark);
-  border-radius: 6px;
+  border-radius: var(--radius-clip, 6px);
+  box-shadow: var(--shadow-clip, none);
   display: flex;
   align-items: center;
   padding: 0 8px;
@@ -1225,13 +1407,13 @@ html[data-theme-ready='true'] body {
   outline: none;
 }
 
+/* No background: the transport cluster sits directly on the strip so themed
+   button treatments (round hardware, slabs) read against the chrome itself. */
 .strip-center {
   display: flex;
   align-items: center;
   gap: 6px;
   justify-content: center;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border-radius: var(--radius);
   padding: 3px 8px;
 }
 
@@ -1692,6 +1874,7 @@ html[data-theme-ready='true'] body {
     ),
     var(--pill-bg);
   border: 1.5px solid var(--pill-border);
+  box-shadow: var(--shadow-pill, none);
   cursor: ew-resize;
   position: relative;
   user-select: none;
@@ -1754,6 +1937,7 @@ html[data-theme-ready='true'] body {
   border: 1px solid var(--pill-border);
   border-radius: 2px;
   background: var(--pill-bg);
+  box-shadow: var(--shadow-pill, none);
   color: var(--text-muted);
   font-family: var(--font-chrome);
   font-size: 9px;

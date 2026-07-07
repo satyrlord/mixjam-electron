@@ -39,8 +39,14 @@
     "gradient-transport": "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.18)), #222222",
     "gradient-transport-active": "linear-gradient(180deg, #E28565, #C4633F)",
     "shadow-transport": "0 1px 2px rgba(0,0,0,0.4)",
-    "shadow-transport-active": "0 1px 3px rgba(0,0,0,0.45)"
+    "shadow-transport-active": "0 1px 3px rgba(0,0,0,0.45)",
+    "shadow-pill": "none",
+    "shadow-lane": "none",
+    "shadow-playhead": "none",
+    "shadow-clip": "none",
+    "border-clip": "none"
   },
   "radius": "2px",
-  "radius-transport": "2px"
+  "radius-transport": "2px",
+  "radius-clip": "6px"
 }

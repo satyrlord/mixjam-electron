@@ -36,12 +36,43 @@ interface ClipHitRect {
   width: number
 }
 
+interface ClipShadow {
+  x: number
+  y: number
+  blur: number
+  color: string
+}
+
+interface ClipBorder {
+  width: number
+  color: string
+}
+
+/** Parses the --shadow-clip depth token: "<x>px <y>px <blur>px <color>" | "none". */
+export function parseClipShadow(value: string): ClipShadow | null {
+  const match = value.trim().match(/^(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px\s+(.+)$/)
+  if (!match) return null
+  return { x: Number(match[1]), y: Number(match[2]), blur: Number(match[3]), color: match[4] }
+}
+
+/** Parses the --border-clip depth token: "<width>px <color>" | "none". */
+export function parseClipBorder(value: string): ClipBorder | null {
+  const match = value.trim().match(/^([\d.]+)px\s+(.+)$/)
+  if (!match) return null
+  const width = Number(match[1])
+  if (width <= 0) return null
+  return { width, color: match[2] }
+}
+
 // Cache theme tokens and refresh when the active theme changes.
 const themeTokenCache = {
   accent: ACCENT_FALLBACK,
   clipSelect: SELECTION_BORDER_COLOR,
   border: '#1A4D3E',
   fontLabel: 'sans-serif',
+  radiusClip: CORNER_RADIUS,
+  shadowClip: null as ClipShadow | null,
+  borderClip: null as ClipBorder | null,
   _version: 0
 }
 
@@ -52,6 +83,12 @@ export function refreshThemeTokens(): void {
   themeTokenCache.clipSelect = style.getPropertyValue('--clip-select').trim() || SELECTION_BORDER_COLOR
   themeTokenCache.border = style.getPropertyValue('--border').trim() || '#1A4D3E'
   themeTokenCache.fontLabel = style.getPropertyValue('--font-label').trim() || 'sans-serif'
+  const radiusClip = Number.parseFloat(style.getPropertyValue('--radius-clip'))
+  themeTokenCache.radiusClip = Number.isFinite(radiusClip)
+    ? Math.max(0, Math.min(radiusClip, CLIP_HEIGHT / 2))
+    : CORNER_RADIUS
+  themeTokenCache.shadowClip = parseClipShadow(style.getPropertyValue('--shadow-clip'))
+  themeTokenCache.borderClip = parseClipBorder(style.getPropertyValue('--border-clip'))
   themeTokenCache._version++
 }
 
@@ -104,8 +141,26 @@ function drawClipBubble(
   flashing = false
 ): void {
   const color = clip.color || accent
+  const radius = themeTokenCache.radiusClip
+  const shadow = themeTokenCache.shadowClip
+  const border = themeTokenCache.borderClip
 
-  roundRect(ctx, x, y, w, CLIP_HEIGHT, CORNER_RADIUS)
+  if (shadow) {
+    // Canvas shadow units ignore the CTM, so the dpr scale that positions the
+    // bubble does not apply here — scale the token's CSS px values manually.
+    const dpr = window.devicePixelRatio || 1
+    ctx.save()
+    ctx.shadowOffsetX = shadow.x * dpr
+    ctx.shadowOffsetY = shadow.y * dpr
+    ctx.shadowBlur = shadow.blur * dpr
+    ctx.shadowColor = shadow.color
+    roundRect(ctx, x, y, w, CLIP_HEIGHT, radius)
+    ctx.fillStyle = color
+    ctx.fill()
+    ctx.restore()
+  }
+
+  roundRect(ctx, x, y, w, CLIP_HEIGHT, radius)
   ctx.fillStyle = color
   ctx.fill()
 
@@ -116,10 +171,20 @@ function drawClipBubble(
     ctx.globalAlpha = 1.0
   }
 
-  roundRect(ctx, x, y, w, CLIP_HEIGHT, CORNER_RADIUS)
-  ctx.strokeStyle = color
-  ctx.lineWidth = 1
-  ctx.stroke()
+  if (border) {
+    // Stroke centered on an inset path so the full border width stays inside
+    // the bubble bounds (mirrors the selection stroke geometry).
+    const inset = border.width / 2
+    roundRect(ctx, x + inset, y + inset, w - border.width, CLIP_HEIGHT - border.width, Math.max(0, radius - inset))
+    ctx.strokeStyle = border.color
+    ctx.lineWidth = border.width
+    ctx.stroke()
+  } else {
+    roundRect(ctx, x, y, w, CLIP_HEIGHT, radius)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.stroke()
+  }
 
   ctx.fillStyle = bubbleTextColor(color)
   ctx.save()
@@ -254,7 +319,7 @@ function LaneClipCanvas({
         // Keep selection stroke inside the bubble bounds.
         const inset = SELECTION_BORDER_WIDTH / 2
         ctx.globalAlpha = 0.8
-        roundRect(ctx, x + inset, CLIP_TOP + inset, w - SELECTION_BORDER_WIDTH, CLIP_HEIGHT - SELECTION_BORDER_WIDTH, CORNER_RADIUS)
+        roundRect(ctx, x + inset, CLIP_TOP + inset, w - SELECTION_BORDER_WIDTH, CLIP_HEIGHT - SELECTION_BORDER_WIDTH, themeTokenCache.radiusClip)
         ctx.strokeStyle = getComputedSelectColor()
         ctx.lineWidth = SELECTION_BORDER_WIDTH
         ctx.stroke()
