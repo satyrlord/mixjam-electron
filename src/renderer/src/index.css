@@ -760,6 +760,7 @@ html[data-theme-ready='true'] body {
   width: 30px;
   min-width: 30px;
   padding: 10px 4px;
+  border-right: none;
   position: relative;
   z-index: 6;
 }

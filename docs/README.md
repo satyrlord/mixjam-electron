@@ -93,10 +93,8 @@ docs/             Architecture and design documentation
 public/themes/    Skin JSON files
 ```
 
-Some working directories are machine-local and gitignored: `ds-bundle/` and
-`.design-sync/` caches are Claude Design sync artifacts (see
-`.design-sync/NOTES.md`), and `tmp/` holds ad-hoc scratch files, fixtures
-(`tmp/test-samples`), and verification scripts.
+Some working directories are machine-local and gitignored: `tmp/` holds ad-hoc
+scratch files, fixtures (`tmp/test-samples`), and verification scripts.
 
 The backend worker owns all database access; the UI talks to it through the
 typed BackendAPI facade. The Electron shell adds only host capabilities — the
@@ -111,6 +109,4 @@ spec files for per-AC status.
 ## Skinning
 
 The UI is skinnable via CSS custom properties. Skin definitions live in
-`public/themes/` as JSON files and are loaded at runtime. The Claude Design
-HTML/CSS output is used as the reference skin — follow it closely when building
-or modifying UI components.
+`public/themes/` as JSON files and are loaded at runtime.

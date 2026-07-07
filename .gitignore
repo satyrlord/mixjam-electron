@@ -24,6 +24,7 @@ output/
 
 # Node.js
 node_modules/
+build/
 dist/
 dist-electron/
 out/
@@ -61,11 +62,3 @@ Thumbs.db
 logs/
 .qoder/repowiki/
 .qoder/skills/
-
-# Claude Design sync — staged converter scripts, build output, and machine state
-.ds-sync/
-ds-bundle/
-.design-sync/.cache/
-.design-sync/learnings/
-.design-sync/node_modules
-.design-sync/design-sync-styles.css

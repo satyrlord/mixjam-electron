@@ -185,7 +185,8 @@ adjacencies.
 - Uses the same width as the Song Controls rail to keep the left seam aligned.
 - Includes a collapse/expand toggle (state persisted to localStorage as
   `mixjam:recents-rail-collapsed`). When collapsed, only the toggle button is
-  visible.
+  visible, and the rail stays visually flush so it does not leave a stray
+  divider in the tracker lane header.
 - Lists two merged sources:
   - recently opened `.mixjam` files from the persisted recent-project registry
   - `.mixjam` files discovered by recursively scanning the current User Folder

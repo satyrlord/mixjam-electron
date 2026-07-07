@@ -24,7 +24,7 @@ keep the UI a real webview).
 | Data layer | **SQLite via `@sqlite.org/sqlite-wasm`** (opfs-sahpool VFS) in a backend Web Worker | Filtering/sorting 100k rows is an indexed SQL query, never in-memory JS array work. FTS5 for fuzzy name search. opfs-sahpool needs no COOP/COEP headers (GitHub Pages cannot set them); its cost is one connection in one tab, enforced by a Web Lock. |
 | File access | **File System Access API** | `showDirectoryPicker` grants a `FileSystemDirectoryHandle` persisted in IndexedDB; containment is structural (a handle can only reach its own subtree). The Electron shell auto-grants the `fileSystem` permission for desktop UX parity. |
 | Library concept | **Saved filtered views over one master index** | A "library" is a saved query (`rule_json`), not copied files. See [data-model.md](data-model.md). |
-| Theming | **Plain CSS / CSS custom properties** | Claude Design HTML/CSS output is a good reference. Theme JSON files define tokens consumed as CSS variables. |
+| Theming | **Plain CSS / CSS custom properties** | Theme JSON files define tokens consumed as CSS variables. |
 | Audio | **Web Audio API** lookahead-scheduler | Sample-accurate enough for an eJay/Acid tracker. Native addon escape hatch defined in [audio-engine.md](audio-engine.md). |
 
 ## Process model

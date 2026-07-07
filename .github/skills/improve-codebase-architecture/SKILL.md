@@ -1,6 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: Surface architectural friction in a codebase, package it as a visual HTML report, and grill through the strongest deepening opportunity.
+description: Surface architectural friction across the entire project and propose deepening opportunities — refactors that turn shallow modules into deep ones.
 disable-model-invocation: true
 ---
 
@@ -43,7 +43,7 @@ Read the project's architecture docs (`docs/architecture.md`,
 `docs/data-model.md`) first. If a `CONTEXT.md` domain glossary exists,
 read that too.
 
-Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
+Then use the Agent tool with `subagent_type=Explore` to walk the **entire codebase** — not just recently changed files or the current branch diff. Don't follow rigid heuristics — explore organically and note where you experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
 - Where are modules **shallow** — interface nearly as complex as the implementation?
@@ -53,27 +53,17 @@ Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't
 
 Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
 
-### 2. Present candidates as an HTML report
+### 2. Present candidates
 
-Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`,
-falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file.
-Open it for the user — `xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows — and tell them the absolute path.
-
-The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for diagrams where a graph/flow/sequence reliably
-communicates the structure. Mix Mermaid with hand-crafted CSS/SVG visuals — use Mermaid when relationships are graph-shaped
-(call graphs, dependencies, sequences), and hand-built divs/SVG when you want something more editorial (mass diagrams, cross-sections,
-collapse animations). Each candidate gets a **before/after visualisation**. Be visual.
-
-For each candidate, render a card with:
+For each candidate found during exploration, present a structured summary:
 
 - **Files** — which files/modules are involved
 - **Problem** — why the current architecture is causing friction
 - **Solution** — plain English description of what would change
 - **Benefits** — explained in terms of locality and leverage, and how tests would improve
-- **Before / After diagram** — side-by-side, custom-drawn, illustrating the shallowness and the deepening
-- **Recommendation strength** — one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
+- **Recommendation strength** — one of `Strong`, `Worth exploring`, `Speculative`
 
-End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
+End with a **Top recommendation** section: which candidate you'd tackle first and why.
 
 **Use the domain vocabulary from `docs/architecture.md`,
 `docs/data-model.md`, and the terms defined above.** If `docs/glossary.md`
@@ -81,18 +71,13 @@ exists, use its terms — don't drift into "component," "service," "API," or
 "boundary."
 
 **Existing decision conflicts**: if a candidate contradicts a decision recorded in an existing doc, only surface it when the friction is
-real enough to warrant revisiting that decision. Mark it clearly in the card. Don't list every theoretical refactor a past decision forbids.
+real enough to warrant revisiting that decision. Mark it clearly. Don't list every theoretical refactor a past decision forbids.
 
-See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
+Do NOT propose interfaces yet. After presenting the candidates, ask the user: "Which of these would you like to explore?"
 
-Do NOT propose interfaces yet. After the file is written, ask the user: "Which of these would you like to explore?"
+### 3. Deepen the chosen candidate
 
-### 3. Grilling loop
-
-Once the user picks a candidate, run the `grill-me` skill to walk the design tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
-
-Side effects happen inline as decisions crystallize — use `add-feature` to
-record durable decisions as you go:
+Once the user picks a candidate, use `add-feature` to record durable decisions as you work through the design with them:
 
 - **Naming a deepened module after a concept not yet documented?** Add the
   term to the relevant doc under `docs/`. Create `docs/glossary.md` lazily
@@ -113,8 +98,8 @@ record durable decisions as you go:
 
 The architecture review is complete when:
 
-- the HTML report is written to the temp directory, opened for the user, and
-  clearly communicates the candidate trade-offs,
+- the exploration covers the full codebase (not just recent changes),
+- the candidates and their trade-offs are clearly communicated,
 - the top recommendation is explicit,
 - and any durable architecture decisions that emerge are recorded in the
   relevant docs.

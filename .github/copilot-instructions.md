@@ -1,3 +1,3 @@
-# GitHub Copilot Instructions — MixJam Electron
+# MixJam Electron - Project Instructions for AI Agents
 
-Check [AGENTS.md](AGENTS.md) for agent instructions.
+Check [AGENTS.md](../AGENTS.md) for agent instructions.

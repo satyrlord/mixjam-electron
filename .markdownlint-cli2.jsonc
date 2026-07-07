@@ -13,8 +13,6 @@
     "**/node_modules/**",
     "**/HTML-REPORT.md",
     "playwright-report/**",
-    ".design-sync/**",
-    ".ds-sync/**",
-    "ds-bundle/**/*.prompt.md"
+
   ]
 }
