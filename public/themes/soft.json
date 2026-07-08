@@ -26,6 +26,17 @@
     "transport": "#E7E5E4",
     "transport-active": "#006666"
   },
+  "palette": [
+    "#006666",
+    "#12A5A5",
+    "#4A8FA6",
+    "#7FB5A8",
+    "#0E8383",
+    "#5FA897",
+    "#3D7A8C",
+    "#2E6B6B"
+  ],
+  "palette-unsorted": "#9AA0AD",
   "fonts": {
     "chrome": "Nunito",
     "label": "Nunito",
@@ -44,9 +55,16 @@
     "shadow-lane": "inset 3px 3px 7px rgba(148,140,132,0.5), inset -3px -3px 7px rgba(255,255,255,0.8)",
     "shadow-playhead": "none",
     "shadow-clip": "2px 2px 5px rgba(148,140,132,0.6)",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "12px",
   "radius-transport": "50%",
-  "radius-clip": "12px"
+  "radius-clip": "12px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "1px",
+  "clip-font-weight": "400",
+  "clip-case": "none"
 }

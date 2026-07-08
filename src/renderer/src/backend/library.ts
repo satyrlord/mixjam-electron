@@ -248,6 +248,21 @@ export function hasSamples(db: DB, rootKey?: string): boolean {
   return db.prepare('SELECT 1 FROM samples LIMIT 1').get() !== undefined
 }
 
+/**
+ * Relpaths of every missing sample (scan_state = 2) under the given root.
+ * Drives the tracker's hazard-stripe treatment on clips whose file vanished
+ * between scans (spec-002 AC-013). Missing rows are soft-deleted stubs, so
+ * the result is bounded by library size, not clip count.
+ */
+export function listMissingRelpaths(db: DB, rootKey: string): string[] {
+  const rootId = scanRootId(db, rootKey)
+  if (rootId === undefined) return []
+  return db
+    .prepare('SELECT relpath FROM samples WHERE root_id = ? AND scan_state = 2')
+    .all<{ relpath: string }>(rootId)
+    .map((row) => row.relpath)
+}
+
 // The query options are exactly the request shape — one definition, no drift.
 export type SampleQueryOptions = SampleQueryRequest
 

@@ -44,7 +44,7 @@ After each major change:
 ## Anti-patterns
 
 | Don't | Why | Do instead |
-|-------|-----|------------|
+| ----- | --- | ---------- |
 | «Make the code better.» | No measurable end state. | Tie to tests, coverage %, or specific refactors. |
 | End state = «agent says it's done.» | Worker grades itself. | Use commands/regex the agent can re-run. |
 | No file/scope constraint. | Agent edits package.json, CI, secrets. | Whitelist directories. |

@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/playerShell'
 import { sampleDurationTicks } from '../lib/playerShell'
-import { bubbleStyle, categoryColor, formatDuration } from '../lib/sample-utils'
+import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 
 // Bubble geometry shared with the tracker: a sample bubble is 32px tall
 // everywhere in the UI (hard rule), and browser rows keep the 6px gap the old
@@ -57,8 +57,8 @@ interface SampleTileGridProps {
   pixelsPerTick: number
   selectedSamplePath: string | null
   flashSamplePath: string | null
-  /** Colour override when a category filter is active — all visible samples share it. */
-  activeCategoryColor: string | undefined
+  /** Palette-slot override when a category filter is active — all visible samples share it. */
+  activeCategorySlot: number | undefined
   categories: CategoryItem[]
   loading: boolean
   error: string | null
@@ -85,7 +85,7 @@ function SampleTileGrid({
   pixelsPerTick,
   selectedSamplePath,
   flashSamplePath,
-  activeCategoryColor,
+  activeCategorySlot,
   categories,
   loading,
   error,
@@ -131,10 +131,10 @@ function SampleTileGrid({
         const durationTicks = sampleDurationTicks(sample.durationSeconds, bpm)
         const width = Math.max(12, durationTicks * pixelsPerTick)
         const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
-        const color = activeCategoryColor ?? (catName ? categoryColor(catName) : undefined)
-        return { sample, width, color }
+        const slot = activeCategorySlot ?? (catName ? categorySlot(catName) : undefined)
+        return { sample, width, slot }
       }),
-    [samples, bpm, pixelsPerTick, activeCategoryColor, categoryNames]
+    [samples, bpm, pixelsPerTick, activeCategorySlot, categoryNames]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.
@@ -181,14 +181,14 @@ function SampleTileGrid({
               className="tiles-row"
               style={{ transform: `translateY(${start}px)` }}
             >
-              {tiles.slice(row.start, row.end).map(({ sample, width, color }) => {
+              {tiles.slice(row.start, row.end).map(({ sample, width, slot }) => {
                 const isSelected = selectedSamplePath === sample.relpath
                 return (
                   <button
                     key={sample.id}
                     type="button"
                     className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' clip-flash' : ''}`}
-                    style={{ width: `${width}px`, ...(color ? bubbleStyle(color) : {}) }}
+                    style={{ width: `${width}px`, ...(slot !== undefined ? bubbleStyle(slot) : {}) } as React.CSSProperties}
                     title={`${sample.name || 'Unknown'} — click to preview, drag onto a lane, right-click to tag`}
                     draggable
                     onDragStart={(e) =>
@@ -197,7 +197,7 @@ function SampleTileGrid({
                         relpath: sample.relpath,
                         tags: sample.tags,
                         duration: sample.durationSeconds,
-                        color
+                        slot
                       })
                     }
                     onContextMenu={(e) => onSampleContextMenu(sample, e)}
@@ -207,7 +207,7 @@ function SampleTileGrid({
                         relpath: sample.relpath,
                         tags: sample.tags,
                         duration: sample.durationSeconds,
-                        color
+                        slot
                       })
                       onPreviewSample(sample.relpath)
                     }}

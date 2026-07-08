@@ -456,6 +456,7 @@ export default function TrackerView({
                 totalTicks={totalTicks}
                 flashSamplePath={activeFlashPath}
                 selectedClipIds={selectedClipIds}
+                missingSamplePaths={arrangement.missingSamplePaths}
                 onToggleLaneMute={arrangement.onToggleLaneMute}
                 onToggleLaneSolo={arrangement.onToggleLaneSolo}
                 onSetLanePan={arrangement.onSetLanePan}

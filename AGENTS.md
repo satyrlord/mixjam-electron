@@ -50,8 +50,6 @@ static server (no COOP/COEP headers required).
 
 ## Session and handoff conventions
 
-Learned from the web-first re-architecture session (2026-07-03):
-
 - **The working tree is shared.** The user may edit files or commit while you work. Re-read a file
   before editing it if any time or any scripted bulk change has passed since your last read; check
   `git log`/`git status` before summarizing what changed, and never assume a mid-session snapshot is

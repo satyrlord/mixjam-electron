@@ -5,7 +5,7 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 ## Development Workflow
 
 | Skill | Invocation | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | [`add-feature`](./add-feature/SKILL.md) | Model-invoked | Spec-driven development: create specs, acceptance criteria, ADRs, and documentation for new work. Run `markdownlint-cli2` on edited Markdown after changes. |
 | [`ablation-test`](./ablation-test/SKILL.md) | Model-invoked | Prove which changed files are actually required for a fix. Use after `diagnose` when a discriminating PASS/FAIL check exists. |
 | [`diagnose`](./diagnose/SKILL.md) | Model-invoked | Structured debugging loop for hard bugs and performance regressions. Build a feedback loop, hypothesise, instrument, fix. |
@@ -17,22 +17,20 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 ## Design & Architecture
 
 | Skill | Invocation | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | [`improve-codebase-architecture`](./improve-codebase-architecture/SKILL.md) | User-invoked | Scan for architectural friction, then suggest improvements. |
 
 ## Code Review
 
 | Skill | Invocation | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | [`full-code-review`](./full-code-review/SKILL.md) | User-invoked | Thermo-nuclear code quality review: code-judo restructurings, 1k-line rule, spaghetti-growth detection, abstraction quality, and maintainability. |
 
 ## Productivity & Meta
 
 | Skill | Invocation | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | [`grill-me`](./grill-me/SKILL.md) | Model-invoked | Interview the user relentlessly about a plan or design before building. |
 | [`handoff`](./handoff/SKILL.md) | User-invoked | Compact the conversation into a handoff document for another agent to continue. Includes a self-critique phase that surfaces uninvestigated gaps, skipped work, and unstated assumptions. |
 | [`teach`](./teach/SKILL.md) | User-invoked | Multi-session teaching of a new skill or concept. |
 | [`writing-great-skills`](./writing-great-skills/SKILL.md) | User-invoked | Reference for authoring skills: vocabulary and principles. |
-
-> **Note:** Skills were adapted from the MixJam Web project for this Electron desktop codebase. If you encounter stale references, please update them.

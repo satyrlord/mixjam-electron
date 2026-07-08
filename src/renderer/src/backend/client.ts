@@ -141,6 +141,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     saveLibrary: (name, ruleJson) => call('saveLibrary', name, ruleJson),
     deleteLibrary: (id) => call('deleteLibrary', id),
     hasSamples: (sampleFolder) => call('hasSamples', sampleFolder.id),
+    listMissingRelpaths: (sampleFolder) => call('listMissingRelpaths', sampleFolder.id),
 
     readSampleBytes,
 

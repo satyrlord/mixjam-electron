@@ -108,7 +108,7 @@ E2E coverage pipeline:
 
 - Playwright collects V8 JS coverage via page.coverage.startJSCoverage()
   (wired in tests/e2e/fixtures.ts)
-- Raw coverage is written per-test to coverage-e2e/raw/<test>.json
+- Raw coverage is written per-test to `coverage-e2e/raw/<test>.json`
 - scripts/convert-e2e-coverage.mjs converts raw V8 data to Istanbul format
   using v8-to-istanbul, producing coverage-e2e/coverage-final.json
 - The production build must include source maps (build.sourcemap: true in

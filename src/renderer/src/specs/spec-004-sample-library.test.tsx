@@ -87,6 +87,7 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   lanes: LANES,
   laneShouldDim: () => false,
   currentTick: 0,
+  missingSamplePaths: new Set<string>(),
   onPlaceSampleDetailOnLane: noop,
   onMoveClipOnLane: noop,
   onDuplicateClipOnLane: noop,

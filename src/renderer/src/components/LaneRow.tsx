@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react'
 import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX, type LaneState } from '../lib/playerShell'
+import { nextPanCycle } from '../lib/sample-utils'
 import LaneClipCanvas from './LaneClipCanvas'
 
 interface LaneRowProps {
@@ -8,6 +9,7 @@ interface LaneRowProps {
   totalTicks: number
   flashSamplePath: string | null
   selectedClipIds: ReadonlySet<string>
+  missingSamplePaths: ReadonlySet<string>
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
@@ -26,6 +28,7 @@ function LaneRow({
   totalTicks,
   flashSamplePath,
   selectedClipIds,
+  missingSamplePaths,
   onToggleLaneMute,
   onToggleLaneSolo,
   onSetLanePan,
@@ -86,8 +89,8 @@ function LaneRow({
               }
             }}
             onMouseDown={(e) => {
-              // Ignore right/middle press — it must not start a pan scrub (the
-              // browser context menu handles right-click).
+              // Ignore right/middle press — it must not start a pan scrub, or
+              // it races the right-click cycle (AC-018) and audibly sweeps pan.
               if (e.button > 0) return
               e.preventDefault()
               const startX = e.clientX
@@ -104,6 +107,10 @@ function LaneRow({
               window.addEventListener('mousemove', onMove)
               window.addEventListener('mouseup', onUp)
               const untrack = trackDragCleanup(onUp)
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              onSetLanePan(lane.index, nextPanCycle(lane.pan))
             }}
             onDoubleClick={() => {
               onSetLanePan(lane.index, 0)
@@ -124,6 +131,7 @@ function LaneRow({
           laneIndex={lane.index}
           flashSamplePath={flashSamplePath}
           selectedClipIds={selectedClipIds}
+          missingSamplePaths={missingSamplePaths}
           onClipDragStart={onClipDragStart}
           onClipContextMenu={onClipContextMenu}
         />

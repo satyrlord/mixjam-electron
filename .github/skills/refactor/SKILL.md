@@ -24,10 +24,10 @@ Project-specific hazards — read more context before touching these
 - Web Audio lifecycle: `AudioContext` state transitions (suspended/resumed)
   must be handled asynchronously; simplifying AudioNode creation patterns
   can leak nodes or break scheduling
-- SQLite query hazards: `better-sqlite3` is synchronous and blocks the
-  main-process event loop; long queries must run in a worker_thread.
-  Refactoring query builders can accidentally drop parameterized bindings
-  or FTS5 match syntax
+- SQLite query hazards: sqlite-wasm calls are synchronous on the backend
+  worker's single connection; long scans must stay batched in transactions
+  that yield between batches. Refactoring query builders can accidentally
+  drop parameterized bindings or FTS5 match syntax
 
 Delete dead code only when you can prove it is off the active path
 (`dead-code-audit` owns the full sweep).

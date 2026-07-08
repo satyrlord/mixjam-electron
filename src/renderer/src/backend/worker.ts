@@ -89,6 +89,7 @@ function buildCalls(db: DB): BackendCalls {
     querySamples: (req: SampleQueryRequest) =>
       library.querySamples(db, normalizeSampleQueryRequest(req)),
     hasSamples: (rootKey) => library.hasSamples(db, rootKey),
+    listMissingRelpaths: (rootKey) => library.listMissingRelpaths(db, rootKey),
     startScan: (rootKey) => startScan(db, rootKey),
     cancelScan: () => cancelScan(),
     getScanProgress: () => ({ ...progress }),
@@ -114,8 +115,7 @@ ctx.onmessage = (event) => {
       if (!Object.prototype.hasOwnProperty.call(calls, op)) {
         throw new Error(`Unknown backend op: ${String(op)}`)
       }
-      const fn = calls[op] as ((...callArgs: unknown[]) => unknown) | undefined
-      if (typeof fn !== 'function') throw new Error(`Unknown backend op: ${String(op)}`)
+      const fn = calls[op] as (...callArgs: unknown[]) => unknown
       return fn(...args)
     })
     .then((result) => {

@@ -7,7 +7,6 @@
   },
   "globs": ["**/*.md"],
   "ignores": [
-    ".qoder/**",
     "tmp/**",
     ".git/**",
     "**/node_modules/**",

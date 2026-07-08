@@ -589,62 +589,6 @@ describe('useLibraryData', () => {
     expect(result.current.samples[0]!.category).toBe('Bass')
   })
 
-  it('setSortBy accepts a function updater', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
-
-    act(() => {
-      result.current.setSortBy((prev) => (prev === 'filename' ? 'duration' : 'filename'))
-    })
-
-    expect(result.current.sortBy).toBe('duration')
-  })
-
-  it('setSortDir accepts a function updater', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
-
-    act(() => {
-      result.current.setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
-    })
-
-    expect(result.current.sortDir).toBe('desc')
-  })
-
-  it('setSortBy accepts a direct value', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
-
-    act(() => {
-      result.current.setSortBy('dateAdded')
-    })
-
-    expect(result.current.sortBy).toBe('dateAdded')
-  })
-
-  it('setSortDir accepts a direct value', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
-
-    act(() => {
-      result.current.setSortDir('desc')
-    })
-
-    expect(result.current.sortDir).toBe('desc')
-  })
-
   it('assignTagToSample returns early when tag is already assigned', async () => {
     vi.useRealTimers()
     const api = makeApi()

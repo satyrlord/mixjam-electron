@@ -6,7 +6,7 @@
     "accent-dark": "#0C5CAB",
     "highlight": "#7FB3FA",
     "bg-base": "#09090B",
-    "bg-panel": "#0C0C0F",
+    "bg-panel": "rgba(255,255,255,0.045)",
     "bg-lane": "#0E0F12",
     "bg-grid": "#050506",
     "chrome": "#101014",
@@ -14,7 +14,7 @@
     "header-border": "#2C2F36",
     "text": "#FAFAFA",
     "text-muted": "#8B8F98",
-    "pill-bg": "#15151A",
+    "pill-bg": "rgba(255,255,255,0.05)",
     "pill-border": "#2C2F36",
     "playhead": "#2F81F7",
     "clip-text": "#FFFFFF",
@@ -26,6 +26,17 @@
     "transport": "#15151A",
     "transport-active": "#2F81F7"
   },
+  "palette": [
+    "#2F81F7",
+    "#6E7BF7",
+    "#1F6FEB",
+    "#0969DA",
+    "#58A6FF",
+    "#79C0FF",
+    "#39C5CF",
+    "#8957E5"
+  ],
+  "palette-unsorted": "#484F58",
   "fonts": {
     "chrome": "IBM Plex Sans",
     "label": "IBM Plex Sans",
@@ -44,9 +55,16 @@
     "shadow-lane": "none",
     "shadow-playhead": "none",
     "shadow-clip": "none",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "7px",
   "radius-transport": "9px",
-  "radius-clip": "6px"
+  "radius-clip": "6px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "1px",
+  "clip-font-weight": "400",
+  "clip-case": "none"
 }

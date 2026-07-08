@@ -189,7 +189,7 @@ export function useTransportEngine(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
       const clipTicks = sampleDurationTicks(detail.duration, bpmRef.current)
       pushEdit((current) =>
-        placeClipOnLane(current, laneIndex, detail.relpath, detail.name, startTick, clipTicks, detail.duration, detail.color)
+        placeClipOnLane(current, laneIndex, detail.relpath, detail.name, startTick, clipTicks, detail.duration, detail.slot)
       )
     },
     [pushEdit]

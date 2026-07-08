@@ -26,6 +26,17 @@
     "transport": "#191917",
     "transport-active": "#D42010"
   },
+  "palette": [
+    "#B08D3F",
+    "#8A6D2F",
+    "#6B7A3A",
+    "#D9C077",
+    "#A85F2A",
+    "#C9A24B",
+    "#7C6A45",
+    "#5C6939"
+  ],
+  "palette-unsorted": "#4A4438",
   "fonts": {
     "chrome": "Special Elite",
     "label": "Special Elite",
@@ -44,9 +55,16 @@
     "shadow-lane": "none",
     "shadow-playhead": "none",
     "shadow-clip": "none",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "2px",
   "radius-transport": "50%",
-  "radius-clip": "6px"
+  "radius-clip": "6px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "1px",
+  "clip-font-weight": "400",
+  "clip-case": "none"
 }

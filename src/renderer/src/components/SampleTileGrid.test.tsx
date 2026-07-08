@@ -41,7 +41,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -66,7 +66,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -90,7 +90,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error="Custom error message"
@@ -114,7 +114,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={true}
         error={null}
@@ -140,7 +140,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -171,7 +171,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -201,7 +201,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -229,7 +229,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath="C:/a.wav"
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -255,7 +255,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath="C:/a.wav"
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -272,7 +272,7 @@ describe('SampleTileGrid', () => {
     expect(button.classList.contains('clip-flash')).toBe(true)
   })
 
-  it('applies activeCategoryColor to all sample bubbles', () => {
+  it('applies activeCategorySlot to all sample bubbles', () => {
     const sample = makeSample()
     const { container } = render(
       <SampleTileGrid
@@ -281,7 +281,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor="#FF0000"
+        activeCategorySlot={3}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -295,8 +295,8 @@ describe('SampleTileGrid', () => {
     )
 
     const button = container.querySelector('.sample-bubble') as HTMLElement
-    // bubbleStyle applies background-color from the given color
-    expect(button.style.backgroundColor).toBeTruthy()
+    // bubbleStyle points the surface at the shared slot custom property
+    expect(button.style.backgroundColor).toBe('var(--palette-3)')
   })
 
   it('calls onLoadMore when hasMore is true and not loading', () => {
@@ -309,7 +309,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -336,7 +336,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={true}
         error={null}
@@ -352,7 +352,7 @@ describe('SampleTileGrid', () => {
     expect(onLoadMore).not.toHaveBeenCalled()
   })
 
-  it('uses category color when no activeCategoryColor and sample has a category', () => {
+  it('uses the category slot when no activeCategorySlot and sample has a category', () => {
     const sample = makeSample({ categoryId: 2 })
     const { container } = render(
       <SampleTileGrid
@@ -361,7 +361,7 @@ describe('SampleTileGrid', () => {
         pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategoryColor={undefined}
+        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -375,7 +375,7 @@ describe('SampleTileGrid', () => {
     )
 
     const button = container.querySelector('.sample-bubble') as HTMLElement
-    // categoryColor('Drums') produces a color, applied via bubbleStyle
-    expect(button.style.backgroundColor).toBeTruthy()
+    // categorySlot('Drums') is slot 0, applied via bubbleStyle
+    expect(button.style.backgroundColor).toBe('var(--palette-0)')
   })
 })

@@ -26,6 +26,17 @@
     "transport": "#10103A",
     "transport-active": "#2DE2FF"
   },
+  "palette": [
+    "#2DE2FF",
+    "#FF2D9B",
+    "#00B3E6",
+    "#FF6EC7",
+    "#8A7DFF",
+    "#5CF2D6",
+    "#FFD60A",
+    "#B84DFF"
+  ],
+  "palette-unsorted": "#3A3A5C",
   "fonts": {
     "chrome": "JetBrains Mono",
     "label": "JetBrains Mono",
@@ -44,9 +55,16 @@
     "shadow-lane": "none",
     "shadow-playhead": "none",
     "shadow-clip": "none",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "0.22rem",
   "radius-transport": "6px",
-  "radius-clip": "6px"
+  "radius-clip": "6px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "1px",
+  "clip-font-weight": "400",
+  "clip-case": "none"
 }

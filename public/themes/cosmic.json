@@ -26,6 +26,17 @@
     "transport": "#141B3E",
     "transport-active": "#3B82F6"
   },
+  "palette": [
+    "#3B82F6",
+    "#8B5CF6",
+    "#2563EB",
+    "#A78BFA",
+    "#60A5FA",
+    "#C084FC",
+    "#4F46E5",
+    "#7C3AED"
+  ],
+  "palette-unsorted": "#3B4368",
   "fonts": {
     "chrome": "Orbitron",
     "label": "Exo 2",
@@ -44,9 +55,16 @@
     "shadow-lane": "none",
     "shadow-playhead": "0 0 6px rgba(192,132,252,0.9)",
     "shadow-clip": "0px 0px 8px rgba(59,130,246,0.55)",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "6px",
   "radius-transport": "50%",
-  "radius-clip": "6px"
+  "radius-clip": "6px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "1px",
+  "clip-font-weight": "400",
+  "clip-case": "none"
 }

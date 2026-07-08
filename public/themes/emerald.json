@@ -26,6 +26,17 @@
     "transport": "#0C2D32",
     "transport-active": "#00674F"
   },
+  "palette": [
+    "#982A00",
+    "#830000",
+    "#AB4700",
+    "#BF6601",
+    "#D48915",
+    "#E6AD33",
+    "#BFAD00",
+    "#7DA500"
+  ],
+  "palette-unsorted": "#555E6A",
   "fonts": {
     "chrome": "Josefin Sans",
     "label": "Ubuntu",
@@ -44,9 +55,16 @@
     "shadow-lane": "none",
     "shadow-playhead": "none",
     "shadow-clip": "none",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "0.22rem",
   "radius-transport": "8px",
-  "radius-clip": "6px"
+  "radius-clip": "6px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "1px",
+  "clip-font-weight": "400",
+  "clip-case": "none"
 }

@@ -3,13 +3,14 @@ import { type EngineLane } from '../engine/lane-evaluation'
 import { tickDurationSeconds } from '../engine/transport'
 import { clamp } from './sample-utils'
 
-
 /** Detail passed around the UI after a user selects or drags a sample. All
  *  paths are relpaths within the active Sample Folder's scan root. */
 export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags'> & {
   duration: number | null
-  /** Category-derived colour, stored so placed clips keep their colour permanently. */
-  color?: string
+  /** Category-derived palette slot (0-7, 8 = Unsorted). The hex resolves at
+   *  draw time from the active theme's palette, so clips recolor on theme
+   *  switch while staying stable across category renames (spec-002). */
+  slot?: number
 }
 
 export const DEFAULT_LANE_COUNT = 16
@@ -38,8 +39,10 @@ export interface LaneClip {
   /** Audio duration in seconds — drives the bubble width so a sample has the
    *  same pixel size everywhere (tracker, browser, any view). */
   durationSeconds: number | null
-  /** Stable category-derived colour — stored at placement time, never recomputed. */
-  color?: string
+  /** Category-derived palette slot, stored at placement time. The slot (not a
+   *  hex) is what stays stable; the color resolves from the active theme's
+   *  palette at draw time (spec-002 Sample Palette). */
+  slot?: number
 }
 
 export interface LaneState {
@@ -110,7 +113,7 @@ export function placeClipOnLane(
   startTick: number,
   durationTicks: number = DEFAULT_CLIP_DURATION_TICKS,
   durationSeconds?: number | null,
-  color?: string
+  slot?: number
 ): LaneState[] {
   return lanes.map((lane) => {
     if (lane.index !== laneIndex) return lane
@@ -124,7 +127,7 @@ export function placeClipOnLane(
       startTick,
       durationTicks,
       durationSeconds: durationSeconds ?? null,
-      color
+      slot
     }
 
     // Clips visually overlap and are never trimmed — overlapping samples keep
@@ -233,7 +236,7 @@ export function duplicateClipOnLane(
   if (!found) return lanes
   return placeClipOnLane(
     lanes, toLaneIndex, found.clip.samplePath, found.clip.sampleName,
-    newStartTick, found.clip.durationTicks, found.clip.durationSeconds, found.clip.color
+    newStartTick, found.clip.durationTicks, found.clip.durationSeconds, found.clip.slot
   )
 }
 

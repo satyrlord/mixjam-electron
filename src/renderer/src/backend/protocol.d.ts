@@ -16,6 +16,7 @@ import type {
 export interface BackendCalls {
   querySamples: (req: SampleQueryRequest) => SampleQueryResponse
   hasSamples: (rootKey: string) => boolean
+  listMissingRelpaths: (rootKey: string) => string[]
   startScan: (rootKey: string) => void
   cancelScan: () => void
   getScanProgress: () => ScanProgress

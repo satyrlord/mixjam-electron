@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  PALETTE_SLOT_COUNT,
   ROOT_CATEGORY_NAMES,
-  categoryColor,
+  SLOT_UNSORTED,
+  bubbleStyle,
+  categorySlot,
   formatDuration,
   meterFillPct,
   nearestTick
@@ -13,61 +16,77 @@ describe('ROOT_CATEGORY_NAMES', () => {
   })
 })
 
-describe('categoryColor', () => {
-  it('returns the unsorted colour for Unsorted', () => {
-    expect(categoryColor('Unsorted')).toBe('#555E6A')
+describe('categorySlot', () => {
+  it('returns the unsorted slot for Unsorted', () => {
+    expect(categorySlot('Unsorted')).toBe(SLOT_UNSORTED)
   })
 
   it.each([
-    ['drums', '#982A00'],
-    ['percussion', '#982A00'],
-    ['loop', '#830000'],
-    ['bass', '#AB4700'],
-    ['keys', '#BF6601'],
-    ['guitar', '#BF6601'],
-    ['chords', '#BF6601'],
-    ['piano', '#BF6601'],
-    ['synth', '#D48915'],
-    ['lead', '#D48915'],
-    ['voice', '#E6AD33'],
-    ['vocal', '#E6AD33'],
-    ['fx', '#E6AD33'],
-    ['vox', '#E6AD33'],
-    ['arp', '#BFAD00'],
-    ['pad', '#7DA500'],
-    ['atmosphere', '#7DA500'],
-    ['xtra', '#7DA500'],
-    ['texture', '#7DA500']
-  ])('maps well-known category "%s" to %s', (name, expected) => {
-    expect(categoryColor(name)).toBe(expected)
+    ['drums', 0],
+    ['percussion', 0],
+    ['loop', 1],
+    ['bass', 2],
+    ['keys', 3],
+    ['guitar', 3],
+    ['chords', 3],
+    ['piano', 3],
+    ['synth', 4],
+    ['lead', 4],
+    ['voice', 5],
+    ['vocal', 5],
+    ['fx', 5],
+    ['vox', 5],
+    ['arp', 6],
+    ['pad', 7],
+    ['atmosphere', 7],
+    ['xtra', 7],
+    ['texture', 7]
+  ])('maps well-known category "%s" to slot %i', (name, expected) => {
+    expect(categorySlot(name)).toBe(expected)
   })
 
   it('is case-insensitive for well-known categories', () => {
-    expect(categoryColor('DRUMS')).toBe('#982A00')
-    expect(categoryColor('Bass')).toBe('#AB4700')
+    expect(categorySlot('DRUMS')).toBe(0)
+    expect(categorySlot('Bass')).toBe(2)
   })
 
-  it('returns a deterministic colour for unknown categories via hash', () => {
-    const c1 = categoryColor('Funky')
-    const c2 = categoryColor('Funky')
-    expect(c1).toBe(c2)
-    expect(c1).toMatch(/^#[0-9A-Fa-f]{6}$/)
+  it('returns a deterministic slot for unknown categories via hash', () => {
+    const s1 = categorySlot('Funky')
+    const s2 = categorySlot('Funky')
+    expect(s1).toBe(s2)
+    expect(s1).toBeGreaterThanOrEqual(0)
+    expect(s1).toBeLessThan(PALETTE_SLOT_COUNT)
   })
 
   it('maps different unknown names to potentially different palette slots', () => {
-    const colors = new Set([
-      categoryColor('Funky'),
-      categoryColor('Groovy'),
-      categoryColor('Weird'),
-      categoryColor('Bizarre'),
-      categoryColor('Cosmic'),
-      categoryColor('Quantum'),
-      categoryColor('Mystic'),
-      categoryColor('Dreamy')
+    const slots = new Set([
+      categorySlot('Funky'),
+      categorySlot('Groovy'),
+      categorySlot('Weird'),
+      categorySlot('Bizarre'),
+      categorySlot('Cosmic'),
+      categorySlot('Quantum'),
+      categorySlot('Mystic'),
+      categorySlot('Dreamy')
     ])
-    // At least two different colours across 8 distinct unknown names
+    // At least two different slots across 8 distinct unknown names
     // (probabilistically near-certain with 8 palette slots).
-    expect(colors.size).toBeGreaterThan(1)
+    expect(slots.size).toBeGreaterThan(1)
+  })
+})
+
+describe('bubbleStyle', () => {
+  it('references the slot custom properties so bubbles restyle on theme switch', () => {
+    expect(bubbleStyle(3)).toEqual({
+      backgroundColor: 'var(--palette-3)',
+      '--bubble-self': 'var(--palette-3)',
+      color: 'var(--palette-ink-3)',
+      textShadow: 'var(--palette-shadow-3)'
+    })
+  })
+
+  it('addresses the unsorted slot like any other', () => {
+    expect(bubbleStyle(SLOT_UNSORTED).backgroundColor).toBe('var(--palette-8)')
   })
 })
 

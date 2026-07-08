@@ -25,8 +25,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 ## Catalog
 
 ### Minimal & clean
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `minimal` | Maximum whitespace, restrained color, stripped-back clarity |
 | `clean` | Simple, legible, low-clutter general-purpose UI |
 | `sleek` | Modern minimalism with subtle interactions and tight spacing |
@@ -37,8 +38,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 | `flat` | Two-dimensional, vibrant flat colors, no shadows or 3D |
 
 ### Professional & enterprise
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `professional` | Trustworthy business-ready design |
 | `corporate` | Brand-aligned enterprise patterns and structured grids |
 | `ant` | Data-dense enterprise web apps (Ant Design flavor) |
@@ -49,8 +51,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 | `agentic` | AI/chat-first interfaces, delegated task flows |
 
 ### Editorial & print
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `editorial` | Magazine-style serif layouts, elegant reading |
 | `modern` | Contemporary editorial, serif type, minimal palettes |
 | `basic` | Print-inspired books/magazines/reports, editorial grids |
@@ -62,8 +65,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 | `terracotta` | Sun-baked clay tones, cream surfaces, display serif headlines |
 
 ### Premium & dramatic
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `premium` | Apple-inspired precision and polish |
 | `power` | High-end dark monochrome, bold headings |
 | `bold` | Heavyweight type, high contrast, commanding layouts |
@@ -75,8 +79,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 | `mono` | Monospace hacker-chic, compact and high-contrast |
 
 ### Playful & friendly
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `friendly` | Rounded, soft pastels, approachable |
 | `lingo` | Duolingo-like bright colors, tactile 3D borders |
 | `creative` | Character-driven landing pages, expressive type |
@@ -91,8 +96,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 | `immersive` | Exhibit-style interactive storytelling on one brand-colored canvas |
 
 ### Effects & materials
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `glassmorphism` | Frosted glass, blur, translucent layers |
 | `claymorphism` | Puffy clay-like 3D rounded shapes |
 | `neumorphism` | Soft extruded elements, monochrome shadows |
@@ -103,8 +109,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 | `material` | Google Material Design system |
 
 ### Retro & raw
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `retro` | Vintage typography and nostalgic palettes |
 | `vintage` | 1950s–90s nostalgia, grain, pixel touches |
 | `dithered` | Dot-pattern retro rendering, limited palette |
@@ -118,8 +125,9 @@ If the user names a style that matches a slug exactly (e.g. "neobrutalism", "gla
 | `pulse` | Thick borders, geometric shapes, high-contrast colors conveying motion and vitality |
 
 ### Layout-driven
+
 | Slug | When to pick |
-|---|---|
+| --- | --- |
 | `bento` | Modular bento-grid card layouts |
 | `contemporary` | Current-era minimalism, bento grids, dark mode |
 

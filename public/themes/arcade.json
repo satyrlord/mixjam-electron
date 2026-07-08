@@ -18,7 +18,7 @@
     "pill-border": "#0A0620",
     "playhead": "#FFDA14",
     "clip-text": "#FFFFFF",
-    "clip-select": "#FFDA14",
+    "clip-select": "#FFFFFF",
     "clip-missing": "#FF004D",
     "meter-green": "#00E436",
     "meter-yellow": "#FFEC27",
@@ -26,6 +26,17 @@
     "transport": "#241866",
     "transport-active": "#6D4AFF"
   },
+  "palette": [
+    "#6D4AFF",
+    "#FF004D",
+    "#00E436",
+    "#FFDA14",
+    "#29ADFF",
+    "#FF77A8",
+    "#FFA300",
+    "#7E2553"
+  ],
+  "palette-unsorted": "#4A3F7A",
   "fonts": {
     "chrome": "Silkscreen",
     "label": "VT323",
@@ -38,15 +49,22 @@
     "shadow-clip-text": "none",
     "gradient-transport": "radial-gradient(circle at 42% 35%, #2E2080, #241866 70%)",
     "gradient-transport-active": "radial-gradient(circle at 42% 35%, #9B7FFF, #4502FF 75%)",
-    "shadow-transport": "2px 2px 0 #0A0620, inset 0 0 0 1px #0A0620",
-    "shadow-transport-active": "2px 2px 0 #0A0620, inset 0 0 0 1px #0A0620",
-    "shadow-pill": "2px 2px 0 #0A0620, inset 0 0 0 1px #0A0620",
+    "shadow-transport": "2px 2px 0 #0A0620",
+    "shadow-transport-active": "2px 2px 0 #0A0620",
+    "shadow-pill": "2px 2px 0 #0A0620",
     "shadow-lane": "none",
     "shadow-playhead": "none",
     "shadow-clip": "2px 2px 0px #0A0620",
-    "border-clip": "2px #0A0620"
+    "border-clip": "2px #0A0620",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "0px",
   "radius-transport": "50%",
-  "radius-clip": "0px"
+  "radius-clip": "0px",
+  "border-width": "1px",
+  "border-width-pill": "2px",
+  "border-width-header": "1px",
+  "clip-font-weight": "400",
+  "clip-case": "uppercase"
 }

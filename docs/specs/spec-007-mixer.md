@@ -231,8 +231,8 @@ on 2026-07-07; meter-red contrast validated ≥3:1 in all 8 bundled themes).
 | 24 | Removed channels restorable (add-back, not add-new) | Removal was permanent across reloads; restore re-adds the lowest removed `channelIndex` at default state; 16 cap intact |
 | 25 | Remove button revealed on `:focus-visible` too | Keyboard focus landed on an invisible control (supersedes 14 in part) |
 | 26 | Stable channel labels (`channelIndex + 1`), no renumbering | Visible label and aria-label disagreed after a removal; stable numbers match the fixed lane N → channel N routing |
-| 27 | Pan knob right-click cycles C → 100% R → 100% L → C | User request; context menu suppressed; replaces the critique's double-click-reset suggestion |
-| 28 | Pan knob keyboard-operable (tabIndex, arrow keys, `aria-valuetext`) | `role="slider"` without focus or key handling was announced but unusable |
+| 27 | Pan knob right-click cycles C → 100% R → 100% L → C | Context menu suppressed. Applies to BOTH lane-head and mixer-strip pan knobs. First right-click recenters, then C → 100% R → 100% L → C. |
+| 28 | Pan knob keyboard-operable (tabIndex, arrow keys, `aria-valuetext`) | `role="slider"` without focus/key handling was announced but unusable. Applies to both lane-head pan and mixer-strip pan. |
 | 29 | Mute-active fill at ≥3:1 contrast; muted strip dims | Accent-on-pill measured ~2:1 in Emerald — the more common action had the weaker signal |
 | 30 | Fader value readout while dragging + unity tick | Channels gave no value feedback; the master slider did |
 | 31 | Master meter relabeled "Output Level" | "dB Loudness" read like a slider control name, not a meter |
@@ -263,6 +263,25 @@ affect already-sounding voices. `pan` travels through `EngineLane` /
 `toEngineLanes`, and the lane panner sits before `channel.input` in the audio
 chain (see Lane / Channel Pan Independence).
 
+The lane-head pan knob (`LaneRow.tsx`) and the mixer-strip pan knob
+(`ChannelStrip.tsx`) share the same interaction contract (decision 27-28):
+
+- **Left-click drag** horizontally scrubs pan in [-1, 1] (sensitivity
+  differs: lane 0.01/px, mixer 0.008/px). Right/middle press is ignored.
+- **Right-click** (onContextMenu) suppresses the browser menu and steps a
+  three-position cycle: any position → C (0) → 100% R (1) → 100% L (−1) → C.
+  Uses a PAN_EPSILON tolerance (1e-6) so key-step residue near 0/±1 still
+  cycles correctly.
+- **Double-click** resets to center (0). Present on the lane-head knob only;
+  the mixer strip relies on the right-click cycle for reset.
+- **Keyboard:** ArrowLeft/ArrowDown and ArrowRight/ArrowUp adjust by 0.05
+  clamped; Home centers; End goes hard right (mixer only). Both knobs are
+  focusable (`tabIndex={0}`, `role="slider"`).
+
+When adding or modifying pan knob behavior, ensure both `LaneRow.tsx` and
+`ChannelStrip.tsx` stay in sync for the right-click cycle and keyboard
+interaction. Do NOT implement one without the other.
+
 ### Resize seam
 
 The grid is `.tracker-view` with `grid-template-columns: 168px minmax(0, 1fr)`.
@@ -285,7 +304,7 @@ column below the mixer threshold).
 - [x] **AC-003:** The dB meter updates during playback, showing green/yellow/red zones proportional to output level, with a decaying peak hold line.
 - [x] **AC-004:** Clicking a channel's M button mutes that channel — lane N (hardcoded route) goes silent. The button shows active state.
 - [x] **AC-005:** Clicking a channel's S button soloes it — all other channels go silent. Clicking another channel's S transfers the solo.
-- [x] **AC-006:** Lane-level mute/solo and channel-level mute/solo are independent ANDed gates. A lane is audible only when both its own mute AND its channel's mute are off, and it passes both solo filters.
+- [x] **AC-006:** Lane-level mute/solo and channel-level mute/solo are independent ANDed gates. A lane is audible when its own mute AND its channel's mute are off, and it passes both solo filters.
 - [x] **AC-008:** User can remove a channel via hover-revealed x button; the corresponding lane is re-routed to the master bypass bus
   (audible at unity gain with lane pan applied). Remaining strips shift down and display labels renumber. *(Label renumbering superseded by AC-020; hover-only reveal superseded by AC-019.)*
 - [x] **AC-009:** Dragging the left-column right-edge resize seam past 272px (168px + 104px threshold) reveals the mixer column. Dragging below 272px hides it.
@@ -303,7 +322,7 @@ column below the mixer threshold).
   page refresh so a hidden mixer stays hidden. *(Revised 2026-07-07: originally a "Mixer" toggle button, removed at user request — decision 32.)*
 - [x] **AC-017:** A restore affordance re-adds the lowest removed channel at default state (gain 0.8, pan 0, unmuted, unsoloed) and re-routes its lane from the master bypass
   back to the channel. It is disabled/absent when no channel is removed.
-- [x] **AC-018:** Right-clicking a pan knob never shows a context menu and steps the cycle: any freely-dragged position → C; C → 100% R; 100% R → 100% L; 100% L → C.
+- [x] **AC-018:** Right-clicking ANY pan knob (lane-head or mixer-strip) never shows a context menu and steps the cycle: any position → C; C → 100% R; 100% R → 100% L; 100% L → C.
 - [x] **AC-019:** The remove button is visible when its strip is hovered AND when the button has keyboard focus (`:focus-visible`).
 - [x] **AC-020:** Channel labels are stable `channelIndex + 1` for both the visible label and every aria-label; after removing a middle channel the numbering shows a gap instead of renumbering.
 - [x] **AC-021:** The pan knob is reachable with Tab; ArrowLeft/ArrowRight change pan by 0.05 clamped to [-1, 1]; `aria-valuetext` reflects the position.

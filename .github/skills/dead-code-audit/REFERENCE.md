@@ -19,7 +19,7 @@ Treat a finding as alive when it is used through one of these paths:
 - JSON serialization and deserialization contracts
 - reflection, dynamic imports, or template literal access
 - Build entry files (Electron main process entry, preload scripts,
-  renderer entry, worker_thread entry points)
+  renderer entry, backend Web Worker entry)
 - test-only or fixture-only reachability that the scan intentionally excludes
 - IPC channel names and contextBridge API surface — symbols exposed to the
   renderer via preload may appear unused in main-process scans

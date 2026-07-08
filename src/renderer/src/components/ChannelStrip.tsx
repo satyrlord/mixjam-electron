@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { clamp } from '../lib/playerShell'
-import { meterFillPct } from '../lib/sample-utils'
+import { meterFillPct, nextPanCycle } from '../lib/sample-utils'
 
 interface ChannelStripProps {
   channelIndex: number
@@ -27,10 +27,6 @@ function dbColorZoneVar(db: number): string {
 }
 
 const PAN_KEY_STEP = 0.05
-// Pan values accumulate floating-point residue from repeated 0.05 key steps
-// (e.g. +3 then -3 lands on ~1.4e-17, not 0), so the right-click cycle compares
-// against this tolerance instead of exact 0/±1.
-const PAN_EPSILON = 1e-6
 
 function panValueText(pan: number): string {
   const pct = Math.round(Math.abs(pan) * 100)
@@ -104,15 +100,10 @@ export default function ChannelStrip({
     [channelIndex, pan, onSetPan]
   )
 
-  // Right-click steps a three-position cycle (spec-007 amendment, AC-018):
-  // any freely-dragged position recenters first, then C → 100% R → 100% L → C.
-  // Compared with a tolerance so key-step residue near 0/±1 still cycles.
   const handlePanContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
-      const next =
-        Math.abs(pan) < PAN_EPSILON ? 1 : pan >= 1 - PAN_EPSILON ? -1 : 0
-      onSetPan(channelIndex, next)
+      onSetPan(channelIndex, nextPanCycle(pan))
     },
     [channelIndex, pan, onSetPan]
   )

@@ -1,5 +1,3 @@
-const { resolve } = require('node:path')
-
 module.exports = {
   appId: 'com.mixjam.electron',
   productName: 'MixJam Electron',
@@ -26,6 +24,5 @@ module.exports = {
   npmRebuild: false,
   extraMetadata: {
     main: 'out/main/index.js'
-  },
-  afterSign: undefined
+  }
 }

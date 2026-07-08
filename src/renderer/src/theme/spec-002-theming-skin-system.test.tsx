@@ -78,8 +78,17 @@ const EXPECTED_EMERALD_DEPTH = {
   'shadow-lane': 'none',
   'shadow-playhead': 'none',
   'shadow-clip': 'none',
-  'border-clip': 'none'
+  'border-clip': 'none',
+  'gradient-clip': 'none',
+  'shadow-meter': 'none'
 } as const
+
+// The original warm palette, authored for Emerald in the predecessor design
+// project; other themes author their own families (spec-002 Sample Palette).
+const EXPECTED_EMERALD_PALETTE = [
+  '#982A00', '#830000', '#AB4700', '#BF6601',
+  '#D48915', '#E6AD33', '#BFAD00', '#7DA500'
+]
 
 function readUtf8(absolutePath: string): string {
   return readFileSync(absolutePath, 'utf8')
@@ -118,9 +127,48 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(emeraldTheme.key).toBe('emerald')
     expect(emeraldTheme.colors).toEqual(EXPECTED_EMERALD_COLORS)
     expect(emeraldTheme.depth).toEqual(EXPECTED_EMERALD_DEPTH)
+    expect(emeraldTheme.palette).toEqual(EXPECTED_EMERALD_PALETTE)
+    expect(emeraldTheme['palette-unsorted']).toBe('#555E6A')
     expect(emeraldTheme.radius).toBe('0.22rem')
     expect(emeraldTheme['radius-transport']).toBe('8px')
     expect(emeraldTheme['radius-clip']).toBe('6px')
+    expect(emeraldTheme['border-width']).toBe('1px')
+    expect(emeraldTheme['border-width-pill']).toBe('1px')
+    expect(emeraldTheme['border-width-header']).toBe('1px')
+    expect(emeraldTheme['clip-font-weight']).toBe('400')
+    expect(emeraldTheme['clip-case']).toBe('none')
+  })
+
+  it('AC-011: every theme authors a valid 8-slot palette plus unsorted', () => {
+    const sixHex = /^#[0-9A-Fa-f]{6}$/
+    for (const option of THEME_OPTIONS) {
+      const theme = resolveTheme(option.key)
+      expect(theme.key).toBe(option.key)
+      expect(theme.palette).toHaveLength(8)
+      for (const slotColor of theme.palette) {
+        expect(slotColor).toMatch(sixHex)
+      }
+      expect(theme['palette-unsorted']).toMatch(sixHex)
+    }
+  })
+
+  it('AC-011: applyTheme publishes per-slot color, ink, and shadow custom properties', () => {
+    const root = document.createElement('html')
+    selectTheme('emerald', root)
+    for (let slot = 0; slot < 9; slot++) {
+      expect(root.style.getPropertyValue(`--palette-${slot}`)).toMatch(/^#[0-9A-Fa-f]{6}$/)
+      expect(['#FFFFFF', '#141309']).toContain(root.style.getPropertyValue(`--palette-ink-${slot}`))
+      expect(['var(--shadow-clip-text)', 'none']).toContain(
+        root.style.getPropertyValue(`--palette-shadow-${slot}`)
+      )
+    }
+    expect(root.style.getPropertyValue('--palette-0')).toBe('#982A00')
+    expect(root.style.getPropertyValue('--palette-8')).toBe('#555E6A')
+
+    // Switching themes swaps every slot in place — the tokens the DOM bubbles
+    // and the canvas read are the same custom properties.
+    selectTheme('cosmic', root)
+    expect(root.style.getPropertyValue('--palette-0')).toBe('#3B82F6')
   })
 
   it('AC-003: bundled fonts are loaded from local files with no external font URL', () => {
@@ -158,7 +206,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'ArchivoBlack-Regular.woff2',
       'Silkscreen-Regular.woff2',
       'Silkscreen-Bold.woff2',
-      'VT323-Regular.woff2'
+      'VT323-Regular.woff2',
+      'SpaceGrotesk-Bold.woff2',
+      'ChakraPetch-Bold.woff2'
     ]
 
     for (const fontFile of expectedFontFiles) {
@@ -276,11 +326,18 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'name',
       'key',
       'colors',
+      'palette',
+      'palette-unsorted',
       'fonts',
       'depth',
       'radius',
       'radius-transport',
-      'radius-clip'
+      'radius-clip',
+      'border-width',
+      'border-width-pill',
+      'border-width-header',
+      'clip-font-weight',
+      'clip-case'
     ])
     expect(Object.keys(parsed.colors)).toEqual([
       'accent',
@@ -321,7 +378,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'shadow-lane',
       'shadow-playhead',
       'shadow-clip',
-      'border-clip'
+      'border-clip',
+      'gradient-clip',
+      'shadow-meter'
     ])
 
     const expectedKeyCounts: Record<string, number> = {
@@ -364,7 +423,16 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'shadow-playhead': 1,
       'shadow-clip': 1,
       'border-clip': 1,
-      'radius-clip': 1
+      'gradient-clip': 1,
+      'shadow-meter': 1,
+      'radius-clip': 1,
+      palette: 1,
+      'palette-unsorted': 1,
+      'border-width': 1,
+      'border-width-pill': 1,
+      'border-width-header': 1,
+      'clip-font-weight': 1,
+      'clip-case': 1
     }
 
     for (const [key, count] of Object.entries(expectedKeyCounts)) {

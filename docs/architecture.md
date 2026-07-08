@@ -17,12 +17,12 @@ keep the UI a real webview).
 ## Decided stack
 
 | Layer | Choice | Why it is constrained this way |
-|---|---|---|
-| Hosts | **Browser-first (Chromium) + thin Electron shell** | One backend, two hosts: the browser build is the primary app (GitHub Pages), and Electron loads the identical bundle from a privileged `app://` origin. Chromium-only is an accepted constraint (Safari/Firefox support is explicitly not a goal). |
+| ----- | ------ | ----------------------------- |
+| Hosts | **Browser-first (Chromium) + thin Electron shell** | One backend, two hosts. Browser build is primary (GitHub Pages); Electron loads the same bundle from `app://`. Chromium-only. |
 | UI | **React + TypeScript** | React was not the prior bottleneck; virtualization was. Prior React investment is kept. |
 | Large-list rendering | **Virtualized list/grid** (TanStack Virtual or react-window) | ~30–50 DOM rows exist at once, recycled on scroll. Mandatory for any view that can show many samples. |
-| Data layer | **SQLite via `@sqlite.org/sqlite-wasm`** (opfs-sahpool VFS) in a backend Web Worker | Filtering/sorting 100k rows is an indexed SQL query, never in-memory JS array work. FTS5 for fuzzy name search. opfs-sahpool needs no COOP/COEP headers (GitHub Pages cannot set them); its cost is one connection in one tab, enforced by a Web Lock. |
-| File access | **File System Access API** | `showDirectoryPicker` grants a `FileSystemDirectoryHandle` persisted in IndexedDB; containment is structural (a handle can only reach its own subtree). The Electron shell auto-grants the `fileSystem` permission for desktop UX parity. |
+| Data layer | **SQLite via `@sqlite.org/sqlite-wasm`** (opfs-sahpool VFS) in a backend Web Worker | Indexed SQL, never in-memory JS. FTS5 fuzzy search. No COOP/COEP. One connection via Web Lock. |
+| File access | **File System Access API** | `showDirectoryPicker` grants a `FileSystemDirectoryHandle` in IndexedDB. Handles are contained to their subtree. Electron auto-grants `fileSystem`. |
 | Library concept | **Saved filtered views over one master index** | A "library" is a saved query (`rule_json`), not copied files. See [data-model.md](data-model.md). |
 | Theming | **Plain CSS / CSS custom properties** | Theme JSON files define tokens consumed as CSS variables. |
 | Audio | **Web Audio API** lookahead-scheduler | Sample-accurate enough for an eJay/Acid tracker. Native addon escape hatch defined in [audio-engine.md](audio-engine.md). |

@@ -1,5 +1,5 @@
 import { bubbleTextColor } from '../lib/sample-utils'
-import { refreshThemeTokens } from '../components/LaneClipCanvas'
+import { parseClipBorder, refreshThemeTokens } from '../components/LaneClipCanvas'
 import emeraldThemeJson from '../../../../public/themes/emerald.json'
 import enterpriseThemeJson from '../../../../public/themes/enterprise.json'
 import raveThemeJson from '../../../../public/themes/rave.json'
@@ -131,12 +131,32 @@ export interface ThemeDepth {
    * or "none". Gives brutalist/arcade themes their hard ink border.
    */
   'border-clip': string
+  /**
+   * Gloss layer painted over every clip/bubble fill. Strict format
+   * "linear-gradient(180deg, <top>, <bottom>)" or "none" — the canvas parses
+   * the two stops, so each color must be a single token WITHOUT commas or
+   * spaces: use hex, including #RRGGBBAA for translucency (rgba() would break
+   * the parse). Valid CSS as-is: the DOM consumes it directly as a
+   * background-image layer.
+   */
+  'gradient-clip': string
+  /** box-shadow on meter fills (channel dB meter, loudness bar); LED glow themes. */
+  'shadow-meter': string
 }
 
 export interface Theme {
   name: string
   key: ThemeKey
   colors: ThemeColors
+  /**
+   * Theme-scoped sample palette: 8 slot colors (0 Drums, 1 Loop, 2 Bass,
+   * 3 Keys, 4 Synth, 5 Voice, 6 Arp, 7 Pad). Every clip and sample bubble is
+   * painted from these slots; entries must be 6-digit hex so the per-slot ink
+   * can be derived via bubbleTextColor (spec-002 "Sample Palette").
+   */
+  palette: string[]
+  /** Slot 8: the Unsorted category's bubble color (6-digit hex). */
+  'palette-unsorted': string
   fonts: ThemeFonts
   depth: ThemeDepth
   radius: string
@@ -152,11 +172,23 @@ export interface Theme {
    * print/terminal themes use "0px" for hard-edged slabs.
    */
   'radius-clip': string
+  /** Structural hairline width — everything drawn with --border. */
+  'border-width': string
+  /** Control border width — everything drawn with --pill-border. */
+  'border-width-pill': string
+  /** Header bottom-rule width (Beton Brut's 3px poster rule). */
+  'border-width-header': string
+  /** Clip/bubble label weight ("400" | "600" | "700"); canvas-parsed. */
+  'clip-font-weight': string
+  /** Clip/bubble label case ("none" | "uppercase"); canvas uppercases the string. */
+  'clip-case': string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
+
+const SIX_HEX = /^#[0-9a-fA-F]{6}$/
 
 function isTheme(value: unknown): value is Theme {
   if (!isRecord(value)) return false
@@ -165,12 +197,30 @@ function isTheme(value: unknown): value is Theme {
   if (typeof value.radius !== 'string') return false
   if (typeof value['radius-transport'] !== 'string') return false
   if (typeof value['radius-clip'] !== 'string') return false
+  const stringFields = [
+    'border-width',
+    'border-width-pill',
+    'border-width-header',
+    'clip-font-weight',
+    'clip-case'
+  ]
+  if (!stringFields.every((key) => typeof value[key] === 'string')) return false
+  // The sample palette feeds bubbleTextColor per slot, so every entry must be
+  // parseable 6-digit hex — a bad entry would silently fall back to light ink
+  // and can break the WCAG guarantee on light slots (spec-002 Sample Palette).
+  if (!Array.isArray(value.palette) || value.palette.length !== 8) return false
+  if (!value.palette.every((entry) => typeof entry === 'string' && SIX_HEX.test(entry))) return false
+  if (typeof value['palette-unsorted'] !== 'string' || !SIX_HEX.test(value['palette-unsorted'])) return false
   // Every color that applyTheme feeds to bubbleTextColor must be a string, or
   // theme application throws mid-way and leaves a half-applied theme. Keep this
   // list in sync with the --on-* derivations in applyTheme.
   const { colors } = value
   const required = ['accent', 'bg-base', 'text', 'highlight', 'meter-red', 'transport', 'transport-active']
-  return required.every((key) => typeof colors[key] === 'string')
+  if (!required.every((key) => typeof colors[key] === 'string')) return false
+  // clip-missing feeds mixTowardBlack (LaneClipCanvas.tsx) to darken the AC-013
+  // hazard-stripe color — a non-6-hex value makes mixTowardBlack a no-op, so the
+  // stripe color equals the fill color and missing clips render invisibly.
+  return typeof colors['clip-missing'] === 'string' && SIX_HEX.test(colors['clip-missing'])
 }
 
 function validateTheme(json: unknown, label: string): Theme {
@@ -250,6 +300,36 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   for (const [token, value] of Object.entries(theme.depth)) {
     root.style.setProperty(`--${token}`, value)
   }
+  // Sample palette: slot color, derived ink, and derived label shadow per
+  // slot (8 = Unsorted). DOM bubbles consume these vars directly, so a theme
+  // switch restyles every tile without a React re-render; the lane canvas
+  // reads the same vars into its token cache (spec-002 Sample Palette).
+  const slots = [...theme.palette, theme['palette-unsorted']]
+  slots.forEach((slotColor, slot) => {
+    const ink = bubbleTextColor(slotColor)
+    root.style.setProperty(`--palette-${slot}`, slotColor)
+    root.style.setProperty(`--palette-ink-${slot}`, ink)
+    // A dark text-shadow only reads correctly under light ink (mirrors
+    // bubbleStyle's dark-ink shadow drop).
+    root.style.setProperty(
+      `--palette-shadow-${slot}`,
+      ink === '#FFFFFF' ? 'var(--shadow-clip-text)' : 'none'
+    )
+  })
+  // DOM bubbles cannot parse the canvas-format border-clip token, so split it
+  // into consumable width/color vars here — via the SAME parser the canvas
+  // uses (parseClipBorder), so a malformed token is rejected identically on
+  // both sides instead of two regexes silently disagreeing. When the theme
+  // has no clip border, remove them: the CSS fallbacks (1px, self-color)
+  // take over.
+  const clipBorder = parseClipBorder(theme.depth['border-clip'])
+  if (clipBorder) {
+    root.style.setProperty('--clip-border-width', `${clipBorder.width}px`)
+    root.style.setProperty('--clip-border-color', clipBorder.color)
+  } else {
+    root.style.removeProperty('--clip-border-width')
+    root.style.removeProperty('--clip-border-color')
+  }
   // Derived, not authored: the WCAG-correct ink for text/icons drawn directly
   // on a solid --accent/--highlight fill (buttons, active mute/solo, hovered
   // menu items). Reuses the same luminance-based picker as sample bubbles so
@@ -267,6 +347,11 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   root.style.setProperty('--radius', theme.radius)
   root.style.setProperty('--radius-transport', theme['radius-transport'])
   root.style.setProperty('--radius-clip', theme['radius-clip'])
+  root.style.setProperty('--border-width', theme['border-width'])
+  root.style.setProperty('--border-width-pill', theme['border-width-pill'])
+  root.style.setProperty('--border-width-header', theme['border-width-header'])
+  root.style.setProperty('--clip-font-weight', theme['clip-font-weight'])
+  root.style.setProperty('--clip-case', theme['clip-case'])
   root.style.setProperty('--font-chrome', fontStack(theme.fonts.chrome, 'system-ui, sans-serif'))
   root.style.setProperty('--font-label', fontStack(theme.fonts.label, 'system-ui, sans-serif'))
   root.style.setProperty('--font-mono', fontStack(theme.fonts.mono, "'Consolas', monospace"))

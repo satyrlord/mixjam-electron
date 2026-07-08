@@ -58,6 +58,9 @@ export interface TrackerArrangementProps {
   lanes: LaneState[]
   laneShouldDim: (lane: LaneState) => boolean
   currentTick: number
+  /** Relpaths of missing samples; clips referencing them render hazard
+   *  stripes (spec-002 AC-013). */
+  missingSamplePaths: ReadonlySet<string>
   onPlaceSampleDetailOnLane: (
     detail: FooterSampleDetail,
     laneIndex: number,

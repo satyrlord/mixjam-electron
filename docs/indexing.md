@@ -3,9 +3,6 @@
 How 850 folders / 100k+ files get into the database on first run and stay in sync
 afterward, without freezing the UI.
 
-> **Resolves open item #5.** The first-run indexing/re-scan strategy was undesigned.
-> This is that design.
-
 ## Where it runs
 
 Indexing runs inside the **backend Web Worker** (`src/renderer/src/backend/`) —

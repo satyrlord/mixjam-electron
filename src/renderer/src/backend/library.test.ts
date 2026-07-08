@@ -18,6 +18,7 @@ import {
   scanRootId,
   listCategories,
   listLibraries,
+  listMissingRelpaths,
   listTags,
   markMissing,
   querySamples,
@@ -260,6 +261,23 @@ describe('markMissing', () => {
     markMissing(db, rootId, 'samples/gone.wav')
     const { rows } = querySamples(db, {})
     expect(rows.find((r) => r.relpath === 'samples/gone.wav')).toBeUndefined()
+  })
+})
+
+describe('listMissingRelpaths (spec-002 AC-013)', () => {
+  it('returns missing relpaths for the root, scoped and empty-safe', () => {
+    upsertStub(db, rootId, 'samples/gone.wav', 'gone.wav', 'wav', 1024, 1000)
+    upsertStub(db, rootId, 'samples/here.wav', 'here.wav', 'wav', 1024, 1000)
+    expect(listMissingRelpaths(db, 'root-main')).toEqual([])
+
+    markMissing(db, rootId, 'samples/gone.wav')
+    expect(listMissingRelpaths(db, 'root-main')).toEqual(['samples/gone.wav'])
+
+    // Other roots and unknown roots never leak this root's missing rows.
+    const otherRoot = ensureScanRoot(db, 'root-elsewhere')
+    upsertStub(db, otherRoot, 'x/other.wav', 'other.wav', 'wav', 10, 10)
+    expect(listMissingRelpaths(db, 'root-elsewhere')).toEqual([])
+    expect(listMissingRelpaths(db, 'root-never-scanned')).toEqual([])
   })
 })
 

@@ -43,7 +43,10 @@ Read the project's architecture docs (`docs/architecture.md`,
 `docs/data-model.md`) first. If a `CONTEXT.md` domain glossary exists,
 read that too.
 
-Then use the Agent tool with `subagent_type=Explore` to walk the **entire codebase** — not just recently changed files or the current branch diff. Don't follow rigid heuristics — explore organically and note where you experience friction:
+Then use the Agent tool with `subagent_type=Explore` to walk the **entire
+codebase** — not just recently changed files or the current branch diff.
+Don't follow rigid heuristics — explore organically and note where you
+experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
 - Where are modules **shallow** — interface nearly as complex as the implementation?

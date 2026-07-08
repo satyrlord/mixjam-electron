@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/playerShell'
-import { bubbleStyle, categoryColor } from '../lib/sample-utils'
+import { bubbleStyle, categorySlot } from '../lib/sample-utils'
 import type { TrackerBrowserProps } from './trackerProps'
 import { useDragResize } from '../hooks/useDragResize'
 import ManagePanel from './ManagePanel'
@@ -79,8 +79,8 @@ export default function SampleBrowser({
     ? childCategories(selectedCategoryId)
     : []
 
-  const activeCategoryColor = selectedCategoryId !== undefined
-    ? categoryColor(
+  const activeCategorySlot = selectedCategoryId !== undefined
+    ? categorySlot(
         categories.find((c) => c.id === selectedCategoryId)?.name ?? ''
       )
     : undefined
@@ -104,7 +104,6 @@ export default function SampleBrowser({
         </button>
         <div className="cat-grid" role="listbox" aria-label="Sample categories">
           {rootCategories.map((cat) => {
-            const color = categoryColor(cat.name)
             const isSelected = selectedCategoryId === cat.id
             return (
               <button
@@ -113,7 +112,7 @@ export default function SampleBrowser({
                 role="option"
                 aria-selected={isSelected}
                 className={`sample-bubble bubble-category${isSelected ? ' selected' : ''}`}
-                style={bubbleStyle(color)}
+                style={bubbleStyle(categorySlot(cat.name)) as React.CSSProperties}
                 onClick={() => browser.onSelectCategory(isSelected ? undefined : cat.id)}
               >
                 {cat.name}
@@ -195,7 +194,7 @@ export default function SampleBrowser({
           pixelsPerTick={pixelsPerTick}
           selectedSamplePath={selectedSamplePath}
           flashSamplePath={flashSamplePath}
-          activeCategoryColor={activeCategoryColor}
+          activeCategorySlot={activeCategorySlot}
           categories={categories}
           loading={loading}
           error={error}

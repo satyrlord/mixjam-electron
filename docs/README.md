@@ -15,7 +15,7 @@ requirements that drive every architectural choice.
 ## Document map
 
 | Doc | Contents |
-|---|---|
+| --- | -------- |
 | [architecture.md](architecture.md) | Decided stack, process model, and non-goals |
 | [data-model.md](data-model.md) | SQLite schema, the "libraries are saved queries" model |
 | [query-schema.md](query-schema.md) | The `rule_json` predicate-tree format and how it compiles to SQL |

@@ -102,7 +102,7 @@ Each card shows:
   state: "Folder not accessible — pick a new one."
 - If a previously saved folder exists but its permission has lapsed
   (`queryPermission() === 'prompt'`, browser host), the card offers
-  "Restore access to <folder>", which re-requests permission in a user
+  "Restore access to `folder`", which re-requests permission in a user
   gesture. The Electron shell auto-grants, so desktop users never see this.
 
 ### Session Persistence
@@ -145,7 +145,7 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
 - [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
 - [x] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
-- [x] **AC-013a:** If a restored handle needs a permission re-grant (browser host), the card offers "Restore access to <folder>"; granting it validates the folder and opens the gate.
+- [x] **AC-013a:** If a restored handle needs a permission re-grant (browser host), the card offers "Restore access to `folder`"; granting it validates the folder and opens the gate.
 - [x] **AC-014:** A `mixjam.json` session config file is written to the User Folder after both folders are selected.
 - [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
 

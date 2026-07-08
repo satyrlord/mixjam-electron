@@ -18,7 +18,7 @@
     "pill-border": "#6E6A62",
     "playhead": "#CC0000",
     "clip-text": "#FFFFFF",
-    "clip-select": "#000080",
+    "clip-select": "#CC0000",
     "clip-missing": "#8E1A1A",
     "meter-green": "#006400",
     "meter-yellow": "#755607",
@@ -26,6 +26,17 @@
     "transport": "#C8C4BC",
     "transport-active": "#008080"
   },
+  "palette": [
+    "#008080",
+    "#000080",
+    "#20B2AA",
+    "#4A6A8A",
+    "#006666",
+    "#5F9EA0",
+    "#2E4A8A",
+    "#004F4F"
+  ],
+  "palette-unsorted": "#6E6A62",
   "fonts": {
     "chrome": "Arimo",
     "label": "Arimo",
@@ -35,18 +46,25 @@
     "gradient-header": "#D4D0C8",
     "gradient-ruler": "linear-gradient(180deg, rgba(255,255,255,0.35), rgba(0,0,0,0.08))",
     "gradient-lane": "linear-gradient(180deg, rgba(255,255,255,0.15), rgba(0,0,0,0.06))",
-    "shadow-clip-text": "1px 1px 0 rgba(0,0,0,0.5)",
+    "shadow-clip-text": "1px 1px 0px rgba(0,0,0,0.5)",
     "gradient-transport": "linear-gradient(180deg, #D4D0C8, #C8C4BC)",
     "gradient-transport-active": "#008080",
-    "shadow-transport": "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(110,106,98,0.9)",
-    "shadow-transport-active": "inset 1px 1px 0 rgba(0,0,0,0.35), inset -1px -1px 0 rgba(255,255,255,0.5)",
-    "shadow-pill": "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(110,106,98,0.9)",
+    "shadow-transport": "inset 2px 2px 0 rgba(255,255,255,0.9), inset -2px -2px 0 rgba(110,106,98,0.9)",
+    "shadow-transport-active": "inset 2px 2px 0 rgba(0,0,0,0.35), inset -2px -2px 0 rgba(255,255,255,0.5)",
+    "shadow-pill": "inset 2px 2px 0 rgba(255,255,255,0.9), inset -2px -2px 0 rgba(110,106,98,0.9)",
     "shadow-lane": "none",
     "shadow-playhead": "none",
     "shadow-clip": "none",
-    "border-clip": "1px #004F4F"
+    "border-clip": "1px #004F4F",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "0px",
   "radius-transport": "0px",
-  "radius-clip": "0px"
+  "radius-clip": "0px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "2px",
+  "clip-font-weight": "400",
+  "clip-case": "none"
 }

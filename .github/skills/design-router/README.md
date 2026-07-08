@@ -1,6 +1,9 @@
 # Design Router Skill
 
-A single Claude Code skill bundling 67 design themes from the [typeui.sh](https://www.typeui.sh/design-skills) registry ([bergside/awesome-design-skills](https://github.com/bergside/awesome-design-skills), MIT licensed).
+A single Claude Code skill bundling 67 design themes from the
+[typeui.sh](https://www.typeui.sh/design-skills) registry
+([bergside/awesome-design-skills](https://github.com/bergside/awesome-design-skills),
+MIT licensed).
 
 Structure:
 
@@ -26,4 +29,7 @@ Or just copy the `design-router` folder into `<project>\.claude\skills\`.
 
 ## Updating themes
 
-Re-clone [bergside/awesome-design-skills](https://github.com/bergside/awesome-design-skills), then for each `skills/<slug>/`, strip the frontmatter from `SKILL.md`, append `DESIGN.md` under a `## Design intent (from DESIGN.md)` heading, and save as `design-router/themes/<slug>.md`.
+Re-clone [bergside/awesome-design-skills](https://github.com/bergside/awesome-design-skills),
+then for each `skills/<slug>/`, strip the frontmatter from `SKILL.md`,
+append `DESIGN.md` under a `## Design intent (from DESIGN.md)` heading,
+and save as `design-router/themes/<slug>.md`.

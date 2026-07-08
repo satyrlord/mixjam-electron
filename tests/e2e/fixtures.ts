@@ -101,6 +101,7 @@ export const test = base.extend<E2EFixtures>({
         validateFolder: function () { return Promise.resolve('ok') },
         requestFolderAccess: function () { return Promise.resolve(true) },
         hasSamples: function () { return Promise.resolve(true) },
+        listMissingRelpaths: function () { return Promise.resolve([]) },
         startScan: function () { return Promise.resolve() },
         getScanProgress: function () { return Promise.resolve({ status: 'idle', phase: null, found: 0, processed: 0, total: 0 }) },
         querySamples: function (req) { return Promise.resolve(querySamples(req)) },

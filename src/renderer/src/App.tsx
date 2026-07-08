@@ -83,6 +83,7 @@ export default function App() {
     lanes: app.lanes,
     laneShouldDim: app.laneShouldDim,
     currentTick: app.currentTick,
+    missingSamplePaths: app.missingSamplePaths,
     onPlaceSampleDetailOnLane: app.placeSampleDetailOnLane,
     onMoveClipOnLane: app.moveClipOnLane,
     onDuplicateClipOnLane: app.duplicateClipOnLane,
@@ -94,7 +95,7 @@ export default function App() {
     onToggleLaneMute: app.toggleLaneMute,
     onToggleLaneSolo: app.toggleLaneSolo
   }), [
-    app.lanes, app.laneShouldDim, app.currentTick,
+    app.lanes, app.laneShouldDim, app.currentTick, app.missingSamplePaths,
     app.placeSampleDetailOnLane, app.moveClipOnLane,
     app.duplicateClipOnLane, app.moveClipGroup, app.duplicateClipGroup,
     app.removeClipFromLane, app.removeClips, app.setLanePan,

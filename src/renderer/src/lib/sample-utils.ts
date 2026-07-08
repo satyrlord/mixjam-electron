@@ -2,19 +2,28 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-// 8-colour palette from the Emerald theme design project (§8 Color Palette System).
-// Well-known category names get a fixed slot; unknown names get a deterministic
-// slot via hash so every category keeps its colour across scans.
-const PALETTE = [
-  '#982A00', // 0: Drums, Percussion
-  '#830000', // 1: Loop
-  '#AB4700', // 2: Bass
-  '#BF6601', // 3: Keys, Guitar, Chords, Piano
-  '#D48915', // 4: Synth, Lead
-  '#E6AD33', // 5: Voice, Vocal, FX, Vox
-  '#BFAD00', // 6: Arp
-  '#7DA500', // 7: Pad, Atmosphere, Xtra, Texture
-] as const
+// Pan values accumulate floating-point residue from repeated 0.05 key steps
+// (e.g. +3 then -3 lands on ~1.4e-17, not 0), so the right-click cycle compares
+// against this tolerance instead of exact 0/±1.
+const PAN_EPSILON = 1e-6
+
+/** Right-click pan cycle (spec-007 AC-018): any freely-dragged position → C;
+ *  C → 100% R; 100% R → 100% L; 100% L → C. Shared by ChannelStrip and
+ *  LaneRow so the two pan controls can never drift out of sync. */
+export function nextPanCycle(pan: number): number {
+  if (Math.abs(pan) < PAN_EPSILON) return 1
+  if (pan >= 1 - PAN_EPSILON) return -1
+  return 0
+}
+
+// Sample palette slots. The COLORS are theme-scoped (each theme JSON authors
+// its own 8-slot `palette` + `palette-unsorted`; applyTheme publishes them as
+// --palette-0..8 custom properties) — only the NAME -> SLOT mapping is fixed,
+// so a category keeps its slot across scans, renames, and theme switches
+// (spec-002 "Sample Palette").
+export const PALETTE_SLOT_COUNT = 8
+/** Slot index of the Unsorted category (the 9th palette entry). */
+export const SLOT_UNSORTED = 8
 
 const WELL_KNOWN: Record<string, number> = {
   drums: 0,
@@ -38,8 +47,6 @@ const WELL_KNOWN: Record<string, number> = {
   texture: 7,
 }
 
-const UNSORTED_COLOR = '#555E6A'
-
 export const ROOT_CATEGORY_NAMES = ['Unsorted']
 
 function hashCode(s: string): number {
@@ -50,16 +57,17 @@ function hashCode(s: string): number {
   return Math.abs(hash)
 }
 
-export function categoryColor(name: string): string {
-  if (name === 'Unsorted') return UNSORTED_COLOR
-  const idx = WELL_KNOWN[name.toLowerCase()] ?? (hashCode(name) % PALETTE.length)
-  return PALETTE[idx]
+/** Well-known category names get a fixed slot; unknown names get a
+ *  deterministic slot via hash. Unsorted maps to SLOT_UNSORTED. */
+export function categorySlot(name: string): number {
+  if (name === 'Unsorted') return SLOT_UNSORTED
+  return WELL_KNOWN[name.toLowerCase()] ?? (hashCode(name) % PALETTE_SLOT_COUNT)
 }
 
-// Ink colors for text rendered on top of a palette color. Part of the same
-// sanctioned bubble palette system as PALETTE: the light slots (Synth, Voice,
-// Arp, Pad) leave white text below the 4.5:1 WCAG minimum, so text on them
-// switches to dark ink. Bubbles stay theme-invariant either way.
+// Ink colors for text rendered on top of a palette-slot color. Light slots
+// leave white text below the 4.5:1 WCAG minimum, so text on them switches to
+// dark ink. The slot colors themselves are theme-scoped; the ink pair is the
+// one fixed part of the system (applyTheme derives --palette-ink-N from it).
 const BUBBLE_INK_LIGHT = '#FFFFFF'
 const BUBBLE_INK_DARK = '#141309'
 
@@ -84,21 +92,19 @@ export function bubbleTextColor(background: string): string {
   return contrastVsWhite >= contrastVsDark ? BUBBLE_INK_LIGHT : BUBBLE_INK_DARK
 }
 
-/** Inline style for a sample bubble painted in a palette color: background,
- *  border, and the matching ink. Dark ink drops the theme text-shadow, which
- *  only reads correctly under light text. Assignable to React.CSSProperties. */
-export function bubbleStyle(color: string): {
-  background: string
-  borderColor: string
-  color: string
-  textShadow?: string
-} {
-  const ink = bubbleTextColor(color)
+/** Inline style for a sample bubble painted from a theme palette slot. All
+ *  values are var() references to the --palette-* custom properties published
+ *  by applyTheme, so bubbles restyle live on theme switch without a React
+ *  re-render. --bubble-self feeds the CSS border-color fallback chain: themes
+ *  with a --clip-border-color token win over the self-colored border.
+ *  Spread into a style prop with an `as React.CSSProperties` cast (custom
+ *  property keys are not in the CSSProperties type). */
+export function bubbleStyle(slot: number): Record<string, string> {
   return {
-    background: color,
-    borderColor: color,
-    color: ink,
-    ...(ink !== BUBBLE_INK_LIGHT ? { textShadow: 'none' } : {})
+    backgroundColor: `var(--palette-${slot})`,
+    '--bubble-self': `var(--palette-${slot})`,
+    color: `var(--palette-ink-${slot})`,
+    textShadow: `var(--palette-shadow-${slot})`
   }
 }
 

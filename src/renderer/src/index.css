@@ -87,6 +87,14 @@
 }
 
 @font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/SpaceGrotesk-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Space Mono';
   src: url('/fonts/SpaceMono-Regular.woff2') format('woff2');
   font-weight: 400;
@@ -146,6 +154,14 @@
   font-family: 'Chakra Petch';
   src: url('/fonts/ChakraPetch-Medium.woff2') format('woff2');
   font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  src: url('/fonts/ChakraPetch-Bold.woff2') format('woff2');
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
@@ -268,6 +284,17 @@
   padding: 0;
 }
 
+/* Composed border shorthands. applyTheme always publishes --border-width,
+   --border-width-pill and --border-width-header (isTheme requires them as
+   strings), so the width is never actually unset — these compose the width
+   with the matching border color once, instead of repeating
+   "var(--border-width, 1px) solid var(--border)" at ~40 call sites. */
+:root {
+  --edge: var(--border-width) solid var(--border);
+  --edge-pill: var(--border-width-pill) solid var(--pill-border);
+  --edge-header: var(--border-width-header) solid var(--header-border);
+}
+
 html, body {
   height: 100%;
   overflow: hidden;
@@ -336,12 +363,13 @@ html[data-theme-ready='true'] body {
     repeating-linear-gradient(67deg, transparent 0 53px, rgba(255,255,255,0.04) 53px 54px, transparent 54px 97px);
 }
 
-/* ── Beton Brut / Mono / Arcade: shouted chrome ──
+/* ── Beton Brut / Mono / Riso / Arcade: shouted chrome ──
    These themes set structural labels in caps (poster stencils, terminal
-   prompts, cabinet marquees). Case is typography, not color, so it lives
-   here rather than in the token JSON. */
+   prompts, print wordmarks, cabinet marquees). Case is typography, not
+   color, so it lives here rather than in the token JSON. */
 [data-theme-key='beton'] .brand,
 [data-theme-key='mono'] .brand,
+[data-theme-key='riso'] .brand,
 [data-theme-key='arcade'] .brand {
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -357,6 +385,36 @@ html[data-theme-ready='true'] body {
   letter-spacing: 0.06em;
 }
 
+/* Arcade cabinets shout everywhere: the candidate mockup uppercases the whole
+   surface, so the chrome controls follow (clip labels come from --clip-case). */
+[data-theme-key='arcade'] .theme-selector,
+[data-theme-key='arcade'] .home-link,
+[data-theme-key='arcade'] .footer-link,
+[data-theme-key='arcade'] .strip-proj,
+[data-theme-key='arcade'] .strip-bpm,
+[data-theme-key='arcade'] .strip-rescan,
+[data-theme-key='arcade'] .strip-cancel-scan,
+[data-theme-key='arcade'] .cat-manage-btn,
+[data-theme-key='arcade'] .manage-tab,
+[data-theme-key='arcade'] .sort-btn,
+[data-theme-key='arcade'] .subcat,
+[data-theme-key='arcade'] .btn-primary,
+[data-theme-key='arcade'] .link-secondary {
+  text-transform: uppercase;
+}
+
+/* ── Enterprise: glass chrome ──
+   bg-panel/pill-bg are translucent rgba in enterprise.json; blurring what
+   scrolls beneath the header/ruler completes the cloud-platform glass look.
+   The sticky ruler needs the same treatment as the header — it also sits
+   over scrolling content (bar lines, clips) and its gradient-ruler/bg-panel
+   layers are translucent in this theme. Colorless by design — AC-008's
+   no-hardcoded-colors rule still holds. */
+[data-theme-key='enterprise'] .header,
+[data-theme-key='enterprise'] .tracker-ruler {
+  backdrop-filter: blur(4px);
+}
+
 /* ── Header ─────────────────────────────────── */
 .header {
   position: relative;
@@ -365,7 +423,7 @@ html[data-theme-ready='true'] body {
   display: flex;
   align-items: center;
   background: var(--gradient-header);
-  border-bottom: 1px solid var(--header-border);
+  border-bottom: var(--edge-header);
   padding: 0 12px;
 }
 
@@ -435,7 +493,7 @@ html[data-theme-ready='true'] body {
 
 .theme-selector {
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   color: var(--text-muted);
   font-family: var(--font-label);
   font-size: 11px;
@@ -467,7 +525,7 @@ html[data-theme-ready='true'] body {
   align-items: center;
   gap: 12px;
   background: var(--chrome);
-  border-top: 1px solid var(--border);
+  border-top: var(--edge);
   padding: 0 12px;
   font-size: 11px;
 }
@@ -620,7 +678,7 @@ html[data-theme-ready='true'] body {
   place-items: center;
   border-radius: 50%;
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   color: var(--highlight);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -659,7 +717,7 @@ html[data-theme-ready='true'] body {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   cursor: pointer;
   padding: 0;
 }
@@ -682,7 +740,7 @@ html[data-theme-ready='true'] body {
   gap: 16px;
   padding: 24px;
   background: var(--bg-panel);
-  border: 1px solid var(--border);
+  border: var(--edge);
   border-radius: var(--radius);
   box-shadow:
     0 18px 48px rgba(0, 0, 0, 0.35),
@@ -693,7 +751,7 @@ html[data-theme-ready='true'] body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-top: 1px solid var(--border);
+  border-top: var(--edge);
   padding-top: 14px;
 }
 
@@ -755,7 +813,7 @@ html[data-theme-ready='true'] body {
 /* ── Folder cards ────────────────────────────── */
 .folder-card {
   background: var(--bg-panel);
-  border: 1px solid var(--border);
+  border: var(--edge);
   border-radius: var(--radius);
   padding: 14px 16px;
 }
@@ -788,7 +846,7 @@ html[data-theme-ready='true'] body {
 .folder-card-pick {
   margin-left: auto;
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   color: var(--text);
   font-family: var(--font-label);
   font-size: 11px;
@@ -849,7 +907,7 @@ html[data-theme-ready='true'] body {
    interactivity more clearly than a bare underline link. */
 .home-setup > .link-secondary {
   align-self: center;
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   padding: 6px 16px;
   text-decoration: none;
@@ -906,7 +964,7 @@ html[data-theme-ready='true'] body {
 
 .tracker-zone {
   min-width: 0;
-  border-right: 1px solid var(--border);
+  border-right: var(--edge);
 }
 
 .tracker-zone-title {
@@ -931,7 +989,7 @@ html[data-theme-ready='true'] body {
 .recent-projects-rail {
   grid-column: 1;
   grid-row: 1;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--edge);
 }
 
 .recent-projects-rail-collapsed {
@@ -1006,7 +1064,7 @@ html[data-theme-ready='true'] body {
 }
 
 .recent-projects-item {
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--edge);
 }
 
 /* Whole recent-project entry is one click target: click opens, right-click
@@ -1070,6 +1128,16 @@ html[data-theme-ready='true'] body {
   z-index: 5;
 }
 
+/* Triangular cap at the top of the playhead (mockup marker). */
+.tracker-playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4px;
+  border: 5px solid transparent;
+  border-top: 6px solid var(--playhead);
+}
+
 .tracker-ruler {
   display: flex;
   height: 24px;
@@ -1077,7 +1145,7 @@ html[data-theme-ready='true'] body {
   position: sticky;
   top: 0;
   z-index: 2;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--edge);
   background: var(--gradient-ruler), var(--bg-panel);
 }
 
@@ -1123,7 +1191,7 @@ html[data-theme-ready='true'] body {
 
 .tracker-lane {
   display: flex;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--edge);
   background: var(--gradient-lane), var(--bg-lane);
 }
 
@@ -1138,7 +1206,7 @@ html[data-theme-ready='true'] body {
   align-items: center;
   gap: 0;
   padding: 0 6px;
-  border-right: 1px solid var(--border);
+  border-right: var(--edge);
   background: var(--bg-panel);
 }
 
@@ -1167,7 +1235,7 @@ html[data-theme-ready='true'] body {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   background: var(--pill-bg);
   box-shadow: var(--shadow-pill, none);
@@ -1293,10 +1361,16 @@ html[data-theme-ready='true'] body {
   pointer-events: none;
 }
 
-/* ── Unified sample bubble (tracker clips, browser tiles, category buttons) ── */
+/* ── Unified sample bubble (tracker clips, browser tiles, category buttons) ──
+   Surface color comes from the theme palette slot (inline background-color +
+   --bubble-self set by bubbleStyle); the gloss layer, border construction,
+   and label typography are theme tokens so the DOM bubble and the canvas
+   clip resolve the identical treatment (spec-002 Sample Palette). */
 .sample-bubble {
-  background: var(--accent);
-  border: 1px solid var(--accent-dark);
+  background-image: var(--gradient-clip, none);
+  background-color: var(--accent);
+  border: var(--clip-border-width, 1px) solid
+    var(--clip-border-color, var(--bubble-self, var(--accent-dark)));
   border-radius: var(--radius-clip, 6px);
   box-shadow: var(--shadow-clip, none);
   display: flex;
@@ -1306,6 +1380,8 @@ html[data-theme-ready='true'] body {
   white-space: nowrap;
   font-family: var(--font-label);
   font-size: 10px;
+  font-weight: var(--clip-font-weight, 400);
+  text-transform: var(--clip-case, none);
   color: var(--on-accent);
   text-shadow: var(--shadow-clip-text);
   cursor: pointer;
@@ -1316,8 +1392,8 @@ html[data-theme-ready='true'] body {
 }
 
 .sample-bubble.selected {
-  outline: 1.5px solid var(--clip-select);
-  outline-offset: -1.5px;
+  outline: 2px solid var(--clip-select);
+  outline-offset: -2px;
 }
 
 .sample-bubble.bubble-category {
@@ -1326,7 +1402,7 @@ html[data-theme-ready='true'] body {
 }
 
 .sample-bubble b {
-  font-weight: 400;
+  font-weight: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1446,7 +1522,7 @@ html[data-theme-ready='true'] body {
 
 .strip-rescan {
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   color: var(--text-muted);
   border-radius: var(--radius);
   padding: 3px 8px;
@@ -1515,7 +1591,7 @@ html[data-theme-ready='true'] body {
   padding: 32px 48px;
   border-radius: 12px;
   background: var(--bg-panel);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
@@ -1567,7 +1643,7 @@ html[data-theme-ready='true'] body {
   height: 30px;
   border-radius: var(--radius-transport, var(--radius));
   background: var(--gradient-transport, var(--pill-bg));
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   color: var(--on-transport, var(--text));
   box-shadow: var(--shadow-transport, none);
   display: grid;
@@ -1595,7 +1671,7 @@ html[data-theme-ready='true'] body {
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   color: var(--text-muted);
   font-family: var(--font-chrome);
   font-size: 12px;
@@ -1635,7 +1711,7 @@ html[data-theme-ready='true'] body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-right: 1px solid var(--border);
+  border-right: var(--edge);
   background: var(--chrome);
   overflow: hidden;
 }
@@ -1683,7 +1759,7 @@ html[data-theme-ready='true'] body {
 .mixer-restore {
   width: 16px;
   height: 16px;
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: 2px;
   background: var(--pill-bg);
   color: var(--text-muted);
@@ -1703,7 +1779,7 @@ html[data-theme-ready='true'] body {
 }
 
 /* Horizontal scroll keeps every strip reachable at any column width
-   (spec-007 AC-015; supersedes the original overflow: hidden). */
+   (spec-007 AC-015). */
 .mixer-strips {
   flex: 1;
   display: flex;
@@ -1728,7 +1804,7 @@ html[data-theme-ready='true'] body {
   align-items: center;
   gap: 4px;
   padding: 4px 2px;
-  border-right: 1px solid var(--border);
+  border-right: var(--edge);
   position: relative;
 }
 
@@ -1795,7 +1871,7 @@ html[data-theme-ready='true'] body {
   font-size: 9px;
   color: var(--text);
   background: var(--chrome);
-  border: 1px solid var(--border);
+  border: var(--edge);
   border-radius: 2px;
   padding: 1px 3px;
   z-index: 2;
@@ -1847,6 +1923,7 @@ html[data-theme-ready='true'] body {
   right: 0;
   transition: height 0.05s linear;
   border-radius: 0 0 2px 2px;
+  box-shadow: var(--shadow-meter, none);
 }
 
 .mixer-channel-meter-peak {
@@ -1934,7 +2011,7 @@ html[data-theme-ready='true'] body {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: 2px;
   background: var(--pill-bg);
   box-shadow: var(--shadow-pill, none);
@@ -2013,7 +2090,7 @@ html[data-theme-ready='true'] body {
   width: 10px;
   height: 48px;
   border-radius: 5px;
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   background:
     radial-gradient(circle at 50% 14px, var(--text-muted) 1.2px, transparent 1.8px),
     radial-gradient(circle at 50% 23px, var(--text-muted) 1.2px, transparent 1.8px),
@@ -2060,7 +2137,7 @@ html[data-theme-ready='true'] body {
   height: 10px;
   border-radius: 999px;
   background: var(--bg-base);
-  border: 1px solid var(--border);
+  border: var(--edge);
   overflow: hidden;
 }
 
@@ -2068,6 +2145,7 @@ html[data-theme-ready='true'] body {
   width: 62%;
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--highlight));
+  box-shadow: var(--shadow-meter, none);
 }
 
 /* ── Browser resize handle ───────────────────── */
@@ -2168,7 +2246,7 @@ html[data-theme-ready='true'] body {
   font-family: var(--font-label);
   font-size: 10px;
   color: var(--text-muted);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   padding: 5px 6px;
   margin-bottom: 6px;
@@ -2228,7 +2306,7 @@ html[data-theme-ready='true'] body {
   padding: 5px 10px;
   align-items: center;
   min-height: 30px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--edge);
 }
 
 .subcat {
@@ -2341,7 +2419,7 @@ html[data-theme-ready='true'] body {
   right: 0;
   bottom: 0;
   background: var(--chrome);
-  border-left: 1px solid var(--border);
+  border-left: var(--edge);
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -2350,7 +2428,7 @@ html[data-theme-ready='true'] body {
 .manage-tabs {
   display: flex;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--edge);
 }
 
 .manage-tab {
@@ -2358,7 +2436,7 @@ html[data-theme-ready='true'] body {
   padding: 6px 8px;
   background: transparent;
   border: none;
-  border-right: 1px solid var(--border);
+  border-right: var(--edge);
   color: var(--text-muted);
   font-family: var(--font-chrome);
   font-size: 10px;
@@ -2402,7 +2480,7 @@ html[data-theme-ready='true'] body {
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--edge);
 }
 
 .manage-name {
@@ -2432,7 +2510,7 @@ html[data-theme-ready='true'] body {
 .manage-action {
   flex-shrink: 0;
   background: transparent;
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   color: var(--text-muted);
   font-size: 11px;
@@ -2467,7 +2545,7 @@ html[data-theme-ready='true'] body {
   gap: 5px;
   align-items: center;
   padding: 6px 10px;
-  border-top: 1px solid var(--border);
+  border-top: var(--edge);
 }
 
 .manage-input {
@@ -2500,7 +2578,7 @@ html[data-theme-ready='true'] body {
 .manage-create-btn {
   flex-shrink: 0;
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   color: var(--text-muted);
   font-family: var(--font-label);
@@ -2525,7 +2603,7 @@ html[data-theme-ready='true'] body {
   position: fixed;
   z-index: 100;
   background: var(--chrome);
-  border: 1px solid var(--border);
+  border: var(--edge);
   border-radius: var(--radius);
   padding: 4px 0;
   min-width: 160px;
@@ -2588,7 +2666,7 @@ html[data-theme-ready='true'] body {
   max-height: 80vh;
   overflow-y: auto;
   background: var(--bg-panel);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   padding: 18px 22px;
@@ -2611,7 +2689,7 @@ html[data-theme-ready='true'] body {
   width: 24px;
   height: 24px;
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   color: var(--text-muted);
   font-size: 14px;
@@ -2659,7 +2737,7 @@ html[data-theme-ready='true'] body {
   font-size: 10px;
   color: var(--text);
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   padding: 2px 6px;
   white-space: nowrap;
@@ -2714,7 +2792,7 @@ html[data-theme-ready='true'] body {
   border-radius: var(--radius);
   cursor: pointer;
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   color: var(--text);
 }
 
@@ -2749,7 +2827,7 @@ html[data-theme-ready='true'] body {
   font-size: 10px;
   color: var(--text-muted);
   background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
+  border: var(--edge-pill);
   border-radius: var(--radius);
   overflow: auto;
   max-height: 240px;
@@ -2798,9 +2876,9 @@ html[data-theme-ready='true'] body {
 }
 
 /* ── Reduced motion ──────────────────────────── */
-/* Collapse decorative animation (CRT flicker, VHS drift, spinners, flashes)
-   for users with a system reduced-motion preference. Progress stays visible
-   through the static bar/border styles. */
+/* Collapse decorative animation (spinners, flashes) for users with a system
+   reduced-motion preference. Progress stays visible through the static
+   bar/border styles. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

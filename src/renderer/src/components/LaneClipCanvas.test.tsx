@@ -11,7 +11,7 @@ const CLIPS: LaneClip[] = [
     startTick: 0,
     durationTicks: 16,
     durationSeconds: 0.5,
-    color: '#FF0000'
+    slot: 0
   },
   {
     id: 'clip-2',

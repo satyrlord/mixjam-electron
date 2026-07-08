@@ -103,6 +103,7 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   lanes: LANES,
   laneShouldDim: () => false,
   currentTick: 0,
+  missingSamplePaths: new Set<string>(),
   onPlaceSampleDetailOnLane: noop,
   onMoveClipOnLane: noop,
   onDuplicateClipOnLane: noop,
@@ -710,7 +711,7 @@ describe('TrackerView', () => {
     fireEvent.mouseUp(window)
   })
 
-  it('renders sample color from categoryId when no category filter is active', () => {
+  it('renders the sample palette slot from categoryId when no category filter is active', () => {
     renderTracker({
       browser: {
         samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
@@ -720,7 +721,8 @@ describe('TrackerView', () => {
     })
 
     const tile = screen.getByText(/kick/i).closest('button')! as HTMLElement
-    expect(tile.style.background).toBeTruthy()
+    // categoryId 2 = Drums = slot 0; the surface tracks the theme palette var.
+    expect(tile.style.backgroundColor).toBe('var(--palette-0)')
   })
 
   it('renders subcategory chips and All button when a category is selected', () => {
@@ -938,7 +940,7 @@ describe('TrackerView', () => {
   it('renders lane clips in canvas and triggers drag start', () => {
     const lanesWithClips = LANES.map((lane, i) =>
       i === 0
-        ? { ...lane, clips: [{ id: 'clip1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 0.5, color: '#ff0000' }] }
+        ? { ...lane, clips: [{ id: 'clip1', samplePath: '/s/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 0.5, slot: 0 }] }
         : lane
     )
     renderTracker({ arrangement: { lanes: lanesWithClips } })

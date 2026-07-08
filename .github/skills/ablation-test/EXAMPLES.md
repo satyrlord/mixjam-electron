@@ -1,6 +1,6 @@
 # Ablation Test Examples
 
-## Example 1: IPC Handler Returning Stale Data After Rescan
+## Example 1: Backend Call Returning Stale Data After Rescan
 
 ### Example 1 Symptom
 
@@ -9,24 +9,24 @@ the app is fully restarted.
 
 ### Example 1 Candidate Groups
 
-1. IPC handler in main process that queries sample counts
-2. indexer worker_thread that reports scan progress
-3. renderer store that caches the count from IPC responses
-4. preload bridge typing for the count channel
+1. backend worker call that queries sample counts
+2. indexer in the backend worker that reports scan progress
+3. renderer hook that caches the count from backend responses
+4. worker protocol typing for the count call
 
 ### Example 1 Ablation Sequence
 
-1. Restore only the IPC handler change -> test -> **PASS**.
+1. Restore only the backend call change -> test -> **PASS**.
 2. Remove the indexer change and retest -> **PASS**.
-3. Remove the renderer store change -> **PASS**.
-4. Confirm with a clean app data directory -> **PASS**.
+3. Remove the renderer hook change -> **PASS**.
+4. Confirm with a clean origin storage (OPFS + IndexedDB) -> **PASS**.
 
 ### Example 1 Conclusion
 
-- Root cause is the IPC handler not invalidating cached counts, not the
-  indexer or renderer store.
-- Minimal fix is the IPC handler change alone.
-- The indexer and store edits were incidental for this bug.
+- Root cause is the backend call not invalidating cached counts, not the
+  indexer or renderer hook.
+- Minimal fix is the backend call change alone.
+- The indexer and hook edits were incidental for this bug.
 
 ---
 
@@ -39,8 +39,8 @@ the app is fully restarted.
 
 ### Example 2 Candidate Groups
 
-1. parser normalization in `src/engine/`
-2. sample metadata mapping in analysis/
+1. parser normalization in `src/renderer/src/engine/`
+2. sample metadata extraction in the backend indexer
 3. resolver logging or diagnostics
 4. test expectation updates
 
@@ -95,9 +95,9 @@ the app is fully restarted.
 
 ### Example 4 Candidate Groups
 
-1. scheduler horizon or dispatch logic in `src/engine/Scheduler.ts`
-2. voice materialization in `src/engine/Voice.ts`
-3. output buffering or mixer behavior in `src/engine/AudioEngine.ts`
+1. scheduler horizon or dispatch logic in `src/renderer/src/engine/scheduler.ts`
+2. voice materialization in `src/renderer/src/engine/voice.ts`
+3. output buffering or mixer behavior in `src/renderer/src/engine/audio-engine.ts`
 4. diagnostics or regression checks in tests
 
 ### Example 4 Ablation Sequence

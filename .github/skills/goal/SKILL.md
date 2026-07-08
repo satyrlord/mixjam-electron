@@ -21,7 +21,7 @@ is confirmed — or you `/goal pause` or `/goal clear`.
 A goal has three required parts and one built-in safeguard:
 
 | Part | What it is | Good | Bad |
-|------|-----------|------|-----|
+| ---- | ---------- | ---- | --- |
 | **Goal** | A clear, actionable objective in the imperative. | «Migrate all v1 API calls to v2.» | «Make the API better.» |
 | **End state** | The checklist. Observable, binary, machine-checkable. | «`rg "/api/v1" src/` returns 0 matches; `npm test` exits 0.» | «It should work.» |
 | **Constraints** | Boundaries: scope, style, safety, non-goals. | «Only edit `src/` and `tests/`. Conventional Commits.» | (none — agent will drift) |
@@ -49,7 +49,7 @@ complex, multi-hour goals.
 ## Subcommands
 
 | Command | What it does |
-|---------|-------------|
+| ------- | ------------ |
 | `/goal status` | Show progress, last verification results, remaining criteria. |
 | `/goal pause` | Freeze the loop. State is preserved in session memory. |
 | `/goal resume` | Continue from the last checkpoint. |
@@ -77,7 +77,7 @@ test or lint criteria, use the canonical commands:
 
 ```bash
 npm run lint          # ESLint
-npm test              # vitest run (rebuilds better-sqlite3 for Node ABI first)
+npm test              # vitest run
 npm run typecheck     # tsc -b
 npm run test:coverage # vitest run --coverage (>=80% threshold per cell)
 ```
@@ -104,4 +104,4 @@ is «close enough.» Partial passes are failures.
 ## Reference
 
 - [Layered template, anti-patterns, and examples](REFERENCE.md)
-- [Project instructions](AGENTS.md)
+- [Project instructions](../../../AGENTS.md)

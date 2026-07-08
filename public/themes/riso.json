@@ -18,7 +18,7 @@
     "pill-border": "#2C40A7",
     "playhead": "#F237A1",
     "clip-text": "#FFFFFF",
-    "clip-select": "#2C40A7",
+    "clip-select": "#1B2340",
     "clip-missing": "#D81B60",
     "meter-green": "#0E8A5F",
     "meter-yellow": "#C77800",
@@ -26,6 +26,17 @@
     "transport": "#FBF8F0",
     "transport-active": "#F237A1"
   },
+  "palette": [
+    "#F237A1",
+    "#2C40A7",
+    "#D81B60",
+    "#4C5FD0",
+    "#F26DBE",
+    "#1B2C7A",
+    "#C2137B",
+    "#6B7BD9"
+  ],
+  "palette-unsorted": "#8A8672",
   "fonts": {
     "chrome": "Archivo Black",
     "label": "Archivo",
@@ -44,9 +55,16 @@
     "shadow-lane": "none",
     "shadow-playhead": "none",
     "shadow-clip": "2px 2px 0px rgba(44,64,167,0.5)",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "0px",
   "radius-transport": "0px",
-  "radius-clip": "0px"
+  "radius-clip": "0px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "2px",
+  "clip-font-weight": "600",
+  "clip-case": "none"
 }

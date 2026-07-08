@@ -123,6 +123,7 @@ export function createBackendAPI(): BackendAPI {
     validateFolder: vi.fn().mockResolvedValue('ok'),
     requestFolderAccess: vi.fn().mockResolvedValue(true),
     hasSamples: vi.fn().mockResolvedValue(true),
+    listMissingRelpaths: vi.fn().mockResolvedValue([]),
     startScan: vi.fn().mockResolvedValue(undefined),
     cancelScan: vi.fn().mockResolvedValue(undefined),
     getScanProgress: vi.fn().mockResolvedValue(IDLE_PROGRESS),

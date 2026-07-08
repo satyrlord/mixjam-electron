@@ -181,6 +181,9 @@ export interface BackendAPI {
   // row (i.e. a scan of that folder has completed at least once). Gates the
   // browser's empty pre-index state and the first-entry auto-scan.
   hasSamples: (sampleFolder: FolderRef) => Promise<boolean>
+  // Relpaths of samples marked missing (scan_state = 2) under the folder's
+  // scan root. The tracker stripes clips whose sample vanished between scans.
+  listMissingRelpaths: (sampleFolder: FolderRef) => Promise<string[]>
   // Reads the raw bytes of a sample file through the root's directory handle
   // (a handle can only reach its own subtree, so containment is structural).
   // Returns null if the file is unreadable.

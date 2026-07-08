@@ -30,9 +30,6 @@ than enough for an eJay/Acid-style tracker.
 
 ## Native-addon escape hatch — when to leave Web Audio
 
-> **Resolves open item #4.** The trigger for dropping to a native Node audio addon
-> was previously undefined. It is defined here.
-
 **Stay on Web Audio for v1.** v1 is playback/arrangement only — no live input
 monitoring — and the lookahead scheduler covers that with margin.
 

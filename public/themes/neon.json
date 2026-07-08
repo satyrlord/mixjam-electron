@@ -26,6 +26,17 @@
     "transport": "#13131F",
     "transport-active": "#BBF351"
   },
+  "palette": [
+    "#BBF351",
+    "#00BCFF",
+    "#8AF425",
+    "#33CFFF",
+    "#D5FF85",
+    "#0096CC",
+    "#A4E23A",
+    "#66DFFF"
+  ],
+  "palette-unsorted": "#3A4231",
   "fonts": {
     "chrome": "Chakra Petch",
     "label": "Chakra Petch",
@@ -44,9 +55,16 @@
     "shadow-lane": "none",
     "shadow-playhead": "0 0 7px rgba(0,188,255,0.8)",
     "shadow-clip": "0px 0px 9px rgba(187,243,81,0.5)",
-    "border-clip": "none"
+    "border-clip": "none",
+    "gradient-clip": "none",
+    "shadow-meter": "none"
   },
   "radius": "4px",
   "radius-transport": "50%",
-  "radius-clip": "4px"
+  "radius-clip": "4px",
+  "border-width": "1px",
+  "border-width-pill": "1px",
+  "border-width-header": "1px",
+  "clip-font-weight": "700",
+  "clip-case": "none"
 }

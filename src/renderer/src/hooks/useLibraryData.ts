@@ -33,6 +33,9 @@ export interface LibraryDataState {
   totalCount: number
   /** True once the active Sample Folder has been indexed (a scan completed). */
   dbIndexed: boolean
+  /** Relpaths of samples marked missing (scan_state = 2); the tracker stripes
+   *  clips referencing them (spec-002 AC-013). Refreshed after every scan. */
+  missingSamplePaths: ReadonlySet<string>
   /** True while more windowed pages exist beyond the loaded prefix. */
   hasMoreSamples: boolean
   selectedCategoryId: number | undefined
@@ -49,8 +52,6 @@ export interface LibraryDataActions {
   setSearchQuery: (query: string) => void
   setSelectedCategoryId: (id: number | undefined) => void
   setSelectedTagIds: React.Dispatch<React.SetStateAction<number[]>>
-  setSortBy: React.Dispatch<React.SetStateAction<SampleSortColumn>>
-  setSortDir: React.Dispatch<React.SetStateAction<SampleSortDirection>>
   startLibraryScan: () => Promise<void>
   cancelLibraryScan: () => Promise<void>
   /** Fetches the next windowed page of the current query (DB pipeline only). */
@@ -89,6 +90,14 @@ function dbSampleToListItem(
   }
 }
 
+function setsEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a.size !== b.size) return false
+  for (const value of a) {
+    if (!b.has(value)) return false
+  }
+  return true
+}
+
 const DB_SAMPLE_PAGE_SIZE = 500
 
 export function useLibraryData(
@@ -108,6 +117,7 @@ export function useLibraryData(
     status: 'idle', phase: null, found: 0, processed: 0, total: 0
   })
   const [dbIndexed, setDbIndexed] = useState(false)
+  const [missingSamplePaths, setMissingSamplePaths] = useState<ReadonlySet<string>>(new Set())
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined)
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
   const [sort, setSort] = useState<{ by: SampleSortColumn; dir: SampleSortDirection }>({
@@ -181,19 +191,35 @@ export function useLibraryData(
     }
   }, [backendAPI, sampleFolder])
 
+  const refreshMissingSamplePaths = useCallback(async () => {
+    if (!sampleFolder) return
+    try {
+      const next = new Set(await backendAPI.listMissingRelpaths(sampleFolder))
+      // Keep the previous Set identity when contents are unchanged (the
+      // common case: empty -> empty on every scan) so App's arrangement memo
+      // and the memoized LaneRow/LaneClipCanvas tree don't re-render and
+      // repaint every lane canvas for a no-op.
+      setMissingSamplePaths((prev) => setsEqual(prev, next) ? prev : next)
+    } catch {
+      setMissingSamplePaths((prev) => prev.size === 0 ? prev : new Set())
+    }
+  }, [backendAPI, sampleFolder])
+
   useEffect(() => {
     if (sampleFolder) {
       // Assume un-indexed until the check for the new folder answers, so a
       // just-switched folder never briefly renders as indexed.
       setDbIndexed(false)
       void refreshDbIndexed()
+      void refreshMissingSamplePaths()
     } else {
       setDbIndexed(false)
+      setMissingSamplePaths(new Set())
       setSamples([])
       setTotalCount(0)
       setLoading(false)
     }
-  }, [sampleFolder, refreshDbIndexed])
+  }, [sampleFolder, refreshDbIndexed, refreshMissingSamplePaths])
 
   // Windowed DB query, scoped to the active Sample Folder's scan root. Fetches
   // only the first page; the grid requests more via loadMoreSamples as the user
@@ -295,17 +321,18 @@ export function useLibraryData(
   }, [sampleFolder, dbIndexed, queryDb])
 
   // Clear selection when the selected sample is no longer in the list.
-  // With a unified list the check is straightforward.
   useEffect(() => {
     if (!selectedSampleDetail) return
     const stillVisible = samples.some((s) => s.relpath === selectedSampleDetail.relpath)
     if (!stillVisible) setSelectedSampleDetail(null)
   }, [samples, selectedSampleDetail])
 
-  // Keep a ref to the latest queryDb so the onScanDone callback calls the
-  // current version with up-to-date filter state.
+  // Keep refs to the latest callbacks so onScanDone calls the current
+  // versions with up-to-date filter/folder state.
   const queryDbRef = useRef(queryDb)
   queryDbRef.current = queryDb
+  const refreshMissingRef = useRef(refreshMissingSamplePaths)
+  refreshMissingRef.current = refreshMissingSamplePaths
 
   // Scan progress listeners
   useEffect(() => {
@@ -317,6 +344,8 @@ export function useLibraryData(
       void backendAPI.listCategories().then(setCategories)
       void backendAPI.listTags().then(setTags)
       void queryDbRef.current()
+      // A re-scan can mark placed samples missing (or resurrect them).
+      void refreshMissingRef.current()
     })
     return () => { unsubProgress(); unsubDone() }
   }, [backendAPI])
@@ -384,22 +413,6 @@ export function useLibraryData(
     )
   }, [])
 
-  // Compatibility dispatchers so callers can still set column or direction
-  // independently; both funnel into the single sort state.
-  const setSortBy = useCallback<React.Dispatch<React.SetStateAction<SampleSortColumn>>>((action) => {
-    setSort((prev) => ({
-      ...prev,
-      by: typeof action === 'function' ? action(prev.by) : action
-    }))
-  }, [])
-
-  const setSortDir = useCallback<React.Dispatch<React.SetStateAction<SampleSortDirection>>>((action) => {
-    setSort((prev) => ({
-      ...prev,
-      dir: typeof action === 'function' ? action(prev.dir) : action
-    }))
-  }, [])
-
   return {
     version,
     recentProjects,
@@ -411,6 +424,7 @@ export function useLibraryData(
     scanProgress,
     totalCount,
     dbIndexed,
+    missingSamplePaths,
     hasMoreSamples: dbIndexed && samples.length < totalCount,
     selectedCategoryId,
     selectedTagIds,
@@ -423,8 +437,6 @@ export function useLibraryData(
     setSearchQuery,
     setSelectedCategoryId,
     setSelectedTagIds,
-    setSortBy,
-    setSortDir,
     startLibraryScan,
     cancelLibraryScan,
     loadMoreSamples,
