@@ -88,8 +88,8 @@ canvas-drawn clip labels as well as DOM bubbles (both drop the shadow when the
 per-slot ink resolves dark, matching `bubbleStyle`).
 
 Depth tokens (`depth.*` in the JSON, applied as the same-named CSS custom
-properties) carry full gradient/shadow value strings so `index.css` never
-inlines a color literal (AC-008):
+properties) carry theme-dependent gradient/shadow value strings so the same
+semantic treatment can change with the active theme (AC-008):
 
 | Depth token | Role |
 | --- | --- |
@@ -239,8 +239,9 @@ tokens are the neutral defaults: `border-width` triple `1px`,
 - Emerald is applied on app startup before the first frame paints (no flash of
   unstyled content).
 - Theme tokens are applied to the root element (e.g. `:root` or equivalent).
-- All UI elements consume tokens exclusively — no hardcoded colors outside the
-  token file.
+- Theme-dependent semantic colors come from tokens. Fixed neutral overlays,
+  canvas safety fallbacks, and invariant selection ink may use local black/white
+  literals when they do not encode theme identity.
 - Switching between Home Screen and Player does not reset or re-apply the
   theme.
 - Scrollbars are themed (added 2026-07-02 per design-review change request):
@@ -358,7 +359,8 @@ token (Beton, Mono, Arcade) on both the canvas and DOM bubbles.
 
 Construction as a theme trait (parity pass 2026-07-07): treatments a
 single-value token cannot express live in `[data-theme-key]` blocks in
-`index.css`, colorless by design (AC-008 still holds): Enterprise's header
+`index.css`; semantic theme colors still come from tokens, while neutral
+black/white overlays may be fixed (AC-008 still holds): Enterprise's header
 gets `backdrop-filter: blur(4px)` over its translucent panels (its
 `bg-panel`/`pill-bg` are rgba glass values — the one sanctioned exception to
 "solid hex" since neither feeds a luminance derivation), and the Rust noise
@@ -375,13 +377,13 @@ hazard stripes in `--clip-missing` over a darkened variant.
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
-- [x] **AC-002:** The Emerald theme uses the exact token values listed in the table above (all 22 color tokens + `--radius`).
+- [x] **AC-002:** The Emerald theme JSON implements all 23 `ThemeColors` entries plus the documented palette, font, depth, radius, border, and clip typography tokens.
 - [x] **AC-003:** All bundled fonts are loaded from local files — no external network requests for fonts.
 - [x] **AC-004:** Theme selector lists all 16 themes: Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial, Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, Arcade.
 - [x] **AC-005:** Default selection in the theme selector is "Emerald".
 - [x] **AC-006:** Selecting any theme from the dropdown immediately applies that theme across the entire UI.
 - [x] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.
-- [x] **AC-008:** Theme tokens are defined in a single source of truth (e.g. JSON file). No UI element uses hardcoded color values outside the token system.
+- [x] **AC-008:** Theme-dependent semantic colors are defined in the JSON source of truth. Local color literals are limited to invariant neutral overlays, selection ink, and defensive canvas fallbacks.
 - [x] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
 - [x] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
 - [x] **AC-011 (parity pass):** Clips and sample bubbles are painted from the active theme's `palette` by slot;

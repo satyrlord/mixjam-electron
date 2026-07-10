@@ -6,13 +6,17 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 
 ## Status
 
-Specs 001-007 fully implemented and tested. Check individual spec files for AC status.
+- Specs 001-007 are implemented; check individual spec files for current AC
+  wording and evidence.
+- Specs 008-012 are validated but not implemented.
+- Specs 013-016 are unvalidated stubs.
+- Spec 017 is an unvalidated draft.
 
 ## Key docs
 
 - [docs/architecture.md](docs/architecture.md) — stack, process model, non-goals
 - [docs/data-model.md](docs/data-model.md) — SQLite schema, FTS5, indexes
-- [docs/query-schema.md](docs/query-schema.md) — `rule_json` predicate-tree format
+- [docs/query-schema.md](docs/query-schema.md) — current `rule_json` subset and target predicate-tree compiler
 - [docs/indexing.md](docs/indexing.md) — first-run scan, incremental re-scan
 - [docs/audio-engine.md](docs/audio-engine.md) — Web Audio scheduler, native-addon escape hatch
 
@@ -37,6 +41,9 @@ npm run preview       # preview the production build
 npm test              # vitest run
 npm run test:watch    # vitest in watch mode
 npm run test:coverage # vitest with v8 coverage report
+npm run test:e2e      # build + browser Playwright tests
+npm run test:e2e:electron # build + Electron smoke tests
+npm run test:all      # unit + browser e2e
 npm run typecheck     # tsc -b
 npm run lint          # eslint .
 npm run fallow        # dead-code audit
@@ -116,7 +123,10 @@ These decisions are resolved:
 
 - Web-first architecture: one browser backend, thin Electron shell; no demo/mock mode on any host (onboarding without samples is spec-013).
 - `@sqlite.org/sqlite-wasm` with the opfs-sahpool VFS (not wa-sqlite — GPL; not the plain `opfs` VFS — needs COOP/COEP, which GitHub Pages cannot set). One tab, enforced by a Web Lock.
-- `rule_json` versioned predicate tree compiling to parameterized SQL
+- `rule_json` versioned predicate tree compiling to parameterized SQL is the
+  accepted target contract. The current executable subset is one `and` group
+  with optional text, one category, and tag-any leaves; do not extend it before
+  the validator and full compiler land (see `docs/query-schema.md`).
 - Two-phase background indexer, `(size, mtime)` change detection, soft-delete for missing files
 - Web Audio API lookahead scheduler for v1; native addon only on a measured latency trigger
 - Library export out of scope for v1

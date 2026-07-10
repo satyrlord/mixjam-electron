@@ -221,7 +221,7 @@ amendments below.
 Source: live design critique of the running app (screenshots at default and
 widened layouts, Emerald theme) accepted by the user, plus two user-requested
 behaviors. Status: IMPLEMENTED (verified live against the production bundle
-on 2026-07-07; meter-red contrast validated ≥3:1 in all 8 bundled themes).
+on 2026-07-07; the current contrast test covers all 16 bundled themes).
 
 | # | Decision | Rationale |
 | --- | --- | --- |

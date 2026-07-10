@@ -13,12 +13,14 @@ Agent skills for the MixJam Electron desktop app. Organised by invocation type.
 | [`refactor`](./refactor/SKILL.md) | Model-invoked | Surgical, behavior-preserving cleanup. Watch for IPC lifecycle traps, React stale closures, Web Audio lifecycle, and SQLite query hazards. |
 | [`deslop`](./deslop/SKILL.md) | Model-invoked | Full-repo slop removal across code, docs, config, and data: unnecessary comments, defensive cruft, `any` casts, prose tells, ghost artifacts, and style inconsistencies. |
 | [`run-quality-gate`](./run-quality-gate/SKILL.md) | Model-invoked | Deterministic quality gate: clear Problems, markdownlint, ESLint, Fallow, unit/e2e tests, and enforce >=80% in every coverage cell without suppression by default. |
+| [`verify`](./verify/SKILL.md) | Model-invoked | Build and drive the production renderer in Chromium to verify UI, theme, tracker, and canvas behavior at the real surface. |
 
 ## Design & Architecture
 
 | Skill | Invocation | Purpose |
 | --- | --- | --- |
 | [`improve-codebase-architecture`](./improve-codebase-architecture/SKILL.md) | User-invoked | Scan for architectural friction, then suggest improvements. |
+| [`design-router`](./design-router/SKILL.md) | Model-invoked | Route a requested visual direction to one of the bundled design-theme references. |
 
 ## Code Review
 

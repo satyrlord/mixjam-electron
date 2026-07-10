@@ -15,7 +15,7 @@ categories. Libraries are saved queries, not file copies.
 - **US-001:** As a user, I open the tracker and see my sample library
   automatically indexed from the Sample Folder — I don't have to manually
   import files.
-- **US-002:** As a user, I can browse samples in a scrollable list that stays
+- **US-002:** As a user, I can browse samples in a scrollable bubble grid that stays
   responsive even with thousands of files.
 - **US-002a:** As a user, when I select a sample I see its path, metadata, and
   tags in the Player footer without losing list width in the browser.
@@ -39,27 +39,32 @@ categories. Libraries are saved queries, not file copies.
 - Each file is registered in the SQLite database with: scan root + relpath
   (path relative to the Sample Folder), filename, extension, file size,
   modification time, and import date.
-- **Phase 1 (fast):** file enumeration — files appear in the browser within
-  seconds. Metadata columns (duration, sample rate, channels) are left empty.
-- **Phase 2 (background):** metadata extraction — audio headers are parsed to
-  fill duration, sample rate, channels. This runs incrementally and does not
-  block browsing.
-- A progress indicator is shown during indexing (file count, phase).
+- **Phase 1:** file enumeration creates stub rows. Metadata columns (duration,
+  sample rate, channels) are left empty.
+- **Phase 2:** audio headers are parsed to fill duration, sample rate, and
+  channels. Metadata parsing uses four concurrent readers; database updates
+  stay serialized in the backend worker.
+- A full-screen progress overlay is shown through both phases of a folder's
+  first scan. Samples are queried and displayed after `scan-done`; they do not
+  appear incrementally during phase 1 or phase 2.
 - Indexing runs on a background thread/worker — the UI stays responsive.
 
 ### Incremental Re-Scan
 
-- On subsequent launches, the app detects changes by comparing `(file size,
-  modification time)` against the database.
+- An already indexed folder is not scanned automatically on subsequent
+  launches. The user triggers change detection with Re-scan.
 - New files: added as stubs, queued for metadata extraction.
-- Changed files: metadata re-extracted, but user data (tags, categories) is
-  preserved.
+- Changed files: metadata is re-extracted; tags, bpm/key fields, and original
+  import date are preserved, while filesystem-derived categories are recomputed.
 - Missing files: marked as missing (not deleted) so tags survive a temporarily
   disconnected drive. Hidden from normal browsing.
-- A manual "Re-scan" action triggers a full check of the Sample Folder.
+- A manual "Re-scan" action triggers a full check of the Sample Folder. The
+  existing browser remains visible and progress is shown in the toolbar rather
+  than the first-scan full-screen overlay.
 - A "Cancel scan" action is available during an active scan. Cancelling bumps a
-  generation counter; the in-flight scan aborts at the next batch boundary and
-  discards its results. The progress indicator resets to idle immediately.
+  generation counter; the in-flight scan stops at its next cancellation check.
+  Already committed rows remain in the database, and the progress indicator
+  resets to idle immediately.
 
 ### Sample Browser Container
 
@@ -72,9 +77,9 @@ Strip from spec-006. Its internal layout:
   ├── .category-tree      — expandable category/subcategory tree (left portion)
   ├── .browser-resize-v   — internal vertical split handle
   └── .sample-pane        — main browser workspace
-      ├── .browser-toolbar      — search input, result count, re-scan action
-      ├── .sample-list-header   — sortable column headers
-      └── .sample-list-viewport — virtualized rows
+      ├── .browser-toolbar    — result count and filter status
+      ├── .sort-row           — filename/duration/date-added sort controls
+      └── .tiles              — virtualized rows of sample bubbles
 ```
 
 - The Song Controls rail is a separate lower-left region from spec-006. The
@@ -83,17 +88,20 @@ Strip from spec-006. Its internal layout:
   inside the browser region (defined in spec-006).
 - Selected sample details do not open a third pane inside the browser region.
   They render in the center slot of the app-wide Player footer (spec-001) so
-  the browser keeps its two-column tree/list layout.
+  the browser keeps its two-column tree/grid layout.
 
-### Sample Browser List
+### Sample Browser Grid
 
-- Columns: filename, duration, BPM, tags, category, date added.
-- Sortable by any column (click header to toggle ascending/descending).
-- Selecting a sample highlights the row and populates the Player footer detail
-  area with: file path, metadata, and assigned tags.
-- The sample list itself does not use inline row expansion.
-- **Development constraint:** initial implementation targets the `tmp/test-samples`
-  folder (~67 files). Scale validation against 100k+ samples is deferred.
+- Samples render as the same fixed-height bubble used by the tracker. Bubbles
+  show the filename and duration and retain identical geometry across views.
+- Sort controls support filename, duration, and date added. Selecting the active
+  sort again toggles ascending/descending.
+- Selecting a bubble highlights it, previews its audio, and populates the Player
+  footer with the path, assigned tags, and decoded waveform.
+- The grid does not use inline expansion.
+- Functional development and scan checks use the real fixture corpus under
+  `tmp/test-samples`. Scale validation against 100k+ samples remains deferred;
+  do not hardcode the fixture count because that corpus changes over time.
 
 ### Full-Text Search
 
@@ -102,6 +110,8 @@ Strip from spec-006. Its internal layout:
 - Search matches against filename and relpath.
 - Results respect any active tag/category filter (search within filtered set).
 - Empty search query shows all samples (subject to active filters).
+- Search uses token-prefix matching through FTS5, not typo-tolerant fuzzy
+  matching.
 - Query results load as windowed pages on demand: the first page loads eagerly
   and the grid requests the next page as the user scrolls near the end of the
   loaded rows. The renderer never accumulates the full result set up front
@@ -164,6 +174,9 @@ Strip from spec-006. Its internal layout:
   queries. Editing a sample's tags automatically updates all libraries that
   reference it.
 - Deleting a library only removes the saved query, never the samples.
+- The executable v1 subset is one `and` group containing optional `text`, one
+  `category`, and `tag`-`any` leaves. The full predicate-tree compiler remains
+  target architecture; see [query-schema.md](../query-schema.md).
 
 ### Performance Constraints (from architecture)
 
@@ -176,17 +189,18 @@ Strip from spec-006. Its internal layout:
   is unchanged) and rows are virtualized with TanStack Virtual; only rows
   intersecting the scroll viewport are mounted. An unmeasured viewport
   (first paint, jsdom) falls back to rendering all rows.
-- Full-text search returns in < 50ms against the development dataset, with
-  a target of < 5ms against 100k+ rows (deferred validation).
+- No current 100k-row latency claim has been measured. Any throughput or query
+  latency claim must be recorded with the real fixture/library subset and the
+  exact measurement procedure.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** After selecting a Sample Folder, the app shows a full-screen loader ("Scanning sample folder...") with a progress bar while indexing runs.
-- [x] **AC-002:** Indexed samples appear in the browser list as they are discovered (phase 1).
-- [x] **AC-003:** Sample metadata (duration, sample rate, channels) fills in incrementally (phase 2) without blocking browsing.
-- [x] **AC-004:** The sample list is virtualized — scrolling through all indexed samples is smooth with no layout jank.
+- [x] **AC-001:** On a folder's first scan, the app shows a full-screen loader ("Scanning sample folder...") with phase and progress through both indexing phases.
+- [x] **AC-002:** After `scan-done`, the browser queries the active folder and displays its indexed samples; first-scan results are not exposed before completion.
+- [x] **AC-003:** Phase 2 persists duration, sample rate, and channel metadata; files whose metadata cannot be parsed remain stubs without aborting the scan.
+- [x] **AC-004:** The sample bubble grid is virtualized — scrolling through indexed samples keeps a bounded DOM row count.
 - [x] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, a manual "Re-scan" action, and a "Cancel scan" action (visible only while a scan is running).
-- [x] **AC-005:** Typing in the search field filters the sample list in real-time, matching against filename.
+- [x] **AC-005:** Typing in the search field filters the sample grid in real-time, matching token prefixes in filename and relpath.
 - [x] **AC-006:** Clearing the search field restores the full sample list.
 - [x] **AC-006b:** Clearing or unselecting a category restores all matching samples across every SQLite result window, not only the first page.
 - [x] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
@@ -200,15 +214,17 @@ Strip from spec-006. Its internal layout:
 - [x] **AC-012:** User can save the current filter/search state as a named library.
 - [x] **AC-013:** Opening a saved library restores its filters and shows the matching samples.
 - [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
-- [x] **AC-015:** Re-scanning detects new, changed, and missing files; changed files preserve their tags. Re-scan also shows the full-screen loader.
-- [x] **AC-016:** The sample list can be sorted by filename, duration, and date added (ascending/descending).
+- [x] **AC-015:** Re-scanning detects new, changed, and missing files; changed files preserve their tags.
+  The existing browser remains visible with toolbar progress, and cancellation retains already committed batches.
+- [x] **AC-016:** The sample grid can be sorted by filename, duration, and date added (ascending/descending).
+- [x] **AC-017:** Clicking a sample bubble previews its audio and renders its decoded waveform in the Player footer.
 
 ## Non-Goals (deferred to later specs)
 
 - No BPM/key auto-detection during indexing — those columns stay NULL.
   Auto-analysis is spec-008.
-- No waveform preview or audio playback from the browser.
-- No 100k+ scale validation — development uses `tmp/test-samples` (~67 files).
+- No 100k+ scale validation has been recorded. Functional development uses the
+  changing real fixture corpus under `tmp/test-samples`.
 - No content-hashing for dedup or move/rename detection.
 - No live folder watching (file system events) — out of scope for v1 across
   all specs; manual re-scan only (see [indexing.md](../indexing.md#live-watching-optional-later)).

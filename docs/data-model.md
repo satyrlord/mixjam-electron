@@ -90,8 +90,9 @@ mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-man
 
 `PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).
 There is no WAL under opfs-sahpool — queries and the indexer share the single
-worker connection, so all indexer writes are batched in transactions and the
-scan yields to the worker event loop between batches.
+worker connection. Phase-1 stub upserts and category assignments are batched in
+transactions and yield to the worker event loop between batches. Phase-2
+metadata updates currently autocommit one row at a time.
 
 ## Indexes for 100k-row performance
 
@@ -110,8 +111,9 @@ CREATE INDEX idx_categories_parent  ON categories(parent_id);
 
 ## Full-text search (FTS5)
 
-Fuzzy name/path search uses an FTS5 virtual table kept in sync with `samples` via
-triggers:
+Token-prefix name/path search uses an FTS5 virtual table kept in sync with
+`samples` via triggers. It does not provide typo tolerance or approximate
+matching:
 
 ```sql
 CREATE VIRTUAL TABLE samples_fts USING fts5(
@@ -124,8 +126,10 @@ Use `content=`/`content_rowid=` (external-content) so the FTS index doesn't
 duplicate the text, and maintain it with `AFTER INSERT/DELETE` triggers plus an
 `AFTER UPDATE OF filename, relpath` trigger on `samples` — scoping the update
 trigger to the indexed columns keeps scan-state and metadata writes from
-rewriting the FTS row. Text conditions in a query (see
-[query-schema.md](query-schema.md)) compile to a `samples_fts MATCH ?` subquery.
+rewriting the FTS row. The current `textSearch` request field compiles to a
+`samples_fts MATCH ?` subquery with each whitespace-separated token quoted and
+given a trailing `*`. See [query-schema.md](query-schema.md) for the current
+saved-library subset and the target predicate-tree compiler.
 
 ## Category-tree queries
 

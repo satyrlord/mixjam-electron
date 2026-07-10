@@ -7,9 +7,9 @@ MIT licensed).
 
 Structure:
 
-- [design-router/SKILL.md](design-router/SKILL.md) — the router: categorized catalog mapping a desired vibe to a theme
-- `design-router/themes/<slug>.md` — 67 theme files, each a full design system (tokens, typography, spacing, component rules, quality gates, design intent — merged from the registry's SKILL.md + DESIGN.md)
-- `design-router/registry-index.json` — registry index, kept for updates
+- [SKILL.md](SKILL.md) — the router: categorized catalog mapping a desired vibe to a theme
+- `themes/<slug>.md` — 67 theme files, each a full design system (tokens, typography, spacing, component rules, quality gates, design intent — merged from the registry's SKILL.md + DESIGN.md)
+- `registry-index.json` — registry index, kept for updates
 
 ## Reusing across projects
 

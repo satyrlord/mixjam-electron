@@ -18,13 +18,13 @@ requirements that drive every architectural choice.
 | --- | -------- |
 | [architecture.md](architecture.md) | Decided stack, process model, and non-goals |
 | [data-model.md](data-model.md) | SQLite schema, the "libraries are saved queries" model |
-| [query-schema.md](query-schema.md) | The `rule_json` predicate-tree format and how it compiles to SQL |
+| [query-schema.md](query-schema.md) | Current `rule_json` subset and target predicate-tree compiler |
 | [indexing.md](indexing.md) | First-run scan, background metadata extraction, incremental re-scan |
 | [audio-engine.md](audio-engine.md) | Web Audio lookahead scheduler and the native-addon escape hatch |
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 20.19+ or 22.12+
 - A Chromium browser (the app uses the File System Access API and OPFS;
   Safari/Firefox support is explicitly not a goal)
 
@@ -58,6 +58,11 @@ npm run preview   # preview the production build
 npm test              # run the full vitest suite (single pass)
 npm run test:watch    # run vitest in watch mode
 npm run test:coverage # run with v8 coverage report
+npm run test:e2e      # build and run browser Playwright tests
+npm run test:e2e:electron # build and run the Electron smoke project
+npm run test:all      # run vitest, then browser Playwright tests
+npm run coverage:all  # collect unit and browser e2e coverage
+npm run coverage:report # merge collected coverage reports
 ```
 
 The SQL-layer and indexer suites run against sqlite-wasm with an in-memory
@@ -71,8 +76,10 @@ The shared BackendAPI mock for the renderer lives in
 ## Type-checking and linting
 
 ```sh
-npm run typecheck   # tsc -b across all three tsconfig files (main, preload, renderer)
+npm run typecheck   # tsc -b across node (main/preload/shared) and web projects
 npm run lint        # eslint
+npm run fallow      # dead-code audit
+npm run package:electron # package portable/AppImage/dmg artifacts
 ```
 
 ## Project structure
@@ -82,13 +89,16 @@ src/
   shared/         BackendAPI contract (backend-api.ts) + shell IPC surface (ipc.ts)
   main/           Thin Electron shell — window, app:// protocol, permission auto-grant
   preload/        contextBridge script — the narrow ShellAPI (version, resize, openExternal)
-  renderer/       React app — sample browser, tracker, audio engine (Web Audio)
-    backend/      Backend worker — sqlite-wasm (opfs-sahpool), indexer, session,
+  renderer/
+    index.html    Renderer entry document
+    public/       Bundled fonts
+    src/          React app — sample browser, tracker, audio engine (Web Audio)
+      backend/    Backend worker — sqlite-wasm (opfs-sahpool), indexer, session,
                   folder handles (IndexedDB), BackendAPI client facade
-    engine/       transport, scheduler, audio engine, sample cache
-    hooks/        React hooks — app state, transport, library data
-    components/   UI components
-    theme/        CSS variable themes
+      engine/     transport, scheduler, audio engine, sample cache
+      hooks/      React hooks — app state, transport, library data
+      components/ UI components
+      theme/      CSS variable theme loader
 docs/             Architecture and design documentation
 public/themes/    Skin JSON files
 ```
@@ -102,11 +112,13 @@ renderer stays sandboxed with no `nodeIntegration`.
 
 ## Specs
 
-Feature specifications live in `docs/specs/`. Each spec has a matching test file
-under `src/`. Specs 001-007 are fully implemented and tested; check individual
-spec files for per-AC status.
+Feature specifications live in `docs/specs/`. Specs 001-007 are implemented,
+008-012 are validated but not implemented, 013-016 are unvalidated stubs, and
+017 is an unvalidated draft. Check individual spec files for AC status and test
+evidence; test files live alongside the relevant source domain under `src/`.
 
 ## Skinning
 
 The UI is skinnable via CSS custom properties. Skin definitions live in
-`public/themes/` as JSON files and are loaded at runtime.
+`public/themes/` as JSON files, are statically imported into the renderer bundle
+at build time, and can be switched at runtime.

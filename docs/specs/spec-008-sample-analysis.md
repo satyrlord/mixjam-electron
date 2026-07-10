@@ -63,7 +63,9 @@ the sample library metadata and enable auto-categorization.
 
 ### Development Constraint
 
-- Analysis targets the `tmp/test-samples` folder (~67 files).
+- Analysis targets the changing real fixture corpus under `tmp/test-samples`.
+  Record the fixture count and corpus revision with each accuracy result rather
+  than treating a fixed count as part of the contract.
 - Algorithms are tuned for this dataset initially; broader accuracy is deferred.
 
 ## Acceptance Criteria (testable)
@@ -79,7 +81,8 @@ the sample library metadata and enable auto-categorization.
 
 ## Non-Goals
 
-- No waveform preview generation (deferred).
+- No precomputed waveform asset generation. The existing decoded footer
+  waveform remains a playback/browser feature, not analysis output.
 - No ML-based classification — purely heuristic.
 - No cross-library analysis accuracy guarantees.
 - No batch re-analysis trigger (individual only in v1).

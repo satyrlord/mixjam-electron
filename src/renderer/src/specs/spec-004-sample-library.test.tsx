@@ -327,10 +327,10 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   })
 
   // -------------------------------------------------------------------------
-  // AC-001 / AC-002 / AC-003: indexing progress
+  // AC-001 / AC-004a: indexing progress controls
   // -------------------------------------------------------------------------
 
-  it('AC-001 / AC-002: scan progress indicator is visible when scanning', () => {
+  it('AC-001 / AC-004a: scan progress indicator is visible when scanning', () => {
     renderTracker({ scanProgress: SCANNING_PROGRESS })
     expect(screen.getByLabelText(/scanning phase/i)).toBeInTheDocument()
   })
@@ -345,7 +345,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     expect(screen.getByRole('button', { name: /scanning/i })).toBeDisabled()
   })
 
-  it('AC-003: Re-scan triggers the library scan', async () => {
+  it('AC-004a: Re-scan triggers the library scan', async () => {
     const onStartScan = vi.fn().mockResolvedValue(undefined)
     renderTracker({ scanProgress: IDLE_PROGRESS, onStartScan })
 

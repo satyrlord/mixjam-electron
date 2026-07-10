@@ -7,10 +7,10 @@ afterward, without freezing the UI.
 
 Indexing runs inside the **backend Web Worker** (`src/renderer/src/backend/`) —
 never on the UI thread. opfs-sahpool allows exactly one DB connection, so the
-indexer shares the query connection: scan work is batched in transactions and
-yields to the worker's event loop between batches, letting queries interleave
-with an in-flight scan. Progress and lifecycle events are posted to the
-BackendAPI facade on the UI thread.
+indexer shares the query connection: phase-1 work is batched in transactions
+and yields to the worker's event loop between batches, letting worker requests
+interleave with an in-flight scan. Progress and lifecycle events are posted to
+the BackendAPI facade on the UI thread.
 
 ```text
 UI thread ──startScan(FolderRef)──▶ backend worker
@@ -23,28 +23,38 @@ The traversal walks the Sample Folder's `FileSystemDirectoryHandle`; file
 identity is the `(root_id, relpath)` pair, and `File.size`/`File.lastModified`
 replace `stat()`.
 
-## Two-phase scan (so the browser is usable fast)
+## Two-phase scan
 
-**Phase 1 — enumerate (fast, makes the library appear quickly).**
+**Phase 1 — enumerate.**
 Recursively walk the root's directory handle. For every audio file, upsert a *stub* row:
 `relpath, filename, ext, size_bytes, mtime, date_added`, with `scan_state = 0`
-(stub) and metadata columns NULL. Insert in **batched transactions** (e.g. 1–5k
-rows per transaction) — this is the difference between seconds and minutes at 100k
-files. Report progress as `{ found, inserted }`.
+(stub) and metadata columns NULL. Stub upserts and category assignments use
+transactions of 500 files and yield between batches. Progress uses the shared
+`ScanProgress` shape: `{ status, phase, found, processed, total }`.
 
-After phase 1 the user can already browse, tag, and search by name/path/folder.
+On a folder's first scan, the full-screen loader remains in place through both
+phases. The browser query is issued only after `scan-done`, so phase-1 stubs do
+not appear incrementally. During a manual re-scan of an already indexed folder,
+the existing browser remains available and scan progress appears in the toolbar;
+there is no full-screen re-scan overlay.
 
-**Phase 2 — extract metadata (background, incremental).**
+**Phase 2 — extract metadata.**
 Walk rows where `scan_state = 0`, read audio headers to fill `duration`,
-`sample_rate`, `channels`, set `scan_state = 1`, and commit in batches. Use a
-header-parsing library (e.g. `music-metadata`) — do **not** decode whole files.
-This phase can be paused/resumed and run at lower priority; the UI shows per-file
-metadata "filling in" as it completes.
+`sample_rate`, `channels`, and set `scan_state = 1`. Four metadata parses run
+concurrently; SQLite updates remain serialized on the worker and currently
+autocommit one row at a time. `music-metadata.parseBlob` reads headers without
+decoding whole files. Progress is emitted every 50 rows and at completion.
+
+The scan can be cancelled but not paused. Cancellation increments a generation
+counter and is observed at phase boundaries and phase-1 batch boundaries; phase
+2 checks it before taking the next stub. Already committed rows are retained,
+and the UI resets progress to idle immediately. A later scan resumes naturally
+by re-upserting phase-1 rows and processing remaining stubs.
 
 **BPM/key are not auto-detected in v1** (a non-goal — see
-[architecture.md](architecture.md#non-goals-for-this-phase)). They stay NULL until
-set manually. Automatic analysis is a possible later phase 3 that only updates rows
-where the columns are NULL; nothing else needs to change to add it.
+[architecture.md](architecture.md#non-goals-for-this-phase)). They remain NULL
+in the current UI. Automatic analysis is a possible later phase 3 that only
+updates rows where the columns are NULL; nothing else needs to change to add it.
 
 ## Category auto-assignment
 
@@ -83,15 +93,14 @@ The cheap, reliable change key is **`(size_bytes, mtime)`**. On re-scan of a roo
 1. Walk the filesystem, building the set of current paths.
 2. For each file:
    - **new path** → insert stub (phase 1), queue for phase 2.
-   - **known path, `mtime`/`size` changed** → reset to stub, re-extract metadata,
-     but **preserve user data** (tags, category memberships, manual bpm/key, and the
-     original `date_added`).
+   - **known path, `mtime`/`size` changed** → reset to stub and re-extract
+     metadata, while preserving tags, bpm/key fields, and the original
+     `date_added`; filesystem-derived category assignments are recomputed.
    - **known path, unchanged** → skip.
 3. **Deletions:** any `samples` row whose path was not seen in the walk is marked
    `scan_state = 2` (missing) rather than hard-deleted, so its tags/library
-   memberships survive a temporarily-disconnected drive. A separate explicit
-   "purge missing" action hard-deletes them. Missing rows are hidden from normal
-   browsing by default.
+   memberships survive a temporarily-disconnected drive. Missing rows are hidden
+   from normal browsing by default. No purge-missing UI exists yet.
 
 Content hashing (for move/rename detection and true dedup) is **out of scope for
 v1**; `UNIQUE(root_id, relpath)` is the dedup key. Hashing can be added later as
@@ -101,12 +110,14 @@ opt-in because it is expensive at 35GB.
 
 The Chromium `FileSystemObserver` API (or a periodic incremental re-scan) could
 trigger updates without a manual re-scan. Deferred for v1 — watching 850 folders
-has its own resource cost and the manual/startup re-scan covers the common case.
+has its own resource cost. A folder that has never been indexed scans on first
+entry; an already indexed folder changes only after the user selects Re-scan.
 
 ## Failure & resume
 
-- The walk and each batch are independent transactions, so an interrupted first run
-  resumes cleanly: phase 1 re-upserts (idempotent on `(root_id, relpath)`), phase 2
-  simply finds the remaining `scan_state = 0` rows.
-- Unreadable/locked files are logged and left as stubs (or marked missing); one bad
-  file never aborts the scan.
+- Completed phase-1 batches remain committed after cancellation or interruption.
+  The next scan re-upserts them idempotently on `(root_id, relpath)` and phase 2
+  finds the remaining `scan_state = 0` rows.
+- Unreadable directories and files are skipped. Metadata failures leave the row
+  as a stub. These per-entry failures are currently silent; a fatal scan error is
+  logged by the worker and changes progress to `error`.

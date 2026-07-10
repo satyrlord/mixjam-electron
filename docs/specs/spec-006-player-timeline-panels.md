@@ -71,7 +71,7 @@ adjacencies.
 - The **Recent Projects rail** is visible in the active Player layout. This
   spec only reserves the region; project-switching behavior is defined later.
 - The **Song Controls rail** is visible by default in the lower-left. Its
-  right edge is the reveal seam for the future mixer panel (spec-007).
+  right edge is the reveal seam for the implemented mixer panel (spec-007).
 - The **Middle Strip** is a fixed, full-width band between the upper and lower
   work areas. It replaces the earlier idea of a narrow transport strip plus a
   separate horizontal resize handle.
@@ -222,8 +222,8 @@ adjacencies.
 - Default-visible controls:
   - **Master Volume slider** — global output level control for the full mix.
   - **dB loudness meter** — master-output loudness display for the current mix.
-- Owns song-level controls and the right-edge reveal affordance for the future
-  mixer panel (spec-007).
+- Owns song-level controls and the right-edge reveal affordance for the
+  implemented mixer panel (spec-007).
 - Dragging the right-edge reveal seam to the right widens the rail; once the
   reveal threshold is crossed, mixer content may appear inside the expanded
   rail without moving into the sample-browser region.
@@ -251,7 +251,7 @@ adjacencies.
 - [x] **AC-004a:** The default Song Controls rail shows a Master Volume slider and a master dB loudness meter. BPM is edited only via the Middle Strip click-to-edit control
   (revised 2026-07-02: the former rail BPM slider duplicated the Middle Strip editor and was removed per design-review change request).
 - [x] **AC-004b:** The BPM editor accepts 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
-- [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, M and S buttons, and pan knob placeholder.
+- [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, functional M and S buttons, and a functional pan knob.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample tile from the browser and dropping it onto a lane places it as a clip snapped to the nearest beat boundary, sized proportionally to the sample's audio duration.
@@ -289,7 +289,8 @@ adjacencies.
   Middle Strip is a fixed seam, not a drag handle.
 - No clip resize once placed.
 - No track reordering (drag lane up/down).
-- No lane add/remove UI (fixed 16 lanes). The audio engine supports up to 64 lanes (spec-005), but the UI is currently limited to 16.
+- No lane add/remove UI; the current arrangement and supported engine surface
+  are fixed at 16 lanes.
 - No zoom in/out on the timeline.
 - No waveform rendering inside clips.
 - No cut/copy/paste for clips.

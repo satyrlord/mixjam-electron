@@ -50,7 +50,7 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Uses a `setInterval`-based tick (~25ms) that looks ahead by ~100ms.
 - Each tick: determine which steps fall within the lookahead window, schedule
   them at precise `AudioContext` times via `source.start(when)`.
-- Self-corrects from the wall clock on every tick — if the event loop hiccups,
+- Self-corrects from the audio clock on every tick — if the event loop hiccups,
   the playhead catches up rather than drifting.
 - The scheduler does not own the transport; it reads from it and calls back
   with `(tick, when)` pairs for steps that need to fire.
@@ -87,7 +87,8 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 
 ### Sample Loading & Caching
 
-- Samples are decoded once into `AudioBuffer` and cached by sample ID.
+- Samples are decoded once into `AudioBuffer` and cached by their sample relpath
+  within the active Sample Folder.
 - An LRU eviction policy prevents unbounded memory growth — the cache has a
   configurable maximum size.
 - File bytes reach the audio engine via the injected `loadSampleBytes`
@@ -104,10 +105,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - `setPan(value)` — -1 (full left) to 1 (full right).
 - Channels are reusable — the same node chain serves all voices routed through
   that channel.
-- Up to 99 channels supported in the data model (UI gates at 16, per spec-007).
-  The 99-channel ceiling is an arbitrary two-digit safety bound for the data
-  model — channels have no per-unit UI cost until a lane is routed to them
-  (spec-017).
+- The current product surface manages 16 stable channel indices (spec-007).
+  The engine can lazily create a channel for a numeric index, but no supported
+  product limit above 16 is defined or enforced. Spec-017 must validate a limit
+  before exposing add-channel behavior.
 
 ### Voice
 
@@ -119,12 +120,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 
 ### Lane
 
-- Represents one of up to 64 monophonic stereo lanes in the MixJam Player.
-  Default: 16 lanes active; users can add more up to the 64-lane limit.
-  The 64-lane ceiling is a UI constraint (44px per lane head, multiplied by 64,
-  is already extreme vertical scroll) rather than a data-model limit. The
-  channel data model supports up to 99 channels independently — the asymmetry
-  is intentional (spec-017).
+- Represents one of the 16 monophonic stereo lanes in the current MixJam
+  Player. Lane add/remove is not implemented, and no supported maximum above
+  16 is currently defined.
 - **Monophonic:** if a new sample bubble overlaps a currently playing one on the
   same lane, the previous voice is cut off immediately (classic eJay/Acid
   behavior).

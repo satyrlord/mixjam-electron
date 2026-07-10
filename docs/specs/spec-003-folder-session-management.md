@@ -160,8 +160,9 @@ Folder's directory handle). It is not user-editable.
 - No drag-and-drop folder selection — the directory picker only.
 - No cloud folder support (OneDrive, Google Drive, etc.) — local filesystem
   only.
-- No folder watching for live changes — out of scope for v1 across all specs;
-  manual/startup re-scan covers it (see [indexing.md](../indexing.md#live-watching-optional-later)).
+- No folder watching for live changes — out of scope for v1 across all specs.
+  Unindexed folders scan on first entry; indexed folders require manual Re-scan
+  (see [indexing.md](../indexing.md#live-watching-optional-later)).
 
 ## References
 
