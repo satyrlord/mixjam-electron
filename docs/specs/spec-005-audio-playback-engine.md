@@ -130,7 +130,7 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Each lane holds a set of clip placements (each with a sample reference,
   start tick, and duration in ticks), mute state, solo state, and
   a channel assignment.
-- Lanes have unlimited length — the user can place placements at any tick position,
+- Lanes have unlimited length — the user can add clip placements at any tick position,
   extending the arrangement as needed.
 - **Default routing:** each lane is pre-routed to its own mixer channel (lane 1
   → channel 1, lane 2 → channel 2, etc.). This is why the default channel count
@@ -167,8 +167,8 @@ the engine never knows who is listening.
 ## Non-Goals (deferred to later specs)
 
 - Transport controls and the visual playhead are specified by spec-006.
-- No time-stretching — samples play at native rate regardless of BPM.
-  Time-stretch is spec-009.
+- Time-stretching is outside this spec's engine contract and is implemented by
+  spec-009.
 - No per-channel audio effects (delay, reverb, compression). FX is spec-010.
 - No offline rendering for export. Export is spec-012.
 - No multi-channel audio output (only stereo master).

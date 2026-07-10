@@ -131,8 +131,8 @@ the new kinds fail with the existing clear unknown-kind error.
   whether the UI exposes it or hardcodes it in v1.
 - Default `tolerancePercent`, and whether half/double bands default on or off
   for "Find compatible".
-- Whether "Find compatible" combines key and BPM with AND (stricter, likely
-  right) or OR when the sample has both.
+- Whether "Find compatible" combines key and BPM with `AND` (stricter, likely
+  right) or `OR` when the sample has both.
 - Should the browser surface how many samples were excluded for lacking
   analysis data (nudging users toward running analysis), or is that noise?
 

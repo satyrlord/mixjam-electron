@@ -110,7 +110,7 @@ PICO-8, Beton concrete blacks with a brick jolt).
 Placements store the slot, not the color: `ClipPlacement` and drag payloads carry `slot?: number`
 (0-7, 8 = Unsorted). The hex resolves at draw time from the active palette,
 so switching themes recolors every placed sample bubble live. Slot storage keeps the
-original stability goal — renaming a category never recolors placed placements —
+original stability goal — renaming a category never recolors existing placements —
 while making color a theme concern. No persisted migration was needed:
 project save/load (spec-011) has not landed, so placements only exist in the unsaved session
 state.
@@ -339,7 +339,7 @@ overlay is the other exception. Bevels, slabs, and extrusions stay in the JSON
 shadow tokens (Vintage's Win9x bevel is a 2px double-inset `shadow-pill`).
 
 The tracker learns which
-placed placements reference missing samples through a root-scoped backend query
+placements reference missing samples through a root-scoped backend query
 `listMissingRelpaths(sampleFolder)` (`SELECT relpath FROM samples WHERE
 root_id = ? AND scan_state = 2`), refreshed when the library loads and after
 every completed scan. The lane canvas fills those placements with 45-degree
@@ -358,7 +358,7 @@ hazard stripes in `--sample-bubble-missing` over a darkened variant.
 - [x] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
 - [x] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
 - [x] **AC-011:** Placements and sample bubbles are painted from the active theme's `palette` by slot;
-  switching themes recolors placed placements and browser tiles without reloading, and the canvas and DOM resolve identical colors for the same slot.
+  switching themes recolors placements and browser tiles without reloading, and the canvas and DOM resolve identical colors for the same slot.
 - [x] **AC-012:** The lane canvas draws beat lines in `--bg-grid` and bar lines in `--border`; no theme renders beat lines from the structural border color.
 - [x] **AC-013:** A sample bubble whose sample row is missing (`scan_state = 2`) renders 45-degree hazard stripes derived from `--sample-bubble-missing`.
 - [x] **AC-014:** Canvas sample-bubble labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
