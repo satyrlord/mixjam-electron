@@ -12,6 +12,7 @@ import { createScheduler, type Scheduler, type SchedulerClock } from './schedule
 import { type EngineLane, triggersForTick } from './lane-evaluation'
 import { type Voice } from './voice'
 import { TimeStretchEngine, type TimeStretchEngineOptions } from './time-stretch'
+import type { EffectSlot } from './effects'
 
 // Default per-channel gain (matches the mixer's createDefaultChannel).
 const DEFAULT_CHANNEL_GAIN = 0.8
@@ -40,6 +41,7 @@ export class PlaybackEngine {
   private readonly channelGains = new Map<number, number>()
   private readonly channelMutes = new Map<number, boolean>()
   private readonly channelSolos = new Map<number, boolean>()
+  private readonly channelEffects = new Map<number, readonly EffectSlot[]>()
   // Persistent lane panners let live pan updates affect sounding voices.
   private readonly lanePanners = new Map<number, StereoPannerNode>()
   // The single voice currently sounding on each lane (monophonic): a new
@@ -89,6 +91,9 @@ export class PlaybackEngine {
 
   setBpm(bpm: number): void {
     this.currentBpm = bpm
+    for (const channelIndex of this.channelEffects.keys()) {
+      this.engine.getChannel(channelIndex)?.setBpm(bpm)
+    }
   }
 
   /** Prepares every tempo-dependent buffer in the current arrangement. The
@@ -121,6 +126,11 @@ export class PlaybackEngine {
     if (!this.isChannelGated(channelIndex)) {
       this.engine.setChannelGain(channelIndex, gain)
     }
+  }
+
+  setChannelEffects(channelIndex: number, effects: readonly EffectSlot[]): void {
+    this.channelEffects.set(channelIndex, effects.map((effect) => ({ ...effect })))
+    this.engine.setChannelEffects(channelIndex, effects, this.currentBpm)
   }
 
   private isChannelGated(channelIndex: number): boolean {
@@ -162,6 +172,7 @@ export class PlaybackEngine {
     this.channelGains.delete(channelIndex)
     this.channelMutes.delete(channelIndex)
     this.channelSolos.delete(channelIndex)
+    this.channelEffects.delete(channelIndex)
     // Re-apply gating: removing a soloed channel changes hasAnySolo(), so the
     // remaining channels' gains must be recomputed or they stay stuck at 0.
     this.applyChannelSoloMuteGating()
@@ -339,6 +350,8 @@ export class PlaybackEngine {
       const effectiveGain = this.isChannelGated(channelIndex) ? 0 : gain
       channel.setGain(effectiveGain)
     }
+    const effects = this.channelEffects.get(channelIndex)
+    if (effects) channel.setEffects(effects, this.currentBpm)
     return channel
   }
 

@@ -154,7 +154,12 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onToggleChannelMute: noop,
   onToggleChannelSolo: noop,
   onRemoveChannel: noop,
-  onRestoreChannel: noop
+  onRestoreChannel: noop,
+  onAddChannelEffect: noop,
+  onUpdateChannelEffect: noop,
+  onToggleChannelEffectBypass: noop,
+  onRemoveChannelEffect: noop,
+  onMoveChannelEffect: noop
 }
 
 interface TrackerOverrides {
@@ -1328,7 +1333,8 @@ describe('PlayerView', () => {
     gain: 0.8,
     pan: 0,
     muted: false,
-    solo: false
+    solo: false,
+    effects: []
   })
 
   it('AC-016 (rev 2): dragging the seam persists the column width for the next app launch', () => {

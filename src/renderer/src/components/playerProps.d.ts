@@ -10,6 +10,7 @@ import type {
 import type { PlacementGroupEntry, FooterSampleDetail, LaneState } from '../lib/arrangement'
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
 import type { ChannelState } from '../hooks/useMixer'
+import type { EffectSlot, EffectType } from '../engine/effects'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 
 export interface PlayerBrowserProps {
@@ -105,4 +106,9 @@ export interface PlayerMixerProps {
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
   onRestoreChannel: () => void
+  onAddChannelEffect: (channelIndex: number, type: EffectType) => void
+  onUpdateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
+  onToggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
+  onRemoveChannelEffect: (channelIndex: number, effectId: string) => void
+  onMoveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlaybackEngine } from '../engine/playback-engine'
 import { safeJsonParse } from '../lib/safeJsonParse'
+import { createDefaultEffect, isEffectSlot, type EffectSlot, type EffectType } from '../engine/effects'
 
 const DEFAULT_CHANNEL_COUNT = 16
 const PEAK_HOLD_DECAY_DB_PER_S = 30
@@ -13,6 +14,7 @@ export interface ChannelState {
   pan: number
   muted: boolean
   solo: boolean
+  effects: EffectSlot[]
 }
 
 export interface MixerState {
@@ -32,6 +34,11 @@ export interface MixerActions {
   toggleChannelSolo: (channelIndex: number) => void
   removeChannel: (channelIndex: number) => void
   restoreChannel: () => void
+  addChannelEffect: (channelIndex: number, type: EffectType) => void
+  updateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
+  toggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
+  removeChannelEffect: (channelIndex: number, effectId: string) => void
+  moveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
 }
 
 export type Mixer = MixerState & MixerActions
@@ -43,11 +50,27 @@ function loadChannelState(): ChannelState[] {
   // state that must survive reload. Rejecting it here resurrected 16 default
   // strips while the removed-indices list still routed every lane to the
   // master bypass — a mixer whose controls silently did nothing.
-  return safeJsonParse(
+  const stored = safeJsonParse(
     localStorage.getItem(STORAGE_KEY) ?? '',
     createDefaultChannels(),
-    (v): v is ChannelState[] => Array.isArray(v)
+    (v): v is unknown[] => Array.isArray(v)
   )
+  const normalized = stored.flatMap((value) => normalizeChannel(value))
+  return normalized.length > 0 || stored.length === 0 ? normalized : createDefaultChannels()
+}
+
+function normalizeChannel(value: unknown): ChannelState[] {
+  if (!value || typeof value !== 'object') return []
+  const channel = value as Partial<ChannelState>
+  if (!Number.isInteger(channel.channelIndex) || channel.channelIndex! < 0 || channel.channelIndex! >= DEFAULT_CHANNEL_COUNT) return []
+  return [{
+    channelIndex: channel.channelIndex!,
+    gain: typeof channel.gain === 'number' ? channel.gain : DEFAULT_CHANNEL_GAIN,
+    pan: typeof channel.pan === 'number' ? channel.pan : 0,
+    muted: channel.muted === true,
+    solo: channel.solo === true,
+    effects: Array.isArray(channel.effects) ? channel.effects.filter(isEffectSlot).slice(0, 4) : []
+  }]
 }
 
 function saveChannelState(channels: ChannelState[]): void {
@@ -61,7 +84,7 @@ function saveChannelState(channels: ChannelState[]): void {
 const DEFAULT_CHANNEL_GAIN = 0.8
 
 function createDefaultChannel(channelIndex: number): ChannelState {
-  return { channelIndex, gain: DEFAULT_CHANNEL_GAIN, pan: 0, muted: false, solo: false }
+  return { channelIndex, gain: DEFAULT_CHANNEL_GAIN, pan: 0, muted: false, solo: false, effects: [] }
 }
 
 function createDefaultChannels(): ChannelState[] {
@@ -240,6 +263,7 @@ export function useMixer(
     playbackEngine.replayRemovedChannels(removedIndicesOf(channels))
 
     for (const ch of channels) {
+      playbackEngine.setChannelEffects(ch.channelIndex, ch.effects)
       playbackEngine.setChannelGain(ch.channelIndex, ch.gain)
       playbackEngine.setChannelPan(ch.channelIndex, ch.pan)
     }
@@ -299,6 +323,42 @@ export function useMixer(
     playbackEngineRef.current?.removeChannel(channelIndex)
   }, [playbackEngineRef])
 
+  const mutateEffects = useCallback((channelIndex: number, mutate: (effects: EffectSlot[]) => EffectSlot[]) => {
+    setChannels((prev) => prev.map((channel) => {
+      if (channel.channelIndex !== channelIndex) return channel
+      const effects = mutate(channel.effects)
+      return { ...channel, effects }
+    }))
+  }, [])
+
+  const addChannelEffect = useCallback((channelIndex: number, type: EffectType) => {
+    const effect = createDefaultEffect(type)
+    mutateEffects(channelIndex, (effects) => effects.length >= 4 ? effects : [...effects, effect])
+  }, [mutateEffects])
+
+  const updateChannelEffect = useCallback((channelIndex: number, effect: EffectSlot) => {
+    mutateEffects(channelIndex, (effects) => effects.map((current) => current.id === effect.id ? effect : current))
+  }, [mutateEffects])
+
+  const toggleChannelEffectBypass = useCallback((channelIndex: number, effectId: string) => {
+    mutateEffects(channelIndex, (effects) => effects.map((effect) => effect.id === effectId ? { ...effect, bypassed: !effect.bypassed } : effect))
+  }, [mutateEffects])
+
+  const removeChannelEffect = useCallback((channelIndex: number, effectId: string) => {
+    mutateEffects(channelIndex, (effects) => effects.filter((effect) => effect.id !== effectId))
+  }, [mutateEffects])
+
+  const moveChannelEffect = useCallback((channelIndex: number, effectId: string, toIndex: number) => {
+    mutateEffects(channelIndex, (effects) => {
+      const fromIndex = effects.findIndex((effect) => effect.id === effectId)
+      if (fromIndex < 0) return effects
+      const next = [...effects]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, moved!)
+      return next
+    })
+  }, [mutateEffects])
+
   // Add-back of a removed channel (not add-new): re-adds the lowest missing
   // channelIndex at default state and re-routes its lane from the master bypass
   // back through the channel. Side effects run outside the setChannels updater
@@ -328,6 +388,11 @@ export function useMixer(
     toggleChannelMute,
     toggleChannelSolo,
     removeChannel,
-    restoreChannel
+    restoreChannel,
+    addChannelEffect,
+    updateChannelEffect,
+    toggleChannelEffectBypass,
+    removeChannelEffect,
+    moveChannelEffect
   }
 }

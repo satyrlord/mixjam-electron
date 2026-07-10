@@ -104,7 +104,12 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       onToggleChannelMute: app.toggleChannelMute,
       onToggleChannelSolo: app.toggleChannelSolo,
       onRemoveChannel: app.removeChannel,
-      onRestoreChannel: app.restoreChannel
+      onRestoreChannel: app.restoreChannel,
+      onAddChannelEffect: app.addChannelEffect,
+      onUpdateChannelEffect: app.updateChannelEffect,
+      onToggleChannelEffectBypass: app.toggleChannelEffectBypass,
+      onRemoveChannelEffect: app.removeChannelEffect,
+      onMoveChannelEffect: app.moveChannelEffect
     }
   }
 }

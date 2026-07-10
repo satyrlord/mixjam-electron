@@ -4,6 +4,7 @@ import { PlaybackEngine } from './playback-engine'
 import { type SchedulerClock } from './scheduler'
 import { MockAudioContext, MockBufferSourceNode, createMockContext } from '../test/mockAudioContext'
 import type { TimeStretchProcessor } from './time-stretch'
+import { createDefaultEffect } from './effects'
 
 function mockClock(): SchedulerClock & { fire: () => void } {
   let pending: (() => void) | null = null
@@ -143,6 +144,23 @@ describe('PlaybackEngine.setBpm', () => {
     const { playbackEngine } = makePlaybackEngine({})
     playbackEngine.setBpm(140)
     // The BPM is read live by the scheduler; no crash is the main assertion
+    await playbackEngine.close()
+  })
+})
+
+describe('PlaybackEngine.setChannelEffects', () => {
+  it('applies effects configured before a channel is lazily created', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 2, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+    ]
+    const { playbackEngine, context } = makePlaybackEngine({ lanes })
+
+    playbackEngine.setChannelEffects(2, [createDefaultEffect('delay')])
+    expect(context.created.delays).toHaveLength(0)
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    expect(context.created.delays).toHaveLength(1)
     await playbackEngine.close()
   })
 })

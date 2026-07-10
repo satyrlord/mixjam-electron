@@ -594,6 +594,11 @@ export default function PlayerView({
         onToggleChannelSolo={mixer.onToggleChannelSolo}
         onRemoveChannel={mixer.onRemoveChannel}
         onRestoreChannel={mixer.onRestoreChannel}
+        onAddChannelEffect={mixer.onAddChannelEffect}
+        onUpdateChannelEffect={mixer.onUpdateChannelEffect}
+        onToggleChannelEffectBypass={mixer.onToggleChannelEffectBypass}
+        onRemoveChannelEffect={mixer.onRemoveChannelEffect}
+        onMoveChannelEffect={mixer.onMoveChannelEffect}
       />
 
       <div

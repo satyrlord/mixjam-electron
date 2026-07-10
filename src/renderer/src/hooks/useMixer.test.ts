@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
+import { createElement, StrictMode, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMixer } from './useMixer'
 import type { PlaybackEngine } from '../engine/playback-engine'
@@ -19,6 +20,7 @@ function createMockPlaybackEngine() {
     setChannelPan: vi.fn(),
     setChannelMute: vi.fn(),
     setChannelSolo: vi.fn(),
+    setChannelEffects: vi.fn(),
     removeChannel: vi.fn(),
     restoreChannel: vi.fn(),
     replayRemovedChannels: vi.fn()
@@ -155,6 +157,72 @@ describe('useMixer', () => {
     const stored = JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? '[]')
     expect(stored).toHaveLength(16)
     expect(stored[0]!.gain).toBe(0.3)
+  })
+
+  it('adds, updates, bypasses, reorders, removes, and persists up to four effects', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'))
+
+    act(() => {
+      result.current.addChannelEffect(0, 'delay')
+      result.current.addChannelEffect(0, 'reverb')
+      result.current.addChannelEffect(0, 'compressor')
+      result.current.addChannelEffect(0, 'delay')
+      result.current.addChannelEffect(0, 'reverb')
+    })
+    expect(result.current.channels[0]!.effects).toHaveLength(4)
+
+    const delay = result.current.channels[0]!.effects[0]!
+    if (delay.type !== 'delay') throw new Error('expected delay')
+    act(() => result.current.updateChannelEffect(0, { ...delay, timeMs: 900 }))
+    expect(result.current.channels[0]!.effects[0]).toMatchObject({ timeMs: 900 })
+
+    act(() => result.current.toggleChannelEffectBypass(0, delay.id))
+    expect(result.current.channels[0]!.effects[0]!.bypassed).toBe(true)
+    act(() => result.current.moveChannelEffect(0, delay.id, 2))
+    expect(result.current.channels[0]!.effects[2]!.id).toBe(delay.id)
+    act(() => result.current.removeChannelEffect(0, delay.id))
+    expect(result.current.channels[0]!.effects).toHaveLength(3)
+    expect(mockPlaybackEngine.setChannelEffects).toHaveBeenCalled()
+    expect(JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? '[]')[0].effects).toHaveLength(3)
+  })
+
+  it('commits one engine update and one effect identity under StrictMode', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const randomUuid = vi.spyOn(crypto, 'randomUUID')
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(StrictMode, null, children)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'), { wrapper })
+    mockPlaybackEngine.setChannelEffects.mockClear()
+    randomUuid.mockClear()
+
+    act(() => result.current.addChannelEffect(0, 'delay'))
+
+    expect(randomUuid).toHaveBeenCalledTimes(1)
+    const channelZeroCalls = mockPlaybackEngine.setChannelEffects.mock.calls.filter(([channelIndex]) => channelIndex === 0)
+    expect(channelZeroCalls).toEqual([[0, result.current.channels[0]!.effects]])
+  })
+
+  it('migrates persisted pre-effects channel state to an empty chain', () => {
+    localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{ channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false }]))
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'home'))
+    expect(result.current.channels[0]!.effects).toEqual([])
+  })
+
+  it('drops malformed persisted effect slots', () => {
+    localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{
+      channelIndex: 0,
+      gain: 0.5,
+      pan: 0,
+      muted: false,
+      solo: false,
+      effects: [{ id: 'broken-delay', type: 'delay', bypassed: false }]
+    }]))
+
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'home'))
+
+    expect(result.current.channels[0]!.effects).toEqual([])
   })
 
   it('restores channel state from localStorage on mount', () => {
@@ -423,7 +491,7 @@ describe('useMixer', () => {
     act(() => { result.current.restoreChannel() })
 
     const restored = result.current.channels.find((ch) => ch.channelIndex === 2)
-    expect(restored).toEqual({ channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false })
+    expect(restored).toEqual({ channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false, effects: [] })
     expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
     // Lane re-route happens synchronously; gain/mute are re-applied by the
     // apply-state effect on the resulting commit.

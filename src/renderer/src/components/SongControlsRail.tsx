@@ -1,6 +1,7 @@
 import SongControlsMain from './SongControlsMain'
 import MixerColumn from './MixerColumn'
 import type { ChannelState } from '../hooks/useMixer'
+import type { EffectSlot, EffectType } from '../engine/effects'
 
 interface SongControlsRailProps {
   bpm: number
@@ -18,6 +19,11 @@ interface SongControlsRailProps {
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
   onRestoreChannel: () => void
+  onAddChannelEffect: (channelIndex: number, type: EffectType) => void
+  onUpdateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
+  onToggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
+  onRemoveChannelEffect: (channelIndex: number, effectId: string) => void
+  onMoveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
 }
 
 export default function SongControlsRail({
@@ -35,7 +41,12 @@ export default function SongControlsRail({
   onToggleChannelMute,
   onToggleChannelSolo,
   onRemoveChannel,
-  onRestoreChannel
+  onRestoreChannel,
+  onAddChannelEffect,
+  onUpdateChannelEffect,
+  onToggleChannelEffectBypass,
+  onRemoveChannelEffect,
+  onMoveChannelEffect
 }: SongControlsRailProps) {
   return (
     <aside className="tracker-zone song-controls-rail">
@@ -57,6 +68,11 @@ export default function SongControlsRail({
         onToggleChannelSolo={onToggleChannelSolo}
         onRemoveChannel={onRemoveChannel}
         onRestoreChannel={onRestoreChannel}
+        onAddChannelEffect={onAddChannelEffect}
+        onUpdateChannelEffect={onUpdateChannelEffect}
+        onToggleChannelEffectBypass={onToggleChannelEffectBypass}
+        onRemoveChannelEffect={onRemoveChannelEffect}
+        onMoveChannelEffect={onMoveChannelEffect}
       />
     </aside>
   )

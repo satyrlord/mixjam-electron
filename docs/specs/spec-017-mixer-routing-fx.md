@@ -12,8 +12,8 @@ Implement features deferred from spec-007:
 2. Add-channel beyond 16, with the supported upper limit decided during
    validation rather than inherited from an unenforced engine assumption.
 3. Drag-to-reorder channels in the mixer.
-4. Per-channel audio effects (delay, reverb, compression, EQ) — elaboration
-   depends on spec-010.
+4. Integrate spec-010's existing per-channel effects with user-defined routing;
+   decide any additional EQ or stereo-width scope during validation.
 
 ## Scope (draft — needs full elaboration)
 
@@ -38,12 +38,12 @@ Implement features deferred from spec-007:
 
 ### Per-Channel FX
 
-Spec-010 defines the validated effects contract but is not implemented. This
-spec must elaborate how that contract integrates with channel routing before
-implementation. Expected scope:
+Spec-010 implements delay, reverb, and compression on the current hardcoded
+1:1 channel routing. This spec must define how those effects behave with
+user-defined routing before implementation. Potential additional scope:
 
-- Per-channel insert effects (delay, reverb, compression, EQ).
-- FX chain UI within or adjacent to the channel strip.
+- EQ as an additional per-channel insert effect.
+- Routing-aware changes to the existing channel-strip FX chain UI.
 - Stereo width DSP (control added to channel strip when DSP is ready).
 
 ## Non-Goals

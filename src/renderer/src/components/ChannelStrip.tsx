@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { clamp, meterFillPct, nextPanCycle } from '../lib/sample-utils'
+import ChannelEffects from './ChannelEffects'
+import type { EffectSlot, EffectType } from '../engine/effects'
 
 interface ChannelStripProps {
   channelIndex: number
@@ -10,11 +12,17 @@ interface ChannelStripProps {
   solo: boolean
   levelDb: number
   peakDb: number
+  effects: EffectSlot[]
   onSetGain: (channelIndex: number, gain: number) => void
   onSetPan: (channelIndex: number, pan: number) => void
   onToggleMute: (channelIndex: number) => void
   onToggleSolo: (channelIndex: number) => void
   onRemove: (channelIndex: number) => void
+  onAddEffect: (channelIndex: number, type: EffectType) => void
+  onUpdateEffect: (channelIndex: number, effect: EffectSlot) => void
+  onToggleEffectBypass: (channelIndex: number, effectId: string) => void
+  onRemoveEffect: (channelIndex: number, effectId: string) => void
+  onMoveEffect: (channelIndex: number, effectId: string, toIndex: number) => void
 }
 
 /** Zone color for a dB value via CSS custom property tokens.
@@ -42,11 +50,17 @@ export default function ChannelStrip({
   solo,
   levelDb,
   peakDb,
+  effects,
   onSetGain,
   onSetPan,
   onToggleMute,
   onToggleSolo,
-  onRemove
+  onRemove,
+  onAddEffect,
+  onUpdateEffect,
+  onToggleEffectBypass,
+  onRemoveEffect,
+  onMoveEffect
 }: ChannelStripProps) {
   // Track active window listeners so they are torn down if the component
   // unmounts mid-drag (e.g. navigating Home while holding the mouse button).
@@ -219,6 +233,15 @@ export default function ChannelStrip({
           S
         </button>
       </div>
+      <ChannelEffects
+        channelIndex={channelIndex}
+        effects={effects}
+        onAdd={onAddEffect}
+        onUpdate={onUpdateEffect}
+        onToggleBypass={onToggleEffectBypass}
+        onRemove={onRemoveEffect}
+        onMove={onMoveEffect}
+      />
     </div>
   )
 }

@@ -138,7 +138,12 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onToggleChannelMute: noop,
   onToggleChannelSolo: noop,
   onRemoveChannel: noop,
-  onRestoreChannel: noop
+  onRestoreChannel: noop,
+  onAddChannelEffect: noop,
+  onUpdateChannelEffect: noop,
+  onToggleChannelEffectBypass: noop,
+  onRemoveChannelEffect: noop,
+  onMoveChannelEffect: noop
 }
 
 function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {

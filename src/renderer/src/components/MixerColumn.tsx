@@ -1,5 +1,6 @@
 import ChannelStrip from './ChannelStrip'
 import type { ChannelState } from '../hooks/useMixer'
+import type { EffectSlot, EffectType } from '../engine/effects'
 
 interface MixerColumnProps {
   channels: ChannelState[]
@@ -12,6 +13,11 @@ interface MixerColumnProps {
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
   onRestoreChannel: () => void
+  onAddChannelEffect: (channelIndex: number, type: EffectType) => void
+  onUpdateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
+  onToggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
+  onRemoveChannelEffect: (channelIndex: number, effectId: string) => void
+  onMoveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
 }
 
 /** Scrollable column of channel strips inside the SongControlsRail. */
@@ -25,7 +31,12 @@ export default function MixerColumn({
   onToggleChannelMute,
   onToggleChannelSolo,
   onRemoveChannel,
-  onRestoreChannel
+  onRestoreChannel,
+  onAddChannelEffect,
+  onUpdateChannelEffect,
+  onToggleChannelEffectBypass,
+  onRemoveChannelEffect,
+  onMoveChannelEffect
 }: MixerColumnProps) {
   return (
     <div className="mixer-column">
@@ -59,11 +70,17 @@ export default function MixerColumn({
               solo={ch.solo}
               levelDb={channelLevels.get(ch.channelIndex) ?? -100}
               peakDb={channelPeaks.get(ch.channelIndex) ?? -100}
+              effects={ch.effects}
               onSetGain={onSetChannelGain}
               onSetPan={onSetChannelPan}
               onToggleMute={onToggleChannelMute}
               onToggleSolo={onToggleChannelSolo}
               onRemove={onRemoveChannel}
+              onAddEffect={onAddChannelEffect}
+              onUpdateEffect={onUpdateChannelEffect}
+              onToggleEffectBypass={onToggleChannelEffectBypass}
+              onRemoveEffect={onRemoveChannelEffect}
+              onMoveEffect={onMoveChannelEffect}
             />
           ))}
         </div>

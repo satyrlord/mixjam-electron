@@ -51,6 +51,29 @@ than enough for an eJay/Acid-style tracker.
   crash or repeatedly retry a broken module. Concurrent failures share that one
   disable transition and therefore still emit only one warning.
 
+## Per-channel insert effects
+
+Each mixer channel has a stable input and output around an ordered chain of up
+to four Web Audio processors. The signal route is channel gain and pan, then
+the ordered effects, then the channel analyser and master bus. Rebuilding a
+chain does not reconnect active voices because they target the stable channel
+input. Replaced and removed processors disconnect every node they own.
+
+- Delay uses dry/wet gain paths, `DelayNode` feedback whose 1.0 control value
+  maps to stable near-unity feedback, optional
+  quarter/eighth/sixteenth-note tempo sync, and a dual-delay stereo feedback
+  loop for ping-pong mode.
+- Reverb uses a generated two-channel impulse in a `ConvolverNode`; room size
+  changes impulse energy and decay changes its duration and envelope.
+- Compression maps the documented controls onto `DynamicsCompressorNode` and
+  follows it with a linear makeup-gain stage.
+- Bypass constructs a direct input-to-output route for that slot, so disabling
+  DSP also removes its feedback or convolution nodes from the live graph.
+
+Effect definitions live in the renderer mixer state and persist in the same
+`mixjam-mixer-channels` local-storage entry as gain, pan, mute, and solo.
+Older entries without an effects field load with an empty chain.
+
 ## Native-addon escape hatch — when to leave Web Audio
 
 **Stay on Web Audio for v1.** v1 is playback/arrangement only — no live input

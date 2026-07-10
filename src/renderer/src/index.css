@@ -2656,6 +2656,118 @@ html[data-theme-ready='true'] body {
   white-space: nowrap;
 }
 
+.channel-effects {
+  width: 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.channel-effect-chain {
+  display: grid;
+  grid-template-columns: repeat(2, 16px);
+  gap: 2px;
+}
+
+.channel-effect-slot,
+.channel-effect-add {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: var(--edge-pill);
+  border-radius: 2px;
+  background: var(--pill-bg);
+  color: var(--text-muted);
+  font: 8px/1 var(--font-chrome);
+  cursor: pointer;
+}
+
+.channel-effect-slot:hover,
+.channel-effect-slot[aria-pressed='true'] {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.channel-effect-slot-bypassed {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.channel-effect-add {
+  width: 34px;
+  appearance: none;
+  text-align: center;
+  text-align-last: center;
+}
+
+.effect-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg-base) 65%, transparent);
+}
+
+.effect-editor {
+  width: min(460px, calc(100vw - 32px));
+  padding: 14px;
+  border: var(--edge);
+  border-radius: 6px;
+  background: var(--chrome);
+  color: var(--text);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 45%);
+}
+
+.effect-editor-head,
+.effect-editor-actions,
+.effect-parameter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.effect-editor-head {
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.effect-editor-head button,
+.effect-editor-actions button {
+  border: var(--edge-pill);
+  border-radius: 3px;
+  background: var(--pill-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.effect-parameters {
+  display: grid;
+  gap: 10px;
+}
+
+.effect-parameter span {
+  width: 90px;
+}
+
+.effect-parameter input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.effect-parameter output {
+  width: 64px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.effect-editor-actions {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
 .analysis-editor {
   position: fixed;
   z-index: 101;

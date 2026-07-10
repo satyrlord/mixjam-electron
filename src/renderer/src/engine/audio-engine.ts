@@ -10,6 +10,7 @@ import { type Channel, createChannel } from './channel'
 import { type Voice, createVoice } from './voice'
 import { SampleCache, type SampleCacheOptions } from './sample-cache'
 import { clamp } from '../lib/sample-utils'
+import type { EffectSlot } from './effects'
 
 // Factory injected so tests can supply a mock AudioContext. In production this
 // is `() => new AudioContext()`.
@@ -157,6 +158,11 @@ export class AudioEngine {
   setChannelGain(channelIndex: number, gain: number): void {
     const channel = this.channels.get(channelIndex)
     if (channel) channel.setGain(gain)
+  }
+
+  setChannelEffects(channelIndex: number, effects: readonly EffectSlot[], bpm: number): void {
+    const channel = this.channels.get(channelIndex)
+    if (channel) channel.setEffects(effects, bpm)
   }
 
   getChannelAnalyser(channelIndex: number): AnalyserNode | undefined {

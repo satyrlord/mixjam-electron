@@ -46,15 +46,17 @@ describe('AudioEngine', () => {
     engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 0 })
 
     const source = context.created.sources[0]
-    // Signal flow: source -> channel gain -> channel pan -> channel analyser -> master.
-    // Gains: [masterGain, bypassGain, channelGain]
+    // Signal flow: source -> channel gain -> channel pan -> stable channel output -> analyser -> master.
+    // Gains: [masterGain, bypassGain, channelGain, channelOutput]
     const masterGain = context.created.gains[0]
     const channelGain = context.created.gains[2]
+    const channelOutput = context.created.gains[3]
     const channelPan = context.created.panners[0]
     const channelAnalyser = context.created.analysers[1] // per-channel analyser
     expect(source.connectedTo).toContain(channelGain)
     expect(channelGain.connectedTo).toContain(channelPan)
-    expect(channelPan.connectedTo).toContain(channelAnalyser)
+    expect(channelPan.connectedTo).toContain(channelOutput)
+    expect(channelOutput.connectedTo).toContain(channelAnalyser)
     expect(channelAnalyser.connectedTo).toContain(masterGain)
   })
 

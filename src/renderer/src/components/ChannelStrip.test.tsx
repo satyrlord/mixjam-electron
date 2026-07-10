@@ -11,11 +11,17 @@ const DEFAULT_PROPS = {
   solo: false,
   levelDb: -20,
   peakDb: -15,
+  effects: [],
   onSetGain: vi.fn(),
   onSetPan: vi.fn(),
   onToggleMute: vi.fn(),
   onToggleSolo: vi.fn(),
-  onRemove: vi.fn()
+  onRemove: vi.fn(),
+  onAddEffect: vi.fn(),
+  onUpdateEffect: vi.fn(),
+  onToggleEffectBypass: vi.fn(),
+  onRemoveEffect: vi.fn(),
+  onMoveEffect: vi.fn()
 }
 
 describe('ChannelStrip', () => {
