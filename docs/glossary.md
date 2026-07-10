@@ -147,7 +147,9 @@ unknown. These dimensions must be perfectly identical everywhere in the UI,
 including the Tracker, Sample Browser, and any future view, window, or
 interface. BPM, viewport size, placement duration, and UI context never affect
 the dimensions. A Tracker placement may change when the sample starts or
-plays, but must not turn the bubble into a timeline-duration region.
+plays, but must not turn the bubble into a timeline-duration region. Drag-image
+canvases may add transparent padding for shadows, pointer offset, or a group
+badge, but the sample-bubble rectangle inside them keeps the same dimensions.
 
 ## Sample Folder
 

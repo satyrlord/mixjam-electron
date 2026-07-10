@@ -76,6 +76,10 @@ native tempos.
   `null`; a positive finite number enables stretching for that lane.
 - Lane state is read at scheduling time, so edits affect later triggers without
   rebuilding the Player.
+- Play, playing seek/skip-back, project-BPM changes, and lane-native-BPM changes
+  enter a non-reentrant `preparing` state while required buffers are decoded and
+  stretched. The scheduler, audible `playing` state, and elapsed timer resume
+  together only after preparation succeeds. Stop or Space cancels preparation.
 - Sample-browser preview remains native-rate playback; stretch preview is a
   non-goal.
 - A trigger waits for its pre-stretched buffer before creating the voice. Stop,
@@ -97,13 +101,22 @@ native tempos.
   previous value reuses the cached buffer without re-stretching.
 - [x] **AC-006:** If the WASM module fails to load, samples play at native rate
   and a warning is logged — no crash.
+- [x] **AC-007:** While cold stretch preparation is pending, the transport shows
+  `preparing`, the elapsed timer does not advance, and repeated Play requests do
+  not start duplicate schedulers. Stop or Space cancels the pending start.
+- [x] **AC-008:** Editing project BPM or lane native BPM while playing pauses at
+  the current tick, prepares the new ratio, and resumes the scheduler, audible
+  state, and elapsed timer together.
 
 ## Verification Evidence
 
 - `time-stretch.test.ts` covers ratio math, null/equal passthrough, cache reuse,
-  concurrent request deduplication, LRU eviction, and WASM failure fallback.
+  concurrent request deduplication, LRU eviction, and one-warning WASM failure
+  fallback across concurrent keys.
 - `playback-engine.test.ts` covers pre-stretching before voice creation, native-rate
-  lanes, BPM changes, and reuse when returning to a prior BPM.
+  lanes, BPM changes, canceled preparation, and reuse when returning to a prior BPM.
+- `useTransportEngine.test.ts` covers the atomic `preparing` transition, timer
+  gating, cancellation, seek restart, and native-BPM prewarming.
 - `arrangement.test.ts` and `LaneRow.test.tsx` cover lane-state normalization
   and the native-BPM editor.
 - Production Chromium verification on both localhost and Electron's secure

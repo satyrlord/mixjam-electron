@@ -40,7 +40,7 @@ Do not start by stashing the whole repository if unrelated user work exists.
 Helper script example:
 
 ```PowerShell
-$Validation = 'npm test -- src/renderer/src/components/TrackerView.test.tsx'
+$Validation = 'npm test -- src/renderer/src/components/PlayerView.test.tsx'
 ./.github/skills/ablation-test/scripts/New-AblationLog.ps1 `
   -Slug scheduler-dropout `
   -Validation $Validation `

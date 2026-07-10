@@ -38,12 +38,18 @@ than enough for an eJay/Acid-style tracker.
   asset that works in both the browser build and Electron shell.
 - Stretching renders through an `OfflineAudioContext`, producing a reusable
   `AudioBuffer`. Playback never runs stretch DSP on each voice trigger.
+- The runtime exposes a `preparing` transport state while required buffers are
+  decoded or stretched. The scheduler, audible playback state, and elapsed timer
+  start together only after preparation succeeds; Stop cancels an in-flight
+  preparation. Project-BPM and lane-native-BPM edits use the same transition
+  before playback resumes.
 - Completed stretched buffers use a separate `(sampleId, ratio)` LRU cache, and
   concurrent requests for the same key share one promise. Old ratios remain in
   the cache until eviction so a BPM change can be reversed without recomputing.
 - WASM or AudioWorklet failure logs one warning, disables stretching for that
   playback runtime, and returns the decoded native-rate buffer. Playback does not
-  crash or repeatedly retry a broken module.
+  crash or repeatedly retry a broken module. Concurrent failures share that one
+  disable transition and therefore still emit only one warning.
 
 ## Native-addon escape hatch — when to leave Web Audio
 

@@ -131,6 +131,9 @@ adjacencies.
   sample's information.
 - Placements are rendered on a canvas element for performance — not as individual
   DOM nodes (enables smooth scrolling at high placement counts).
+- A placement drag image may use a larger transparent canvas for shadow padding,
+  pointer offset, or a multi-selection badge. The sample bubble drawn inside
+  that canvas keeps the canonical source-duration width and 32px height.
 
 ### Playhead
 
@@ -288,6 +291,9 @@ adjacencies.
 - [x] **AC-024:** Clicking a MixJam Browser entry records it as most-recently opened, re-sorts the browser, and shows its name in the
   Middle Strip. Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
   Full project deserialization (restoring lanes/placements from the `.mixjam` file) remains deferred to spec-011.
+- [x] **AC-025:** A sample bubble keeps its canonical width and 32px height in
+  the drag image; any minimum drag surface, theme-shadow clearance, or group
+  badge uses transparent space outside that rectangle.
 - [x] **AC-025:** Space toggles Play/Pause when focus is not in a text control.
 
 ## Non-Goals (deferred to later specs)
