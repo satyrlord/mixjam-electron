@@ -15,7 +15,8 @@ import {
   LEFT_COL_MIN_PX,
   LEFT_COL_MIXER_THRESHOLD_PX,
   RULER_HEIGHT_PX,
-  sampleBubbleScreenRect
+  sampleBubbleScreenRect,
+  timelinePixelsPerSecond
 } from '../lib/arrangement'
 import { clamp, nearestTick } from '../lib/sample-utils'
 import { safeJsonParse } from '../lib/safeJsonParse'
@@ -96,6 +97,11 @@ export default function PlayerView({
   }, [])
 
   const pixelsPerTick = laneContentWidth > 0 ? laneContentWidth / totalTicks : 0
+  const bubblePixelsPerSecond = timelinePixelsPerSecond(
+    laneContentWidth,
+    totalTicks,
+    transport.bpm
+  )
   const lastGridTick = Math.floor((totalTicks - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
 
   const handleRulerClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -189,7 +195,11 @@ export default function PlayerView({
         const lane = lanes[li]
         if (!lane) continue
         for (const placement of lane.placements) {
-          const { x: bubbleX, width: bubbleWidth } = sampleBubbleScreenRect(placement, pixelsPerTick)
+          const { x: bubbleX, width: bubbleWidth } = sampleBubbleScreenRect(
+            placement,
+            pixelsPerTick,
+            bubblePixelsPerSecond
+          )
           if (bubbleX + bubbleWidth > x1 && bubbleX < x2) {
             ids.add(placement.id)
           }
@@ -208,7 +218,7 @@ export default function PlayerView({
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     const untrack = trackDragCleanup(onUp)
-  }, [lanes, pixelsPerTick, trackDragCleanup])
+  }, [lanes, pixelsPerTick, bubblePixelsPerSecond, trackDragCleanup])
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(false)
@@ -522,6 +532,7 @@ export default function PlayerView({
                 lane={lane}
                 dimmed={dimmed}
                 totalTicks={totalTicks}
+                bubblePixelsPerSecond={bubblePixelsPerSecond}
                 flashSamplePath={activeFlashPath}
                 selectedPlacementIds={selectedPlacementIds}
                 missingSamplePaths={arrangement.missingSamplePaths}
@@ -595,6 +606,7 @@ export default function PlayerView({
 
       <SampleBrowser
         browser={browser}
+        bubblePixelsPerSecond={bubblePixelsPerSecond}
         flashSamplePath={activeFlashPath}
         onSampleDragStart={handleSampleDragStart}
       />

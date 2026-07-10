@@ -19,9 +19,25 @@ export const LANE_HEAD_WIDTH_PX = 168
 export const RULER_HEIGHT_PX = 24
 export const DEFAULT_PLACEMENT_DURATION_TICKS = 32
 export const SAMPLE_BUBBLE_HEIGHT_PX = 32
-const SAMPLE_BUBBLE_PIXELS_PER_SECOND = 84
+export const DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND = 84
 const SAMPLE_BUBBLE_MIN_WIDTH_PX = 12
 const SAMPLE_BUBBLE_UNKNOWN_DURATION_SECONDS = 2
+
+/** Convert the Tracker's tick geometry into the one pixels-per-second scale
+ * shared by every sample-bubble renderer. */
+export function timelinePixelsPerSecond(
+  timelineWidth: number,
+  totalTicks: number,
+  bpm: number
+): number {
+  if (!(timelineWidth > 0) || !(totalTicks > 0) || !(bpm > 0)) {
+    return DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
+  }
+  const scale = (timelineWidth / totalTicks) / tickDurationSeconds(bpm)
+  return Number.isFinite(scale) && scale > 0
+    ? scale
+    : DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
+}
 
 // Left-column (Song Controls rail) resize seam bounds. The CSS fallback in
 // index.css (`var(--left-col-w, 420px)`) must stay in sync with the default.
@@ -65,20 +81,31 @@ export interface LaneState {
 // never collide on id, which would make delete/select-by-id affect both.
 let placementIdSequence = 0
 
-/** Context-independent width for the visual snapshot of a sample. */
-export function sampleBubbleWidth(durationSeconds: number | null): number {
+/** Width for the visual snapshot of a sample at the Player's shared timeline
+ * scale. The same pixels-per-second value must be supplied to every UI view. */
+export function sampleBubbleWidth(
+  durationSeconds: number | null,
+  pixelsPerSecond: number = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
+): number {
   const duration = durationSeconds !== null && durationSeconds > 0
     ? durationSeconds
     : SAMPLE_BUBBLE_UNKNOWN_DURATION_SECONDS
-  return Math.max(SAMPLE_BUBBLE_MIN_WIDTH_PX, duration * SAMPLE_BUBBLE_PIXELS_PER_SECOND)
+  const scale = Number.isFinite(pixelsPerSecond) && pixelsPerSecond > 0
+    ? pixelsPerSecond
+    : DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
+  return Math.max(SAMPLE_BUBBLE_MIN_WIDTH_PX, duration * scale)
 }
 
 /** Pixel-space rect shared by Tracker drawing and hit-testing. Placement
  * position follows the timeline; bubble width follows only source duration. */
-export function sampleBubbleScreenRect(placement: ClipPlacement, pixelsPerTick: number): { x: number; width: number } {
+export function sampleBubbleScreenRect(
+  placement: ClipPlacement,
+  pixelsPerTick: number,
+  pixelsPerSecond: number = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
+): { x: number; width: number } {
   return {
     x: placement.startTick * pixelsPerTick,
-    width: sampleBubbleWidth(placement.durationSeconds)
+    width: sampleBubbleWidth(placement.durationSeconds, pixelsPerSecond)
   }
 }
 

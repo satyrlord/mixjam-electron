@@ -141,15 +141,16 @@ browse `.mixjam` files or define saved [libraries](#library).
 ## Sample bubble
 
 The visual snapshot of a sample or WAV file, regardless of context. Every
-sample bubble is 32px high. Its width is the source duration multiplied by
-84px per second, with a 12px minimum and a 168px fallback when duration is
-unknown. These dimensions must be perfectly identical everywhere in the UI,
-including the Tracker, Sample Browser, and any future view, window, or
-interface. BPM, viewport size, placement duration, and UI context never affect
-the dimensions. A Tracker placement may change when the sample starts or
-plays, but must not turn the bubble into a timeline-duration region. Drag-image
-canvases may add transparent padding for shadows, pointer offset, or a group
-badge, but the sample-bubble rectangle inside them keeps the same dimensions.
+sample bubble is 32px high. Its width projects the source duration through the
+Player's current timeline scale, with a 12px minimum and a two-second fallback
+when duration is unknown. The Tracker derives that shared pixels-per-second
+scale from its pixels-per-tick spacing and the current transport BPM, then the
+Sample Browser and every other view use the same value. A viewport or BPM
+change may resize all bubbles together, but the same sample remains perfectly
+identical everywhere in the UI. Placement duration and UI context never create
+a different geometry. Drag-image canvases may add transparent padding for
+shadows, pointer offset, or a group badge, but the sample-bubble rectangle
+inside them keeps the shared dimensions.
 
 ## Sample Folder
 

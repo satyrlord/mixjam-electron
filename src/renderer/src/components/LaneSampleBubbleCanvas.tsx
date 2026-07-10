@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import {
+  DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   SAMPLE_BUBBLE_HEIGHT_PX,
   sampleBubbleScreenRect,
   type ClipPlacement
@@ -15,6 +16,7 @@ import {
 interface LaneSampleBubbleCanvasProps {
   placements: ClipPlacement[]
   totalTicks: number
+  bubblePixelsPerSecond?: number
   laneIndex: number
   flashSamplePath: string | null
   selectedPlacementIds: ReadonlySet<string>
@@ -265,6 +267,7 @@ function buildSampleBubbleDragGhost(
 function LaneSampleBubbleCanvas({
   placements,
   totalTicks,
+  bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   laneIndex,
   flashSamplePath,
   selectedPlacementIds,
@@ -327,7 +330,7 @@ function LaneSampleBubbleCanvas({
     ctx.textBaseline = 'middle'
 
     for (const placement of placements) {
-      const { x, width: w } = sampleBubbleScreenRect(placement, pixelsPerTick)
+      const { x, width: w } = sampleBubbleScreenRect(placement, pixelsPerTick, bubblePixelsPerSecond)
 
       drawSampleBubble(
         ctx, placement, x, CLIP_TOP, w, accent,
@@ -356,7 +359,7 @@ function LaneSampleBubbleCanvas({
     }
 
     hitRectsRef.current = hitRects
-  }, [placements, totalTicks, flashSamplePath, selectedPlacementIds, missingSamplePaths])
+  }, [placements, totalTicks, bubblePixelsPerSecond, flashSamplePath, selectedPlacementIds, missingSamplePaths])
 
   useEffect(() => {
     draw()

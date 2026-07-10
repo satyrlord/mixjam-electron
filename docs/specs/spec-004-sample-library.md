@@ -96,6 +96,8 @@ Strip from spec-006. Its internal layout:
 
 - Samples render as the same fixed-height bubble used by the tracker. Bubbles
   show the filename and duration and retain identical geometry across views.
+  Their shared width uses the Tracker's current pixels-per-second scale so the
+  visible length corresponds to the source audio duration.
 - Sort controls support filename, duration, and date added. Selecting the active
   sort again toggles ascending/descending.
 - Selecting a bubble highlights it, previews its audio, and populates the Player
@@ -214,6 +216,9 @@ Strip from spec-006. Its internal layout:
 - [x] **AC-015a:** Re-scan is disabled while automatic sample analysis is active.
 - [x] **AC-016:** The sample grid can be sorted by filename, duration, and date added (ascending/descending).
 - [x] **AC-017:** Clicking a sample bubble previews its audio and renders its decoded waveform in the Player footer.
+- [x] **AC-017a:** A Sample Browser bubble uses the same current
+  pixels-per-second scale as its Tracker representation, so equal source
+  durations have equal widths and the two views remain pixel-identical.
 
 ## Non-Goals (deferred to later specs)
 

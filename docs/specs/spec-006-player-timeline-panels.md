@@ -112,9 +112,13 @@ adjacencies.
 - Rendered as rounded rectangles on the lane canvas.
 - Position: `left` computed from the clip placement's start tick multiplied by
   pixels-per-tick.
-- Width: source audio duration multiplied by the shared 84px-per-second scale,
-  with a 12px minimum and a 168px fallback when duration is unknown. BPM,
-  viewport width, placement duration, and UI context never affect bubble width.
+- Width: source audio duration projected through the Tracker's current time
+  scale (`pixels-per-tick / seconds-per-tick`), with a 12px minimum and a
+  two-second fallback when duration is unknown. The Tracker passes the same
+  pixels-per-second value to the Sample Browser, so a sample is identical in
+  both views and its right edge aligns with the ruler time at which its source
+  audio ends. BPM or viewport changes resize every representation together;
+  placement duration and UI context do not create a different width.
 - Height: 32px, vertically centered in the 44px lane.
 - Label: sample filename, truncated.
 - Bubble color: driven by a per-sample hue derived from category or a hash of
@@ -263,7 +267,9 @@ adjacencies.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample bubble from the Sample Browser and dropping it onto a lane creates a clip placement snapped to the nearest beat boundary.
-  Its bubble is 32px high and uses the shared source-duration width.
+  Its bubble is 32px high and uses the shared source-duration width. The width
+  spans the same amount of Tracker time as the source audio at the current BPM,
+  and the corresponding Sample Browser bubble has the identical pixel width.
 - [x] **AC-008a:** Holding Alt while dropping a sample or moving a placement bypasses beat-snap and places it at per-tick precision (freeform).
 - [x] **AC-009:** Placing a sample that overlaps an existing placement on the same lane keeps both sample bubbles visually intact; only the audio
   is monophonic. Overlap never deletes or trims the earlier placement's data.

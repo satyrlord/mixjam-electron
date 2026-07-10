@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
-import type { FooterSampleDetail } from '../lib/arrangement'
+import {
+  DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
+  type FooterSampleDetail
+} from '../lib/arrangement'
 import { bubbleStyle, categorySlot } from '../lib/sample-utils'
 import type { PlayerBrowserProps } from './playerProps'
 import { useDragResize } from '../hooks/useDragResize'
@@ -10,12 +13,14 @@ import SampleAnalysisEditor from './SampleAnalysisEditor'
 
 interface SampleBrowserProps {
   browser: PlayerBrowserProps
+  bubblePixelsPerSecond?: number
   flashSamplePath: string | null
   onSampleDragStart: (event: React.DragEvent, detail: FooterSampleDetail) => void
 }
 
 export default function SampleBrowser({
   browser,
+  bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   flashSamplePath,
   onSampleDragStart
 }: SampleBrowserProps) {
@@ -191,6 +196,7 @@ export default function SampleBrowser({
 
         <SampleTileGrid
           samples={samples}
+          bubblePixelsPerSecond={bubblePixelsPerSecond}
           selectedSamplePath={selectedSamplePath}
           flashSamplePath={flashSamplePath}
           activeCategorySlot={activeCategorySlot}

@@ -43,6 +43,7 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={samples}
+        bubblePixelsPerSecond={120}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -60,6 +61,8 @@ describe('SampleTileGrid', () => {
 
     const buttons = container.querySelectorAll('.sample-bubble')
     expect(buttons.length).toBe(2)
+    expect((buttons[0] as HTMLElement).style.width).toBe('240px')
+    expect((buttons[1] as HTMLElement).style.width).toBe('240px')
   })
 
   it('shows empty message when no samples and not loading', () => {

@@ -6,6 +6,7 @@ import {
   LANE_HEAD_WIDTH_PX,
   DEFAULT_PLACEMENT_DURATION_TICKS,
   sampleBubbleScreenRect,
+  timelinePixelsPerSecond,
   createDefaultLanes,
   duplicatePlacementGroup,
   duplicatePlacement,
@@ -31,10 +32,14 @@ describe('clamp', () => {
 })
 
 describe('sampleBubbleScreenRect', () => {
-  it('uses timeline scale only for x and source duration only for width', () => {
+  it('derives the shared duration scale from the Tracker time grid', () => {
+    expect(timelinePixelsPerSecond(1920, 256, 120)).toBe(120)
+  })
+
+  it('uses the shared timeline scale for source-duration width', () => {
     const placement = { id: 'p', samplePath: 's', sampleName: 'n', startTick: 32, durationTicks: 16, durationSeconds: 1 }
-    expect(sampleBubbleScreenRect(placement, 2)).toEqual({ x: 64, width: 84 })
-    expect(sampleBubbleScreenRect({ ...placement, durationTicks: 1 }, 1)).toEqual({ x: 32, width: 84 })
+    expect(sampleBubbleScreenRect(placement, 2, 120)).toEqual({ x: 64, width: 120 })
+    expect(sampleBubbleScreenRect({ ...placement, durationTicks: 1 }, 1, 120)).toEqual({ x: 32, width: 120 })
   })
 
   it('uses the shared minimum and unknown-duration fallback', () => {

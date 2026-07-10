@@ -105,6 +105,23 @@ describe('LaneSampleBubbleCanvas', () => {
     expect(mockCtx.fillText).toHaveBeenCalledWith('snare.wav', expect.any(Number), expect.any(Number))
   })
 
+  it('draws source duration at the supplied shared timeline scale', () => {
+    render(
+      <LaneSampleBubbleCanvas
+        placements={[{ ...PLACEMENTS[0]!, durationSeconds: 1 }]}
+        totalTicks={64}
+        bubblePixelsPerSecond={120}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedPlacementIds={new Set()}
+        onPlacementDragStart={vi.fn()}
+        onPlacementContextMenu={vi.fn()}
+      />
+    )
+
+    expect(mockCtx.rect).toHaveBeenCalledWith(8, expect.any(Number), 104, 32)
+  })
+
   it('draws a flash overlay when flashSamplePath matches a placement', () => {
     render(
       <LaneSampleBubbleCanvas

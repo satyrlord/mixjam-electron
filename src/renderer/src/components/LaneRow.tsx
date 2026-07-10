@@ -1,5 +1,10 @@
 import { memo, useCallback, useState } from 'react'
-import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX, type LaneState } from '../lib/arrangement'
+import {
+  DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
+  LANE_HEAD_WIDTH_PX,
+  LANE_HEIGHT_PX,
+  type LaneState
+} from '../lib/arrangement'
 import { nextPanCycle } from '../lib/sample-utils'
 import LaneSampleBubbleCanvas from './LaneSampleBubbleCanvas'
 
@@ -7,6 +12,7 @@ interface LaneRowProps {
   lane: LaneState
   dimmed: boolean
   totalTicks: number
+  bubblePixelsPerSecond?: number
   flashSamplePath: string | null
   selectedPlacementIds: ReadonlySet<string>
   missingSamplePaths: ReadonlySet<string>
@@ -27,6 +33,7 @@ function LaneRow({
   lane,
   dimmed,
   totalTicks,
+  bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   flashSamplePath,
   selectedPlacementIds,
   missingSamplePaths,
@@ -182,6 +189,7 @@ function LaneRow({
         <LaneSampleBubbleCanvas
           placements={lane.placements}
           totalTicks={totalTicks}
+          bubblePixelsPerSecond={bubblePixelsPerSecond}
           laneIndex={lane.index}
           flashSamplePath={flashSamplePath}
           selectedPlacementIds={selectedPlacementIds}

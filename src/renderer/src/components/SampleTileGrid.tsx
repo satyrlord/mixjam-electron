@@ -2,7 +2,11 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/arrangement'
-import { SAMPLE_BUBBLE_HEIGHT_PX, sampleBubbleWidth } from '../lib/arrangement'
+import {
+  DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
+  SAMPLE_BUBBLE_HEIGHT_PX,
+  sampleBubbleWidth
+} from '../lib/arrangement'
 import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 
 // Bubble geometry shared with the tracker: a sample bubble is 32px tall
@@ -52,6 +56,7 @@ function packTileRows(widths: readonly number[], rowWidth: number, gap: number):
 
 interface SampleTileGridProps {
   samples: SampleListItem[]
+  bubblePixelsPerSecond?: number
   selectedSamplePath: string | null
   flashSamplePath: string | null
   /** Palette-slot override when a category filter is active — all visible samples share it. */
@@ -78,6 +83,7 @@ interface SampleTileGridProps {
  */
 function SampleTileGrid({
   samples,
+  bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   selectedSamplePath,
   flashSamplePath,
   activeCategorySlot,
@@ -123,12 +129,12 @@ function SampleTileGrid({
   const tiles = useMemo(
     () =>
       samples.map((sample) => {
-        const width = sampleBubbleWidth(sample.durationSeconds)
+        const width = sampleBubbleWidth(sample.durationSeconds, bubblePixelsPerSecond)
         const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
         const slot = activeCategorySlot ?? (catName ? categorySlot(catName) : undefined)
         return { sample, width, slot }
       }),
-    [samples, activeCategorySlot, categoryNames]
+    [samples, bubblePixelsPerSecond, activeCategorySlot, categoryNames]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.
