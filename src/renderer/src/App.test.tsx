@@ -93,14 +93,12 @@ describe('App', () => {
       expect(containers.length).toBeGreaterThanOrEqual(1)
     })
 
-    // Dropping again on the same lane adds a second overlapping placement (visual overlap, monophonic playback)
     fireEvent.drop(lane3Canvas, {
       dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
     })
     const lane3Container = lane3Canvas.querySelector('[data-placement-count]')
     expect(lane3Container?.getAttribute('data-placement-count')).toBe('2')
 
-    // Dropping on a different lane adds a third placement
     const lane2Canvas = screen.getByRole('region', { name: 'Lane 2 placement area' })
     fireEvent.drop(lane2Canvas, {
       dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
@@ -115,7 +113,6 @@ describe('App', () => {
     const select = screen.getByLabelText('Theme')
     expect(select).toHaveValue('emerald')
 
-    // Unknown theme falls back to emerald
     fireEvent.change(select, { target: { value: 'nonexistent' } })
     expect(select).toHaveValue('emerald')
   })

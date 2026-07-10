@@ -99,7 +99,6 @@ describe('ManagePanel', () => {
       fireEvent.click(screen.getByLabelText('Rename tag Alpha'))
       const input = screen.getByLabelText('Rename tag Alpha') as HTMLInputElement
       fireEvent.keyDown(input, { key: 'Escape' })
-      // After Escape, the rename input should be gone and the tag name visible
       expect(screen.getByText('Alpha')).toBeTruthy()
     })
 
@@ -111,7 +110,6 @@ describe('ManagePanel', () => {
       fireEvent.change(input, { target: { value: '   ' } })
       fireEvent.keyDown(input, { key: 'Enter' })
 
-      // Should not call rename with whitespace-only
       expect(onRenameTag).not.toHaveBeenCalled()
     })
 
@@ -151,7 +149,6 @@ describe('ManagePanel', () => {
       const onSaveLibrary = vi.fn(async () => ({ id: 2, name: '', createdAt: 200, ruleJson: '{}' }))
       renderPanel({ onSaveLibrary })
       fireEvent.click(screen.getByText('Libraries'))
-      // Button should be disabled
       const btn = screen.getByText('Save current filters')
       expect((btn as HTMLButtonElement).disabled).toBe(true)
     })
@@ -260,14 +257,11 @@ describe('ManagePanel', () => {
       const { container } = renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       const select = container.querySelector('select[aria-label="Parent category"]')! as HTMLSelectElement
-      // Select a parent first
       fireEvent.change(select, { target: { value: '1' } })
-      // Then change back to Root (empty string)
       fireEvent.change(select, { target: { value: '' } })
       const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
       fireEvent.change(input, { target: { value: 'Test' } })
       fireEvent.click(screen.getByLabelText('Add category'))
-      // parentId should be undefined, not 1
       expect(onCreateCategory).toHaveBeenCalledWith('Test', undefined)
     })
   })

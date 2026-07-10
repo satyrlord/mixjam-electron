@@ -102,7 +102,6 @@ describe('createCategory (AC-010a, AC-010b)', () => {
     const first = createCategory(db, 'Kicks', parent.id)
     const second = createCategory(db, 'Kicks', parent.id)
     expect(second.id).toBe(first.id)
-    // No duplicate row was created.
     const kicks = listCategories(db).filter((c) => c.parentId === parent.id && c.name === 'Kicks')
     expect(kicks).toHaveLength(1)
   })
@@ -366,11 +365,9 @@ describe('querySamples paging (AC-004)', () => {
     const page2 = querySamples(db, { limit: 4, offset: 4, sortBy: 'filename', sortDir: 'asc' })
     const page3 = querySamples(db, { limit: 4, offset: 8, sortBy: 'filename', sortDir: 'asc' })
 
-    // No overlap between pages
     const allNames = [...page1.rows, ...page2.rows, ...page3.rows].map((r) => r.filename)
     expect(new Set(allNames).size).toBe(allNames.length)
 
-    // Together they cover all 10
     expect(allNames).toHaveLength(10)
 
     // total is consistent across pages

@@ -1,5 +1,4 @@
 import type { AnalysisProgress, ScanProgress } from '../../../shared/backend-api'
-import { useBpmEditor } from '../hooks/useBpmEditor'
 import ScanProgressBar from './ScanProgressBar'
 import AnalysisProgressBar from './AnalysisProgressBar'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
@@ -30,8 +29,6 @@ function TransportIcon({ shape, mirrored = false }: {
 
 interface MiddleStripProps {
   transportState: RuntimeTransportState
-  bpm: number
-  onSetBpm: (bpm: number) => void
   canUndo: boolean
   canRedo: boolean
   onUndo: () => void
@@ -51,8 +48,6 @@ interface MiddleStripProps {
 
 export default function MiddleStrip({
   transportState,
-  bpm,
-  onSetBpm,
   canUndo,
   canRedo,
   onUndo,
@@ -75,46 +70,11 @@ export default function MiddleStrip({
   const analysisBusy = analysisProgress.status === 'analyzing'
   const libraryBusy = scanBusy || analysisBusy
 
-  const {
-    editingBpm,
-    bpmDraft,
-    bpmInputRef,
-    setBpmDraft,
-    handleBpmEditStart,
-    handleBpmEditCommit,
-    handleBpmEditKeyDown
-  } = useBpmEditor({ bpm, onSetBpm })
-
   return (
     <section className="middle-strip">
       <div className="strip-left">
         {/* Real project names arrive with .mixjam save/load (spec-011). */}
         <span className="strip-proj">Untitled</span>
-        <span className="strip-sep" />
-        {editingBpm ? (
-          <input
-            ref={bpmInputRef}
-            type="number"
-            className="strip-bpm-input"
-            min={50}
-            max={200}
-            value={bpmDraft}
-            onChange={(e) => setBpmDraft(e.currentTarget.value)}
-            onBlur={handleBpmEditCommit}
-            onKeyDown={handleBpmEditKeyDown}
-            aria-label="Edit BPM"
-          />
-        ) : (
-          <button
-            type="button"
-            className="strip-bpm"
-            onClick={handleBpmEditStart}
-            aria-label="Edit BPM"
-            title="Click to edit BPM (50-200), Enter commits, Esc cancels"
-          >
-            {bpm} BPM
-          </button>
-        )}
       </div>
       <div className="transport-ribbon" aria-label="Transport Ribbon">
         <button type="button" className="transport-button" aria-label="Skip Back" title="Skip back to start" onClick={onTransportSkipBack}>

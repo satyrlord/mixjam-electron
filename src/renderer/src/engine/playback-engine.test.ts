@@ -47,10 +47,8 @@ describe('PlaybackEngine.previewSample', () => {
     await flushAsync()
     expect(context.created.sources.length).toBeGreaterThanOrEqual(1)
 
-    // Preview the same sample again → should stop, not start a new voice
     await playbackEngine.previewSample('kick.wav')
     await flushAsync()
-    // No new source created on toggle-off
     expect(context.created.sources.length).toBe(1)
     await playbackEngine.close()
   })
@@ -72,7 +70,6 @@ describe('PlaybackEngine.previewSample', () => {
     })
     await playbackEngine.previewSample('missing.wav')
     await flushAsync()
-    // Should not crash; preview path cleared
     await playbackEngine.close()
   })
 
@@ -82,7 +79,6 @@ describe('PlaybackEngine.previewSample', () => {
     })
     await playbackEngine.previewSample('broken.wav')
     await flushAsync()
-    // Should not crash; preview path cleared
     await playbackEngine.close()
   })
 
@@ -137,7 +133,6 @@ describe('PlaybackEngine.triggerLane edge cases', () => {
     // Now resolve the load
     resolveLoad(new ArrayBuffer(8))
     await flushAsync()
-    // No voice should have started since playback was stopped
     expect(playbackEngine.audioEngine.activeVoiceCount).toBe(0)
     await playbackEngine.close()
   })
@@ -203,16 +198,13 @@ describe('PlaybackEngine.removeChannel', () => {
     await playbackEngine.start(0)
     await flushAsync()
 
-    // After starting, channel 0 exists
     playbackEngine.removeChannel(0)
-    // Should not crash, lane panner disconnects and reconnects to bypass
     await playbackEngine.close()
   })
 
   it('replayRemovedChannels marks channels as removed', async () => {
     const { playbackEngine } = makePlaybackEngine({})
     playbackEngine.replayRemovedChannels([1, 2, 3])
-    // Should not crash; channels are marked without needing to exist first
     await playbackEngine.close()
   })
 
@@ -439,7 +431,6 @@ describe('Voice lifecycle (createVoice)', () => {
     source.endNow()
     source.endNow()
     await flushAsync()
-    // No crash; the guard prevented double-processing
     await playbackEngine.close()
   })
 

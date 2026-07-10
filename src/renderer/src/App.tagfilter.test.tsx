@@ -36,7 +36,6 @@ describe('App tag filter', () => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
-    // Tag chip should be visible because mock returns selectedTagIds: [5]
     const chip = screen.getByText(/Cool/)
     fireEvent.click(chip.closest('button')!)
     fireEvent.click(chip.closest('button')!)

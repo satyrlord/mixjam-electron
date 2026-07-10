@@ -247,7 +247,6 @@ describe('useTrackerShortcuts', () => {
   it('reads updated ref values without re-subscribing', () => {
     const { rerender } = mount()
 
-    // Initially no placements selected
     fireKeyDown('Delete')
     expect(onRemovePlacements).not.toHaveBeenCalled()
 

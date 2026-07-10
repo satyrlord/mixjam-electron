@@ -76,7 +76,7 @@ adjacencies.
   right edge is the reveal seam for the implemented mixer panel (spec-007).
 - The **Middle Strip** is a fixed, full-width band between the upper and lower
   work areas. Its center Transport Ribbon contains transport controls only;
-  project name, BPM, search, Re-scan, and Help remain outside that subregion.
+  project name, search, Re-scan, and Help remain outside that subregion.
 - The **Sample Browser** remains in the lower-right work region and owns its
   own internal category-tree ↔ sample-list split.
 
@@ -154,7 +154,7 @@ adjacencies.
 - Owns the global transport and song state seam between the tracker and the
   browser.
 - Left segment: project name (the opened project's display name, "Untitled"
-  when none) and the BPM display/editor.
+  when none).
 - Center **Transport Ribbon**: three transport buttons plus the edit-history pair:
   - Skip Back (returns to tick 0). Resets the engine scheduler's playhead, not
     just the UI mirror; while playing it restarts playback from the top.
@@ -165,7 +165,6 @@ adjacencies.
     stack is empty (see Undo/Redo below).
 - Right segment: search, Re-scan, and a "?" help button that opens the
   keyboard-shortcuts overlay.
-- BPM is editable; changing it updates the engine's transport BPM immediately.
 - Transport buttons call the engine via the bridge layer (spec-005).
 - Transport, BPM, mute/solo, and pan controls carry `title` tooltips including
   their shortcut hints where one exists.
@@ -232,8 +231,10 @@ adjacencies.
 - Occupies the lower-left region of the active Player layout.
 - Visible by default.
 - Default-visible controls:
+  - **BPM slider** — project tempo control, from 50 BPM to 200 BPM.
   - **Master Volume slider** — global output level control for the full mix.
   - **dB loudness meter** — master-output loudness display for the current mix.
+- Changing the BPM slider updates the engine's transport BPM immediately.
 - Owns song-level controls and the right-edge reveal affordance for the
   implemented mixer panel (spec-007).
 - Dragging the right-edge reveal seam to the right widens the rail; once the
@@ -260,9 +261,8 @@ adjacencies.
 - [x] **AC-002c:** When the MixJam Browser has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank region or browser-specific action buttons.
 - [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
 - [x] **AC-004:** The Song Controls rail is visible by default in the lower-left; widening its right-edge reveal seam may expose mixer content without relocating the sample browser into the left rail.
-- [x] **AC-004a:** The default Song Controls rail shows a Master Volume slider and a master dB loudness meter. BPM is edited only via the Middle Strip click-to-edit control
-  so the app has one BPM editor.
-- [x] **AC-004b:** The BPM editor accepts 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
+- [x] **AC-004a:** The default Song Controls container shows BPM and Master Volume sliders together with a master dB loudness meter.
+- [x] **AC-004b:** The BPM slider accepts 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
 - [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, functional M and S buttons, and a functional pan knob.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
@@ -282,9 +282,8 @@ adjacencies.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
-- [x] **AC-015:** The BPM display shows the current BPM. Clicking it allows editing; changing the value updates the engine's BPM immediately.
-- [x] **AC-015a:** The Middle Strip BPM editor is the single BPM control and always reflects the transport's current BPM
-  without a second control to synchronize.
+- [x] **AC-015:** The BPM slider shows the current BPM and changing it updates the engine's BPM immediately.
+- [x] **AC-015a:** The Song Controls BPM slider is the single BPM control and always reflects the transport's current BPM.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
 - [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position; the original remains unchanged.

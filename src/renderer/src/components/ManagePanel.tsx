@@ -115,7 +115,11 @@ export default function ManagePanel({
                       }}
                       autoFocus
                     />
-                    <button type="button" onClick={() => void handleCommitRename(tag.id)} aria-label="Confirm rename">✓</button>
+                    <button type="button" onClick={() => void handleCommitRename(tag.id)} aria-label="Confirm rename">
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16">
+                        <path d="m3 8.5 3 3L13 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                      </svg>
+                    </button>
                   </>
                 ) : (
                   <>
@@ -125,7 +129,12 @@ export default function ManagePanel({
                       className="manage-action"
                       aria-label={`Rename tag ${tag.name}`}
                       onClick={() => { setRenamingTagId(tag.id); setRenameValue(tag.name) }}
-                    >✎</button>
+                    >
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16">
+                        <path d="M3 13l.7-3.2L11 2.5 13.5 5l-7.3 7.3L3 13Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                        <path d="m9.8 3.7 2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                      </svg>
+                    </button>
                     <button
                       type="button"
                       className="manage-action manage-action-delete"

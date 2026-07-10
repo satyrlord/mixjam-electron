@@ -553,8 +553,6 @@ export default function PlayerView({
 
       <MiddleStrip
         transportState={transportState}
-        bpm={transport.bpm}
-        onSetBpm={transport.onSetBpm}
         canUndo={transport.canUndo}
         canRedo={transport.canRedo}
         onUndo={transport.onUndo}
@@ -581,8 +579,10 @@ export default function PlayerView({
       />
 
       <SongControlsRail
+        bpm={transport.bpm}
         masterGain={transport.masterGain}
         masterLevelDb={transport.masterLevelDb}
+        onSetBpm={transport.onSetBpm}
         onSetMasterGain={transport.onSetMasterGain}
         mixerChannels={mixer.channels}
         mixerChannelLevels={mixer.channelLevels}

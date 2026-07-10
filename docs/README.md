@@ -113,8 +113,8 @@ renderer stays sandboxed with no `nodeIntegration`.
 
 ## Specs
 
-Feature specifications live in `docs/specs/`. Specs 001-007 are implemented,
-008-012 are validated but not implemented, 013-016 are unvalidated stubs, and
+Feature specifications live in `docs/specs/`. Specs 001-009 are implemented,
+010-012 are validated but not implemented, 013-016 are unvalidated stubs, and
 017 is an unvalidated draft. Check individual spec files for AC status and test
 evidence; test files live alongside the relevant source domain under `src/`.
 

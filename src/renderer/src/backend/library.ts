@@ -1,6 +1,6 @@
-// SQL layer of the backend worker — ported from the former main-process
-// library.ts. Functions are synchronous (sqlite-wasm calls are sync once the
-// VFS is open); the async boundary is the worker message protocol above this.
+// SQL layer of the backend worker. Functions are synchronous (sqlite-wasm calls
+// are sync once the VFS is open); the async boundary is the worker message
+// protocol above this.
 
 import type {
   AnalysisSource,
@@ -655,7 +655,6 @@ export function assignCategoryFromPath(db: DB, rootId: number, relpath: string):
     return
   }
 
-  // No matching category found -> fall back to Unsorted
   db.prepare('UPDATE samples SET category_id = ? WHERE root_id = ? AND relpath = ?').run(
     unsortedCategoryId(db),
     rootId,

@@ -316,7 +316,6 @@ describe('useAppState', () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
-    // Initially no transport
     expect(result.current.transportState).toBe('stopped')
 
     // Enter the Player.
@@ -458,7 +457,6 @@ describe('useAppState', () => {
     // Resolving after unmount must not call setState on an unmounted component.
     resolveVersion!('should-not-appear')
 
-    // No crash = pass; the isMounted guard prevented the state update.
   })
 
   it('handles unmount during a pending MixJam-file fetch', async () => {
@@ -477,7 +475,6 @@ describe('useAppState', () => {
     unmount()
 
     resolveProjects!([])
-    // No crash = pass.
   })
 
   it('setBpm updates the BPM state', async () => {

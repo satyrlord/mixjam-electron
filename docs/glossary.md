@@ -91,7 +91,7 @@ is not a folder, copied collection, playlist, or set of duplicated files. See
 ## Middle Strip
 
 The complete full-width composite band in the [Player](#player). It includes
-the project name, BPM label, [Transport Ribbon](#transport-ribbon), sample
+the project name, [Transport Ribbon](#transport-ribbon), sample
 search, Re-scan, and Help. It is not a synonym for the Transport Ribbon. See
 [spec 006](specs/spec-006-player-timeline-panels.md).
 
@@ -192,7 +192,7 @@ and playhead progression. It is distinct from the visual
 ## Transport Ribbon
 
 The subregion of the [Middle Strip](#middle-strip) that contains transport
-controls and nothing else. The project name, BPM label, sample search, Re-scan,
+controls and nothing else. The project name, sample search, Re-scan,
 and Help belong to the Middle Strip but are outside the Transport Ribbon.
 
 ## User Folder

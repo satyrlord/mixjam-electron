@@ -665,7 +665,6 @@ describe('useLibraryData', () => {
       await new Promise((r) => setTimeout(r, 50))
     })
 
-    // Should not crash — samples remain unchanged
     expect(result.current.samples).toHaveLength(1)
     consoleSpy.mockRestore()
   })
@@ -835,7 +834,6 @@ describe('useLibraryData', () => {
   it('assignTagToSample with unknown tag in tagsRef still patches without that tag name', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    // No tags in the tags list
     vi.mocked(api.listTags).mockResolvedValue([])
     vi.mocked(api.hasSamples).mockResolvedValue(true)
     vi.mocked(api.querySamples).mockResolvedValue({
@@ -945,7 +943,6 @@ describe('useLibraryData', () => {
     act(() => { result.current.setSearchQuery('ab') })
     act(() => { result.current.setSearchQuery('abc') })
 
-    // Only the last query should fire after debounce
     await waitFor(() => {
       const lastCall = vi.mocked(api.querySamples).mock.calls.at(-1)
       expect(lastCall?.[0]).toEqual(expect.objectContaining({ textSearch: 'abc' }))
@@ -962,7 +959,6 @@ describe('useLibraryData', () => {
     vi.mocked(api.hasSamples).mockRejectedValue(new Error('db locked'))
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    // Should not throw, just keep dbIndexed false
     await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
     expect(result.current.dbIndexed).toBe(false)
   })
@@ -980,7 +976,6 @@ describe('useLibraryData', () => {
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
-    // With no categories loaded, categoryId 1 maps to 'Unsorted'
     expect(result.current.samples[0]!.category).toBe('Unsorted')
 
     // Simulate scan-done callback which refreshes categories

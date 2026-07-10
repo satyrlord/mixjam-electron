@@ -67,7 +67,6 @@ describe('HomeScreen', () => {
     const onThemeChange = vi.fn()
     renderHome({ onThemeChange })
 
-    // Click a non-active theme swatch
     const swatch = screen.getByLabelText('Switch to Rust Industrial theme')
     fireEvent.click(swatch)
     expect(onThemeChange).toHaveBeenCalledWith('rust')

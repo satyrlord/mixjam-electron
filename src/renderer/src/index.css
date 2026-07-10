@@ -391,7 +391,6 @@ html[data-theme-ready='true'] body {
 [data-theme-key='arcade'] .home-link,
 [data-theme-key='arcade'] .footer-link,
 [data-theme-key='arcade'] .strip-proj,
-[data-theme-key='arcade'] .strip-bpm,
 [data-theme-key='arcade'] .strip-rescan,
 [data-theme-key='arcade'] .strip-cancel-scan,
 [data-theme-key='arcade'] .cat-manage-btn,
@@ -1497,36 +1496,6 @@ html[data-theme-ready='true'] body {
   width: 1px;
   height: 18px;
   background: var(--border);
-}
-
-.strip-bpm {
-  font-family: var(--font-label);
-  font-weight: 300;
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  padding: 2px 6px;
-  cursor: pointer;
-}
-
-.strip-bpm:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.strip-bpm-input {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  padding: 2px 6px;
-  width: 60px;
-  outline: none;
 }
 
 /* No background: the transport cluster sits directly on the strip so themed

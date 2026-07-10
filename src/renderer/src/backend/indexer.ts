@@ -1,8 +1,7 @@
-// Two-phase library indexer over a FileSystemDirectoryHandle, ported from the
-// former worker_threads indexer. Runs inside the backend worker on the same DB
-// connection as queries (opfs-sahpool allows exactly one connection); scan
-// work is batched in transactions and yields to the event loop between
-// batches, so queries interleave with an in-flight scan.
+// Two-phase library indexer over a FileSystemDirectoryHandle. Runs inside the
+// backend worker on the same DB connection as queries (opfs-sahpool allows
+// exactly one connection); scan work is batched in transactions and yields to
+// the event loop between batches, so queries interleave with an in-flight scan.
 
 import type { ScanProgress } from '../../../shared/backend-api'
 import type { DB } from './sql'

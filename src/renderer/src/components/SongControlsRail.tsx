@@ -3,8 +3,10 @@ import MixerColumn from './MixerColumn'
 import type { ChannelState } from '../hooks/useMixer'
 
 interface SongControlsRailProps {
+  bpm: number
   masterGain: number
   masterLevelDb: number
+  onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
   mixerChannels: ChannelState[]
   mixerChannelLevels: ReadonlyMap<number, number>
@@ -19,8 +21,10 @@ interface SongControlsRailProps {
 }
 
 export default function SongControlsRail({
+  bpm,
   masterGain,
   masterLevelDb,
+  onSetBpm,
   onSetMasterGain,
   mixerChannels,
   mixerChannelLevels,
@@ -36,8 +40,10 @@ export default function SongControlsRail({
   return (
     <aside className="tracker-zone song-controls-rail">
       <SongControlsMain
+        bpm={bpm}
         masterGain={masterGain}
         masterLevelDb={masterLevelDb}
+        onSetBpm={onSetBpm}
         onSetMasterGain={onSetMasterGain}
       />
       <MixerColumn

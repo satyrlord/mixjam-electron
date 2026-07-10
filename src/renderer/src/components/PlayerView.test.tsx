@@ -527,25 +527,27 @@ describe('PlayerView', () => {
     expect(localStorage.getItem('mixjam:recents-rail-collapsed')).toBeNull()
   })
 
-  // --- AC-004a: Song Controls rail shows Volume and dB meter; BPM lives only
-  // in the Middle Strip editor (single control) ---
-  it('AC-004a: Song Controls rail renders Master Volume slider and dB meter, with no BPM slider', () => {
+  // --- AC-004a: BPM and Master Volume share the Song Controls container ---
+  it('AC-004a: Song Controls renders BPM and Master Volume sliders with the dB meter', () => {
     renderPlayer({})
 
-    expect(screen.getByRole('slider', { name: 'Master Volume' })).toBeInTheDocument()
+    const songControls = screen.getByText('Song Controls').closest('.song-controls-main')
+    const bpmSlider = screen.getByRole('slider', { name: 'BPM' })
+    const volumeSlider = screen.getByRole('slider', { name: 'Master Volume' })
+
+    expect(songControls).toContainElement(bpmSlider)
+    expect(songControls).toContainElement(volumeSlider)
     expect(screen.getByRole('meter', { name: 'Output Level' })).toBeInTheDocument()
-    expect(screen.queryByRole('slider', { name: 'BPM' })).not.toBeInTheDocument()
   })
 
-  // --- AC-004b: BPM editor ranges 50-200, defaults to 120 ---
-  it('AC-004b: BPM editor has min=50, max=200, and initializes at 120', () => {
+  // --- AC-004b: BPM slider ranges 50-200, defaults to 120 ---
+  it('AC-004b: BPM slider has min=50, max=200, and initializes at 120', () => {
     renderPlayer({ transport: { bpm: 120 } })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit BPM' }))
-    const input = screen.getByLabelText('Edit BPM')
+    const input = screen.getByRole('slider', { name: 'BPM' })
     expect(input).toHaveAttribute('min', '50')
     expect(input).toHaveAttribute('max', '200')
-    expect(input).toHaveValue(120)
+    expect(input).toHaveValue('120')
   })
 
   // --- AC-005: 16 lanes render ---
@@ -678,50 +680,24 @@ describe('PlayerView', () => {
     expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 248])
   })
 
-  // --- AC-015: BPM click-to-edit ---
-  it('AC-015: clicking BPM opens editor, typing new value and pressing Enter commits it', () => {
+  // --- AC-015: BPM slider updates transport immediately ---
+  it('AC-015: changing the BPM slider updates the transport BPM', () => {
     const onSetBpm = vi.fn()
     renderPlayer({ transport: { bpm: 120, onSetBpm } })
 
-    // Initially shows BPM button
-    const bpmBtn = screen.getByRole('button', { name: 'Edit BPM' })
-    expect(bpmBtn).toHaveTextContent('120 BPM')
-
-    // Click to start editing
-    fireEvent.click(bpmBtn)
-
-    // Input appears
-    const input = screen.getByLabelText('Edit BPM') as HTMLInputElement
-    expect(input.tagName).toBe('INPUT')
-    expect(input.value).toBe('120')
-
-    // Change to 140 and press Enter
-    fireEvent.change(input, { target: { value: '140' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.change(screen.getByRole('slider', { name: 'BPM' }), {
+      target: { value: '140' }
+    })
 
     expect(onSetBpm).toHaveBeenCalledWith(140)
   })
 
-  it('AC-015: pressing Escape discards BPM edit without committing', () => {
-    const onSetBpm = vi.fn()
-    renderPlayer({ transport: { bpm: 120, onSetBpm } })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Edit BPM' }))
-    const input = screen.getByLabelText('Edit BPM')
-    fireEvent.change(input, { target: { value: '999' } })
-    fireEvent.keyDown(input, { key: 'Escape' })
-
-    expect(onSetBpm).not.toHaveBeenCalled()
-    // Button is back
-    expect(screen.getByRole('button', { name: 'Edit BPM' })).toHaveTextContent('120 BPM')
-  })
-
-  // --- AC-015a: the Middle Strip editor is the single BPM control and always
-  // reflects the transport state ---
-  it('AC-015a: Middle Strip BPM display reflects the bpm prop', () => {
+  // --- AC-015a: the Song Controls slider is the single BPM control ---
+  it('AC-015a: Song Controls BPM slider reflects the bpm prop', () => {
     renderPlayer({ transport: { bpm: 145 } })
 
-    expect(screen.getByRole('button', { name: 'Edit BPM' })).toHaveTextContent('145 BPM')
+    expect(screen.getByRole('slider', { name: 'BPM' })).toHaveValue('145')
+    expect(screen.getByText('145 BPM')).toBeInTheDocument()
   })
 
   // --- AC-016: Browser vertical resize handle ---
@@ -882,33 +858,13 @@ describe('PlayerView', () => {
     expect(onSetMasterGain).toHaveBeenCalledWith(0.5)
   })
 
-  it('inline-edits BPM via the strip button and commits on Enter', () => {
+  it('calls onSetBpm when the BPM slider changes', () => {
     const onSetBpm = vi.fn()
     renderPlayer({ transport: { bpm: 120, onSetBpm } })
 
-    const bpmButton = screen.getByLabelText('Edit BPM')
-    fireEvent.click(bpmButton)
-
-    const input = screen.getByLabelText('Edit BPM') as HTMLInputElement
-    expect(input.tagName).toBe('INPUT')
-    fireEvent.change(input, { target: { value: '140' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.change(screen.getByLabelText('BPM'), { target: { value: '140' } })
 
     expect(onSetBpm).toHaveBeenCalledWith(140)
-  })
-
-  it('cancels BPM inline edit on Escape', () => {
-    const onSetBpm = vi.fn()
-    renderPlayer({ transport: { bpm: 120, onSetBpm } })
-
-    const bpmButton = screen.getByLabelText('Edit BPM')
-    fireEvent.click(bpmButton)
-
-    const input = screen.getByLabelText('Edit BPM') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '180' } })
-    fireEvent.keyDown(input, { key: 'Escape' })
-
-    expect(onSetBpm).not.toHaveBeenCalled()
   })
 
   it('calls onSelectCategory(undefined) when All button is clicked', () => {

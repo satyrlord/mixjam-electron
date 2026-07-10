@@ -83,8 +83,8 @@ const EXPECTED_EMERALD_DEPTH = {
   'shadow-meter': 'none'
 } as const
 
-// The original warm palette, authored for Emerald in the predecessor design
-// project; other themes author their own families (spec-002 Sample Palette).
+// Emerald's expected palette; other themes author their own families
+// (spec-002 Sample Palette).
 const EXPECTED_EMERALD_PALETTE = [
   '#982A00', '#830000', '#AB4700', '#BF6601',
   '#D48915', '#E6AD33', '#BFAD00', '#7DA500'
@@ -259,7 +259,6 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
 
     const select = screen.getByLabelText('Theme')
 
-    // Ensure emerald is active first
     fireEvent.change(select, { target: { value: 'emerald' } })
     const beforeStyleSnapshot = document.documentElement.style.cssText
 
