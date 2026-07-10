@@ -1,8 +1,10 @@
 import type {
+  AnalysisProgress,
   CategoryItem,
   LibraryItem,
   SampleListItem,
   ScanProgress,
+  SampleAnalysisPatch,
   TagItem
 } from '../../../shared/backend-api'
 import type { ClipGroupEntry, FooterSampleDetail, LaneState } from '../lib/playerShell'
@@ -25,6 +27,7 @@ export interface TrackerBrowserProps {
   categories: CategoryItem[]
   libraries: LibraryItem[]
   scanProgress: ScanProgress
+  analysisProgress: AnalysisProgress
   onSearchChange: (query: string) => void
   onLoadMoreSamples: () => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
@@ -39,6 +42,8 @@ export interface TrackerBrowserProps {
   onDeleteTag: (id: number) => Promise<void>
   onAssignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
   onUnassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
+  onUpdateSampleAnalysis: (sample: SampleListItem, patch: SampleAnalysisPatch) => Promise<void>
+  onReanalyzeSample: (sample: SampleListItem) => Promise<void>
   onCreateCategory: (name: string, parentId?: number) => Promise<CategoryItem>
   onDeleteCategory: (id: number) => Promise<void>
   onSaveLibrary: (name: string) => Promise<LibraryItem>

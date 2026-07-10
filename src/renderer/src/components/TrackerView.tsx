@@ -513,6 +513,7 @@ export default function TrackerView({
         searchQuery={browser.searchQuery}
         onSearchChange={browser.onSearchChange}
         scanProgress={browser.scanProgress}
+        analysisProgress={browser.analysisProgress}
         onStartScan={browser.onStartScan}
         onCancelScan={browser.onCancelScan}
         onOpenShortcuts={() => setShortcutsOpen(true)}

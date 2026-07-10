@@ -80,7 +80,8 @@ Rules of the process model:
 - Not a full-featured DAW. The tracker/player is intentionally eJay/Acid-simple, and
   narrower than MixJam Native's ambitions.
 - Not real-time collaboration, cloud sync, or plugin hosting.
-- Not auto-detection of BPM/key at scale in v1 (see [indexing.md](indexing.md)).
+- Not ML-based or cross-library-accuracy-guaranteed sample analysis; the v1
+  heuristic WAV pipeline is documented in [indexing.md](indexing.md).
 
 ## Relationship to sibling projects
 

@@ -44,11 +44,11 @@ export const test = base.extend<E2EFixtures>({
       ]
 
       const MOCK_SAMPLES = [
-        { id: 1, relpath: 'Drums/Kicks/kick_808.wav', filename: 'kick_808.wav', ext: 'wav', sizeBytes: 1024, duration: 0.5, sampleRate: 44100, channels: 1, bpm: null, musicalKey: null, dateAdded: 1000, scanState: 1, categoryId: 2, tagIds: [], tags: [] },
-        { id: 2, relpath: 'Drums/Snares/snare_clap.wav', filename: 'snare_clap.wav', ext: 'wav', sizeBytes: 2048, duration: 0.3, sampleRate: 44100, channels: 1, bpm: null, musicalKey: null, dateAdded: 1001, scanState: 1, categoryId: 2, tagIds: [], tags: [] },
-        { id: 3, relpath: 'Bass/deep_sub.wav', filename: 'deep_sub.wav', ext: 'wav', sizeBytes: 4096, duration: 1.2, sampleRate: 44100, channels: 1, bpm: null, musicalKey: null, dateAdded: 1002, scanState: 1, categoryId: 1, tagIds: [], tags: [] },
-        { id: 4, relpath: 'Synth/pad_warm.wav', filename: 'pad_warm.wav', ext: 'wav', sizeBytes: 8192, duration: 2.0, sampleRate: 44100, channels: 2, bpm: 120, musicalKey: 'C', dateAdded: 1003, scanState: 1, categoryId: 4, tagIds: [], tags: [] },
-        { id: 5, relpath: 'FX/riser_imp.wav', filename: 'riser_imp.wav', ext: 'wav', sizeBytes: 1536, duration: 0.8, sampleRate: 44100, channels: 1, bpm: null, musicalKey: null, dateAdded: 1004, scanState: 1, categoryId: 3, tagIds: [1], tags: ['fav'] }
+        { id: 1, relpath: 'Drums/Kicks/kick_808.wav', filename: 'kick_808.wav', ext: 'wav', sizeBytes: 1024, duration: 0.5, sampleRate: 44100, channels: 1, bpm: 120, bpmSource: 'analysis', musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Kick', sampleTypeSource: 'analysis', dateAdded: 1000, scanState: 1, categoryId: 2, tagIds: [], tags: [] },
+        { id: 2, relpath: 'Drums/Snares/snare_clap.wav', filename: 'snare_clap.wav', ext: 'wav', sizeBytes: 2048, duration: 0.3, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: 'Snare', sampleTypeSource: 'analysis', dateAdded: 1001, scanState: 1, categoryId: 2, tagIds: [], tags: [] },
+        { id: 3, relpath: 'Bass/deep_sub.wav', filename: 'deep_sub.wav', ext: 'wav', sizeBytes: 4096, duration: 1.2, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Bass', sampleTypeSource: 'analysis', dateAdded: 1002, scanState: 1, categoryId: 1, tagIds: [], tags: [] },
+        { id: 4, relpath: 'Synth/pad_warm.wav', filename: 'pad_warm.wav', ext: 'wav', sizeBytes: 8192, duration: 2.0, sampleRate: 44100, channels: 2, bpm: 120, bpmSource: 'analysis', musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Synth', sampleTypeSource: 'analysis', dateAdded: 1003, scanState: 1, categoryId: 4, tagIds: [], tags: [] },
+        { id: 5, relpath: 'FX/riser_imp.wav', filename: 'riser_imp.wav', ext: 'wav', sizeBytes: 1536, duration: 0.8, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: 'FX', sampleTypeSource: 'analysis', dateAdded: 1004, scanState: 1, categoryId: 3, tagIds: [1], tags: ['fav'] }
       ]
 
       const MOCK_CATEGORIES = [
@@ -103,7 +103,9 @@ export const test = base.extend<E2EFixtures>({
         hasSamples: function () { return Promise.resolve(true) },
         listMissingRelpaths: function () { return Promise.resolve([]) },
         startScan: function () { return Promise.resolve() },
+        cancelScan: function () { return Promise.resolve() },
         getScanProgress: function () { return Promise.resolve({ status: 'idle', phase: null, found: 0, processed: 0, total: 0 }) },
+        getAnalysisProgress: function () { return Promise.resolve({ status: 'idle', analyzed: 0, total: 0 }) },
         querySamples: function (req) { return Promise.resolve(querySamples(req)) },
         listTags: function () { return Promise.resolve(MOCK_TAGS) },
         createTag: function (name) { return Promise.resolve({ id: 99, name: name, color: null }) },
@@ -111,6 +113,16 @@ export const test = base.extend<E2EFixtures>({
         deleteTag: function () { return Promise.resolve() },
         assignTag: function () { return Promise.resolve() },
         unassignTag: function () { return Promise.resolve() },
+        updateSampleAnalysis: function (sampleId, patch) {
+          const sample = MOCK_SAMPLES.find(function (row) { return row.id === sampleId })
+          if (sample) {
+            if (Object.prototype.hasOwnProperty.call(patch, 'bpm')) { sample.bpm = patch.bpm; sample.bpmSource = patch.bpm === null ? null : 'manual' }
+            if (Object.prototype.hasOwnProperty.call(patch, 'musicalKey')) { sample.musicalKey = patch.musicalKey; sample.musicalKeySource = patch.musicalKey === null ? null : 'manual' }
+            if (Object.prototype.hasOwnProperty.call(patch, 'sampleType')) { sample.sampleType = patch.sampleType; sample.sampleTypeSource = patch.sampleType === null ? null : 'manual' }
+          }
+          return Promise.resolve()
+        },
+        reanalyzeSample: function () { return Promise.resolve() },
         listCategories: function () { return Promise.resolve(MOCK_CATEGORIES) },
         createCategory: function (name) { return Promise.resolve({ id: 99, name: name, parentId: null }) },
         deleteCategory: function () { return Promise.resolve() },
@@ -119,7 +131,9 @@ export const test = base.extend<E2EFixtures>({
         deleteLibrary: function () { return Promise.resolve() },
         readSampleBytes: function () { return Promise.resolve(null) },
         onScanProgress: function () { return function () {} },
-        onScanDone: function () { return function () {} }
+        onScanDone: function () { return function () {} },
+        onAnalysisProgress: function () { return function () {} },
+        onAnalysisDone: function () { return function () {} }
       }
     })
 

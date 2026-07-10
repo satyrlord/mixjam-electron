@@ -26,6 +26,12 @@ const SAMPLE: SampleListItem = {
   relpath: 'samples/kick.wav',
   category: 'Drums',
   durationSeconds: 0.5,
+  bpm: 120,
+  bpmSource: 'analysis',
+  musicalKey: 'C',
+  musicalKeySource: 'analysis',
+  sampleType: 'Kick',
+  sampleTypeSource: 'analysis',
   tags: ['Punchy'],
   categoryId: 1,
   tagIds: [10]
@@ -48,6 +54,7 @@ function makeBrowser(overrides: Partial<TrackerBrowserProps> = {}): TrackerBrows
     categories: CATEGORIES,
     libraries: LIBRARIES,
     scanProgress: IDLE_PROGRESS,
+    analysisProgress: { status: 'idle', analyzed: 0, total: 0 },
     onSearchChange: noop,
     onLoadMoreSamples: noop,
     onSelectSampleDetail: noop,
@@ -62,6 +69,8 @@ function makeBrowser(overrides: Partial<TrackerBrowserProps> = {}): TrackerBrows
     onDeleteTag: asyncNoop as never,
     onAssignTagToSample: asyncNoop as never,
     onUnassignTagFromSample: asyncNoop as never,
+    onUpdateSampleAnalysis: asyncNoop as never,
+    onReanalyzeSample: asyncNoop as never,
     onCreateCategory: asyncNoop as never,
     onDeleteCategory: asyncNoop as never,
     onSaveLibrary: asyncNoop as never,
@@ -172,5 +181,86 @@ describe('SampleBrowser', () => {
 
     fireEvent.click(window)
     expect(screen.queryByText(/no tags yet/i)).not.toBeInTheDocument()
+  })
+
+  it('AC-006/008: edits and clears analysis fields from the sample menu', async () => {
+    const onUpdateSampleAnalysis = vi.fn(asyncNoop)
+    const onReanalyzeSample = vi.fn(asyncNoop)
+    const { container } = renderBrowser({ onUpdateSampleAnalysis, onReanalyzeSample })
+
+    fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    expect(screen.getByRole('dialog', { name: /analysis for kick.wav/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Sample BPM')).toHaveValue(120)
+
+    fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
+    await waitFor(() => expect(onUpdateSampleAnalysis).toHaveBeenCalledWith(SAMPLE, { bpm: null }))
+
+    fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    fireEvent.click(screen.getByRole('button', { name: /analyze blank fields/i }))
+    await waitFor(() => expect(onReanalyzeSample).toHaveBeenCalledWith(SAMPLE))
+  })
+
+  it('shows error when analysis update fails', async () => {
+    const onUpdateSampleAnalysis = vi.fn().mockRejectedValue(new Error('db locked'))
+    const { container } = renderBrowser({ onUpdateSampleAnalysis })
+
+    fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+
+    fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '140' } })
+    fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
+    await waitFor(() => expect(screen.getByText('db locked')).toBeInTheDocument())
+  })
+
+  it('shows fallback error message when rejection is not an Error instance', async () => {
+    const onUpdateSampleAnalysis = vi.fn().mockRejectedValue('connection lost')
+    const { container } = renderBrowser({ onUpdateSampleAnalysis })
+
+    fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+
+    fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '140' } })
+    fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
+    await waitFor(() => expect(screen.getByText('Analysis update failed')).toBeInTheDocument())
+  })
+
+  it('saves only changed key field without touching bpm or type', async () => {
+    const onUpdateSampleAnalysis = vi.fn(asyncNoop)
+    const { container } = renderBrowser({ onUpdateSampleAnalysis })
+
+    fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+
+    fireEvent.change(screen.getByLabelText('Sample musical key'), { target: { value: 'Am' } })
+    fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
+    await waitFor(() => expect(onUpdateSampleAnalysis).toHaveBeenCalledWith(SAMPLE, { musicalKey: 'Am' }))
+  })
+
+  it('preserves analysis provenance when BPM text is numerically unchanged', () => {
+    const onUpdateSampleAnalysis = vi.fn(asyncNoop)
+    const { container } = renderBrowser({ onUpdateSampleAnalysis })
+
+    fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '120.0' } })
+    fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
+
+    expect(onUpdateSampleAnalysis).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: /analysis for kick.wav/i })).not.toBeInTheDocument()
+  })
+
+  it('saves only changed type field and clears it when set to Unspecified', async () => {
+    const onUpdateSampleAnalysis = vi.fn(asyncNoop)
+    const { container } = renderBrowser({ onUpdateSampleAnalysis })
+
+    fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+
+    fireEvent.change(screen.getByLabelText('Sample type'), { target: { value: 'Snare' } })
+    fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
+    await waitFor(() => expect(onUpdateSampleAnalysis).toHaveBeenCalledWith(SAMPLE, { sampleType: 'Snare' }))
   })
 })

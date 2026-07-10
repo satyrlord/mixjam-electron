@@ -5,6 +5,7 @@
 
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import type {
+  AnalysisProgress,
   SampleQueryRequest,
   ScanProgress
 } from '../../../shared/backend-api'
@@ -15,6 +16,8 @@ import { initSchema } from './schema'
 import * as library from './library'
 import { runScan } from './indexer'
 import { loadFolderHandle } from './handle-store'
+import { resolveFileHandle } from './folder-access'
+import { runPendingAnalysis, runSingleAnalysis } from './analysis-runner'
 
 const ctx = self as unknown as {
   postMessage(message: WorkerMessage): void
@@ -22,8 +25,10 @@ const ctx = self as unknown as {
 }
 
 const IDLE: ScanProgress = { status: 'idle', phase: null, found: 0, processed: 0, total: 0 }
+const ANALYSIS_IDLE: AnalysisProgress = { status: 'idle', analyzed: 0, total: 0 }
 
 let progress: ScanProgress = { ...IDLE }
+let analysisProgress: AnalysisProgress = { ...ANALYSIS_IDLE }
 // Bumped on every startScan; an in-flight scan that observes a newer
 // generation stops reporting so a restarted scan cannot clobber its state.
 let scanGeneration = 0
@@ -51,27 +56,86 @@ function startScan(db: DB, rootKey: string): void {
   const isCurrent = (): boolean => generation === scanGeneration
 
   progress = { status: 'scanning', phase: 1, found: 0, processed: 0, total: 0 }
+  analysisProgress = { ...ANALYSIS_IDLE }
   emitEvent({ type: 'scan-progress', progress })
+  emitEvent({ type: 'analysis-progress', progress: analysisProgress })
 
   void (async () => {
+    let result: Awaited<ReturnType<typeof runScan>>
     try {
       const handle = await loadFolderHandle(rootKey)
       if (!handle) throw new Error(`No stored folder handle for root ${rootKey}`)
 
-      await runScan(db, rootKey, handle, (next) => {
+      result = await runScan(db, rootKey, handle, (next) => {
         if (!isCurrent()) return
         progress = next
         emitEvent({ type: 'scan-progress', progress })
       }, isCurrent)
-
-      if (!isCurrent()) return
-      progress = { ...IDLE }
-      emitEvent({ type: 'scan-done' })
     } catch (error) {
-      console.error('Indexer error:', error)
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('Indexer error:', message, error)
       if (!isCurrent()) return
-      progress = { status: 'error', phase: null, found: 0, processed: 0, total: 0 }
+      progress = {
+        status: 'error',
+        phase: progress.phase,
+        found: progress.found,
+        processed: progress.processed,
+        total: progress.total,
+        error: message
+      }
       emitEvent({ type: 'scan-progress', progress })
+      return
+    }
+
+    if (!isCurrent()) return
+    progress = { ...IDLE }
+    emitEvent({ type: 'scan-done' })
+
+    try {
+      await runPendingAnalysis(db, result.rootId, result.files, (next) => {
+        if (!isCurrent()) return
+        analysisProgress = next
+        emitEvent({ type: 'analysis-progress', progress: analysisProgress })
+      }, isCurrent)
+      if (!isCurrent()) return
+      analysisProgress = { ...ANALYSIS_IDLE }
+      emitEvent({ type: 'analysis-done' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('Analysis error:', message, error)
+      if (!isCurrent()) return
+      analysisProgress = { status: 'error', analyzed: 0, total: 0, error: message }
+      emitEvent({ type: 'analysis-progress', progress: analysisProgress })
+    }
+  })()
+}
+
+function reanalyzeSample(db: DB, rootKey: string, sampleId: number, relpath: string): void {
+  if (progress.status === 'scanning' || analysisProgress.status === 'analyzing') {
+    throw new Error('Wait for the current scan or analysis to finish')
+  }
+  const generation = ++scanGeneration
+  const isCurrent = (): boolean => generation === scanGeneration
+  void (async () => {
+    try {
+      const root = await loadFolderHandle(rootKey)
+      if (!root) throw new Error(`No stored folder handle for root ${rootKey}`)
+      const handle = await resolveFileHandle(root, relpath)
+      if (!handle) throw new Error(`Sample is not readable: ${relpath}`)
+      const file = await handle.getFile()
+      await runSingleAnalysis(db, sampleId, file, (next) => {
+        if (!isCurrent()) return
+        analysisProgress = next
+        emitEvent({ type: 'analysis-progress', progress: analysisProgress })
+      })
+      if (!isCurrent()) return
+      analysisProgress = { ...ANALYSIS_IDLE }
+      emitEvent({ type: 'analysis-done' })
+    } catch (error) {
+      console.error('Analysis error:', error)
+      if (!isCurrent()) return
+      analysisProgress = { status: 'error', analyzed: 0, total: 1 }
+      emitEvent({ type: 'analysis-progress', progress: analysisProgress })
     }
   })()
 }
@@ -79,7 +143,9 @@ function startScan(db: DB, rootKey: string): void {
 function cancelScan(): void {
   scanGeneration++
   progress = { ...IDLE }
+  analysisProgress = { ...ANALYSIS_IDLE }
   emitEvent({ type: 'scan-progress', progress })
+  emitEvent({ type: 'analysis-progress', progress: analysisProgress })
 }
 
 // Built once after the DB is ready so each incoming message does not
@@ -93,12 +159,15 @@ function buildCalls(db: DB): BackendCalls {
     startScan: (rootKey) => startScan(db, rootKey),
     cancelScan: () => cancelScan(),
     getScanProgress: () => ({ ...progress }),
+    getAnalysisProgress: () => ({ ...analysisProgress }),
     listTags: () => library.listTags(db),
     createTag: (name, color) => library.createTag(db, name, color),
     renameTag: (id, name) => library.renameTag(db, id, name),
     deleteTag: (id) => library.deleteTag(db, id),
     assignTag: (sampleId, tagId) => library.assignTag(db, sampleId, tagId),
     unassignTag: (sampleId, tagId) => library.unassignTag(db, sampleId, tagId),
+    updateSampleAnalysis: (sampleId, patch) => library.updateSampleAnalysis(db, sampleId, patch),
+    reanalyzeSample: (rootKey, sampleId, relpath) => reanalyzeSample(db, rootKey, sampleId, relpath),
     listCategories: () => library.listCategories(db),
     createCategory: (name, parentId) => library.createCategory(db, name, parentId),
     deleteCategory: (id) => library.deleteCategory(db, id),

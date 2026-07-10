@@ -32,6 +32,11 @@ export type ScanEmit = (progress: ScanProgress) => void
  *  batch boundary instead of walking to completion. */
 export type ScanIsCurrent = () => boolean
 
+export interface ScanResult {
+  rootId: number
+  files: ReadonlyMap<string, File>
+}
+
 interface FoundFile {
   relpath: string
   handle: FileSystemFileHandle
@@ -219,11 +224,11 @@ export async function runScan(
   root: FileSystemDirectoryHandle,
   emit: ScanEmit,
   isCurrent: ScanIsCurrent
-): Promise<void> {
+): Promise<ScanResult> {
   const rootId = ensureScanRoot(db, rootKey)
   const walked = await walkAudio(root)
   const fileByRelpath = new Map<string, File>()
   await phase1(db, rootId, walked, fileByRelpath, emit, isCurrent)
-  if (!isCurrent()) return
-  await phase2(db, rootId, fileByRelpath, emit, isCurrent)
+  if (isCurrent()) await phase2(db, rootId, fileByRelpath, emit, isCurrent)
+  return { rootId, files: fileByRelpath }
 }

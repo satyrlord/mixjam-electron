@@ -29,8 +29,12 @@ CREATE TABLE samples (
   duration     REAL,                   -- seconds; NULL until metadata extracted
   sample_rate  INTEGER,
   channels     INTEGER,
-  bpm          REAL,                   -- NULL unless set manually / analyzed later
-  musical_key  TEXT,                   -- e.g. 'Am'; NULL until set
+  bpm          REAL,                   -- NULL until analyzed or manually set
+  bpm_source   TEXT,                   -- 'analysis', 'manual', or NULL
+  musical_key  TEXT,                   -- e.g. 'Am'; NULL until analyzed/set
+  musical_key_source TEXT,             -- 'analysis', 'manual', or NULL
+  sample_type  TEXT,                   -- acoustic class; separate from category_id
+  sample_type_source TEXT,             -- 'analysis', 'manual', or NULL
   date_added   INTEGER NOT NULL,       -- epoch ms, first-indexed time
   scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-extracted, 2=missing
   category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,  -- one primary category per sample
@@ -87,6 +91,12 @@ CREATE TABLE library_rules (
 session's `sampleFolder`), but every folder ever scanned keeps its rows, scoped
 by `root_id`, so switching folders switches the visible library instead of
 mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
+
+Analysis provenance is stored per field so a manual BPM does not prevent a
+missing key or sample type from being analyzed. Clearing a manual value clears
+both its value and source. Analysis writes only NULL fields whose source is not
+`manual`. `sample_type` is acoustic metadata; `category_id` remains the
+spec-004 organizational folder/user category and analysis never overwrites it.
 
 `PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).
 There is no WAL under opfs-sahpool — queries and the indexer share the single

@@ -1,4 +1,4 @@
-import type { ScanProgress } from '../../../shared/backend-api'
+import type { AnalysisProgress, ScanProgress } from '../../../shared/backend-api'
 import type { BackendCalls, BackendOp, WorkerMessage, WorkerRequest } from './protocol'
 
 interface WorkerLike {
@@ -20,6 +20,8 @@ export interface WorkerProxy {
   ): Promise<ReturnType<BackendCalls[Op]>>
   onScanProgress(listener: (progress: ScanProgress) => void): () => void
   onScanDone(listener: () => void): () => void
+  onAnalysisProgress(listener: (progress: AnalysisProgress) => void): () => void
+  onAnalysisDone(listener: () => void): () => void
   dispose(): void
 }
 
@@ -29,6 +31,8 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
   const pending = new Map<number, Pending>()
   const progressListeners = new Set<(progress: ScanProgress) => void>()
   const doneListeners = new Set<() => void>()
+  const analysisProgressListeners = new Set<(progress: AnalysisProgress) => void>()
+  const analysisDoneListeners = new Set<() => void>()
 
   function stop(error: Error): void {
     if (stoppedError) return
@@ -40,6 +44,8 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     pending.clear()
     progressListeners.clear()
     doneListeners.clear()
+    analysisProgressListeners.clear()
+    analysisDoneListeners.clear()
   }
 
   worker.onmessage = (event) => {
@@ -53,10 +59,24 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
       return
     }
     if (message.type === 'scan-progress') {
+      if (message.progress.status === 'error') {
+        console.error('Scan failed:', message.progress.error ?? 'Unknown backend error')
+      }
       for (const listener of progressListeners) listener(message.progress)
       return
     }
-    for (const listener of doneListeners) listener()
+    if (message.type === 'scan-done') {
+      for (const listener of doneListeners) listener()
+      return
+    }
+    if (message.type === 'analysis-progress') {
+      if (message.progress.status === 'error') {
+        console.error('Analysis failed:', message.progress.error ?? 'Unknown backend error')
+      }
+      for (const listener of analysisProgressListeners) listener(message.progress)
+      return
+    }
+    for (const listener of analysisDoneListeners) listener()
   }
 
   worker.onerror = (event) => {
@@ -81,6 +101,14 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     onScanDone(listener) {
       if (!stoppedError) doneListeners.add(listener)
       return () => doneListeners.delete(listener)
+    },
+    onAnalysisProgress(listener) {
+      if (!stoppedError) analysisProgressListeners.add(listener)
+      return () => analysisProgressListeners.delete(listener)
+    },
+    onAnalysisDone(listener) {
+      if (!stoppedError) analysisDoneListeners.add(listener)
+      return () => analysisDoneListeners.delete(listener)
     },
     dispose() {
       stop(new Error('Backend worker disposed'))

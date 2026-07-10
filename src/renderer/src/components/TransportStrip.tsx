@@ -1,6 +1,7 @@
-import type { ScanProgress } from '../../../shared/backend-api'
+import type { AnalysisProgress, ScanProgress } from '../../../shared/backend-api'
 import { useBpmEditor } from '../hooks/useBpmEditor'
 import ScanProgressBar from './ScanProgressBar'
+import AnalysisProgressBar from './AnalysisProgressBar'
 
 // Transport and edit glyphs as inline SVGs: emoji codepoints render through a
 // color emoji font on Windows and ignore the theme's currentColor.
@@ -41,6 +42,7 @@ interface TransportStripProps {
   searchQuery: string
   onSearchChange: (query: string) => void
   scanProgress: ScanProgress
+  analysisProgress: AnalysisProgress
   onStartScan: () => void
   onCancelScan: () => void
   onOpenShortcuts: () => void
@@ -61,11 +63,15 @@ export default function TransportStrip({
   searchQuery,
   onSearchChange,
   scanProgress,
+  analysisProgress,
   onStartScan,
   onCancelScan,
   onOpenShortcuts
 }: TransportStripProps) {
   const isPlaying = transportState === 'playing'
+  const scanBusy = scanProgress.status === 'scanning'
+  const analysisBusy = analysisProgress.status === 'analyzing'
+  const libraryBusy = scanBusy || analysisBusy
 
   const {
     editingBpm,
@@ -148,6 +154,7 @@ export default function TransportStrip({
       </div>
       <div className="strip-right">
         <ScanProgressBar progress={scanProgress} />
+        <AnalysisProgressBar progress={analysisProgress} />
         <input
           type="search"
           className="strip-search"
@@ -160,13 +167,13 @@ export default function TransportStrip({
           type="button"
           className="strip-rescan"
           onClick={() => void onStartScan()}
-          disabled={scanProgress.status === 'scanning'}
-          aria-label={scanProgress.status === 'scanning' ? 'Scanning...' : 'Re-scan'}
+          disabled={libraryBusy}
+          aria-label={scanBusy ? 'Scanning...' : analysisBusy ? 'Analyzing samples...' : 'Re-scan'}
           title="Re-scan the Sample Folder into the library"
         >
-          {scanProgress.status === 'scanning' ? 'Scanning...' : 'Re-scan'}
+          {scanBusy ? 'Scanning...' : analysisBusy ? 'Analyzing...' : 'Re-scan'}
         </button>
-        {scanProgress.status === 'scanning' && (
+        {scanBusy && (
           <button
             type="button"
             className="strip-cancel-scan"

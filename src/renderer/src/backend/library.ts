@@ -2,7 +2,13 @@
 // library.ts. Functions are synchronous (sqlite-wasm calls are sync once the
 // VFS is open); the async boundary is the worker message protocol above this.
 
-import type { SampleQueryRequest } from '../../../shared/backend-api'
+import type {
+  AnalysisSource,
+  SampleAnalysisPatch,
+  SampleQueryRequest,
+  SampleType
+} from '../../../shared/backend-api'
+import { isSampleType } from './analysis'
 import type { BindValue, DB } from './sql'
 
 export interface TagRow {
@@ -35,12 +41,87 @@ export interface SampleRow {
   sampleRate: number | null
   channels: number | null
   bpm: number | null
+  bpmSource: AnalysisSource
   musicalKey: string | null
+  musicalKeySource: AnalysisSource
+  sampleType: SampleType | null
+  sampleTypeSource: AnalysisSource
   dateAdded: number
   scanState: number
   categoryId: number | null
   tagIds: number[]
   tags: string[]
+}
+
+export type AnalysisCandidate = {
+  id: number
+  relpath: string
+}
+
+function analysisSource(value: string | null): AnalysisSource {
+  return value === 'analysis' || value === 'manual' ? value : null
+}
+
+export function listAnalysisCandidates(db: DB, rootId: number): AnalysisCandidate[] {
+  return db.prepare(
+    `SELECT id, relpath FROM samples
+     WHERE root_id = ? AND scan_state = 1 AND (
+       (bpm IS NULL AND COALESCE(bpm_source, '') != 'manual') OR
+       (musical_key IS NULL AND COALESCE(musical_key_source, '') != 'manual') OR
+       (sample_type IS NULL AND COALESCE(sample_type_source, '') != 'manual')
+     ) ORDER BY id`
+  ).all<AnalysisCandidate>(rootId)
+}
+
+export function applyAnalysisResult(
+  db: DB,
+  sampleId: number,
+  result: { bpm: number | null; musicalKey: string | null; sampleType: SampleType }
+): void {
+  if (result.bpm !== null) {
+    db.prepare(
+      `UPDATE samples SET bpm = ?, bpm_source = 'analysis'
+       WHERE id = ? AND bpm IS NULL AND COALESCE(bpm_source, '') != 'manual'`
+    ).run(result.bpm, sampleId)
+  }
+  if (result.musicalKey !== null) {
+    db.prepare(
+      `UPDATE samples SET musical_key = ?, musical_key_source = 'analysis'
+       WHERE id = ? AND musical_key IS NULL AND COALESCE(musical_key_source, '') != 'manual'`
+    ).run(result.musicalKey, sampleId)
+  }
+  db.prepare(
+    `UPDATE samples SET sample_type = ?, sample_type_source = 'analysis'
+     WHERE id = ? AND sample_type IS NULL AND COALESCE(sample_type_source, '') != 'manual'`
+  ).run(result.sampleType, sampleId)
+}
+
+export function updateSampleAnalysis(db: DB, sampleId: number, patch: SampleAnalysisPatch): void {
+  if (Object.prototype.hasOwnProperty.call(patch, 'bpm')) {
+    const bpm = patch.bpm
+    if (bpm !== null && (typeof bpm !== 'number' || !Number.isFinite(bpm) || bpm < 20 || bpm > 400)) {
+      throw new Error('BPM must be between 20 and 400')
+    }
+    db.prepare('UPDATE samples SET bpm = ?, bpm_source = ? WHERE id = ?').run(
+      bpm ?? null, bpm === null ? null : 'manual', sampleId
+    )
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'musicalKey')) {
+    const key = patch.musicalKey
+    if (key !== null && (typeof key !== 'string' || !/^[A-G](?:#|b)?m?$/.test(key))) {
+      throw new Error('Musical key must look like C, C#, Am, or Bbm')
+    }
+    db.prepare('UPDATE samples SET musical_key = ?, musical_key_source = ? WHERE id = ?').run(
+      key ?? null, key === null ? null : 'manual', sampleId
+    )
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'sampleType')) {
+    const sampleType = patch.sampleType
+    if (sampleType !== null && !isSampleType(sampleType)) throw new Error('Invalid sample type')
+    db.prepare('UPDATE samples SET sample_type = ?, sample_type_source = ? WHERE id = ?').run(
+      sampleType ?? null, sampleType === null ? null : 'manual', sampleId
+    )
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -373,7 +454,8 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
   const rows = db
     .prepare(
       `SELECT s.id, s.relpath, s.filename, s.ext, s.size_bytes, s.mtime,
-              s.duration, s.sample_rate, s.channels, s.bpm, s.musical_key,
+              s.duration, s.sample_rate, s.channels, s.bpm, s.bpm_source,
+              s.musical_key, s.musical_key_source, s.sample_type, s.sample_type_source,
               s.date_added, s.scan_state, s.category_id,
               (SELECT GROUP_CONCAT(st.tag_id) FROM sample_tags st
                 WHERE st.sample_id = s.id) AS tag_ids,
@@ -393,7 +475,11 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
       sample_rate: number | null
       channels: number | null
       bpm: number | null
+      bpm_source: string | null
       musical_key: string | null
+      musical_key_source: string | null
+      sample_type: string | null
+      sample_type_source: string | null
       date_added: number
       scan_state: number
       category_id: number | null
@@ -414,7 +500,11 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
       sampleRate: r.sample_rate,
       channels: r.channels,
       bpm: r.bpm,
+      bpmSource: analysisSource(r.bpm_source),
       musicalKey: r.musical_key,
+      musicalKeySource: analysisSource(r.musical_key_source),
+      sampleType: isSampleType(r.sample_type) ? r.sample_type : null,
+      sampleTypeSource: analysisSource(r.sample_type_source),
       dateAdded: r.date_added,
       scanState: r.scan_state,
       categoryId: r.category_id,

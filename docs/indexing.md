@@ -16,7 +16,7 @@ the BackendAPI facade on the UI thread.
 UI thread ──startScan(FolderRef)──▶ backend worker
    ▲                                  │ load handle from IndexedDB
    │                                  │ walk handle + upsert stubs (phase 1)
-   └──scan-progress / scan-done ◀─────┘ parseBlob metadata (phase 2)
+   └── progress/done events ◀─────────┘ metadata (phase 2), analysis (phase 3)
 ```
 
 The traversal walks the Sample Folder's `FileSystemDirectoryHandle`; file
@@ -51,10 +51,18 @@ counter and is observed at phase boundaries and phase-1 batch boundaries; phase
 and the UI resets progress to idle immediately. A later scan resumes naturally
 by re-upserting phase-1 rows and processing remaining stubs.
 
-**BPM/key are not auto-detected in v1** (a non-goal — see
-[architecture.md](architecture.md#non-goals-for-this-phase)). They remain NULL
-in the current UI. Automatic analysis is a possible later phase 3 that only
-updates rows where the columns are NULL; nothing else needs to change to add it.
+**Phase 3 — sample analysis.** After phase 2, `scan-done` makes indexed samples
+available immediately. The same backend worker then decodes PCM/IEEE-float WAV
+files sequentially and extracts BPM, musical key, and acoustic sample type.
+Analysis has its own `{ status, analyzed, total }` progress events and yields to
+the worker event loop after every file so library queries continue to interleave.
+Only NULL, non-manual fields are written. Peak memory stays bounded to one
+decoded sample; `analysis-done` refreshes the current windowed renderer query.
+
+Manual values carry per-field `manual` provenance and survive re-scan and
+re-analysis. Clearing an override clears its source and permits the individual
+re-analysis action to fill that field again. Automatic decoding of MP3, FLAC,
+OGG, and AIFF is deferred; those formats retain manual analysis controls.
 
 ## Category auto-assignment
 
@@ -119,5 +127,6 @@ entry; an already indexed folder changes only after the user selects Re-scan.
   The next scan re-upserts them idempotently on `(root_id, relpath)` and phase 2
   finds the remaining `scan_state = 0` rows.
 - Unreadable directories and files are skipped. Metadata failures leave the row
-  as a stub. These per-entry failures are currently silent; a fatal scan error is
-  logged by the worker and changes progress to `error`.
+  as a stub. These per-entry failures are currently silent; a fatal scan or
+  analysis failure carries its backend message to the renderer console and
+  toolbar under the correct lifecycle.

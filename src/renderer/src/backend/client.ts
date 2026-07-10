@@ -88,6 +88,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     },
     cancelScan: () => call('cancelScan'),
     getScanProgress: () => call('getScanProgress'),
+    getAnalysisProgress: () => call('getAnalysisProgress'),
     querySamples: (req) => call('querySamples', req),
     listTags: () => call('listTags'),
     createTag: (name, color) => call('createTag', name, color),
@@ -95,6 +96,9 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     deleteTag: (id) => call('deleteTag', id),
     assignTag: (sampleId, tagId) => call('assignTag', sampleId, tagId),
     unassignTag: (sampleId, tagId) => call('unassignTag', sampleId, tagId),
+    updateSampleAnalysis: (sampleId, patch) => call('updateSampleAnalysis', sampleId, patch),
+    reanalyzeSample: (sampleFolder, sampleId, relpath) =>
+      call('reanalyzeSample', sampleFolder.id, sampleId, relpath),
     listCategories: () => call('listCategories'),
     createCategory: (name, parentId) => call('createCategory', name, parentId),
     deleteCategory: (id) => call('deleteCategory', id),
@@ -111,6 +115,12 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     },
     onScanDone: (cb) => {
       return workerProxy.onScanDone(cb)
+    },
+    onAnalysisProgress: (cb) => {
+      return workerProxy.onAnalysisProgress(cb)
+    },
+    onAnalysisDone: (cb) => {
+      return workerProxy.onAnalysisDone(cb)
     }
   }
 }

@@ -32,6 +32,12 @@ const SAMPLES: SampleListItem[] = [
     relpath: 'Drums/Kicks/kick_808.wav',
     category: 'Drums',
     durationSeconds: null,
+    bpm: null,
+    bpmSource: null,
+    musicalKey: null,
+    musicalKeySource: null,
+    sampleType: null,
+    sampleTypeSource: null,
     tags: ['Drums', 'WAV'],
     categoryId: null,
     tagIds: []
@@ -78,6 +84,7 @@ const DEFAULT_BROWSER: TrackerBrowserProps = {
   categories: DEFAULT_CATEGORIES,
   libraries: [],
   scanProgress: IDLE_PROGRESS,
+  analysisProgress: { status: 'idle', analyzed: 0, total: 0 },
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
@@ -92,6 +99,8 @@ const DEFAULT_BROWSER: TrackerBrowserProps = {
   onDeleteTag: asyncNoop as never,
   onAssignTagToSample: asyncNoop as never,
   onUnassignTagFromSample: asyncNoop as never,
+  onUpdateSampleAnalysis: asyncNoop as never,
+  onReanalyzeSample: asyncNoop as never,
   onCreateCategory: asyncNoop as never,
   onDeleteCategory: asyncNoop as never,
   onSaveLibrary: asyncNoop as never,
@@ -337,7 +346,7 @@ describe('TrackerView', () => {
     renderTracker({
       browser: {
         onPreviewSample,
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], categoryId: null, tagIds: [] }],
         totalCount: 1,
         categories: DEFAULT_CATEGORIES
       }
@@ -687,7 +696,7 @@ describe('TrackerView', () => {
   it('sets drag data when a sample tile drag starts', () => {
     renderTracker({
       browser: {
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: null, tagIds: [] }],
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], categoryId: null, tagIds: [] }],
         totalCount: 1
       }
     })
@@ -713,7 +722,7 @@ describe('TrackerView', () => {
   it('renders the sample palette slot from categoryId when no category filter is active', () => {
     renderTracker({
       browser: {
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, tags: [], categoryId: 2, tagIds: [] }],
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], categoryId: 2, tagIds: [] }],
         totalCount: 1,
         categories: DEFAULT_CATEGORIES
       }

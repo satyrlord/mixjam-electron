@@ -6,9 +6,9 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 
 ## Status
 
-- Specs 001-007 are implemented; check individual spec files for current AC
+- Specs 001-008 are implemented; check individual spec files for current AC
   wording and evidence.
-- Specs 008-012 are validated but not implemented.
+- Specs 009-012 are validated but not implemented.
 - Specs 013-016 are unvalidated stubs.
 - Spec 017 is an unvalidated draft.
 

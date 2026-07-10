@@ -12,11 +12,12 @@ describe('ScanProgressBar', () => {
 
   it('renders error message when status is error', () => {
     const { container } = render(
-      <ScanProgressBar progress={{ status: 'error', phase: null, found: 0, processed: 0, total: 0 }} />
+      <ScanProgressBar progress={{ status: 'error', phase: 1, found: 4, processed: 2, total: 4, error: 'disk write failed' }} />
     )
     const err = container.querySelector('.scan-err')
     expect(err).toBeTruthy()
-    expect(err?.textContent).toBe('Scan error')
+    expect(err?.textContent).toBe('Scan error: disk write failed')
+    expect(err).toHaveAttribute('title', 'disk write failed')
   })
 
   it('renders progress percentage when scanning with total > 0', () => {

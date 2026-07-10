@@ -3,11 +3,13 @@
 // progress fans out as unsolicited events.
 
 import type {
+  AnalysisProgress,
   CategoryItem,
   LibraryItem,
   SampleQueryRequest,
   SampleQueryResponse,
   ScanProgress,
+  SampleAnalysisPatch,
   TagItem
 } from '../../../shared/backend-api'
 
@@ -20,12 +22,15 @@ export interface BackendCalls {
   startScan: (rootKey: string) => void
   cancelScan: () => void
   getScanProgress: () => ScanProgress
+  getAnalysisProgress: () => AnalysisProgress
   listTags: () => TagItem[]
   createTag: (name: string, color?: string) => TagItem
   renameTag: (id: number, name: string) => void
   deleteTag: (id: number) => void
   assignTag: (sampleId: number, tagId: number) => void
   unassignTag: (sampleId: number, tagId: number) => void
+  updateSampleAnalysis: (sampleId: number, patch: SampleAnalysisPatch) => void
+  reanalyzeSample: (rootKey: string, sampleId: number, relpath: string) => void
   listCategories: () => CategoryItem[]
   createCategory: (name: string, parentId?: number) => CategoryItem
   deleteCategory: (id: number) => void
@@ -49,5 +54,7 @@ export type WorkerResponse =
 export type WorkerEvent =
   | { type: 'scan-progress'; progress: ScanProgress }
   | { type: 'scan-done' }
+  | { type: 'analysis-progress'; progress: AnalysisProgress }
+  | { type: 'analysis-done' }
 
 export type WorkerMessage = WorkerResponse | WorkerEvent

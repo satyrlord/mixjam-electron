@@ -587,7 +587,7 @@ describe('syncCategoriesFromNames', () => {
 describe('initSchema', () => {
   it('stamps a fresh database once and leaves existing schema version rows unchanged', () => {
     const initial = db.prepare('SELECT version FROM schema_version').all<{ version: number }>()
-    expect(initial).toEqual([{ version: 1 }])
+    expect(initial).toEqual([{ version: 2 }])
 
     initSchema(db)
 

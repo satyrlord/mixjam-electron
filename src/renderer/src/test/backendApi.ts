@@ -40,7 +40,11 @@ export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
     sampleRate: null,
     channels: null,
     bpm: null,
+    bpmSource: null,
     musicalKey: null,
+    musicalKeySource: null,
+    sampleType: null,
+    sampleTypeSource: null,
     dateAdded: 0,
     scanState: 1,
     categoryId: 2,
@@ -57,7 +61,11 @@ export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
     sampleRate: null,
     channels: null,
     bpm: null,
+    bpmSource: null,
     musicalKey: null,
+    musicalKeySource: null,
+    sampleType: null,
+    sampleTypeSource: null,
     dateAdded: 1,
     scanState: 1,
     categoryId: 2,
@@ -127,6 +135,7 @@ export function createBackendAPI(): BackendAPI {
     startScan: vi.fn().mockResolvedValue(undefined),
     cancelScan: vi.fn().mockResolvedValue(undefined),
     getScanProgress: vi.fn().mockResolvedValue(IDLE_PROGRESS),
+    getAnalysisProgress: vi.fn().mockResolvedValue({ status: 'idle', analyzed: 0, total: 0 }),
     querySamples: vi
       .fn()
       .mockImplementation(async (request: SampleQueryRequest) => queryDefaultRows(request)),
@@ -140,6 +149,8 @@ export function createBackendAPI(): BackendAPI {
     deleteTag: vi.fn().mockResolvedValue(undefined),
     assignTag: vi.fn().mockResolvedValue(undefined),
     unassignTag: vi.fn().mockResolvedValue(undefined),
+    updateSampleAnalysis: vi.fn().mockResolvedValue(undefined),
+    reanalyzeSample: vi.fn().mockResolvedValue(undefined),
     listCategories: vi.fn().mockResolvedValue(DEFAULT_CATEGORIES),
     createCategory: vi.fn().mockImplementation(async (name: string, parentId?: number) => ({
       id: Date.now(),
@@ -157,6 +168,8 @@ export function createBackendAPI(): BackendAPI {
     deleteLibrary: vi.fn().mockResolvedValue(undefined),
     readSampleBytes: vi.fn().mockResolvedValue(null),
     onScanProgress: vi.fn().mockReturnValue(() => {}),
-    onScanDone: vi.fn().mockReturnValue(() => {})
+    onScanDone: vi.fn().mockReturnValue(() => {}),
+    onAnalysisProgress: vi.fn().mockReturnValue(() => {}),
+    onAnalysisDone: vi.fn().mockReturnValue(() => {})
   }
 }

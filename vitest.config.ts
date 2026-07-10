@@ -5,7 +5,11 @@ import react from '@vitejs/plugin-react'
 // fine there with an in-memory database); everything else runs under jsdom.
 const NODE_BACKEND_TESTS = [
   'src/renderer/src/backend/library.test.ts',
-  'src/renderer/src/backend/indexer.test.ts'
+  'src/renderer/src/backend/indexer.test.ts',
+  'src/renderer/src/backend/analysis.test.ts',
+  'src/renderer/src/backend/analysis-runner.test.ts',
+  'src/renderer/src/backend/analysis-library.test.ts',
+  'src/renderer/src/backend/schema.test.ts'
 ]
 
 export default defineConfig({

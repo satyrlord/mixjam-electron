@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
+  AnalysisProgress,
   BackendAPI,
   CategoryItem,
   FolderRef,
   LibraryItem,
   RecentProjectItem,
   SampleItem,
+  SampleAnalysisPatch,
   SampleListItem,
   ScanProgress,
   TagItem
@@ -30,6 +32,7 @@ export interface LibraryDataState {
   error: string | null
   selectedSampleDetail: FooterSampleDetail | null
   scanProgress: ScanProgress
+  analysisProgress: AnalysisProgress
   totalCount: number
   /** True once the active Sample Folder has been indexed (a scan completed). */
   dbIndexed: boolean
@@ -61,6 +64,8 @@ export interface LibraryDataActions {
   deleteTag: (id: number) => Promise<void>
   assignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
   unassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
+  updateSampleAnalysis: (sample: SampleListItem, patch: SampleAnalysisPatch) => Promise<void>
+  reanalyzeSample: (sample: SampleListItem) => Promise<void>
   createCategory: (name: string, parentId?: number) => Promise<CategoryItem>
   deleteCategory: (id: number) => Promise<void>
   saveLibrary: (name: string) => Promise<LibraryItem>
@@ -84,6 +89,12 @@ function dbSampleToListItem(
     relpath: s.relpath,
     category: (s.categoryId !== null ? categoryNames.get(s.categoryId) : undefined) ?? 'Unsorted',
     durationSeconds: s.duration,
+    bpm: s.bpm,
+    bpmSource: s.bpmSource,
+    musicalKey: s.musicalKey,
+    musicalKeySource: s.musicalKeySource,
+    sampleType: s.sampleType,
+    sampleTypeSource: s.sampleTypeSource,
     tags: s.tags,
     categoryId: s.categoryId,
     tagIds: s.tagIds
@@ -115,6 +126,9 @@ export function useLibraryData(
   const [selectedSampleDetail, setSelectedSampleDetail] = useState<FooterSampleDetail | null>(null)
   const [scanProgress, setScanProgress] = useState<ScanProgress>({
     status: 'idle', phase: null, found: 0, processed: 0, total: 0
+  })
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress>({
+    status: 'idle', analyzed: 0, total: 0
   })
   const [dbIndexed, setDbIndexed] = useState(false)
   const [missingSamplePaths, setMissingSamplePaths] = useState<ReadonlySet<string>>(new Set())
@@ -364,14 +378,52 @@ export function useLibraryData(
   }, [backendAPI])
 
   const startLibraryScan = useCallback(async () => {
-    if (!sampleFolder) return
+    if (!sampleFolder || analysisProgress.status === 'analyzing') return
     await backendAPI.startScan(sampleFolder)
     setScanProgress({ status: 'scanning', phase: 1, found: 0, processed: 0, total: 0 })
-  }, [backendAPI, sampleFolder])
+  }, [analysisProgress.status, backendAPI, sampleFolder])
 
   const cancelLibraryScan = useCallback(async () => {
     await backendAPI.cancelScan()
   }, [backendAPI])
+
+  useEffect(() => {
+    const unsubProgress = backendAPI.onAnalysisProgress(setAnalysisProgress)
+    const unsubDone = backendAPI.onAnalysisDone(() => {
+      setAnalysisProgress({ status: 'idle', analyzed: 0, total: 0 })
+      void queryDbRef.current()
+    })
+    return () => { unsubProgress(); unsubDone() }
+  }, [backendAPI])
+
+  const updateSampleAnalysis = useCallback(async (
+    sample: SampleListItem,
+    patch: SampleAnalysisPatch
+  ) => {
+    await backendAPI.updateSampleAnalysis(sample.dbId, patch)
+    setSamples((current) => current.map((item) => {
+      if (item.dbId !== sample.dbId) return item
+      const next = { ...item }
+      if (Object.prototype.hasOwnProperty.call(patch, 'bpm')) {
+        next.bpm = patch.bpm ?? null
+        next.bpmSource = patch.bpm === null ? null : 'manual'
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'musicalKey')) {
+        next.musicalKey = patch.musicalKey ?? null
+        next.musicalKeySource = patch.musicalKey === null ? null : 'manual'
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'sampleType')) {
+        next.sampleType = patch.sampleType ?? null
+        next.sampleTypeSource = patch.sampleType === null ? null : 'manual'
+      }
+      return next
+    }))
+  }, [backendAPI])
+
+  const reanalyzeSample = useCallback(async (sample: SampleListItem) => {
+    if (!sampleFolder) return
+    await backendAPI.reanalyzeSample(sampleFolder, sample.dbId, sample.relpath)
+  }, [backendAPI, sampleFolder])
 
   // Updates one loaded list item's denormalized tag fields after an
   // assign/unassign, without re-running the whole query.
@@ -422,6 +474,7 @@ export function useLibraryData(
     error,
     selectedSampleDetail,
     scanProgress,
+    analysisProgress,
     totalCount,
     dbIndexed,
     missingSamplePaths,
@@ -445,6 +498,8 @@ export function useLibraryData(
     deleteTag: tagActions.deleteTag,
     assignTagToSample: tagActions.assignTagToSample,
     unassignTagFromSample: tagActions.unassignTagFromSample,
+    updateSampleAnalysis,
+    reanalyzeSample,
     createCategory: categoryActions.createCategory,
     deleteCategory: categoryActions.deleteCategory,
     saveLibrary: libraryActions.saveLibrary,

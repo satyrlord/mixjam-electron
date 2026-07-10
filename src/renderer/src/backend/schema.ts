@@ -5,7 +5,7 @@ import type { DB } from './sql'
 // abandoned and the index rebuilt by the first scan (scans are the recovery
 // path for everything). Bump SCHEMA_VERSION and add version-gated migrations
 // here only from v1 onward.
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -36,7 +36,11 @@ CREATE TABLE IF NOT EXISTS samples (
   sample_rate INTEGER,
   channels    INTEGER,
   bpm         REAL,
+  bpm_source  TEXT,
   musical_key TEXT,
+  musical_key_source TEXT,
+  sample_type TEXT,
+  sample_type_source TEXT,
   date_added  INTEGER NOT NULL,
   scan_state  INTEGER NOT NULL DEFAULT 0,
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
@@ -118,5 +122,21 @@ export function initSchema(db: DB): void {
   const row = db.prepare('SELECT version FROM schema_version').get<{ version: number }>()
   if (!row) {
     db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(SCHEMA_VERSION)
+    return
+  }
+
+  if (row.version < 2) {
+    const columns = new Set(
+      db.prepare('PRAGMA table_info(samples)').all<{ name: string }>().map((column) => column.name)
+    )
+    if (!columns.has('bpm_source')) db.exec('ALTER TABLE samples ADD COLUMN bpm_source TEXT')
+    if (!columns.has('musical_key_source')) {
+      db.exec('ALTER TABLE samples ADD COLUMN musical_key_source TEXT')
+    }
+    if (!columns.has('sample_type')) db.exec('ALTER TABLE samples ADD COLUMN sample_type TEXT')
+    if (!columns.has('sample_type_source')) {
+      db.exec('ALTER TABLE samples ADD COLUMN sample_type_source TEXT')
+    }
+    db.prepare('UPDATE schema_version SET version = ?').run(2)
   }
 }

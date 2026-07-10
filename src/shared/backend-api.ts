@@ -52,6 +52,21 @@ export interface LibraryItem {
   ruleJson: string
 }
 
+export type AnalysisSource = 'analysis' | 'manual' | null
+
+export const SAMPLE_TYPE_VALUES = [
+  'Kick', 'Snare', 'Hi-hat', 'Percussion', 'Bass', 'Synth',
+  'FX', 'Vocal', 'Loop', 'Atmosphere', 'Other'
+] as const
+
+export type SampleType = (typeof SAMPLE_TYPE_VALUES)[number]
+
+export interface SampleAnalysisPatch {
+  bpm?: number | null
+  musicalKey?: string | null
+  sampleType?: SampleType | null
+}
+
 export interface SampleItem {
   id: number
   /** Path relative to the sample's scan root ('/'-separated). */
@@ -63,7 +78,11 @@ export interface SampleItem {
   sampleRate: number | null
   channels: number | null
   bpm: number | null
+  bpmSource: AnalysisSource
   musicalKey: string | null
+  musicalKeySource: AnalysisSource
+  sampleType: SampleType | null
+  sampleTypeSource: AnalysisSource
   dateAdded: number
   scanState: number
   categoryId: number | null
@@ -130,6 +149,12 @@ export interface SampleListItem {
   relpath: string
   category: string
   durationSeconds: number | null
+  bpm: number | null
+  bpmSource: AnalysisSource
+  musicalKey: string | null
+  musicalKeySource: AnalysisSource
+  sampleType: SampleType | null
+  sampleTypeSource: AnalysisSource
   tags: string[]
   categoryId: number | null
   tagIds: number[]
@@ -141,6 +166,16 @@ export interface ScanProgress {
   found: number
   processed: number
   total: number
+  /** Present for a fatal scan failure; safe to show in renderer diagnostics. */
+  error?: string
+}
+
+export interface AnalysisProgress {
+  status: 'idle' | 'analyzing' | 'error'
+  analyzed: number
+  total: number
+  /** Present for a fatal analysis failure; safe to show in renderer diagnostics. */
+  error?: string
 }
 
 export interface BackendAPI {
@@ -164,6 +199,7 @@ export interface BackendAPI {
   startScan: (sampleFolder: FolderRef) => Promise<void>
   cancelScan: () => Promise<void>
   getScanProgress: () => Promise<ScanProgress>
+  getAnalysisProgress: () => Promise<AnalysisProgress>
   querySamples: (req: SampleQueryRequest) => Promise<SampleQueryResponse>
   listTags: () => Promise<TagItem[]>
   createTag: (name: string, color?: string) => Promise<TagItem>
@@ -171,6 +207,8 @@ export interface BackendAPI {
   deleteTag: (id: number) => Promise<void>
   assignTag: (sampleId: number, tagId: number) => Promise<void>
   unassignTag: (sampleId: number, tagId: number) => Promise<void>
+  updateSampleAnalysis: (sampleId: number, patch: SampleAnalysisPatch) => Promise<void>
+  reanalyzeSample: (sampleFolder: FolderRef, sampleId: number, relpath: string) => Promise<void>
   listCategories: () => Promise<CategoryItem[]>
   createCategory: (name: string, parentId?: number) => Promise<CategoryItem>
   deleteCategory: (id: number) => Promise<void>
@@ -190,4 +228,6 @@ export interface BackendAPI {
   readSampleBytes: (rootId: string, relpath: string) => Promise<ArrayBuffer | null>
   onScanProgress: (cb: (progress: ScanProgress) => void) => () => void
   onScanDone: (cb: () => void) => () => void
+  onAnalysisProgress: (cb: (progress: AnalysisProgress) => void) => () => void
+  onAnalysisDone: (cb: () => void) => () => void
 }

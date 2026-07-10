@@ -6,6 +6,7 @@ import type { TrackerBrowserProps } from './trackerProps'
 import { useDragResize } from '../hooks/useDragResize'
 import ManagePanel from './ManagePanel'
 import SampleTileGrid from './SampleTileGrid'
+import SampleAnalysisEditor from './SampleAnalysisEditor'
 
 interface SampleBrowserProps {
   browser: TrackerBrowserProps
@@ -57,6 +58,11 @@ export default function SampleBrowser({
     y: number
     sample: SampleListItem
   } | null>(null)
+  const [analysisEditor, setAnalysisEditor] = useState<{
+    x: number
+    y: number
+    sample: SampleListItem
+  } | null>(null)
 
   const handleSampleContextMenu = useCallback((sample: SampleListItem, e: React.MouseEvent) => {
     e.preventDefault()
@@ -65,11 +71,11 @@ export default function SampleBrowser({
 
   // Dismiss the context menu on any click outside
   useEffect(() => {
-    if (!sampleMenu) return
-    const dismiss = () => setSampleMenu(null)
+    if (!sampleMenu && !analysisEditor) return
+    const dismiss = () => { setSampleMenu(null); setAnalysisEditor(null) }
     window.addEventListener('click', dismiss)
     return () => window.removeEventListener('click', dismiss)
-  }, [sampleMenu])
+  }, [sampleMenu, analysisEditor])
 
   const rootCategories = categories.filter((c) => c.parentId === null)
   const childCategories = (parentId: number): CategoryItem[] =>
@@ -231,6 +237,18 @@ export default function SampleBrowser({
           role="menu"
           aria-label={`Tags for ${sampleMenu.sample.name}`}
         >
+          <button
+            type="button"
+            className="context-menu-item"
+            role="menuitem"
+            onClick={(event) => {
+              event.stopPropagation()
+              setAnalysisEditor(sampleMenu)
+              setSampleMenu(null)
+            }}
+          >
+            Edit BPM, key, and type
+          </button>
           {tags.length === 0 ? (
             <span className="context-menu-note">No tags yet — create one in the Manage panel.</span>
           ) : (
@@ -255,6 +273,15 @@ export default function SampleBrowser({
             })
           )}
         </div>
+      )}
+
+      {analysisEditor && (
+        <SampleAnalysisEditor
+          {...analysisEditor}
+          onClose={() => setAnalysisEditor(null)}
+          onUpdate={browser.onUpdateSampleAnalysis}
+          onReanalyze={browser.onReanalyzeSample}
+        />
       )}
     </section>
   )

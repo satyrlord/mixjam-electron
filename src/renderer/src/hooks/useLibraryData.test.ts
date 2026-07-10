@@ -22,7 +22,11 @@ function makeDbRow(overrides: Partial<SampleItem> = {}): SampleItem {
     sampleRate: 44100,
     channels: 1,
     bpm: 120,
+    bpmSource: 'analysis',
     musicalKey: 'C',
+    musicalKeySource: 'analysis',
+    sampleType: 'Synth',
+    sampleTypeSource: 'analysis',
     dateAdded: 0,
     scanState: 1,
     categoryId: 1,
@@ -1036,6 +1040,19 @@ describe('useLibraryData', () => {
       expect(result.current.samples).toHaveLength(1)
       expect(result.current.samples[0]!.name).toBe('kick_808.wav')
     })
+  })
+
+  it('does not start a manual scan while automatic analysis is active', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(api.onAnalysisProgress).toHaveBeenCalled())
+    const listener = vi.mocked(api.onAnalysisProgress).mock.calls[0][0]
+    act(() => listener({ status: 'analyzing', analyzed: 1, total: 10 }))
+
+    await act(async () => { await result.current.startLibraryScan() })
+
+    expect(api.startScan).not.toHaveBeenCalled()
   })
 
   it('refreshes changed missing-path sets and clears them after an error', async () => {

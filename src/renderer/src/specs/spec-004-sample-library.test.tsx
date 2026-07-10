@@ -40,6 +40,12 @@ function makeDbSamples(count: number): SampleListItem[] {
     relpath: `/samples/sample_${i}.wav`,
     category: 'Unsorted',
     durationSeconds: i * 0.5 + 0.1,
+    bpm: null,
+    bpmSource: null,
+    musicalKey: null,
+    musicalKeySource: null,
+    sampleType: null,
+    sampleTypeSource: null,
     tags: [],
     categoryId: null,
     tagIds: []
@@ -62,6 +68,7 @@ const DEFAULT_BROWSER: TrackerBrowserProps = {
   categories: DEFAULT_CATEGORIES,
   libraries: [],
   scanProgress: IDLE_PROGRESS,
+  analysisProgress: { status: 'idle', analyzed: 0, total: 0 },
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
@@ -76,6 +83,8 @@ const DEFAULT_BROWSER: TrackerBrowserProps = {
   onDeleteTag: asyncNoop as never,
   onAssignTagToSample: asyncNoop as never,
   onUnassignTagFromSample: asyncNoop as never,
+  onUpdateSampleAnalysis: asyncNoop as never,
+  onReanalyzeSample: asyncNoop as never,
   onCreateCategory: asyncNoop as never,
   onDeleteCategory: asyncNoop as never,
   onSaveLibrary: asyncNoop as never,
@@ -343,6 +352,13 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   it('Re-scan button is disabled while scanning', () => {
     renderTracker({ scanProgress: SCANNING_PROGRESS })
     expect(screen.getByRole('button', { name: /scanning/i })).toBeDisabled()
+  })
+
+  it('Re-scan button is disabled while automatic analysis is running', () => {
+    renderTracker({
+      analysisProgress: { status: 'analyzing', analyzed: 10, total: 100 }
+    })
+    expect(screen.getByRole('button', { name: /analyzing samples/i })).toBeDisabled()
   })
 
   it('AC-004a: Re-scan triggers the library scan', async () => {

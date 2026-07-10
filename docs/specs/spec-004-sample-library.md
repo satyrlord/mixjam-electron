@@ -65,6 +65,8 @@ categories. Libraries are saved queries, not file copies.
   generation counter; the in-flight scan stops at its next cancellation check.
   Already committed rows remain in the database, and the progress indicator
   resets to idle immediately.
+- Manual Re-scan is disabled while automatic sample analysis is active so the
+  two database workflows cannot be restarted over one another.
 
 ### Sample Browser Container
 
@@ -209,6 +211,7 @@ Strip from spec-006. Its internal layout:
 - [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
 - [x] **AC-015:** Re-scanning detects new, changed, and missing files; changed files preserve their tags.
   The existing browser remains visible with toolbar progress, and cancellation retains already committed batches.
+- [x] **AC-015a:** Re-scan is disabled while automatic sample analysis is active.
 - [x] **AC-016:** The sample grid can be sorted by filename, duration, and date added (ascending/descending).
 - [x] **AC-017:** Clicking a sample bubble previews its audio and renders its decoded waveform in the Player footer.
 
