@@ -16,12 +16,12 @@ const UNSET_FOLDER: FolderView = {
 
 const RECENT_PROJECTS: RecentProjectItem[] = [
   {
-    path: 'C:/Users/test/MixJam/club-night.mixjam',
+    path: 'club-night.mixjam',
     displayName: 'club-night',
     lastOpened: '2026-06-28T12:00:00.000Z'
   },
   {
-    path: 'C:/Users/test/MixJam/ambient-set.mixjam',
+    path: 'ambient-set.mixjam',
     displayName: 'ambient-set',
     lastOpened: '2026-06-27T12:00:00.000Z'
   }
@@ -94,7 +94,7 @@ describe('HomeScreen', () => {
 
   it('shows only up to 4 recent projects', () => {
     const many = Array.from({ length: 6 }, (_, i) => ({
-      path: `C:/proj-${i}.mixjam`,
+      path: `proj-${i}.mixjam`,
       displayName: `project-${i}`,
       lastOpened: '2026-01-01T00:00:00.000Z'
     }))

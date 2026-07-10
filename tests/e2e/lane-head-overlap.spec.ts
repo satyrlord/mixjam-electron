@@ -1,13 +1,3 @@
-/**
- * Regression: collapsing the recent-projects rail must not paint the rail
- * over the tracker's lane heads.
- *
- * The collapsed rail keeps its grid cell while .tracker-region expands to
- * grid-column 1/3 with z-index layering — without a clearing margin the rail
- * overlays the first 30px of every lane head and the ruler spacer, visually
- * clipping lane names ("Lane 1" renders as "e 1"). See index.css
- * `.tracker-view.recent-projects-collapsed .tracker-region`.
- */
 import { test, expect } from './fixtures'
 
 test('collapsed recents rail does not overlap the tracker lane heads', async ({ seededPage: page }) => {
@@ -29,21 +19,13 @@ test('collapsed recents rail does not overlap the tracker lane heads', async ({ 
 
   const railRightEdge = railBox.x + railBox.width
 
-  // The lane-head column must start at or after the rail's right edge —
-  // any overlap hides the beginning of every lane name under the rail.
   expect(headBox.x).toBeGreaterThanOrEqual(railRightEdge)
-  // The ruler (which shares the tracker region) must be clear of the rail too,
-  // or bar numbers drift out of alignment with the lanes below.
   expect(rulerBox.x).toBeGreaterThanOrEqual(railRightEdge)
 
-  // The full lane name stays visible: the text node's box must sit entirely
-  // inside the visible (non-overlapped) part of the head.
   const nameBox = await page.locator('.tracker-lane-name').first().boundingBox()
   if (!nameBox) throw new Error('lane name missing')
   expect(nameBox.x).toBeGreaterThanOrEqual(railRightEdge)
 
-  // Expanding again restores the two-column layout with the head to the
-  // right of the full-width rail.
   await page.getByRole('button', { name: 'Expand recent projects' }).click()
   const expandedRail = await rail.boundingBox()
   const expandedHead = await firstHead.boundingBox()

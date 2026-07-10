@@ -119,16 +119,21 @@ Tool preference:
 1. **Debugger / REPL inspection** if the env supports it. One breakpoint beats
    ten logs.
 2. **Targeted logs** at the boundaries that distinguish hypotheses.
-3. Never "log everything and grep".
+3. Never "log everything and search later".
 
 **Tag every debug log** with a unique prefix, e.g. `[DEBUG-a4f2]`. Cleanup at
-the end becomes a single grep. Untagged logs survive; tagged logs die.
+the end becomes one `rg` search. Untagged logs survive; tagged logs die.
 
 **Perf branch.** For performance regressions, logs are usually wrong. Instead:
 establish a baseline measurement (timing harness, `performance.now()`, profiler,
 query plan), then bisect. Measure first, fix second.
 
 ## Phase 5 — Fix + regression test
+
+Implement this phase only when the request authorizes a fix. For a
+diagnosis-only request, specify the proposed regression test and repair after
+the root cause is proven, then continue to cleanup without editing production
+code.
 
 Write the regression test **before the fix** — but only if there is a
 **correct seam** for it.
@@ -158,7 +163,7 @@ Required before declaring done:
 
 - [ ] Original repro no longer reproduces (re-run the Phase 1 loop)
 - [ ] Regression test passes (or absence of seam is documented)
-- [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
+- [ ] All `[DEBUG-...]` instrumentation removed (`rg` the prefix)
 - [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
 - [ ] The hypothesis that turned out correct is stated in the commit / PR
   message — so the next debugger learns

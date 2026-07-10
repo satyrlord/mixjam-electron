@@ -10,10 +10,10 @@ const CATEGORIES: CategoryItem[] = [
 
 function makeSample(overrides: Partial<SampleListItem> = {}): SampleListItem {
   return {
-    id: 'C:/a.wav',
+    id: 'a.wav',
     dbId: 1,
     name: 'a.wav',
-    relpath: 'C:/a.wav',
+    relpath: 'a.wav',
     category: 'Bass',
     durationSeconds: 2.0,
     tags: [],
@@ -33,7 +33,7 @@ describe('SampleTileGrid', () => {
   })
 
   it('renders sample bubbles for provided samples', () => {
-    const samples = [makeSample(), makeSample({ id: 'C:/b.wav', relpath: 'C:/b.wav', name: 'b.wav', dbId: 2 })]
+    const samples = [makeSample(), makeSample({ id: 'b.wav', relpath: 'b.wav', name: 'b.wav', dbId: 2 })]
     const { container } = render(
       <SampleTileGrid
         samples={samples}
@@ -188,7 +188,7 @@ describe('SampleTileGrid', () => {
     fireEvent.click(button)
 
     expect(onSelect).toHaveBeenCalledTimes(1)
-    expect(onPreview).toHaveBeenCalledWith('C:/a.wav')
+    expect(onPreview).toHaveBeenCalledWith('a.wav')
   })
 
   it('fires onSampleDragStart on drag start', () => {
@@ -227,7 +227,7 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         bpm={120}
         pixelsPerTick={0.5}
-        selectedSamplePath="C:/a.wav"
+        selectedSamplePath="a.wav"
         flashSamplePath={null}
         activeCategorySlot={undefined}
         categories={CATEGORIES}
@@ -254,7 +254,7 @@ describe('SampleTileGrid', () => {
         bpm={120}
         pixelsPerTick={0.5}
         selectedSamplePath={null}
-        flashSamplePath="C:/a.wav"
+        flashSamplePath="a.wav"
         activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}

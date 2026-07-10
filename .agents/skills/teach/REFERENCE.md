@@ -3,7 +3,7 @@
 Disclosed reference for the `teach` skill. These definitions shape the
 pedagogical model; consult them when designing lessons.
 
-## Philosophy
+## Knowledge, Skill, and Wisdom
 
 To learn at a deep level, the user needs three things:
 
@@ -11,19 +11,23 @@ To learn at a deep level, the user needs three things:
 - **Skills**, acquired through highly-relevant interactive lessons devised by you, based on the knowledge
 - **Wisdom**, which comes from interacting with other learners and practitioners
 
-Before the `RESOURCES.md` is well-populated, your focus should be to find high-quality resources which will help the user acquire knowledge. Never trust your parametric knowledge.
+Before `RESOURCES.md` is well populated, find high-quality sources for the
+specific lesson gap. Treat parametric knowledge as a lead to verify, not as a
+source.
 
-Some topics may require more skills than knowledge. Learning more about theoretical physics might be more knowledge-based. For yoga, more skills-based.
+Match the balance to the mission: conceptual topics may need more knowledge;
+physical or procedural topics need more coached performance.
 
 ### Fluency vs Storage Strength
 
-You should be careful to split between two types of learning:
+Distinguish two kinds of learning:
 
 - **Fluency strength**: in-the-moment retrieval of knowledge
 - **Storage strength**: long-term retention of knowledge
 
-Fluency can give the user an illusory sense of mastery, but storage strength is the real goal. Try to design lessons which build long-term retention by desirable difficulty:
+Fluency can create an illusion of mastery. Build storage strength through
+desirable difficulty:
 
-- Using retrieval practice (recall from memory)
-- Spacing (distributing practice over time)
-- Interleaving (mixing up different but related topics in practice - for skills practice only)
+- retrieval practice from memory,
+- spacing practice over time,
+- interleaving related skills after each one is understood.

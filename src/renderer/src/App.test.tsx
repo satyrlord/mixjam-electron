@@ -77,8 +77,7 @@ describe('App', () => {
 
     const detail = JSON.stringify({
       name: 'kick_808.wav',
-      path: 'Drums/Kicks/kick_808.wav',
-      metadata: [],
+      relpath: 'Drums/Kicks/kick_808.wav',
       tags: [],
       duration: 0.5
     })

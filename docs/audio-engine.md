@@ -1,7 +1,7 @@
 # Audio engine
 
 The tracker/player uses the **Web Audio API** in the renderer with a
-lookahead-scheduler pattern — the same approach validated in MixJam Web.
+lookahead-scheduler pattern.
 
 ## Lookahead scheduler
 
@@ -49,7 +49,6 @@ the swap: the scheduler/transport sit behind an interface, and only its
 implementation changes. Try an **`AudioWorklet`** before a native addon — it covers
 most custom-DSP needs while staying in the web stack.
 
-Web-first note (2026-07-03): a native addon can only ever serve the Electron
-host — the browser build cannot load it. `AudioWorklet` is the only escape
-hatch that works in both hosts, which is another reason it comes first; a
-native addon would make the affected feature desktop-only.
+A native addon can serve only the Electron host; the browser build cannot load
+it. `AudioWorklet` works in both hosts and therefore comes first. A native addon
+would make the affected feature desktop-only.

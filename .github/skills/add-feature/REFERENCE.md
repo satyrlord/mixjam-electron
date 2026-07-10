@@ -26,13 +26,6 @@ Record a decision durably only when all three are true:
 - surprising without context
 - the result of a real trade-off
 
-## Where Decisions Live
-
-This project does not use standalone ADRs. Capture architectural decisions as
-numbered specs under `specs/NNN-name/` (typically in `spec.md` or
-`research.md` of the owning feature, or a new numbered spec when the decision
-stands alone).
-
 Use the lightest structure that still records the trade-off clearly: one
 small block stating context, decision, and why this path won. Add `Status`,
 `Considered Options`, or `Consequences` sections only when they add genuine

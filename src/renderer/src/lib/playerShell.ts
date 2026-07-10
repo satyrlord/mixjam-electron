@@ -18,6 +18,7 @@ export const LANE_HEIGHT_PX = 44
 export const LANE_HEAD_WIDTH_PX = 168
 export const RULER_HEIGHT_PX = 24
 export const DEFAULT_CLIP_DURATION_TICKS = 32
+export const SAMPLE_BUBBLE_HEIGHT_PX = 32
 
 // Left-column (Song Controls rail) resize seam bounds. The CSS fallback in
 // index.css (`var(--left-col-w, 420px)`) must stay in sync with the default.

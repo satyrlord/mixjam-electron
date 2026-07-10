@@ -148,8 +148,6 @@ SELECT sample_id FROM sample_categories WHERE category_id IN (SELECT id FROM sub
 ## Migrations
 
 `rule_json` is versioned (see [query-schema.md](query-schema.md)); the schema
-carries a `schema_version` table stamped at init. The OPFS database started at
-schema v1 of the web-first world (the old Electron userData `library.db` and
-its v1-v4 migration chain were abandoned; the index is rebuilt by the first
-scan). Add forward-only, idempotent migration steps from v1 onward in
+carries a `schema_version` table stamped at init. Add forward-only, idempotent
+migration steps from v1 onward in
 `src/renderer/src/backend/schema.ts`.

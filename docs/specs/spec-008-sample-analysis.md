@@ -86,8 +86,3 @@ the sample library metadata and enable auto-categorization.
 - No ML-based classification — purely heuristic.
 - No cross-library analysis accuracy guarantees.
 - No batch re-analysis trigger (individual only in v1).
-
-## References
-
-- mixjam-webjam architectural-suggestion-notes §3 — archived predecessor-project doc, not tracked in this repo — Heuristic classifier, Web Worker threading.
-- mixjam-webjam spec-004 — archived predecessor-project doc, not tracked in this repo — Library slice, analysis status tracking.

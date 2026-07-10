@@ -1,16 +1,15 @@
 ---
 name: grill-me
 description: >
-  Interview the user relentlessly about a plan or design. Use when the user
-  wants to stress-test a plan before building, or uses any 'grill' trigger
-  phrases.
-tools: vscode/memory, vscode/resolveMemoryFileUri, vscode/askQuestions, vscode/toolSearch, read/problems, read/readFile, read/skill, read/terminalSelection, read/terminalLastCommand, agent, edit/createDirectory, edit/createFile, edit/editFiles, edit/rename
+  Stress-tests a plan or design through a decision-tree interview. Use when
+  the user asks to be grilled before building.
 ---
 
 # Grilling
 
-Interview me relentlessly, using the VSCode askQuestions tool, about every aspect of this plan,
-until we reach a shared understanding.
+Interrogate the plan until its consequential decisions and dependencies are
+explicit. Use the available user-input mechanism; fall back to one concise
+plain-text question when no structured mechanism is available.
 
 ## Design Tree
 
@@ -19,7 +18,9 @@ an architectural choice, a UX trade-off, an integration seam, a sequencing
 question. Resolve dependencies between branches one-by-one — don't jump
 ahead to child branches until the parent decision is made.
 
-For each question, provide your recommended answer before asking for mine.
+Before questioning, inventory the branches visible in the plan. Add a newly
+discovered branch only when an answer exposes a consequential dependency. For
+each question, provide your recommended answer before asking for mine.
 
 ## Rhythm
 
@@ -29,11 +30,13 @@ For each question, provide your recommended answer before asking for mine.
 - If a question can be answered by exploring the repo, explore the repo instead of asking.
 - When I answer with a constraint or preference, incorporate it immediately
   — don't ask the same branch again later.
-- Update docs after each answer.
+- Keep a concise decision ledger in the conversation. Update repository docs
+  only when the user requests documentation or when the original task already
+  authorizes it.
 
 ## Completion Criterion
 
-The grill is done when every branch of the design tree has been walked and
-there are no unresolved dependencies between decisions. The shared
-understanding should be specific enough that the plan could be handed to a
-fresh agent via `handoff` without re-litigation.
+The grill is done when every inventoried branch is resolved or explicitly
+deferred with an owner and reason, all dependencies between resolved decisions
+are consistent, and the decision ledger is specific enough for a fresh agent
+to continue without re-litigating them.

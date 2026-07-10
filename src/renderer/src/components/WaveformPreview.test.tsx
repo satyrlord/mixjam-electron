@@ -39,9 +39,9 @@ describe('WaveformPreview', () => {
 
   it('loads the buffer for the given filepath and draws peak bars', async () => {
     const getSampleBuffer = vi.fn().mockResolvedValue(makeMockBuffer())
-    render(<WaveformPreview filepath="C:/kick.wav" getSampleBuffer={getSampleBuffer} />)
+    render(<WaveformPreview filepath="kick.wav" getSampleBuffer={getSampleBuffer} />)
 
-    expect(getSampleBuffer).toHaveBeenCalledWith('C:/kick.wav')
+    expect(getSampleBuffer).toHaveBeenCalledWith('kick.wav')
     await waitFor(() => expect(mockCtx.fillRect).toHaveBeenCalled())
     // One bar per bucket
     expect(mockCtx.fillRect).toHaveBeenCalledTimes(100)
@@ -69,9 +69,9 @@ describe('WaveformPreview', () => {
       .mockResolvedValueOnce(makeMockBuffer())
 
     const { rerender } = render(
-      <WaveformPreview filepath="C:/slow.wav" getSampleBuffer={getSampleBuffer} />
+      <WaveformPreview filepath="slow.wav" getSampleBuffer={getSampleBuffer} />
     )
-    rerender(<WaveformPreview filepath="C:/fast.wav" getSampleBuffer={getSampleBuffer} />)
+    rerender(<WaveformPreview filepath="fast.wav" getSampleBuffer={getSampleBuffer} />)
 
     await waitFor(() => expect(mockCtx.fillRect).toHaveBeenCalledTimes(100))
     mockCtx.fillRect.mockClear()

@@ -114,9 +114,7 @@ Strip from spec-006. Its internal layout:
   matching.
 - Query results load as windowed pages on demand: the first page loads eagerly
   and the grid requests the next page as the user scrolls near the end of the
-  loaded rows. The renderer never accumulates the full result set up front
-  (revised 2026-07-02 to honour the windowed-pages hard rule; previously the
-  renderer paged the entire set into memory).
+  loaded rows. The renderer never accumulates the full result set up front.
 
 ### Browser Toolbar
 
@@ -131,12 +129,10 @@ Strip from spec-006. Its internal layout:
 - Users can create, rename, and delete tags.
 - Tags can be assigned to one or more samples. Assignment UI: right-clicking a
   sample tile opens a context menu listing every tag with its assignment state;
-  clicking toggles assign/unassign (added 2026-07-02 — assignment previously
-  had no UI surface). Every browser item is an indexed DB row (the pre-index
-  legacy folder browser was retired 2026-07-03), so tagging is always available.
+  clicking toggles assign/unassign. Every browser item is an indexed DB row, so
+  tagging is always available.
 - All tags render as filter chips in the browser's subcategory row; clicking a
-  chip toggles that tag in the active filter (added 2026-07-02 — previously
-  only already-active tags rendered, so tag filtering was unreachable).
+  chip toggles that tag in the active filter.
 - Tags have an optional color for visual identification.
 - Tag assignment is many-to-many: one sample can have many tags, one tag can
   apply to many samples.
@@ -168,8 +164,7 @@ Strip from spec-006. Its internal layout:
 - Creating a library saves the current filter state under a user-chosen name.
 - Opening a library applies its saved filters: clicking a library's name in the
   manage panel parses its `rule_json` and restores the search text, category,
-  and tag filters (wired 2026-07-02 — saved libraries previously had no open
-  action).
+  and tag filters.
 - Libraries do not copy or duplicate sample data — they are purely saved
   queries. Editing a sample's tags automatically updates all libraries that
   reference it.
@@ -184,11 +179,9 @@ Strip from spec-006. Its internal layout:
   in-memory JavaScript array operations on the full dataset.
 - The UI requests windowed pages of results, not the entire dataset.
 - Virtualized rendering ensures constant DOM node count regardless of result
-  set size. Implementation (2026-07-02): tiles are packed into fixed-height
-  rows in JS (equivalent to the previous flex-wrap layout, so bubble geometry
-  is unchanged) and rows are virtualized with TanStack Virtual; only rows
-  intersecting the scroll viewport are mounted. An unmeasured viewport
-  (first paint, jsdom) falls back to rendering all rows.
+  set size. Tiles are packed into fixed-height rows and virtualized with
+  TanStack Virtual; only rows intersecting the scroll viewport are mounted. An
+  unmeasured viewport (first paint, jsdom) falls back to rendering all rows.
 - No current 100k-row latency claim has been measured. Any throughput or query
   latency claim must be recorded with the real fixture/library subset and the
   exact measurement procedure.

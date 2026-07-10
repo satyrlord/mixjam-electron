@@ -29,9 +29,7 @@ Implement view switching, the header bar, and the footer.
 - **Header** (40px): brand "MixJam Electron" anchored to the left margin,
   theme selector dropdown (right, non-functional — lists theme names but
   selection has no effect until spec-002).
-- **Content area:** two-column layout, vertically and horizontally centered
-  (revised 2026-07-02 per design-review change request — the original single
-  column of folder cards read as a configuration dialog, not a first screen).
+- **Content area:** two-column layout, vertically and horizontally centered.
   - Hero column (left): SVG brandmark (accent-gradient tile with a waveform
     pulse, painted with theme tokens only), "MixJam" wordmark, tagline, three
     quick-start steps, and a theme-swatch row that switches the active theme
@@ -73,10 +71,8 @@ Implement view switching, the header bar, and the footer.
 
 - Clicking "Start New MixJam" on the Home Screen replaces the content area
   with the MixJam Player.
-- "Load MixJam" is disabled until spec-011 ships (amended 2026-07-03 — the
-  original behavior opened a picker and discarded the result, promising a load
-  the app could not perform). It will open the file picker and navigate
-  to the Player once real project loading exists.
+- "Load MixJam" is disabled until spec-011 ships. It will open the file picker
+  and navigate to the Player once real project loading exists.
 - Clicking the home link "&lt; Return to Main Menu" in the Player header
   returns to the Home Screen.
 - View switching must be instantaneous (no page reload, no navigation delay).
@@ -87,8 +83,8 @@ Implement view switching, the header bar, and the footer.
 
 ### Browser host (non-Electron runtime)
 
-Amended 2026-07-03 (web-first re-architecture): the former mock/demo web mode
-is deleted. The browser build IS the real app — same bundle, same backend.
+The browser build is the real app: the same bundle and backend used by the
+Electron shell.
 
 - The renderer always installs the real browser backend (sqlite-wasm over
   OPFS, File System Access folders, localStorage session). Host detection only
@@ -125,9 +121,8 @@ is deleted. The browser build IS the real app — same bundle, same backend.
 
 - Fixed 40px height, full width (same fixed size as the header).
 - **Home Screen state:** left "Select User Folder" link (opens the User Folder
-  picker and persists a valid selection to the session — same flow as the Home
-  Screen folder card; renamed and wired 2026-07-02, previously a placeholder
-  that discarded the picked folder), right version string.
+  picker and persists a valid selection to the session through the same flow
+  as the Home Screen folder card), right version string.
 - **Player state:** left "Select User Folder" link, right version string,
   and a center detail slot that may be populated by the Sample Browser
   selection model (spec-004).
@@ -152,9 +147,8 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
 - [x] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
 - [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
-- [x] **AC-007:** "Load MixJam" is disabled with a "coming soon" tooltip until spec-011 ships
-  (amended 2026-07-03 — originally it opened a picker whose result was discarded). Once project
-  loading exists: clicking opens a file picker, selecting a file navigates to the Player
+- [x] **AC-007:** "Load MixJam" is disabled with a "coming soon" tooltip until spec-011 ships.
+  Once project loading exists, clicking opens a file picker and selecting a file navigates to the Player
   (with window resize in the Electron shell), cancelling stays on the Home Screen.
 - [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
@@ -164,7 +158,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 - [x] **AC-013:** In a browser-only host where `window.shellAPI` is missing, the renderer runs the
   full real app (browser backend, folder gating, theming) with no mock or demo data; window-resize
-  calls are no-ops (amended 2026-07-03 — the former mock web mode is deleted).
+  calls are no-ops.
 
 ## Non-Goals (deferred to later specs)
 
@@ -179,10 +173,3 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - "Load MixJam" stays disabled until spec-011 provides real file loading.
 - No keyboard shortcuts.
 - No window resize constraints beyond the full-viewport rule.
-
-## References
-
-- mixjam-sample-daw spec-002 — archived predecessor-project doc, not tracked in this repo — Home Screen layout, header, footer, version display.
-- mixjam-sample-daw spec-003 — archived predecessor-project doc, not tracked in this repo — Tracker View shell, view switching, timer, placeholder zones.
-- mixjam-webjam spec-001 — archived predecessor-project doc, not tracked in this repo — Home page, launch gate, session restore.
-- mixjam-sample-daw style-guide §1–§3 — archived predecessor-project doc, not tracked in this repo — Shell layout, header bar rules, home screen layout.

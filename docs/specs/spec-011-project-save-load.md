@@ -141,8 +141,3 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - No embedded sample data — samples are always referenced by path.
 - No compression or binary format (plain JSON only for v1).
 - No project password protection or encryption.
-
-## References
-
-- mixjam-webjam architectural-suggestion-notes §6 — archived predecessor-project doc, not tracked in this repo — Versioned JSON schema, relative path references.
-- mixjam-webjam spec-004 — archived predecessor-project doc, not tracked in this repo — Project file schema, migration strategy.

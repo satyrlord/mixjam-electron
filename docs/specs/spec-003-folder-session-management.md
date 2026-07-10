@@ -81,7 +81,7 @@ Each card shows:
   navigates to the MixJam Player (per spec-001).
 - The "Load MixJam" link is independent of folder selection state — it is not
   part of the launch gate. It stays disabled until spec-011 ships real project
-  loading (per spec-001, amended 2026-07-03).
+  loading (per spec-001).
 
 ### Folder Picker Behavior
 
@@ -137,7 +137,7 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-006:** A hint label appears below the disabled button: "Select both folders above to start."
 - [x] **AC-007:** When both folders are set, "Start New MixJam" becomes active and navigates to the MixJam Player on click.
 - [x] **AC-008:** "Load MixJam" is independent of the folder launch gate: folder selection state
-  never toggles it. It stays disabled until spec-011 ships (per spec-001, amended 2026-07-03).
+  never toggles it. It stays disabled until spec-011 ships (per spec-001).
 - [x] **AC-009:** Each "Pick Folder" button opens the directory picker with the mode matching its folder role.
 - [x] **AC-010:** Selected folder names are displayed on their respective cards after successful validation.
 - [x] **AC-010b:** The User Folder picker is hinted to start in the OS Documents folder.
@@ -163,8 +163,3 @@ Folder's directory handle). It is not user-editable.
 - No folder watching for live changes — out of scope for v1 across all specs.
   Unindexed folders scan on first entry; indexed folders require manual Re-scan
   (see [indexing.md](../indexing.md#live-watching-optional-later)).
-
-## References
-
-- mixjam-webjam spec-001 — archived predecessor-project doc, not tracked in this repo — Two-folder model, launch gate, session restore, `mixjam.json`.
-- mixjam-webjam README — archived predecessor-project doc, not tracked in this repo — File System Access API, IndexedDB persistence, Chromium-only constraint.

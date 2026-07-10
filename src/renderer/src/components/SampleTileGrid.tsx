@@ -2,15 +2,14 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/playerShell'
-import { sampleDurationTicks } from '../lib/playerShell'
+import { SAMPLE_BUBBLE_HEIGHT_PX, sampleDurationTicks } from '../lib/playerShell'
 import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 
 // Bubble geometry shared with the tracker: a sample bubble is 32px tall
 // everywhere in the UI (hard rule), and browser rows keep the 6px gap the old
 // flex-wrap layout used.
-const TILE_HEIGHT_PX = 32
 const TILE_GAP_PX = 6
-const ROW_PITCH_PX = TILE_HEIGHT_PX + TILE_GAP_PX
+const ROW_PITCH_PX = SAMPLE_BUBBLE_HEIGHT_PX + TILE_GAP_PX
 const TILES_H_PADDING_PX = 10
 
 // Request the next windowed page when the scroll position is within this many

@@ -18,7 +18,7 @@ const asyncNoop = async () => { /* empty */ }
 
 const RECENT_PROJECTS: RecentProjectItem[] = [
   {
-    path: 'c:/users/test/mixjam/club-night.mixjam',
+    path: 'club-night.mixjam',
     displayName: 'club-night',
     lastOpened: '2026-06-28T12:00:00.000Z'
   }
@@ -26,10 +26,10 @@ const RECENT_PROJECTS: RecentProjectItem[] = [
 
 const SAMPLES: SampleListItem[] = [
   {
-    id: 'C:/Samples/Drums/Kicks/kick_808.wav',
+    id: 'Drums/Kicks/kick_808.wav',
     dbId: 1,
     name: 'kick_808.wav',
-    relpath: 'C:/Samples/Drums/Kicks/kick_808.wav',
+    relpath: 'Drums/Kicks/kick_808.wav',
     category: 'Drums',
     durationSeconds: null,
     tags: ['Drums', 'WAV'],
@@ -226,8 +226,7 @@ describe('TrackerView', () => {
     const onPlaceSampleDetailOnLane = vi.fn()
     const detail = {
       name: 'kick_808.wav',
-      path: 'Drums/Kicks/kick_808.wav',
-      metadata: [],
+      relpath: 'Drums/Kicks/kick_808.wav',
       tags: [],
       duration: 0.5
     }
@@ -239,7 +238,7 @@ describe('TrackerView', () => {
       dataTransfer: { getData: () => JSON.stringify(detail), types: ['application/mixjam-sample'] }
     })
     expect(onPlaceSampleDetailOnLane).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'kick_808.wav', path: 'Drums/Kicks/kick_808.wav' }),
+      expect.objectContaining({ name: 'kick_808.wav', relpath: 'Drums/Kicks/kick_808.wav' }),
       0,
       expect.any(Number)
     )

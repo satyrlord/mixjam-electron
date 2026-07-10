@@ -17,21 +17,6 @@ Use this after `diagnose` when MJE
 already has a discriminating PASS/FAIL check and the remaining question is
 which **candidates** — the changed files or groups — are actually required.
 
-## Good Fits
-
-- a bug only went green after a broad change set with many candidates
-- import, playback, or UI fixes may span several files
-- the user wants the smallest proven fix set or wants unnecessary candidates removed
-- caching, Electron reload, or stale-build-output questions are muddying the result
-
-## Not For
-
-- there is no stable repro or validation loop yet
-- the main problem is localizing the owning code path for the first time
-- the work is a refactor or design task rather than a root-cause ablation
-
-In those cases, start with `diagnose`.
-
 ## Candidate Rules
 
 1. **Preserve** — save user work before slicing candidates.
@@ -40,17 +25,11 @@ In those cases, start with `diagnose`.
    validation check. A candidate group is a set of files that map to one
    project seam (engine, state, bridge, UI, config, tests).
 4. **Log** — record each run in `tmp/ablation-<slug>.md`; use a markdown
-   template (see the reusable log template in EXAMPLES.md).
+   template. Prefer
+   [`scripts/New-AblationLog.ps1`](scripts/New-AblationLog.ps1); use the
+   manual template in [EXAMPLES.md](EXAMPLES.md) when the script is unavailable.
 5. **Confirm** — stop once the minimal candidate set is proven, then rerun
    the focused check from a clean state.
-
-## Candidate Grouping Hints
-
-- Import and parser code plus resolver/parser tests
-- Tracker and playback services (renderer engine)
-- IPC handlers, main-process services, or SQLite query builders
-- UI components, state, or preload bridge wiring
-- tests, docs, or config that may have masked the real fix
 
 ## Output
 

@@ -19,6 +19,7 @@ import {
   clipScreenRect
 } from '../lib/playerShell'
 import { nearestTick } from '../lib/sample-utils'
+import { safeJsonParse } from '../lib/safeJsonParse'
 import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
 import { useDragResize } from '../hooks/useDragResize'
@@ -30,6 +31,35 @@ import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
 
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
+
+interface ClipDragPayload {
+  clipId: string
+  group?: Array<{ clipId: string; tickOffset: number; laneOffset: number }>
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isFooterSampleDetail(value: unknown): value is FooterSampleDetail {
+  if (!isRecord(value)) return false
+  return typeof value.name === 'string' &&
+    typeof value.relpath === 'string' &&
+    Array.isArray(value.tags) &&
+    (value.duration === null || typeof value.duration === 'number') &&
+    (value.slot === undefined || typeof value.slot === 'number')
+}
+
+function isClipDragPayload(value: unknown): value is ClipDragPayload {
+  if (!isRecord(value) || typeof value.clipId !== 'string') return false
+  if (value.group === undefined) return true
+  return Array.isArray(value.group) && value.group.every((entry) =>
+    isRecord(entry) &&
+    typeof entry.clipId === 'string' &&
+    typeof entry.tickOffset === 'number' &&
+    typeof entry.laneOffset === 'number'
+  )
+}
 
 export interface TrackerViewProps {
   recentProjects: RecentProjectItem[]
@@ -281,23 +311,20 @@ export default function TrackerView({
     const snap = event.altKey ? 1 : TICKS_PER_BEAT
     const raw = event.dataTransfer.getData('application/mixjam-sample')
     if (raw) {
-      try {
-        const detail = JSON.parse(raw) as FooterSampleDetail
+      const detail = safeJsonParse(raw, null, isFooterSampleDetail)
+      if (detail) {
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
         const tick = nearestTick(clickX, rect.width, totalTicks, snap)
         arrangement.onPlaceSampleDetailOnLane(detail, laneIndex, tick)
-      } catch { /* malformed drag data */ }
+      }
       return
     }
     // Intra-player clip move or duplicate
     const clipRaw = event.dataTransfer.getData('application/mixjam-clip')
     if (clipRaw) {
-      try {
-        const parsed = JSON.parse(clipRaw) as {
-          clipId: string
-          group?: Array<{ clipId: string; tickOffset: number; laneOffset: number }>
-        }
+      const parsed = safeJsonParse(clipRaw, null, isClipDragPayload)
+      if (parsed) {
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
         const anchorTick = nearestTick(clickX, rect.width, totalTicks, snap)
@@ -320,7 +347,7 @@ export default function TrackerView({
           applySingle(parsed.clipId, laneIndex, anchorTick)
           setSelectedClipIds(new Set())
         }
-      } catch { /* malformed drag data */ }
+      }
     }
   }, [lanes.length, totalTicks, arrangement])
 

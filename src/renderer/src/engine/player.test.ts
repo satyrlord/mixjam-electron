@@ -212,6 +212,22 @@ describe('Player.removeChannel', () => {
     // Should not crash; channels are marked without needing to exist first
     await player.close()
   })
+
+  it('restores removed channel state and routing idempotently', async () => {
+    const lanes: EngineLane[] = [
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
+    ]
+    const { player } = makePlayer({ lanes })
+    await player.start(0)
+    await flushAsync()
+
+    player.removeChannel(0)
+    player.restoreChannel(0)
+    player.restoreChannel(0)
+
+    expect(player.getChannelAnalyser(0)).toBeDefined()
+    await player.close()
+  })
 })
 
 describe('Player.channelGating', () => {

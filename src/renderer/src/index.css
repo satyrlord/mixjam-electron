@@ -2268,7 +2268,7 @@ html[data-theme-ready='true'] body {
 
 /* Category grid tiles */
 .cat-grid .sample-bubble {
-  height: 32px;
+  height: var(--sample-bubble-height, 32px);
   justify-content: center;
   width: auto;
 }
@@ -2283,7 +2283,7 @@ html[data-theme-ready='true'] body {
 
 /* Sample tiles — width from inline style */
 .tiles .sample-bubble {
-  height: 32px;
+  height: var(--sample-bubble-height, 32px);
   flex: none;
 }
 

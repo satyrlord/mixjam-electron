@@ -37,6 +37,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - `pause()`: transitions to `paused`, holds current tick position.
 - `stop()`: transitions to `stopped`, resets playhead to tick 0.
 - `setBpm(bpm)`: changes tempo. Effective immediately during playback.
+- The renderer transport runtime is the single owner of BPM, master gain,
+  transport state, and elapsed display time. Pausing commits the active elapsed
+  segment before stopping its timer, so resume excludes time spent paused.
 - Tick-to-time conversion: given a tick number and the current AudioContext
   time, returns the absolute time when that tick should fire.
 - Step resolution: 1/32 note (8 ticks per beat at 4/4). Every track shares the
@@ -56,8 +59,7 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   with `(tick, when)` pairs for steps that need to fire.
 - The playhead anchor folds forward to the last whole tick on every timer pass,
   so a mid-playback BPM change reinterprets at most one timer interval of
-  elapsed time — the visual playhead stays continuous instead of jumping
-  (fixed 2026-07-02).
+  elapsed time and the visual playhead stays continuous instead of jumping.
 - The scheduler is a standalone module — testable with a mock clock.
 
 ### Audio Engine
@@ -69,8 +71,7 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   registry is keyed by the caller's channel index — lane N always resolves to
   channel N even when channels are created lazily out of order — so
   `setChannelPan(index, pan)` targets the right channel. A pan set before a
-  lane's first trigger is stored and applied when its channel is created
-  (fixed 2026-07-02).
+  lane's first trigger is stored and applied when its channel is created.
 - Provides `triggerVoice(buffer, channel, when, trackIndex)` — creates a new
   `AudioBufferSourceNode`, routes it through the channel's gain/pan chain into
   the master bus, and returns a `Voice` handle.
@@ -166,14 +167,7 @@ the engine never knows who is listening.
 
 ## Non-Goals (deferred to later specs)
 
-- No UI for transport controls — play/pause/stop buttons. The tracker timeline
-  UI is spec-006. (Transport buttons and playhead were pulled forward into
-  TrackerView during spec-005 implementation; spec-006 formalizes the full layout.)
-- Visual playhead pulled forward: the playhead tick is derived from the
-  audio-clock Scheduler (`Player.currentTick`), polled into React state and
-  rendered as a positioned bar in TrackerView. The transport is a pure state
-  machine and owns no timer, so the playhead never drifts from the audible
-  output. The spec-006 playhead AC is therefore already satisfied.
+- Transport controls and the visual playhead are specified by spec-006.
 - No time-stretching — samples play at native rate regardless of BPM.
   Time-stretch is spec-009.
 - No per-channel audio effects (delay, reverb, compression). FX is spec-010.
@@ -186,6 +180,5 @@ the engine never knows who is listening.
 
 ## References
 
-- mixjam-webjam spec-002 — archived predecessor-project doc, not tracked in this repo — Transport, Scheduler, AudioEngine, Channel, Voice, Track definitions.
 - [Current project audio-engine.md](../audio-engine.md) — Lookahead scheduler pattern, sample loading strategy, native-addon escape hatch.
 - [Current project architecture.md](../architecture.md) — Web Audio API for v1, Electron protocol for file access.

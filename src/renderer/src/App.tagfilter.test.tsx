@@ -39,6 +39,6 @@ describe('App tag filter', () => {
     // Tag chip should be visible because mock returns selectedTagIds: [5]
     const chip = screen.getByText(/Cool/)
     fireEvent.click(chip.closest('button')!)
-    // handleToggleTagFilter was called — the updater function body executes
+    fireEvent.click(chip.closest('button')!)
   })
 })

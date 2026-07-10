@@ -88,8 +88,3 @@ can chain effects in order and adjust parameters per channel.
 - No external effect plugin support (VST, JSFX, etc.).
 - No spectrum analyzer or EQ visualizer.
 - No side-chain compression.
-
-## References
-
-- mixjam-webjam architectural-suggestion-notes §2 — archived predecessor-project doc, not tracked in this repo — WASM DSP vs native nodes, Freeverb algorithm, JSFX as reference.
-- mixjam-webjam spec-002 — archived predecessor-project doc, not tracked in this repo — FxChain, Delay, Reverb, Compressor, FxRegistry.

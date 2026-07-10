@@ -4,10 +4,8 @@ description: >
   Audits the MixJam Electron (MJE) codebase for dead TypeScript code,
   orphan files, and unused symbols across main and renderer processes,
   triages findings into live dead code or false positives, and optionally
-  removes provably dead code with focused validation. Always starts with
-  Fallow static analysis and fixing all issues, including pre-existing
-  ones. Use when the user asks for a dead-code scan, unused-code audit,
-  orphan-file scan, unused-symbol triage, or cleanup from analyzer findings.
+  removes provably dead code with focused validation. Use for a dead-code
+  audit, or for cleanup explicitly requested from analyzer findings.
 ---
 
 # Dead Code Audit
@@ -31,19 +29,17 @@ is `full-code-review`'s domain.
 
 ## Run Fallow Static Analysis First
 
-Before any evidence gathering, run Fallow from the repository root and fix
-**all** issues it reports, including pre-existing ones that are not related
-to the dead-code task at hand:
+Before gathering other evidence, run Fallow from the repository root:
 
 ```PowerShell
 npm run fallow
 ```
 
-Fallow scans for quality, risk, duplication, and architecture issues. Fix
-every finding — refactor, suppress, or document each one as appropriate for
-the codebase — before moving to the next step.
+Treat its output as findings, not permission to edit. In audit-only mode,
+record and triage findings without changing files. In cleanup mode, edit only
+findings covered by the user's request and the Deletion Standard.
 
-If Fallow fails to run (e.g. binary not found), report the failure and stop.
+If Fallow fails to run, report the exact failure and stop.
 
 ## Gather Evidence
 
@@ -58,11 +54,12 @@ npm run lint
 ```
 
 For symbols the compiler cannot judge (unused exports, orphan files,
-unreferenced CSS or assets), search for references with `grep` or `rg`
+unreferenced CSS or assets), search for references with `rg`
 across the project.
 
-If a build or lint step fails, report the exact failure and stop — do not
-triage findings against a broken build, and do not delete anything.
+If typecheck or lint fails, preserve the diagnostics as evidence. Do not delete
+anything until the relevant failure is understood and the deletion can be
+validated independently.
 
 ## Weigh the Evidence
 
@@ -84,8 +81,8 @@ one of these paths), report the concrete reason rather than deleting.
 1. If the request is audit-only, report findings and their evidence without
    editing.
 2. If the request includes cleanup and the evidence meets the Deletion
-   Standard (no static references, no entrypoint wiring, no dynamic lookup,
-   no test dependency), delete the smallest slice that removes it.
+   Standard in [REFERENCE.md](REFERENCE.md), delete the smallest slice that
+   removes it.
 3. After each deletion, run Audit Validation before widening scope.
 4. For false positives, suggest the narrowest suppression or config
    refinement only when the same false positive is likely to recur.
@@ -94,10 +91,12 @@ one of these paths), report the concrete reason rather than deleting.
 
 The audit is complete when:
 
+- the requested audit or cleanup scope is explicit,
 - every reported finding has been triaged as live, false positive, or removed,
 - the evidence for each decision is explicit,
 - no cleanup was performed without proof,
-- and validation commands were re-run after any edits.
+- and Audit Validation passes after every edit, or the exact blocker is
+  reported without claiming completion.
 
 ## Deep Reference
 

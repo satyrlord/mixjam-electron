@@ -325,26 +325,42 @@ describe('useTransportEngine', () => {
     expect(result.current.lanes[2].clips).toHaveLength(2)
   })
 
-  it('pauses and resumes transport', async () => {
-    vi.useRealTimers()
+  it('pauses and resumes without counting paused time', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000)
     const api = createBackendAPI()
     vi.mocked(api.readSampleBytes).mockResolvedValue(new ArrayBuffer(8))
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
 
-    await waitFor(() => expect(result.current.lanes).toBeDefined())
-
-    // Start playing
-    await act(async () => { result.current.transportPlay() })
+    act(() => { result.current.transportPlay() })
     expect(result.current.transportState).toBe('playing')
-    // Let the timer interval fire at least once so timerRef.current is set
-    await act(async () => { await new Promise((r) => setTimeout(r, 150)) })
 
-    // Pause — this triggers the timer cleanup branch
-    await act(async () => { result.current.transportPause() })
+    vi.setSystemTime(1_250)
+    act(() => { result.current.transportPause() })
     expect(result.current.transportState).toBe('paused')
+    expect(result.current.elapsedMs).toBe(250)
 
-    // Stop to clean up
-    await act(async () => { result.current.transportStop() })
+    vi.setSystemTime(2_000)
+    act(() => { result.current.transportPlay() })
+    vi.setSystemTime(2_100)
+    act(() => { result.current.transportPause() })
+
+    expect(result.current.elapsedMs).toBe(350)
+    act(() => { result.current.transportStop() })
+    expect(result.current.elapsedMs).toBe(0)
+  })
+
+  it('exposes BPM and master gain from the runtime owner', () => {
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'tracker'))
+
+    act(() => {
+      result.current.setBpm(140)
+      result.current.setMasterGain(0.4)
+    })
+
+    expect(result.current.bpm).toBe(140)
+    expect(result.current.masterGain).toBe(0.4)
   })
 
   it('resets elapsed time when leaving tracker while playing', async () => {

@@ -9,13 +9,6 @@ import type { ClipGroupEntry, FooterSampleDetail, LaneState } from '../lib/playe
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
 import type { ChannelState } from '../hooks/useMixer'
 
-/**
- * TrackerView's prop surface, grouped by domain slice so the component tree
- * passes three cohesive objects instead of ~60 flat props. App assembles these
- * from useAppState; sub-components consume the slice they care about.
- */
-
-/** Sample-browser slice: query results, filters, and library management. */
 export interface TrackerBrowserProps {
   samples: SampleListItem[]
   searchQuery: string
@@ -53,7 +46,6 @@ export interface TrackerBrowserProps {
   onApplyLibrary: (library: LibraryItem) => void
 }
 
-/** Arrangement slice: lanes and clip editing. */
 export interface TrackerArrangementProps {
   lanes: LaneState[]
   laneShouldDim: (lane: LaneState) => boolean

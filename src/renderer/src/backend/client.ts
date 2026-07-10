@@ -4,9 +4,9 @@
 // openExternal, version) delegate to the Electron shellAPI when present and
 // fall back to browser behaviour otherwise.
 
-import type { BackendAPI, ScanProgress, SessionPaths } from '../../../shared/backend-api'
+import type { BackendAPI, SessionPaths } from '../../../shared/backend-api'
 import type { ShellAPI } from '../../../shared/ipc'
-import type { BackendCalls, BackendOp, WorkerMessage } from './protocol'
+import { createWorkerProxy } from './worker-proxy'
 import {
   pickFolder,
   readSampleBytes,
@@ -28,18 +28,9 @@ function appVersion(): string {
   return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev'
 }
 
-interface Pending {
-  resolve: (value: unknown) => void
-  reject: (reason: Error) => void
-}
-
 export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
-
-  let nextSeq = 1
-  const pending = new Map<number, Pending>()
-  const progressListeners = new Set<(progress: ScanProgress) => void>()
-  const doneListeners = new Set<() => void>()
+  const workerProxy = createWorkerProxy(worker)
 
   // Cache the app version for the session lifetime so saveSession does not
   // round-trip to IPC on every folder pick.
@@ -50,37 +41,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     return cachedVersion
   }
 
-  worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-    const message = event.data
-    if (message.type === 'response') {
-      const entry = pending.get(message.seq)
-      if (!entry) return
-      pending.delete(message.seq)
-      if (message.ok) entry.resolve(message.result)
-      else entry.reject(new Error(message.error))
-      return
-    }
-    if (message.type === 'scan-progress') {
-      for (const listener of progressListeners) listener(message.progress)
-      return
-    }
-    for (const listener of doneListeners) listener()
-  }
-
-  worker.onerror = (event) => {
-    console.error('Backend worker error:', event.message)
-  }
-
-  function call<Op extends BackendOp>(
-    op: Op,
-    ...args: Parameters<BackendCalls[Op]>
-  ): Promise<ReturnType<BackendCalls[Op]>> {
-    return new Promise((resolve, reject) => {
-      const seq = nextSeq++
-      pending.set(seq, { resolve: resolve as (value: unknown) => void, reject })
-      worker.postMessage({ seq, op, args })
-    })
-  }
+  const call = workerProxy.call
 
   // Ask the browser to protect OPFS/IndexedDB from storage-pressure eviction.
   // Fire-and-forget on first scan: that is the moment the index starts being
@@ -146,12 +107,10 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     readSampleBytes,
 
     onScanProgress: (cb) => {
-      progressListeners.add(cb)
-      return () => progressListeners.delete(cb)
+      return workerProxy.onScanProgress(cb)
     },
     onScanDone: (cb) => {
-      doneListeners.add(cb)
-      return () => doneListeners.delete(cb)
+      return workerProxy.onScanDone(cb)
     }
   }
 }

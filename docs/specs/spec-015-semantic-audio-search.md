@@ -5,12 +5,10 @@
 **Depends on:** spec-004 (Sample Library — browser, search, `rule_json` query
 engine), web-first architecture (backend worker owns the database)
 
-> Moved out of spec-013 (Sample Folder Builder) on 2026-07-03 and extended
-> with the `similarTo` query predicate and zero-shot tag suggestions. This
-> spec owns everything CLAP-model-dependent; deterministic key/BPM
-> compatibility is [spec-014](spec-014-musical-compatibility.md), and the
-> heuristic analyzer that owns primary categories is
-> [spec-008](spec-008-sample-analysis.md).
+This spec owns the `similarTo` query predicate, zero-shot tag suggestions, and
+all CLAP-model-dependent behavior. Deterministic key/BPM compatibility is
+[spec-014](spec-014-musical-compatibility.md), and the heuristic analyzer that
+owns primary categories is [spec-008](spec-008-sample-analysis.md).
 
 ## Objective
 

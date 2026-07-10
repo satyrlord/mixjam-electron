@@ -7,8 +7,9 @@ const STORAGE_KEY = 'mixjam:recents-rail-collapsed'
 function loadCollapsed(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) === '1'
-  } catch {
-    return false
+  } catch (error) {
+    if (error instanceof DOMException) return false
+    throw error
   }
 }
 
@@ -33,7 +34,9 @@ export default function RecentProjectsRail({
     try {
       if (next) localStorage.setItem(STORAGE_KEY, '1')
       else localStorage.removeItem(STORAGE_KEY)
-    } catch { /* storage unavailable */ }
+    } catch (error) {
+      if (!(error instanceof DOMException)) throw error
+    }
   }
 
   return (

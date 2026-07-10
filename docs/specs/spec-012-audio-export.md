@@ -90,8 +90,3 @@ at the project BPM with time-stretching applied.
 - No normalization or limiting on the master bus during export.
 - No export format other than WAV and MP3.
 - No export directly to video or streaming platforms.
-
-## References
-
-- mixjam-webjam architectural-suggestion-notes §2 — archived predecessor-project doc, not tracked in this repo — WAV/MP3 export, offline rendering, lamejs.
-- mixjam-webjam spec-002 — archived predecessor-project doc, not tracked in this repo — OfflineRenderer, WavEncoder, Mp3Encoder.

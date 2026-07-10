@@ -40,7 +40,11 @@ Do not start by stashing the whole repository if unrelated user work exists.
 Helper script example:
 
 ```PowerShell
-VALIDATION='npm test -- --run src/__tests__/scheduler.test.ts'
+$Validation = 'npm test -- src/renderer/src/components/TrackerView.test.tsx'
+./.github/skills/ablation-test/scripts/New-AblationLog.ps1 `
+  -Slug scheduler-dropout `
+  -Validation $Validation `
+  -CandidateGroup engine,state,tests
 ```
 
 If a candidate path overlaps with unrelated user edits and you cannot isolate

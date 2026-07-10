@@ -86,8 +86,3 @@ native tempos.
 - No time-stretch quality comparison across multiple WASM libraries in this
   spec — use one, swap later if needed.
 - No stretch preview in the sample browser.
-
-## References
-
-- mixjam-webjam architectural-suggestion-notes §2 — archived predecessor-project doc, not tracked in this repo — Time-stretch library options, quality A/B testing.
-- mixjam-webjam spec-002 — archived predecessor-project doc, not tracked in this repo — StretchEngine interface.

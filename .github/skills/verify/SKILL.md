@@ -1,64 +1,58 @@
 ---
 name: verify
-description: Drive the built MixJam renderer end-to-end in Chromium to verify UI/theme/tracker changes at the real surface (pixels, computed styles, canvas pixel sampling). Use after nontrivial renderer changes, before committing.
+description: Verifies nontrivial MixJam renderer changes against the built Chromium surface using pixels, computed styles, and canvas sampling.
 ---
 
-# Verify (MixJam Electron)
+# Verify MixJam Renderer
 
-Runtime verification recipe for renderer changes. Unit tests stub the canvas
-(jsdom), so canvas drawing, theme tokens, and CSS construction can only be
-verified by running the production bundle.
+Verify renderer changes against the production bundle. Unit tests stub canvas,
+so theme, CSS, drawing, and tracker behavior need evidence from real Chromium.
 
-## Handle
+## Build and Drive
 
-1. `npm run build` — produces `out/renderer` (static, no COOP/COEP needed).
-2. Serve it: `node scripts/serve-static.mjs <port>` (background).
-3. Drive with Playwright's `chromium` from a script placed **inside the repo**
-   (module resolution needs the repo `node_modules`), e.g. `tmp/verify-*.mjs`
-   (`tmp/` is git- and eslint-ignored). Run with `node tmp/verify-*.mjs`.
+1. Remove `ELECTRON_RUN_AS_NODE` from the command environment when launching
+   Electron; the Chromium-only path is unaffected.
+2. Run `npm run build` and require a clean exit.
+3. Serve `out/renderer` with `node scripts/serve-static.mjs <port>` in a
+   background process.
+4. Create `tmp/verify-<slug>.mjs` inside the repository so Playwright resolves
+   the local `node_modules`.
+5. Drive only the changed states and write screenshots plus a short evidence
+   report under `tmp/verify-<slug>/`.
+6. Stop the static server after the assertions finish.
 
-A worked example from the 2026-07-07 theme-parity pass lives at
-`tmp/verify-parity.mjs` (may be absent — tmp is not committed; recreate from
-this recipe).
+## Seed Without Real Folders
 
-## Seeding the app without real folders
+Inject a mock `window.backendAPI` with `page.addInitScript` before `page.goto`.
+Copy its shape from `tests/e2e/fixtures.ts` and compare it with
+`src/shared/backend-api.ts`. Assert the feature fed by each mocked method; app
+boot alone does not prove the mock is complete.
 
-Inject a mock `window.backendAPI` via `page.addInitScript` **before**
-`page.goto` — `main.tsx` keeps an existing `window.backendAPI`. Copy the mock
-shape from `tests/e2e/fixtures.ts` and keep it in sync with
-`src/shared/backend-api.ts` (a missing method usually degrades silently
-behind try/catch — verify the feature it feeds, not just app boot).
-Session pre-set with both folders makes "Start New MixJam" enabled
-immediately.
+## Drive the Tracker
 
-## Driving the tracker
+- Switch theme with
+  `page.locator('.theme-selector').selectOption('<key>')`.
+- Place a clip by dispatching `DragEvent('drop')` on
+  `.tracker-lane-canvas`. Attach a `DataTransfer` whose
+  `application/mixjam-sample` value is serialized `FooterSampleDetail`.
+- Use a duration that makes the clip wide enough for stable pixel sampling.
+- Start playback before asserting the playhead because it renders only while
+  playing.
 
-- Theme switch: `page.locator('.theme-selector').selectOption('<key>')`.
-  Do NOT use `getByLabel('Theme')` — the home screen swatch buttons also
-  carry Theme-ish labels (strict-mode violation, 17 matches).
-- Place a clip: dispatch a synthetic `DragEvent('drop')` on the target
-  `.tracker-lane-canvas` with a `DataTransfer` carrying
-  `application/mixjam-sample` = JSON `FooterSampleDetail`
-  (see `TrackerView.handleLaneCanvasDrop`). `Object.defineProperty` the
-  `dataTransfer` onto the event. Use `duration: 4.0` so the clip is wide
-  enough (>100px) for pixel assertions.
-- Playhead only renders while playing: click the `Play` button first.
+## Assert the Surface
 
-## Asserting
+- Read theme tokens through `getComputedStyle(document.documentElement)`.
+- Sample canvas pixels through `getImageData`; ignore pixels with alpha below
+  250 before comparing exact lowercased theme colors.
+- Compare resolved DOM colors as computed `rgb(...)`, not unresolved CSS
+  variables.
+- Assert behavior or computed values in addition to screenshots.
+- Account for the observed `devicePixelRatio` when sampling coordinates.
 
-- Theme tokens: `getComputedStyle(document.documentElement)
-  .getPropertyValue('--token')`.
-- Canvas content: `canvas.getContext('2d').getImageData(...)` histogram.
-  Skip pixels with alpha < 250 — transparent pixels unpremultiply to
-  `#000000`-ish noise. Compare against exact theme hexes (lowercased).
-- DOM bubbles resolve `var(--palette-N)` — computed `backgroundColor`
-  returns the resolved `rgb(...)`.
-- Screenshot every state; the screenshots are the evidence.
+## Completion Criterion
 
-## Gotchas
-
-- `ELECTRON_RUN_AS_NODE` is set user-wide on this machine — strip it from
-  `env` before `_electron.launch` (Electron surface only; the Chromium
-  route above does not care).
-- Headless Chromium has `devicePixelRatio = 1`; the canvas draw code scales
-  by dpr, so account for it if asserting at specific coordinates.
+Verification is complete when the production build passes, the relevant user
+states are driven in Chromium, every changed visual or interaction contract has
+an objective assertion, screenshots and an evidence report exist under the
+run-specific `tmp/verify-<slug>/` directory, and the background server is
+stopped. Report exact failed assertions without claiming verification passed.

@@ -53,7 +53,7 @@ describe('Footer', () => {
         version="1.2.3"
         sampleDetail={{
           name: 'kick_808.wav',
-          relpath: 'C:/Samples/Drums/Kicks/kick_808.wav',
+          relpath: 'Drums/Kicks/kick_808.wav',
           tags: ['Drums', 'Kick'],
           duration: null
         }}
@@ -63,7 +63,7 @@ describe('Footer', () => {
     )
 
     expect(screen.getByText('kick_808.wav')).toBeInTheDocument()
-    expect(screen.getByText('C:/Samples/Drums/Kicks/kick_808.wav')).toBeInTheDocument()
+    expect(screen.getByText('Drums/Kicks/kick_808.wav')).toBeInTheDocument()
     expect(screen.getByText('Drums, Kick')).toBeInTheDocument()
   })
 
@@ -75,7 +75,7 @@ describe('Footer', () => {
         version="1.2.3"
         sampleDetail={{
           name: 'snare.wav',
-          relpath: 'C:/Samples/snare.wav',
+          relpath: 'Drums/snare.wav',
           tags: ['Percussion'],
           duration: 0.8
         }}
@@ -84,9 +84,8 @@ describe('Footer', () => {
       />
     )
 
-    // Center slot populated
     expect(screen.getByText('snare.wav')).toBeInTheDocument()
-    expect(screen.getByText('C:/Samples/snare.wav')).toBeInTheDocument()
+    expect(screen.getByText('Drums/snare.wav')).toBeInTheDocument()
     expect(screen.getByText('Percussion')).toBeInTheDocument()
 
     // Left settings link still visible

@@ -6,7 +6,7 @@ import type { LaneClip } from '../lib/playerShell'
 const CLIPS: LaneClip[] = [
   {
     id: 'clip-1',
-    samplePath: 'C:/kick.wav',
+    samplePath: 'kick.wav',
     sampleName: 'kick.wav',
     startTick: 0,
     durationTicks: 16,
@@ -15,7 +15,7 @@ const CLIPS: LaneClip[] = [
   },
   {
     id: 'clip-2',
-    samplePath: 'C:/snare.wav',
+    samplePath: 'snare.wav',
     sampleName: 'snare.wav',
     startTick: 16,
     durationTicks: 16,
@@ -111,7 +111,7 @@ describe('LaneClipCanvas', () => {
         clips={CLIPS}
         totalTicks={64}
         laneIndex={0}
-        flashSamplePath="C:/kick.wav"
+        flashSamplePath="kick.wav"
         selectedClipIds={new Set()}
         onClipDragStart={vi.fn()}
         onClipContextMenu={vi.fn()}
@@ -142,6 +142,26 @@ describe('LaneClipCanvas', () => {
     expect(ctx.fillStyle).toBeDefined()
   })
 
+  it('falls back to the accent when a saved palette slot no longer exists', () => {
+    const fillStyles: string[] = []
+    mockCtx.fill.mockImplementation(() => { fillStyles.push(mockCtx.fillStyle) })
+    render(
+      <LaneClipCanvas
+        clips={[{ ...CLIPS[0]!, slot: 99 }]}
+        totalTicks={64}
+        laneIndex={0}
+        flashSamplePath={null}
+        selectedClipIds={new Set()}
+        onClipDragStart={vi.fn()}
+        onClipContextMenu={vi.fn()}
+      />
+    )
+
+    expect(fillStyles).toContain(
+      getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+    )
+  })
+
   it('calls onClipContextMenu with clip info on right-click', () => {
     const onCtx = vi.fn()
     const { container } = render(
@@ -164,7 +184,7 @@ describe('LaneClipCanvas', () => {
     expect(info.laneIndex).toBe(3)
     // In jsdom, canvas has 0 width so hitTest returns the first clip
     expect(info.clipId).toBe('clip-1')
-    expect(info.samplePath).toBe('C:/kick.wav')
+    expect(info.samplePath).toBe('kick.wav')
   })
 
   it('does not call onClipContextMenu when there are no clips', () => {

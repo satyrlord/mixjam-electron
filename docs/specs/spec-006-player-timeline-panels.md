@@ -57,7 +57,7 @@ adjacencies.
   ├── .middle-strip     — 44px, full-width transport + global status band
   └── .lower-work       — flex row, main bottom work band
       ├── .song-controls-rail — left rail, default-visible control region
-      │   └── .mixer-reveal    — mixer column, shown/hidden via the rail's drag seam (spec-007; visible by default since its 2026-07-07 amendment)
+      │   └── .mixer-reveal    — mixer column, shown/hidden via the rail's drag seam (spec-007)
       └── .browser-region      — lower-right sample browser (spec-004)
           ├── .category-tree
           ├── .browser-resize-v — 5px, internal vertical drag handle
@@ -97,9 +97,6 @@ adjacencies.
   - Solo button (S) — 28×28px, toggle style. When any lane is soloed,
     non-soloed lanes are dimmed.
   - Pan knob — 30×30px drag-to-pan dial with a highlight-token pointer.
-  - (revised 2026-07-02: M/S grew from 22px and the pan knob from 26px per
-    accessibility review — interactive controls need a 28px+ hit target and the
-    old 2×9px pointer was near-invisible on some themes.)
 - **Lane canvas:** flex:1, position:relative — hosts clip bubbles.
 - **Focused lane:** subtle accent-color left border on the lane head.
 
@@ -143,8 +140,7 @@ adjacencies.
   when none) and the BPM display/editor.
 - Center segment: three transport buttons plus the edit-history pair:
   - Skip Back (returns to tick 0). Resets the engine scheduler's playhead, not
-    just the UI mirror; while playing it restarts playback from the top
-    (fixed 2026-07-02 — previously a visual-only no-op).
+    just the UI mirror; while playing it restarts playback from the top.
   - Play / Pause (toggles; Play is accent-colored when stopped, Pause when
     playing). Space toggles the same action.
   - Stop (returns to tick 0 and stops).
@@ -204,8 +200,7 @@ adjacencies.
     saving the current project or opening an existing `.mixjam` file will
     populate the rail
   - the empty state does not add rail-specific action buttons
-- Entries are interactive (revised 2026-07-02 per design-review change
-  request — the rail was previously display-only "dead UI"):
+- Entries are interactive:
   - each entry is a full-width click target with a hover state
   - clicking an entry opens it: the project is recorded as most-recently
     opened, the rail re-sorts, and the project name appears in the Middle
@@ -249,7 +244,7 @@ adjacencies.
 - [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
 - [x] **AC-004:** The Song Controls rail is visible by default in the lower-left; widening its right-edge reveal seam may expose mixer content without relocating the sample browser into the left rail.
 - [x] **AC-004a:** The default Song Controls rail shows a Master Volume slider and a master dB loudness meter. BPM is edited only via the Middle Strip click-to-edit control
-  (revised 2026-07-02: the former rail BPM slider duplicated the Middle Strip editor and was removed per design-review change request).
+  so the app has one BPM editor.
 - [x] **AC-004b:** The BPM editor accepts 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
 - [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, functional M and S buttons, and a functional pan knob.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
@@ -266,7 +261,7 @@ adjacencies.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
 - [x] **AC-015:** The BPM display shows the current BPM. Clicking it allows editing; changing the value updates the engine's BPM immediately.
 - [x] **AC-015a:** The Middle Strip BPM editor is the single BPM control and always reflects the transport's current BPM
-  (revised 2026-07-02: superseded the two-control sync requirement when the rail slider was removed).
+  without a second control to synchronize.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-017:** Clips are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
 - [x] **AC-018:** Shift-dragging a placed clip duplicates it at the drop position; the original remains unchanged.
@@ -296,11 +291,8 @@ adjacencies.
 - No cut/copy/paste for clips.
 - No BPM automation or tempo changes within a project.
 - Undo/redo covers clip arrangement edits only (see Undo/Redo); mixer and
-  tempo changes are not undoable. (revised 2026-07-02: undo/redo itself moved
-  in scope per design-review change request.)
+  tempo changes are not undoable.
 
 ## References
 
-- mixjam-sample-daw spec-003 — archived predecessor-project doc, not tracked in this repo — Lane layout, ruler, transport strip, resize handles.
-- mixjam-sample-daw style-guide §4–§5 — archived predecessor-project doc, not tracked in this repo — Timeline, lane, clip component rules.
 - [Current project architecture.md](../architecture.md) — Virtualization requirement, canvas rendering guidance.

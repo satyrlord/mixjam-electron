@@ -11,21 +11,6 @@ runtime theme switching mechanism. All 16 themes (Emerald, Enterprise, Neon
 Rave, Warm Analog, IDE, Rust Industrial, Club PA, Beton Brut, Mono, Cosmic,
 Neon, Vintage, Rack, Soft, Riso, Arcade) are fully implemented with distinct
 visual appearances; Emerald is the default.
-(Amended 2026-07-07: Flat Studio (`studio`) was replaced by Enterprise
-(`enterprise`) — a dark cloud-platform look with blue accent `#2F81F7`.
-Saved `studio` keys fall back to Emerald via `normalizeThemeKey`.)
-(Amended 2026-07-07, second pass: Screen Maximal (`screen`) was retired —
-saved `screen` keys fall back to Emerald the same way — and nine new themes
-landed from the candidate-mockup round: Beton Brut, Mono, Cosmic, Neon,
-Vintage, Rack, Soft, Riso, Arcade. Three of them (Vintage, Soft,
-Riso) are the app's first light themes.)
-(Amended 2026-07-07, third pass — mockup parity: the sample-bubble palette
-became theme-scoped (see "Sample Palette"), the previously unconsumed
-`--bg-grid`, `--clip-missing`, and `--shadow-clip-text` tokens are now
-rendered by the lane canvas, and construction tokens landed: border widths,
-clip label typography, a clip gloss layer, and a meter glow. The old rule
-"bubbles stay theme-invariant" is REVOKED — it is exactly why every theme
-rendered the same warm clips regardless of palette.)
 
 ## User Stories
 
@@ -69,23 +54,26 @@ elements consistently.
 | `--meter-green` | Meter safe zone | Channel dB meter (-60 to -12 dB) |
 | `--meter-yellow` | Meter caution zone | Channel dB meter (-12 to -3 dB) |
 | `--meter-red` | Meter danger zone | Channel dB meter (-3 to 0 dB) |
-| `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink (amended 2026-07-07) | Transport strip buttons |
-| `--transport-active` | Active transport button base color; drives `--on-transport-active` (amended 2026-07-07) | Playing transport button |
+| `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink | Transport strip buttons |
+| `--transport-active` | Active transport button base color; drives `--on-transport-active` | Playing transport button |
 | `--radius` | Border radius | Clips, buttons, panels |
-| `--radius-transport` | Transport button corner shape | Transport strip buttons; `50%` = round hardware (Analog, Rust), rounded-rect for modern themes (amended 2026-07-07) |
-| `--radius-clip` | Clip / sample-bubble corner radius, px (amended 2026-07-07) | Lane clips (canvas-drawn) and DOM sample bubbles; `0px` for hard-edged themes, `6px` preserves the pre-token look |
-| `--border-width` | Structural hairline width (parity pass 2026-07-07) | Lane separators, panel borders, ruler edge — everything drawn with `--border`; `2px` gives Beton Brut its black rules |
-| `--border-width-pill` | Control border width (parity pass 2026-07-07) | Pill-family borders (`--pill-border`): theme selector, mute/solo, M/S, transport, chips |
-| `--border-width-header` | Header bottom-rule width (parity pass 2026-07-07) | Header bottom edge; `3px` on Beton Brut, `2px` on Vintage/Riso |
-| `--clip-font-weight` | Clip / bubble label weight (parity pass 2026-07-07) | Canvas clip labels and DOM sample bubbles; `700` for statement themes (Beton, Mono, Neon), `600` Riso, `400` otherwise |
-| `--clip-case` | Clip / bubble label case (parity pass 2026-07-07) | `uppercase` or `none`; canvas uppercases the drawn string, DOM uses `text-transform` |
+| `--radius-transport` | Transport button corner shape | Transport strip buttons; `50%` = round hardware (Analog, Rust), rounded-rect for modern themes |
+| `--radius-clip` | Clip / sample-bubble corner radius, px | Lane clips (canvas-drawn) and DOM sample bubbles; `0px` for hard-edged themes |
+| `--border-width` | Structural hairline width | Lane separators, panel borders, ruler edge — everything drawn with `--border`; `2px` gives Beton Brut its black rules |
+| `--border-width-pill` | Control border width | Pill-family borders (`--pill-border`): theme selector, mute/solo, M/S, transport, chips |
+| `--border-width-header` | Header bottom-rule width | Header bottom edge; `3px` on Beton Brut, `2px` on Vintage/Riso |
+| `--clip-font-weight` | Clip / bubble label weight | Canvas clip labels and DOM sample bubbles; `700` for statement themes (Beton, Mono, Neon), `600` Riso, `400` otherwise |
+| `--clip-case` | Clip / bubble label case | `uppercase` or `none`; canvas uppercases the drawn string, DOM uses `text-transform` |
 
-Token consumption notes (parity pass 2026-07-07): `--bg-grid` is the lane
+`--bg-grid` is the lane
 canvas beat-line color (bar lines stay `--border` for structural hierarchy);
-`--clip-missing` fills the 45-degree hazard stripes drawn on clips whose
-sample row is missing (`scan_state = 2`); `--shadow-clip-text` now applies to
-canvas-drawn clip labels as well as DOM bubbles (both drop the shadow when the
+`--clip-missing` fills the 45-degree hazard stripes on clips whose sample row
+is missing (`scan_state = 2`); `--shadow-clip-text` applies to canvas clip
+labels and DOM bubbles (both drop the shadow when the
 per-slot ink resolves dark, matching `bubbleStyle`).
+
+Sample bubbles use the shared `SAMPLE_BUBBLE_HEIGHT_PX` geometry constant for
+tracker canvas drawing, browser virtualization, and the DOM height token.
 
 Depth tokens (`depth.*` in the JSON, applied as the same-named CSS custom
 properties) carry theme-dependent gradient/shadow value strings so the same
@@ -101,30 +89,25 @@ semantic treatment can change with the active theme (AC-008):
 | `--gradient-transport-active` | Active transport button surface (lamp/LED) |
 | `--shadow-transport` | Idle transport button box-shadow |
 | `--shadow-transport-active` | Active transport button box-shadow (glow) |
-| `--shadow-pill` | box-shadow for pill-family chrome — theme selector, mute/solo, mixer M/S. Neumorphic (Soft), Win9x bevel (Vintage), offset slab (Arcade), riso overprint (amended 2026-07-07) |
-| `--shadow-lane` | Inset well shadow on the lane clip area (Rack, Soft) (amended 2026-07-07) |
-| `--shadow-playhead` | Playhead glow (Cosmic, Neon) (amended 2026-07-07) |
-| `--shadow-clip` | Clip drop-shadow, parsed by the lane canvas — strict format `<x>px <y>px <blur>px <color>` or `none` (amended 2026-07-07) |
-| `--border-clip` | Clip outline, parsed by the lane canvas — strict format `<width>px <color>` or `none`; gives Beton Brut/Arcade their hard ink borders (amended 2026-07-07) |
+| `--shadow-pill` | box-shadow for pill-family chrome — theme selector, mute/solo, mixer M/S. Neumorphic (Soft), Win9x bevel (Vintage), offset slab (Arcade), riso overprint |
+| `--shadow-lane` | Inset well shadow on the lane clip area (Rack, Soft) |
+| `--shadow-playhead` | Playhead glow (Cosmic, Neon) |
+| `--shadow-clip` | Clip drop-shadow, parsed by the lane canvas — strict format `<x>px <y>px <blur>px <color>` or `none` |
+| `--border-clip` | Clip outline, parsed by the lane canvas — strict format `<width>px <color>` or `none`; gives Beton Brut/Arcade their hard ink borders |
 | `--gradient-clip` | Clip/bubble gloss, canvas-parsed — `linear-gradient(180deg, <top>, <bottom>)` or `none`; stops are single hex tokens (`#RRGGBBAA`, never rgba()); Rack's pressed metal |
-| `--shadow-meter` | box-shadow on meter fills (channel dB meter, loudness bar) — LED glow on Rack, `none` elsewhere (parity pass 2026-07-07) |
+| `--shadow-meter` | box-shadow on meter fills (channel dB meter, loudness bar) — LED glow on Rack, `none` elsewhere |
 
-### Sample Palette (theme-scoped — parity pass 2026-07-07)
+### Sample Palette
 
 Every clip and sample bubble is painted from the active theme's `palette`:
 eight slot colors plus `palette-unsorted`. Slots keep the fixed semantic
 mapping (0 Drums/Percussion, 1 Loop, 2 Bass, 3 Keys/Guitar/Chords/Piano,
 4 Synth/Lead, 5 Voice/Vocal/FX/Vox, 6 Arp, 7 Pad/Atmosphere/Xtra/Texture;
-unknown names hash to a slot deterministically). This REVOKES the earlier
-"bubbles stay theme-invariant" doctrine: the clip surface is the largest
-colored area in the tracker, and a fixed warm palette made every theme render
-the same orange clips. Each theme authors its slots inside its own color
-family (Cosmic blues/violets, Riso pink/blue inks, Arcade PICO-8, Beton
-concrete blacks with a brick jolt).
+unknown names hash to a slot deterministically). Each theme authors its slots
+inside its own color family (Cosmic blues/violets, Riso pink/blue inks, Arcade
+PICO-8, Beton concrete blacks with a brick jolt).
 
-Decision — clips store the slot, not the color (ACCEPTED, supersedes the
-"category colour stored at placement time, never recomputed" rule in
-`playerShell.ts`): `LaneClip` and drag payloads carry `slot?: number`
+Clips store the slot, not the color: `LaneClip` and drag payloads carry `slot?: number`
 (0-7, 8 = Unsorted). The hex resolves at draw time from the active palette,
 so switching themes recolors every placed clip live. Slot storage keeps the
 original stability goal — renaming a category never recolors placed clips —
@@ -161,10 +144,8 @@ Special Elite). Every font listed in the table is bundled with the app.
 | `--font-label` | Body, labels, buttons | Ubuntu | Special Elite (Rust), JetBrains Mono (IDE, Rave, PA), IBM Plex Sans (Enterprise). See [fonts](#typography-tokens) for full listing. |
 | `--font-mono` | Monospace (ruler, timer, code) | JetBrains Mono | Space Mono (Mono, Riso), Cousine (Vintage), VT323 (Arcade) |
 
-New themes bundle their own font files by default (amended 2026-07-07) —
-a theme's authentic typeface is part of its identity, so implementation
-downloads the real family into `src/renderer/public/fonts/` rather than
-substituting an already-bundled face.
+A theme's typeface is part of its identity, so each theme's font files live in
+`src/renderer/public/fonts/`.
 
 All fonts must be bundled with the app and loaded from local files (no
 external CDN or Google Fonts dependency). Font files live in `src/renderer/public/fonts/`.
@@ -190,9 +171,7 @@ external CDN or Google Fonts dependency). Font files live in `src/renderer/publi
 | 15 | Riso | `riso` | Two-ink risograph print, overprint shadows (light) | Fully implemented |
 | 16 | Arcade | `arcade` | Cabinet purple, hard outlines, pixel type | Fully implemented |
 
-Retired keys: `studio` (replaced by Enterprise) and `screen` (Screen Maximal,
-removed 2026-07-07). Projects saved with a retired key open in Emerald via
-`normalizeThemeKey`.
+`normalizeThemeKey` maps the unsupported `studio` and `screen` keys to Emerald.
 
 ### Emerald Theme — Full Token Values
 
@@ -215,11 +194,10 @@ removed 2026-07-07). Projects saved with a retired key open in Emerald via
 | `--playhead` | `#E74C3C` |
 | `--radius` | `0.22rem` |
 
-Emerald keeps the original warm 8-slot palette (`#982A00`, `#830000`,
+Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
 `#AB4700`, `#BF6601`, `#D48915`, `#E6AD33`, `#BFAD00`, `#7DA500`; unsorted
-`#555E6A`) — it was authored for Emerald in the predecessor design project,
-so the default look is unchanged by the parity pass. Emerald's construction
-tokens are the neutral defaults: `border-width` triple `1px`,
+`#555E6A`). Emerald's construction tokens are the neutral defaults:
+`border-width` triple `1px`,
 `clip-font-weight` `400`, `clip-case` `none`, `gradient-clip` `none`,
 `shadow-meter` `none`.
 
@@ -244,24 +222,18 @@ tokens are the neutral defaults: `border-width` triple `1px`,
   literals when they do not encode theme identity.
 - Switching between Home Screen and Player does not reset or re-apply the
   theme.
-- Scrollbars are themed (added 2026-07-02 per design-review change request):
-  every scroll surface styles `::-webkit-scrollbar*` from theme tokens
+- Every scroll surface styles `::-webkit-scrollbar*` from theme tokens
   (via `color-mix` over `--text`/`--bg-panel`) so the native light Windows
   scrollbar never appears on dark themes. The standard `scrollbar-color`
   property is deliberately not set — Chromium disables `::-webkit-scrollbar`
   styling when it is present, and Electron only renders through Chromium.
-- Reduced motion (added 2026-07-02): a `prefers-reduced-motion: reduce` media
-  block collapses decorative animation — the scan spinner (replaced by a
-  static highlighted ring), the locate-in-browser flash (replaced by a static
-  outline), and all transitions. (The Screen Maximal CRT flicker this block
-  originally covered was removed with that theme on 2026-07-07.)
-- Playhead cap (parity pass 2026-07-07): the playhead line carries a small
+- A `prefers-reduced-motion: reduce` media block replaces the scan spinner and
+  locate-in-browser flash with static indicators and removes transitions.
+- The playhead line carries a small
   downward triangle at its top (`::before`, colored from `--playhead`),
   matching the mockup marker.
-- Live canvas restyle (parity pass 2026-07-07): switching themes notifies
-  every mounted lane canvas to redraw after the token cache refreshes —
-  previously the cache updated but placed clips kept the old theme's
-  radius/shadow until the next data-driven redraw.
+- Switching themes notifies every mounted lane canvas to redraw after the
+  token cache refreshes.
 
 ### Theme File Format
 
@@ -337,7 +309,7 @@ background value (it is not layered over another color); `gradient-ruler`
 and `gradient-lane` are layered over `--bg-panel`/`--bg-lane`, so `none`
 yields a flat surface.
 
-Per-theme signal palettes (amended 2026-07-07): the meter triad
+The meter triad
 (`--meter-green/-yellow/-red`), `--clip-select`, `--clip-missing`, and
 `depth.gradient-lane` are tuned per theme rather than shared across all
 themes. Every value must pass a 3:1 non-text contrast gate: meter colors
@@ -347,27 +319,26 @@ against `--bg-lane` (selection/focus outline and missing-clip fill).
 Known waiver: Rust `meter-green` `#4A5A28` is a user-pinned faceplate
 color that trades gate headroom for LG Drive fidelity.
 
-Case as a theme trait (amended 2026-07-07): Beton Brut, Mono, and Arcade
+Beton Brut, Mono, and Arcade
 set the brand, lane names, and mixer labels in uppercase via
 `[data-theme-key]` rules in `index.css`. Case is typography, not color, so
 this lives in CSS rather than the token JSON without violating AC-008.
-Parity pass 2026-07-07 widened the scope: Riso uppercases the brand (the
-mockup wordmark is MIXJAM), Arcade uppercases its chrome controls (theme
+Riso uppercases the brand, Arcade uppercases its chrome controls (theme
 selector, transport strip text, manage/sort buttons) because the arcade
 mockup is uppercase throughout, and clip labels follow the `--clip-case`
 token (Beton, Mono, Arcade) on both the canvas and DOM bubbles.
 
-Construction as a theme trait (parity pass 2026-07-07): treatments a
+Treatments a
 single-value token cannot express live in `[data-theme-key]` blocks in
 `index.css`; semantic theme colors still come from tokens, while neutral
 black/white overlays may be fixed (AC-008 still holds): Enterprise's header
 gets `backdrop-filter: blur(4px)` over its translucent panels (its
 `bg-panel`/`pill-bg` are rgba glass values — the one sanctioned exception to
 "solid hex" since neither feeds a luminance derivation), and the Rust noise
-overlay predates this rule. Bevels, slabs, and extrusions stay in the JSON
+overlay is the other exception. Bevels, slabs, and extrusions stay in the JSON
 shadow tokens (Vintage's Win9x bevel is a 2px double-inset `shadow-pill`).
 
-Missing-sample surfacing (parity pass 2026-07-07): the tracker learns which
+The tracker learns which
 placed clips reference missing samples through a root-scoped backend query
 `listMissingRelpaths(sampleFolder)` (`SELECT relpath FROM samples WHERE
 root_id = ? AND scan_state = 2`), refreshed when the library loads and after
@@ -386,13 +357,13 @@ hazard stripes in `--clip-missing` over a darkened variant.
 - [x] **AC-008:** Theme-dependent semantic colors are defined in the JSON source of truth. Local color literals are limited to invariant neutral overlays, selection ink, and defensive canvas fallbacks.
 - [x] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
 - [x] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
-- [x] **AC-011 (parity pass):** Clips and sample bubbles are painted from the active theme's `palette` by slot;
+- [x] **AC-011:** Clips and sample bubbles are painted from the active theme's `palette` by slot;
   switching themes recolors placed clips and browser tiles without reloading, and the canvas and DOM resolve identical colors for the same slot.
-- [x] **AC-012 (parity pass):** The lane canvas draws beat lines in `--bg-grid` and bar lines in `--border`; no theme renders beat lines from the structural border color.
-- [x] **AC-013 (parity pass):** A clip whose sample row is missing (`scan_state = 2`) renders 45-degree hazard stripes derived from `--clip-missing`.
-- [x] **AC-014 (parity pass):** Canvas clip labels honor `--clip-font-weight`, `--clip-case`, and `--shadow-clip-text` (shadow dropped under dark ink), identically to DOM bubbles.
-- [x] **AC-015 (parity pass):** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`; Beton Brut renders 2px structural rules and a 3px header rule.
-- [x] **AC-016 (parity pass):** The playhead renders a triangular cap colored from `--playhead`.
+- [x] **AC-012:** The lane canvas draws beat lines in `--bg-grid` and bar lines in `--border`; no theme renders beat lines from the structural border color.
+- [x] **AC-013:** A clip whose sample row is missing (`scan_state = 2`) renders 45-degree hazard stripes derived from `--clip-missing`.
+- [x] **AC-014:** Canvas clip labels honor `--clip-font-weight`, `--clip-case`, and `--shadow-clip-text` (shadow dropped under dark ink), identically to DOM bubbles.
+- [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`; Beton Brut renders 2px structural rules and a 3px header rule.
+- [x] **AC-016:** The playhead renders a triangular cap colored from `--playhead`.
 
 ## Non-Goals (deferred to later specs)
 
@@ -400,19 +371,8 @@ hazard stripes in `--clip-missing` over a darkened variant.
   external files at runtime.
 - No theme validation/sanitization for untrusted theme files (relevant when
   import is added).
-- ~~No per-theme clip rendering treatments (gradient vs flat vs glow).~~
-  SUPERSEDED by the 2026-07-07 parity pass: clip treatments are now tokens
-  (`shadow-clip`, `border-clip`, `gradient-clip`, `clip-font-weight`,
-  `clip-case`, theme-scoped `palette`).
 - No theme persistence across app restarts — app always starts in Emerald
   until a session/theme preference store is wired.
 - No custom theme creation or editing UI.
 - No theme preview thumbnails in the dropdown.
 - No light/dark mode toggle separate from theme selection.
-
-## References
-
-- mixjam-sample-daw spec-002 — archived predecessor-project doc, not tracked in this repo — Emerald theme tokens, WPF resource mapping, font families.
-- mixjam-webjam spec-001 — archived predecessor-project doc, not tracked in this repo — CSS custom property theme system, 8 themes, `data-theme` switching.
-- mixjam-sample-daw style-guide §2.2, §5.5 — archived predecessor-project doc, not tracked in this repo — Emerald token table, clip visual treatments per theme.
-- mixjam-sample-daw tech-stack §5 — archived predecessor-project doc, not tracked in this repo — Theme JSON schema, WPF + WebView2 dual consumption.

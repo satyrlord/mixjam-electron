@@ -157,7 +157,6 @@ export class Player {
     this.applyChannelSoloMuteGating()
   }
 
-  // fallow-ignore-next-line unused-class-member
   restoreChannel(channelIndex: number): void {
     this.removedChannels.delete(channelIndex)
     // Reseed the state maps removeChannel wiped so the channel is self-consistent

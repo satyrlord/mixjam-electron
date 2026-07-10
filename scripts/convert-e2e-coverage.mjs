@@ -76,8 +76,8 @@ for (const rawFile of rawFiles) {
           merged[key] = value
         }
       }
-    } catch {
-      // Skip files that can't be converted (source maps missing, etc.).
+    } catch (error) {
+      console.warn(`Skipped coverage entry ${entry.url} from ${rawFile}:`, error)
     }
   }
 }

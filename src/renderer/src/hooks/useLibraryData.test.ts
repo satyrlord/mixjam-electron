@@ -14,7 +14,7 @@ function makeApi() {
 function makeDbRow(overrides: Partial<SampleItem> = {}): SampleItem {
   return {
     id: 1,
-    relpath: 'C:/a.wav',
+    relpath: 'a.wav',
     filename: 'a.wav',
     ext: '.wav',
     sizeBytes: 100,
@@ -90,7 +90,7 @@ describe('useLibraryData', () => {
     const dbRows: SampleItem[] = Array.from({ length: 501 }, (_, index) =>
       makeDbRow({
         id: index + 1,
-        relpath: `C:/samples/sample-${index + 1}.wav`,
+        relpath: `samples/sample-${index + 1}.wav`,
         filename: `sample-${index + 1}.wav`,
         dateAdded: index,
         categoryId: (index % 8) + 1
@@ -379,7 +379,7 @@ describe('useLibraryData', () => {
 
     await waitFor(() => expect(result.current.recentProjects).toHaveLength(2))
 
-    const newProjects = [{ path: 'c:/new.mixjam', displayName: 'new', lastOpened: null }]
+    const newProjects = [{ path: 'new.mixjam', displayName: 'new', lastOpened: null }]
     vi.mocked(api.loadRecentProjects).mockResolvedValue(newProjects)
 
     await act(async () => {
@@ -1036,5 +1036,29 @@ describe('useLibraryData', () => {
       expect(result.current.samples).toHaveLength(1)
       expect(result.current.samples[0]!.name).toBe('kick_808.wav')
     })
+  })
+
+  it('refreshes changed missing-path sets and clears them after an error', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ categoryId: null })],
+      total: 1
+    })
+    vi.mocked(api.listMissingRelpaths)
+      .mockResolvedValueOnce(['a.wav', 'b.wav'])
+      .mockResolvedValueOnce(['a.wav', 'c.wav'])
+      .mockRejectedValueOnce(new Error('scan unavailable'))
+
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.missingSamplePaths.size).toBe(2))
+    await waitFor(() => expect(result.current.samples[0]?.category).toBe('Unsorted'))
+
+    const onScanDone = vi.mocked(api.onScanDone).mock.calls[0]![0]
+    act(() => { onScanDone() })
+    await waitFor(() => expect(result.current.missingSamplePaths.has('c.wav')).toBe(true))
+
+    act(() => { onScanDone() })
+    await waitFor(() => expect(result.current.missingSamplePaths.size).toBe(0))
   })
 })

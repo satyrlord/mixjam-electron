@@ -16,8 +16,6 @@ export default defineConfig({
     ['list']
   ],
 
-  // Auto-start a static file server for the production renderer bundle.
-  // The server stops automatically when Playwright exits.
   webServer: {
     command: `node scripts/serve-static.mjs ${PORT}`,
     url: BASE_URL,
@@ -32,11 +30,6 @@ export default defineConfig({
   },
 
   projects: [
-    // ------------------------------------------------------------------
-    // Browser e2e: Chromium against the production bundle served by the
-    // static server. The app runs with an injected mock BackendAPI so we
-    // can exercise the full UI without real folder access.
-    // ------------------------------------------------------------------
     {
       name: 'browser-e2e',
       use: {
@@ -45,15 +38,9 @@ export default defineConfig({
       testMatch: 'e2e/**/*.spec.ts'
     },
 
-    // ------------------------------------------------------------------
-    // Electron smoke test: launches the packaged Electron app and
-    // verifies it boots. Requires a production build (npm run build).
-    // Skipped automatically when the build is missing.
-    // ------------------------------------------------------------------
     {
       name: 'electron-smoke',
       use: {
-        // Electron uses its own Chromium; browser-level options don't apply.
         ...devices['Desktop Chrome']
       },
       testMatch: 'electron/**/*.spec.ts'

@@ -3,12 +3,11 @@
 **Spec Validation Status:** STUB — NOT VALIDATED
 **Spec Implementation Status:** NOT IMPLEMENTED
 **Depends on:** spec-003 (Folder & Session Management), spec-004 (Sample Library),
-web-first architecture (landed 2026-07-03 — Sample Folder is a persisted
-`FileSystemDirectoryHandle`)
+web-first architecture (Sample Folder is a persisted `FileSystemDirectoryHandle`)
 
-> The local semantic audio search material originally drafted in this spec
-> moved to [spec-015](spec-015-semantic-audio-search.md) on 2026-07-03. This
-> spec is now the archive.org folder builder only.
+Local semantic audio search belongs to
+[spec-015](spec-015-semantic-audio-search.md); this spec covers only the
+archive.org folder builder.
 
 ## Objective
 
@@ -50,7 +49,7 @@ into a five-minute fix instead of a dead end.
 - License/attribution metadata is preserved (e.g. a sidecar `.json` or
   `ATTRIBUTION.txt` per item).
 
-### Access gating and write permission (decided 2026-07-03)
+### Access gating and write permission
 
 - Entry point appears on the Home Screen when a Sample Folder is configured
   but empty (or from the sample browser at any time).
@@ -100,5 +99,4 @@ into a five-minute fix instead of a dead end.
 
 - archive.org Advanced Search API — <https://archive.org/advancedsearch.php>
 - archive.org developer portal (metadata & download endpoints) — <https://archive.org/developers/>
-- Web-first architecture — [docs/architecture.md](../architecture.md) (the original
-  handoff lived in machine-local `tmp/`, not tracked in the repo)
+- Web-first architecture — [docs/architecture.md](../architecture.md)

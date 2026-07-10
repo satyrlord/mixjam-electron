@@ -1,18 +1,16 @@
 ---
 name: diagnose
 description: >
-  Runs a disciplined diagnosis loop for hard bugs and performance regressions.
-  Reproduce, minimise, hypothesise, instrument, fix, and regression-test. Use
-  when the user says "diagnose this", the bug is flaky or not yet
-  reproducible, root cause is unknown after triage, or a performance
-  regression needs measurement before fixing.
+  Diagnoses hard bugs and performance regressions with a controlled feedback
+  loop, and implements the fix only when requested. Use when the failure is
+  flaky, not yet reproducible, still lacks a root cause, or needs measurement.
 ---
 
 # Diagnose
 
 A discipline for hard bugs. When the failure mode and repro are already
-narrow (build error, one import file, one playback path), skip the ceremony
-and fix it directly.
+narrow, use the smallest feedback loop that can still falsify the suspected
+cause.
 
 ## Phases
 
@@ -22,18 +20,26 @@ Work through these in order:
 2. **Reproduce** — confirm the loop matches the user's reported symptom.
 3. **Hypothesise** — 3–5 ranked, falsifiable hypotheses; show the user.
 4. **Instrument** — one variable at a time; tagged debug logs or perf baseline.
-5. **Fix + regression test** — only at a correct seam; document missing seams.
+5. **Conclude or fix** — report the proven cause; implement and regression-test
+   only when the request authorizes a fix.
 6. **Cleanup + post-mortem** — remove instrumentation; hand off architecture
    findings to `improve-codebase-architecture` when warranted.
 
 ## Completion Criterion
 
-The diagnosis is complete when:
+The successful diagnosis branch is complete when:
 
 - the bug or regression is reproduced with a feedback loop,
-- one root-cause hypothesis is validated or ruled out with evidence,
-- the fix and regression test are in place,
+- the root cause is supported by evidence that distinguishes it from the other
+  ranked hypotheses,
+- the requested output is delivered: either a diagnosis with a concrete fix
+  and regression-test plan, or an implemented fix with a passing regression
+  test,
 - and the instrumentation is removed unless it remains necessary.
+
+The blocked branch is complete when the feedback loop cannot be built after
+the documented attempts, the missing artifact or access is named, and no root
+cause or fix is claimed.
 
 ## Deep Reference
 
