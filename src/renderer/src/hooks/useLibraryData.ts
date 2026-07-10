@@ -5,14 +5,14 @@ import type {
   CategoryItem,
   FolderRef,
   LibraryItem,
-  RecentProjectItem,
+  MixJamFileItem,
   SampleItem,
   SampleAnalysisPatch,
   SampleListItem,
   ScanProgress,
   TagItem
 } from '../../../shared/backend-api'
-import type { FooterSampleDetail } from '../lib/playerShell'
+import type { FooterSampleDetail } from '../lib/arrangement'
 import { useSyncedRef } from './useSyncedRef'
 import { useSampleTags } from './useSampleTags'
 import { useSampleCategories } from './useSampleCategories'
@@ -23,7 +23,7 @@ export type SampleSortDirection = 'asc' | 'desc'
 
 export interface LibraryDataState {
   version: string
-  recentProjects: RecentProjectItem[]
+  mixJamFiles: MixJamFileItem[]
   /** The loaded prefix of the current windowed DB query; empty until the
    *  active Sample Folder's first scan completes. */
   samples: SampleListItem[]
@@ -37,7 +37,7 @@ export interface LibraryDataState {
   /** True once the active Sample Folder has been indexed (a scan completed). */
   dbIndexed: boolean
   /** Relpaths of samples marked missing (scan_state = 2); the tracker stripes
-   *  clips referencing them (spec-002 AC-013). Refreshed after every scan. */
+   *  placements referencing them (spec-002 AC-013). Refreshed after every scan. */
   missingSamplePaths: ReadonlySet<string>
   /** True while more windowed pages exist beyond the loaded prefix. */
   hasMoreSamples: boolean
@@ -72,7 +72,7 @@ export interface LibraryDataActions {
   deleteLibrary: (id: number) => Promise<void>
   /** Restores the filter state a saved library encodes (spec-004 AC-013). */
   applyLibrary: (library: LibraryItem) => void
-  reloadRecentProjects: () => Promise<void>
+  reloadMixJamFiles: () => Promise<void>
   handleSortChange: (col: SampleSortColumn) => void
 }
 
@@ -117,7 +117,7 @@ export function useLibraryData(
   sampleFolder: FolderRef | null
 ): LibraryData {
   const [version, setVersion] = useState('')
-  const [recentProjects, setRecentProjects] = useState<RecentProjectItem[]>([])
+  const [mixJamFiles, setMixJamFiles] = useState<MixJamFileItem[]>([])
   const [samples, setSamples] = useState<SampleListItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -182,19 +182,19 @@ export function useLibraryData(
     return () => { isMounted = false }
   }, [backendAPI])
 
-  // Recent projects
-  const reloadRecentProjects = useCallback(async () => {
+  // MixJam files
+  const reloadMixJamFiles = useCallback(async () => {
     try {
-      setRecentProjects(await backendAPI.loadRecentProjects(userFolder))
+      setMixJamFiles(await backendAPI.loadMixJamFiles(userFolder))
     } catch (err) {
-      console.error('Failed to load recent projects:', err)
-      setRecentProjects([])
+      console.error('Failed to load MixJam files:', err)
+      setMixJamFiles([])
     }
   }, [backendAPI, userFolder])
 
   useEffect(() => {
-    void reloadRecentProjects()
-  }, [reloadRecentProjects])
+    void reloadMixJamFiles()
+  }, [reloadMixJamFiles])
 
   const refreshDbIndexed = useCallback(async () => {
     if (!sampleFolder) return
@@ -211,7 +211,7 @@ export function useLibraryData(
       const next = new Set(await backendAPI.listMissingRelpaths(sampleFolder))
       // Keep the previous Set identity when contents are unchanged (the
       // common case: empty -> empty on every scan) so App's arrangement memo
-      // and the memoized LaneRow/LaneClipCanvas tree don't re-render and
+      // and the memoized LaneRow/LaneSampleBubbleCanvas tree don't re-render and
       // repaint every lane canvas for a no-op.
       setMissingSamplePaths((prev) => setsEqual(prev, next) ? prev : next)
     } catch {
@@ -467,7 +467,7 @@ export function useLibraryData(
 
   return {
     version,
-    recentProjects,
+    mixJamFiles,
     samples,
     searchQuery,
     loading,
@@ -505,7 +505,7 @@ export function useLibraryData(
     saveLibrary: libraryActions.saveLibrary,
     deleteLibrary: libraryActions.deleteLibrary,
     applyLibrary: libraryActions.applyLibrary,
-    reloadRecentProjects,
+    reloadMixJamFiles,
     handleSortChange
   }
 }

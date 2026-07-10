@@ -1,26 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
-import type { FooterSampleDetail } from '../lib/playerShell'
+import type { FooterSampleDetail } from '../lib/arrangement'
 import { bubbleStyle, categorySlot } from '../lib/sample-utils'
-import type { TrackerBrowserProps } from './trackerProps'
+import type { PlayerBrowserProps } from './playerProps'
 import { useDragResize } from '../hooks/useDragResize'
 import ManagePanel from './ManagePanel'
 import SampleTileGrid from './SampleTileGrid'
 import SampleAnalysisEditor from './SampleAnalysisEditor'
 
 interface SampleBrowserProps {
-  browser: TrackerBrowserProps
-  bpm: number
-  /** Tracker lane scale, so browser tiles match tracker bubbles pixel-for-pixel. */
-  pixelsPerTick: number
+  browser: PlayerBrowserProps
   flashSamplePath: string | null
   onSampleDragStart: (event: React.DragEvent, detail: FooterSampleDetail) => void
 }
 
 export default function SampleBrowser({
   browser,
-  bpm,
-  pixelsPerTick,
   flashSamplePath,
   onSampleDragStart
 }: SampleBrowserProps) {
@@ -196,8 +191,6 @@ export default function SampleBrowser({
 
         <SampleTileGrid
           samples={samples}
-          bpm={bpm}
-          pixelsPerTick={pixelsPerTick}
           selectedSamplePath={selectedSamplePath}
           flashSamplePath={flashSamplePath}
           activeCategorySlot={activeCategorySlot}

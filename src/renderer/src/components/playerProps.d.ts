@@ -7,11 +7,12 @@ import type {
   SampleAnalysisPatch,
   TagItem
 } from '../../../shared/backend-api'
-import type { ClipGroupEntry, FooterSampleDetail, LaneState } from '../lib/playerShell'
+import type { PlacementGroupEntry, FooterSampleDetail, LaneState } from '../lib/arrangement'
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
 import type { ChannelState } from '../hooks/useMixer'
+import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 
-export interface TrackerBrowserProps {
+export interface PlayerBrowserProps {
   samples: SampleListItem[]
   searchQuery: string
   loading: boolean
@@ -55,7 +56,7 @@ export interface TrackerArrangementProps {
   lanes: LaneState[]
   laneShouldDim: (lane: LaneState) => boolean
   currentTick: number
-  /** Relpaths of missing samples; clips referencing them render hazard
+  /** Relpaths of missing samples; placements referencing them render hazard
    *  stripes (spec-002 AC-013). */
   missingSamplePaths: ReadonlySet<string>
   onPlaceSampleDetailOnLane: (
@@ -63,19 +64,20 @@ export interface TrackerArrangementProps {
     laneIndex: number,
     startTick: number
   ) => void
-  onMoveClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
-  onDuplicateClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
-  onMoveClipGroup: (moves: ClipGroupEntry[]) => void
-  onDuplicateClipGroup: (sources: ClipGroupEntry[]) => void
-  onRemoveClipFromLane: (laneIndex: number, clipId: string) => void
-  onRemoveClips: (clipIds: string[]) => void
+  onMovePlacement: (placementId: string, toLaneIndex: number, newStartTick: number) => void
+  onDuplicatePlacement: (placementId: string, toLaneIndex: number, newStartTick: number) => void
+  onMovePlacementGroup: (moves: PlacementGroupEntry[]) => void
+  onDuplicatePlacementGroup: (sources: PlacementGroupEntry[]) => void
+  onRemovePlacementFromLane: (laneIndex: number, placementId: string) => void
+  onRemovePlacements: (placementIds: string[]) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
+  onSetLaneNativeBpm: (laneIndex: number, nativeBPM: number | null) => void
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
 }
 
-export interface TrackerTransportProps {
-  transportState: 'stopped' | 'playing' | 'paused'
+export interface PlayerTransportProps {
+  transportState: RuntimeTransportState
   bpm: number
   masterGain: number
   masterLevelDb: number
@@ -89,9 +91,10 @@ export interface TrackerTransportProps {
   onTransportPause: () => void
   onTransportStop: () => void
   onTransportSkipBack: () => void
+  onTransportSeek: (tick: number) => void
 }
 
-export interface TrackerMixerProps {
+export interface PlayerMixerProps {
   channels: ChannelState[]
   channelLevels: ReadonlyMap<number, number>
   channelPeaks: ReadonlyMap<number, number>

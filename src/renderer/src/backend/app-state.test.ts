@@ -3,19 +3,19 @@ import { loadFolderHandle } from './handle-store'
 import { resolveFileHandle } from './folder-access'
 import {
   RECENT_PROJECTS_STORAGE_KEY,
-  SESSION_STORAGE_KEY,
-  buildSessionConfig,
-  loadSession,
-  listRecentProjects,
+  FOLDER_SELECTIONS_STORAGE_KEY,
+  buildAppConfig,
+  loadFolderSelections,
+  listMixJamFiles,
   normalizeRecentProjects,
-  normalizeSession,
+  normalizeFolderSelections,
   readRecentProjects,
   recordRecentProject,
-  saveSession,
+  saveFolderSelections,
   upsertRecentProject,
   writeRecentProjects,
-  writeSessionConfig
-} from './session'
+  writeAppConfig
+} from './app-state'
 import type { FolderRef } from '../../../shared/backend-api'
 
 vi.mock('./handle-store', () => ({
@@ -52,21 +52,21 @@ beforeEach(() => {
   vi.mocked(resolveFileHandle).mockReset()
 })
 
-describe('normalizeSession', () => {
+describe('normalizeFolderSelections', () => {
   it('keeps FolderRefs and nulls out anything else', () => {
-    expect(normalizeSession({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })).toEqual({
+    expect(normalizeFolderSelections({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })).toEqual({
       userFolder: USER_REF,
       sampleFolder: SAMPLE_REF
     })
-    expect(normalizeSession({ userFolder: 'C:/a', sampleFolder: 123 })).toEqual({
+    expect(normalizeFolderSelections({ userFolder: 'C:/a', sampleFolder: 123 })).toEqual({
       userFolder: null,
       sampleFolder: null
     })
-    expect(normalizeSession(undefined)).toEqual({ userFolder: null, sampleFolder: null })
+    expect(normalizeFolderSelections(undefined)).toEqual({ userFolder: null, sampleFolder: null })
   })
 
   it('strips extra properties from stored refs', () => {
-    const normalized = normalizeSession({
+    const normalized = normalizeFolderSelections({
       userFolder: { id: 'u', name: 'n', handle: { evil: true } },
       sampleFolder: null
     })
@@ -74,16 +74,16 @@ describe('normalizeSession', () => {
   })
 })
 
-describe('loadSession / saveSession', () => {
-  it('round-trips a session through storage', () => {
-    saveSession({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, storage)
-    expect(loadSession(storage)).toEqual({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
+describe('loadFolderSelections / saveFolderSelections', () => {
+  it('round-trips folder selections through storage', () => {
+    saveFolderSelections({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, storage)
+    expect(loadFolderSelections(storage)).toEqual({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
   })
 
-  it('returns an empty session when storage is empty or corrupt', () => {
-    expect(loadSession(storage)).toEqual({ userFolder: null, sampleFolder: null })
-    storage.setItem(SESSION_STORAGE_KEY, '{not json')
-    expect(loadSession(storage)).toEqual({ userFolder: null, sampleFolder: null })
+  it('returns empty folder selections when storage is empty or corrupt', () => {
+    expect(loadFolderSelections(storage)).toEqual({ userFolder: null, sampleFolder: null })
+    storage.setItem(FOLDER_SELECTIONS_STORAGE_KEY, '{not json')
+    expect(loadFolderSelections(storage)).toEqual({ userFolder: null, sampleFolder: null })
   })
 })
 
@@ -148,9 +148,9 @@ describe('recent projects storage round-trip', () => {
   })
 })
 
-describe('buildSessionConfig', () => {
+describe('buildAppConfig', () => {
   it('produces the mixjam.json shape with folder names', () => {
-    const config = buildSessionConfig(
+    const config = buildAppConfig(
       { userFolder: USER_REF, sampleFolder: SAMPLE_REF },
       '0.99',
       new Date('2026-07-03T10:00:00.000Z')
@@ -164,8 +164,8 @@ describe('buildSessionConfig', () => {
   })
 
   it('returns null unless both folders are set', () => {
-    expect(buildSessionConfig({ userFolder: USER_REF, sampleFolder: null }, '1')).toBeNull()
-    expect(buildSessionConfig({ userFolder: null, sampleFolder: SAMPLE_REF }, '1')).toBeNull()
+    expect(buildAppConfig({ userFolder: USER_REF, sampleFolder: null }, '1')).toBeNull()
+    expect(buildAppConfig({ userFolder: null, sampleFolder: SAMPLE_REF }, '1')).toBeNull()
   })
 })
 
@@ -199,18 +199,18 @@ function throwingDir(name: string): FileSystemDirectoryHandle {
   } as unknown as FileSystemDirectoryHandle
 }
 
-describe('listRecentProjects', () => {
+describe('listMixJamFiles', () => {
   it('returns an empty list without an accessible user folder', async () => {
-    expect(await listRecentProjects(null, storage)).toEqual([])
+    expect(await listMixJamFiles(null, storage)).toEqual([])
 
     vi.mocked(loadFolderHandle).mockResolvedValueOnce(null)
-    expect(await listRecentProjects(USER_REF, storage)).toEqual([])
+    expect(await listMixJamFiles(USER_REF, storage)).toEqual([])
 
     vi.mocked(loadFolderHandle).mockRejectedValueOnce(new Error('idb unavailable'))
-    expect(await listRecentProjects(USER_REF, storage)).toEqual([])
+    expect(await listMixJamFiles(USER_REF, storage)).toEqual([])
 
     vi.mocked(loadFolderHandle).mockResolvedValueOnce(fakeDir('User', [], 'denied'))
-    expect(await listRecentProjects(USER_REF, storage)).toEqual([])
+    expect(await listMixJamFiles(USER_REF, storage)).toEqual([])
   })
 
   it('merges verified registry entries with discovered projects and skips stale files', async () => {
@@ -232,7 +232,7 @@ describe('listRecentProjects', () => {
       storage
     )
 
-    const projects = await listRecentProjects(USER_REF, storage)
+    const projects = await listMixJamFiles(USER_REF, storage)
 
     expect(projects.map((project) => project.path)).toEqual([
       'registered.mixjam',
@@ -243,7 +243,7 @@ describe('listRecentProjects', () => {
     expect(resolveFileHandle).toHaveBeenCalledWith(root, 'missing.mixjam')
   })
 
-  it('caps the merged recent-project list', async () => {
+  it('caps the merged MixJam file list', async () => {
     const files = Array.from({ length: 25 }, (_, index) =>
       [`project-${String(index).padStart(2, '0')}.mixjam`, fakeFile(`project-${index}.mixjam`)] as [
         string,
@@ -253,20 +253,20 @@ describe('listRecentProjects', () => {
     vi.mocked(loadFolderHandle).mockResolvedValue(fakeDir('User', files))
     vi.mocked(resolveFileHandle).mockResolvedValue(null)
 
-    const projects = await listRecentProjects(USER_REF, storage)
+    const projects = await listMixJamFiles(USER_REF, storage)
 
     expect(projects).toHaveLength(20)
     expect(projects[0].displayName).toBe('project-00')
   })
 })
 
-describe('writeSessionConfig', () => {
-  it('does not touch storage when a complete session or handle is missing', async () => {
-    await writeSessionConfig({ userFolder: USER_REF, sampleFolder: null }, '1.0')
+describe('writeAppConfig', () => {
+  it('does not touch storage when complete folder selections or a handle are missing', async () => {
+    await writeAppConfig({ userFolder: USER_REF, sampleFolder: null }, '1.0')
     expect(loadFolderHandle).not.toHaveBeenCalled()
 
     vi.mocked(loadFolderHandle).mockResolvedValueOnce(null)
-    await writeSessionConfig({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, '1.0')
+    await writeAppConfig({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, '1.0')
     expect(loadFolderHandle).toHaveBeenCalledWith(USER_REF.id)
   })
 
@@ -280,7 +280,7 @@ describe('writeSessionConfig', () => {
     } as unknown as FileSystemFileHandle))
     vi.mocked(loadFolderHandle).mockResolvedValue({ getFileHandle } as unknown as FileSystemDirectoryHandle)
 
-    await writeSessionConfig({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, '1.2.3')
+    await writeAppConfig({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, '1.2.3')
 
     expect(getFileHandle).toHaveBeenCalledWith('mixjam.json', { create: true })
     expect(write).toHaveBeenCalledWith(expect.stringContaining('"appVersion": "1.2.3"'))

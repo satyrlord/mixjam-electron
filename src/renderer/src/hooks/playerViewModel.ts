@@ -1,19 +1,19 @@
 import type {
   TrackerArrangementProps,
-  TrackerBrowserProps,
-  TrackerMixerProps,
-  TrackerTransportProps
-} from '../components/trackerProps'
+  PlayerBrowserProps,
+  PlayerMixerProps,
+  PlayerTransportProps
+} from '../components/playerProps'
 import type { AppState } from './useAppState'
 
-export interface TrackerViewModel {
-  browser: TrackerBrowserProps
+export interface PlayerViewModel {
+  browser: PlayerBrowserProps
   arrangement: TrackerArrangementProps
-  transport: TrackerTransportProps
-  mixer: TrackerMixerProps
+  transport: PlayerTransportProps
+  mixer: PlayerMixerProps
 }
 
-export function createTrackerViewModel(app: AppState): TrackerViewModel {
+export function createPlayerViewModel(app: AppState): PlayerViewModel {
   return {
     browser: {
       samples: app.samples,
@@ -66,13 +66,14 @@ export function createTrackerViewModel(app: AppState): TrackerViewModel {
       currentTick: app.currentTick,
       missingSamplePaths: app.missingSamplePaths,
       onPlaceSampleDetailOnLane: app.placeSampleDetailOnLane,
-      onMoveClipOnLane: app.moveClipOnLane,
-      onDuplicateClipOnLane: app.duplicateClipOnLane,
-      onMoveClipGroup: app.moveClipGroup,
-      onDuplicateClipGroup: app.duplicateClipGroup,
-      onRemoveClipFromLane: app.removeClipFromLane,
-      onRemoveClips: app.removeClips,
+      onMovePlacement: app.movePlacement,
+      onDuplicatePlacement: app.duplicatePlacement,
+      onMovePlacementGroup: app.movePlacementGroup,
+      onDuplicatePlacementGroup: app.duplicatePlacementGroup,
+      onRemovePlacementFromLane: app.removePlacementFromLane,
+      onRemovePlacements: app.removePlacements,
       onSetLanePan: app.setLanePan,
+      onSetLaneNativeBpm: app.setLaneNativeBpm,
       onToggleLaneMute: app.toggleLaneMute,
       onToggleLaneSolo: app.toggleLaneSolo
     },
@@ -90,7 +91,8 @@ export function createTrackerViewModel(app: AppState): TrackerViewModel {
       onTransportPlay: app.transportPlay,
       onTransportPause: app.transportPause,
       onTransportStop: app.transportStop,
-      onTransportSkipBack: app.transportSkipBack
+      onTransportSkipBack: app.transportSkipBack,
+      onTransportSeek: app.transportSeek
     },
     mixer: {
       channels: app.channels,

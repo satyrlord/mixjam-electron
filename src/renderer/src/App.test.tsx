@@ -16,7 +16,7 @@ describe('App', () => {
     expect(vi.mocked(window.backendAPI.getVersion)).toHaveBeenCalledTimes(1)
   })
 
-  it('switches to the tracker view when Start New MixJam is clicked', async () => {
+  it('switches to the Player when Start New MixJam is clicked', async () => {
     render(<App />)
 
     const start = await screen.findByRole('button', { name: 'Start New MixJam' })
@@ -24,13 +24,13 @@ describe('App', () => {
     fireEvent.click(start)
 
     await waitFor(() => {
-      expect(screen.getByText('Recent Projects')).toBeInTheDocument()
+      expect(screen.getByText('MixJam Browser')).toBeInTheDocument()
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
-    expect(vi.mocked(window.backendAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.backendAPI.resizeToPlayer)).toHaveBeenCalledTimes(1)
   })
 
-  it('renders recent projects in the tracker rail and mirrors sample selection into the footer', async () => {
+  it('renders MixJam files in the MixJam Browser and mirrors sample selection into the footer', async () => {
     render(<App />)
 
     const start = await screen.findByRole('button', { name: 'Start New MixJam' })
@@ -64,7 +64,7 @@ describe('App', () => {
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#2F81F7')
   })
 
-  it('places a clip on the tracker lane when a sample tile is dragged onto a lane', async () => {
+  it('creates a clip placement when a sample bubble is dragged onto a Tracker lane', async () => {
     render(<App />)
 
     const start = await screen.findByRole('button', { name: 'Start New MixJam' })
@@ -82,30 +82,30 @@ describe('App', () => {
       duration: 0.5
     })
 
-    const lane3Canvas = screen.getByRole('region', { name: 'Lane 3 track area' })
+    const lane3Canvas = screen.getByRole('region', { name: 'Lane 3 placement area' })
     fireEvent.drop(lane3Canvas, {
       dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
     })
 
-    // Clips are rendered on canvas; verify via data attributes on the canvas container.
+    // Placements are rendered on canvas; verify via data attributes on the canvas container.
     await waitFor(() => {
-      const containers = document.querySelectorAll('[data-clip-names*="kick_808.wav"]')
+      const containers = document.querySelectorAll('[data-placement-sample-names*="kick_808.wav"]')
       expect(containers.length).toBeGreaterThanOrEqual(1)
     })
 
-    // Dropping again on the same lane adds a second overlapping clip (visual overlap, monophonic playback)
+    // Dropping again on the same lane adds a second overlapping placement (visual overlap, monophonic playback)
     fireEvent.drop(lane3Canvas, {
       dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
     })
-    const lane3Container = lane3Canvas.querySelector('[data-clip-count]')
-    expect(lane3Container?.getAttribute('data-clip-count')).toBe('2')
+    const lane3Container = lane3Canvas.querySelector('[data-placement-count]')
+    expect(lane3Container?.getAttribute('data-placement-count')).toBe('2')
 
-    // Dropping on a different lane adds a third clip
-    const lane2Canvas = screen.getByRole('region', { name: 'Lane 2 track area' })
+    // Dropping on a different lane adds a third placement
+    const lane2Canvas = screen.getByRole('region', { name: 'Lane 2 placement area' })
     fireEvent.drop(lane2Canvas, {
       dataTransfer: { getData: () => detail, types: ['application/mixjam-sample'] }
     })
-    const allContainers = document.querySelectorAll('[data-clip-names*="kick_808.wav"]')
+    const allContainers = document.querySelectorAll('[data-placement-sample-names*="kick_808.wav"]')
     expect(allContainers.length).toBe(2)
   })
 

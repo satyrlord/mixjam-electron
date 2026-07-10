@@ -1,32 +1,32 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import {
   SAMPLE_BUBBLE_HEIGHT_PX,
-  clipScreenRect,
-  type LaneClip
-} from '../lib/playerShell'
+  sampleBubbleScreenRect,
+  type ClipPlacement
+} from '../lib/arrangement'
 import { bubbleTextColor } from '../lib/sample-utils'
 import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import {
-  clipThemeTokens as themeTokenCache,
+  sampleBubbleThemeTokens as themeTokenCache,
   mixTowardBlack,
-  onClipThemeTokensRefreshed
-} from '../theme/clip-style'
+  onSampleBubbleThemeTokensRefreshed
+} from '../theme/sample-bubble-style'
 
-interface LaneClipCanvasProps {
-  clips: LaneClip[]
+interface LaneSampleBubbleCanvasProps {
+  placements: ClipPlacement[]
   totalTicks: number
   laneIndex: number
   flashSamplePath: string | null
-  selectedClipIds: ReadonlySet<string>
-  /** Relpaths whose sample row is missing (scan_state = 2); those clips render
-   *  hazard stripes in --clip-missing (spec-002 AC-013). */
+  selectedPlacementIds: ReadonlySet<string>
+  /** Relpaths whose sample row is missing (scan_state = 2); those placements render
+   *  hazard stripes in --sample-bubble-missing (spec-002 AC-013). */
   missingSamplePaths?: ReadonlySet<string>
-  onClipDragStart: (clipId: string, event: React.DragEvent) => void
-  onClipContextMenu: (info: {
+  onPlacementDragStart: (placementId: string, event: React.DragEvent) => void
+  onPlacementContextMenu: (info: {
     x: number
     y: number
     laneIndex: number
-    clipId: string
+    placementId: string
     samplePath: string
     sampleName: string
   }) => void
@@ -37,9 +37,10 @@ const SELECTION_BORDER_WIDTH = 2
 const GHOST_MIN_WIDTH = 48
 const GHOST_BADGE_WIDTH = 22
 const GHOST_BADGE_HEIGHT = 14
+const GHOST_BADGE_GAP = 4
 
-interface ClipHitRect {
-  clip: LaneClip
+interface SampleBubbleHitRect {
+  placement: ClipPlacement
   x: number
   width: number
 }
@@ -49,7 +50,7 @@ function getComputedAccent(): string {
 }
 
 function getComputedSelectColor(): string {
-  return themeTokenCache.clipSelect
+  return themeTokenCache.selection
 }
 
 function roundRect(
@@ -73,14 +74,14 @@ function roundRect(
   ctx.closePath()
 }
 
-function clipFillColor(clip: LaneClip, accent: string): string {
-  if (clip.slot === undefined) return accent
-  return themeTokenCache.palette[clip.slot] || accent
+function sampleBubbleFillColor(placement: ClipPlacement, accent: string): string {
+  if (placement.slot === undefined) return accent
+  return themeTokenCache.palette[placement.slot] || accent
 }
 
-function drawClipBubble(
+function drawSampleBubble(
   ctx: CanvasRenderingContext2D,
-  clip: LaneClip,
+  placement: ClipPlacement,
   x: number,
   y: number,
   w: number,
@@ -88,11 +89,11 @@ function drawClipBubble(
   flashing = false,
   missing = false
 ): void {
-  const color = missing ? themeTokenCache.clipMissing : clipFillColor(clip, accent)
-  const radius = themeTokenCache.radiusClip
-  const shadow = themeTokenCache.shadowClip
-  const border = themeTokenCache.borderClip
-  const gloss = themeTokenCache.clipGloss
+  const color = missing ? themeTokenCache.missing : sampleBubbleFillColor(placement, accent)
+  const radius = themeTokenCache.radius
+  const shadow = themeTokenCache.shadow
+  const border = themeTokenCache.outline
+  const gloss = themeTokenCache.gloss
 
   if (shadow) {
     // Canvas shadow units ignore the CTM, so the dpr scale that positions the
@@ -171,10 +172,10 @@ function drawClipBubble(
   }
 
   const ink = bubbleTextColor(color)
-  const label = themeTokenCache.clipUppercase
-    ? clip.sampleName.toUpperCase()
-    : clip.sampleName
-  const textShadow = themeTokenCache.shadowClipText
+  const label = themeTokenCache.uppercase
+    ? placement.sampleName.toUpperCase()
+    : placement.sampleName
+  const textShadow = themeTokenCache.textShadow
   ctx.save()
   ctx.beginPath()
   ctx.rect(x + 8, y, w - 16, SAMPLE_BUBBLE_HEIGHT_PX)
@@ -182,7 +183,7 @@ function drawClipBubble(
   if (textShadow && ink === '#FFFFFF') {
     // Mirror the DOM bubbles: the theme label shadow applies under light ink
     // only (a dark shadow under dark ink smears). Canvas shadows ignore the
-    // CTM — scale like the clip drop-shadow above.
+    // CTM — scale like the placement drop-shadow above.
     const dpr = window.devicePixelRatio || 1
     ctx.shadowOffsetX = textShadow.x * dpr
     ctx.shadowOffsetY = textShadow.y * dpr
@@ -194,21 +195,35 @@ function drawClipBubble(
   ctx.restore()
 }
 
-function buildClipDragGhost(
-  clip: LaneClip,
+interface SampleBubbleDragGhost {
+  canvas: HTMLCanvasElement
+  bubbleOffsetX: number
+  bubbleOffsetY: number
+}
+
+function buildSampleBubbleDragGhost(
+  placement: ClipPlacement,
   width: number,
   count: number,
   missing: boolean
-): HTMLCanvasElement | null {
-  const w = Math.max(width, GHOST_MIN_WIDTH)
-  const h = SAMPLE_BUBBLE_HEIGHT_PX
+): SampleBubbleDragGhost | null {
+  const shadow = themeTokenCache.shadow
+  const shadowPadding = shadow
+    ? Math.ceil(shadow.blur + Math.max(Math.abs(shadow.x), Math.abs(shadow.y)))
+    : 0
+  const badgeSpace = count > 1 ? GHOST_BADGE_GAP + GHOST_BADGE_WIDTH : 0
+  const contentWidth = Math.max(width + badgeSpace, GHOST_MIN_WIDTH)
+  const canvasWidth = contentWidth + shadowPadding * 2
+  const canvasHeight = SAMPLE_BUBBLE_HEIGHT_PX + shadowPadding * 2
+  const bubbleOffsetX = shadowPadding
+  const bubbleOffsetY = shadowPadding
   const dpr = window.devicePixelRatio || 1
 
   const canvas = document.createElement('canvas')
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = `${w}px`
-  canvas.style.height = `${h}px`
+  canvas.width = canvasWidth * dpr
+  canvas.height = canvasHeight * dpr
+  canvas.style.width = `${canvasWidth}px`
+  canvas.style.height = `${canvasHeight}px`
   // setDragImage needs the element rendered in the document; park it offscreen.
   canvas.style.position = 'fixed'
   canvas.style.top = '-1000px'
@@ -219,13 +234,22 @@ function buildClipDragGhost(
   if (!ctx) return null
 
   ctx.scale(dpr, dpr)
-  ctx.font = `${themeTokenCache.clipFontWeight} 10px ${themeTokenCache.fontLabel}`
+  ctx.font = `${themeTokenCache.fontWeight} 10px ${themeTokenCache.fontLabel}`
   ctx.textBaseline = 'middle'
-  drawClipBubble(ctx, clip, 0, 0, w, getComputedAccent(), false, missing)
+  drawSampleBubble(
+    ctx,
+    placement,
+    bubbleOffsetX,
+    bubbleOffsetY,
+    width,
+    getComputedAccent(),
+    false,
+    missing
+  )
 
   if (count > 1) {
-    const bx = w - GHOST_BADGE_WIDTH - 6
-    const by = (h - GHOST_BADGE_HEIGHT) / 2
+    const bx = bubbleOffsetX + width + GHOST_BADGE_GAP
+    const by = bubbleOffsetY + (SAMPLE_BUBBLE_HEIGHT_PX - GHOST_BADGE_HEIGHT) / 2
     const badge = getComputedSelectColor()
     roundRect(ctx, bx, by, GHOST_BADGE_WIDTH, GHOST_BADGE_HEIGHT, GHOST_BADGE_HEIGHT / 2)
     ctx.fillStyle = badge
@@ -235,21 +259,21 @@ function buildClipDragGhost(
     ctx.fillText(`×${count}`, bx + GHOST_BADGE_WIDTH / 2, by + GHOST_BADGE_HEIGHT / 2)
   }
 
-  return canvas
+  return { canvas, bubbleOffsetX, bubbleOffsetY }
 }
 
-function LaneClipCanvas({
-  clips,
+function LaneSampleBubbleCanvas({
+  placements,
   totalTicks,
   laneIndex,
   flashSamplePath,
-  selectedClipIds,
+  selectedPlacementIds,
   missingSamplePaths,
-  onClipDragStart,
-  onClipContextMenu
-}: LaneClipCanvasProps) {
+  onPlacementDragStart,
+  onPlacementContextMenu
+}: LaneSampleBubbleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const hitRectsRef = useRef<ClipHitRect[]>([])
+  const hitRectsRef = useRef<SampleBubbleHitRect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
 
   const draw = useCallback(() => {
@@ -286,7 +310,7 @@ function LaneClipCanvas({
       ctx.stroke()
     }
 
-    ctx.strokeStyle = themeTokenCache.border
+    ctx.strokeStyle = themeTokenCache.borderColor
     ctx.lineWidth = 1
     for (let tick = TICKS_PER_BAR; tick < totalTicks; tick += TICKS_PER_BAR) {
       const x = Math.round(tick * pixelsPerTick) + 0.5
@@ -296,24 +320,24 @@ function LaneClipCanvas({
       ctx.stroke()
     }
 
-    const hitRects: ClipHitRect[] = []
+    const hitRects: SampleBubbleHitRect[] = []
     const accent = getComputedAccent()
 
-    ctx.font = `${themeTokenCache.clipFontWeight} 10px ${themeTokenCache.fontLabel}`
+    ctx.font = `${themeTokenCache.fontWeight} 10px ${themeTokenCache.fontLabel}`
     ctx.textBaseline = 'middle'
 
-    for (const clip of clips) {
-      const { x, width: w } = clipScreenRect(clip, pixelsPerTick)
+    for (const placement of placements) {
+      const { x, width: w } = sampleBubbleScreenRect(placement, pixelsPerTick)
 
-      drawClipBubble(
-        ctx, clip, x, CLIP_TOP, w, accent,
-        flashSamplePath === clip.samplePath,
-        missingSamplePaths?.has(clip.samplePath) ?? false
+      drawSampleBubble(
+        ctx, placement, x, CLIP_TOP, w, accent,
+        flashSamplePath === placement.samplePath,
+        missingSamplePaths?.has(placement.samplePath) ?? false
       )
 
-      hitRects.push({ clip, x, width: w })
+      hitRects.push({ placement, x, width: w })
 
-      if (selectedClipIds.has(clip.id)) {
+      if (selectedPlacementIds.has(placement.id)) {
         const inset = SELECTION_BORDER_WIDTH / 2
         ctx.globalAlpha = 0.8
         roundRect(
@@ -322,7 +346,7 @@ function LaneClipCanvas({
           CLIP_TOP + inset,
           w - SELECTION_BORDER_WIDTH,
           SAMPLE_BUBBLE_HEIGHT_PX - SELECTION_BORDER_WIDTH,
-          themeTokenCache.radiusClip
+          themeTokenCache.radius
         )
         ctx.strokeStyle = getComputedSelectColor()
         ctx.lineWidth = SELECTION_BORDER_WIDTH
@@ -332,7 +356,7 @@ function LaneClipCanvas({
     }
 
     hitRectsRef.current = hitRects
-  }, [clips, totalTicks, flashSamplePath, selectedClipIds, missingSamplePaths])
+  }, [placements, totalTicks, flashSamplePath, selectedPlacementIds, missingSamplePaths])
 
   useEffect(() => {
     draw()
@@ -347,114 +371,117 @@ function LaneClipCanvas({
   }, [draw])
 
   // Repaint on theme switch: the token cache refreshes via MutationObserver,
-  // but placed clips would keep the previous theme's palette/radius/shadows
-  // until the next clip mutation without this (spec-002 AC-011).
-  useEffect(() => onClipThemeTokensRefreshed(draw), [draw])
+  // but existing placements would keep the previous theme's palette/radius/shadows
+  // until the next placement mutation without this (spec-002 AC-011).
+  useEffect(() => onSampleBubbleThemeTokensRefreshed(draw), [draw])
 
-  const hitTest = useCallback((clientX: number): LaneClip | null => {
+  const hitTest = useCallback((clientX: number): ClipPlacement | null => {
     const canvas = canvasRef.current
     if (!canvas) return null
     const rect = canvas.getBoundingClientRect()
     // In test environments (jsdom) the canvas has 0 dimensions; fall back to
-    // checking clip pixel-position based on totalTicks and container width.
+    // checking placement pixel-position based on totalTicks and container width.
     if (rect.width === 0) {
-      return clips.length > 0 ? clips[0] : null
+      return placements.length > 0 ? placements[0] : null
     }
     const x = clientX - rect.left
 
     for (let i = hitRectsRef.current.length - 1; i >= 0; i--) {
       const hr = hitRectsRef.current[i]
       if (x >= hr.x && x <= hr.x + hr.width) {
-        return hr.clip
+        return hr.placement
       }
     }
     return null
-  }, [clips])
+  }, [placements])
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    const clip = hitTest(e.clientX)
-    if (!clip) return
+    const placement = hitTest(e.clientX)
+    if (!placement) return
     e.preventDefault()
     e.stopPropagation()
-    onClipContextMenu({
+    onPlacementContextMenu({
       x: e.clientX,
       y: e.clientY,
       laneIndex,
-      clipId: clip.id,
-      samplePath: clip.samplePath,
-      sampleName: clip.sampleName
+      placementId: placement.id,
+      samplePath: placement.samplePath,
+      sampleName: placement.sampleName
     })
-  }, [hitTest, laneIndex, onClipContextMenu])
+  }, [hitTest, laneIndex, onPlacementContextMenu])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
     if (e.ctrlKey) return
     const container = containerRef.current
     if (container) {
-      delete container.dataset.dragClipId
+      delete container.dataset.dragPlacementId
       delete container.dataset.dragGrabX
     }
-    const clip = hitTest(e.clientX)
-    if (!clip) return
+    const placement = hitTest(e.clientX)
+    if (!placement) return
     if (container) {
-      container.dataset.dragClipId = clip.id
+      container.dataset.dragPlacementId = placement.id
       const canvasRect = canvasRef.current?.getBoundingClientRect()
-      const hr = hitRectsRef.current.find((h) => h.clip.id === clip.id)
+      const hr = hitRectsRef.current.find((h) => h.placement.id === placement.id)
       const grabX = canvasRect && hr ? e.clientX - canvasRect.left - hr.x : 0
       container.dataset.dragGrabX = String(Math.max(0, grabX))
     }
     // Preserve multi-selection drag by preventing parent mousedown clear.
-    if (selectedClipIds.has(clip.id)) {
+    if (selectedPlacementIds.has(placement.id)) {
       e.stopPropagation()
     }
-  }, [hitTest, selectedClipIds])
+  }, [hitTest, selectedPlacementIds])
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     const container = containerRef.current
-    const clipId = container?.dataset.dragClipId
-    if (!clipId) {
+    const placementId = container?.dataset.dragPlacementId
+    if (!placementId) {
       e.preventDefault()
       return
     }
 
-    const hr = hitRectsRef.current.find((h) => h.clip.id === clipId)
+    const hr = hitRectsRef.current.find((h) => h.placement.id === placementId)
     if (hr && e.dataTransfer && typeof e.dataTransfer.setDragImage === 'function') {
-      const count = selectedClipIds.size > 1 && selectedClipIds.has(clipId)
-        ? selectedClipIds.size
+      const count = selectedPlacementIds.size > 1 && selectedPlacementIds.has(placementId)
+        ? selectedPlacementIds.size
         : 1
-      const missing = missingSamplePaths?.has(hr.clip.samplePath) ?? false
-      const ghost = buildClipDragGhost(hr.clip, hr.width, count, missing)
+      const missing = missingSamplePaths?.has(hr.placement.samplePath) ?? false
+      const ghost = buildSampleBubbleDragGhost(hr.placement, hr.width, count, missing)
       if (ghost) {
-        document.body.appendChild(ghost)
-        const ghostWidth = Math.max(hr.width, GHOST_MIN_WIDTH)
-        const grabX = Math.min(Number(container!.dataset.dragGrabX ?? '0'), ghostWidth)
-        e.dataTransfer.setDragImage(ghost, grabX, SAMPLE_BUBBLE_HEIGHT_PX / 2)
-        window.setTimeout(() => ghost.remove(), 0)
+        document.body.appendChild(ghost.canvas)
+        const grabX = Math.min(Number(container!.dataset.dragGrabX ?? '0'), hr.width)
+        e.dataTransfer.setDragImage(
+          ghost.canvas,
+          ghost.bubbleOffsetX + grabX,
+          ghost.bubbleOffsetY + SAMPLE_BUBBLE_HEIGHT_PX / 2
+        )
+        window.setTimeout(() => ghost.canvas.remove(), 0)
       }
     }
 
-    onClipDragStart(clipId, e)
-    delete container!.dataset.dragClipId
+    onPlacementDragStart(placementId, e)
+    delete container!.dataset.dragPlacementId
     delete container!.dataset.dragGrabX
-  }, [onClipDragStart, selectedClipIds, missingSamplePaths])
+  }, [onPlacementDragStart, selectedPlacementIds, missingSamplePaths])
 
   return (
     <div
       ref={containerRef}
-      className="lane-clip-canvas-container"
+      className="lane-sample-bubble-canvas-container"
       draggable
       onMouseDown={handleMouseDown}
       onDragStart={handleDragStart}
       onContextMenu={handleContextMenu}
-      data-clip-count={clips.length}
-      data-clip-names={clips.map((c) => c.sampleName).join(',')}
+      data-placement-count={placements.length}
+      data-placement-sample-names={placements.map((c) => c.sampleName).join(',')}
     >
-      <canvas ref={canvasRef} className="lane-clip-canvas" />
+      <canvas ref={canvasRef} className="lane-sample-bubble-canvas" />
     </div>
   )
 }
 
 // Memoized so the tracker's 10Hz playhead/meter updates skip redrawing every
-// lane canvas; a lane re-renders only when its clips, the selection, or the
+// lane canvas; a lane re-renders only when its placements, the selection, or the
 // flash target change.
-export default memo(LaneClipCanvas)
+export default memo(LaneSampleBubbleCanvas)

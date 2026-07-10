@@ -331,9 +331,9 @@ export function hasSamples(db: DB, rootKey?: string): boolean {
 
 /**
  * Relpaths of every missing sample (scan_state = 2) under the given root.
- * Drives the tracker's hazard-stripe treatment on clips whose file vanished
+ * Drives the tracker's hazard-stripe treatment on placements whose file vanished
  * between scans (spec-002 AC-013). Missing rows are soft-deleted stubs, so
- * the result is bounded by library size, not clip count.
+ * the result is bounded by library size, not placement count.
  */
 export function listMissingRelpaths(db: DB, rootKey: string): string[] {
   const rootId = scanRootId(db, rootKey)

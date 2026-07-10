@@ -46,10 +46,10 @@ describe('Footer', () => {
     expect(onOpenRepo).toHaveBeenCalledTimes(1)
   })
 
-  it('renders selected sample details in tracker view', () => {
+  it('renders selected sample details in the Player', () => {
     render(
       <Footer
-        view="tracker"
+        view="player"
         version="1.2.3"
         sampleDetail={{
           name: 'kick_808.wav',
@@ -71,7 +71,7 @@ describe('Footer', () => {
   it('AC-003b: sample detail populates center slot while settings and version remain visible', () => {
     render(
       <Footer
-        view="tracker"
+        view="player"
         version="1.2.3"
         sampleDetail={{
           name: 'snare.wav',

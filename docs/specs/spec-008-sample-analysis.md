@@ -109,6 +109,8 @@ field "Type" to keep the two concepts distinct.
 - `SampleBrowser.test.tsx` verifies the per-sample editor, clearing, and the
   individual re-analysis action, including that numerically equivalent BPM
   input does not replace analysis provenance with a manual override.
+- `SampleAnalysisEditor.test.tsx` and `useLibraryData.test.ts` verify blank
+  metadata defaults plus non-null, cleared, and absent manual patch fields.
 - `worker-proxy.test.ts` verifies analysis progress/done event fan-out.
 - Validation commands: `npm run typecheck`, `npm test`, `npm run lint`, and
   `npm run build`; the production bundle also passes

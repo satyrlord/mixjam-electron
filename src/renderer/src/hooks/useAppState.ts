@@ -7,7 +7,7 @@ import { useMixer, type Mixer } from './useMixer'
 const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
 export type AppState = LibraryData & TransportEngine & Mixer & {
-  goToTracker: () => Promise<void>
+  goToPlayer: () => Promise<void>
   goToHome: () => Promise<void>
   openRepo: () => Promise<void>
 }
@@ -16,7 +16,7 @@ export type AppState = LibraryData & TransportEngine & Mixer & {
  * Orchestrator hook that wires the library-data and transport-engine hooks
  * together, handling the cross-cutting navigation and sample-placement flows.
  *
- * Project load (Load MixJam / opening a recent project) is intentionally
+ * Project load (Load MixJam / opening a MixJam file) is intentionally
  * absent: .mixjam persistence is spec-011, and until it ships the UI gates
  * those affordances instead of promising a load that discards its result.
  */
@@ -27,16 +27,16 @@ export function useAppState(
 ): AppState {
   const lib = useLibraryData(backendAPI, userFolder, sampleFolder)
   const engine = useTransportEngine(backendAPI, sampleFolder)
-  const mixer = useMixer(engine.playerRef, engine.view)
+  const mixer = useMixer(engine.playbackEngineRef, engine.view)
 
   const { setView } = engine
   const { setSelectedSampleDetail, startLibraryScan, scanProgress, dbIndexed } = lib
 
-  const goToTracker = useCallback(async () => {
-    await backendAPI.resizeToTracker()
-    setView('tracker')
+  const goToPlayer = useCallback(async () => {
+    await backendAPI.resizeToPlayer()
+    setView('player')
     // Auto-scan on FIRST entry only: the sample folder is set, no scan is
-    // running, and this folder has never been indexed. Re-entering the tracker
+    // running, and this folder has never been indexed. Re-entering the Player
     // with an indexed library must not re-walk the whole folder — the user
     // triggers that explicitly with Re-scan.
     if (sampleFolder && scanProgress.status === 'idle' && !dbIndexed) {
@@ -58,7 +58,7 @@ export function useAppState(
     ...lib,
     ...engine,
     ...mixer,
-    goToTracker,
+    goToPlayer,
     goToHome,
     openRepo
   }

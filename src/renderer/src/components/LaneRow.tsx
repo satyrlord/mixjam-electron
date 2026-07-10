@@ -1,21 +1,22 @@
-import { memo, useCallback } from 'react'
-import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX, type LaneState } from '../lib/playerShell'
+import { memo, useCallback, useState } from 'react'
+import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX, type LaneState } from '../lib/arrangement'
 import { nextPanCycle } from '../lib/sample-utils'
-import LaneClipCanvas from './LaneClipCanvas'
+import LaneSampleBubbleCanvas from './LaneSampleBubbleCanvas'
 
 interface LaneRowProps {
   lane: LaneState
   dimmed: boolean
   totalTicks: number
   flashSamplePath: string | null
-  selectedClipIds: ReadonlySet<string>
+  selectedPlacementIds: ReadonlySet<string>
   missingSamplePaths: ReadonlySet<string>
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
-  onClipDragStart: (clipId: string, event: React.DragEvent) => void
-  onClipContextMenu: (info: {
-    x: number; y: number; laneIndex: number; clipId: string; samplePath: string; sampleName: string
+  onSetLaneNativeBpm: (laneIndex: number, nativeBPM: number | null) => void
+  onPlacementDragStart: (placementId: string, event: React.DragEvent) => void
+  onPlacementContextMenu: (info: {
+    x: number; y: number; laneIndex: number; placementId: string; samplePath: string; sampleName: string
   }) => void
   onDragOver: (event: React.DragEvent) => void
   onDrop: (laneIndex: number, event: React.DragEvent<HTMLDivElement>) => void
@@ -27,21 +28,37 @@ function LaneRow({
   dimmed,
   totalTicks,
   flashSamplePath,
-  selectedClipIds,
+  selectedPlacementIds,
   missingSamplePaths,
   onToggleLaneMute,
   onToggleLaneSolo,
   onSetLanePan,
-  onClipDragStart,
-  onClipContextMenu,
+  onSetLaneNativeBpm,
+  onPlacementDragStart,
+  onPlacementContextMenu,
   onDragOver,
   onDrop,
   trackDragCleanup
 }: LaneRowProps) {
+  const [editingBpm, setEditingBpm] = useState(false)
+  const [bpmDraft, setBpmDraft] = useState('')
   const handleDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => onDrop(lane.index, event),
     [onDrop, lane.index]
   )
+
+  const commitBpm = useCallback(() => {
+    const trimmed = bpmDraft.trim()
+    if (trimmed === '') {
+      onSetLaneNativeBpm(lane.index, null)
+    } else {
+      const value = Number(trimmed)
+      if (Number.isFinite(value) && value > 0) {
+        onSetLaneNativeBpm(lane.index, value)
+      }
+    }
+    setEditingBpm(false)
+  }, [bpmDraft, lane.index, onSetLaneNativeBpm])
 
   return (
     <div
@@ -49,7 +66,44 @@ function LaneRow({
       style={{ height: LANE_HEIGHT_PX }}
     >
       <div className="tracker-lane-head" style={{ width: LANE_HEAD_WIDTH_PX }}>
-        <span className="tracker-lane-name">{lane.name}</span>
+        <div className="tracker-lane-identity">
+          <span className="tracker-lane-name">{lane.name}</span>
+          {editingBpm ? (
+            <input
+              className="tracker-lane-bpm-input"
+              type="number"
+              min="1"
+              step="0.1"
+              value={bpmDraft}
+              autoFocus
+              aria-label={`Native BPM for ${lane.name}`}
+              onChange={(event) => setBpmDraft(event.target.value)}
+              onBlur={commitBpm}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  commitBpm()
+                } else if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setEditingBpm(false)
+                }
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              className="tracker-lane-bpm"
+              aria-label={`Set native BPM for ${lane.name}`}
+              title="Set the sample's native BPM; clear it for native-rate playback"
+              onClick={() => {
+                setBpmDraft(lane.nativeBPM?.toString() ?? '')
+                setEditingBpm(true)
+              }}
+            >
+              {lane.nativeBPM == null ? 'BPM --' : `${lane.nativeBPM} BPM`}
+            </button>
+          )}
+        </div>
         <div className="tracker-lane-controls">
           <button
             type="button"
@@ -123,17 +177,17 @@ function LaneRow({
         onDragOver={onDragOver}
         onDrop={handleDrop}
         role="region"
-        aria-label={`Lane ${lane.index + 1} track area`}
+        aria-label={`Lane ${lane.index + 1} placement area`}
       >
-        <LaneClipCanvas
-          clips={lane.clips}
+        <LaneSampleBubbleCanvas
+          placements={lane.placements}
           totalTicks={totalTicks}
           laneIndex={lane.index}
           flashSamplePath={flashSamplePath}
-          selectedClipIds={selectedClipIds}
+          selectedPlacementIds={selectedPlacementIds}
           missingSamplePaths={missingSamplePaths}
-          onClipDragStart={onClipDragStart}
-          onClipContextMenu={onClipContextMenu}
+          onPlacementDragStart={onPlacementDragStart}
+          onPlacementContextMenu={onPlacementContextMenu}
         />
       </div>
     </div>
@@ -142,5 +196,5 @@ function LaneRow({
 
 // Memoized so the tracker's 10Hz playhead/meter updates skip re-rendering
 // lanes whose props have not changed. Only re-renders when its own lane's
-// state (clips, mute, solo, pan), selection, or flash target change.
+// state (placements, mute, solo, pan), selection, or flash target change.
 export default memo(LaneRow)

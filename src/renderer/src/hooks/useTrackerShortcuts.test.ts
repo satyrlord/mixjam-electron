@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useTrackerShortcuts } from './useTrackerShortcuts'
+import type { RuntimeTransportState } from './useTransportRuntime'
 
 function createRef<T>(initial: T): React.MutableRefObject<T> {
   return { current: initial }
@@ -11,41 +12,44 @@ function fireKeyDown(key: string, opts: Partial<KeyboardEventInit> = {}) {
 }
 
 describe('useTrackerShortcuts', () => {
-  let selectedClipIdsRef: React.MutableRefObject<ReadonlySet<string>>
-  let transportStateRef: React.MutableRefObject<string>
+  let selectedPlacementIdsRef: React.MutableRefObject<ReadonlySet<string>>
+  let transportStateRef: React.MutableRefObject<RuntimeTransportState>
   let clearSelection: ReturnType<typeof vi.fn<() => void>>
-  let onRemoveClips: ReturnType<typeof vi.fn<(clipIds: string[]) => void>>
+  let onRemovePlacements: ReturnType<typeof vi.fn<(placementIds: string[]) => void>>
   let onUndo: ReturnType<typeof vi.fn<() => void>>
   let onRedo: ReturnType<typeof vi.fn<() => void>>
   let onTransportPlay: ReturnType<typeof vi.fn<() => void>>
   let onTransportPause: ReturnType<typeof vi.fn<() => void>>
+  let onTransportStop: ReturnType<typeof vi.fn<() => void>>
   let onOpenShortcuts: ReturnType<typeof vi.fn<() => void>>
 
   function mount() {
     return renderHook(() =>
       useTrackerShortcuts({
-        selectedClipIdsRef,
+        selectedPlacementIdsRef,
         clearSelection,
         transportStateRef,
-        onRemoveClips,
+        onRemovePlacements,
         onUndo,
         onRedo,
         onTransportPlay,
         onTransportPause,
+        onTransportStop,
         onOpenShortcuts
       })
     )
   }
 
   beforeEach(() => {
-    selectedClipIdsRef = createRef(new Set<string>())
+    selectedPlacementIdsRef = createRef(new Set<string>())
     transportStateRef = createRef('stopped')
     clearSelection = vi.fn<() => void>()
-    onRemoveClips = vi.fn<(clipIds: string[]) => void>()
+    onRemovePlacements = vi.fn<(placementIds: string[]) => void>()
     onUndo = vi.fn<() => void>()
     onRedo = vi.fn<() => void>()
     onTransportPlay = vi.fn<() => void>()
     onTransportPause = vi.fn<() => void>()
+    onTransportStop = vi.fn<() => void>()
     onOpenShortcuts = vi.fn<() => void>()
   })
 
@@ -55,23 +59,23 @@ describe('useTrackerShortcuts', () => {
 
   // ── Delete key ──
 
-  it('calls onRemoveClips and clearSelection on Delete when clips are selected', () => {
-    selectedClipIdsRef.current = new Set(['clip-1', 'clip-2'])
+  it('calls onRemovePlacements and clearSelection on Delete when placements are selected', () => {
+    selectedPlacementIdsRef.current = new Set(['placement-1', 'placement-2'])
     mount()
 
     fireKeyDown('Delete')
 
-    expect(onRemoveClips).toHaveBeenCalledWith(['clip-1', 'clip-2'])
+    expect(onRemovePlacements).toHaveBeenCalledWith(['placement-1', 'placement-2'])
     expect(clearSelection).toHaveBeenCalledTimes(1)
   })
 
-  it('does nothing on Delete when no clips are selected', () => {
-    selectedClipIdsRef.current = new Set()
+  it('does nothing on Delete when no placements are selected', () => {
+    selectedPlacementIdsRef.current = new Set()
     mount()
 
     fireKeyDown('Delete')
 
-    expect(onRemoveClips).not.toHaveBeenCalled()
+    expect(onRemovePlacements).not.toHaveBeenCalled()
     expect(clearSelection).not.toHaveBeenCalled()
   })
 
@@ -134,6 +138,17 @@ describe('useTrackerShortcuts', () => {
     expect(onTransportPlay).not.toHaveBeenCalled()
   })
 
+  it('cancels preparation on Space while preparing', () => {
+    transportStateRef.current = 'preparing'
+    mount()
+
+    fireKeyDown(' ')
+
+    expect(onTransportStop).toHaveBeenCalledTimes(1)
+    expect(onTransportPlay).not.toHaveBeenCalled()
+    expect(onTransportPause).not.toHaveBeenCalled()
+  })
+
   it('does not fire Space when Ctrl is held', () => {
     transportStateRef.current = 'stopped'
     mount()
@@ -156,7 +171,7 @@ describe('useTrackerShortcuts', () => {
   // ── Editable target suppression ──
 
   it('suppresses Delete when target is an INPUT', () => {
-    selectedClipIdsRef.current = new Set(['clip-1'])
+    selectedPlacementIdsRef.current = new Set(['placement-1'])
     mount()
 
     const input = document.createElement('input')
@@ -164,7 +179,7 @@ describe('useTrackerShortcuts', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }))
     document.body.removeChild(input)
 
-    expect(onRemoveClips).not.toHaveBeenCalled()
+    expect(onRemovePlacements).not.toHaveBeenCalled()
   })
 
   it('suppresses Space when target is a TEXTAREA', () => {
@@ -206,14 +221,14 @@ describe('useTrackerShortcuts', () => {
   })
 
   it('does not suppress shortcuts when target is not an HTMLElement', () => {
-    selectedClipIdsRef.current = new Set(['clip-1'])
+    selectedPlacementIdsRef.current = new Set(['placement-1'])
     mount()
 
     // Dispatch directly on window — window is not an HTMLElement, so
     // isEditableTarget returns false and the shortcut fires normally.
     fireKeyDown('Delete')
 
-    expect(onRemoveClips).toHaveBeenCalledWith(['clip-1'])
+    expect(onRemovePlacements).toHaveBeenCalledWith(['placement-1'])
   })
 
   // ── Cleanup on unmount ──
@@ -232,18 +247,18 @@ describe('useTrackerShortcuts', () => {
   it('reads updated ref values without re-subscribing', () => {
     const { rerender } = mount()
 
-    // Initially no clips selected
+    // Initially no placements selected
     fireKeyDown('Delete')
-    expect(onRemoveClips).not.toHaveBeenCalled()
+    expect(onRemovePlacements).not.toHaveBeenCalled()
 
-    // Update the ref to have clips (simulating a selection change)
-    selectedClipIdsRef.current = new Set(['clip-3'])
+    // Update the ref to have placements (simulating a selection change)
+    selectedPlacementIdsRef.current = new Set(['placement-3'])
 
     // Rerender with new ref — the hook reads refs, so it should pick up the change
     rerender()
 
     fireKeyDown('Delete')
-    expect(onRemoveClips).toHaveBeenCalledWith(['clip-3'])
+    expect(onRemovePlacements).toHaveBeenCalledWith(['placement-3'])
     expect(clearSelection).toHaveBeenCalledTimes(1)
   })
 })

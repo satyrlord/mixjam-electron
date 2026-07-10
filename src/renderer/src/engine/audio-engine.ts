@@ -26,7 +26,7 @@ export interface TriggerVoiceParams {
   buffer: AudioBuffer
   channel: Channel
   when: number
-  trackIndex: number
+  laneIndex: number
 }
 
 const SILENCE_DB = -100
@@ -105,12 +105,12 @@ export class AudioEngine {
   }
 
   /** Creates the AudioContext if it does not exist yet and returns it. Kept for
-   *  external callers (Player, tests) that need the raw context reference. */
+   *  external callers (PlaybackEngine, tests) that need the raw context reference. */
   ensureContext(): AudioContext {
     return this.ctx.context
   }
 
-  /** Exposed for the Player to pass to the scheduler clock. */
+  /** Exposed for PlaybackEngine to pass to the scheduler clock. */
   get currentTime(): number {
     return this.nodes?.context.currentTime ?? 0
   }
@@ -195,7 +195,7 @@ export class AudioEngine {
       buffer,
       destination: previewGain,
       when,
-      trackIndex: -1,
+      laneIndex: -1,
       events: {
         onStarted: (v) => this.activeVoices.add(v),
         onEnded: (v) => {
@@ -208,23 +208,23 @@ export class AudioEngine {
     return voice
   }
 
-  triggerVoice({ buffer, channel, when, trackIndex }: TriggerVoiceParams): Voice {
+  triggerVoice({ buffer, channel, when, laneIndex }: TriggerVoiceParams): Voice {
     return this.triggerVoiceTo({
       buffer,
       destination: channel.input,
       when,
-      trackIndex
+      laneIndex
     })
   }
 
-  triggerVoiceTo({ buffer, destination, when, trackIndex }: { buffer: AudioBuffer; destination: AudioNode; when: number; trackIndex: number }): Voice {
+  triggerVoiceTo({ buffer, destination, when, laneIndex }: { buffer: AudioBuffer; destination: AudioNode; when: number; laneIndex: number }): Voice {
     const { context } = this.ctx
     const voice = createVoice({
       context,
       buffer,
       destination,
       when,
-      trackIndex,
+      laneIndex,
       events: {
         onStarted: (v) => this.activeVoices.add(v),
         onEnded: (v) => this.activeVoices.delete(v)

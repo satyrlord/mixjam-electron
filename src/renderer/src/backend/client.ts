@@ -1,10 +1,10 @@
 // Main-thread BackendAPI facade. DB/scan calls go promise-per-message to the
-// backend worker; folder access, session, and recent projects run on the main
+// backend worker; folder access, app state, and project discovery run on the main
 // thread (they need user gestures and the DOM); host capabilities (resize,
 // openExternal, version) delegate to the Electron shellAPI when present and
 // fall back to browser behaviour otherwise.
 
-import type { BackendAPI, SessionPaths } from '../../../shared/backend-api'
+import type { BackendAPI, FolderSelections } from '../../../shared/backend-api'
 import type { ShellAPI } from '../../../shared/ipc'
 import { createWorkerProxy } from './worker-proxy'
 import {
@@ -14,12 +14,12 @@ import {
   validateFolder
 } from './folder-access'
 import {
-  listRecentProjects,
-  loadSession,
+  listMixJamFiles,
+  loadFolderSelections,
   recordRecentProject,
-  saveSession,
-  writeSessionConfig
-} from './session'
+  saveFolderSelections,
+  writeAppConfig
+} from './app-state'
 
 // Inlined from package.json/git at build time (see electron.vite.config.ts).
 declare const __APP_VERSION__: string | undefined
@@ -32,7 +32,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
   const workerProxy = createWorkerProxy(worker)
 
-  // Cache the app version for the session lifetime so saveSession does not
+  // Cache the app version for the app runtime so saveFolderSelections does not
   // round-trip to IPC on every folder pick.
   let cachedVersion: string | null = null
   async function getVersionCached(): Promise<string> {
@@ -55,7 +55,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
 
   return {
     getVersion: () => getVersionCached(),
-    resizeToTracker: () => shell?.resizeToTracker() ?? Promise.resolve(),
+    resizeToPlayer: () => shell?.resizeToPlayer() ?? Promise.resolve(),
     resizeToHome: () => shell?.resizeToHome() ?? Promise.resolve(),
     openExternal: (url) => {
       if (shell) return shell.openExternal(url)
@@ -63,16 +63,16 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
       return Promise.resolve()
     },
 
-    loadSession: () => Promise.resolve(loadSession()),
-    saveSession: async (paths: SessionPaths) => {
-      saveSession(paths)
+    loadFolderSelections: () => Promise.resolve(loadFolderSelections()),
+    saveFolderSelections: async (selections: FolderSelections) => {
+      saveFolderSelections(selections)
       try {
-        await writeSessionConfig(paths, await getVersionCached())
+        await writeAppConfig(selections, await getVersionCached())
       } catch (error) {
         console.error('Failed to write mixjam.json:', error)
       }
     },
-    loadRecentProjects: (userFolder) => listRecentProjects(userFolder),
+    loadMixJamFiles: (userFolder) => listMixJamFiles(userFolder),
     recordRecentProject: (projectRelpath) => {
       recordRecentProject(projectRelpath)
       return Promise.resolve()

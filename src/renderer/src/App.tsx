@@ -2,22 +2,22 @@ import { useCallback, useState } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
-import TrackerView from './components/TrackerView'
+import PlayerView from './components/PlayerView'
 import ScanOverlay from './components/ScanOverlay'
 import { useAppState } from './hooks/useAppState'
-import { useFolderSession } from './hooks/useFolderSession'
-import { createTrackerViewModel } from './hooks/trackerViewModel'
+import { useFolderSetup } from './hooks/useFolderSetup'
+import { createPlayerViewModel } from './hooks/playerViewModel'
 import { selectTheme } from './theme/themes'
 
 export default function App() {
   const { userFolder, sampleFolder, canStart, pickUser, pickSample, restoreUser, restoreSample } =
-    useFolderSession(window.backendAPI)
+    useFolderSetup(window.backendAPI)
 
   const resolvedUserFolder = userFolder.status === 'set' ? userFolder.ref : null
   const resolvedSampleFolder = sampleFolder.status === 'set' ? sampleFolder.ref : null
 
   const app = useAppState(window.backendAPI, resolvedUserFolder, resolvedSampleFolder)
-  const tracker = createTrackerViewModel(app)
+  const player = createPlayerViewModel(app)
 
   const [activeTheme, setActiveTheme] = useState('emerald')
 
@@ -40,22 +40,22 @@ export default function App() {
             userFolder={userFolder}
             sampleFolder={sampleFolder}
             canStart={canStart}
-            recentProjects={app.recentProjects}
+            mixJamFiles={app.mixJamFiles}
             activeTheme={activeTheme}
             onThemeChange={handleThemeChange}
             onPickUser={pickUser}
             onPickSample={pickSample}
             onRestoreUser={restoreUser}
             onRestoreSample={restoreSample}
-            onStart={app.goToTracker}
+            onStart={app.goToPlayer}
           />
         ) : (
-          <TrackerView
-            recentProjects={app.recentProjects}
-            browser={tracker.browser}
-            arrangement={tracker.arrangement}
-            transport={tracker.transport}
-            mixer={tracker.mixer}
+          <PlayerView
+            mixJamFiles={app.mixJamFiles}
+            browser={player.browser}
+            arrangement={player.arrangement}
+            transport={player.transport}
+            mixer={player.mixer}
           />
         )}
       </main>

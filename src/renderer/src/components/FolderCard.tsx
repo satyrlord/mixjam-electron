@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { FolderCardStatus } from '../hooks/useFolderSession'
+import type { FolderCardStatus } from '../hooks/useFolderSetup'
 
 const PICK_ERROR = 'Cannot access this folder. Check permissions and try again.'
 const RESTORE_ERROR = 'Folder not accessible — pick a new one.'

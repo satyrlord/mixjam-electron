@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RecentProjectItem } from '../../../shared/backend-api'
+import type { MixJamFileItem } from '../../../shared/backend-api'
 import { createBackendAPI, DEFAULT_SAMPLE_ROWS, TEST_SAMPLE_FOLDER, TEST_USER_FOLDER } from '../test/backendApi'
 import { useAppState } from './useAppState'
 
@@ -30,7 +30,7 @@ describe('useAppState', () => {
     })
 
     expect(backendAPI.getVersion).toHaveBeenCalledTimes(1)
-    expect(backendAPI.loadRecentProjects).toHaveBeenCalledWith(USER_FOLDER)
+    expect(backendAPI.loadMixJamFiles).toHaveBeenCalledWith(USER_FOLDER)
 
     await waitFor(() => {
       expect(backendAPI.querySamples).toHaveBeenCalledWith(
@@ -50,24 +50,26 @@ describe('useAppState', () => {
     })
   })
 
-  it('moves to tracker and increments the timer while playing', async () => {
+  it('moves to the Player and increments the timer while playing', async () => {
     vi.useFakeTimers()
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.goToTracker()
+      await result.current.goToPlayer()
     })
 
-    expect(result.current.view).toBe('tracker')
-    expect(backendAPI.resizeToTracker).toHaveBeenCalledTimes(1)
+    expect(result.current.view).toBe('player')
+    expect(backendAPI.resizeToPlayer).toHaveBeenCalledTimes(1)
 
     // Timer should be at 00:00.0 until playback starts
     expect(result.current.timerText).toBe('00:00.0')
 
     // Start playback
-    act(() => {
+    await act(async () => {
       result.current.transportPlay()
+      await Promise.resolve()
+      await Promise.resolve()
     })
 
     act(() => {
@@ -82,7 +84,7 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.goToTracker()
+      await result.current.goToPlayer()
       await result.current.goToHome()
     })
 
@@ -104,14 +106,14 @@ describe('useAppState', () => {
     )
   })
 
-  it('clears the running timer when unmounted from the tracker view', async () => {
+  it('clears the running timer when unmounted from the Player', async () => {
     vi.useFakeTimers()
     const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
     const backendAPI = createBackendAPI()
     const { result, unmount } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.goToTracker()
+      await result.current.goToPlayer()
     })
 
     unmount()
@@ -150,7 +152,7 @@ describe('useAppState', () => {
     expect(backendAPI.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER)
   })
 
-  it('places a sample clip on a lane via drag-and-drop', async () => {
+  it('places a sample on a lane via drag-and-drop', async () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -167,20 +169,20 @@ describe('useAppState', () => {
     })
 
     const lane0 = result.current.lanes.find((lane) => lane.index === 0)
-    expect(lane0?.clips).toHaveLength(1)
-    expect(lane0?.clips[0]?.sampleName).toBe('kick_808.wav')
-    expect(lane0?.clips[0]?.startTick).toBe(0)
-    expect(lane0?.clips[0]?.durationTicks).toBe(32)
+    expect(lane0?.placements).toHaveLength(1)
+    expect(lane0?.placements[0]?.sampleName).toBe('kick_808.wav')
+    expect(lane0?.placements[0]?.startTick).toBe(0)
+    expect(lane0?.placements[0]?.durationTicks).toBe(32)
   })
 
-  it('falls back when loadRecentProjects fails', async () => {
+  it('falls back when loadMixJamFiles fails', async () => {
     vi.useRealTimers()
     const backendAPI = createBackendAPI()
-    vi.mocked(backendAPI.loadRecentProjects).mockRejectedValueOnce(new Error('session unavailable'))
+    vi.mocked(backendAPI.loadMixJamFiles).mockRejectedValueOnce(new Error('MixJam Browser unavailable'))
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => {
-      expect(result.current.recentProjects).toEqual([])
+      expect(result.current.mixJamFiles).toEqual([])
     })
   })
 
@@ -309,7 +311,7 @@ describe('useAppState', () => {
     }
   })
 
-  it('creates and destroys transport with tracker lifecycle', async () => {
+  it('creates and destroys transport with the Player lifecycle', async () => {
     vi.useFakeTimers()
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
@@ -317,14 +319,14 @@ describe('useAppState', () => {
     // Initially no transport
     expect(result.current.transportState).toBe('stopped')
 
-    // Enter tracker
+    // Enter the Player.
     await act(async () => {
-      await result.current.goToTracker()
+      await result.current.goToPlayer()
     })
 
     expect(result.current.transportState).toBe('stopped')
 
-    // Leave tracker — transport destroyed
+    // Leave the Player; transport is destroyed.
     await act(async () => {
       await result.current.goToHome()
     })
@@ -338,11 +340,13 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.goToTracker()
+      await result.current.goToPlayer()
     })
 
-    act(() => {
+    await act(async () => {
       result.current.transportPlay()
+      await Promise.resolve()
+      await Promise.resolve()
     })
 
     expect(result.current.transportState).toBe('playing')
@@ -354,11 +358,13 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.goToTracker()
+      await result.current.goToPlayer()
     })
 
-    act(() => {
+    await act(async () => {
       result.current.transportPlay()
+      await Promise.resolve()
+      await Promise.resolve()
     })
 
     expect(result.current.transportState).toBe('playing')
@@ -382,7 +388,7 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.goToTracker()
+      await result.current.goToPlayer()
     })
 
     expect(() => {
@@ -414,7 +420,7 @@ describe('useAppState', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('transport operations are no-ops when not in tracker view', () => {
+  it('transport operations are no-ops outside the Player', () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -455,12 +461,12 @@ describe('useAppState', () => {
     // No crash = pass; the isMounted guard prevented the state update.
   })
 
-  it('handles unmount during pending recent-projects fetch', async () => {
+  it('handles unmount during a pending MixJam-file fetch', async () => {
     vi.useRealTimers()
     const backendAPI = createBackendAPI()
 
-    let resolveProjects: (projects: RecentProjectItem[]) => void
-    vi.mocked(backendAPI.loadRecentProjects).mockReturnValueOnce(
+    let resolveProjects: (projects: MixJamFileItem[]) => void
+    vi.mocked(backendAPI.loadMixJamFiles).mockReturnValueOnce(
       new Promise((resolve) => {
         resolveProjects = resolve
       })
@@ -479,7 +485,7 @@ describe('useAppState', () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
-    await act(async () => { await result.current.goToTracker() })
+    await act(async () => { await result.current.goToPlayer() })
 
     act(() => { result.current.setBpm(140) })
     expect(result.current.bpm).toBe(140)
@@ -490,40 +496,40 @@ describe('useAppState', () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
-    await act(async () => { await result.current.goToTracker() })
+    await act(async () => { await result.current.goToPlayer() })
 
     act(() => { result.current.setMasterGain(0.5) })
     expect(result.current.masterGain).toBe(0.5)
   })
 
-  it('moveClipOnLane repositions a clip across lanes', async () => {
+  it('movePlacement repositions a placement across lanes', async () => {
     vi.useFakeTimers()
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
-    await act(async () => { await result.current.goToTracker() })
+    await act(async () => { await result.current.goToPlayer() })
 
     act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
-    const cid = result.current.lanes[0].clips[0].id
+    const cid = result.current.lanes[0].placements[0].id
 
-    act(() => { result.current.moveClipOnLane(cid, 2, 64) })
-    expect(result.current.lanes[0].clips).toHaveLength(0)
-    expect(result.current.lanes[2].clips).toHaveLength(1)
-    expect(result.current.lanes[2].clips[0].startTick).toBe(64)
+    act(() => { result.current.movePlacement(cid, 2, 64) })
+    expect(result.current.lanes[0].placements).toHaveLength(0)
+    expect(result.current.lanes[2].placements).toHaveLength(1)
+    expect(result.current.lanes[2].placements[0].startTick).toBe(64)
   })
 
-  it('removeClipFromLane deletes a clip', async () => {
+  it('removePlacementFromLane deletes a placement', async () => {
     vi.useFakeTimers()
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
-    await act(async () => { await result.current.goToTracker() })
+    await act(async () => { await result.current.goToPlayer() })
 
     act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
-    const cid = result.current.lanes[0].clips[0].id
+    const cid = result.current.lanes[0].placements[0].id
 
-    act(() => { result.current.removeClipFromLane(0, cid) })
-    expect(result.current.lanes[0].clips).toHaveLength(0)
+    act(() => { result.current.removePlacementFromLane(0, cid) })
+    expect(result.current.lanes[0].placements).toHaveLength(0)
   })
 
   it('setLanePan updates pan value', async () => {
@@ -531,7 +537,7 @@ describe('useAppState', () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
-    await act(async () => { await result.current.goToTracker() })
+    await act(async () => { await result.current.goToPlayer() })
 
     act(() => { result.current.setLanePan(3, -0.5) })
     expect(result.current.lanes[3].pan).toBe(-0.5)

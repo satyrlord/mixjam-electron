@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useFolderSession } from './useFolderSession'
-import type { BackendAPI, FolderRef, FolderRole, FolderValidation, SessionPaths } from '../../../shared/backend-api'
+import { useFolderSetup } from './useFolderSetup'
+import type { BackendAPI, FolderRef, FolderRole, FolderValidation, FolderSelections } from '../../../shared/backend-api'
 
 const USER_REF: FolderRef = { id: 'user-1', name: 'MixJam' }
 const SAMPLE_REF: FolderRef = { id: 'sample-1', name: 'Samples' }
@@ -10,13 +10,13 @@ function makeBackendAPI(overrides: Partial<BackendAPI> = {}): BackendAPI {
   return {
     getVersion: vi.fn(),
     resizeToHome: vi.fn(),
-    resizeToTracker: vi.fn(),
+    resizeToPlayer: vi.fn(),
     pickFolder: vi.fn(async () => null),
     validateFolder: vi.fn(async () => 'ok' as FolderValidation),
     requestFolderAccess: vi.fn(async () => false),
-    loadSession: vi.fn(async () => ({ userFolder: null, sampleFolder: null })),
-    saveSession: vi.fn(async () => undefined),
-    loadRecentProjects: vi.fn(async () => []),
+    loadFolderSelections: vi.fn(async () => ({ userFolder: null, sampleFolder: null })),
+    saveFolderSelections: vi.fn(async () => undefined),
+    loadMixJamFiles: vi.fn(async () => []),
     querySamples: vi.fn(async () => ({ rows: [], total: 0 })),
     hasSamples: vi.fn(async () => false),
     startScan: vi.fn(async () => undefined),
@@ -40,20 +40,20 @@ function makeBackendAPI(overrides: Partial<BackendAPI> = {}): BackendAPI {
   } as BackendAPI
 }
 
-describe('useFolderSession', () => {
+describe('useFolderSetup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('restores persisted folders concurrently and opens the launch gate', async () => {
     const api = makeBackendAPI({
-      loadSession: vi.fn(async (): Promise<SessionPaths> => ({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })),
+      loadFolderSelections: vi.fn(async (): Promise<FolderSelections> => ({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })),
       validateFolder: vi.fn(async (_ref: FolderRef, role: FolderRole) =>
         role === 'user' ? 'ok' : 'needs-permission'
       )
     })
 
-    const { result } = renderHook(() => useFolderSession(api))
+    const { result } = renderHook(() => useFolderSetup(api))
 
     await waitFor(() => expect(result.current.userFolder.status).toBe('set'))
     expect(result.current.sampleFolder.status).toBe('needs-permission')
@@ -62,16 +62,16 @@ describe('useFolderSession', () => {
     expect(api.validateFolder).toHaveBeenCalledWith(SAMPLE_REF, 'sample')
   })
 
-  it('ignores restore completion after unmount', async () => {
-    let resolveSession!: (paths: SessionPaths) => void
+  it('ignores folder-selection restoration after unmount', async () => {
+    let resolveSelections!: (selections: FolderSelections) => void
     const api = makeBackendAPI({
-      loadSession: vi.fn(() => new Promise<SessionPaths>((resolve) => { resolveSession = resolve }))
+      loadFolderSelections: vi.fn(() => new Promise<FolderSelections>((resolve) => { resolveSelections = resolve }))
     })
 
-    const { result, unmount } = renderHook(() => useFolderSession(api))
+    const { result, unmount } = renderHook(() => useFolderSetup(api))
     unmount()
     await act(async () => {
-      resolveSession({ userFolder: USER_REF, sampleFolder: null })
+      resolveSelections({ userFolder: USER_REF, sampleFolder: null })
     })
 
     expect(result.current.userFolder.status).toBe('empty')
@@ -80,15 +80,15 @@ describe('useFolderSession', () => {
 
   it('does nothing when folder picking is cancelled', async () => {
     const api = makeBackendAPI({ pickFolder: vi.fn(async () => null) })
-    const { result } = renderHook(() => useFolderSession(api))
-    await waitFor(() => expect(api.loadSession).toHaveBeenCalled())
+    const { result } = renderHook(() => useFolderSetup(api))
+    await waitFor(() => expect(api.loadFolderSelections).toHaveBeenCalled())
 
     await act(async () => {
       await result.current.pickUser()
     })
 
     expect(api.validateFolder).not.toHaveBeenCalled()
-    expect(api.saveSession).not.toHaveBeenCalled()
+    expect(api.saveFolderSelections).not.toHaveBeenCalled()
     expect(result.current.userFolder.status).toBe('empty')
   })
 
@@ -97,15 +97,15 @@ describe('useFolderSession', () => {
       pickFolder: vi.fn(async () => USER_REF),
       validateFolder: vi.fn(async (): Promise<FolderValidation> => 'invalid')
     })
-    const { result } = renderHook(() => useFolderSession(api))
-    await waitFor(() => expect(api.loadSession).toHaveBeenCalled())
+    const { result } = renderHook(() => useFolderSetup(api))
+    await waitFor(() => expect(api.loadFolderSelections).toHaveBeenCalled())
 
     await act(async () => {
       await result.current.pickUser()
     })
 
     expect(result.current.userFolder).toEqual({ ref: USER_REF, status: 'pick-error' })
-    expect(api.saveSession).not.toHaveBeenCalled()
+    expect(api.saveFolderSelections).not.toHaveBeenCalled()
   })
 
   it('persists only folders that are currently set after successful picks', async () => {
@@ -113,8 +113,8 @@ describe('useFolderSession', () => {
       pickFolder: vi.fn(async (role: FolderRole) => role === 'user' ? USER_REF : SAMPLE_REF),
       validateFolder: vi.fn(async (): Promise<FolderValidation> => 'ok')
     })
-    const { result } = renderHook(() => useFolderSession(api))
-    await waitFor(() => expect(api.loadSession).toHaveBeenCalled())
+    const { result } = renderHook(() => useFolderSetup(api))
+    await waitFor(() => expect(api.loadFolderSelections).toHaveBeenCalled())
 
     await act(async () => {
       await result.current.pickUser()
@@ -124,18 +124,18 @@ describe('useFolderSession', () => {
     })
 
     expect(result.current.canStart).toBe(true)
-    expect(api.saveSession).toHaveBeenLastCalledWith({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
+    expect(api.saveFolderSelections).toHaveBeenLastCalledWith({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
   })
 
   it('restores permission only for folders that need it', async () => {
     const api = makeBackendAPI({
-      loadSession: vi.fn(async () => ({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })),
+      loadFolderSelections: vi.fn(async () => ({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })),
       validateFolder: vi.fn(async (_ref: FolderRef, role: FolderRole) =>
         role === 'user' ? 'needs-permission' : 'ok'
       ),
       requestFolderAccess: vi.fn(async () => false)
     })
-    const { result } = renderHook(() => useFolderSession(api))
+    const { result } = renderHook(() => useFolderSetup(api))
     await waitFor(() => expect(result.current.userFolder.status).toBe('needs-permission'))
 
     await act(async () => {
@@ -148,18 +148,18 @@ describe('useFolderSession', () => {
     })
     expect(api.requestFolderAccess).toHaveBeenCalledWith(USER_REF, 'user')
     expect(result.current.userFolder.status).toBe('needs-permission')
-    expect(api.saveSession).not.toHaveBeenCalled()
+    expect(api.saveFolderSelections).not.toHaveBeenCalled()
   })
 
-  it('saves the session after a permission re-grant validates successfully', async () => {
+  it('saves folder selections after a permission re-grant validates successfully', async () => {
     const api = makeBackendAPI({
-      loadSession: vi.fn(async () => ({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })),
+      loadFolderSelections: vi.fn(async () => ({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })),
       validateFolder: vi.fn(async (_ref: FolderRef, role: FolderRole) =>
         role === 'user' ? 'needs-permission' : 'ok'
       ),
       requestFolderAccess: vi.fn(async () => true)
     })
-    const { result } = renderHook(() => useFolderSession(api))
+    const { result } = renderHook(() => useFolderSetup(api))
     await waitFor(() => expect(result.current.userFolder.status).toBe('needs-permission'))
     vi.mocked(api.validateFolder).mockResolvedValue('ok')
 
@@ -169,6 +169,6 @@ describe('useFolderSession', () => {
 
     expect(result.current.userFolder.status).toBe('set')
     expect(result.current.canStart).toBe(true)
-    expect(api.saveSession).toHaveBeenCalledWith({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
+    expect(api.saveFolderSelections).toHaveBeenCalledWith({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
   })
 })

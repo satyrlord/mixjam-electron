@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMixer } from './useMixer'
-import type { Player } from '../engine/player'
+import type { PlaybackEngine } from '../engine/playback-engine'
 
-/** Creates a minimal mock Player with only the methods useMixer touches. */
-function createMockPlayer() {
+/** Creates a minimal mock PlaybackEngine with only the methods useMixer touches. */
+function createMockPlaybackEngine() {
   const analyser = {
     fftSize: 2048,
     getFloatTimeDomainData: vi.fn((buf: Float32Array) => {
@@ -25,8 +25,8 @@ function createMockPlayer() {
   }
 }
 
-function createPlayerRef(mock = createMockPlayer()) {
-  return { current: mock } as unknown as React.RefObject<Player | null>
+function createPlaybackEngineRef(mock = createMockPlaybackEngine()) {
+  return { current: mock } as unknown as React.RefObject<PlaybackEngine | null>
 }
 
 /**
@@ -65,8 +65,8 @@ describe('useMixer', () => {
   })
 
   it('returns 16 channels with default gain 0.8, pan 0, muted false, solo false', () => {
-    const playerRef = createPlayerRef()
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(result.current.channels).toHaveLength(16)
     for (const ch of result.current.channels) {
@@ -78,77 +78,77 @@ describe('useMixer', () => {
   })
 
   it('initializes channelLevels and channelPeaks as empty maps', () => {
-    const playerRef = createPlayerRef()
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(result.current.channelLevels.size).toBe(0)
     expect(result.current.channelPeaks.size).toBe(0)
   })
 
-  it('setChannelGain updates channel state and calls player.setChannelGain', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('setChannelGain updates channel state and calls playbackEngine.setChannelGain', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.setChannelGain(0, 0.5) })
 
     expect(result.current.channels[0]!.gain).toBe(0.5)
-    expect(mockPlayer.setChannelGain).toHaveBeenCalledWith(0, 0.5)
+    expect(mockPlaybackEngine.setChannelGain).toHaveBeenCalledWith(0, 0.5)
   })
 
-  it('setChannelPan updates channel state and calls player.setChannelPan', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('setChannelPan updates channel state and calls playbackEngine.setChannelPan', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.setChannelPan(2, -0.3) })
 
     expect(result.current.channels[2]!.pan).toBe(-0.3)
-    expect(mockPlayer.setChannelPan).toHaveBeenCalledWith(2, -0.3)
+    expect(mockPlaybackEngine.setChannelPan).toHaveBeenCalledWith(2, -0.3)
   })
 
-  it('toggleChannelMute toggles mute state and calls player.setChannelMute', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('toggleChannelMute toggles mute state and calls playbackEngine.setChannelMute', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.toggleChannelMute(1) })
     expect(result.current.channels[1]!.muted).toBe(true)
-    expect(mockPlayer.setChannelMute).toHaveBeenCalledWith(1, true)
+    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(1, true)
 
     act(() => { result.current.toggleChannelMute(1) })
     expect(result.current.channels[1]!.muted).toBe(false)
-    expect(mockPlayer.setChannelMute).toHaveBeenCalledWith(1, false)
+    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(1, false)
   })
 
-  it('toggleChannelSolo toggles solo state and calls player.setChannelSolo', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('toggleChannelSolo toggles solo state and calls playbackEngine.setChannelSolo', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.toggleChannelSolo(3) })
     expect(result.current.channels[3]!.solo).toBe(true)
-    expect(mockPlayer.setChannelSolo).toHaveBeenCalledWith(3, true)
+    expect(mockPlaybackEngine.setChannelSolo).toHaveBeenCalledWith(3, true)
 
     act(() => { result.current.toggleChannelSolo(3) })
     expect(result.current.channels[3]!.solo).toBe(false)
-    expect(mockPlayer.setChannelSolo).toHaveBeenCalledWith(3, false)
+    expect(mockPlaybackEngine.setChannelSolo).toHaveBeenCalledWith(3, false)
   })
 
-  it('removeChannel removes channel from state and calls player.removeChannel', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('removeChannel removes channel from state and calls playbackEngine.removeChannel', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.removeChannel(0) })
     expect(result.current.channels).toHaveLength(15)
     expect(result.current.channels.find((ch) => ch.channelIndex === 0)).toBeUndefined()
-    expect(mockPlayer.removeChannel).toHaveBeenCalledWith(0)
+    expect(mockPlaybackEngine.removeChannel).toHaveBeenCalledWith(0)
   })
 
   it('persists channel state to localStorage on change', () => {
-    const playerRef = createPlayerRef()
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.setChannelGain(0, 0.3) })
 
@@ -167,8 +167,8 @@ describe('useMixer', () => {
     }))
     localStorage.setItem('mixjam-mixer-channels', JSON.stringify(savedChannels))
 
-    const playerRef = createPlayerRef()
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(result.current.channels).toHaveLength(16)
     expect(result.current.channels[0]!.gain).toBe(0.5)
@@ -178,18 +178,18 @@ describe('useMixer', () => {
 
   it('falls back to defaults when localStorage has invalid data', () => {
     localStorage.setItem('mixjam-mixer-channels', 'not-json')
-    const playerRef = createPlayerRef()
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(result.current.channels).toHaveLength(16)
     expect(result.current.channels[0]!.gain).toBe(0.8)
   })
 
-  it('applies channel state to player when view switches to tracker', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
+  it('applies channel state to PlaybackEngine when view switches to the Player', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result, rerender } = renderHook(
-      ({ view }: { view: string }) => useMixer(playerRef, view),
+      ({ view }: { view: string }) => useMixer(playbackEngineRef, view),
       { initialProps: { view: 'home' } }
     )
 
@@ -200,45 +200,45 @@ describe('useMixer', () => {
       result.current.toggleChannelSolo(3)
     })
 
-    rerender({ view: 'tracker' })
+    rerender({ view: 'player' })
 
-    expect(mockPlayer.replayRemovedChannels).toHaveBeenCalledWith([])
-    expect(mockPlayer.setChannelGain).toHaveBeenCalledWith(0, 0.3)
-    expect(mockPlayer.setChannelPan).toHaveBeenCalledWith(1, -0.5)
-    expect(mockPlayer.setChannelMute).toHaveBeenCalledWith(2, true)
-    expect(mockPlayer.setChannelSolo).toHaveBeenCalledWith(3, true)
+    expect(mockPlaybackEngine.replayRemovedChannels).toHaveBeenCalledWith([])
+    expect(mockPlaybackEngine.setChannelGain).toHaveBeenCalledWith(0, 0.3)
+    expect(mockPlaybackEngine.setChannelPan).toHaveBeenCalledWith(1, -0.5)
+    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(2, true)
+    expect(mockPlaybackEngine.setChannelSolo).toHaveBeenCalledWith(3, true)
   })
 
   it('rAF loop does not call getChannelAnalyser when activeVoiceCount is 0', () => {
     setupRafMock()
-    const mockPlayer = createMockPlayer()
-    mockPlayer.activeVoiceCount = 0
-    const playerRef = createPlayerRef(mockPlayer)
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    mockPlaybackEngine.activeVoiceCount = 0
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
 
-    renderHook(() => useMixer(playerRef, 'home'))
+    renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { tickOnce() })
 
-    expect(mockPlayer.getChannelAnalyser).not.toHaveBeenCalled()
+    expect(mockPlaybackEngine.getChannelAnalyser).not.toHaveBeenCalled()
   })
 
-  it('rAF loop reads analyser data when player has active voices', () => {
+  it('rAF loop reads analyser data when playbackEngine has active voices', () => {
     setupRafMock()
     const analyser = {
       fftSize: 2048,
       getFloatTimeDomainData: vi.fn((buf: Float32Array) => { buf.fill(0.1) })
     }
-    const mockPlayer = {
-      ...createMockPlayer(),
+    const mockPlaybackEngine = {
+      ...createMockPlaybackEngine(),
       activeVoiceCount: 5,
       getChannelAnalyser: vi.fn().mockReturnValue(analyser)
     }
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { tickOnce() })
 
-    expect(mockPlayer.getChannelAnalyser).toHaveBeenCalled()
+    expect(mockPlaybackEngine.getChannelAnalyser).toHaveBeenCalled()
     expect(analyser.getFloatTimeDomainData).toHaveBeenCalled()
     expect(result.current.channelLevels.size).toBeGreaterThan(0)
   })
@@ -255,13 +255,13 @@ describe('useMixer', () => {
       }
       return undefined
     })
-    const mockPlayer = {
-      ...createMockPlayer(),
+    const mockPlaybackEngine = {
+      ...createMockPlaybackEngine(),
       activeVoiceCount: 5,
       getChannelAnalyser
     }
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { tickOnce() })
 
@@ -275,8 +275,8 @@ describe('useMixer', () => {
 
   it('cancels rAF on unmount', () => {
     setupRafMock()
-    const playerRef = createPlayerRef()
-    const { unmount } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { unmount } = renderHook(() => useMixer(playbackEngineRef, 'home'))
     const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame')
 
     unmount()
@@ -284,9 +284,9 @@ describe('useMixer', () => {
     expect(cancelSpy).toHaveBeenCalled()
   })
 
-  it('setChannelGain does not crash when player is null', () => {
-    const playerRef = { current: null } as unknown as React.RefObject<Player | null>
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('setChannelGain does not crash when playbackEngine is null', () => {
+    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(() => {
       act(() => { result.current.setChannelGain(0, 0.5) })
@@ -294,9 +294,9 @@ describe('useMixer', () => {
     expect(result.current.channels[0]!.gain).toBe(0.5)
   })
 
-  it('toggleChannelMute does not crash when player is null', () => {
-    const playerRef = { current: null } as unknown as React.RefObject<Player | null>
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('toggleChannelMute does not crash when playbackEngine is null', () => {
+    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(() => {
       act(() => { result.current.toggleChannelMute(0) })
@@ -304,9 +304,9 @@ describe('useMixer', () => {
     expect(result.current.channels[0]!.muted).toBe(true)
   })
 
-  it('toggleChannelSolo does not crash when player is null', () => {
-    const playerRef = { current: null } as unknown as React.RefObject<Player | null>
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('toggleChannelSolo does not crash when playbackEngine is null', () => {
+    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(() => {
       act(() => { result.current.toggleChannelSolo(0) })
@@ -315,22 +315,22 @@ describe('useMixer', () => {
   })
 
   it('removeChannel twice does not duplicate removed index', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     // Remove channel 0 twice
     act(() => { result.current.removeChannel(0) })
     act(() => { result.current.removeChannel(0) })
 
     expect(result.current.channels).toHaveLength(15)
-    expect(mockPlayer.removeChannel).toHaveBeenCalledTimes(2)
+    expect(mockPlaybackEngine.removeChannel).toHaveBeenCalledTimes(2)
   })
 
   it('toggleChannelSolo no-ops gracefully when channel already removed', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     // Remove channel 5, then toggle solo on it (it's gone from state)
     act(() => { result.current.removeChannel(5) })
@@ -340,15 +340,15 @@ describe('useMixer', () => {
     expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
   })
 
-  it('switching to tracker with null player does not crash', () => {
-    const playerRef = { current: null } as unknown as React.RefObject<Player | null>
+  it('switching to the Player with null PlaybackEngine does not crash', () => {
+    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
     const { rerender } = renderHook(
-      ({ view }: { view: string }) => useMixer(playerRef, view),
+      ({ view }: { view: string }) => useMixer(playbackEngineRef, view),
       { initialProps: { view: 'home' } }
     )
 
     expect(() => {
-      rerender({ view: 'tracker' })
+      rerender({ view: 'player' })
     }).not.toThrow()
   })
 
@@ -361,13 +361,13 @@ describe('useMixer', () => {
       fftSize: 2048,
       getFloatTimeDomainData: vi.fn((buf: Float32Array) => { buf.fill(sampleVal) })
     }
-    const mockPlayer = {
-      ...createMockPlayer(),
+    const mockPlaybackEngine = {
+      ...createMockPlaybackEngine(),
       activeVoiceCount: 5,
       getChannelAnalyser: vi.fn().mockReturnValue(analyser)
     }
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     // Tick 1: non-zero sample, levels should be populated
     act(() => { tickOnce(1000) })
@@ -384,9 +384,9 @@ describe('useMixer', () => {
   })
 
   it('removeChannel tracks removed indices for replay on reload', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => {
       result.current.removeChannel(0)
@@ -402,8 +402,8 @@ describe('useMixer', () => {
   // --- 2026-07-07 amendments (spec-007 AC-016, AC-017) ---
 
   it('canRestoreChannel is false at full 16 channels and true after a removal', () => {
-    const playerRef = createPlayerRef()
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(result.current.canRestoreChannel).toBe(false)
     act(() => { result.current.removeChannel(3) })
@@ -411,10 +411,10 @@ describe('useMixer', () => {
   })
 
   it('restoreChannel re-adds the lowest removed channel at default state (AC-017)', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    // Tracker view so the apply-state effect pushes channel state to the player.
-    const { result } = renderHook(() => useMixer(playerRef, 'tracker'))
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    // Player view so the apply-state effect pushes channel state to PlaybackEngine.
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'))
 
     act(() => {
       result.current.removeChannel(5)
@@ -427,17 +427,17 @@ describe('useMixer', () => {
     expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
     // Lane re-route happens synchronously; gain/mute are re-applied by the
     // apply-state effect on the resulting commit.
-    expect(mockPlayer.restoreChannel).toHaveBeenCalledWith(2)
-    expect(mockPlayer.setChannelGain).toHaveBeenCalledWith(2, 0.8)
-    expect(mockPlayer.setChannelMute).toHaveBeenCalledWith(2, false)
+    expect(mockPlaybackEngine.restoreChannel).toHaveBeenCalledWith(2)
+    expect(mockPlaybackEngine.setChannelGain).toHaveBeenCalledWith(2, 0.8)
+    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(2, false)
     // Channels stay sorted by channelIndex after restore.
     const indices = result.current.channels.map((ch) => ch.channelIndex)
     expect(indices).toEqual([...indices].sort((a, b) => a - b))
   })
 
   it('restore encodes removal by channel absence, not a separate removed list', () => {
-    const playerRef = createPlayerRef()
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const playbackEngineRef = createPlaybackEngineRef()
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.removeChannel(4) })
     act(() => { result.current.restoreChannel() })
@@ -451,19 +451,19 @@ describe('useMixer', () => {
   })
 
   it('restoreChannel no-ops at the 16 channel cap', () => {
-    const mockPlayer = createMockPlayer()
-    const playerRef = createPlayerRef(mockPlayer)
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.restoreChannel() })
 
     expect(result.current.channels).toHaveLength(16)
-    expect(mockPlayer.restoreChannel).not.toHaveBeenCalled()
+    expect(mockPlaybackEngine.restoreChannel).not.toHaveBeenCalled()
   })
 
-  it('restoreChannel does not crash when player is null', () => {
-    const playerRef = { current: null } as unknown as React.RefObject<Player | null>
-    const { result } = renderHook(() => useMixer(playerRef, 'home'))
+  it('restoreChannel does not crash when playbackEngine is null', () => {
+    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.removeChannel(0) })
     expect(() => {

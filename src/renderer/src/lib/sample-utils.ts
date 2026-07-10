@@ -96,7 +96,7 @@ export function bubbleTextColor(background: string): string {
  *  values are var() references to the --palette-* custom properties published
  *  by applyTheme, so bubbles restyle live on theme switch without a React
  *  re-render. --bubble-self feeds the CSS border-color fallback chain: themes
- *  with a --clip-border-color token win over the self-colored border.
+ *  with a --sample-bubble-border-color token win over the self-colored border.
  *  Spread into a style prop with an `as React.CSSProperties` cast (custom
  *  property keys are not in the CSSProperties type). */
 export function bubbleStyle(slot: number): Record<string, string> {

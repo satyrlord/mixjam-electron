@@ -55,9 +55,9 @@ const EXPECTED_EMERALD_COLORS = {
   'pill-bg': '#0C2D32',
   'pill-border': '#2D6B5E',
   playhead: '#E74C3C',
-  'clip-text': '#FFFFFF',
-  'clip-select': '#FDE047',
-  'clip-missing': '#FB8A7E',
+  'sample-bubble-text': '#FFFFFF',
+  'sample-bubble-select': '#FDE047',
+  'sample-bubble-missing': '#FB8A7E',
   'meter-green': '#34D399',
   'meter-yellow': '#FBBF24',
   'meter-red': '#F87171',
@@ -69,7 +69,7 @@ const EXPECTED_EMERALD_DEPTH = {
   'gradient-header': 'linear-gradient(90deg, #07291F, #0A362A)',
   'gradient-ruler': 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.22))',
   'gradient-lane': 'linear-gradient(180deg, rgba(143,188,178,0.07), rgba(2,18,14,0.28) 86%)',
-  'shadow-clip-text': '1.5px 1.5px 2px rgba(0,0,0,0.55)',
+  'shadow-sample-bubble-text': '1.5px 1.5px 2px rgba(0,0,0,0.55)',
   'gradient-transport': 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.16)), #0C2D32',
   'gradient-transport-active': 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.12)), #00674F',
   'shadow-transport': '0 1px 2px rgba(0,0,0,0.35)',
@@ -77,9 +77,9 @@ const EXPECTED_EMERALD_DEPTH = {
   'shadow-pill': 'none',
   'shadow-lane': 'none',
   'shadow-playhead': 'none',
-  'shadow-clip': 'none',
-  'border-clip': 'none',
-  'gradient-clip': 'none',
+  'shadow-sample-bubble': 'none',
+  'border-sample-bubble': 'none',
+  'gradient-sample-bubble': 'none',
   'shadow-meter': 'none'
 } as const
 
@@ -131,12 +131,12 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(emeraldTheme['palette-unsorted']).toBe('#555E6A')
     expect(emeraldTheme.radius).toBe('0.22rem')
     expect(emeraldTheme['radius-transport']).toBe('8px')
-    expect(emeraldTheme['radius-clip']).toBe('6px')
+    expect(emeraldTheme['radius-sample-bubble']).toBe('6px')
     expect(emeraldTheme['border-width']).toBe('1px')
     expect(emeraldTheme['border-width-pill']).toBe('1px')
     expect(emeraldTheme['border-width-header']).toBe('1px')
-    expect(emeraldTheme['clip-font-weight']).toBe('400')
-    expect(emeraldTheme['clip-case']).toBe('none')
+    expect(emeraldTheme['sample-bubble-font-weight']).toBe('400')
+    expect(emeraldTheme['sample-bubble-case']).toBe('none')
   })
 
   it('AC-011: every theme authors a valid 8-slot palette plus unsorted', () => {
@@ -158,7 +158,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     for (let slot = 0; slot < 9; slot++) {
       expect(root.style.getPropertyValue(`--palette-${slot}`)).toMatch(/^#[0-9A-Fa-f]{6}$/)
       expect(['#FFFFFF', '#141309']).toContain(root.style.getPropertyValue(`--palette-ink-${slot}`))
-      expect(['var(--shadow-clip-text)', 'none']).toContain(
+      expect(['var(--shadow-sample-bubble-text)', 'none']).toContain(
         root.style.getPropertyValue(`--palette-shadow-${slot}`)
       )
     }
@@ -220,10 +220,10 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(css).not.toMatch(/fonts\.googleapis|gstatic/i)
   })
 
-  it('AC-004: tracker header theme selector lists all 16 theme names in order', () => {
+  it('AC-004: Player header theme selector lists all 16 theme names in order', () => {
     render(
       <Header
-        view="tracker"
+        view="player"
         timer="00:00.0"
         theme="emerald"
         onHome={() => {}}
@@ -332,12 +332,12 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'depth',
       'radius',
       'radius-transport',
-      'radius-clip',
+      'radius-sample-bubble',
       'border-width',
       'border-width-pill',
       'border-width-header',
-      'clip-font-weight',
-      'clip-case'
+      'sample-bubble-font-weight',
+      'sample-bubble-case'
     ])
     expect(Object.keys(parsed.colors)).toEqual([
       'accent',
@@ -355,9 +355,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'pill-bg',
       'pill-border',
       'playhead',
-      'clip-text',
-      'clip-select',
-      'clip-missing',
+      'sample-bubble-text',
+      'sample-bubble-select',
+      'sample-bubble-missing',
       'meter-green',
       'meter-yellow',
       'meter-red',
@@ -369,7 +369,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'gradient-header',
       'gradient-ruler',
       'gradient-lane',
-      'shadow-clip-text',
+      'shadow-sample-bubble-text',
       'gradient-transport',
       'gradient-transport-active',
       'shadow-transport',
@@ -377,9 +377,9 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'shadow-pill',
       'shadow-lane',
       'shadow-playhead',
-      'shadow-clip',
-      'border-clip',
-      'gradient-clip',
+      'shadow-sample-bubble',
+      'border-sample-bubble',
+      'gradient-sample-bubble',
       'shadow-meter'
     ])
 
@@ -411,7 +411,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'gradient-header': 1,
       'gradient-ruler': 1,
       'gradient-lane': 1,
-      'shadow-clip-text': 1,
+      'shadow-sample-bubble-text': 1,
       transport: 1,
       'transport-active': 1,
       'gradient-transport': 1,
@@ -421,18 +421,18 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'shadow-pill': 1,
       'shadow-lane': 1,
       'shadow-playhead': 1,
-      'shadow-clip': 1,
-      'border-clip': 1,
-      'gradient-clip': 1,
+      'shadow-sample-bubble': 1,
+      'border-sample-bubble': 1,
+      'gradient-sample-bubble': 1,
       'shadow-meter': 1,
-      'radius-clip': 1,
+      'radius-sample-bubble': 1,
       palette: 1,
       'palette-unsorted': 1,
       'border-width': 1,
       'border-width-pill': 1,
       'border-width-header': 1,
-      'clip-font-weight': 1,
-      'clip-case': 1
+      'sample-bubble-font-weight': 1,
+      'sample-bubble-case': 1
     }
 
     for (const [key, count] of Object.entries(expectedKeyCounts)) {

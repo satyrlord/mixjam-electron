@@ -7,7 +7,7 @@ describe('ShortcutsOverlay', () => {
     render(<ShortcutsOverlay onClose={vi.fn()} />)
 
     expect(screen.getByText('Transport')).toBeTruthy()
-    expect(screen.getByText('Clips')).toBeTruthy()
+    expect(screen.getByText('Placements')).toBeTruthy()
     expect(screen.getByText('Browser')).toBeTruthy()
     expect(screen.getByText('Help')).toBeTruthy()
   })
@@ -16,11 +16,11 @@ describe('ShortcutsOverlay', () => {
     render(<ShortcutsOverlay onClose={vi.fn()} />)
 
     expect(screen.getByText('Space')).toBeTruthy()
-    expect(screen.getByText('Play / pause')).toBeTruthy()
+    expect(screen.getByText('Play / pause / cancel preparation')).toBeTruthy()
     expect(screen.getByText('Ctrl+Z')).toBeTruthy()
-    expect(screen.getByText('Undo clip edit')).toBeTruthy()
+    expect(screen.getByText('Undo placement edit')).toBeTruthy()
     expect(screen.getByText('Delete')).toBeTruthy()
-    expect(screen.getByText('Remove selected clips')).toBeTruthy()
+    expect(screen.getByText('Remove selected placements')).toBeTruthy()
     expect(screen.getByText('?')).toBeTruthy()
     expect(screen.getByText('Show this overlay')).toBeTruthy()
     expect(screen.getByText('Esc')).toBeTruthy()

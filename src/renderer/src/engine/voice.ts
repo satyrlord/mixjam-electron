@@ -15,7 +15,7 @@ let nextVoiceId = 0
 
 export interface Voice {
   readonly id: number
-  readonly trackIndex: number
+  readonly laneIndex: number
   readonly state: VoiceLifecycle
   stop(when?: number): void
 }
@@ -25,7 +25,7 @@ export interface CreateVoiceParams {
   buffer: AudioBuffer
   destination: AudioNode
   when: number
-  trackIndex: number
+  laneIndex: number
   events?: VoiceEvents
 }
 
@@ -34,7 +34,7 @@ export function createVoice({
   buffer,
   destination,
   when,
-  trackIndex,
+  laneIndex,
   events
 }: CreateVoiceParams): Voice {
   const source = context.createBufferSource()
@@ -45,7 +45,7 @@ export function createVoice({
 
   const voice: Voice = {
     id: nextVoiceId++,
-    trackIndex,
+    laneIndex,
     get state() {
       return state
     },

@@ -1,4 +1,4 @@
-// The Player orchestrates the pure engine pieces into a playable whole:
+// PlaybackEngine orchestrates the pure engine pieces into a playable whole:
 // AudioEngine (context + master bus + channels), the lookahead Scheduler, lane
 // evaluation, and sample loading. It is the single seam the renderer wires into.
 //
@@ -11,6 +11,7 @@ import { type Channel } from './channel'
 import { createScheduler, type Scheduler, type SchedulerClock } from './scheduler'
 import { type EngineLane, triggersForTick } from './lane-evaluation'
 import { type Voice } from './voice'
+import { TimeStretchEngine, type TimeStretchEngineOptions } from './time-stretch'
 
 // Default per-channel gain (matches the mixer's createDefaultChannel).
 const DEFAULT_CHANNEL_GAIN = 0.8
@@ -18,7 +19,7 @@ const DEFAULT_CHANNEL_GAIN = 0.8
 // Returns the raw bytes for a sample path, or null if unreadable.
 export type LoadSampleBytes = (samplePath: string) => Promise<ArrayBuffer | null>
 
-export interface PlayerOptions extends AudioEngineOptions {
+export interface PlaybackEngineOptions extends AudioEngineOptions {
   loadSampleBytes: LoadSampleBytes
   // Returns the current arrangement of lanes. Read on every scheduler tick so
   // edits made during playback take effect.
@@ -27,11 +28,13 @@ export interface PlayerOptions extends AudioEngineOptions {
   clock?: SchedulerClock
   // Audio clock override for tests (defaults to engine.currentTime).
   now?: () => number
+  timeStretch?: TimeStretchEngineOptions
 }
 
-export class Player {
+export class PlaybackEngine {
   private readonly engine: AudioEngine
   private readonly scheduler: Scheduler
+  private readonly timeStretch: TimeStretchEngine
   // Persist channel controls so lazily-created channels can replay state.
   private readonly channelPans = new Map<number, number>()
   private readonly channelGains = new Map<number, number>()
@@ -52,9 +55,10 @@ export class Player {
   private previewVoice: Voice | null = null
   private previewPath: string | null = null
 
-  constructor(private readonly options: PlayerOptions) {
+  constructor(private readonly options: PlaybackEngineOptions) {
     this.currentBpm = options.bpm ?? 120
     this.engine = new AudioEngine(options)
+    this.timeStretch = new TimeStretchEngine(options.timeStretch)
     const now = options.now ?? (() => this.engine.currentTime)
     // The scheduler reads BPM live through this adapter so tempo changes during
     // playback take effect on the next tick.
@@ -85,6 +89,12 @@ export class Player {
 
   setBpm(bpm: number): void {
     this.currentBpm = bpm
+  }
+
+  /** Prepares every tempo-dependent buffer in the current arrangement. The
+   * runtime owns when playback pauses and resumes around this work. */
+  prepareCurrentArrangement(): Promise<void> {
+    return this.prepareStretchableLanes(this.currentBpm)
   }
 
   setMasterGain(value: number): void {
@@ -261,10 +271,17 @@ export class Player {
 
   // Begin scheduling from the given tick. Resumes the AudioContext first so the
   // browser autoplay policy is satisfied by the originating user gesture.
-  async start(fromTick = 0): Promise<void> {
+  async start(fromTick = 0): Promise<boolean> {
+    const generation = this.playGeneration
     await this.engine.resume()
+    // Initial playback must not make the first loop trigger pay the WASM load
+    // and offline-render cost. Decode and stretch the current arrangement once
+    // before starting the sample-accurate scheduler.
+    await this.prepareStretchableLanes(this.currentBpm)
+    if (generation !== this.playGeneration) return false
     this.lastScheduledTick = fromTick - 1
     this.scheduler.start(fromTick)
+    return true
   }
 
   pause(): void {
@@ -272,6 +289,16 @@ export class Player {
     this.scheduler.stop()
     this.engine.stopAllVoices()
     this.laneVoices.clear()
+  }
+
+  seek(tick: number): void {
+    const nextTick = Math.max(0, Math.floor(tick))
+    this.playGeneration++
+    this.scheduler.stop()
+    this.scheduler.reset(nextTick)
+    this.engine.stopAllVoices()
+    this.laneVoices.clear()
+    this.lastScheduledTick = nextTick - 1
   }
 
   stop(): void {
@@ -298,6 +325,7 @@ export class Player {
     this.channelSolos.clear()
     this.removedChannels.clear()
     this.laneVoices.clear()
+    this.timeStretch.clear()
   }
 
   private channelFor(channelIndex: number): Channel {
@@ -358,6 +386,8 @@ export class Player {
         trigger.channelIndex,
         trigger.samplePath,
         trigger.pan,
+        trigger.nativeBPM,
+        this.currentBpm,
         when
       )
     }
@@ -368,6 +398,8 @@ export class Player {
     channelIndex: number,
     samplePath: string,
     lanePan: number,
+    nativeBPM: number | null,
+    projectBpm: number,
     when: number
   ): Promise<void> {
     const generation = this.playGeneration
@@ -380,8 +412,10 @@ export class Player {
     }
     if (!buffer) return
 
-    // Playback was stopped/paused while the buffer loaded: drop this trigger so
-    // no stray voice starts (with a now-past `when`) after the user hit stop.
+    buffer = await this.timeStretch.prepare(samplePath, buffer, nativeBPM, projectBpm)
+
+    // Playback was stopped/paused while the buffer loaded or stretched: drop
+    // this trigger so no stray voice starts after the user hit stop.
     if (generation !== this.playGeneration) return
 
     // Monophonic: cut off the voice currently sounding on this lane.
@@ -393,7 +427,7 @@ export class Player {
       buffer,
       destination,
       when,
-      trackIndex: laneIndex
+      laneIndex: laneIndex
     })
     this.laneVoices.set(laneIndex, voice)
   }
@@ -402,5 +436,28 @@ export class Player {
     const bytes = await this.options.loadSampleBytes(samplePath)
     if (!bytes) return null
     return this.engine.samples.load(samplePath, bytes)
+  }
+
+  private async prepareStretchableLanes(projectBpm: number): Promise<void> {
+    const requests: Promise<unknown>[] = []
+    for (const lane of this.options.getLanes()) {
+      if (lane.nativeBPM == null || !Number.isFinite(lane.nativeBPM) || lane.nativeBPM <= 0) {
+        continue
+      }
+      for (const samplePath of new Set(lane.placements.map((placement) => placement.samplePath))) {
+        requests.push((async () => {
+          try {
+            const source = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
+            if (source) {
+              await this.timeStretch.prepare(samplePath, source, lane.nativeBPM, projectBpm)
+            }
+          } catch {
+            // Loading failures are handled like trigger-time decode failures:
+            // skip this sample without preventing the remaining lanes.
+          }
+        })())
+      }
+    }
+    await Promise.all(requests)
   }
 }

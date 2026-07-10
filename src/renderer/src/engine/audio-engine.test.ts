@@ -43,7 +43,7 @@ describe('AudioEngine', () => {
   it('triggerVoice connects source -> channel gain/pan -> analyser -> master gain -> destination', () => {
     const { engine, context } = makeEngine()
     const channel = engine.createChannel()
-    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, trackIndex: 0 })
+    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 0 })
 
     const source = context.created.sources[0]
     // Signal flow: source -> channel gain -> channel pan -> channel analyser -> master.
@@ -62,7 +62,7 @@ describe('AudioEngine', () => {
   it('voice.stop() before buffer end terminates and fires voiceEnded', () => {
     const { engine, context } = makeEngine()
     const channel = engine.createChannel()
-    const voice = engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, trackIndex: 0 })
+    const voice = engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 0 })
     expect(engine.activeVoiceCount).toBe(1)
 
     voice.stop()
@@ -76,8 +76,8 @@ describe('AudioEngine', () => {
   it('stopAllVoices stops all active voices and drops the count to 0', () => {
     const { engine } = makeEngine()
     const channel = engine.createChannel()
-    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, trackIndex: 0 })
-    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, trackIndex: 1 })
+    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 0 })
+    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 1 })
     expect(engine.activeVoiceCount).toBe(2)
 
     engine.stopAllVoices()
@@ -170,7 +170,7 @@ describe('AudioEngine', () => {
 
     const voice = engine.previewBuffer(buffer)
 
-    expect(voice.trackIndex).toBe(-1)
+    expect(voice.laneIndex).toBe(-1)
     expect(engine.activeVoiceCount).toBe(1)
 
     // Gains: [masterGain, bypassGain, previewGain]
@@ -200,7 +200,7 @@ describe('AudioEngine', () => {
     const channel = engine.createChannel()
 
     // Voice via channel
-    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, trackIndex: 0 })
+    engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 0 })
 
     channel.disconnect()
     const masterGain = context.created.gains[0]
@@ -215,7 +215,7 @@ describe('AudioEngine', () => {
   it('voice.stop on already ended voice does not throw', () => {
     const { engine, context } = makeEngine()
     const channel = engine.createChannel()
-    const voice = engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, trackIndex: 0 })
+    const voice = engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 0 })
 
     context.created.sources[0].endNow()
     expect(voice.state).toBe('ended')

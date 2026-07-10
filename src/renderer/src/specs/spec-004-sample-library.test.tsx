@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import TrackerView from '../components/TrackerView'
+import PlayerView from '../components/PlayerView'
 import type {
   TrackerArrangementProps,
-  TrackerBrowserProps,
-  TrackerMixerProps,
-  TrackerTransportProps
-} from '../components/trackerProps'
+  PlayerBrowserProps,
+  PlayerMixerProps,
+  PlayerTransportProps
+} from '../components/playerProps'
 import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
-import type { LaneState } from '../lib/playerShell'
+import type { LaneState } from '../lib/arrangement'
 
 const noop = () => undefined
 const asyncNoop = async () => { /* empty */ }
@@ -19,7 +19,7 @@ const LANES: LaneState[] = Array.from({ length: 4 }, (_, index) => ({
   muted: false,
   solo: false,
   pan: 0,
-  clips: []
+  placements: []
 }))
 
 const DEFAULT_CATEGORIES: CategoryItem[] = [
@@ -52,7 +52,7 @@ function makeDbSamples(count: number): SampleListItem[] {
   }))
 }
 
-const DEFAULT_BROWSER: TrackerBrowserProps = {
+const DEFAULT_BROWSER: PlayerBrowserProps = {
   samples: [],
   searchQuery: '',
   loading: false,
@@ -98,18 +98,19 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   currentTick: 0,
   missingSamplePaths: new Set<string>(),
   onPlaceSampleDetailOnLane: noop,
-  onMoveClipOnLane: noop,
-  onDuplicateClipOnLane: noop,
-  onMoveClipGroup: noop,
-  onDuplicateClipGroup: noop,
-  onRemoveClipFromLane: noop,
-  onRemoveClips: noop,
+  onMovePlacement: noop,
+  onDuplicatePlacement: noop,
+  onMovePlacementGroup: noop,
+  onDuplicatePlacementGroup: noop,
+  onRemovePlacementFromLane: noop,
+  onRemovePlacements: noop,
   onSetLanePan: noop,
+  onSetLaneNativeBpm: noop,
   onToggleLaneMute: noop,
   onToggleLaneSolo: noop
 }
 
-const DEFAULT_TRANSPORT: TrackerTransportProps = {
+const DEFAULT_TRANSPORT: PlayerTransportProps = {
   transportState: 'stopped',
   bpm: 120,
   masterGain: 0.8,
@@ -123,10 +124,11 @@ const DEFAULT_TRANSPORT: TrackerTransportProps = {
   onTransportPlay: noop,
   onTransportPause: noop,
   onTransportStop: noop,
-  onTransportSkipBack: noop
+  onTransportSkipBack: noop,
+  onTransportSeek: noop
 }
 
-const DEFAULT_MIXER: TrackerMixerProps = {
+const DEFAULT_MIXER: PlayerMixerProps = {
   channels: [],
   channelLevels: new Map(),
   channelPeaks: new Map(),
@@ -139,10 +141,10 @@ const DEFAULT_MIXER: TrackerMixerProps = {
   onRestoreChannel: noop
 }
 
-function renderTracker(browserOverrides: Partial<TrackerBrowserProps> = {}) {
+function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {
   return render(
-    <TrackerView
-      recentProjects={[]}
+    <PlayerView
+      mixJamFiles={[]}
       browser={{ ...DEFAULT_BROWSER, ...browserOverrides }}
       arrangement={DEFAULT_ARRANGEMENT}
       transport={DEFAULT_TRANSPORT}
@@ -164,7 +166,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // -------------------------------------------------------------------------
 
   it('AC-004a: browser toolbar shows search input, result count, and Re-scan action', () => {
-    renderTracker({ samples: [], totalCount: 0 })
+    renderPlayer({ samples: [], totalCount: 0 })
     expect(screen.getByRole('searchbox', { name: /search samples/i })).toBeInTheDocument()
     // Result count renders in subcats-count when there are results; strip has scan controls
     expect(screen.getByRole('button', { name: /re-scan/i })).toBeInTheDocument()
@@ -176,7 +178,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-005: typing in the search field calls onSearchChange', () => {
     const onSearchChange = vi.fn()
-    renderTracker({ onSearchChange })
+    renderPlayer({ onSearchChange })
     const input = screen.getByRole('searchbox', { name: /search samples/i })
     fireEvent.change(input, { target: { value: 'kick' } })
     expect(onSearchChange).toHaveBeenCalledWith('kick')
@@ -184,7 +186,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-006: clearing the search field calls onSearchChange with empty string', () => {
     const onSearchChange = vi.fn()
-    renderTracker({ searchQuery: 'kick', onSearchChange })
+    renderPlayer({ searchQuery: 'kick', onSearchChange })
     const input = screen.getByRole('searchbox', { name: /search samples/i })
     fireEvent.change(input, { target: { value: '' } })
     expect(onSearchChange).toHaveBeenCalledWith('')
@@ -195,12 +197,12 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // -------------------------------------------------------------------------
 
   it('AC-010: Unsorted hardcoded category tile is always visible in the category grid', () => {
-    renderTracker()
+    renderPlayer()
     expect(screen.getByRole('option', { name: 'Unsorted' })).toBeInTheDocument()
   })
 
   it('AC-010: folder-derived categories appear alongside Unsorted', () => {
-    renderTracker({ categories: DEFAULT_CATEGORIES })
+    renderPlayer({ categories: DEFAULT_CATEGORIES })
     expect(screen.getByRole('option', { name: 'Unsorted' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Bass' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Loop' })).toBeInTheDocument()
@@ -208,7 +210,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-010a: user can type a new category name and click + to create it', async () => {
     const onCreateCategory = vi.fn().mockResolvedValue({ id: 99, name: 'Foley', parentId: null })
-    renderTracker({ onCreateCategory })
+    renderPlayer({ onCreateCategory })
 
     openManagePanel('Categories')
 
@@ -221,7 +223,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-010b: user can choose a parent when creating a subcategory', async () => {
     const onCreateCategory = vi.fn().mockResolvedValue({ id: 99, name: 'Kicks', parentId: 2 })
-    renderTracker({ onCreateCategory })
+    renderPlayer({ onCreateCategory })
 
     openManagePanel('Categories')
 
@@ -243,7 +245,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   describe('tag management (Tags tab)', () => {
     it('AC-007: user can create a tag via the Tags tab', async () => {
       const onCreateTag = vi.fn().mockResolvedValue({ id: 1, name: 'Kick', color: null } as TagItem)
-      renderTracker({ onCreateTag })
+      renderPlayer({ onCreateTag })
 
       openManagePanel('Tags')
 
@@ -256,7 +258,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
     it('AC-007: newly created tag appears in the list after creation', () => {
       const tags: TagItem[] = [{ id: 1, name: 'Kick', color: null }]
-      const { container } = renderTracker({ tags })
+      const { container } = renderPlayer({ tags })
 
       openManagePanel('Tags')
 
@@ -269,7 +271,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     it('AC-008: rename tag calls onRenameTag and updates display', async () => {
       const onRenameTag = vi.fn().mockResolvedValue(undefined)
       const tags: TagItem[] = [{ id: 1, name: 'OldName', color: null }]
-      renderTracker({ tags, onRenameTag })
+      renderPlayer({ tags, onRenameTag })
 
       openManagePanel('Tags')
       fireEvent.click(screen.getByRole('button', { name: /rename tag OldName/i }))
@@ -284,7 +286,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     it('AC-009: delete tag calls onDeleteTag', async () => {
       const onDeleteTag = vi.fn().mockResolvedValue(undefined)
       const tags: TagItem[] = [{ id: 1, name: 'ToDelete', color: null }]
-      renderTracker({ tags, onDeleteTag })
+      renderPlayer({ tags, onDeleteTag })
 
       openManagePanel('Tags')
       fireEvent.click(screen.getByRole('button', { name: /delete tag ToDelete/i }))
@@ -300,7 +302,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   describe('library management (Libraries tab)', () => {
     it('AC-012: user can save a library via the Libraries tab', async () => {
       const onSaveLibrary = vi.fn().mockResolvedValue({ id: 1, name: 'My Set', createdAt: Date.now(), ruleJson: '{}' } as LibraryItem)
-      renderTracker({ onSaveLibrary })
+      renderPlayer({ onSaveLibrary })
 
       openManagePanel('Libraries')
 
@@ -315,7 +317,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
       const libraries: LibraryItem[] = [
         { id: 1, name: 'Drum Hits', createdAt: Date.now(), ruleJson: '{}' }
       ]
-      renderTracker({ libraries })
+      renderPlayer({ libraries })
 
       openManagePanel('Libraries')
       expect(screen.getByText('Drum Hits')).toBeInTheDocument()
@@ -326,7 +328,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
       const libraries: LibraryItem[] = [
         { id: 1, name: 'Drum Hits', createdAt: Date.now(), ruleJson: '{}' }
       ]
-      renderTracker({ libraries, onDeleteLibrary })
+      renderPlayer({ libraries, onDeleteLibrary })
 
       openManagePanel('Libraries')
       fireEvent.click(screen.getByRole('button', { name: /delete library Drum Hits/i }))
@@ -340,22 +342,22 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // -------------------------------------------------------------------------
 
   it('AC-001 / AC-004a: scan progress indicator is visible when scanning', () => {
-    renderTracker({ scanProgress: SCANNING_PROGRESS })
+    renderPlayer({ scanProgress: SCANNING_PROGRESS })
     expect(screen.getByLabelText(/scanning phase/i)).toBeInTheDocument()
   })
 
   it('scan progress is hidden when idle', () => {
-    renderTracker({ scanProgress: IDLE_PROGRESS })
+    renderPlayer({ scanProgress: IDLE_PROGRESS })
     expect(screen.queryByLabelText(/scanning phase/i)).not.toBeInTheDocument()
   })
 
   it('Re-scan button is disabled while scanning', () => {
-    renderTracker({ scanProgress: SCANNING_PROGRESS })
+    renderPlayer({ scanProgress: SCANNING_PROGRESS })
     expect(screen.getByRole('button', { name: /scanning/i })).toBeDisabled()
   })
 
   it('Re-scan button is disabled while automatic analysis is running', () => {
-    renderTracker({
+    renderPlayer({
       analysisProgress: { status: 'analyzing', analyzed: 10, total: 100 }
     })
     expect(screen.getByRole('button', { name: /analyzing samples/i })).toBeDisabled()
@@ -363,7 +365,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-004a: Re-scan triggers the library scan', async () => {
     const onStartScan = vi.fn().mockResolvedValue(undefined)
-    renderTracker({ scanProgress: IDLE_PROGRESS, onStartScan })
+    renderPlayer({ scanProgress: IDLE_PROGRESS, onStartScan })
 
     fireEvent.click(screen.getByRole('button', { name: /re-scan/i }))
 
@@ -376,7 +378,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-004: sample list renders all provided samples as tiles', () => {
     const samples = makeDbSamples(10)
-    renderTracker({ samples, totalCount: 10 })
+    renderPlayer({ samples, totalCount: 10 })
     // Each tile is a button with the filename (without extension) as text
     const tiles = screen.getAllByRole('button', { name: /sample_\d+/i })
     // 10 sample tiles + lane buttons + transport + manage + rescan
@@ -390,7 +392,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   it('AC-016: clicking Name sort button calls onSortChange with filename', () => {
     const onSortChange = vi.fn()
     const samples = makeDbSamples(3)
-    renderTracker({ samples, totalCount: 3, onSortChange })
+    renderPlayer({ samples, totalCount: 3, onSortChange })
 
     fireEvent.click(screen.getByRole('button', { name: /^name/i }))
     expect(onSortChange).toHaveBeenCalledWith('filename')
@@ -399,7 +401,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   it('AC-016: clicking Dur sort button calls onSortChange with duration', () => {
     const onSortChange = vi.fn()
     const samples = makeDbSamples(3)
-    renderTracker({ samples, totalCount: 3, onSortChange })
+    renderPlayer({ samples, totalCount: 3, onSortChange })
 
     fireEvent.click(screen.getByRole('button', { name: /^dur/i }))
     expect(onSortChange).toHaveBeenCalledWith('duration')
@@ -408,7 +410,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   it('AC-016: clicking Date sort button calls onSortChange with dateAdded', () => {
     const onSortChange = vi.fn()
     const samples = makeDbSamples(3)
-    renderTracker({ samples, totalCount: 3, onSortChange })
+    renderPlayer({ samples, totalCount: 3, onSortChange })
 
     fireEvent.click(screen.getByRole('button', { name: /^date/i }))
     expect(onSortChange).toHaveBeenCalledWith('dateAdded')
@@ -421,7 +423,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   it('AC-006a: clicking a sample tile calls onSelectSampleDetail with the sample', () => {
     const onSelectSampleDetail = vi.fn()
     const samples = makeDbSamples(1)
-    renderTracker({ samples, totalCount: 1, onSelectSampleDetail })
+    renderPlayer({ samples, totalCount: 1, onSelectSampleDetail })
 
     // tile shows filename without extension: "sample_0"
     fireEvent.click(screen.getByRole('button', { name: /sample_0/i }))
@@ -436,7 +438,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('AC-011: clicking a category tile calls onSelectCategory with the category id', () => {
     const onSelectCategory = vi.fn()
-    renderTracker({ onSelectCategory })
+    renderPlayer({ onSelectCategory })
 
     fireEvent.click(screen.getByRole('option', { name: 'Drums' }))
     expect(onSelectCategory).toHaveBeenCalledWith(4)

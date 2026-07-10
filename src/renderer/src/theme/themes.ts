@@ -1,6 +1,6 @@
 import { bubbleTextColor } from '../lib/sample-utils'
-import { SAMPLE_BUBBLE_HEIGHT_PX } from '../lib/playerShell'
-import { parseClipBorder, refreshClipThemeTokens } from './clip-style'
+import { SAMPLE_BUBBLE_HEIGHT_PX } from '../lib/arrangement'
+import { parseSampleBubbleBorder, refreshSampleBubbleThemeTokens } from './sample-bubble-style'
 import emeraldThemeJson from '../../../../public/themes/emerald.json'
 import enterpriseThemeJson from '../../../../public/themes/enterprise.json'
 import raveThemeJson from '../../../../public/themes/rave.json'
@@ -55,9 +55,9 @@ export interface ThemeColors {
   'pill-bg': string
   'pill-border': string
   playhead: string
-  'clip-text': string
-  'clip-select': string
-  'clip-missing': string
+  'sample-bubble-text': string
+  'sample-bubble-select': string
+  'sample-bubble-missing': string
   'meter-green': string
   'meter-yellow': string
   'meter-red': string
@@ -76,7 +76,7 @@ export interface ThemeDepth {
   'gradient-header': string
   'gradient-ruler': string
   'gradient-lane': string
-  'shadow-clip-text': string
+  'shadow-sample-bubble-text': string
   'gradient-transport': string
   'gradient-transport-active': string
   'shadow-transport': string
@@ -85,11 +85,11 @@ export interface ThemeDepth {
   'shadow-lane': string
   'shadow-playhead': string
   // Canvas-parsed: "<x>px <y>px <blur>px <color>" or "none".
-  'shadow-clip': string
+  'shadow-sample-bubble': string
   // Canvas-parsed: "<width>px <color>" or "none".
-  'border-clip': string
+  'border-sample-bubble': string
   // Canvas-parsed; stops must be space-free colors such as #RRGGBBAA.
-  'gradient-clip': string
+  'gradient-sample-bubble': string
   'shadow-meter': string
 }
 
@@ -105,12 +105,12 @@ export interface Theme {
   radius: string
   'radius-transport': string
   // Parsed as pixels by the lane canvas.
-  'radius-clip': string
+  'radius-sample-bubble': string
   'border-width': string
   'border-width-pill': string
   'border-width-header': string
-  'clip-font-weight': string
-  'clip-case': string
+  'sample-bubble-font-weight': string
+  'sample-bubble-case': string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -125,13 +125,13 @@ function isTheme(value: unknown): value is Theme {
   if (!isRecord(value.colors) || !isRecord(value.fonts) || !isRecord(value.depth)) return false
   if (typeof value.radius !== 'string') return false
   if (typeof value['radius-transport'] !== 'string') return false
-  if (typeof value['radius-clip'] !== 'string') return false
+  if (typeof value['radius-sample-bubble'] !== 'string') return false
   const stringFields = [
     'border-width',
     'border-width-pill',
     'border-width-header',
-    'clip-font-weight',
-    'clip-case'
+    'sample-bubble-font-weight',
+    'sample-bubble-case'
   ]
   if (!stringFields.every((key) => typeof value[key] === 'string')) return false
   // Palette colors feed the label-contrast calculation.
@@ -143,7 +143,7 @@ function isTheme(value: unknown): value is Theme {
   const required = ['accent', 'bg-base', 'text', 'highlight', 'meter-red', 'transport', 'transport-active']
   if (!required.every((key) => typeof colors[key] === 'string')) return false
   // Hazard stripes need a six-digit color that mixTowardBlack can parse.
-  return typeof colors['clip-missing'] === 'string' && SIX_HEX.test(colors['clip-missing'])
+  return typeof colors['sample-bubble-missing'] === 'string' && SIX_HEX.test(colors['sample-bubble-missing'])
 }
 
 function validateTheme(json: unknown, label: string): Theme {
@@ -224,17 +224,17 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
     root.style.setProperty(`--palette-ink-${slot}`, ink)
     root.style.setProperty(
       `--palette-shadow-${slot}`,
-      ink === '#FFFFFF' ? 'var(--shadow-clip-text)' : 'none'
+      ink === '#FFFFFF' ? 'var(--shadow-sample-bubble-text)' : 'none'
     )
   })
   // DOM bubbles consume the canvas border format as separate properties.
-  const clipBorder = parseClipBorder(theme.depth['border-clip'])
+  const clipBorder = parseSampleBubbleBorder(theme.depth['border-sample-bubble'])
   if (clipBorder) {
-    root.style.setProperty('--clip-border-width', `${clipBorder.width}px`)
-    root.style.setProperty('--clip-border-color', clipBorder.color)
+    root.style.setProperty('--sample-bubble-border-width', `${clipBorder.width}px`)
+    root.style.setProperty('--sample-bubble-border-color', clipBorder.color)
   } else {
-    root.style.removeProperty('--clip-border-width')
-    root.style.removeProperty('--clip-border-color')
+    root.style.removeProperty('--sample-bubble-border-width')
+    root.style.removeProperty('--sample-bubble-border-color')
   }
   root.style.setProperty('--on-accent', bubbleTextColor(theme.colors.accent))
   root.style.setProperty('--on-highlight', bubbleTextColor(theme.colors.highlight))
@@ -243,12 +243,12 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   root.style.setProperty('--on-transport-active', bubbleTextColor(theme.colors['transport-active']))
   root.style.setProperty('--radius', theme.radius)
   root.style.setProperty('--radius-transport', theme['radius-transport'])
-  root.style.setProperty('--radius-clip', theme['radius-clip'])
+  root.style.setProperty('--radius-sample-bubble', theme['radius-sample-bubble'])
   root.style.setProperty('--border-width', theme['border-width'])
   root.style.setProperty('--border-width-pill', theme['border-width-pill'])
   root.style.setProperty('--border-width-header', theme['border-width-header'])
-  root.style.setProperty('--clip-font-weight', theme['clip-font-weight'])
-  root.style.setProperty('--clip-case', theme['clip-case'])
+  root.style.setProperty('--sample-bubble-font-weight', theme['sample-bubble-font-weight'])
+  root.style.setProperty('--sample-bubble-case', theme['sample-bubble-case'])
   root.style.setProperty('--font-chrome', fontStack(theme.fonts.chrome, 'system-ui, sans-serif'))
   root.style.setProperty('--font-label', fontStack(theme.fonts.label, 'system-ui, sans-serif'))
   root.style.setProperty('--font-mono', fontStack(theme.fonts.mono, "'Consolas', monospace"))
@@ -265,6 +265,6 @@ export function bootstrapTheme(root: HTMLElement = document.documentElement): Th
   root.style.setProperty('--sample-bubble-height', `${SAMPLE_BUBBLE_HEIGHT_PX}px`)
   selectTheme(DEFAULT_THEME_KEY, root)
   root.setAttribute('data-theme-ready', 'true')
-  refreshClipThemeTokens()
+  refreshSampleBubbleThemeTokens()
   return emeraldTheme
 }

@@ -13,7 +13,7 @@ if (typeof window !== 'undefined') {
     value: createBackendAPI()
   })
 
-  // jsdom has no Web Audio API; provide the engine's mock so the Player can be
+  // jsdom has no Web Audio API; provide the engine's mock so PlaybackEngine can be
   // constructed in component/hook tests without a real AudioContext.
   Object.defineProperty(globalThis, 'AudioContext', {
     configurable: true,

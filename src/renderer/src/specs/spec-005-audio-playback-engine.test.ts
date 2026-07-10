@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { createTransport, tickDurationSeconds } from '../engine/transport'
-import { Player } from '../engine/player'
+import { PlaybackEngine } from '../engine/playback-engine'
 import { type EngineLane } from '../engine/lane-evaluation'
 import { MockAudioContext, MockBufferSourceNode, createMockContext } from '../test/mockAudioContext'
 import type { SchedulerClock } from '../engine/scheduler'
@@ -30,9 +30,9 @@ function flushAsync(): Promise<void> {
 describe('spec-005 audio playback engine', () => {
   describe('transport (US-001..US-004)', () => {
     // The playhead lives on the audio-clock Scheduler now, so playhead ACs are
-    // exercised through Player.currentTick with a mutable mock audio clock.
-    function makePlayer(audioTimeRef: { value: number }): Player {
-      return new Player({
+    // exercised through PlaybackEngine.currentTick with a mutable mock audio clock.
+    function makePlaybackEngine(audioTimeRef: { value: number }): PlaybackEngine {
+      return new PlaybackEngine({
         createContext: () => createMockContext() as unknown as AudioContext,
         clock: mockClock(),
         now: () => audioTimeRef.value,
@@ -49,52 +49,52 @@ describe('spec-005 audio playback engine', () => {
       expect(transport.state).toBe('playing')
 
       const audioTime = { value: 0 }
-      const player = makePlayer(audioTime)
-      await player.start(0)
-      expect(player.currentTick).toBe(0)
+      const playbackEngine = makePlaybackEngine(audioTime)
+      await playbackEngine.start(0)
+      expect(playbackEngine.currentTick).toBe(0)
       audioTime.value = tickDurationSeconds(120) * 3 + 0.0001
-      expect(player.currentTick).toBe(3)
-      await player.close()
+      expect(playbackEngine.currentTick).toBe(3)
+      await playbackEngine.close()
     })
 
     // AC-002
     it('AC-002: pause() holds the tick and play() resumes from it', async () => {
       const transport = createTransport(120)
       const audioTime = { value: 0 }
-      const player = makePlayer(audioTime)
+      const playbackEngine = makePlaybackEngine(audioTime)
 
       transport.play()
-      await player.start(0)
+      await playbackEngine.start(0)
       audioTime.value = tickDurationSeconds(120) * 2 + 0.0001
       transport.pause()
-      player.pause()
+      playbackEngine.pause()
       expect(transport.state).toBe('paused')
       // The playhead is frozen at the paused position even as the clock advances.
-      expect(player.currentTick).toBe(2)
+      expect(playbackEngine.currentTick).toBe(2)
       audioTime.value = 100
-      expect(player.currentTick).toBe(2)
+      expect(playbackEngine.currentTick).toBe(2)
 
       // Resume from the held tick.
       transport.play()
-      await player.start(player.currentTick)
-      expect(player.currentTick).toBe(2)
-      await player.close()
+      await playbackEngine.start(playbackEngine.currentTick)
+      expect(playbackEngine.currentTick).toBe(2)
+      await playbackEngine.close()
     })
 
     // AC-003
     it('AC-003: stop() resets playhead to 0 and state to stopped', async () => {
       const transport = createTransport(120)
       const audioTime = { value: 0 }
-      const player = makePlayer(audioTime)
+      const playbackEngine = makePlaybackEngine(audioTime)
 
       transport.play()
-      await player.start(0)
+      await playbackEngine.start(0)
       audioTime.value = tickDurationSeconds(120) * 4
       transport.stop()
-      player.stop()
+      playbackEngine.stop()
       expect(transport.state).toBe('stopped')
-      expect(player.currentTick).toBe(0)
-      await player.close()
+      expect(playbackEngine.currentTick).toBe(0)
+      await playbackEngine.close()
     })
 
     // AC-004
@@ -116,11 +116,11 @@ describe('spec-005 audio playback engine', () => {
       const clock = mockClock()
       const audioTime = 0
       const lanes: EngineLane[] = [
-        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 16, samplePath: 'kick.wav' }] }
+        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 16, samplePath: 'kick.wav' }] }
       ]
       const loadSampleBytes = vi.fn(async () => new ArrayBuffer(16))
 
-      const player = new Player({
+      const playbackEngine = new PlaybackEngine({
         createContext: () => context as unknown as AudioContext,
         clock,
         now: () => audioTime,
@@ -129,16 +129,16 @@ describe('spec-005 audio playback engine', () => {
         bpm: 120
       })
 
-      await player.start(0)
+      await playbackEngine.start(0)
       // Let the async triggerLane (sample load + decode) settle.
       await flushAsync()
 
       expect(loadSampleBytes).toHaveBeenCalledWith('kick.wav')
       expect(context.created.sources.length).toBeGreaterThanOrEqual(1)
       expect(context.created.sources[0].started).toBe(true)
-      expect(player.audioEngine.activeVoiceCount).toBe(1)
+      expect(playbackEngine.audioEngine.activeVoiceCount).toBe(1)
 
-      await player.close()
+      await playbackEngine.close()
     })
 
     it('monophonic lane: a new trigger cuts off the previous voice on the same lane', async () => {
@@ -152,14 +152,14 @@ describe('spec-005 audio playback engine', () => {
           solo: false,
           pan: 0,
           channelIndex: 0,
-          clips: [
+          placements: [
             { startTick: 0, durationTicks: 8, samplePath: 's.wav' },
             { startTick: 1, durationTicks: 8, samplePath: 's.wav' }
           ]
         }
       ]
 
-      const player = new Player({
+      const playbackEngine = new PlaybackEngine({
         createContext: () => context as unknown as AudioContext,
         clock,
         now: () => audioTime,
@@ -168,7 +168,7 @@ describe('spec-005 audio playback engine', () => {
         bpm: 120
       })
 
-      await player.start(0)
+      await playbackEngine.start(0)
       // Drain across both triggers.
       await flushAsync()
 
@@ -176,15 +176,15 @@ describe('spec-005 audio playback engine', () => {
       expect(sources.length).toBe(2)
       // The first voice was stopped when the second triggered on the same lane.
       expect(sources[0].stopped).toBe(true)
-      await player.close()
+      await playbackEngine.close()
     })
 
     it('stop() halts all voices and resets', async () => {
       const context = createMockContext()
       const lanes: EngineLane[] = [
-        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 's.wav' }] }
+        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 's.wav' }] }
       ]
-      const player = new Player({
+      const playbackEngine = new PlaybackEngine({
         createContext: () => context as unknown as AudioContext,
         clock: mockClock(),
         now: () => 0,
@@ -192,13 +192,13 @@ describe('spec-005 audio playback engine', () => {
         loadSampleBytes: async () => new ArrayBuffer(8),
         bpm: 120
       })
-      await player.start(0)
+      await playbackEngine.start(0)
       await flushAsync()
-      expect(player.audioEngine.activeVoiceCount).toBe(1)
+      expect(playbackEngine.audioEngine.activeVoiceCount).toBe(1)
 
-      player.stop()
-      expect(player.audioEngine.activeVoiceCount).toBe(0)
-      await player.close()
+      playbackEngine.stop()
+      expect(playbackEngine.audioEngine.activeVoiceCount).toBe(0)
+      await playbackEngine.close()
     })
 
     it('a corrupt sample does not crash playback (decode error is swallowed)', async () => {
@@ -207,9 +207,9 @@ describe('spec-005 audio playback engine', () => {
         throw new Error('corrupt')
       })
       const lanes: EngineLane[] = [
-        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, clips: [{ startTick: 0, durationTicks: 8, samplePath: 'bad.wav' }] }
+        { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'bad.wav' }] }
       ]
-      const player = new Player({
+      const playbackEngine = new PlaybackEngine({
         createContext: () => context as unknown as AudioContext,
         clock: mockClock(),
         now: () => 0,
@@ -218,10 +218,10 @@ describe('spec-005 audio playback engine', () => {
         bpm: 120
       })
 
-      await expect(player.start(0)).resolves.toBeUndefined()
+      await expect(playbackEngine.start(0)).resolves.toBe(true)
       await flushAsync()
-      expect(player.audioEngine.activeVoiceCount).toBe(0)
-      await player.close()
+      expect(playbackEngine.audioEngine.activeVoiceCount).toBe(0)
+      await playbackEngine.close()
     })
   })
 

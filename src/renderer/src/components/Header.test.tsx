@@ -18,11 +18,11 @@ describe('Header', () => {
     expect(screen.queryByText('00:00.0')).not.toBeInTheDocument()
   })
 
-  it('shows the home link and timer in the tracker view and fires onHome', () => {
+  it('shows the home link and timer in the Player and fires onHome', () => {
     const onHome = vi.fn()
     render(
       <Header
-        view="tracker"
+        view="player"
         timer="01:23.4"
         theme="emerald"
         onHome={onHome}

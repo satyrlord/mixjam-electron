@@ -31,13 +31,13 @@ describe('theme validation boundary', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('enterprise'))
   })
 
-  it('publishes parsed DOM clip-border tokens for bordered themes', async () => {
+  it('publishes parsed DOM sample-bubble border tokens for bordered themes', async () => {
     const themes = await import('./themes')
     const root = document.createElement('div')
 
     themes.selectTheme('beton', root)
 
-    expect(root.style.getPropertyValue('--clip-border-width')).not.toBe('')
-    expect(root.style.getPropertyValue('--clip-border-color')).not.toBe('')
+    expect(root.style.getPropertyValue('--sample-bubble-border-width')).not.toBe('')
+    expect(root.style.getPropertyValue('--sample-bubble-border-color')).not.toBe('')
   })
 })

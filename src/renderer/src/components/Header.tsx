@@ -1,7 +1,7 @@
 import { THEME_OPTIONS } from '../theme/themes'
 
 interface HeaderProps {
-  view: 'home' | 'tracker'
+  view: 'home' | 'player'
   timer: string
   theme: string
   onHome: () => void
@@ -12,7 +12,7 @@ export default function Header({ view, timer, theme, onHome, onThemeChange }: He
   return (
     <header className="header">
       <div className="header-left">
-        {view === 'tracker' && (
+        {view === 'player' && (
           <button className="home-link" onClick={onHome}>
             &lt; Return to Main Menu
           </button>
@@ -20,7 +20,7 @@ export default function Header({ view, timer, theme, onHome, onThemeChange }: He
         <span className="brand">MixJam Electron</span>
       </div>
 
-      {view === 'tracker' && (
+      {view === 'player' && (
         <div className="header-timer">{timer}</div>
       )}
 

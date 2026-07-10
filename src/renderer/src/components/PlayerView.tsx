@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { RecentProjectItem } from '../../../shared/backend-api'
-import type { ClipGroupEntry, FooterSampleDetail } from '../lib/playerShell'
+import type { MixJamFileItem } from '../../../shared/backend-api'
+import type { PlacementGroupEntry, FooterSampleDetail } from '../lib/arrangement'
 import type {
   TrackerArrangementProps,
-  TrackerBrowserProps,
-  TrackerMixerProps,
-  TrackerTransportProps
-} from './trackerProps'
+  PlayerBrowserProps,
+  PlayerMixerProps,
+  PlayerTransportProps
+} from './playerProps'
 import {
   LANE_HEAD_WIDTH_PX,
   LANE_HEIGHT_PX,
@@ -15,16 +15,15 @@ import {
   LEFT_COL_MIN_PX,
   LEFT_COL_MIXER_THRESHOLD_PX,
   RULER_HEIGHT_PX,
-  clamp,
-  clipScreenRect
-} from '../lib/playerShell'
-import { nearestTick } from '../lib/sample-utils'
+  sampleBubbleScreenRect
+} from '../lib/arrangement'
+import { clamp, nearestTick } from '../lib/sample-utils'
 import { safeJsonParse } from '../lib/safeJsonParse'
 import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
 import { useDragResize } from '../hooks/useDragResize'
-import RecentProjectsRail from './RecentProjectsRail'
-import TransportStrip from './TransportStrip'
+import MixJamBrowser from './MixJamBrowser'
+import MiddleStrip from './MiddleStrip'
 import SongControlsRail from './SongControlsRail'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
@@ -32,9 +31,9 @@ import ShortcutsOverlay from './ShortcutsOverlay'
 
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
 
-interface ClipDragPayload {
-  clipId: string
-  group?: Array<{ clipId: string; tickOffset: number; laneOffset: number }>
+interface PlacementDragPayload {
+  placementId: string
+  group?: Array<{ placementId: string; tickOffset: number; laneOffset: number }>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -50,34 +49,34 @@ function isFooterSampleDetail(value: unknown): value is FooterSampleDetail {
     (value.slot === undefined || typeof value.slot === 'number')
 }
 
-function isClipDragPayload(value: unknown): value is ClipDragPayload {
-  if (!isRecord(value) || typeof value.clipId !== 'string') return false
+function isPlacementDragPayload(value: unknown): value is PlacementDragPayload {
+  if (!isRecord(value) || typeof value.placementId !== 'string') return false
   if (value.group === undefined) return true
   return Array.isArray(value.group) && value.group.every((entry) =>
     isRecord(entry) &&
-    typeof entry.clipId === 'string' &&
+    typeof entry.placementId === 'string' &&
     typeof entry.tickOffset === 'number' &&
     typeof entry.laneOffset === 'number'
   )
 }
 
-export interface TrackerViewProps {
-  recentProjects: RecentProjectItem[]
-  browser: TrackerBrowserProps
+export interface PlayerViewProps {
+  mixJamFiles: MixJamFileItem[]
+  browser: PlayerBrowserProps
   arrangement: TrackerArrangementProps
-  transport: TrackerTransportProps
-  mixer: TrackerMixerProps
+  transport: PlayerTransportProps
+  mixer: PlayerMixerProps
 }
 
-export default function TrackerView({
-  recentProjects,
+export default function PlayerView({
+  mixJamFiles,
   browser,
   arrangement,
   transport,
   mixer
-}: TrackerViewProps) {
+}: PlayerViewProps) {
   const { lanes, laneShouldDim, currentTick } = arrangement
-  const { transportState } = transport
+  const { transportState, onTransportSeek } = transport
 
   const totalTicks = 256
   const rulerBeatCount = totalTicks / TICKS_PER_BEAT
@@ -97,14 +96,45 @@ export default function TrackerView({
   }, [])
 
   const pixelsPerTick = laneContentWidth > 0 ? laneContentWidth / totalTicks : 0
+  const lastGridTick = Math.floor((totalTicks - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
 
-  const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set())
+  const handleRulerClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const contentWidth = rect.width - LANE_HEAD_WIDTH_PX
+    const clickX = event.clientX - rect.left - LANE_HEAD_WIDTH_PX
+    if (clickX < 0 || clickX > contentWidth) return
+    onTransportSeek(nearestTick(clickX, contentWidth, totalTicks, TICKS_PER_BEAT))
+  }, [onTransportSeek])
+
+  const handleRulerKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    let nextTick: number
+    switch (event.key) {
+      case 'ArrowLeft':
+        nextTick = Math.max(0, Math.ceil(currentTick / TICKS_PER_BEAT - 1) * TICKS_PER_BEAT)
+        break
+      case 'ArrowRight':
+        nextTick = Math.min(lastGridTick, Math.floor(currentTick / TICKS_PER_BEAT + 1) * TICKS_PER_BEAT)
+        break
+      case 'Home':
+        nextTick = 0
+        break
+      case 'End':
+        nextTick = lastGridTick
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    onTransportSeek(nextTick)
+  }, [currentTick, lastGridTick, onTransportSeek])
+
+  const [selectedPlacementIds, setSelectedPlacementIds] = useState<Set<string>>(new Set())
   const [selectionRect, setSelectionRect] = useState<{
     startX: number; startY: number; currentX: number; currentY: number
   } | null>(null)
   // Tracks the window mousemove/mouseup listeners of every in-progress drag
   // (rectangle select, splitter, pan knobs) so they are torn down if
-  // TrackerView unmounts mid-drag (e.g. the user navigates Home while still
+  // PlayerView unmounts mid-drag (e.g. the user navigates Home while still
   // holding the mouse button).
   const dragCleanupsRef = useRef<Set<() => void>>(new Set())
 
@@ -123,7 +153,7 @@ export default function TrackerView({
 
   const handleLanesMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!e.ctrlKey) {
-      setSelectedClipIds(new Set())
+      setSelectedPlacementIds(new Set())
       return
     }
     const container = lanesRef.current
@@ -139,7 +169,7 @@ export default function TrackerView({
     const startX = localX + container.scrollLeft
     const startY = localY + container.scrollTop
     setSelectionRect({ startX, startY, currentX: startX, currentY: startY })
-    setSelectedClipIds(new Set())
+    setSelectedPlacementIds(new Set())
 
     const onMove = (moveEvent: MouseEvent) => {
       const cx = moveEvent.clientX - rect.left + container.scrollLeft
@@ -158,14 +188,14 @@ export default function TrackerView({
       for (let li = minLane; li <= maxLane; li++) {
         const lane = lanes[li]
         if (!lane) continue
-        for (const clip of lane.clips) {
-          const { x: clipX, width: clipW } = clipScreenRect(clip, pixelsPerTick)
-          if (clipX + clipW > x1 && clipX < x2) {
-            ids.add(clip.id)
+        for (const placement of lane.placements) {
+          const { x: bubbleX, width: bubbleWidth } = sampleBubbleScreenRect(placement, pixelsPerTick)
+          if (bubbleX + bubbleWidth > x1 && bubbleX < x2) {
+            ids.add(placement.id)
           }
         }
       }
-      setSelectedClipIds(ids)
+      setSelectedPlacementIds(ids)
     }
 
     const onUp = () => {
@@ -181,24 +211,25 @@ export default function TrackerView({
   }, [lanes, pixelsPerTick, trackDragCleanup])
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const [recentProjectsCollapsed, setRecentProjectsCollapsed] = useState(false)
+  const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(false)
 
   // Refs for values read by the global keyboard shortcut handler so the
   // listener subscribes once instead of on every selection / transport change.
-  const selectedClipIdsRef = useRef<ReadonlySet<string>>(selectedClipIds)
-  selectedClipIdsRef.current = selectedClipIds
+  const selectedPlacementIdsRef = useRef<ReadonlySet<string>>(selectedPlacementIds)
+  selectedPlacementIdsRef.current = selectedPlacementIds
   const transportStateRef = useRef(transportState)
   transportStateRef.current = transportState
 
   useTrackerShortcuts({
-    selectedClipIdsRef,
-    clearSelection: () => setSelectedClipIds(new Set()),
+    selectedPlacementIdsRef,
+    clearSelection: () => setSelectedPlacementIds(new Set()),
     transportStateRef,
-    onRemoveClips: arrangement.onRemoveClips,
+    onRemovePlacements: arrangement.onRemovePlacements,
     onUndo: transport.onUndo,
     onRedo: transport.onRedo,
     onTransportPlay: transport.onTransportPlay,
     onTransportPause: transport.onTransportPause,
+    onTransportStop: transport.onTransportStop,
     onOpenShortcuts: () => setShortcutsOpen(true)
   })
 
@@ -206,7 +237,7 @@ export default function TrackerView({
     x: number
     y: number
     laneIndex: number
-    clipId: string
+    placementId: string
     samplePath: string
     sampleName: string
   } | null>(null)
@@ -218,7 +249,7 @@ export default function TrackerView({
   const [flashVisible, setFlashVisible] = useState(false)
   const activeFlashPath = flashVisible ? flashSamplePath : null
 
-  // Dismiss the clip context menu on any click outside
+  // Dismiss the placement context menu on any click outside
   useEffect(() => {
     if (!contextMenu) return
     const dismiss = () => setContextMenu(null)
@@ -246,7 +277,7 @@ export default function TrackerView({
 
   const handleContextDelete = useCallback(() => {
     if (!contextMenu) return
-    arrangement.onRemoveClipFromLane(contextMenu.laneIndex, contextMenu.clipId)
+    arrangement.onRemovePlacementFromLane(contextMenu.laneIndex, contextMenu.placementId)
     setContextMenu(null)
   }, [contextMenu, arrangement])
 
@@ -263,42 +294,42 @@ export default function TrackerView({
     event.dataTransfer.effectAllowed = 'copy'
   }, [])
 
-  const handleClipDragStart = useCallback((clipId: string, event: React.DragEvent) => {
-    if (selectedClipIds.size > 1 && selectedClipIds.has(clipId)) {
+  const handlePlacementDragStart = useCallback((placementId: string, event: React.DragEvent) => {
+    if (selectedPlacementIds.size > 1 && selectedPlacementIds.has(placementId)) {
       let anchorLaneIndex = 0
       let anchorStartTick = 0
       for (const lane of lanes) {
-        const clip = lane.clips.find((c) => c.id === clipId)
-        if (clip) { anchorLaneIndex = lane.index; anchorStartTick = clip.startTick; break }
+        const placement = lane.placements.find((c) => c.id === placementId)
+        if (placement) { anchorLaneIndex = lane.index; anchorStartTick = placement.startTick; break }
       }
-      const group: Array<{ clipId: string; tickOffset: number; laneOffset: number }> = []
+      const group: Array<{ placementId: string; tickOffset: number; laneOffset: number }> = []
       for (const lane of lanes) {
-        for (const clip of lane.clips) {
-          if (selectedClipIds.has(clip.id)) {
+        for (const placement of lane.placements) {
+          if (selectedPlacementIds.has(placement.id)) {
             group.push({
-              clipId: clip.id,
-              tickOffset: clip.startTick - anchorStartTick,
+              placementId: placement.id,
+              tickOffset: placement.startTick - anchorStartTick,
               laneOffset: lane.index - anchorLaneIndex
             })
           }
         }
       }
-      event.dataTransfer.setData('application/mixjam-clip', JSON.stringify({ clipId, group }))
+      event.dataTransfer.setData('application/mixjam-clip-placement', JSON.stringify({ placementId, group }))
     } else {
-      event.dataTransfer.setData('application/mixjam-clip', JSON.stringify({ clipId }))
+      event.dataTransfer.setData('application/mixjam-clip-placement', JSON.stringify({ placementId }))
     }
     // Must permit 'copy' too: the dragover handler sets dropEffect='copy' when
     // Shift is held (duplicate), and Chromium cancels the drop entirely if
     // dropEffect is outside effectAllowed.
     event.dataTransfer.effectAllowed = 'copyMove'
     event.stopPropagation()
-  }, [selectedClipIds, lanes])
+  }, [selectedPlacementIds, lanes])
 
   const handleLaneCanvasDragOver = useCallback((event: React.DragEvent) => {
     if (!event.dataTransfer.types.includes('application/mixjam-sample') &&
-        !event.dataTransfer.types.includes('application/mixjam-clip')) return
+        !event.dataTransfer.types.includes('application/mixjam-clip-placement')) return
     event.preventDefault()
-    if (event.dataTransfer.types.includes('application/mixjam-clip')) {
+    if (event.dataTransfer.types.includes('application/mixjam-clip-placement')) {
       event.dataTransfer.dropEffect = event.shiftKey ? 'copy' : 'move'
     } else {
       event.dataTransfer.dropEffect = 'copy'
@@ -320,32 +351,32 @@ export default function TrackerView({
       }
       return
     }
-    // Intra-player clip move or duplicate
-    const clipRaw = event.dataTransfer.getData('application/mixjam-clip')
-    if (clipRaw) {
-      const parsed = safeJsonParse(clipRaw, null, isClipDragPayload)
+    // Intra-player placement move or duplicate
+    const placementRaw = event.dataTransfer.getData('application/mixjam-clip-placement')
+    if (placementRaw) {
+      const parsed = safeJsonParse(placementRaw, null, isPlacementDragPayload)
       if (parsed) {
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
         const anchorTick = nearestTick(clickX, rect.width, totalTicks, snap)
 
         if (parsed.group && parsed.group.length > 1) {
-          const entries: ClipGroupEntry[] = parsed.group.map((g) => ({
-            clipId: g.clipId,
+          const entries: PlacementGroupEntry[] = parsed.group.map((g) => ({
+            placementId: g.placementId,
             toLaneIndex: clamp(laneIndex + g.laneOffset, 0, lanes.length - 1),
             newStartTick: clamp(anchorTick + g.tickOffset, 0, totalTicks - 1)
           }))
           const applyGroup = event.shiftKey
-            ? arrangement.onDuplicateClipGroup
-            : arrangement.onMoveClipGroup
+            ? arrangement.onDuplicatePlacementGroup
+            : arrangement.onMovePlacementGroup
           applyGroup(entries)
-          setSelectedClipIds(new Set())
+          setSelectedPlacementIds(new Set())
         } else {
           const applySingle = event.shiftKey
-            ? arrangement.onDuplicateClipOnLane
-            : arrangement.onMoveClipOnLane
-          applySingle(parsed.clipId, laneIndex, anchorTick)
-          setSelectedClipIds(new Set())
+            ? arrangement.onDuplicatePlacement
+            : arrangement.onMovePlacement
+          applySingle(parsed.placementId, laneIndex, anchorTick)
+          setSelectedPlacementIds(new Set())
         }
       }
     }
@@ -370,7 +401,7 @@ export default function TrackerView({
   // still lets users narrow the column below the mixer threshold, which is
   // how the mixer is hidden. The dragged width persists so a hidden mixer
   // stays hidden across reloads.
-  const trackerViewRef = useRef<HTMLDivElement>(null)
+  const playerViewRef = useRef<HTMLDivElement>(null)
 
   // Clamp a left-column width to [min, viewport fraction] so a persisted or
   // dragged value can never push column 2 (and the seam itself) off-screen —
@@ -385,7 +416,7 @@ export default function TrackerView({
   // so keyboard focus can't land on off-screen strips and force-scroll the
   // rail past the master section.
   const applyLeftColWidth = useCallback((px: number): void => {
-    const el = trackerViewRef.current
+    const el = playerViewRef.current
     if (!el) return
     const width = clampLeftColWidth(px)
     el.style.setProperty('--left-col-w', `${width}px`)
@@ -406,7 +437,7 @@ export default function TrackerView({
 
   const handleLeftColResizeStart = useDragResize(
     useCallback(() => {
-      const el = trackerViewRef.current
+      const el = playerViewRef.current
       return el
         ? parseFloat(getComputedStyle(el).getPropertyValue('--left-col-w')) ||
             LEFT_COL_DEFAULT_PX
@@ -418,7 +449,7 @@ export default function TrackerView({
     useCallback(() => {
       // Inline style, not computed: it holds the value the drag just wrote.
       const width = parseFloat(
-        trackerViewRef.current?.style.getPropertyValue('--left-col-w') ?? ''
+        playerViewRef.current?.style.getPropertyValue('--left-col-w') ?? ''
       )
       if (Number.isFinite(width)) {
         try {
@@ -432,19 +463,19 @@ export default function TrackerView({
 
   return (
     <div
-      ref={trackerViewRef}
-      className={`tracker-view${recentProjectsCollapsed ? ' recent-projects-collapsed' : ''}`}
+      ref={playerViewRef}
+      className={`player-view${mixJamBrowserCollapsed ? ' mixjam-browser-collapsed' : ''}`}
       style={{
         gridTemplateRows: `minmax(0, 1fr) 44px 6px minmax(0, ${browserFlex}fr)`
       }}
     >
-      <RecentProjectsRail
-        recentProjects={recentProjects}
-        onCollapsedChange={setRecentProjectsCollapsed}
+      <MixJamBrowser
+        mixJamFiles={mixJamFiles}
+        onCollapsedChange={setMixJamBrowserCollapsed}
       />
 
       <section className="tracker-zone tracker-region">
-        {transportState !== 'stopped' && currentTick < totalTicks && (
+        {currentTick < totalTicks && (
           <div
             className="tracker-playhead"
             style={{
@@ -461,7 +492,17 @@ export default function TrackerView({
             const h = Math.abs(selectionRect.currentY - selectionRect.startY)
             return <div className="selection-rect" style={{ left: x, top: y, width: w, height: h }} />
           })()}
-          <div className="tracker-ruler">
+          <div
+            className="tracker-ruler"
+            role="slider"
+            tabIndex={0}
+            aria-label="Tracker timeline"
+            aria-valuemin={0}
+            aria-valuemax={lastGridTick}
+            aria-valuenow={Math.min(currentTick, lastGridTick)}
+            onClick={handleRulerClick}
+            onKeyDown={handleRulerKeyDown}
+          >
             <div className="tracker-ruler-spacer" />
             {Array.from({ length: rulerBeatCount }, (_, i) => {
               const isBar = i % BEATS_PER_BAR === 0
@@ -482,13 +523,14 @@ export default function TrackerView({
                 dimmed={dimmed}
                 totalTicks={totalTicks}
                 flashSamplePath={activeFlashPath}
-                selectedClipIds={selectedClipIds}
+                selectedPlacementIds={selectedPlacementIds}
                 missingSamplePaths={arrangement.missingSamplePaths}
                 onToggleLaneMute={arrangement.onToggleLaneMute}
                 onToggleLaneSolo={arrangement.onToggleLaneSolo}
                 onSetLanePan={arrangement.onSetLanePan}
-                onClipDragStart={handleClipDragStart}
-                onClipContextMenu={setContextMenu}
+                onSetLaneNativeBpm={arrangement.onSetLaneNativeBpm}
+                onPlacementDragStart={handlePlacementDragStart}
+                onPlacementContextMenu={setContextMenu}
                 onDragOver={handleLaneCanvasDragOver}
                 onDrop={handleLaneCanvasDrop}
                 trackDragCleanup={trackDragCleanup}
@@ -498,7 +540,7 @@ export default function TrackerView({
         </div>
       </section>
 
-      <TransportStrip
+      <MiddleStrip
         transportState={transportState}
         bpm={transport.bpm}
         onSetBpm={transport.onSetBpm}
@@ -553,8 +595,6 @@ export default function TrackerView({
 
       <SampleBrowser
         browser={browser}
-        bpm={transport.bpm}
-        pixelsPerTick={pixelsPerTick}
         flashSamplePath={activeFlashPath}
         onSampleDragStart={handleSampleDragStart}
       />

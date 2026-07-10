@@ -1,22 +1,21 @@
-// Session and recent-projects persistence for the browser backend. The
-// session (which folders are active) and the recent-projects registry live in
-// localStorage; project files themselves stay real files in the User Folder,
-// reached through its stored directory handle. mixjam.json is written into the
-// User Folder exactly as the desktop app always did.
+// App-state persistence for the browser backend. Folder selections and the
+// recent-project registry live in localStorage; project files stay real files
+// in the User Folder, reached through its stored directory handle. The legacy
+// storage key remains unchanged so existing users keep their selections.
 
-import type { FolderRef, RecentProjectItem, SessionPaths } from '../../../shared/backend-api'
+import type { FolderRef, MixJamFileItem, FolderSelections } from '../../../shared/backend-api'
 import { loadFolderHandle } from './handle-store'
 import { resolveFileHandle } from './folder-access'
 
-export const SESSION_STORAGE_KEY = 'mixjam.session'
+export const FOLDER_SELECTIONS_STORAGE_KEY = 'mixjam.session' // persisted compatibility key
 export const RECENT_PROJECTS_STORAGE_KEY = 'mixjam.recent-projects'
 const CONFIG_FILE_NAME = 'mixjam.json'
 
 const MIXJAM_PROJECT_EXTENSION = '.mixjam'
 
-// Cap the merged recent-projects list so the registry cannot grow unboundedly
-// over years of use.
-const RECENT_PROJECTS_LIMIT = 20
+// Keep the combined MixJam Browser/Home result bounded after merging the
+// recent-project registry with files discovered under the User Folder.
+const MIXJAM_FILES_LIMIT = 20
 
 export interface RecentProjectEntry {
   /** Relpath of the .mixjam file within the User Folder ('/'-separated). */
@@ -30,7 +29,7 @@ function isFolderRefLike(value: unknown): value is FolderRef {
   return !!record && typeof record.id === 'string' && typeof record.name === 'string'
 }
 
-export function normalizeSession(value: unknown): SessionPaths {
+export function normalizeFolderSelections(value: unknown): FolderSelections {
   const record = (value ?? {}) as Record<string, unknown>
   return {
     userFolder: isFolderRefLike(record.userFolder)
@@ -42,16 +41,16 @@ export function normalizeSession(value: unknown): SessionPaths {
   }
 }
 
-export function loadSession(storage: Storage = localStorage): SessionPaths {
+export function loadFolderSelections(storage: Storage = localStorage): FolderSelections {
   try {
-    return normalizeSession(JSON.parse(storage.getItem(SESSION_STORAGE_KEY) ?? ''))
+    return normalizeFolderSelections(JSON.parse(storage.getItem(FOLDER_SELECTIONS_STORAGE_KEY) ?? ''))
   } catch {
     return { userFolder: null, sampleFolder: null }
   }
 }
 
-export function saveSession(paths: SessionPaths, storage: Storage = localStorage): void {
-  storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(normalizeSession(paths)))
+export function saveFolderSelections(selections: FolderSelections, storage: Storage = localStorage): void {
+  storage.setItem(FOLDER_SELECTIONS_STORAGE_KEY, JSON.stringify(normalizeFolderSelections(selections)))
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +71,7 @@ function sortRecentEntries(entries: RecentProjectEntry[]): RecentProjectEntry[] 
   return [...entries].sort((left, right) => right.lastOpened.localeCompare(left.lastOpened))
 }
 
-function sortRecentProjectItems(entries: RecentProjectItem[]): RecentProjectItem[] {
+function sortMixJamFileItems(entries: MixJamFileItem[]): MixJamFileItem[] {
   return [...entries].sort((left, right) => {
     if (left.lastOpened && right.lastOpened) {
       const timeOrder = right.lastOpened.localeCompare(left.lastOpened)
@@ -158,8 +157,8 @@ const DISCOVER_MAX_DEPTH = 8
 
 async function discoverMixJamProjects(
   root: FileSystemDirectoryHandle
-): Promise<RecentProjectItem[]> {
-  const discovered: RecentProjectItem[] = []
+): Promise<MixJamFileItem[]> {
+  const discovered: MixJamFileItem[] = []
 
   async function walk(dir: FileSystemDirectoryHandle, prefix: string, depth: number): Promise<void> {
     if (depth > DISCOVER_MAX_DEPTH) return
@@ -193,10 +192,10 @@ async function discoverMixJamProjects(
  * .mixjam files discovered under the User Folder. Without an accessible User
  * Folder handle nothing can be verified, so the list is empty.
  */
-export async function listRecentProjects(
+export async function listMixJamFiles(
   userFolder: FolderRef | null,
   storage: Storage = localStorage
-): Promise<RecentProjectItem[]> {
+): Promise<MixJamFileItem[]> {
   if (!userFolder) return []
 
   let handle: FileSystemDirectoryHandle | null
@@ -208,7 +207,7 @@ export async function listRecentProjects(
     return []
   }
 
-  const merged = new Map<string, RecentProjectItem>()
+  const merged = new Map<string, MixJamFileItem>()
 
   // Registry entries may point at files that have since been deleted or moved;
   // drop those instead of offering dead entries.
@@ -226,38 +225,38 @@ export async function listRecentProjects(
     }
   }
 
-  return sortRecentProjectItems([...merged.values()]).slice(0, RECENT_PROJECTS_LIMIT)
+  return sortMixJamFileItems([...merged.values()]).slice(0, MIXJAM_FILES_LIMIT)
 }
 
 // ---------------------------------------------------------------------------
 // mixjam.json
 // ---------------------------------------------------------------------------
 
-export interface SessionConfig {
+export interface AppConfig {
   appVersion: string
   userFolder: string
   sampleFolder: string
   lastOpened: string
 }
 
-export function buildSessionConfig(
-  paths: SessionPaths,
+export function buildAppConfig(
+  selections: FolderSelections,
   appVersion: string,
   now: Date = new Date()
-): SessionConfig | null {
-  if (!paths.userFolder || !paths.sampleFolder) return null
+): AppConfig | null {
+  if (!selections.userFolder || !selections.sampleFolder) return null
   return {
     appVersion,
-    userFolder: paths.userFolder.name,
-    sampleFolder: paths.sampleFolder.name,
+    userFolder: selections.userFolder.name,
+    sampleFolder: selections.sampleFolder.name,
     lastOpened: now.toISOString()
   }
 }
 
-export async function writeSessionConfig(paths: SessionPaths, appVersion: string): Promise<void> {
-  const config = buildSessionConfig(paths, appVersion)
-  if (!config || !paths.userFolder) return
-  const dir = await loadFolderHandle(paths.userFolder.id)
+export async function writeAppConfig(selections: FolderSelections, appVersion: string): Promise<void> {
+  const config = buildAppConfig(selections, appVersion)
+  if (!config || !selections.userFolder) return
+  const dir = await loadFolderHandle(selections.userFolder.id)
   if (!dir) return
   const file = await dir.getFileHandle(CONFIG_FILE_NAME, { create: true })
   const writable = await file.createWritable()

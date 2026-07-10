@@ -14,20 +14,20 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
   {
     title: 'Transport',
     entries: [
-      { keys: 'Space', action: 'Play / pause' },
-      { keys: 'Ctrl+Z', action: 'Undo clip edit' },
-      { keys: 'Ctrl+Y / Ctrl+Shift+Z', action: 'Redo clip edit' }
+      { keys: 'Space', action: 'Play / pause / cancel preparation' },
+      { keys: 'Ctrl+Z', action: 'Undo placement edit' },
+      { keys: 'Ctrl+Y / Ctrl+Shift+Z', action: 'Redo placement edit' }
     ]
   },
   {
-    title: 'Clips',
+    title: 'Placements',
     entries: [
       { keys: 'Drag tile onto a lane', action: 'Place sample (snaps to beat)' },
       { keys: 'Alt+Drop', action: 'Freeform placement — no beat snap' },
       { keys: 'Shift+Drop', action: 'Duplicate instead of move' },
-      { keys: 'Ctrl+Drag on lanes', action: 'Rectangle-select clips' },
-      { keys: 'Delete', action: 'Remove selected clips' },
-      { keys: 'Right-click clip', action: 'Delete / locate in browser' }
+      { keys: 'Ctrl+Drag on lanes', action: 'Rectangle-select placements' },
+      { keys: 'Delete', action: 'Remove selected placements' },
+      { keys: 'Right-click sample bubble', action: 'Delete / locate in browser' }
     ]
   },
   {

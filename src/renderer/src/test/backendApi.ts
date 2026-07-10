@@ -4,7 +4,7 @@ import type {
   CategoryItem,
   FolderRef,
   LibraryItem,
-  RecentProjectItem,
+  MixJamFileItem,
   SampleItem,
   SampleQueryRequest,
   SampleQueryResponse,
@@ -15,8 +15,8 @@ import type {
 export const TEST_USER_FOLDER: FolderRef = { id: 'test-user-folder', name: 'MixJam' }
 export const TEST_SAMPLE_FOLDER: FolderRef = { id: 'test-sample-folder', name: 'Samples' }
 
-const DEFAULT_SESSION = { userFolder: TEST_USER_FOLDER, sampleFolder: TEST_SAMPLE_FOLDER }
-const DEFAULT_RECENT_PROJECTS: RecentProjectItem[] = [
+const DEFAULT_FOLDER_SELECTIONS = { userFolder: TEST_USER_FOLDER, sampleFolder: TEST_SAMPLE_FOLDER }
+const DEFAULT_MIXJAM_FILES: MixJamFileItem[] = [
   {
     path: 'club-night.mixjam',
     displayName: 'club-night',
@@ -120,12 +120,12 @@ function queryDefaultRows(request: SampleQueryRequest): SampleQueryResponse {
 export function createBackendAPI(): BackendAPI {
   return {
     getVersion: vi.fn().mockResolvedValue('v0.test.0'),
-    resizeToTracker: vi.fn().mockResolvedValue(undefined),
+    resizeToPlayer: vi.fn().mockResolvedValue(undefined),
     resizeToHome: vi.fn().mockResolvedValue(undefined),
     openExternal: vi.fn().mockResolvedValue(undefined),
-    loadSession: vi.fn().mockResolvedValue(DEFAULT_SESSION),
-    saveSession: vi.fn().mockResolvedValue(undefined),
-    loadRecentProjects: vi.fn().mockResolvedValue(DEFAULT_RECENT_PROJECTS),
+    loadFolderSelections: vi.fn().mockResolvedValue(DEFAULT_FOLDER_SELECTIONS),
+    saveFolderSelections: vi.fn().mockResolvedValue(undefined),
+    loadMixJamFiles: vi.fn().mockResolvedValue(DEFAULT_MIXJAM_FILES),
     recordRecentProject: vi.fn().mockResolvedValue(undefined),
     pickFolder: vi.fn().mockResolvedValue(null),
     validateFolder: vi.fn().mockResolvedValue('ok'),

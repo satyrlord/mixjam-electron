@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
-import type { BackendAPI, FolderRef, SessionPaths } from '../../../shared/backend-api'
+import type { BackendAPI, FolderRef, FolderSelections } from '../../../shared/backend-api'
 
 const PICK_ERROR = 'Cannot access this folder. Check permissions and try again.'
 const RESTORE_ERROR = 'Folder not accessible — pick a new one.'
@@ -24,24 +24,24 @@ function pickButton(label: string): HTMLElement {
 }
 
 async function renderFirstLaunch() {
-  vi.mocked(api().loadSession).mockResolvedValue({ userFolder: null, sampleFolder: null })
+  vi.mocked(api().loadFolderSelections).mockResolvedValue({ userFolder: null, sampleFolder: null })
   render(<App />)
-  await waitFor(() => expect(api().loadSession).toHaveBeenCalled())
+  await waitFor(() => expect(api().loadFolderSelections).toHaveBeenCalled())
 }
 
-async function renderRestored(session: SessionPaths) {
-  vi.mocked(api().loadSession).mockResolvedValue(session)
+async function renderRestored(selections: FolderSelections) {
+  vi.mocked(api().loadFolderSelections).mockResolvedValue(selections)
   render(<App />)
-  await waitFor(() => expect(api().loadSession).toHaveBeenCalled())
+  await waitFor(() => expect(api().loadFolderSelections).toHaveBeenCalled())
 }
 
-describe('Spec 003 - Folder & Session Management acceptance', () => {
+describe('Spec 003 - Folder & App State Management acceptance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(api().loadSession).mockResolvedValue({ userFolder: null, sampleFolder: null })
+    vi.mocked(api().loadFolderSelections).mockResolvedValue({ userFolder: null, sampleFolder: null })
     vi.mocked(api().validateFolder).mockResolvedValue('ok')
     vi.mocked(api().pickFolder).mockResolvedValue(null)
-    vi.mocked(api().saveSession).mockResolvedValue(undefined)
+    vi.mocked(api().saveFolderSelections).mockResolvedValue(undefined)
   })
 
   it('AC-001: Home shows a User Folder card above a Sample Folder card', async () => {
@@ -108,7 +108,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
 
     fireEvent.click(start)
     await waitFor(() => expect(screen.getByText('Lane 1')).toBeInTheDocument())
-    expect(vi.mocked(api().resizeToTracker)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(api().resizeToPlayer)).toHaveBeenCalledTimes(1)
   })
 
   it('AC-008: Load MixJam is independent of folder state (disabled until spec-011)', async () => {
@@ -171,7 +171,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     expect(pickButton('Sample Folder')).toBeDisabled()
   })
 
-  it('AC-011 / AC-012: a fully restored session shows folder names and opens the gate', async () => {
+  it('AC-011 / AC-012: fully restored folder selections show folder names and open the gate', async () => {
     vi.mocked(api().validateFolder).mockResolvedValue('ok')
     await renderRestored({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
 
@@ -223,7 +223,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     )
   })
 
-  it('AC-014: selecting both folders persists the session via saveSession', async () => {
+  it('AC-014: selecting both folders persists them via saveFolderSelections', async () => {
     await renderFirstLaunch()
 
     vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
@@ -234,7 +234,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
     fireEvent.click(pickButton('Sample Folder'))
 
     await waitFor(() => {
-      expect(vi.mocked(api().saveSession)).toHaveBeenCalledWith({
+      expect(vi.mocked(api().saveFolderSelections)).toHaveBeenCalledWith({
         userFolder: USER_REF,
         sampleFolder: SAMPLE_REF
       })
@@ -262,7 +262,7 @@ describe('Spec 003 - Folder & Session Management acceptance', () => {
       expect(within(card('User Folder')).getByText(newUserRef.name)).toBeInTheDocument()
     })
     expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
-    expect(vi.mocked(api().saveSession)).toHaveBeenLastCalledWith({
+    expect(vi.mocked(api().saveFolderSelections)).toHaveBeenLastCalledWith({
       userFolder: newUserRef,
       sampleFolder: SAMPLE_REF
     })

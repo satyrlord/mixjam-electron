@@ -1,4 +1,4 @@
-// Thin Electron shell. The entire backend (SQLite, indexing, session, folder
+// Thin Electron shell. The entire backend (SQLite, indexing, app state, folder
 // access) lives in the renderer bundle and runs identically in a plain
 // Chromium browser; this process only provides what a browser cannot: a
 // window, a stable privileged origin for storage, auto-granted File System
@@ -13,7 +13,7 @@ import {
   buildPreloadPath,
   createMainWindowOptions,
   resizeWindowToHome,
-  resizeWindowToTracker
+  resizeWindowToPlayer
 } from '../shared/window-config'
 
 let mainWindow: BrowserWindow | null = null
@@ -122,9 +122,9 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle(SHELL_IPC_CHANNELS.appGetVersion, () => appVersion())
 
-ipcMain.handle(SHELL_IPC_CHANNELS.windowResizeTracker, () => {
+ipcMain.handle(SHELL_IPC_CHANNELS.windowResizePlayer, () => {
   if (!mainWindow) return
-  resizeWindowToTracker(mainWindow)
+  resizeWindowToPlayer(mainWindow)
 })
 
 ipcMain.handle(SHELL_IPC_CHANNELS.windowResizeHome, () => {

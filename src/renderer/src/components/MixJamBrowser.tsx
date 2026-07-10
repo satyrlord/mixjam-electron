@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { RecentProjectItem } from '../../../shared/backend-api'
+import type { MixJamFileItem } from '../../../shared/backend-api'
 import { PROJECT_LOAD_COMING_SOON } from './HomeScreen'
 
+// Retain the legacy value so an existing collapsed preference survives rename.
 const STORAGE_KEY = 'mixjam:recents-rail-collapsed'
 
 function loadCollapsed(): boolean {
@@ -13,15 +14,15 @@ function loadCollapsed(): boolean {
   }
 }
 
-interface RecentProjectsRailProps {
-  recentProjects: RecentProjectItem[]
+interface MixJamBrowserProps {
+  mixJamFiles: MixJamFileItem[]
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
-export default function RecentProjectsRail({
-  recentProjects,
+export default function MixJamBrowser({
+  mixJamFiles,
   onCollapsedChange
-}: RecentProjectsRailProps) {
+}: MixJamBrowserProps) {
   const [collapsed, setCollapsed] = useState(loadCollapsed)
 
   useEffect(() => {
@@ -40,14 +41,14 @@ export default function RecentProjectsRail({
   }
 
   return (
-    <aside className={`tracker-zone recent-projects-rail${collapsed ? ' recent-projects-rail-collapsed' : ''}`}>
-      <div className="recent-projects-header">
-        <h2 className="tracker-zone-title">Recent Projects</h2>
+    <aside className={`tracker-zone mixjam-browser${collapsed ? ' mixjam-browser-collapsed' : ''}`}>
+      <div className="mixjam-browser-header">
+        <h2 className="tracker-zone-title">MixJam Browser</h2>
         <button
           type="button"
-          className="recent-projects-toggle"
+          className="mixjam-browser-toggle"
           onClick={toggle}
-          aria-label={collapsed ? 'Expand recent projects' : 'Collapse recent projects'}
+          aria-label={collapsed ? 'Expand MixJam Browser' : 'Collapse MixJam Browser'}
           aria-expanded={!collapsed}
           title={collapsed ? 'Expand' : 'Collapse'}
         >
@@ -55,22 +56,22 @@ export default function RecentProjectsRail({
         </button>
       </div>
       {!collapsed && (
-        recentProjects.length === 0 ? (
-          <p className="recent-projects-empty">
+        mixJamFiles.length === 0 ? (
+          <p className="mixjam-browser-empty">
             No MixJam projects yet. Project save/load is coming soon.
           </p>
         ) : (
-          <ol className="recent-projects-list">
-            {recentProjects.map((project) => (
-              <li key={project.path} className="recent-projects-item">
+          <ol className="mixjam-browser-list">
+            {mixJamFiles.map((project) => (
+              <li key={project.path} className="mixjam-browser-item">
                 <button
                   type="button"
-                  className="recent-projects-open"
+                  className="mixjam-browser-open"
                   disabled
                   title={PROJECT_LOAD_COMING_SOON}
                 >
-                  <span className="recent-projects-name">{project.displayName}</span>
-                  <span className="recent-projects-path">{project.path}</span>
+                  <span className="mixjam-browser-name">{project.displayName}</span>
+                  <span className="mixjam-browser-path">{project.path}</span>
                 </button>
               </li>
             ))}

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SampleBrowser from './SampleBrowser'
-import type { TrackerBrowserProps } from './trackerProps'
+import type { PlayerBrowserProps } from './playerProps'
 import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
 
 const noop = () => undefined
@@ -37,7 +37,7 @@ const SAMPLE: SampleListItem = {
   tagIds: [10]
 }
 
-function makeBrowser(overrides: Partial<TrackerBrowserProps> = {}): TrackerBrowserProps {
+function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowserProps {
   return {
     samples: [SAMPLE],
     searchQuery: '',
@@ -80,12 +80,10 @@ function makeBrowser(overrides: Partial<TrackerBrowserProps> = {}): TrackerBrows
   }
 }
 
-function renderBrowser(overrides: Partial<TrackerBrowserProps> = {}) {
+function renderBrowser(overrides: Partial<PlayerBrowserProps> = {}) {
   return render(
     <SampleBrowser
       browser={makeBrowser(overrides)}
-      bpm={120}
-      pixelsPerTick={0.5}
       flashSamplePath={null}
       onSampleDragStart={vi.fn()}
     />

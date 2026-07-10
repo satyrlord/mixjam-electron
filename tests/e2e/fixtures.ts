@@ -33,12 +33,12 @@ export const test = base.extend<E2EFixtures>({
     await page.addInitScript(() => {
       // Everything is defined inside the browser context — no imports, no
       // TypeScript, just plain ES5-compatible JavaScript.
-      const MOCK_SESSION = {
+      const MOCK_FOLDER_SELECTIONS = {
         userFolder: { id: 'e2e-user-folder', name: 'MixJam' },
         sampleFolder: { id: 'e2e-sample-folder', name: 'Samples' }
       }
 
-      const MOCK_RECENT = [
+      const MOCK_MIXJAM_FILES = [
         { path: 'club-night.mixjam', displayName: 'club-night', lastOpened: '2026-06-28T12:00:00.000Z' },
         { path: 'archive/sunrise.mixjam', displayName: 'sunrise', lastOpened: null }
       ]
@@ -90,12 +90,12 @@ export const test = base.extend<E2EFixtures>({
       // Assign BEFORE the app bundle executes.
       window.backendAPI = {
         getVersion: function () { return Promise.resolve('v0.test.0') },
-        resizeToTracker: function () { return Promise.resolve() },
+        resizeToPlayer: function () { return Promise.resolve() },
         resizeToHome: function () { return Promise.resolve() },
         openExternal: function () { return Promise.resolve() },
-        loadSession: function () { return Promise.resolve(MOCK_SESSION) },
-        saveSession: function () { return Promise.resolve() },
-        loadRecentProjects: function () { return Promise.resolve(MOCK_RECENT) },
+        loadFolderSelections: function () { return Promise.resolve(MOCK_FOLDER_SELECTIONS) },
+        saveFolderSelections: function () { return Promise.resolve() },
+        loadMixJamFiles: function () { return Promise.resolve(MOCK_MIXJAM_FILES) },
         recordRecentProject: function () { return Promise.resolve() },
         pickFolder: function () { return Promise.resolve(null) },
         validateFolder: function () { return Promise.resolve('ok') },

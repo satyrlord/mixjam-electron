@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import RecentProjectsRail from './RecentProjectsRail'
+import MixJamBrowser from './MixJamBrowser'
 
-describe('RecentProjectsRail storage failures', () => {
+describe('MixJamBrowser storage failures', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -15,10 +15,10 @@ describe('RecentProjectsRail storage failures', () => {
       throw new DOMException('full', 'QuotaExceededError')
     })
 
-    render(<RecentProjectsRail recentProjects={[]} />)
-    const toggle = screen.getByRole('button', { name: 'Collapse recent projects' })
+    render(<MixJamBrowser mixJamFiles={[]} />)
+    const toggle = screen.getByRole('button', { name: 'Collapse MixJam Browser' })
     fireEvent.click(toggle)
 
-    expect(screen.getByRole('button', { name: 'Expand recent projects' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand MixJam Browser' })).toBeInTheDocument()
   })
 })

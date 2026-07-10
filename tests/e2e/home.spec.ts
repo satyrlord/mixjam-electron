@@ -21,13 +21,13 @@ test.describe('Home screen', () => {
     await expect(startBtn).toBeEnabled()
   })
 
-  test('clicking Start New MixJam navigates to tracker', async ({ seededPage }) => {
+  test('clicking Start New MixJam navigates to the Player', async ({ seededPage }) => {
     await seededPage.getByRole('button', { name: 'Start New MixJam' }).click()
     await expect(seededPage.locator('.home-setup')).not.toBeVisible({ timeout: 5_000 })
-    await expect(seededPage.locator('.tracker-view')).toBeVisible({ timeout: 5_000 })
+    await expect(seededPage.locator('.player-view')).toBeVisible({ timeout: 5_000 })
   })
 
-  test('shows recent projects when session has them', async ({ seededPage }) => {
+  test('shows MixJam files returned by the backend', async ({ seededPage }) => {
     await expect(seededPage.locator('.home-recent-title')).toBeVisible()
     await expect(seededPage.locator('.home-recent-name').filter({ hasText: 'club-night' })).toBeVisible()
     await expect(seededPage.locator('.home-recent-name').filter({ hasText: 'sunrise' })).toBeVisible()

@@ -46,13 +46,13 @@ describe('useLibraryData', () => {
     vi.restoreAllMocks()
   })
 
-  it('loads version, recent projects, tags, categories, and libraries on mount', async () => {
+  it('loads version, MixJam files, tags, categories, and libraries on mount', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
-    await waitFor(() => expect(result.current.recentProjects).toHaveLength(2))
+    await waitFor(() => expect(result.current.mixJamFiles).toHaveLength(2))
     await waitFor(() => expect(result.current.categories).toHaveLength(8))
     await waitFor(() => expect(result.current.tags).toHaveLength(0))
     await waitFor(() => expect(result.current.libraries).toHaveLength(0))
@@ -376,21 +376,21 @@ describe('useLibraryData', () => {
     expect(result.current.scanProgress.status).toBe('scanning')
   })
 
-  it('reloadRecentProjects refreshes from backendAPI', async () => {
+  it('reloadMixJamFiles refreshes from backendAPI', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    await waitFor(() => expect(result.current.recentProjects).toHaveLength(2))
+    await waitFor(() => expect(result.current.mixJamFiles).toHaveLength(2))
 
     const newProjects = [{ path: 'new.mixjam', displayName: 'new', lastOpened: null }]
-    vi.mocked(api.loadRecentProjects).mockResolvedValue(newProjects)
+    vi.mocked(api.loadMixJamFiles).mockResolvedValue(newProjects)
 
     await act(async () => {
-      await result.current.reloadRecentProjects()
+      await result.current.reloadMixJamFiles()
     })
 
-    expect(result.current.recentProjects).toEqual(newProjects)
+    expect(result.current.mixJamFiles).toEqual(newProjects)
   })
 
   it('onScanDone callback resets progress, marks indexed, and refreshes data', async () => {
@@ -681,14 +681,14 @@ describe('useLibraryData', () => {
     consoleSpy.mockRestore()
   })
 
-  it('reloadRecentProjects sets empty array on error', async () => {
+  it('reloadMixJamFiles sets empty array on error', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.loadRecentProjects).mockRejectedValue(new Error('disk full'))
+    vi.mocked(api.loadMixJamFiles).mockRejectedValue(new Error('disk full'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    await waitFor(() => expect(result.current.recentProjects).toEqual([]))
+    await waitFor(() => expect(result.current.mixJamFiles).toEqual([]))
     consoleSpy.mockRestore()
   })
 
@@ -1077,5 +1077,68 @@ describe('useLibraryData', () => {
 
     act(() => { onScanDone() })
     await waitFor(() => expect(result.current.missingSamplePaths.size).toBe(0))
+  })
+
+  it('updates every manual analysis field while preserving other samples', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+    const sample = result.current.samples[0]!
+    const other = result.current.samples[1]!
+
+    await act(async () => {
+      await result.current.updateSampleAnalysis(sample, {
+        bpm: 128,
+        musicalKey: 'Am',
+        sampleType: 'Loop'
+      })
+    })
+
+    expect(api.updateSampleAnalysis).toHaveBeenCalledWith(sample.dbId, {
+      bpm: 128,
+      musicalKey: 'Am',
+      sampleType: 'Loop'
+    })
+    expect(result.current.samples[0]).toMatchObject({
+      bpm: 128,
+      bpmSource: 'manual',
+      musicalKey: 'Am',
+      musicalKeySource: 'manual',
+      sampleType: 'Loop',
+      sampleTypeSource: 'manual'
+    })
+    expect(result.current.samples[1]).toBe(other)
+  })
+
+  it('clears manual analysis fields and treats an empty patch as a state no-op', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+    const sample = result.current.samples[0]!
+
+    await act(async () => {
+      await result.current.updateSampleAnalysis(sample, {
+        bpm: null,
+        musicalKey: null,
+        sampleType: null
+      })
+    })
+
+    expect(result.current.samples[0]).toMatchObject({
+      bpm: null,
+      bpmSource: null,
+      musicalKey: null,
+      musicalKeySource: null,
+      sampleType: null,
+      sampleTypeSource: null
+    })
+
+    const afterClear = result.current.samples[0]
+    await act(async () => {
+      await result.current.updateSampleAnalysis(sample, {})
+    })
+    expect(result.current.samples[0]).toEqual(afterClear)
   })
 })

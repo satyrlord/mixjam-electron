@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Player } from '../engine/player'
+import type { PlaybackEngine } from '../engine/playback-engine'
 import { safeJsonParse } from '../lib/safeJsonParse'
 
 const DEFAULT_CHANNEL_COUNT = 16
@@ -87,13 +87,13 @@ function rmsToDb(rms: number): number {
  * Manages N-channel mixer state (gain, pan, mute, solo) and drives the
  * per-channel dB meter display via a single requestAnimationFrame loop.
  *
- * Receives the Player ref so it can call channel mutators and read analysers
+ * Receives the PlaybackEngine ref so it can call channel mutators and read analysers
  * without importing the engine directly. Also receives the current view so
- * the apply-to-player effect fires when entering the tracker (the ref mutation
- * of playerRef.current does not trigger re-renders).
+ * the apply-state effect fires when entering the Player (the ref mutation
+ * of playbackEngineRef.current does not trigger re-renders).
  */
 export function useMixer(
-  playerRef: React.RefObject<Player | null>,
+  playbackEngineRef: React.RefObject<PlaybackEngine | null>,
   view: string
 ): Mixer {
   const [channels, setChannels] = useState<ChannelState[]>(loadChannelState)
@@ -124,22 +124,22 @@ export function useMixer(
 
   // rAF meter loop — reads all channel analysers once per frame, computes RMS,
   // updates peak hold, and batches a single setState. Only runs while the
-  // player exists; stops updating state when values are unchanged.
+  // PlaybackEngine exists; stops updating state when values are unchanged.
   useEffect(() => {
     let rafId: number
     let running = true
 
     const tick = (now: number) => {
       if (!running) return
-      const player = playerRef.current
-      if (!player) {
+      const playbackEngine = playbackEngineRef.current
+      if (!playbackEngine) {
         rafId = requestAnimationFrame(tick)
         return
       }
 
       // When silent, decay meters to silence over one frame then keep the loop
       // alive so it resumes immediately when playback starts.
-      if (player.activeVoiceCount === 0) {
+      if (playbackEngine.activeVoiceCount === 0) {
         const prevLevels = prevLevelsRef.current
         if (prevLevels.size > 0) {
           let anyAudible = false
@@ -176,7 +176,7 @@ export function useMixer(
       let anyChanged = false
 
       for (const ch of chs) {
-        const analyser = player.getChannelAnalyser(ch.channelIndex)
+        const analyser = playbackEngine.getChannelAnalyser(ch.channelIndex)
         if (!analyser) {
           newLevels.set(ch.channelIndex, SILENCE_DB)
           if (prevLevels.get(ch.channelIndex) !== SILENCE_DB) anyChanged = true
@@ -225,44 +225,44 @@ export function useMixer(
       running = false
       cancelAnimationFrame(rafId)
     }
-  }, [playerRef])
+  }, [playbackEngineRef])
 
-  // Apply channel state to the Player when entering the tracker (a fresh Player
+  // Apply channel state to PlaybackEngine when entering the Player (a fresh PlaybackEngine
   // is created on each entry). Also replays removed channel indices so channel
   // removal survives page reload.
   useEffect(() => {
-    if (view !== 'tracker') return
-    const player = playerRef.current
-    if (!player) return
+    if (view !== 'player') return
+    const playbackEngine = playbackEngineRef.current
+    if (!playbackEngine) return
 
     // Replay removed channels first so their indices are marked before we
     // push gain/pan/mute/solo (which would otherwise create the channels).
-    player.replayRemovedChannels(removedIndicesOf(channels))
+    playbackEngine.replayRemovedChannels(removedIndicesOf(channels))
 
     for (const ch of channels) {
-      player.setChannelGain(ch.channelIndex, ch.gain)
-      player.setChannelPan(ch.channelIndex, ch.pan)
+      playbackEngine.setChannelGain(ch.channelIndex, ch.gain)
+      playbackEngine.setChannelPan(ch.channelIndex, ch.pan)
     }
     // Apply mute/solo gating after all gains are set.
     for (const ch of channels) {
-      player.setChannelMute(ch.channelIndex, ch.muted)
-      player.setChannelSolo(ch.channelIndex, ch.solo)
+      playbackEngine.setChannelMute(ch.channelIndex, ch.muted)
+      playbackEngine.setChannelSolo(ch.channelIndex, ch.solo)
     }
-  }, [view, playerRef, channels])
+  }, [view, playbackEngineRef, channels])
 
   const setChannelGain = useCallback((channelIndex: number, gain: number) => {
     setChannels((prev) =>
       prev.map((ch) => (ch.channelIndex === channelIndex ? { ...ch, gain } : ch))
     )
-    playerRef.current?.setChannelGain(channelIndex, gain)
-  }, [playerRef])
+    playbackEngineRef.current?.setChannelGain(channelIndex, gain)
+  }, [playbackEngineRef])
 
   const setChannelPan = useCallback((channelIndex: number, pan: number) => {
     setChannels((prev) =>
       prev.map((ch) => (ch.channelIndex === channelIndex ? { ...ch, pan } : ch))
     )
-    playerRef.current?.setChannelPan(channelIndex, pan)
-  }, [playerRef])
+    playbackEngineRef.current?.setChannelPan(channelIndex, pan)
+  }, [playbackEngineRef])
 
   const toggleChannelMute = useCallback((channelIndex: number) => {
     setChannels((prev) => {
@@ -271,33 +271,33 @@ export function useMixer(
       )
       // Apply gating immediately using the fresh state from the updater,
       // not the stale closure.
-      const player = playerRef.current
-      if (player) {
+      const playbackEngine = playbackEngineRef.current
+      if (playbackEngine) {
         const updated = next.find((c) => c.channelIndex === channelIndex)
-        if (updated) player.setChannelMute(channelIndex, updated.muted)
+        if (updated) playbackEngine.setChannelMute(channelIndex, updated.muted)
       }
       return next
     })
-  }, [playerRef])
+  }, [playbackEngineRef])
 
   const toggleChannelSolo = useCallback((channelIndex: number) => {
     setChannels((prev) => {
       const next = prev.map((ch) =>
         ch.channelIndex === channelIndex ? { ...ch, solo: !ch.solo } : ch
       )
-      const player = playerRef.current
-      if (player) {
+      const playbackEngine = playbackEngineRef.current
+      if (playbackEngine) {
         const updated = next.find((c) => c.channelIndex === channelIndex)
-        if (updated) player.setChannelSolo(channelIndex, updated.solo)
+        if (updated) playbackEngine.setChannelSolo(channelIndex, updated.solo)
       }
       return next
     })
-  }, [playerRef])
+  }, [playbackEngineRef])
 
   const removeChannel = useCallback((channelIndex: number) => {
     setChannels((prev) => prev.filter((ch) => ch.channelIndex !== channelIndex))
-    playerRef.current?.removeChannel(channelIndex)
-  }, [playerRef])
+    playbackEngineRef.current?.removeChannel(channelIndex)
+  }, [playbackEngineRef])
 
   // Add-back of a removed channel (not add-new): re-adds the lowest missing
   // channelIndex at default state and re-routes its lane from the master bypass
@@ -311,12 +311,12 @@ export function useMixer(
     if (lowest === undefined) return
     const restored = createDefaultChannel(lowest)
     // Re-route the lane back into its channel strip. Gain/pan/mute/solo are
-    // re-pushed to the player by the apply-state effect on the next commit.
-    playerRef.current?.restoreChannel(lowest)
+    // re-pushed to PlaybackEngine by the apply-state effect on the next commit.
+    playbackEngineRef.current?.restoreChannel(lowest)
     setChannels((prev) =>
       [...prev, restored].sort((a, b) => a.channelIndex - b.channelIndex)
     )
-  }, [playerRef])
+  }, [playbackEngineRef])
 
   return {
     channels,

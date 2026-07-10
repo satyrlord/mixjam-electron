@@ -2,6 +2,7 @@ import type { AnalysisProgress, ScanProgress } from '../../../shared/backend-api
 import { useBpmEditor } from '../hooks/useBpmEditor'
 import ScanProgressBar from './ScanProgressBar'
 import AnalysisProgressBar from './AnalysisProgressBar'
+import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 
 // Transport and edit glyphs as inline SVGs: emoji codepoints render through a
 // color emoji font on Windows and ignore the theme's currentColor.
@@ -27,8 +28,8 @@ function TransportIcon({ shape, mirrored = false }: {
   )
 }
 
-interface TransportStripProps {
-  transportState: 'stopped' | 'playing' | 'paused'
+interface MiddleStripProps {
+  transportState: RuntimeTransportState
   bpm: number
   onSetBpm: (bpm: number) => void
   canUndo: boolean
@@ -48,7 +49,7 @@ interface TransportStripProps {
   onOpenShortcuts: () => void
 }
 
-export default function TransportStrip({
+export default function MiddleStrip({
   transportState,
   bpm,
   onSetBpm,
@@ -67,8 +68,9 @@ export default function TransportStrip({
   onStartScan,
   onCancelScan,
   onOpenShortcuts
-}: TransportStripProps) {
+}: MiddleStripProps) {
   const isPlaying = transportState === 'playing'
+  const isPreparing = transportState === 'preparing'
   const scanBusy = scanProgress.status === 'scanning'
   const analysisBusy = analysisProgress.status === 'analyzing'
   const libraryBusy = scanBusy || analysisBusy
@@ -114,16 +116,17 @@ export default function TransportStrip({
           </button>
         )}
       </div>
-      <div className="strip-center">
+      <div className="transport-ribbon" aria-label="Transport Ribbon">
         <button type="button" className="transport-button" aria-label="Skip Back" title="Skip back to start" onClick={onTransportSkipBack}>
           <TransportIcon shape="skip-back" />
         </button>
         <button
           type="button"
-          className={`transport-button${isPlaying ? ' transport-button-play' : ''}`}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-          title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+          className={`transport-button${isPlaying || isPreparing ? ' transport-button-play' : ''}`}
+          aria-label={isPreparing ? 'Preparing playback' : isPlaying ? 'Pause' : 'Play'}
+          title={isPreparing ? 'Preparing audio; Stop cancels' : isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           onClick={isPlaying ? onTransportPause : onTransportPlay}
+          disabled={isPreparing}
         >
           <TransportIcon shape={isPlaying ? 'pause' : 'play'} />
         </button>

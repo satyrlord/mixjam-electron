@@ -270,8 +270,9 @@ adjacencies.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
 - [x] **AC-011:** The ruler displays beat ticks and stronger bar ticks using the same beat/bar grid as the lane canvas, with bar numbers (1, 5, 9, 13…) in monospace font;
   the ruler x-origin aligns with the tracker grid, placements, and playhead.
-- [x] **AC-011a:** Clicking the ruler timeline moves the playhead to the nearest 8-tick beat boundary. The engine seeks to the same tick; playback continues
-  from that tick when already playing, while paused or stopped transport remains paused or stopped.
+- [x] **AC-011a:** Clicking the ruler timeline moves the playhead to the nearest 8-tick beat boundary. Arrow Left and Arrow Right move by one beat,
+  while Home and End move to the timeline boundaries. The engine seeks to the same tick; playback continues from that tick when already playing,
+  while paused or stopped transport remains paused or stopped.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).

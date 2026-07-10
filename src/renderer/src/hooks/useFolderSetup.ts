@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BackendAPI, FolderRef, FolderRole, SessionPaths } from '../../../shared/backend-api'
+import type { BackendAPI, FolderRef, FolderRole, FolderSelections } from '../../../shared/backend-api'
 
 export type FolderCardStatus =
   | 'empty'
@@ -15,19 +15,19 @@ export interface FolderView {
   status: FolderCardStatus
 }
 
-interface SessionState {
+interface FolderSetupState {
   user: FolderView
   sample: FolderView
 }
 
 const EMPTY: FolderView = { ref: null, status: 'empty' }
-const INITIAL: SessionState = { user: EMPTY, sample: EMPTY }
+const INITIAL: FolderSetupState = { user: EMPTY, sample: EMPTY }
 
-function setFolder(state: SessionState, role: FolderRole, folder: FolderView): SessionState {
+function setFolder(state: FolderSetupState, role: FolderRole, folder: FolderView): FolderSetupState {
   return role === 'user' ? { ...state, user: folder } : { ...state, sample: folder }
 }
 
-function toPaths(state: SessionState): SessionPaths {
+function toFolderSelections(state: FolderSetupState): FolderSelections {
   return {
     userFolder: state.user.status === 'set' ? state.user.ref : null,
     sampleFolder: state.sample.status === 'set' ? state.sample.ref : null
@@ -45,21 +45,21 @@ async function restoreFolder(
   return { ref, status: 'restore-error' }
 }
 
-async function restoreState(backendAPI: BackendAPI): Promise<SessionState> {
-  const session = await backendAPI.loadSession()
+async function restoreFolderSetup(backendAPI: BackendAPI): Promise<FolderSetupState> {
+  const selections = await backendAPI.loadFolderSelections()
   const [user, sample] = await Promise.all([
-    session.userFolder
-      ? restoreFolder(backendAPI, session.userFolder, 'user')
+    selections.userFolder
+      ? restoreFolder(backendAPI, selections.userFolder, 'user')
       : Promise.resolve(EMPTY),
-    session.sampleFolder
-      ? restoreFolder(backendAPI, session.sampleFolder, 'sample')
+    selections.sampleFolder
+      ? restoreFolder(backendAPI, selections.sampleFolder, 'sample')
       : Promise.resolve(EMPTY)
   ])
 
   return { user, sample }
 }
 
-export interface FolderSession {
+export interface FolderSetup {
   userFolder: FolderView
   sampleFolder: FolderView
   canStart: boolean
@@ -70,11 +70,11 @@ export interface FolderSession {
   restoreSample: () => Promise<void>
 }
 
-export function useFolderSession(backendAPI: BackendAPI): FolderSession {
-  const [state, setState] = useState<SessionState>(INITIAL)
+export function useFolderSetup(backendAPI: BackendAPI): FolderSetup {
+  const [state, setState] = useState<FolderSetupState>(INITIAL)
   const stateRef = useRef(INITIAL)
 
-  const commitState = useCallback((next: SessionState) => {
+  const commitState = useCallback((next: FolderSetupState) => {
     stateRef.current = next
     setState(next)
   }, [])
@@ -82,7 +82,7 @@ export function useFolderSession(backendAPI: BackendAPI): FolderSession {
   useEffect(() => {
     let active = true
 
-    void restoreState(backendAPI).then((next) => {
+    void restoreFolderSetup(backendAPI).then((next) => {
       if (active) {
         commitState(next)
       }
@@ -101,7 +101,7 @@ export function useFolderSession(backendAPI: BackendAPI): FolderSession {
       const card: FolderView = { ref, status: validation === 'ok' ? 'set' : 'pick-error' }
       const next = setFolder(stateRef.current, role, card)
       commitState(next)
-      if (validation === 'ok') void backendAPI.saveSession(toPaths(next))
+      if (validation === 'ok') void backendAPI.saveFolderSelections(toFolderSelections(next))
     },
     [commitState, backendAPI]
   )
@@ -116,7 +116,7 @@ export function useFolderSession(backendAPI: BackendAPI): FolderSession {
         : { ref: current.ref, status: 'needs-permission' }
       const next = setFolder(stateRef.current, role, card)
       commitState(next)
-      if (card.status === 'set') void backendAPI.saveSession(toPaths(next))
+      if (card.status === 'set') void backendAPI.saveFolderSelections(toFolderSelections(next))
     },
     [commitState, backendAPI]
   )

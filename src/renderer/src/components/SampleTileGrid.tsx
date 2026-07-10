@@ -1,8 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
-import type { FooterSampleDetail } from '../lib/playerShell'
-import { SAMPLE_BUBBLE_HEIGHT_PX, sampleDurationTicks } from '../lib/playerShell'
+import type { FooterSampleDetail } from '../lib/arrangement'
+import { SAMPLE_BUBBLE_HEIGHT_PX, sampleBubbleWidth } from '../lib/arrangement'
 import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 
 // Bubble geometry shared with the tracker: a sample bubble is 32px tall
@@ -52,8 +52,6 @@ function packTileRows(widths: readonly number[], rowWidth: number, gap: number):
 
 interface SampleTileGridProps {
   samples: SampleListItem[]
-  bpm: number
-  pixelsPerTick: number
   selectedSamplePath: string | null
   flashSamplePath: string | null
   /** Palette-slot override when a category filter is active — all visible samples share it. */
@@ -80,8 +78,6 @@ interface SampleTileGridProps {
  */
 function SampleTileGrid({
   samples,
-  bpm,
-  pixelsPerTick,
   selectedSamplePath,
   flashSamplePath,
   activeCategorySlot,
@@ -122,18 +118,17 @@ function SampleTileGrid({
     [categories]
   )
 
-  // Tile width mirrors the tracker's bubble width for the same sample so the
-  // bubble is pixel-identical in every view (hard rule).
+  // Source duration is the only width input, so a sample is pixel-identical
+  // in every view regardless of BPM, viewport, or placement duration.
   const tiles = useMemo(
     () =>
       samples.map((sample) => {
-        const durationTicks = sampleDurationTicks(sample.durationSeconds, bpm)
-        const width = Math.max(12, durationTicks * pixelsPerTick)
+        const width = sampleBubbleWidth(sample.durationSeconds)
         const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
         const slot = activeCategorySlot ?? (catName ? categorySlot(catName) : undefined)
         return { sample, width, slot }
       }),
-    [samples, bpm, pixelsPerTick, activeCategorySlot, categoryNames]
+    [samples, activeCategorySlot, categoryNames]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.
@@ -186,7 +181,7 @@ function SampleTileGrid({
                   <button
                     key={sample.id}
                     type="button"
-                    className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' clip-flash' : ''}`}
+                    className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' sample-bubble-flash' : ''}`}
                     style={{ width: `${width}px`, ...(slot !== undefined ? bubbleStyle(slot) : {}) } as React.CSSProperties}
                     title={`${sample.name || 'Unknown'} — click to preview, drag onto a lane, right-click to tag`}
                     draggable

@@ -21,12 +21,12 @@ export interface FolderRef {
  *  (browser host only — the Electron shell auto-grants). */
 export type FolderValidation = 'ok' | 'needs-permission' | 'invalid'
 
-export interface SessionPaths {
+export interface FolderSelections {
   userFolder: FolderRef | null
   sampleFolder: FolderRef | null
 }
 
-export interface RecentProjectItem {
+export interface MixJamFileItem {
   /** Path of the .mixjam file relative to the User Folder ('/'-separated). */
   path: string
   displayName: string
@@ -182,12 +182,12 @@ export interface BackendAPI {
   // Host capabilities — delegated to the ShellAPI in Electron, browser
   // fallbacks (no-op resize, window.open) otherwise.
   getVersion: () => Promise<string>
-  resizeToTracker: () => Promise<void>
+  resizeToPlayer: () => Promise<void>
   resizeToHome: () => Promise<void>
   openExternal: (url: string) => Promise<void>
-  loadSession: () => Promise<SessionPaths>
-  saveSession: (paths: SessionPaths) => Promise<void>
-  loadRecentProjects: (userFolder: FolderRef | null) => Promise<RecentProjectItem[]>
+  loadFolderSelections: () => Promise<FolderSelections>
+  saveFolderSelections: (selections: FolderSelections) => Promise<void>
+  loadMixJamFiles: (userFolder: FolderRef | null) => Promise<MixJamFileItem[]>
   recordRecentProject: (projectRelpath: string) => Promise<void>
   /** Shows the directory picker. Resolves null when the user cancels. Picking
    *  a folder that is already stored reuses its existing ref (and scan root). */
@@ -220,7 +220,7 @@ export interface BackendAPI {
   // browser's empty pre-index state and the first-entry auto-scan.
   hasSamples: (sampleFolder: FolderRef) => Promise<boolean>
   // Relpaths of samples marked missing (scan_state = 2) under the folder's
-  // scan root. The tracker stripes clips whose sample vanished between scans.
+  // scan root. The tracker stripes placements whose sample vanished between scans.
   listMissingRelpaths: (sampleFolder: FolderRef) => Promise<string[]>
   // Reads the raw bytes of a sample file through the root's directory handle
   // (a handle can only reach its own subtree, so containment is structural).

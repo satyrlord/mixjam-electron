@@ -2,7 +2,7 @@ import { join } from 'path'
 import type { BrowserWindowConstructorOptions, NativeImage } from 'electron'
 
 export const HOME_WINDOW_SIZE = Object.freeze({ width: 1280, height: 720 })
-export const TRACKER_WINDOW_SIZE = Object.freeze({ width: 1920, height: 1080 })
+export const PLAYER_WINDOW_SIZE = Object.freeze({ width: 1920, height: 1080 })
 
 export interface WindowFrameControls {
   setResizable(value: boolean): void
@@ -36,10 +36,10 @@ export function createMainWindowOptions(preloadPath: string, icon: NativeImage):
   }
 }
 
-export function resizeWindowToTracker(window: WindowFrameControls): void {
+export function resizeWindowToPlayer(window: WindowFrameControls): void {
   window.setResizable(true)
   window.setMaximizable(true)
-  window.setSize(TRACKER_WINDOW_SIZE.width, TRACKER_WINDOW_SIZE.height)
+  window.setSize(PLAYER_WINDOW_SIZE.width, PLAYER_WINDOW_SIZE.height)
   window.center()
 }
 

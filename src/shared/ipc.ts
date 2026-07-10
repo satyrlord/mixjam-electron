@@ -4,7 +4,7 @@
 
 export const SHELL_IPC_CHANNELS = {
   appGetVersion: 'app:get-version',
-  windowResizeTracker: 'window:resize-tracker',
+  windowResizePlayer: 'window:resize-player',
   windowResizeHome: 'window:resize-home',
   shellOpenUrl: 'shell:open-url'
 } as const
@@ -13,7 +13,7 @@ export const SHELL_IPC_CHANNELS = {
  *  Absent in the plain browser, where the backend substitutes fallbacks. */
 export interface ShellAPI {
   getVersion: () => Promise<string>
-  resizeToTracker: () => Promise<void>
+  resizeToPlayer: () => Promise<void>
   resizeToHome: () => Promise<void>
   openExternal: (url: string) => Promise<void>
 }

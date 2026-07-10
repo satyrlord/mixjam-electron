@@ -1,5 +1,5 @@
 // Pure scheduling logic for lanes: given the set of lanes and a tick, decide
-// which clips should trigger a voice. Respects mute, solo (solo overrides mute),
+// which placements should trigger a voice. Respects mute, solo (solo overrides mute),
 // and the monophonic rule (a lane plays at most one voice; a new trigger cuts
 // off the previous one — handled by the caller via the per-lane voice it owns).
 //
@@ -7,7 +7,7 @@
 // decision layer the scheduler consults; the engine performs the actual
 // triggering.
 
-export interface EngineClip {
+export interface EnginePlacement {
   startTick: number
   durationTicks: number
   samplePath: string
@@ -19,8 +19,10 @@ export interface EngineLane {
   solo: boolean
   /** Lane-level pan (-1..1), independent of channel pan. */
   pan: number
+  /** Native tempo of loop material; null/undefined keeps native-rate playback. */
+  nativeBPM?: number | null
   channelIndex: number
-  clips: EngineClip[]
+  placements: EnginePlacement[]
 }
 
 export interface LaneTrigger {
@@ -29,12 +31,13 @@ export interface LaneTrigger {
   samplePath: string
   /** Lane-level pan value carried through to the per-lane panner node. */
   pan: number
-  clip: EngineClip
+  nativeBPM: number | null
+  placement: EnginePlacement
 }
 
 // The mute/solo audibility policy is defined once here over the minimal
 // { muted, solo } shape so both the engine (EngineLane) and the UI
-// (LaneState, via playerShell) share a single source of truth.
+// (LaneState, via arrangement) share a single source of truth.
 export interface MuteSolo {
   muted: boolean
   solo: boolean
@@ -51,8 +54,8 @@ export function laneIsAudible(lane: MuteSolo, soloActive: boolean): boolean {
   return !lane.muted
 }
 
-// Returns the triggers that fire exactly at `tick`: a clip fires when the
-// playhead reaches its start tick on an audible lane. Clips that merely span the
+// Returns the triggers that fire exactly at `tick`: a placement fires when the
+// playhead reaches its start tick on an audible lane. Placements that merely span the
 // tick are already sounding and are not re-triggered.
 export function triggersForTick(lanes: readonly EngineLane[], tick: number): LaneTrigger[] {
   const soloActive = anyLaneSoloed(lanes)
@@ -60,14 +63,15 @@ export function triggersForTick(lanes: readonly EngineLane[], tick: number): Lan
 
   for (const lane of lanes) {
     if (!laneIsAudible(lane, soloActive)) continue
-    for (const clip of lane.clips) {
-      if (clip.startTick === tick) {
+    for (const placement of lane.placements) {
+      if (placement.startTick === tick) {
         triggers.push({
           laneIndex: lane.index,
           channelIndex: lane.channelIndex,
-          samplePath: clip.samplePath,
+          samplePath: placement.samplePath,
           pan: lane.pan,
-          clip
+          nativeBPM: lane.nativeBPM ?? null,
+          placement
         })
       }
     }

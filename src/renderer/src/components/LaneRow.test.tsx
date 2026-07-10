@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import LaneRow from './LaneRow'
-import type { LaneState } from '../lib/playerShell'
+import type { LaneState } from '../lib/arrangement'
 
 function makeLane(overrides: Partial<LaneState> = {}): LaneState {
   return {
@@ -10,7 +10,7 @@ function makeLane(overrides: Partial<LaneState> = {}): LaneState {
     muted: false,
     solo: false,
     pan: 0,
-    clips: [],
+    placements: [],
     ...overrides
   }
 }
@@ -20,13 +20,14 @@ const DEFAULT_PROPS = {
   dimmed: false,
   totalTicks: 256,
   flashSamplePath: null,
-  selectedClipIds: new Set<string>(),
+  selectedPlacementIds: new Set<string>(),
   missingSamplePaths: new Set<string>(),
   onToggleLaneMute: vi.fn(),
   onToggleLaneSolo: vi.fn(),
   onSetLanePan: vi.fn(),
-  onClipDragStart: vi.fn(),
-  onClipContextMenu: vi.fn(),
+  onSetLaneNativeBpm: vi.fn(),
+  onPlacementDragStart: vi.fn(),
+  onPlacementContextMenu: vi.fn(),
   onDragOver: vi.fn(),
   onDrop: vi.fn(),
   trackDragCleanup: () => vi.fn()
@@ -45,6 +46,32 @@ describe('LaneRow', () => {
   it('dimmed lane gets the dimmed class', () => {
     render(<LaneRow {...DEFAULT_PROPS} dimmed />)
     expect(document.querySelector('.tracker-lane')!.className).toContain('tracker-lane-dimmed')
+  })
+
+  it('edits and clears the lane native BPM', () => {
+    const onSetLaneNativeBpm = vi.fn()
+    const { rerender } = render(
+      <LaneRow {...DEFAULT_PROPS} onSetLaneNativeBpm={onSetLaneNativeBpm} />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set native BPM for Lane 1' }))
+    const input = screen.getByRole('spinbutton', { name: 'Native BPM for Lane 1' })
+    fireEvent.change(input, { target: { value: '128.5' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onSetLaneNativeBpm).toHaveBeenLastCalledWith(0, 128.5)
+
+    rerender(
+      <LaneRow
+        {...DEFAULT_PROPS}
+        lane={makeLane({ nativeBPM: 128.5 })}
+        onSetLaneNativeBpm={onSetLaneNativeBpm}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Set native BPM for Lane 1' }))
+    const populatedInput = screen.getByRole('spinbutton', { name: 'Native BPM for Lane 1' })
+    fireEvent.change(populatedInput, { target: { value: '' } })
+    fireEvent.keyDown(populatedInput, { key: 'Enter' })
+    expect(onSetLaneNativeBpm).toHaveBeenLastCalledWith(0, null)
   })
 
   it('pan slider shows correct aria-valuenow', () => {

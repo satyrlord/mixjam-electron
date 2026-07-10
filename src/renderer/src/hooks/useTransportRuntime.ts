@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
-import { type Transport, createTransport, TICKS_PER_BEAT } from '../engine/transport'
-import { Player } from '../engine/player'
+import { type Transport, type TransportState, createTransport, TICKS_PER_BEAT } from '../engine/transport'
+import { PlaybackEngine } from '../engine/playback-engine'
 import type { EngineLane } from '../engine/lane-evaluation'
 import { useSyncedRef } from './useSyncedRef'
 
-type TransportState = Transport['state']
+export type RuntimeTransportState = TransportState | 'preparing'
 
 interface UseTransportRuntimeParams {
   backendAPI: BackendAPI
@@ -17,8 +17,8 @@ interface UseTransportRuntimeParams {
 }
 
 export interface TransportRuntime {
-  playerRef: React.RefObject<Player | null>
-  transportState: TransportState
+  playbackEngineRef: React.RefObject<PlaybackEngine | null>
+  transportState: RuntimeTransportState
   currentTick: number
   bpm: number
   masterGain: number
@@ -28,10 +28,12 @@ export interface TransportRuntime {
   transportPause: () => void
   transportStop: () => void
   transportSkipBack: () => void
+  transportSeek: (tick: number) => void
   previewSample: (samplePath: string) => void
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
   setBpm: (nextBpm: number) => void
   setMasterGain: (value: number) => void
+  prepareTempoChange: () => void
 }
 
 export function useTransportRuntime({
@@ -43,8 +45,8 @@ export function useTransportRuntime({
   initialMasterGain
 }: UseTransportRuntimeParams): TransportRuntime {
   const transportRef = useRef<Transport | null>(null)
-  const playerRef = useRef<Player | null>(null)
-  const [transportState, setTransportState] = useState<TransportState>('stopped')
+  const playbackEngineRef = useRef<PlaybackEngine | null>(null)
+  const [transportState, setTransportState] = useState<RuntimeTransportState>('stopped')
   const [currentTick, setCurrentTick] = useState(0)
   const [bpm, setBpmState] = useState(initialBpm)
   const [masterGain, setMasterGainState] = useState(initialMasterGain)
@@ -54,6 +56,9 @@ export function useTransportRuntime({
   const activeRef = useSyncedRef(active)
   const bpmRef = useRef(initialBpm)
   const masterGainRef = useRef(initialMasterGain)
+  const runtimeStateRef = useRef<RuntimeTransportState>('stopped')
+  const startRequestRef = useRef<number | null>(null)
+  const nextStartRequestRef = useRef(0)
   const timerRef = useRef<number | null>(null)
   const startedAtRef = useRef(0)
   const elapsedBaseRef = useRef(0)
@@ -86,10 +91,62 @@ export function useTransportRuntime({
     setElapsedMs(0)
   }, [clearElapsedTimer])
 
+  const commitTransportState = useCallback((state: RuntimeTransportState) => {
+    runtimeStateRef.current = state
+    setTransportState(state)
+  }, [])
+
+  const cancelPendingStart = useCallback(() => {
+    nextStartRequestRef.current += 1
+    startRequestRef.current = null
+  }, [])
+
+  const prepareAndStart = useCallback((fromTick: number) => {
+    if (!activeRef.current || startRequestRef.current !== null) return
+    const transport = transportRef.current
+    const playbackEngine = playbackEngineRef.current
+    if (!transport || !playbackEngine) return
+
+    const requestId = ++nextStartRequestRef.current
+    startRequestRef.current = requestId
+    commitTransportState('preparing')
+
+    void playbackEngine.start(fromTick)
+      .then((started) => {
+        if (startRequestRef.current !== requestId || !activeRef.current) return
+        startRequestRef.current = null
+        if (!started) {
+          commitTransportState(transport.state)
+          return
+        }
+        transport.play()
+        startElapsedTimer()
+        commitTransportState('playing')
+      })
+      .catch((error: unknown) => {
+        if (startRequestRef.current !== requestId) return
+        startRequestRef.current = null
+        commitTransportState(transport.state)
+        console.error('Failed to prepare playback:', error)
+      })
+  }, [activeRef, commitTransportState, startElapsedTimer])
+
+  const restartAfterPreparation = useCallback((fromTick: number) => {
+    const transport = transportRef.current
+    const playbackEngine = playbackEngineRef.current
+    if (!transport || !playbackEngine) return
+
+    cancelPendingStart()
+    pauseElapsedTimer()
+    if (transport.state === 'playing') transport.pause()
+    playbackEngine.seek(fromTick)
+    prepareAndStart(fromTick)
+  }, [cancelPendingStart, pauseElapsedTimer, prepareAndStart])
+
   useEffect(() => {
     if (!active) return
     const transport = createTransport(bpmRef.current)
-    const player = new Player({
+    const playbackEngine = new PlaybackEngine({
       bpm: bpmRef.current,
       getLanes,
       loadSampleBytes: (samplePath) => {
@@ -97,14 +154,14 @@ export function useTransportRuntime({
         return backendAPI.readSampleBytes(sampleFolder.id, samplePath)
       }
     })
-    player.setMasterGain(masterGainRef.current)
+    playbackEngine.setMasterGain(masterGainRef.current)
     transportRef.current = transport
-    playerRef.current = player
-    setTransportState(transport.state)
+    playbackEngineRef.current = playbackEngine
+    commitTransportState(transport.state)
 
     const meterTimer = window.setInterval(() => {
-      setMasterLevelDb(player.getMasterLevelDb())
-      const nextTick = player.currentTick
+      setMasterLevelDb(playbackEngine.getMasterLevelDb())
+      const nextTick = playbackEngine.currentTick
       currentTickRef.current = nextTick
       setCurrentTick(nextTick)
     }, 100)
@@ -113,72 +170,85 @@ export function useTransportRuntime({
       window.clearInterval(meterTimer)
       resetElapsedTimer()
       transport.destroy()
-      void player.close()
+      cancelPendingStart()
+      void playbackEngine.close()
       transportRef.current = null
-      playerRef.current = null
+      playbackEngineRef.current = null
       currentTickRef.current = 0
-      setTransportState('stopped')
+      commitTransportState('stopped')
       setCurrentTick(0)
       setMasterLevelDb(-100)
     }
-  }, [active, backendAPI, sampleFolder, getLanes, currentTickRef, resetElapsedTimer])
+  }, [active, backendAPI, sampleFolder, getLanes, currentTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState])
 
   const transportPlay = useCallback(() => {
     if (!activeRef.current) return
-    const transport = transportRef.current
-    if (!transport) return
-    const fromTick = playerRef.current?.currentTick ?? currentTickRef.current
-    transport.play()
-    void playerRef.current?.start(fromTick)
-    startElapsedTimer()
-    setTransportState(transport.state)
-  }, [activeRef, currentTickRef, startElapsedTimer])
+    if (runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') return
+    const fromTick = playbackEngineRef.current?.currentTick ?? currentTickRef.current
+    prepareAndStart(fromTick)
+  }, [activeRef, currentTickRef, prepareAndStart])
 
   const transportPause = useCallback(() => {
+    cancelPendingStart()
     transportRef.current?.pause()
-    playerRef.current?.pause()
+    playbackEngineRef.current?.pause()
     pauseElapsedTimer()
-    setTransportState(transportRef.current?.state ?? 'stopped')
-  }, [pauseElapsedTimer])
+    commitTransportState(transportRef.current?.state ?? 'stopped')
+  }, [cancelPendingStart, commitTransportState, pauseElapsedTimer])
 
   const transportStop = useCallback(() => {
+    cancelPendingStart()
     transportRef.current?.stop()
-    playerRef.current?.stop()
+    playbackEngineRef.current?.stop()
     currentTickRef.current = 0
     resetElapsedTimer()
-    setTransportState('stopped')
+    commitTransportState('stopped')
     setCurrentTick(0)
-  }, [currentTickRef, resetElapsedTimer])
+  }, [cancelPendingStart, commitTransportState, currentTickRef, resetElapsedTimer])
 
   const transportSkipBack = useCallback(() => {
     if (!activeRef.current) return
     const transport = transportRef.current
-    const player = playerRef.current
+    const playbackEngine = playbackEngineRef.current
+    const shouldResume = runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing'
     transport?.skipBack()
-    if (player) {
-      player.stop()
-      if (transport?.state === 'playing') void player.start(0)
+    if (playbackEngine) {
+      if (shouldResume) restartAfterPreparation(0)
+      else playbackEngine.seek(0)
     }
     currentTickRef.current = 0
     setCurrentTick(0)
-  }, [activeRef, currentTickRef])
+  }, [activeRef, currentTickRef, restartAfterPreparation])
+
+  const transportSeek = useCallback((tick: number) => {
+    if (!activeRef.current) return
+    const nextTick = Math.max(0, Math.floor(tick))
+    const playbackEngine = playbackEngineRef.current
+    const shouldResume = runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing'
+    if (playbackEngine) {
+      if (shouldResume) restartAfterPreparation(nextTick)
+      else playbackEngine.seek(nextTick)
+    }
+    currentTickRef.current = nextTick
+    setCurrentTick(nextTick)
+  }, [activeRef, currentTickRef, restartAfterPreparation])
 
   const previewSample = useCallback((samplePath: string) => {
-    const player = playerRef.current
+    const playbackEngine = playbackEngineRef.current
     const transport = transportRef.current
-    if (!player) return
+    if (!playbackEngine) return
     if (transport?.state === 'playing') {
-      const tick = player.currentTick
+      const tick = playbackEngine.currentTick
       const downbeat = Math.ceil((tick + 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
-      const when = transport.tickToTime(downbeat, tick, player.audioEngine.currentTime)
-      void player.previewSample(samplePath, when)
+      const when = transport.tickToTime(downbeat, tick, playbackEngine.audioEngine.currentTime)
+      void playbackEngine.previewSample(samplePath, when)
     } else {
-      void player.previewSample(samplePath)
+      void playbackEngine.previewSample(samplePath)
     }
   }, [])
 
   const getSampleBuffer = useCallback(
-    (samplePath: string) => playerRef.current?.getSampleBuffer(samplePath) ?? Promise.resolve(null),
+    (samplePath: string) => playbackEngineRef.current?.getSampleBuffer(samplePath) ?? Promise.resolve(null),
     []
   )
 
@@ -186,17 +256,34 @@ export function useTransportRuntime({
     bpmRef.current = nextBpm
     setBpmState(nextBpm)
     transportRef.current?.setBpm(nextBpm)
-    playerRef.current?.setBpm(nextBpm)
-  }, [])
+    playbackEngineRef.current?.setBpm(nextBpm)
+    const playbackEngine = playbackEngineRef.current
+    if (!playbackEngine) return
+    if (runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') {
+      restartAfterPreparation(playbackEngine.currentTick)
+    } else {
+      void playbackEngine.prepareCurrentArrangement()
+    }
+  }, [restartAfterPreparation])
+
+  const prepareTempoChange = useCallback(() => {
+    const playbackEngine = playbackEngineRef.current
+    if (!playbackEngine) return
+    if (runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') {
+      restartAfterPreparation(playbackEngine.currentTick)
+    } else {
+      void playbackEngine.prepareCurrentArrangement()
+    }
+  }, [restartAfterPreparation])
 
   const setMasterGain = useCallback((value: number) => {
     masterGainRef.current = value
     setMasterGainState(value)
-    playerRef.current?.setMasterGain(value)
+    playbackEngineRef.current?.setMasterGain(value)
   }, [])
 
   return {
-    playerRef,
+    playbackEngineRef,
     transportState,
     currentTick,
     bpm,
@@ -207,9 +294,11 @@ export function useTransportRuntime({
     transportPause,
     transportStop,
     transportSkipBack,
+    transportSeek,
     previewSample,
     getSampleBuffer,
     setBpm,
-    setMasterGain
+    setMasterGain,
+    prepareTempoChange
   }
 }

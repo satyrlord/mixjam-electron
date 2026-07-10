@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import type { RuntimeTransportState } from './useTransportRuntime'
 
 /** True when the event originates in a text-entry control, where global
  *  shortcuts (Space, Delete, Ctrl+Z…) must not fire. */
@@ -14,14 +15,15 @@ function isEditableTarget(target: EventTarget | null): boolean {
 
 interface TrackerShortcutHandlers {
   /** Mutable ref so the handler never re-subscribes on selection changes. */
-  selectedClipIdsRef: React.MutableRefObject<ReadonlySet<string>>
+  selectedPlacementIdsRef: React.MutableRefObject<ReadonlySet<string>>
   clearSelection: () => void
-  transportStateRef: React.MutableRefObject<string>
-  onRemoveClips: (clipIds: string[]) => void
+  transportStateRef: React.MutableRefObject<RuntimeTransportState>
+  onRemovePlacements: (placementIds: string[]) => void
   onUndo: () => void
   onRedo: () => void
   onTransportPlay: () => void
   onTransportPause: () => void
+  onTransportStop: () => void
   onOpenShortcuts: () => void
 }
 
@@ -31,7 +33,7 @@ interface TrackerShortcutHandlers {
  * Space (play/pause), and "?" (shortcuts overlay). All handlers are read
  * through a stable ref so the effect subscribes exactly once per mount.
  *
- * Extracted from TrackerView to keep that component under 1k lines and to
+ * Extracted from PlayerView to keep that component under 1k lines and to
  * isolate shortcut policy from rendering concerns.
  */
 export function useTrackerShortcuts(handlers: TrackerShortcutHandlers): void {
@@ -44,9 +46,9 @@ export function useTrackerShortcuts(handlers: TrackerShortcutHandlers): void {
       const h = handlersRef.current
 
       if (e.key === 'Delete') {
-        const ids = h.selectedClipIdsRef.current
+        const ids = h.selectedPlacementIdsRef.current
         if (ids.size === 0) return
-        h.onRemoveClips([...ids])
+        h.onRemovePlacements([...ids])
         h.clearSelection()
         return
       }
@@ -63,7 +65,8 @@ export function useTrackerShortcuts(handlers: TrackerShortcutHandlers): void {
       }
       if (e.key === ' ' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault()
-        if (h.transportStateRef.current === 'playing') h.onTransportPause()
+        if (h.transportStateRef.current === 'preparing') h.onTransportStop()
+        else if (h.transportStateRef.current === 'playing') h.onTransportPause()
         else h.onTransportPlay()
         return
       }

@@ -1,34 +1,34 @@
 import { test, expect } from './fixtures'
 
-test('collapsed recents rail does not overlap the tracker lane heads', async ({ seededPage: page }) => {
+test('collapsed MixJam Browser does not overlap the Tracker lane heads', async ({ seededPage: page }) => {
   const start = page.getByRole('button', { name: 'Start New MixJam' })
   await expect(start).toBeEnabled()
   await start.click()
   await expect(page.getByText('Lane 1', { exact: true })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Collapse recent projects' }).click()
+  await page.getByRole('button', { name: 'Collapse MixJam Browser' }).click()
 
-  const rail = page.locator('.recent-projects-rail')
+  const mixJamBrowser = page.locator('.mixjam-browser')
   const firstHead = page.locator('.tracker-lane-head').first()
   const ruler = page.locator('.tracker-ruler')
 
-  const railBox = await rail.boundingBox()
+  const browserBox = await mixJamBrowser.boundingBox()
   const headBox = await firstHead.boundingBox()
   const rulerBox = await ruler.boundingBox()
-  if (!railBox || !headBox || !rulerBox) throw new Error('tracker layout elements missing')
+  if (!browserBox || !headBox || !rulerBox) throw new Error('Player layout elements missing')
 
-  const railRightEdge = railBox.x + railBox.width
+  const browserRightEdge = browserBox.x + browserBox.width
 
-  expect(headBox.x).toBeGreaterThanOrEqual(railRightEdge)
-  expect(rulerBox.x).toBeGreaterThanOrEqual(railRightEdge)
+  expect(headBox.x).toBeGreaterThanOrEqual(browserRightEdge)
+  expect(rulerBox.x).toBeGreaterThanOrEqual(browserRightEdge)
 
   const nameBox = await page.locator('.tracker-lane-name').first().boundingBox()
   if (!nameBox) throw new Error('lane name missing')
-  expect(nameBox.x).toBeGreaterThanOrEqual(railRightEdge)
+  expect(nameBox.x).toBeGreaterThanOrEqual(browserRightEdge)
 
-  await page.getByRole('button', { name: 'Expand recent projects' }).click()
-  const expandedRail = await rail.boundingBox()
+  await page.getByRole('button', { name: 'Expand MixJam Browser' }).click()
+  const expandedBrowser = await mixJamBrowser.boundingBox()
   const expandedHead = await firstHead.boundingBox()
-  if (!expandedRail || !expandedHead) throw new Error('tracker layout elements missing after expand')
-  expect(expandedHead.x).toBeGreaterThanOrEqual(expandedRail.x + expandedRail.width)
+  if (!expandedBrowser || !expandedHead) throw new Error('Player layout elements missing after expand')
+  expect(expandedHead.x).toBeGreaterThanOrEqual(expandedBrowser.x + expandedBrowser.width)
 })

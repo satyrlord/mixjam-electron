@@ -43,8 +43,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={samples}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -68,8 +66,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -92,8 +88,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -116,8 +110,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -142,8 +134,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -173,8 +163,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -203,8 +191,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -231,8 +217,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath="a.wav"
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -252,13 +236,11 @@ describe('SampleTileGrid', () => {
     expect(button.classList.contains('selected')).toBe(true)
   })
 
-  it('adds clip-flash class when flashSamplePath matches', () => {
+  it('adds sample-bubble-flash class when flashSamplePath matches', () => {
     const sample = makeSample()
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath="a.wav"
         activeCategorySlot={undefined}
@@ -275,7 +257,7 @@ describe('SampleTileGrid', () => {
     )
 
     const button = container.querySelector('.sample-bubble')!
-    expect(button.classList.contains('clip-flash')).toBe(true)
+    expect(button.classList.contains('sample-bubble-flash')).toBe(true)
   })
 
   it('applies activeCategorySlot to all sample bubbles', () => {
@@ -283,8 +265,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={3}
@@ -311,8 +291,6 @@ describe('SampleTileGrid', () => {
     render(
       <SampleTileGrid
         samples={[makeSample()]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -338,8 +316,6 @@ describe('SampleTileGrid', () => {
     render(
       <SampleTileGrid
         samples={[makeSample()]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}
@@ -363,8 +339,6 @@ describe('SampleTileGrid', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
-        bpm={120}
-        pixelsPerTick={0.5}
         selectedSamplePath={null}
         flashSamplePath={null}
         activeCategorySlot={undefined}

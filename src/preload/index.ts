@@ -6,7 +6,7 @@ import { SHELL_IPC_CHANNELS, type ShellAPI } from '../shared/ipc'
 // know it is running inside the Electron shell.
 const api: ShellAPI = {
   getVersion: () => ipcRenderer.invoke(SHELL_IPC_CHANNELS.appGetVersion),
-  resizeToTracker: () => ipcRenderer.invoke(SHELL_IPC_CHANNELS.windowResizeTracker),
+  resizeToPlayer: () => ipcRenderer.invoke(SHELL_IPC_CHANNELS.windowResizePlayer),
   resizeToHome: () => ipcRenderer.invoke(SHELL_IPC_CHANNELS.windowResizeHome),
   openExternal: (url) => ipcRenderer.invoke(SHELL_IPC_CHANNELS.shellOpenUrl, url)
 }

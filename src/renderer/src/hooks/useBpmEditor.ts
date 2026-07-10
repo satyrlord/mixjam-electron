@@ -18,7 +18,7 @@ interface UseBpmEditorResult {
 /**
  * Inline BPM editing state for the Middle Strip. Handles start (click to edit),
  * commit (Enter or blur, clamped 50-200), and cancel (Escape) for the BPM
- * display/editor. Extracted from TrackerView to keep that component under 1k
+ * display/editor. Extracted from PlayerView to keep that component under 1k
  * lines.
  */
 export function useBpmEditor({ bpm, onSetBpm }: UseBpmEditorOptions): UseBpmEditorResult {

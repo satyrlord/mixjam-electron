@@ -1,8 +1,8 @@
-import type { FooterSampleDetail } from '../lib/playerShell'
+import type { FooterSampleDetail } from '../lib/arrangement'
 import WaveformPreview from './WaveformPreview'
 
 interface FooterProps {
-  view: 'home' | 'tracker'
+  view: 'home' | 'player'
   version: string
   sampleDetail: FooterSampleDetail | null
   onSelectFolder: () => void
@@ -23,13 +23,13 @@ export default function Footer({
       <button
         type="button"
         className="footer-link"
-        title="Choose where MixJam saves your projects and session settings"
+        title="Choose where MixJam saves your projects and app settings"
         onClick={onSelectFolder}
       >
         Select User Folder
       </button>
       <div className="footer-detail" aria-live="polite">
-        {view === 'tracker' && sampleDetail ? (
+        {view === 'player' && sampleDetail ? (
           <>
             <span className="footer-detail-name">{sampleDetail.name}</span>
             {getSampleBuffer ? (

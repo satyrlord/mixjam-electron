@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import HomeScreen from './HomeScreen'
-import type { FolderView } from '../hooks/useFolderSession'
-import type { RecentProjectItem } from '../../../shared/backend-api'
+import type { FolderView } from '../hooks/useFolderSetup'
+import type { MixJamFileItem } from '../../../shared/backend-api'
 
 const SET_FOLDER: FolderView = {
   status: 'set',
@@ -14,7 +14,7 @@ const UNSET_FOLDER: FolderView = {
   ref: null
 }
 
-const RECENT_PROJECTS: RecentProjectItem[] = [
+const RECENT_PROJECTS: MixJamFileItem[] = [
   {
     path: 'club-night.mixjam',
     displayName: 'club-night',
@@ -33,7 +33,7 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
       userFolder={SET_FOLDER}
       sampleFolder={SET_FOLDER}
       canStart={true}
-      recentProjects={[]}
+      mixJamFiles={[]}
       activeTheme="emerald"
       onThemeChange={vi.fn()}
       onPickUser={vi.fn()}
@@ -74,14 +74,14 @@ describe('HomeScreen', () => {
   })
 
   it('renders recent projects when provided', () => {
-    renderHome({ recentProjects: RECENT_PROJECTS })
+    renderHome({ mixJamFiles: RECENT_PROJECTS })
 
     expect(screen.getByText('club-night')).toBeTruthy()
     expect(screen.getByText('ambient-set')).toBeTruthy()
   })
 
   it('disables Load MixJam and recent project entries until spec-011 ships', () => {
-    renderHome({ recentProjects: RECENT_PROJECTS })
+    renderHome({ mixJamFiles: RECENT_PROJECTS })
 
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
     expect(loadButton).toBeDisabled()
@@ -99,7 +99,7 @@ describe('HomeScreen', () => {
       lastOpened: '2026-01-01T00:00:00.000Z'
     }))
 
-    renderHome({ recentProjects: many })
+    renderHome({ mixJamFiles: many })
 
     expect(screen.getByText('project-0')).toBeTruthy()
     expect(screen.getByText('project-3')).toBeTruthy()

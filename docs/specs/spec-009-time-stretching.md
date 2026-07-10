@@ -112,11 +112,14 @@ native tempos.
 
 - `time-stretch.test.ts` covers ratio math, null/equal passthrough, cache reuse,
   concurrent request deduplication, LRU eviction, and one-warning WASM failure
-  fallback across concurrent keys.
+  fallback across concurrent keys, including invalid-ratio and unavailable
+  offline-context failures in the default processor.
 - `playback-engine.test.ts` covers pre-stretching before voice creation, native-rate
   lanes, BPM changes, canceled preparation, and reuse when returning to a prior BPM.
 - `useTransportEngine.test.ts` covers the atomic `preparing` transition, timer
   gating, cancellation, seek restart, and native-BPM prewarming.
+- `useTransportRuntime.test.ts` verifies that transport controls remain safe
+  while the runtime is inactive and no playback engine exists.
 - `arrangement.test.ts` and `LaneRow.test.tsx` cover lane-state normalization
   and the native-BPM editor.
 - Production Chromium verification on both localhost and Electron's secure

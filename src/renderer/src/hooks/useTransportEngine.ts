@@ -2,26 +2,27 @@ import { useCallback, useMemo, useState } from 'react'
 import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
-  type ClipGroupEntry,
+  type PlacementGroupEntry,
   type FooterSampleDetail,
   type LaneState,
   createDefaultLanes,
-  duplicateClipGroup,
-  duplicateClipOnLane,
+  duplicatePlacementGroup,
+  duplicatePlacement,
   laneShouldDim,
-  moveClipGroup,
-  moveClipOnLane,
-  placeClipOnLane,
-  removeClipFromLane,
-  removeClips,
-  sampleDurationTicks,
+  movePlacementGroup,
+  movePlacement,
+  placeSampleOnLane,
+  removePlacementFromLane,
+  removePlacements,
+  placementDurationTicks,
+  setLaneNativeBpm,
   setLanePan,
   toEngineLanes,
   toggleLaneMute,
   toggleLaneSolo
-} from '../lib/playerShell'
-import type { Transport } from '../engine/transport'
-import { Player } from '../engine/player'
+} from '../lib/arrangement'
+import type { RuntimeTransportState } from './useTransportRuntime'
+import { PlaybackEngine } from '../engine/playback-engine'
 import { formatTimer } from '../lib/formatTimer'
 import { useTransportRuntime } from './useTransportRuntime'
 import { useUndoHistory } from './useUndoHistory'
@@ -30,13 +31,13 @@ const DEFAULT_BPM = 120
 
 const UNDO_HISTORY_LIMIT = 100
 
-type View = 'home' | 'tracker'
+type View = 'home' | 'player'
 
 export interface TransportEngineState {
   view: View
   timerText: string
   lanes: LaneState[]
-  transportState: Transport['state']
+  transportState: RuntimeTransportState
   currentTick: number
   bpm: number
   masterGain: number
@@ -44,21 +45,22 @@ export interface TransportEngineState {
   elapsedMs: number
   canUndo: boolean
   canRedo: boolean
-  playerRef: React.RefObject<Player | null>
+  playbackEngineRef: React.RefObject<PlaybackEngine | null>
 }
 
 export interface TransportEngineActions {
   setView: (view: View) => void
   placeSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
-  moveClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
-  duplicateClipOnLane: (clipId: string, toLaneIndex: number, newStartTick: number) => void
-  moveClipGroup: (moves: ClipGroupEntry[]) => void
-  duplicateClipGroup: (sources: ClipGroupEntry[]) => void
-  removeClipFromLane: (laneIndex: number, clipId: string) => void
-  removeClips: (clipIds: string[]) => void
+  movePlacement: (placementId: string, toLaneIndex: number, newStartTick: number) => void
+  duplicatePlacement: (placementId: string, toLaneIndex: number, newStartTick: number) => void
+  movePlacementGroup: (moves: PlacementGroupEntry[]) => void
+  duplicatePlacementGroup: (sources: PlacementGroupEntry[]) => void
+  removePlacementFromLane: (laneIndex: number, placementId: string) => void
+  removePlacements: (placementIds: string[]) => void
   undo: () => void
   redo: () => void
   setLanePan: (laneIndex: number, pan: number) => void
+  setLaneNativeBpm: (laneIndex: number, nativeBPM: number | null) => void
   previewSample: (samplePath: string) => void
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
   toggleLaneMute: (laneIndex: number) => void
@@ -68,6 +70,7 @@ export interface TransportEngineActions {
   transportPause: () => void
   transportStop: () => void
   transportSkipBack: () => void
+  transportSeek: (tick: number) => void
   setBpm: (bpm: number) => void
   setMasterGain: (value: number) => void
 }
@@ -88,13 +91,13 @@ export function useTransportEngine(
   const runtime = useTransportRuntime({
     backendAPI,
     sampleFolder,
-    active: view === 'tracker',
+    active: view === 'player',
     getLanes: getEngineLanes,
     initialBpm: DEFAULT_BPM,
     initialMasterGain: 0.8
   })
   const {
-    playerRef,
+    playbackEngineRef,
     transportState,
     currentTick,
     bpm,
@@ -107,17 +110,19 @@ export function useTransportEngine(
     transportPause,
     transportStop,
     transportSkipBack,
+    transportSeek,
     setBpm,
-    setMasterGain
+    setMasterGain,
+    prepareTempoChange
   } = runtime
 
   const { pushEdit, undo, redo, setCurrent } = lanesHistory
 
   const placeSampleDetailOnLane = useCallback(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
-      const clipTicks = sampleDurationTicks(detail.duration, bpm)
+      const placementTicks = placementDurationTicks(detail.duration, bpm)
       pushEdit((current) =>
-        placeClipOnLane(current, laneIndex, detail.relpath, detail.name, startTick, clipTicks, detail.duration, detail.slot)
+        placeSampleOnLane(current, laneIndex, detail.relpath, detail.name, startTick, placementTicks, detail.duration, detail.slot)
       )
     },
     [bpm, pushEdit]
@@ -131,44 +136,44 @@ export function useTransportEngine(
     setCurrent(toggleLaneSolo(lanesHistory.currentRef.current, laneIndex))
   }, [setCurrent, lanesHistory.currentRef])
 
-  const handleMoveClipOnLane = useCallback(
-    (clipId: string, toLaneIndex: number, newStartTick: number) => {
-      pushEdit((current) => moveClipOnLane(current, clipId, toLaneIndex, newStartTick))
+  const handleMovePlacement = useCallback(
+    (placementId: string, toLaneIndex: number, newStartTick: number) => {
+      pushEdit((current) => movePlacement(current, placementId, toLaneIndex, newStartTick))
     },
     [pushEdit]
   )
 
-  const handleDuplicateClipOnLane = useCallback(
-    (clipId: string, toLaneIndex: number, newStartTick: number) => {
-      pushEdit((current) => duplicateClipOnLane(current, clipId, toLaneIndex, newStartTick))
+  const handleDuplicatePlacement = useCallback(
+    (placementId: string, toLaneIndex: number, newStartTick: number) => {
+      pushEdit((current) => duplicatePlacement(current, placementId, toLaneIndex, newStartTick))
     },
     [pushEdit]
   )
 
-  const handleMoveClipGroup = useCallback(
-    (moves: ClipGroupEntry[]) => {
-      pushEdit((current) => moveClipGroup(current, moves))
+  const handleMovePlacementGroup = useCallback(
+    (moves: PlacementGroupEntry[]) => {
+      pushEdit((current) => movePlacementGroup(current, moves))
     },
     [pushEdit]
   )
 
-  const handleDuplicateClipGroup = useCallback(
-    (sources: ClipGroupEntry[]) => {
-      pushEdit((current) => duplicateClipGroup(current, sources))
+  const handleDuplicatePlacementGroup = useCallback(
+    (sources: PlacementGroupEntry[]) => {
+      pushEdit((current) => duplicatePlacementGroup(current, sources))
     },
     [pushEdit]
   )
 
-  const handleRemoveClipFromLane = useCallback(
-    (laneIndex: number, clipId: string) => {
-      pushEdit((current) => removeClipFromLane(current, laneIndex, clipId))
+  const handleRemovePlacementFromLane = useCallback(
+    (laneIndex: number, placementId: string) => {
+      pushEdit((current) => removePlacementFromLane(current, laneIndex, placementId))
     },
     [pushEdit]
   )
 
-  const handleRemoveClips = useCallback(
-    (clipIds: string[]) => {
-      pushEdit((current) => removeClips(current, clipIds))
+  const handleRemovePlacements = useCallback(
+    (placementIds: string[]) => {
+      pushEdit((current) => removePlacements(current, placementIds))
     },
     [pushEdit]
   )
@@ -178,9 +183,17 @@ export function useTransportEngine(
       setCurrent(setLanePan(lanesHistory.currentRef.current, laneIndex, pan))
       // Update the per-lane persistent panner directly so live knob changes
       // affect already-sounding voices without waiting for the next trigger.
-      playerRef.current?.setLanePan(laneIndex, pan)
+      playbackEngineRef.current?.setLanePan(laneIndex, pan)
     },
-    [setCurrent, lanesHistory.currentRef, playerRef]
+    [setCurrent, lanesHistory.currentRef, playbackEngineRef]
+  )
+
+  const handleSetLaneNativeBpm = useCallback(
+    (laneIndex: number, nativeBPM: number | null) => {
+      setCurrent(setLaneNativeBpm(lanesHistory.currentRef.current, laneIndex, nativeBPM))
+      prepareTempoChange()
+    },
+    [setCurrent, lanesHistory.currentRef, prepareTempoChange]
   )
 
   const timerText = useMemo(() => formatTimer(elapsedMs), [elapsedMs])
@@ -203,18 +216,19 @@ export function useTransportEngine(
     elapsedMs,
     canUndo: lanesHistory.canUndo,
     canRedo: lanesHistory.canRedo,
-    playerRef,
+    playbackEngineRef,
     setView,
     placeSampleDetailOnLane,
-    moveClipOnLane: handleMoveClipOnLane,
-    duplicateClipOnLane: handleDuplicateClipOnLane,
-    moveClipGroup: handleMoveClipGroup,
-    duplicateClipGroup: handleDuplicateClipGroup,
-    removeClipFromLane: handleRemoveClipFromLane,
-    removeClips: handleRemoveClips,
+    movePlacement: handleMovePlacement,
+    duplicatePlacement: handleDuplicatePlacement,
+    movePlacementGroup: handleMovePlacementGroup,
+    duplicatePlacementGroup: handleDuplicatePlacementGroup,
+    removePlacementFromLane: handleRemovePlacementFromLane,
+    removePlacements: handleRemovePlacements,
     undo,
     redo,
     setLanePan: handleSetLanePan,
+    setLaneNativeBpm: handleSetLaneNativeBpm,
     previewSample,
     getSampleBuffer,
     toggleLaneMute: handleToggleLaneMute,
@@ -224,6 +238,7 @@ export function useTransportEngine(
     transportPause,
     transportStop,
     transportSkipBack,
+    transportSeek,
     setBpm,
     setMasterGain
   }

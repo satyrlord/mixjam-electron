@@ -7,8 +7,8 @@ import {
   createMainWindowOptions,
   HOME_WINDOW_SIZE,
   resizeWindowToHome,
-  resizeWindowToTracker,
-  TRACKER_WINDOW_SIZE
+  resizeWindowToPlayer,
+  PLAYER_WINDOW_SIZE
 } from '../../../shared/window-config'
 import App from '../App'
 import Header from '../components/Header'
@@ -99,7 +99,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(vi.mocked(window.backendAPI.openExternal)).toHaveBeenCalledWith(GITHUB_URL)
   })
 
-  it('AC-004: Start New MixJam switches to Player and requests tracker window resize behavior', async () => {
+  it('AC-004: Start New MixJam switches to Player and requests Player window resize behavior', async () => {
     const windowControls = {
       setResizable: vi.fn(),
       setMaximizable: vi.fn(),
@@ -107,9 +107,9 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       center: vi.fn()
     }
 
-    resizeWindowToTracker(windowControls)
+    resizeWindowToPlayer(windowControls)
 
-    expect(TRACKER_WINDOW_SIZE).toEqual({ width: 1920, height: 1080 })
+    expect(PLAYER_WINDOW_SIZE).toEqual({ width: 1920, height: 1080 })
     expect(windowControls.setResizable).toHaveBeenCalledWith(true)
     expect(windowControls.setMaximizable).toHaveBeenCalledWith(true)
     expect(windowControls.setSize).toHaveBeenCalledWith(1920, 1080)
@@ -123,7 +123,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
-    expect(vi.mocked(window.backendAPI.resizeToTracker)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.backendAPI.resizeToPlayer)).toHaveBeenCalledTimes(1)
   })
 
   it('AC-005: Player header shows home link, brand, and timer', async () => {
@@ -160,7 +160,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     render(
       <Header
-        view="tracker"
+        view="player"
         timer="00:00.0"
         theme="emerald"
         onHome={() => {}}
@@ -239,7 +239,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument()
     })
 
-    expect(vi.mocked(window.backendAPI.resizeToTracker)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(window.backendAPI.resizeToPlayer)).toHaveBeenCalledTimes(2)
     expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
@@ -249,15 +249,15 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     await clickStartNewMixJam()
 
     // Wait for the Player to mount first: the Home screen also shows a
-    // "Recent Projects" section, so anchoring on the tracker avoids grabbing
+    // project list, so anchoring on the Tracker avoids grabbing
     // the Home node mid-navigation.
     const tracker = await screen.findByText('Lane 1')
-    const recentProjects = screen.getByText('Recent Projects')
+    const mixJamFiles = screen.getByText('MixJam Browser')
     const middleStrip = screen.getByText('Untitled')
     const songControls = screen.getByText('Song Controls')
     const sampleBrowser = screen.getByRole('region', { name: /sample browser/i })
 
-    expect(recentProjects).toBeInTheDocument()
+    expect(mixJamFiles).toBeInTheDocument()
     expect(tracker).toBeInTheDocument()
     expect(middleStrip).toBeInTheDocument()
     expect(songControls).toBeInTheDocument()

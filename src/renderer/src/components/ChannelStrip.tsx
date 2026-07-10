@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { clamp } from '../lib/playerShell'
-import { meterFillPct, nextPanCycle } from '../lib/sample-utils'
+import { clamp, meterFillPct, nextPanCycle } from '../lib/sample-utils'
 
 interface ChannelStripProps {
   channelIndex: number

@@ -1,7 +1,7 @@
 import FolderCard from './FolderCard'
 import BrandMark from './BrandMark'
-import type { FolderView } from '../hooks/useFolderSession'
-import type { RecentProjectItem } from '../../../shared/backend-api'
+import type { FolderView } from '../hooks/useFolderSetup'
+import type { MixJamFileItem } from '../../../shared/backend-api'
 import { THEME_OPTIONS, resolveTheme } from '../theme/themes'
 
 const HOME_RECENT_LIMIT = 4
@@ -16,7 +16,7 @@ interface HomeScreenProps {
   userFolder: FolderView
   sampleFolder: FolderView
   canStart: boolean
-  recentProjects: RecentProjectItem[]
+  mixJamFiles: MixJamFileItem[]
   activeTheme: string
   onThemeChange: (themeKey: string) => void
   onPickUser: () => void
@@ -52,7 +52,7 @@ export default function HomeScreen({
   userFolder,
   sampleFolder,
   canStart,
-  recentProjects,
+  mixJamFiles,
   activeTheme,
   onThemeChange,
   onPickUser,
@@ -62,7 +62,7 @@ export default function HomeScreen({
   onStart
 }: HomeScreenProps) {
   const sampleDisabled = userFolder.status !== 'set'
-  const homeRecent = recentProjects.slice(0, HOME_RECENT_LIMIT)
+  const homeRecent = mixJamFiles.slice(0, HOME_RECENT_LIMIT)
 
   return (
     <div className="home-screen">
@@ -110,7 +110,7 @@ export default function HomeScreen({
           </div>
         </section>
 
-        <section className="home-setup" aria-label="Session setup">
+        <section className="home-setup" aria-label="App setup">
           <FolderCard
             label="User Folder"
             icon={userIcon}
