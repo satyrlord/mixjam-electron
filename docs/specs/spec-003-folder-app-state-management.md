@@ -1,4 +1,4 @@
-# Spec 003 — Folder & Session Management
+# Spec 003 — Folder & App State Management
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** IMPLEMENTED

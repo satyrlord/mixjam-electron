@@ -9,7 +9,7 @@ infrastructure and inference worker)
 ## Objective
 
 Let a user split any sample in their library into isolated stems (drums, bass,
-vocals, other) entirely on-device, then use those stems as independent clips on
+vocals, other) entirely on-device, then use those stems as independent placements on
 separate tracker lanes. No audio leaves the machine; no cloud service, no
 subscription, no API key. Combined with time-stretching (spec-009) and semantic
 search (spec-015), this turns MixJam into a full remix workstation: drop any
@@ -112,7 +112,7 @@ CREATE TABLE stem_cache (
   sample that has cached stems. A "Separate" button appears in the sample
   context menu and detail panel.
 - **Tracker:** "Separate and spread" is a context menu action on any clip.
-  It separates the source sample (if not cached) and places four clips on
+  It separates the source sample (if not cached) and places four placements on
   lanes N, N+1, N+2, N+3 starting at the source clip's start tick.
 - **Time-stretching (spec-009):** stems inherit their parent's `nativeBPM`. The
   stretch engine treats them identically to physical samples.
@@ -141,7 +141,7 @@ CREATE TABLE stem_cache (
   the parent. Clicking one plays only that stem.
 - [ ] **AC-004:** Dragging a stem onto a lane creates a clip that plays the
   isolated stem audio.
-- [ ] **AC-005:** "Separate and spread" places four clips on consecutive lanes
+- [ ] **AC-005:** "Separate and spread" places four placements on consecutive lanes
   aligned to the source clip's start tick; playing back produces the original
   mix (within acceptable reconstruction error).
 - [ ] **AC-006:** Re-requesting separation of an already-cached sample returns
@@ -163,7 +163,7 @@ CREATE TABLE stem_cache (
 - No fine-grained stem editing (trim, fade) beyond what the tracker already
   provides for any clip.
 - No re-synthesis or remix automation ("make the drums louder in this mix") —
-  stems are independent clips, mixed via the existing channel gain/pan/FX.
+  stems are independent placements, mixed via the existing channel gain/pan/FX.
 - No stem separation quality comparison across multiple models in this spec —
   use one, swap later if measured SDR or inference speed improves.
 - No model training or fine-tuning.

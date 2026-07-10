@@ -2,7 +2,7 @@
 
 **Spec Validation Status:** STUB — NOT VALIDATED
 **Spec Implementation Status:** NOT IMPLEMENTED
-**Depends on:** spec-003 (Folder & Session Management), spec-004 (Sample Library),
+**Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
 web-first architecture (Sample Folder is a persisted `FileSystemDirectoryHandle`)
 
 Local semantic audio search belongs to

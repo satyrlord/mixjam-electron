@@ -6,7 +6,7 @@
 
 ## Objective
 
-Implement project persistence: save the current arrangement (lanes, clips,
+Implement project persistence: save the current arrangement (lanes, placements,
 mixer state, BPM, routing) to a versioned file, and load it back to restore
 the full session. Samples are referenced by relative path, never embedded.
 
@@ -15,7 +15,7 @@ the full session. Samples are referenced by relative path, never embedded.
 - **US-001:** As a user, I can save my project to a .mixjam file so I can continue
   working on it later.
 - **US-002:** As a user, I can open a saved .mixjam file and the Player restores
-  all lanes, clips, mixer settings, BPM, and routing exactly as I left them.
+  all lanes, placements, mixer settings, BPM, and routing exactly as I left them.
 - **US-003:** As a user, if a sample referenced in a .mixjam file is missing,
   I see a clear warning but the rest of the project still loads.
 - **US-004:** As a user, my .mixjam files include a format version so future
@@ -46,7 +46,7 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
       "muted": false,
       "solo": false,
       "channelId": "ch-1",
-      "clips": [
+      "placements": [
         { "startTick": 0, "durationTicks": 32 }
       ]
     }
@@ -88,7 +88,7 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - On load:
   1. Parse JSON and validate `formatVersion`.
   2. Verify the Sample Folder contains all referenced samples.
-  3. Restore lanes, clips, channel settings, BPM, routing.
+  3. Restore lanes, placements, channel settings, BPM, routing.
   4. Missing samples show a warning badge on affected lanes.
 - If the `formatVersion` is higher than supported, show: "This project was
   created with a newer version of MixJam. Please update the app."
@@ -122,7 +122,7 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 ## Acceptance Criteria (testable)
 
 - [ ] **AC-001:** "Save As…" writes a valid `.mixjam` JSON file to the chosen location.
-- [ ] **AC-002:** Saving, closing the app, reopening, and loading the project restores all lanes, clips, mixer settings, BPM, and routing.
+- [ ] **AC-002:** Saving, closing the app, reopening, and loading the project restores all lanes, placements, mixer settings, BPM, and routing.
 - [ ] **AC-003:** The unsaved changes indicator appears after any modification and disappears after save.
 - [ ] **AC-004:** Ctrl+S saves to the current path; Ctrl+Shift+S triggers "Save As…".
 - [ ] **AC-005:** Loading a project with a missing sample file shows a warning badge on the affected lane(s) — other lanes load correctly.

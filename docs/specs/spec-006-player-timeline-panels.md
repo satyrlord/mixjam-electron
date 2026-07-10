@@ -28,12 +28,14 @@ adjacencies.
   browser.
 - **US-004a:** As a user, I can adjust master volume, monitor overall loudness,
   and change BPM from the default Song Controls rail without opening the mixer.
-- **US-005:** As a user, I can place sample clips (bubbles) onto lanes and see
+- **US-005:** As a user, I can place sample placements (bubbles) onto lanes and see
   them rendered at the correct position and proportional width.
 - **US-006:** As a user, I see a moving playhead sweep across the timeline
   during playback, synchronized to the audio.
 - **US-007:** As a user, I see a ruler with bar numbers and tick marks so I
   can orient myself in the arrangement.
+- **US-007a:** As a user, I can click the ruler to move the playhead to the
+  nearest beat so I can start or resume playback from a precise grid position.
 - **US-008:** As a user, I can use the Middle Strip transport buttons (Skip
   Back, Play/Pause, Stop) to control playback.
 - **US-009:** As a user, I can drag the browser's internal vertical resize
@@ -46,7 +48,7 @@ adjacencies.
 ```text
 .player (flex-column, full viewport below header/footer from spec-001)
   ├── .upper-work       — flex row, main top work band
-  │   ├── .recent-projects-rail — left rail, shared width with song-controls
+  │   ├── .mixjam-browser — left rail, shared width with song-controls
   │   └── .tracker-region       — upper-right primary arrangement surface
   │       ├── .ruler            — horizontal bar with tick marks + bar numbers
   │       └── .lane-scroll      — scrollable lane container
@@ -82,11 +84,16 @@ adjacencies.
 
 - Height: 24px, padded left 168px (lane-head width).
 - The lane-head rendered border box must remain exactly 168px wide so ruler
-  marks, tracker grid lines, clips, and playhead share the same x-origin.
+  marks, tracker grid lines, placements, and playhead share the same x-origin.
 - Tick marks use the same beat/bar model as the lane canvas: a transparent
   tick every beat and a stronger tick every bar.
 - Bar numbers: 1, 5, 9, 13… (every 4 bars), monospace font, muted color.
 - Scrolls horizontally in sync with the lane canvas.
+- Clicking the timeline portion of the ruler moves the engine and visual
+  playhead to the nearest beat boundary (every 8 ticks). The lane-head spacer
+  is not a seek target.
+- Seeking while playing continues playback from the selected beat. Seeking
+  while paused or stopped only repositions the playhead and does not start it.
 
 ### Lanes (16)
 
@@ -116,10 +123,10 @@ adjacencies.
   a sample; **Ctrl** is reserved for rectangle-drag multi-select.
 - **Monophonic cut-off behavior** (per spec-005): a lane is monophonic in
   *audio* only — a new trigger cuts off the previously sounding voice on that
-  lane. Overlapping clips are *not* trimmed visually: both bubbles keep their
+  lane. Overlapping placements are *not* trimmed visually: both bubbles keep their
   full size and data, so an accidental overlap never destroys the earlier
   sample's information.
-- Clips are rendered on a canvas element for performance — not as individual
+- Placements are rendered on a canvas element for performance — not as individual
   DOM nodes (enables smooth scrolling at high lane/clip counts).
 
 ### Playhead
@@ -127,7 +134,7 @@ adjacencies.
 - Vertical line spanning the full height of all lanes.
 - Position: computed from `currentTick × pixelsPerTick`, updated on every tick
   event from the engine.
-- Width: 2px, color: playhead theme token (`--playhead`), z-index above clips.
+- Width: 2px, color: playhead theme token (`--playhead`), z-index above placements.
 - Non-interactive (`pointer-events: none`).
 - Visible during both playback and when stopped (rests at position 0).
 
@@ -207,7 +214,7 @@ adjacencies.
     Strip
   - right-clicking an entry shows a context menu with **Open** and
     **Copy Path**
-- Full project deserialization (restoring lanes/clips from the `.mixjam`
+- Full project deserialization (restoring lanes/placements from the `.mixjam`
   file) remains deferred to project save/load work (spec-011).
 
 #### Song Controls rail
@@ -251,11 +258,13 @@ adjacencies.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample tile from the browser and dropping it onto a lane places it as a clip snapped to the nearest beat boundary, sized proportionally to the sample's audio duration.
 - [x] **AC-008a:** Holding Alt while dropping a sample or moving a clip bypasses beat-snap and places the clip at per-tick precision (freeform).
-- [x] **AC-009:** Placing a clip that overlaps an existing one on the same lane keeps both clips visually intact (overlapping); only the audio
+- [x] **AC-009:** Placing a clip that overlaps an existing one on the same lane keeps both placements visually intact (overlapping); only the audio
   is monophonic (the new trigger cuts off the previous voice). Overlap never deletes or trims the earlier clip's data.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
 - [x] **AC-011:** The ruler displays beat ticks and stronger bar ticks using the same beat/bar grid as the lane canvas, with bar numbers (1, 5, 9, 13…) in monospace font;
-  the ruler x-origin aligns with the tracker grid, clips, and playhead.
+  the ruler x-origin aligns with the tracker grid, placements, and playhead.
+- [x] **AC-011a:** Clicking the ruler timeline moves the playhead to the nearest 8-tick beat boundary. The engine seeks to the same tick; playback continues
+  from that tick when already playing, while paused or stopped transport remains paused or stopped.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
@@ -263,10 +272,10 @@ adjacencies.
 - [x] **AC-015a:** The Middle Strip BPM editor is the single BPM control and always reflects the transport's current BPM
   without a second control to synchronize.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
-- [x] **AC-017:** Clips are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
+- [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per clip.
 - [x] **AC-018:** Shift-dragging a placed clip duplicates it at the drop position; the original remains unchanged.
-- [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; clips whose bounds intersect the rectangle are selected (highlighted with a white border).
-- [x] **AC-020:** Pressing Delete removes all selected clips. Clicking empty space without Ctrl deselects all.
+- [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; placements whose bounds intersect the rectangle are selected (highlighted with a white border).
+- [x] **AC-020:** Pressing Delete removes all selected placements. Clicking empty space without Ctrl deselects all.
 - [x] **AC-021:** Dragging a clip that is part of a multi-selection moves the entire group, maintaining relative offsets. Shift-dragging the group duplicates all members.
 - [x] **AC-022:** Ctrl+Z undoes the last clip arrangement edit (place, move, duplicate, delete, group operations); Ctrl+Y or Ctrl+Shift+Z redoes it.
   The Middle Strip Undo/Redo buttons mirror the shortcuts and disable when their history stack is empty. A multi-clip delete undoes as a single step.
@@ -274,7 +283,7 @@ adjacencies.
   Transport, BPM, mute/solo, and pan controls have tooltip hints.
 - [x] **AC-024:** Clicking a Recent Projects rail entry records it as most-recently opened, re-sorts the rail, and shows its name in the
   Middle Strip. Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
-  Full project deserialization (restoring lanes/clips from the `.mixjam` file) remains deferred to spec-011.
+  Full project deserialization (restoring lanes/placements from the `.mixjam` file) remains deferred to spec-011.
 - [x] **AC-025:** Space toggles Play/Pause when focus is not in a text control.
 
 ## Non-Goals (deferred to later specs)
@@ -287,8 +296,8 @@ adjacencies.
 - No lane add/remove UI; the current arrangement and supported engine surface
   are fixed at 16 lanes.
 - No zoom in/out on the timeline.
-- No waveform rendering inside clips.
-- No cut/copy/paste for clips.
+- No waveform rendering inside placements.
+- No cut/copy/paste for placements.
 - No BPM automation or tempo changes within a project.
 - Undo/redo covers clip arrangement edits only (see Undo/Redo); mixer and
   tempo changes are not undoable.

@@ -16,6 +16,7 @@ requirements that drive every architectural choice.
 
 | Doc | Contents |
 | --- | -------- |
+| [glossary.md](glossary.md) | Canonical project terminology and disambiguation |
 | [architecture.md](architecture.md) | Decided stack, process model, and non-goals |
 | [data-model.md](data-model.md) | SQLite schema, the "libraries are saved queries" model |
 | [query-schema.md](query-schema.md) | Current `rule_json` subset and target predicate-tree compiler |

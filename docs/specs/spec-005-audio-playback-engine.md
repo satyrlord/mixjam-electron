@@ -2,7 +2,7 @@
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** IMPLEMENTED
-**Depends on:** spec-003 (Folder & Session Management)
+**Depends on:** spec-003 (Folder & App State Management)
 
 ## Objective
 
@@ -72,7 +72,7 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   channel N even when channels are created lazily out of order — so
   `setChannelPan(index, pan)` targets the right channel. A pan set before a
   lane's first trigger is stored and applied when its channel is created.
-- Provides `triggerVoice(buffer, channel, when, trackIndex)` — creates a new
+- Provides `triggerVoice(buffer, channel, when, laneIndex)` — creates a new
   `AudioBufferSourceNode`, routes it through the channel's gain/pan chain into
   the master bus, and returns a `Voice` handle.
 - Provides `setMasterGain(value)` — 0 to 1 range, applied after all channel
@@ -130,12 +130,12 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Each lane holds: a sample reference (ID), a set of clip placements (each
   clip has a start tick and a duration in ticks), mute state, solo state, and
   a channel assignment.
-- Lanes have unlimited length — the user can place clips at any tick position,
+- Lanes have unlimited length — the user can place placements at any tick position,
   extending the arrangement as needed.
 - **Default routing:** each lane is pre-routed to its own mixer channel (lane 1
   → channel 1, lane 2 → channel 2, etc.). This is why the default channel count
   equals the default lane count (16).
-- During playback, the scheduler evaluates each lane's clips: if the playhead
+- During playback, the scheduler evaluates each lane's placements: if the playhead
   is within a clip's range and the lane is not muted, a voice is triggered at
   the clip's start position.
 - Solo overrides mute: if any lane is soloed, only soloed lanes play.

@@ -28,6 +28,23 @@ than enough for an eJay/Acid-style tracker.
 - Each voice is a fresh `AudioBufferSourceNode` (they are one-shot) routed through a
   per-track gain/pan node into the master bus.
 
+### Offline time-stretching
+
+- A lane's optional native BPM selects pitch-preserving time-stretching before
+  voice creation. The speed ratio is `projectBPM / nativeBPM`; a null native BPM
+  and a ratio of 1 are zero-work passthroughs.
+- `bungee-pitch-shift` supplies an MIT-licensed Bungee phase vocoder compiled to
+  embedded WASM. Vite emits its self-contained AudioWorklet processor as a static
+  asset that works in both the browser build and Electron shell.
+- Stretching renders through an `OfflineAudioContext`, producing a reusable
+  `AudioBuffer`. Playback never runs stretch DSP on each voice trigger.
+- Completed stretched buffers use a separate `(sampleId, ratio)` LRU cache, and
+  concurrent requests for the same key share one promise. Old ratios remain in
+  the cache until eviction so a BPM change can be reversed without recomputing.
+- WASM or AudioWorklet failure logs one warning, disables stretching for that
+  player session, and returns the decoded native-rate buffer. Playback does not
+  crash or repeatedly retry a broken module.
+
 ## Native-addon escape hatch — when to leave Web Audio
 
 **Stay on Web Audio for v1.** v1 is playback/arrangement only — no live input

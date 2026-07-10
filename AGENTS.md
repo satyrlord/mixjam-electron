@@ -14,6 +14,7 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 
 ## Key docs
 
+- [docs/glossary.md](docs/glossary.md) — canonical project terminology and disambiguation
 - [docs/architecture.md](docs/architecture.md) — stack, process model, non-goals
 - [docs/data-model.md](docs/data-model.md) — SQLite schema, FTS5, indexes
 - [docs/query-schema.md](docs/query-schema.md) — current `rule_json` subset and target predicate-tree compiler

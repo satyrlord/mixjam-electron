@@ -28,7 +28,7 @@ persists.
 ### Mixer Panel Location
 
 The mixer occupies space inside the lower-left Song Controls rail in the
-Player layout. The entire left column (shared by RecentProjectsRail and
+Player layout. The entire left column (shared by MixJamBrowser and
 SongControlsRail) resizes via a drag seam on its right edge and defaults to
 420px. The mixer column appears inside SongControlsRail to the right of
 SongControlsMain when the left column exceeds 272px (168px master section +
@@ -118,7 +118,7 @@ No stereo width control — deferred until DSP is implemented (spec-010).
   path to the master output that skips the mixer channel strip entirely. The
   lane is audible at unity gain with no channel processing applied. This
   prevents accidental data loss (removing a channel does not silence the
-  lane's clips).
+  lane's placements).
 - Channel reordering is deferred to spec-017 (confusing without visible routing
   indicators).
 
@@ -175,7 +175,7 @@ channel's mute/solo.
 | Decision | Rationale |
 | --- | --- |
 | Channel and lane state coexist | Lane M/S controls arrangement; channel M/S/gain/pan controls the mix |
-| `useMixer(playerRef)` owns channel state | Mixer state stays separate from the transport engine |
+| `useMixer(playbackEngineRef)` owns channel state | Mixer state stays separate from the transport engine |
 | Lane and channel mute/solo gates are ANDed | Both arrangement and mix filters apply |
 | One `AnalyserNode` per channel | All 16 meters update without graph switching |
 | The left column defaults to 420px and the strip row scrolls | The mixer is visible on entry and every strip remains reachable |
@@ -200,10 +200,10 @@ channel's mute/solo.
 ### Hook composition
 
 `useAppState` calls `useLibraryData` then `useTransportEngine` unconditionally;
-adding `useMixer(playerRef)` after them keeps hook order stable. `playerRef`
+adding `useMixer(playbackEngineRef)` after them keeps hook order stable. `playbackEngineRef`
 must be added to `useTransportEngine`'s return value — refs are stable across
 renders so this does not break memoization. `useMixer` keys its apply-to-player
-effect on `view` (returned by the engine) since `playerRef.current` mutating
+effect on `view` (returned by the engine) since `playbackEngineRef.current` mutating
 does not trigger renders. On teardown, cleanup runs in call order; the mixer
 cleanup runs before `player.close()` and must null-check the ref.
 
@@ -236,7 +236,7 @@ interaction. Do NOT implement one without the other.
 
 ### Resize seam
 
-The grid is `.tracker-view` with `grid-template-columns: 168px minmax(0, 1fr)`.
+The grid is `.player-view` with `grid-template-columns: 168px minmax(0, 1fr)`.
 Swapping to `var(--left-col-w, 168px)` is safe — custom properties are valid in
 track lists. The `168px` values inside column 2 (`.tracker-ruler-spacer`,
 `LANE_HEAD_WIDTH_PX` inline widths) must NOT adopt the variable; they are

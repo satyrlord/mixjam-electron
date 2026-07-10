@@ -2,7 +2,7 @@
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** IMPLEMENTED
-**Depends on:** spec-003 (Folder & Session Management)
+**Depends on:** spec-003 (Folder & App State Management)
 
 ## Objective
 
