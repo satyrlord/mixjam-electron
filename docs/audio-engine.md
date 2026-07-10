@@ -26,7 +26,7 @@ than enough for an eJay/Acid-style tracker.
   Sample Folder's File System Access handle, so reads cannot escape the granted
   folder (see [architecture.md](architecture.md#process-model)).
 - Each voice is a fresh `AudioBufferSourceNode` (they are one-shot) routed through a
-  per-track gain/pan node into the master bus.
+  per-lane gain/pan node into the master bus.
 
 ### Offline time-stretching
 
@@ -42,7 +42,7 @@ than enough for an eJay/Acid-style tracker.
   concurrent requests for the same key share one promise. Old ratios remain in
   the cache until eviction so a BPM change can be reversed without recomputing.
 - WASM or AudioWorklet failure logs one warning, disables stretching for that
-  player session, and returns the decoded native-rate buffer. Playback does not
+  playback runtime, and returns the decoded native-rate buffer. Playback does not
   crash or repeatedly retry a broken module.
 
 ## Native-addon escape hatch — when to leave Web Audio

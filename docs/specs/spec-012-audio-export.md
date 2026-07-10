@@ -64,7 +64,7 @@ at the project BPM with time-stretching applied.
 
 ### Export Scope
 
-- Exports from tick 0 to the last clip end tick across all lanes (no silent
+- Exports from tick 0 to the last placement end tick across all lanes (no silent
   tail trimming by default).
 - Option to add a configurable silence tail (default 2 seconds).
 
@@ -78,7 +78,7 @@ at the project BPM with time-stretching applied.
 - [ ] **AC-006:** Export progress is reported and the UI remains responsive during export.
 - [ ] **AC-007:** Cancelling an export mid-way produces no output file.
 - [ ] **AC-008:** A 16-bit WAV export has valid 16-bit samples (no clipping above 0 dBFS unless intentional).
-- [ ] **AC-009:** The export duration equals the arrangement duration (last clip end − first clip start) plus the silence tail.
+- [ ] **AC-009:** The export duration equals the arrangement duration (last placement end minus first placement start) plus the silence tail.
 - [ ] **AC-010:** Export with time-stretching active produces stretched audio in the output (not native-rate).
 
 ## Non-Goals

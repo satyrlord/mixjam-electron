@@ -141,10 +141,13 @@ browse `.mixjam` files or define saved [libraries](#library).
 ## Sample bubble
 
 The visual snapshot of a sample or WAV file, regardless of context. Every
-sample bubble must be perfectly identical in height and width everywhere in
-the UI, including the Tracker, Sample Browser, and any future view, window, or
-interface. A Tracker placement may change when the sample starts or plays, but
-must not turn the bubble into a variable-width timeline region.
+sample bubble is 32px high. Its width is the source duration multiplied by
+84px per second, with a 12px minimum and a 168px fallback when duration is
+unknown. These dimensions must be perfectly identical everywhere in the UI,
+including the Tracker, Sample Browser, and any future view, window, or
+interface. BPM, viewport size, placement duration, and UI context never affect
+the dimensions. A Tracker placement may change when the sample starts or
+plays, but must not turn the bubble into a timeline-duration region.
 
 ## Sample Folder
 

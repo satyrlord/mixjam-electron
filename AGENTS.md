@@ -26,7 +26,7 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 The browser build is the primary app: SQLite runs as `@sqlite.org/sqlite-wasm`
 (opfs-sahpool VFS) inside a backend Web Worker (`src/renderer/src/backend/`),
 folder access uses the File System Access API with handles persisted in
-IndexedDB, and the session lives in localStorage. The Electron main process is
+IndexedDB, and app state lives in localStorage. The Electron main process is
 a thin shell (window sizing, `app://` protocol, auto-granted `fileSystem`
 permission, openExternal allowlist) exposing `window.shellAPI`; the same
 renderer bundle runs unchanged in any Chromium browser (GitHub Pages) and in
@@ -56,20 +56,20 @@ Before running `dev` or `build`, remove the `ELECTRON_RUN_AS_NODE` env var if se
 The browser build is `out/renderer` — a static bundle; serve it from any plain
 static server (no COOP/COEP headers required).
 
-## Session and handoff conventions
+## Agent-session and handoff conventions
 
 - **The working tree is shared.** The user may edit files or commit while you work. Re-read a file
   before editing it if any time or any scripted bulk change has passed since your last read; check
-  `git log`/`git status` before summarizing what changed, and never assume a mid-session snapshot is
-  still current. If you script a bulk rewrite (rename sweeps), your own in-session read state is stale
+  `git log`/`git status` before summarizing what changed, and never assume a mid-agent-session snapshot is
+  still current. If you script a bulk rewrite (rename sweeps), your own in-agent-session read state is stale
   afterward too — re-read before hand-editing the same files.
 - **Conflicts between a plan/handoff doc and this file:** the newer, more specific document wins.
   Do not stall on the contradiction — follow the handoff, and update AGENTS.md and the affected
-  docs/specs in the same change so the contradiction does not outlive the session.
-- **Multi-phase plans executed in one session:** scaffolding whose only purpose is keeping
-  intermediate states shippable across sessions (temporary adapters, compatibility shims scheduled
+  docs/specs in the same change so the contradiction does not outlive the agent session.
+- **Multi-phase plans executed in one agent session:** scaffolding whose only purpose is keeping
+  intermediate states shippable across agent sessions (temporary adapters, compatibility shims scheduled
   for deletion in a later phase) should be skipped when all phases land in one pass. Say so in the
-  report. When *writing* a handoff, state whether phases are expected to land across sessions.
+  report. When *writing* a handoff, state whether phases are expected to land across agent sessions.
 - **Performance claims need real data.** For scan/indexing throughput work, use the real fixtures in
   `tmp/test-samples` (or ask for a pointer to a real library subset) instead of synthetic files.
   If a perf-sensitive change ships with only synthetic or functional verification, flag the missing
@@ -88,9 +88,9 @@ static server (no COOP/COEP headers required).
      Overconfident errors are harder to spot than uncertain ones.
   4. **What is the biggest thing the user might be missing?** Surface blind spots you see but
      they have not considered.
-  Log the results in the session handoff. Do not start fixing uncovered gaps in the close-out
+  Log the results in the agent-session handoff. Do not start fixing uncovered gaps in the close-out
   — that turns two minutes into another hour. Let the handoff carry them forward.
-- **Fresh-eyes audit for critical work.** When a session produces a large or risky change, the
+- **Fresh-eyes audit for critical work.** When an agent session produces a large or risky change, the
   agent should recommend a fresh-eyes review: paste the final output or handoff doc into a new
   agent context and ask it to "Evaluate this. Anything missed?" A clean-room audit (different
   provider, no skills/memories) catches confidently-wrong assumptions the original agent cannot
@@ -135,7 +135,7 @@ These decisions are resolved:
 ## Test setup notes
 
 - `globals: false` in vitest config means testing-library auto-cleanup is off. `setup.ts` calls `cleanup()` in `afterEach`. Shared renderer mock is in `test/backendApi.ts` (installed as `window.backendAPI`).
-- Vitest runs two projects: `renderer` (jsdom) for UI and session tests, and `backend` (node environment)
+- Vitest runs two projects: `renderer` (jsdom) for UI and app-state tests, and `backend` (node environment)
 for the sqlite-wasm suites (`backend/library.test.ts`, `backend/indexer.test.ts`) using an in-memory database.
 - Indexer tests use a map-backed fake `FileSystemDirectoryHandle` plus generated minimal WAV files, so `parseBlob` extracts real metadata.
 - `setup.ts` stubs `HTMLCanvasElement.getContext` with a silent no-op 2D context (jsdom's own throws/logs "Not implemented"); tests that assert drawing install their own mock over it.

@@ -19,7 +19,7 @@ and indexes that already exist (`idx_samples_bpm`, `idx_samples_key`):
   half- and double-time equivalents.
 
 Because a library is a saved query, saving a compatibility filter yields a
-living "fits my track" library that grows as new samples are indexed and
+living "fits my song" library that grows as new samples are indexed and
 analyzed. No model, no new storage, no schema change — pure compile-time
 expansion in the rule compiler. This is the deterministic half of perceptual
 library building; the embedding-based half ("sounds like") is

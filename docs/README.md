@@ -94,7 +94,7 @@ src/
     index.html    Renderer entry document
     public/       Bundled fonts
     src/          React app — sample browser, tracker, audio engine (Web Audio)
-      backend/    Backend worker — sqlite-wasm (opfs-sahpool), indexer, session,
+      backend/    Backend worker — sqlite-wasm (opfs-sahpool), indexer, app state,
                   folder handles (IndexedDB), BackendAPI client facade
       engine/     transport, scheduler, audio engine, sample cache
       hooks/      React hooks — app state, transport, library data

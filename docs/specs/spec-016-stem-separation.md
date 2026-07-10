@@ -13,7 +13,7 @@ vocals, other) entirely on-device, then use those stems as independent placement
 separate tracker lanes. No audio leaves the machine; no cloud service, no
 subscription, no API key. Combined with time-stretching (spec-009) and semantic
 search (spec-015), this turns MixJam into a full remix workstation: drop any
-mixed track, separate it, stretch the stems to project BPM, and layer your own
+mixed sample, separate it, stretch the stems to project BPM, and layer your own
 samples on top.
 
 No competing offline-first sample manager or lightweight tracker ships local
@@ -35,7 +35,7 @@ stem separation today. This is the differentiator.
   project BPM.
 - **US-006:** As a user, I can "Separate and spread" — one action that
   separates the sample and places each stem on consecutive lanes aligned to the
-  source clip's start tick.
+  source placement's start tick.
 - **US-007:** As a user, if my device lacks WebGPU, separation still works
   (slower, CPU-WASM fallback) and does not crash.
 
@@ -96,8 +96,8 @@ CREATE TABLE stem_cache (
 
 ### Virtual Samples
 
-- Stems surface in the UI as **virtual samples** — they appear in the sample
-  browser grouped under their parent (e.g. "Track.wav > Drums", "Track.wav >
+- Stems surface in the UI as **virtual samples** — they appear in the Sample
+  Browser grouped under their parent (e.g. "Loop.wav > Drums", "Loop.wav >
   Bass"). They are not physical files in the Sample Folder; they are read from
   OPFS cache via a `readStemBytes(sampleId, stemType)` backend call.
 - Virtual samples carry the parent's metadata (duration, sample rate, BPM) and
@@ -108,12 +108,12 @@ CREATE TABLE stem_cache (
 
 ### Integration with Existing Systems
 
-- **Sample browser:** a "Stems" sub-row or expandable group appears beneath any
+- **Sample Browser:** a "Stems" sub-row or expandable group appears beneath any
   sample that has cached stems. A "Separate" button appears in the sample
   context menu and detail panel.
-- **Tracker:** "Separate and spread" is a context menu action on any clip.
+- **Tracker:** "Separate and spread" is a context menu action on any clip placement.
   It separates the source sample (if not cached) and places four placements on
-  lanes N, N+1, N+2, N+3 starting at the source clip's start tick.
+  lanes N, N+1, N+2, N+3 starting at the source placement's start tick.
 - **Time-stretching (spec-009):** stems inherit their parent's `nativeBPM`. The
   stretch engine treats them identically to physical samples.
 - **Semantic search (spec-015):** stems get their own embeddings computed during
@@ -139,10 +139,10 @@ CREATE TABLE stem_cache (
   inference and produces no partial cache entry.
 - [ ] **AC-003:** Stems appear as virtual samples in the browser, grouped under
   the parent. Clicking one plays only that stem.
-- [ ] **AC-004:** Dragging a stem onto a lane creates a clip that plays the
+- [ ] **AC-004:** Dragging a stem onto a lane creates a clip placement that plays the
   isolated stem audio.
 - [ ] **AC-005:** "Separate and spread" places four placements on consecutive lanes
-  aligned to the source clip's start tick; playing back produces the original
+  aligned to the source placement's start tick; playing back produces the original
   mix (within acceptable reconstruction error).
 - [ ] **AC-006:** Re-requesting separation of an already-cached sample returns
   instantly from cache without re-running inference.
@@ -160,8 +160,8 @@ CREATE TABLE stem_cache (
 - No real-time separation during playback (offline/pre-computed only — same
   design as time-stretching in spec-009).
 - No user-selectable stem count or custom model upload (four fixed stems in v1).
-- No fine-grained stem editing (trim, fade) beyond what the tracker already
-  provides for any clip.
+- No fine-grained stem editing (trim, fade) beyond what the Tracker already
+  provides for any clip placement.
 - No re-synthesis or remix automation ("make the drums louder in this mix") —
   stems are independent placements, mixed via the existing channel gain/pan/FX.
 - No stem separation quality comparison across multiple models in this spec —

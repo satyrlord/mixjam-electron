@@ -8,7 +8,7 @@
 
 Implement project persistence: save the current arrangement (lanes, placements,
 mixer state, BPM, routing) to a versioned file, and load it back to restore
-the full session. Samples are referenced by relative path, never embedded.
+the full project. Samples are referenced by relative path, never embedded.
 
 ## User Stories
 
@@ -20,8 +20,8 @@ the full session. Samples are referenced by relative path, never embedded.
   I see a clear warning but the rest of the project still loads.
 - **US-004:** As a user, my .mixjam files include a format version so future
   versions of the app can migrate old projects.
-- **US-005:** As a user, projects I save or open appear in the Recent Projects
-  rail so I can reopen them quickly later.
+- **US-005:** As a user, projects I save or open appear in the MixJam Browser
+  so I can reopen them quickly later.
 
 ## Scope
 
@@ -78,7 +78,7 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   location (defaults to User Folder).
 - First save of a new project triggers "Save As…".
 - Unsaved changes indicator: a dot/asterisk next to the project name in the
-  transport strip.
+  Middle Strip.
 - Save is atomic — write to a temp file, then rename over the target.
 
 ### Load Flow
@@ -105,7 +105,7 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   filesystem paths are stored, consistent with the web-first data model).
 - Successfully opening a `.mixjam` file updates or inserts its registry entry.
 - Successfully saving a new project path updates or inserts its registry entry.
-- The Recent Projects rail (spec-006) merges this registry with `.mixjam`
+- The MixJam Browser (spec-006) merges this registry with `.mixjam`
   files discovered by recursively scanning the current User Folder and
   deduplicates entries by canonical file path.
 - When the rail is built, registry entries with `lastOpened` timestamps sort

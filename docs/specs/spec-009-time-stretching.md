@@ -67,7 +67,7 @@ native tempos.
 - Vite emits the self-contained AudioWorklet/WASM processor as a hashed static
   asset for both the browser and Electron renderer builds.
 - If WASM fails to load, the engine falls back to native-rate playback and logs
-  one warning. Stretching is disabled for the rest of that player session so a
+  one warning. Stretching is disabled for the rest of that playback runtime so a
   broken module does not retry on every trigger.
 
 ### UI and Playback Contract
@@ -102,7 +102,7 @@ native tempos.
 
 - `time-stretch.test.ts` covers ratio math, null/equal passthrough, cache reuse,
   concurrent request deduplication, LRU eviction, and WASM failure fallback.
-- `player.test.ts` covers pre-stretching before voice creation, native-rate
+- `playback-engine.test.ts` covers pre-stretching before voice creation, native-rate
   lanes, BPM changes, and reuse when returning to a prior BPM.
 - `arrangement.test.ts` and `LaneRow.test.tsx` cover lane-state normalization
   and the native-BPM editor.
@@ -120,7 +120,7 @@ native tempos.
 ## Non-Goals
 
 - No real-time stretching (pre-computed only).
-- No per-clip stretch ratio — ratio is per-lane, derived from BPM.
+- No per-placement stretch ratio — ratio is per-lane, derived from BPM.
 - No formant preservation for vocal samples.
 - No time-stretch quality comparison across multiple WASM libraries in this
   spec — use one, swap later if needed.

@@ -52,7 +52,7 @@ with three dots, centered vertically). Dragging the seam below the 272px
 threshold hides the mixer; the dragged width persists in localStorage
 (`mixjam-left-col-w`) and is re-applied on mount.
 
-When the upper Recent Projects rail is collapsed, it collapses horizontally to
+When the upper MixJam Browser is collapsed, it collapses horizontally to
 a narrow tab and the tracker region expands across the full top row. This
 preserves full Song Controls + Mixer width in the lower-left rail while
 maximizing tracker editing surface above.
@@ -205,11 +205,11 @@ must be added to `useTransportEngine`'s return value — refs are stable across
 renders so this does not break memoization. `useMixer` keys its apply-to-player
 effect on `view` (returned by the engine) since `playbackEngineRef.current` mutating
 does not trigger renders. On teardown, cleanup runs in call order; the mixer
-cleanup runs before `player.close()` and must null-check the ref.
+cleanup runs before `playbackEngine.close()` and must null-check the ref.
 
 ### Lane pan plumbing
 
-`handleSetLanePan` writes `LaneState.pan` and calls `player.setLanePan()`,
+`handleSetLanePan` writes `LaneState.pan` and calls `playbackEngine.setLanePan()`,
 which updates the per-lane persistent panner directly so live knob changes
 affect already-sounding voices. `pan` travels through `EngineLane` /
 `toEngineLanes`, and the lane panner sits before `channel.input` in the audio

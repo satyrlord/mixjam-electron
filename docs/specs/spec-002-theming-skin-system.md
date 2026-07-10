@@ -40,7 +40,7 @@ elements consistently.
 | `--bg-panel` | Panel background | Cards, dropdowns, overlays |
 | `--bg-lane` | Lane background | Tracker lane rows |
 | `--bg-grid` | Grid / deep background | Tracker grid, category grid |
-| `--chrome` | Chrome background | Header bar, transport strip, lane heads |
+| `--chrome` | Chrome background | Header bar, Transport Ribbon, lane heads |
 | `--border` | Default border | Panel borders, separators |
 | `--header-border` | Header border | Header bottom edge |
 | `--text` | Primary text | Body copy, labels |
@@ -48,27 +48,27 @@ elements consistently.
 | `--pill-bg` | Pill/control background | Buttons, chips, dropdowns |
 | `--pill-border` | Pill/control border | Button borders, chip borders |
 | `--playhead` | Playhead line color | Playhead vertical bar |
-| `--sample-bubble-text` | Clip label text color | Clip bubble text |
-| `--sample-bubble-select` | Selection highlight color | Selected clip border |
+| `--sample-bubble-text` | Sample-bubble label text color | Sample-bubble text |
+| `--sample-bubble-select` | Selection highlight color | Selected sample-bubble border |
 | `--sample-bubble-missing` | Missing-sample indicator | Placements referencing absent files |
 | `--meter-green` | Meter safe zone | Channel dB meter (-60 to -12 dB) |
 | `--meter-yellow` | Meter caution zone | Channel dB meter (-12 to -3 dB) |
 | `--meter-red` | Meter danger zone | Channel dB meter (-3 to 0 dB) |
-| `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink | Transport strip buttons |
+| `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink | Transport Ribbon buttons |
 | `--transport-active` | Active transport button base color; drives `--on-transport-active` | Playing transport button |
 | `--radius` | Border radius | Placements, buttons, panels |
-| `--radius-transport` | Transport button corner shape | Transport strip buttons; `50%` = round hardware (Analog, Rust), rounded-rect for modern themes |
-| `--radius-sample-bubble` | Clip / sample-bubble corner radius, px | Lane placements (canvas-drawn) and DOM sample bubbles; `0px` for hard-edged themes |
+| `--radius-transport` | Transport button corner shape | Transport Ribbon buttons; `50%` = round hardware (Analog, Rust), rounded-rect for modern themes |
+| `--radius-sample-bubble` | Sample-bubble corner radius, px | Lane placements (canvas-drawn) and DOM sample bubbles; `0px` for hard-edged themes |
 | `--border-width` | Structural hairline width | Lane separators, panel borders, ruler edge — everything drawn with `--border`; `2px` gives Beton Brut its black rules |
 | `--border-width-pill` | Control border width | Pill-family borders (`--pill-border`): theme selector, mute/solo, M/S, transport, chips |
 | `--border-width-header` | Header bottom-rule width | Header bottom edge; `3px` on Beton Brut, `2px` on Vintage/Riso |
-| `--sample-bubble-font-weight` | Clip / bubble label weight | Canvas clip labels and DOM sample bubbles; `700` for statement themes (Beton, Mono, Neon), `600` Riso, `400` otherwise |
-| `--sample-bubble-case` | Clip / bubble label case | `uppercase` or `none`; canvas uppercases the drawn string, DOM uses `text-transform` |
+| `--sample-bubble-font-weight` | Sample-bubble label weight | Canvas and DOM sample bubbles; `700` for statement themes (Beton, Mono, Neon), `600` Riso, `400` otherwise |
+| `--sample-bubble-case` | Sample-bubble label case | `uppercase` or `none`; canvas uppercases the drawn string, DOM uses `text-transform` |
 
 `--bg-grid` is the lane
 canvas beat-line color (bar lines stay `--border` for structural hierarchy);
 `--sample-bubble-missing` fills the 45-degree hazard stripes on placements whose sample row
-is missing (`scan_state = 2`); `--shadow-sample-bubble-text` applies to canvas clip
+is missing (`scan_state = 2`); `--shadow-sample-bubble-text` applies to canvas bubble
 labels and DOM bubbles (both drop the shadow when the
 per-slot ink resolves dark, matching `bubbleStyle`).
 
@@ -84,22 +84,22 @@ semantic treatment can change with the active theme (AC-008):
 | `--gradient-header` | Header background (gradient or flat color) |
 | `--gradient-ruler` | Ruler shading layer over `--bg-panel` (`none` = flat) |
 | `--gradient-lane` | Lane shading layer over `--bg-lane` (`none` = flat) |
-| `--shadow-sample-bubble-text` | text-shadow on clip/bubble labels |
+| `--shadow-sample-bubble-text` | text-shadow on sample-bubble labels |
 | `--gradient-transport` | Idle transport button surface |
 | `--gradient-transport-active` | Active transport button surface (lamp/LED) |
 | `--shadow-transport` | Idle transport button box-shadow |
 | `--shadow-transport-active` | Active transport button box-shadow (glow) |
 | `--shadow-pill` | box-shadow for pill-family chrome — theme selector, mute/solo, mixer M/S. Neumorphic (Soft), Win9x bevel (Vintage), offset slab (Arcade), riso overprint |
-| `--shadow-lane` | Inset well shadow on the lane clip area (Rack, Soft) |
+| `--shadow-lane` | Inset well shadow on the lane placement area (Rack, Soft) |
 | `--shadow-playhead` | Playhead glow (Cosmic, Neon) |
-| `--shadow-sample-bubble` | Clip drop-shadow, parsed by the lane canvas — strict format `<x>px <y>px <blur>px <color>` or `none` |
-| `--border-sample-bubble` | Clip outline, parsed by the lane canvas — strict format `<width>px <color>` or `none`; gives Beton Brut/Arcade their hard ink borders |
-| `--gradient-sample-bubble` | Clip/bubble gloss, canvas-parsed — `linear-gradient(180deg, <top>, <bottom>)` or `none`; stops are single hex tokens (`#RRGGBBAA`, never rgba()); Rack's pressed metal |
+| `--shadow-sample-bubble` | Sample-bubble drop-shadow, parsed by the lane canvas — strict format `<x>px <y>px <blur>px <color>` or `none` |
+| `--border-sample-bubble` | Sample-bubble outline, parsed by the lane canvas — strict format `<width>px <color>` or `none`; gives Beton Brut/Arcade their hard ink borders |
+| `--gradient-sample-bubble` | Sample-bubble gloss, canvas-parsed — `linear-gradient(180deg, <top>, <bottom>)` or `none`; stops use hex (`#RRGGBBAA`, never rgba()); Rack's pressed metal |
 | `--shadow-meter` | box-shadow on meter fills (channel dB meter, loudness bar) — LED glow on Rack, `none` elsewhere |
 
 ### Sample Palette
 
-Every clip and sample bubble is painted from the active theme's `palette`:
+Every sample bubble is painted from the active theme's `palette`:
 eight slot colors plus `palette-unsorted`. Slots keep the fixed semantic
 mapping (0 Drums/Percussion, 1 Loop, 2 Bass, 3 Keys/Guitar/Chords/Piano,
 4 Synth/Lead, 5 Voice/Vocal/FX/Vox, 6 Arp, 7 Pad/Atmosphere/Xtra/Texture;
@@ -109,10 +109,10 @@ PICO-8, Beton concrete blacks with a brick jolt).
 
 Placements store the slot, not the color: `ClipPlacement` and drag payloads carry `slot?: number`
 (0-7, 8 = Unsorted). The hex resolves at draw time from the active palette,
-so switching themes recolors every placed clip live. Slot storage keeps the
+so switching themes recolors every placed sample bubble live. Slot storage keeps the
 original stability goal — renaming a category never recolors placed placements —
 while making color a theme concern. No persisted migration was needed:
-project save/load (spec-011) has not landed, so placements only exist in session
+project save/load (spec-011) has not landed, so placements only exist in the unsaved session
 state.
 
 `applyTheme` derives per-slot custom properties so DOM bubbles restyle
@@ -163,7 +163,7 @@ external CDN or Google Fonts dependency). Font files live in `src/renderer/publi
 | 7 | Club PA | `pa` | Black stage rig | Fully implemented |
 | 8 | Beton Brut | `beton` | Dark raw concrete, black rules, brick-red jolt | Fully implemented |
 | 9 | Mono | `mono` | Acid-green terminal, all-monospace | Fully implemented |
-| 10 | Cosmic | `cosmic` | Blue-violet spatial depth, clip glow | Fully implemented |
+| 10 | Cosmic | `cosmic` | Blue-violet spatial depth, sample-bubble glow | Fully implemented |
 | 11 | Neon | `neon` | Lime + cyan voltage, round glow buttons | Fully implemented |
 | 12 | Vintage | `vintage` | Win9x silver bevels, teal placements (light) | Fully implemented |
 | 13 | Rack | `rack` | Skeuomorphic rack-gear metal, inset lane wells | Fully implemented |
@@ -315,7 +315,7 @@ The meter triad
 themes. Every value must pass a 3:1 non-text contrast gate: meter colors
 against `--bg-base` (the meter track), `--meter-red` against `--pill-bg`
 (mute-active fill, spec-007 AC-022), and `--sample-bubble-select`/`--sample-bubble-missing`
-against `--bg-lane` (selection/focus outline and missing-clip fill).
+against `--bg-lane` (selection/focus outline and missing-bubble fill).
 Known waiver: Rust `meter-green` `#4A5A28` is a user-pinned faceplate
 color that trades gate headroom for LG Drive fidelity.
 
@@ -324,8 +324,8 @@ set the brand, lane names, and mixer labels in uppercase via
 `[data-theme-key]` rules in `index.css`. Case is typography, not color, so
 this lives in CSS rather than the token JSON without violating AC-008.
 Riso uppercases the brand, Arcade uppercases its chrome controls (theme
-selector, transport strip text, manage/sort buttons) because the arcade
-mockup is uppercase throughout, and clip labels follow the `--sample-bubble-case`
+selector, Transport Ribbon text, manage/sort buttons) because the arcade
+mockup is uppercase throughout, and sample-bubble labels follow the `--sample-bubble-case`
 token (Beton, Mono, Arcade) on both the canvas and DOM bubbles.
 
 Treatments a
@@ -348,7 +348,7 @@ hazard stripes in `--sample-bubble-missing` over a darkened variant.
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
-- [x] **AC-002:** The Emerald theme JSON implements all 23 `ThemeColors` entries plus the documented palette, font, depth, radius, border, and clip typography tokens.
+- [x] **AC-002:** The Emerald theme JSON implements all 23 `ThemeColors` entries plus the documented palette, font, depth, radius, border, and sample-bubble typography tokens.
 - [x] **AC-003:** All bundled fonts are loaded from local files — no external network requests for fonts.
 - [x] **AC-004:** Theme selector lists all 16 themes: Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial, Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, Arcade.
 - [x] **AC-005:** Default selection in the theme selector is "Emerald".
@@ -360,8 +360,8 @@ hazard stripes in `--sample-bubble-missing` over a darkened variant.
 - [x] **AC-011:** Placements and sample bubbles are painted from the active theme's `palette` by slot;
   switching themes recolors placed placements and browser tiles without reloading, and the canvas and DOM resolve identical colors for the same slot.
 - [x] **AC-012:** The lane canvas draws beat lines in `--bg-grid` and bar lines in `--border`; no theme renders beat lines from the structural border color.
-- [x] **AC-013:** A clip whose sample row is missing (`scan_state = 2`) renders 45-degree hazard stripes derived from `--sample-bubble-missing`.
-- [x] **AC-014:** Canvas clip labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
+- [x] **AC-013:** A sample bubble whose sample row is missing (`scan_state = 2`) renders 45-degree hazard stripes derived from `--sample-bubble-missing`.
+- [x] **AC-014:** Canvas sample-bubble labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
 - [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`; Beton Brut renders 2px structural rules and a 3px header rule.
 - [x] **AC-016:** The playhead renders a triangular cap colored from `--playhead`.
 
@@ -372,7 +372,7 @@ hazard stripes in `--sample-bubble-missing` over a darkened variant.
 - No theme validation/sanitization for untrusted theme files (relevant when
   import is added).
 - No theme persistence across app restarts — app always starts in Emerald
-  until a session/theme preference store is wired.
+  until an app-state theme preference store is wired.
 - No custom theme creation or editing UI.
 - No theme preview thumbnails in the dropdown.
 - No light/dark mode toggle separate from theme selection.

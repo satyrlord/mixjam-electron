@@ -88,7 +88,7 @@ CREATE TABLE library_rules (
 ```
 
 `scan_roots` is load-bearing: one active Sample Folder is shown at a time (the
-session's `sampleFolder`), but every folder ever scanned keeps its rows, scoped
+app state's `sampleFolder`), but every folder ever scanned keeps its rows, scoped
 by `root_id`, so switching folders switches the visible library instead of
 mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
 

@@ -8,21 +8,21 @@
 
 Add a two-folder setup flow to the Home Screen: the user must select a **User
 Folder** (output, read-write) and a **Sample Folder** (input, read-only) before
-entering the Tracker View. Session state persists across app restarts.
+entering the Player. Folder selections persist as app state across restarts.
 
 ## User Stories
 
 - **US-001:** As a user, I select a User Folder so the app has somewhere to save
   my projects and exports.
 - **US-002:** As a user, I select a Sample Folder so the app knows where my
-  sample library lives.
+  sample files live.
 - **US-003:** As a user, I must pick the User Folder before the Sample Folder
   becomes available — the app enforces this order so it always has a write
   destination before reading samples.
 - **US-004:** As a user, the "Start New MixJam" button is disabled until both
   folders are selected, with a hint explaining what's missing.
 - **US-005:** As a user, when I reopen the app, my previously selected folders
-  are restored automatically — I don't have to re-pick them every session.
+  are restored automatically — I don't have to re-pick them on every launch.
 - **US-006:** As a user, if a previously selected folder is no longer
   accessible, the app shows a clear error and lets me pick a new one.
 
@@ -59,7 +59,7 @@ Each card shows:
 **User Folder card:**
 
 - Always enabled. The user can pick or change the output folder at any time.
-- Role: read-write. The app writes projects, exports, and session config into
+- Role: read-write. The app writes projects, exports, and app config into
   this folder.
 - The picker is hinted to start in the OS Documents folder (`startIn`).
 
@@ -105,7 +105,7 @@ Each card shows:
   "Restore access to `folder`", which re-requests permission in a user
   gesture. The Electron shell auto-grants, so desktop users never see this.
 
-### Session Persistence
+### App State Persistence
 
 - Selected `FolderRef`s are persisted in localStorage; their directory handles
   are persisted in IndexedDB. Both survive app restarts on the same origin.
@@ -116,12 +116,12 @@ Each card shows:
   folders.
 - No network, no cloud sync.
 
-### Session Config File
+### App Config File
 
 When both folders are selected and the User Folder is accessible, the app
-writes a session configuration file into the User Folder:
+writes an app configuration file into the User Folder:
 
-- `mixjam.json` — session metadata (app version, folder names, last opened
+- `mixjam.json` — app metadata (app version, folder names, last opened
   timestamp).
 
 This file is written automatically after folder selection (through the User
@@ -146,7 +146,7 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
 - [x] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
 - [x] **AC-013a:** If a restored handle needs a permission re-grant (browser host), the card offers "Restore access to `folder`"; granting it validates the folder and opens the gate.
-- [x] **AC-014:** A `mixjam.json` session config file is written to the User Folder after both folders are selected.
+- [x] **AC-014:** A `mixjam.json` app config file is written to the User Folder after both folders are selected.
 - [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
 
 ## Non-Goals (deferred to later specs)

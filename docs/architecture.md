@@ -44,7 +44,7 @@ keep the UI a real webview).
 │  │  • indexer — directory-handle traversal +         │  │
 │  │    music-metadata parseBlob (see indexing.md)     │  │
 │  └───────────────────────────────────────────────────┘  │
-│  Folder handles in IndexedDB · session in localStorage   │
+│  Folder handles in IndexedDB · app state in localStorage │
 │  tracker/player (Web Audio) · skinnable via CSS vars     │
 └─────────────────────────────────────────────────────────┘
    Host A: any Chromium browser (GitHub Pages, https)

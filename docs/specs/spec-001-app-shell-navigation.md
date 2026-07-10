@@ -61,7 +61,7 @@ Implement view switching, the header bar, and the footer.
   regardless of left/right content width.
 - The tracker content area below the header shows the structural skeleton of
   the app using the approved player region map: five empty labeled rectangular
-  zones (Recent Projects rail, Player / Tracker region, full-width Middle
+  zones (MixJam Browser, Tracker region, full-width Middle
   Strip, Song Controls rail, Sample Browser region). No lane rows, no button
   icons, and no detailed sub-zones inside those regions — completely blank
   placeholders.
@@ -87,7 +87,7 @@ The browser build is the real app: the same bundle and backend used by the
 Electron shell.
 
 - The renderer always installs the real browser backend (sqlite-wasm over
-  OPFS, File System Access folders, localStorage session). Host detection only
+  OPFS, File System Access folders, localStorage app state). Host detection only
   selects the optional `window.shellAPI` (present inside the Electron shell).
 - There is **no demo mode**: with no granted Sample Folder the home screen
   gates the tracker exactly as on desktop. Onboarding for users without
@@ -121,7 +121,7 @@ Electron shell.
 
 - Fixed 40px height, full width (same fixed size as the header).
 - **Home Screen state:** left "Select User Folder" link (opens the User Folder
-  picker and persists a valid selection to the session through the same flow
+  picker and persists a valid selection to app state through the same flow
   as the Home Screen folder card), right version string.
 - **Player state:** left "Select User Folder" link, right version string,
   and a center detail slot that may be populated by the Sample Browser
@@ -152,7 +152,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
   (with window resize in the Electron shell), cancelling stays on the Home Screen.
 - [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
-- [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (Recent Projects, Player / Tracker, Middle Strip,
+- [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (MixJam Browser, Tracker, Middle Strip,
   Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
@@ -168,7 +168,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
   is structural placeholder. Audio engine is spec-005.
 - No project file format, no actual file loading. Project save/load is spec-011.
 - No folder selection for sample libraries. Folder management is spec-003.
-- No sample data, no clip rendering, no lane interaction. Tracker timeline is spec-006.
+- No sample data, no sample-bubble rendering, no lane interaction. Tracker timeline is spec-006.
 - No settings persistence — the settings link in the footer is a placeholder.
 - "Load MixJam" stays disabled until spec-011 provides real file loading.
 - No keyboard shortcuts.

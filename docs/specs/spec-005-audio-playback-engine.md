@@ -8,7 +8,7 @@
 
 Build the pure audio playback core: transport control (BPM, play/pause/stop), a
 lookahead scheduler, sample voice triggering, and per-channel gain/pan routing.
-At the end of this slice, a test can load a sample, place it on a track, press
+At the end of this slice, a test can load a sample, place it on a lane, press
 play, and hear audio. The engine is fully decoupled from the UI layer.
 
 ## User Stories
@@ -20,7 +20,7 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   beginning.
 - **US-004:** As a user, I can change the BPM and hear the playback tempo change
   immediately.
-- **US-005:** As a user, each track has its own volume and stereo pan control
+- **US-005:** As a user, each lane has its own volume and stereo pan control
   that affects its sound independently.
 - **US-006:** As a user, I can change the master output volume without altering
   the relative balance between channels.
@@ -42,10 +42,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   segment before stopping its timer, so resume excludes time spent paused.
 - Tick-to-time conversion: given a tick number and the current AudioContext
   time, returns the absolute time when that tick should fire.
-- Step resolution: 1/32 note (8 ticks per beat at 4/4). Every track shares the
+- Step resolution: 1/32 note (8 ticks per beat at 4/4). Every lane shares the
   same global grid.
 - The playhead can advance indefinitely — there is no fixed song length.
-  Tracks can hold patterns of any number of bars.
+  Lanes can hold patterns of any number of bars.
 - Transport is a standalone module — no DOM, no React, no UI imports.
 
 ### Lookahead Scheduler
@@ -127,17 +127,16 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - **Monophonic:** if a new sample bubble overlaps a currently playing one on the
   same lane, the previous voice is cut off immediately (classic eJay/Acid
   behavior).
-- Each lane holds: a sample reference (ID), a set of clip placements (each
-  clip has a start tick and a duration in ticks), mute state, solo state, and
+- Each lane holds a set of clip placements (each with a sample reference,
+  start tick, and duration in ticks), mute state, solo state, and
   a channel assignment.
 - Lanes have unlimited length — the user can place placements at any tick position,
   extending the arrangement as needed.
 - **Default routing:** each lane is pre-routed to its own mixer channel (lane 1
   → channel 1, lane 2 → channel 2, etc.). This is why the default channel count
   equals the default lane count (16).
-- During playback, the scheduler evaluates each lane's placements: if the playhead
-  is within a clip's range and the lane is not muted, a voice is triggered at
-  the clip's start position.
+- During playback, the scheduler evaluates each lane's placements: when the
+  playhead reaches an audible placement's start position, a voice is triggered.
 - Solo overrides mute: if any lane is soloed, only soloed lanes play.
 
 ### Engine Boundary
@@ -163,7 +162,7 @@ the engine never knows who is listening.
 - [x] **AC-010:** Decoding the same sample twice returns the cached `AudioBuffer` — no duplicate decode.
 - [x] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
 - [x] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.
-- [x] **AC-013:** A soloed track plays; all non-soloed tracks are silent. Un-soloing restores normal playback.
+- [x] **AC-013:** A soloed lane plays; all non-soloed lanes are silent. Un-soloing restores normal playback.
 
 ## Non-Goals (deferred to later specs)
 
