@@ -31,6 +31,9 @@ export default function MixJamBrowser({
 
   const toggle = () => {
     const next = !collapsed
+    // Keep the parent grid and the rail in the same React update so the
+    // collapsed rail never occupies the old expanded grid column for a frame.
+    onCollapsedChange?.(next)
     setCollapsed(next)
     try {
       if (next) localStorage.setItem(STORAGE_KEY, '1')

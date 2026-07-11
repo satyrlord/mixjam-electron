@@ -953,8 +953,8 @@ html[data-theme-ready='true'] body {
 .player-view {
   flex: 1;
   display: grid;
-  /* 420px default keeps the mixer visible on first entry (spec-007 AC-014);
-     the drag seam still allows narrowing down to 168px. */
+  /* The first column belongs only to the upper MixJam Browser/Tracker split.
+     The Bottom Workspace spans both columns. */
   grid-template-columns: var(--left-col-w, 420px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) 44px minmax(0, 1fr);
   background: var(--bg-base);
@@ -975,8 +975,7 @@ html[data-theme-ready='true'] body {
   color: var(--text-muted);
 }
 
-.mixjam-browser,
-.song-controls-rail {
+.mixjam-browser {
   padding: 10px 8px;
   background: var(--chrome);
   display: flex;
@@ -1711,48 +1710,252 @@ html[data-theme-ready='true'] body {
   fill: currentColor;
 }
 
-.song-controls-rail {
-  grid-column: 1;
-  grid-row: 4;
-  border-top: none;
-  flex-direction: row;
-  gap: 0;
-  padding: 0;
-}
-
-/* ── Song Controls Main (fixed 168px master section) ── */
+/* ── Song control system ── */
 .song-controls-main {
-  min-width: 168px;
-  width: 168px;
-  flex-shrink: 0;
-  padding: 10px 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  border-right: var(--edge);
+  gap: 8px;
   background: var(--chrome);
   overflow: hidden;
+}
+
+.song-control-system {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.song-control-module {
+  width: 124px;
+  min-width: 112px;
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: var(--edge);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg-panel) 72%, var(--chrome));
+  color: var(--text-muted);
+  font-family: var(--font-label);
+}
+
+.song-control-head {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.song-control-value {
+  color: var(--text);
+  font: 11px/1 var(--font-mono);
+  white-space: nowrap;
+}
+
+.song-bpm-value {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.song-bpm-value input {
+  width: 42px;
+  height: 28px;
+  min-height: 28px;
+  padding: 2px 4px;
+  border: var(--edge-pill);
+  border-radius: var(--radius);
+  background: var(--bg-base);
+  color: var(--text);
+  font: 11px/1 var(--font-mono);
+  text-align: right;
+}
+
+.song-bpm-value input:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 1px;
+}
+
+/* Shared by Song BPM/master controls and every Mixer channel fader. */
+.vertical-fader,
+.vertical-meter {
+  flex: 1;
+  min-width: 44px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.vertical-fader-track {
+  flex: 1;
+  width: 44px;
+  min-height: 56px;
+  position: relative;
+}
+
+.vertical-fader-track::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 8px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-base);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.vertical-fader-value-fill {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 6px;
+  height: var(--vertical-fader-value);
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.vertical-fader-input {
+  position: absolute;
+  inset: 0;
+  width: 44px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.vertical-fader-native-track {
+  position: relative;
+  width: 8px;
+  height: 100%;
+}
+
+.vertical-fader-native-range {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: transparent;
+}
+
+.vertical-fader-thumb {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--text);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: var(--shadow-pill, none);
+}
+
+.vertical-fader-thumb:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 1px;
+  border-radius: var(--radius);
+}
+
+.vertical-fader-unity-tick {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  height: 1px;
+  transform: translateY(50%);
+  background: var(--text);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.vertical-fader-readout {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 4px;
+  border: var(--edge);
+  border-radius: var(--radius);
+  background: var(--chrome);
+  color: var(--text);
+  font: 10px/1 var(--font-mono);
+  white-space: nowrap;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.vertical-control-endpoint {
+  min-height: 14px;
+  font: 11px/14px var(--font-mono);
+  color: var(--text-muted);
+}
+
+.vertical-meter-track {
+  flex: 1;
+  width: 12px;
+  min-height: 56px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-base);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent);
+  pointer-events: none;
+}
+
+.vertical-fader-track > .vertical-meter-track {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  margin: auto;
+}
+
+.vertical-meter-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transition: height 0.05s linear;
+  box-shadow: var(--shadow-meter, none);
+}
+
+.vertical-meter-peak {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text);
+  transition: bottom 0.1s linear;
 }
 
 /* ── Mixer Column ── */
-/* Hidden when the left column is too narrow (min-width 104px + 168px
-   SongControlsMain = 272px threshold). Overflow: hidden on the parent rail
-   clips the mixer below 272px; above 272px it snaps into view. */
 .mixer-column {
   flex: 1;
-  min-width: 104px;
-  flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--chrome);
-}
-
-/* Below the 272px reveal threshold the mixer is clipped by the rail. Hide it
-   from layout and the tab order so keyboard focus can't land on off-screen
-   strips and force-scroll the rail past the master section. */
-.player-view.mixer-hidden .mixer-column {
-  visibility: hidden;
 }
 
 .mixer-empty-text {
@@ -1812,10 +2015,10 @@ html[data-theme-ready='true'] body {
   justify-content: center;
 }
 
-/* ── Channel Strip (40px wide) ── */
+/* ── Channel Strip (44px wide) ── */
 .mixer-channel-strip {
-  width: 40px;
-  min-width: 40px;
+  width: 44px;
+  min-width: 44px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1837,13 +2040,13 @@ html[data-theme-ready='true'] body {
 
 .mixer-channel-label {
   font-family: var(--font-label);
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text-muted);
   width: 100%;
   text-align: center;
   position: relative;
-  height: 14px;
-  line-height: 14px;
+  height: 16px;
+  line-height: 16px;
 }
 
 .mixer-channel-select {
@@ -1894,89 +2097,15 @@ html[data-theme-ready='true'] body {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-/* ── Channel VOL slider + dB meter (overlaid) ── */
+/* ── Channel gain fader + dB meter ── */
 .mixer-channel-vol-wrap {
   flex: 1;
-  width: 100%;
-  position: relative;
-  display: flex;
-  align-items: stretch;
+  width: 44px;
   min-height: 0;
 }
 
-.mixer-channel-vol-readout {
-  position: absolute;
-  top: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text);
-  background: var(--chrome);
-  border: var(--edge);
-  border-radius: 2px;
-  padding: 1px 3px;
-  z-index: 2;
-  pointer-events: none;
-}
-
-/* Unity (100%) reference at the fader's top-of-travel (thumb center ~8px). */
-.mixer-channel-unity-tick {
-  position: absolute;
-  top: 8px;
-  left: 4px;
-  right: 4px;
-  height: 1px;
-  background: var(--text-muted);
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 0;
-}
-
 .mixer-channel-vol {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 24px;
-  margin: 0 auto;
-  accent-color: var(--accent);
-  opacity: 0.7;
-  z-index: 1;
-  position: relative;
-}
-
-.mixer-channel-vol:hover {
-  opacity: 1;
-}
-
-.mixer-channel-meter {
-  position: absolute;
-  inset: 0 6px;
-  background: color-mix(in srgb, var(--bg-base) 60%, transparent);
-  border-radius: 2px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.mixer-channel-meter-fill {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  transition: height 0.05s linear;
-  border-radius: 0 0 2px 2px;
-  box-shadow: var(--shadow-meter, none);
-}
-
-.mixer-channel-meter-peak {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--text);
-  opacity: 0.8;
-  transition: bottom 0.1s linear;
-  border-radius: 1px;
+  opacity: 0.82;
 }
 
 /* ── Channel Pan knob (horizontal, small) ── */
@@ -2087,7 +2216,7 @@ html[data-theme-ready='true'] body {
    full strength so the active mute state and live value remain readable. */
 .mixer-channel-strip-muted .mixer-channel-label,
 .mixer-channel-strip-muted .mixer-channel-vol,
-.mixer-channel-strip-muted .mixer-channel-meter,
+.mixer-channel-strip-muted .vertical-meter-track,
 .mixer-channel-strip-muted .mixer-channel-unity-tick,
 .mixer-channel-strip-muted .mixer-channel-pan {
   opacity: 0.4;
@@ -2099,14 +2228,10 @@ html[data-theme-ready='true'] body {
   border-color: var(--accent-dark);
 }
 
-/* ── Left-column resize seam ── */
-/* Confined to the Song Controls rail row (grid-row 4), the band it actually
-   resizes. Spanning the full height (rows 1/5) put the seam and its grip over
-   the Tracker/Sample Browser bubble area when the MixJam Browser is collapsed
-   (that region spans columns 1/3), stealing bubble clicks and drags. */
-.left-col-resize-seam {
+/* ── Upper MixJam Browser resize seam ── */
+.upper-work-resize {
   grid-column: 1;
-  grid-row: 4;
+  grid-row: 1;
   justify-self: end;
   width: 4px;
   cursor: col-resize;
@@ -2116,14 +2241,12 @@ html[data-theme-ready='true'] body {
   position: relative;
 }
 
-.left-col-resize-seam:hover {
+.upper-work-resize:hover {
   background: var(--accent);
 }
 
-/* Always-visible grip so the seam reads as draggable (drag left past the
-   272px threshold to hide the mixer). A bordered pill with three dots that
-   protrudes over both sides of the 4px seam. */
-.left-col-resize-seam::after {
+/* A bordered pill with three dots makes the upper split discoverable. */
+.upper-work-resize::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -2140,7 +2263,7 @@ html[data-theme-ready='true'] body {
     var(--chrome);
 }
 
-.left-col-resize-seam:hover::after {
+.upper-work-resize:hover::after {
   border-color: var(--accent);
   background:
     radial-gradient(circle at 50% 14px, var(--on-accent) 1.2px, transparent 1.8px),
@@ -2149,87 +2272,8 @@ html[data-theme-ready='true'] body {
     var(--accent);
 }
 
-.song-control {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: var(--text-muted);
-  font-family: var(--font-label);
-  font-size: 11px;
-}
-
-.song-control input[type='range'] {
-  width: 100%;
-  accent-color: var(--accent);
-}
-
-.song-control-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.song-control-value {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text);
-}
-
-.loudness-meter {
-  height: 10px;
-  border-radius: 999px;
-  background: var(--bg-base);
-  border: var(--edge);
-  overflow: hidden;
-}
-
-.loudness-meter-fill {
-  width: 62%;
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--highlight));
-  box-shadow: var(--shadow-meter, none);
-}
-
-/* ── Browser resize handle ───────────────────── */
-.browser-resize-h {
-  grid-column: 1 / -1;
-  grid-row: 3;
-  height: 6px;
-  cursor: row-resize;
-  background: var(--border);
-  transition: background 0.15s;
-  position: relative;
-}
-
-.browser-resize-h::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 24px;
-  height: 2px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--text-muted) 0 3px,
-    transparent 3px 6px
-  );
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.browser-resize-h:hover {
-  background: var(--accent);
-}
-
-.browser-resize-h:hover::after {
-  opacity: 0;
-}
-
 /* ── Browser region ──────────────────────────── */
 .browser-region {
-  grid-column: 2;
-  grid-row: 4;
   display: flex;
   flex-direction: row;
   overflow: hidden;
@@ -2237,30 +2281,37 @@ html[data-theme-ready='true'] body {
   position: relative;
 }
 
+.player-view.mixjam-browser-collapsed .upper-work-resize {
+  display: none;
+}
+
 .bottom-workspace {
-  grid-column: 2;
-  grid-row: 4;
+  grid-column: 1 / -1;
+  grid-row: 3;
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 36px minmax(0, 1fr);
+  grid-template-rows: 44px minmax(0, 1fr);
   overflow: hidden;
   background: var(--bg-panel);
 }
 
 .bottom-workspace-tabs {
   display: flex;
-  align-items: end;
+  align-items: stretch;
   gap: 4px;
-  padding: 4px 8px 0;
+  padding: 0 8px;
   border-bottom: var(--edge);
   background: var(--chrome);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
-.bottom-workspace-tabs button {
+.bottom-workspace-tab {
   min-width: 84px;
-  min-height: 32px;
-  padding: 6px 14px;
+  min-height: 44px;
+  padding: 8px 14px 6px;
   border: var(--edge-pill);
   border-bottom: 0;
   border-radius: var(--radius) var(--radius) 0 0;
@@ -2270,19 +2321,40 @@ html[data-theme-ready='true'] body {
   cursor: pointer;
 }
 
-.bottom-workspace-tabs button[aria-selected='true'] {
+.bottom-workspace-tab[aria-selected='true'] {
   color: var(--text);
   background: var(--bg-panel);
   border-color: var(--accent);
 }
 
-.bottom-workspace-tabs button:focus-visible,
+.bottom-workspace-tab:focus-visible,
+.bottom-workspace-song-status:focus-visible,
 .effects-workspace button:focus-visible,
 .effects-workspace summary:focus-visible,
 .effects-workspace select:focus-visible,
 .effects-workspace input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.bottom-workspace-song-status {
+  min-height: 44px;
+  min-width: max-content;
+  margin-left: auto;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: 10px/1 var(--font-mono);
+  cursor: pointer;
+}
+
+.bottom-workspace-song-status:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .bottom-workspace-panel {
@@ -2292,6 +2364,14 @@ html[data-theme-ready='true'] body {
 }
 
 .bottom-workspace-panel[hidden] { display: none; }
+
+.bottom-workspace-song {
+  background: var(--chrome);
+}
+
+.bottom-workspace-song .song-controls-main {
+  height: 100%;
+}
 
 .bottom-workspace .browser-region {
   width: 100%;
@@ -2744,8 +2824,8 @@ html[data-theme-ready='true'] body {
 }
 
 .channel-fx-button {
-  width: 40px;
-  margin-inline: -2px;
+  width: 44px;
+  margin-inline: 0;
   min-height: 44px;
   padding: 4px 2px;
   border: var(--edge-pill);
@@ -2794,6 +2874,8 @@ html[data-theme-ready='true'] body {
 .effect-detail h3 { margin: 0; color: var(--text); font-size: 16px; }
 .effects-eyebrow { color: var(--text-muted); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
 .effects-slot-count { color: var(--text-muted); font: 10px/1 var(--font-mono); }
+.effects-channel-selector { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--text-muted); font-size: 11px; }
+.effects-channel-selector select { min-height: 36px; padding: 4px 28px 4px 8px; border: var(--edge-pill); border-radius: var(--radius); background: var(--chrome); color: var(--text); font: 11px/1 var(--font-label); }
 
 .effects-chain {
   display: flex;

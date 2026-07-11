@@ -1,7 +1,7 @@
 # Spec 007 — Mixer
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIALLY IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline & Panel Layout)
 
 ## Objective
@@ -43,9 +43,9 @@ Mixer panel width.
 
 ### Channel Strip (per channel)
 
-Each channel strip is 40px wide and a vertical stack:
+Each channel strip is 44px wide and a vertical stack:
 
-- **Channel label** — channel number, 9px muted text. Stable
+- **Channel label** — channel number, 11px muted text. Stable
   `channelIndex + 1`, used for both the visible label and all aria-labels
   so numbering reflects the fixed lane N → channel N routing.
 - **Remove button (x)** — revealed on strip hover and on `:focus-visible`
@@ -76,9 +76,9 @@ Each channel strip is 40px wide and a vertical stack:
   contrast against the inactive pill, and a muted channel's strip dims as a
   whole.
 - **S button** — solo toggle, 16×16px.
-  M and S buttons sit side-by-side (16px each + gap, fits within 40px strip).
+  M and S buttons sit side-by-side (16px each + gap, fits within 44px strip).
 
-No stereo width control — deferred until DSP is implemented (spec-010).
+Stereo width is out of scope.
 
 ### Channel Management
 
@@ -219,7 +219,7 @@ interaction. Do NOT implement one without the other.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** 16 channel strips (40px each) are visible in the mixer column, each with VOL slider, dB meter, pan knob, M and S buttons.
+- [x] **AC-001:** 16 channel strips (44px each) are visible in the mixer column, each with VOL slider, dB meter, pan knob, M and S buttons.
 - [x] **AC-002:** Dragging a channel's VOL slider changes the audio output level for that channel in real-time.
 - [x] **AC-003:** The dB meter updates during playback, showing green/yellow/red zones proportional to output level, with a decaying peak hold line.
 - [x] **AC-004:** Clicking a channel's M button mutes that channel — lane N (hardcoded route) goes silent. The button shows active state.
@@ -227,19 +227,19 @@ interaction. Do NOT implement one without the other.
 - [x] **AC-006:** Lane-level mute/solo and channel-level mute/solo are independent ANDed gates. A lane is audible when its own mute AND its channel's mute are off, and it passes both solo filters.
 - [x] **AC-008:** User can remove a channel via hover-revealed x button; the corresponding lane is re-routed to the master bypass bus
   (audible at unity gain with lane pan applied). Remaining strips shift down and keep their stable channel labels; the remove button also appears on keyboard focus.
-- [ ] **AC-009:** Activating Mixer shows its full-width panel; activating a
+- [x] **AC-009:** Activating Mixer shows its full-width panel; activating a
   peer tab hides it without unmounting Mixer state. No lower reveal seam is
   present.
 - [x] **AC-011:** Channel state (gain, pan, mute, solo) persists across page refreshes via localStorage.
 - [x] **AC-012:** The lane-head pan knob and mixer-strip pan knob control independent values (lane pan and channel pan respectively); both are applied in the audio chain.
 - [x] **AC-013:** Removing all channels leaves all 16 lanes routed to the master bypass bus; all lanes remain audible. The mixer column shows no channel strips.
 
-- [ ] **AC-014:** The Mixer panel receives the full Bottom Workspace width and
+- [x] **AC-014:** The Mixer panel receives the full Bottom Workspace width and
   is independent of the upper MixJam Browser/Tracker column width.
-- [ ] **AC-015:** All 16 channel strips are visible when space permits and are
+- [x] **AC-015:** All 16 channel strips are visible when space permits and are
   reachable by horizontal scroll when the viewport is too narrow;
   keyboard-tabbing scrolls a clipped strip into view.
-- [ ] **AC-016:** Mixer panel state survives tab changes, and the selected
+- [x] **AC-016:** Mixer panel state survives tab changes, and the selected
   Bottom Workspace tab survives remount according to spec-006.
 - [x] **AC-017:** A restore affordance re-adds the lowest removed channel at default state (gain 0.8, pan 0, unmuted, unsoloed) and re-routes its lane from the master bypass
   back to the channel. It is disabled/absent when no channel is removed.
@@ -251,10 +251,21 @@ interaction. Do NOT implement one without the other.
 - [x] **AC-023:** A channel fader shows its percentage value while dragging and renders a unity (100%) tick mark.
 - [x] **AC-024:** The master meter label reads "Output Level".
 
-## Non-Goals (deferred to later specs)
+## Control-System Validation Evidence
 
-- No per-channel audio effects (delay, reverb, compression) — spec-010.
-- No stereo width control or DSP — spec-010.
+- `src/renderer/src/components/ChannelStrip.test.tsx` verifies that channel
+  gain uses the shared Radix-backed vertical fader and meter, preserves its
+  value and unity affordances, and handles Arrow, Home, and End keys in visual
+  orientation.
+- `tmp/verify-vertical-controls/evidence.md` records production Chromium
+  geometry for all 16 fixed-width strips and the shared fader/meter grammar.
+- `tmp/verify-complete-system/evidence.md` verifies all 16 strips at 44px in
+  every bundled theme at both wide and narrow viewport sizes, including
+  keyboard focus scrolling to the final channel.
+
+## Non-Goals
+
+- No stereo width control.
 - No channel EQ or filter controls.
 - No channel preset save/load.
 - No automation (recording mixer movements over time).

@@ -4,6 +4,7 @@ test.describe('Library', () => {
   test.beforeEach(async ({ seededPage }) => {
     await seededPage.getByRole('button', { name: 'Start New MixJam' }).click()
     await expect(seededPage.locator('.home-setup')).not.toBeVisible({ timeout: 5_000 })
+    await seededPage.getByRole('tab', { name: 'Samples' }).click()
   })
 
   test('sample browser shows sample tiles', async ({ seededPage }) => {

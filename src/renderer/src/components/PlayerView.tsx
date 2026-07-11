@@ -13,7 +13,6 @@ import {
   LEFT_COL_DEFAULT_PX,
   LEFT_COL_MAX_FRACTION,
   LEFT_COL_MIN_PX,
-  LEFT_COL_MIXER_THRESHOLD_PX,
   RULER_HEIGHT_PX,
   sampleBubbleScreenRect,
   timelinePixelsPerSecond
@@ -25,13 +24,41 @@ import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
 import { useDragResize } from '../hooks/useDragResize'
 import MixJamBrowser from './MixJamBrowser'
 import MiddleStrip from './MiddleStrip'
-import SongControlsRail from './SongControlsRail'
+import SongControlsMain from './SongControlsMain'
+import MixerColumn from './MixerColumn'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
 import EffectsWorkspace from './EffectsWorkspace'
+import BottomWorkspace, {
+  isBottomWorkspaceTab,
+  type BottomWorkspaceTab
+} from './BottomWorkspace'
 
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
+const BOTTOM_WORKSPACE_STORAGE_KEY = 'mixjam:bottom-workspace-tab'
+
+function initialBottomWorkspaceTab(): BottomWorkspaceTab {
+  try {
+    const stored = localStorage.getItem(BOTTOM_WORKSPACE_STORAGE_KEY)
+    return isBottomWorkspaceTab(stored) ? stored : 'song'
+  } catch {
+    return 'song'
+  }
+}
+
+export function reconcileSelectedChannelIndex(
+  channels: ReadonlyArray<{ channelIndex: number }>,
+  selectedChannelIndex: number | null
+): number | null {
+  if (selectedChannelIndex !== null && channels.some((channel) => channel.channelIndex === selectedChannelIndex)) {
+    return selectedChannelIndex
+  }
+  if (selectedChannelIndex === null) return channels[0]?.channelIndex ?? null
+  return channels.find((channel) => channel.channelIndex > selectedChannelIndex)?.channelIndex ??
+    [...channels].reverse().find((channel) => channel.channelIndex < selectedChannelIndex)?.channelIndex ??
+    null
+}
 
 interface PlacementDragPayload {
   placementId: string
@@ -223,13 +250,23 @@ export default function PlayerView({
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(false)
-  const [bottomTab, setBottomTab] = useState<'samples' | 'fx'>('samples')
+  const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(initialBottomWorkspaceTab)
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null)
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null)
 
+  const setBottomTab = useCallback((tab: BottomWorkspaceTab) => {
+    setBottomTabState(tab)
+    try {
+      localStorage.setItem(BOTTOM_WORKSPACE_STORAGE_KEY, tab)
+    } catch {
+      // Storage can be unavailable; the active in-memory tab still works.
+    }
+  }, [])
+
   useEffect(() => {
-    if (selectedChannelIndex !== null && mixer.channels.some((channel) => channel.channelIndex === selectedChannelIndex)) return
-    setSelectedChannelIndex(mixer.channels[0]?.channelIndex ?? null)
+    const nextChannelIndex = reconcileSelectedChannelIndex(mixer.channels, selectedChannelIndex)
+    if (nextChannelIndex === selectedChannelIndex) return
+    setSelectedChannelIndex(nextChannelIndex)
     setSelectedEffectId(null)
   }, [mixer.channels, selectedChannelIndex])
 
@@ -402,25 +439,8 @@ export default function PlayerView({
     }
   }, [lanes.length, totalTicks, arrangement])
 
-  // Browser/tracker split: fraction of remaining space given to the browser
-  // region.  1 = equal split with the tracker region.
-  const [browserFlex, setBrowserFlex] = useState(1)
-
-  const handleResizeStart = useDragResize(
-    useCallback(() => browserFlex, [browserFlex]),
-    useCallback((_dx, dy, startFlex) => {
-      // Convert pixel delta to flex ratio (heuristic: ~600px = 1fr unit)
-      const newFlex = Math.max(0.3, Math.min(3, startFlex - dy / 600))
-      setBrowserFlex(newFlex)
-    }, [])
-  )
-
-  // Left-column resize seam: drag the right edge of column 1 to resize it.
-  // The mixer column shows when width exceeds 272px (168px + 104px); the
-  // 420px default keeps it visible on first entry. The 168px drag minimum
-  // still lets users narrow the column below the mixer threshold, which is
-  // how the mixer is hidden. The dragged width persists so a hidden mixer
-  // stays hidden across reloads.
+  // Upper-work resize seam: drag the MixJam Browser edge to resize only the
+  // browser/tracker split. The full-width Bottom Workspace is independent.
   const playerViewRef = useRef<HTMLDivElement>(null)
 
   // Clamp a left-column width to [min, viewport fraction] so a persisted or
@@ -431,25 +451,18 @@ export default function PlayerView({
     return clamp(px, LEFT_COL_MIN_PX, max)
   }, [])
 
-  // Write the width to the CSS var and mark the mixer hidden below the reveal
-  // threshold. The `mixer-hidden` class makes the clipped mixer inert (CSS)
-  // so keyboard focus can't land on off-screen strips and force-scroll the
-  // rail past the master section.
+  // Write the upper browser width to the shared grid's first-column variable.
   const applyLeftColWidth = useCallback((px: number): void => {
     const el = playerViewRef.current
     if (!el) return
     const width = clampLeftColWidth(px)
     el.style.setProperty('--left-col-w', `${width}px`)
-    el.classList.toggle('mixer-hidden', width < LEFT_COL_MIXER_THRESHOLD_PX)
   }, [clampLeftColWidth])
 
-  // Apply the persisted width imperatively before paint (useLayoutEffect, not
-  // useEffect) so a hidden mixer never flashes at the wider CSS default on
-  // tracker entry. The JSX style prop must never contain --left-col-w or
-  // React's style diffing would clobber the imperative drag value.
+  // Apply the persisted width before paint. The JSX style prop must never
+  // contain --left-col-w or React would clobber the imperative drag value.
   useLayoutEffect(() => {
     const stored = parseFloat(localStorage.getItem(LEFT_COL_STORAGE_KEY) ?? '')
-    // Apply the stored width, or sync the hidden-class for the CSS default.
     applyLeftColWidth(
       Number.isFinite(stored) && stored >= LEFT_COL_MIN_PX ? stored : LEFT_COL_DEFAULT_PX
     )
@@ -485,9 +498,6 @@ export default function PlayerView({
     <div
       ref={playerViewRef}
       className={`player-view${mixJamBrowserCollapsed ? ' mixjam-browser-collapsed' : ''}`}
-      style={{
-        gridTemplateRows: `minmax(0, 1fr) 44px 6px minmax(0, ${browserFlex}fr)`
-      }}
     >
       <MixJamBrowser
         mixJamFiles={mixJamFiles}
@@ -581,61 +591,51 @@ export default function PlayerView({
       />
 
       <div
-        className="browser-resize-h"
+        className="upper-work-resize"
         role="separator"
-        aria-label="Resize sample browser"
-        aria-orientation="horizontal"
-        onMouseDown={handleResizeStart}
-      />
-
-      <SongControlsRail
-        bpm={transport.bpm}
-        masterGain={transport.masterGain}
-        masterLevelDb={transport.masterLevelDb}
-        onSetBpm={transport.onSetBpm}
-        onSetMasterGain={transport.onSetMasterGain}
-        mixerChannels={mixer.channels}
-        mixerChannelLevels={mixer.channelLevels}
-        mixerChannelPeaks={mixer.channelPeaks}
-        canRestoreChannel={mixer.canRestoreChannel}
-        selectedChannelIndex={selectedChannelIndex}
-        onSetChannelGain={mixer.onSetChannelGain}
-        onSetChannelPan={mixer.onSetChannelPan}
-        onToggleChannelMute={mixer.onToggleChannelMute}
-        onToggleChannelSolo={mixer.onToggleChannelSolo}
-        onRemoveChannel={mixer.onRemoveChannel}
-        onRestoreChannel={mixer.onRestoreChannel}
-        onSelectChannel={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null) }}
-        onOpenChannelEffects={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null); setBottomTab('fx') }}
-      />
-
-      <div
-        className="left-col-resize-seam"
-        role="separator"
-        aria-label="Resize left column"
+        aria-label="Resize MixJam Browser"
         aria-orientation="vertical"
         onMouseDown={handleLeftColResizeStart}
       />
 
-      <section className="bottom-workspace" aria-label="Samples and effects workspace">
-        <div className="bottom-workspace-tabs" role="tablist" aria-label="Bottom workspace">
-          <button type="button" role="tab" aria-selected={bottomTab === 'samples'} aria-controls="samples-panel" onClick={() => setBottomTab('samples')}>Samples</button>
-          <button type="button" role="tab" aria-selected={bottomTab === 'fx'} aria-controls="effects-panel" onClick={() => setBottomTab('fx')}>FX</button>
-        </div>
-        <div id="samples-panel" className="bottom-workspace-panel" role="tabpanel" hidden={bottomTab !== 'samples'}>
-          <SampleBrowser
-            browser={browser}
-            bubblePixelsPerSecond={bubblePixelsPerSecond}
-            flashSamplePath={activeFlashPath}
-            onSampleDragStart={handleSampleDragStart}
+      <BottomWorkspace
+        activeTab={bottomTab}
+        bpm={transport.bpm}
+        masterGain={transport.masterGain}
+        onTabChange={setBottomTab}
+        song={(
+          <SongControlsMain
+            bpm={transport.bpm}
+            masterGain={transport.masterGain}
+            masterLevelDb={transport.masterLevelDb}
+            onSetBpm={transport.onSetBpm}
+            onSetMasterGain={transport.onSetMasterGain}
           />
-        </div>
-        <div id="effects-panel" className="bottom-workspace-panel" role="tabpanel" hidden={bottomTab !== 'fx'}>
+        )}
+        mixer={(
+          <MixerColumn
+            channels={mixer.channels}
+            channelLevels={mixer.channelLevels}
+            channelPeaks={mixer.channelPeaks}
+            canRestoreChannel={mixer.canRestoreChannel}
+            selectedChannelIndex={selectedChannelIndex}
+            onSetChannelGain={mixer.onSetChannelGain}
+            onSetChannelPan={mixer.onSetChannelPan}
+            onToggleChannelMute={mixer.onToggleChannelMute}
+            onToggleChannelSolo={mixer.onToggleChannelSolo}
+            onRemoveChannel={mixer.onRemoveChannel}
+            onRestoreChannel={mixer.onRestoreChannel}
+            onSelectChannel={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null) }}
+            onOpenChannelEffects={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null); setBottomTab('fx') }}
+          />
+        )}
+        fx={(
           <EffectsWorkspace
             channels={mixer.channels}
             selectedChannelIndex={selectedChannelIndex}
             selectedEffectId={selectedEffectId}
             effectReductions={mixer.effectReductions}
+            onSelectChannel={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null) }}
             onSelectEffect={setSelectedEffectId}
             onAdd={mixer.onAddChannelEffect}
             onUpdate={mixer.onUpdateChannelEffect}
@@ -644,8 +644,16 @@ export default function PlayerView({
             onRestore={mixer.onRestoreChannelEffect}
             onMove={mixer.onMoveChannelEffect}
           />
-        </div>
-      </section>
+        )}
+        samples={(
+          <SampleBrowser
+            browser={browser}
+            bubblePixelsPerSecond={bubblePixelsPerSecond}
+            flashSamplePath={activeFlashPath}
+            onSampleDragStart={handleSampleDragStart}
+          />
+        )}
+      />
 
       {contextMenu && (
         <div

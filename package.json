@@ -48,6 +48,7 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
+    "@radix-ui/react-slider": "^1.4.3",
     "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
     "@tanstack/react-virtual": "^3.14.5",
     "bungee-pitch-shift": "^1.0.8",

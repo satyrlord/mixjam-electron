@@ -17,7 +17,7 @@ interface MixerColumnProps {
   onOpenChannelEffects: (channelIndex: number) => void
 }
 
-/** Scrollable column of channel strips inside the SongControlsRail. */
+/** Full-width, horizontally scrollable Mixer workspace. */
 export default function MixerColumn({
   channels,
   channelLevels,

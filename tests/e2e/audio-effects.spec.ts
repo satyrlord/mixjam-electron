@@ -2,6 +2,7 @@ import { test, expect } from './fixtures'
 
 test('the FX workspace edits, presets, bypasses, reorders, removes, undoes, and restores from storage', async ({ seededPage: page }) => {
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  await page.getByRole('tab', { name: 'Mixer' }).click()
   await page.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' }).click()
   await expect(page.getByRole('tab', { name: 'FX' })).toHaveAttribute('aria-selected', 'true')
 
@@ -27,6 +28,7 @@ test('the FX workspace edits, presets, bypasses, reorders, removes, undoes, and 
 
   await page.reload()
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  await page.getByRole('tab', { name: 'Mixer' }).click()
   await page.getByRole('button', { name: 'Open channel 1 effects, 2 of 4 used' }).click()
   await expect(page.locator('.effect-card').first()).toContainText('Reverb')
 

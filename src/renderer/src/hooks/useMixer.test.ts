@@ -497,7 +497,7 @@ describe('useMixer', () => {
     expect(result.current.channels[0]!.channelIndex).toBe(1)
   })
 
-  // --- 2026-07-07 amendments (spec-007 AC-016, AC-017) ---
+  // spec-007 AC-016 and AC-017
 
   it('canRestoreChannel is false at full 16 channels and true after a removal', () => {
     const playbackEngineRef = createPlaybackEngineRef()
@@ -568,5 +568,58 @@ describe('useMixer', () => {
       act(() => { result.current.restoreChannel() })
     }).not.toThrow()
     expect(result.current.channels).toHaveLength(16)
+  })
+
+  it('silent rAF path clears effect reductions and decays audible levels to silence', () => {
+    setupRafMock()
+    const playback = createMockPlaybackEngine()
+    const analyser = {
+      fftSize: 2048,
+      getFloatTimeDomainData: vi.fn((buf: Float32Array) => { buf.fill(0.1) })
+    }
+    playback.activeVoiceCount = 1
+    playback.getChannelAnalyser.mockReturnValue(analyser)
+    playback.getChannelEffectReduction.mockReturnValue(3.5)
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
+    act(() => { result.current.addChannelEffect(0, 'compressor') })
+    const compressorId = result.current.channels[0]!.effects[0]!.id
+    act(() => { tickOnce(1000) })
+    expect(result.current.channelLevels.size).toBeGreaterThan(0)
+    expect(result.current.effectReductions.get(compressorId)).toBe(3.5)
+
+    playback.activeVoiceCount = 0
+    act(() => { tickOnce(2000) })
+    expect(result.current.effectReductions.get(compressorId)).toBe(0)
+    for (const ch of result.current.channels) {
+      expect(result.current.channelLevels.get(ch.channelIndex)).toBe(-100)
+      expect(result.current.channelPeaks.get(ch.channelIndex)).toBe(-100)
+    }
+  })
+
+  it('silent rAF path does not re-set state when already silent', () => {
+    setupRafMock()
+    const playback = createMockPlaybackEngine()
+    playback.activeVoiceCount = 0
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
+    act(() => { result.current.addChannelEffect(0, 'compressor') })
+    act(() => { tickOnce(1000) })
+    expect(result.current.channelLevels.size).toBe(0)
+    const compressorId = result.current.channels[0]!.effects[0]!.id
+    expect(result.current.effectReductions.get(compressorId)).toBe(0)
+  })
+
+  it('empty channels array survives reload without resurrecting defaults', () => {
+    const mockPlaybackEngine = createMockPlaybackEngine()
+    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
+
+    // Remove channels by their actual channelIndex in reverse order
+    for (let i = 15; i >= 0; i--) {
+      act(() => { result.current.removeChannel(i) })
+    }
+    expect(result.current.channels).toHaveLength(0)
+    const stored = JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? 'null')
+    expect(stored).toEqual([])
+    expect(result.current.canRestoreChannel).toBe(true)
   })
 })

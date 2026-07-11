@@ -17,11 +17,8 @@ const DEFAULT_PROPS = {
   onToggleMute: vi.fn(),
   onToggleSolo: vi.fn(),
   onRemove: vi.fn(),
-  onAddEffect: vi.fn(),
-  onUpdateEffect: vi.fn(),
-  onToggleEffectBypass: vi.fn(),
-  onRemoveEffect: vi.fn(),
-  onMoveEffect: vi.fn()
+  onSelect: vi.fn(),
+  onOpenEffects: vi.fn()
 }
 
 describe('ChannelStrip', () => {
@@ -34,13 +31,28 @@ describe('ChannelStrip', () => {
     expect(screen.getByRole('button', { name: 'Remove channel 1' })).toBeInTheDocument()
   })
 
-  it('volume slider fires onSetGain with 0..1 value', () => {
+  it('volume slider fires onSetGain with normalized values', () => {
     const onSetGain = vi.fn()
     render(<ChannelStrip {...DEFAULT_PROPS} onSetGain={onSetGain} />)
 
     const slider = screen.getByRole('slider', { name: 'Channel 1 Volume' })
-    fireEvent.change(slider, { target: { value: '50' } })
-    expect(onSetGain).toHaveBeenCalledWith(0, 0.5)
+    fireEvent.keyDown(slider, { key: 'Home' })
+    expect(onSetGain).toHaveBeenCalledWith(0, 0)
+  })
+
+  it('uses the shared vertical fader and directional keyboard contract', () => {
+    const onSetGain = vi.fn()
+    render(<ChannelStrip {...DEFAULT_PROPS} onSetGain={onSetGain} />)
+    const slider = screen.getByRole('slider', { name: 'Channel 1 Volume' })
+
+    expect(slider).toHaveAttribute('aria-orientation', 'vertical')
+    expect(slider.closest('.vertical-fader')).not.toBeNull()
+    fireEvent.keyDown(slider, { key: 'ArrowUp' })
+    expect(onSetGain).toHaveBeenLastCalledWith(0, 0.81)
+    fireEvent.keyDown(slider, { key: 'Home' })
+    expect(onSetGain).toHaveBeenLastCalledWith(0, 0)
+    fireEvent.keyDown(slider, { key: 'End' })
+    expect(onSetGain).toHaveBeenLastCalledWith(0, 1)
   })
 
   it('pan slider fires onSetPan on mouse drag', () => {
@@ -49,14 +61,12 @@ describe('ChannelStrip', () => {
 
     const panSlider = screen.getByRole('slider', { name: 'Channel 1 Pan' })
     fireEvent.mouseDown(panSlider, { clientX: 100 })
-    // Drag right
     fireEvent.mouseMove(window, { clientX: 200 })
     expect(onSetPan).toHaveBeenCalledWith(0, expect.any(Number))
     const calledPan = onSetPan.mock.calls[0]![1] as number
     expect(calledPan).toBeGreaterThan(0)
     expect(calledPan).toBeLessThanOrEqual(1)
 
-    // Release
     fireEvent.mouseUp(window)
   })
 
@@ -103,6 +113,7 @@ describe('ChannelStrip', () => {
     const meterFill = document.querySelector('.mixer-channel-meter-fill')
     expect(meterFill).toBeInTheDocument()
     expect(meterFill).toHaveStyle({ background: 'var(--meter-green)' })
+    expect(document.querySelector('.vertical-meter-track')).toBeInTheDocument()
   })
 
   it('renders meter fill with yellow color when level is between -12 and -3 dB', () => {
@@ -123,7 +134,7 @@ describe('ChannelStrip', () => {
     expect(panSlider).toHaveAttribute('aria-valuenow', '0.5')
   })
 
-  // --- 2026-07-07 amendments (spec-007 AC-018, AC-020..023) ---
+  // spec-007 AC-018 and AC-020 through AC-023
 
   it('right-click on pan cycles C to 100% R to 100% L to C and suppresses the menu (AC-018)', () => {
     const onSetPan = vi.fn()
@@ -237,5 +248,39 @@ describe('ChannelStrip', () => {
     expect(removeEventListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function))
 
     removeEventListenerSpy.mockRestore()
+  })
+
+  // --- spec-010 effects integration ---
+
+  it('select button fires onSelect with channel index', () => {
+    const onSelect = vi.fn()
+    render(<ChannelStrip {...DEFAULT_PROPS} onSelect={onSelect} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Select channel 1' }))
+    expect(onSelect).toHaveBeenCalledWith(0)
+  })
+
+  it('select button has aria-pressed matching selected prop', () => {
+    const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} selected={false} />)
+    expect(screen.getByRole('button', { name: 'Select channel 1' })).toHaveAttribute('aria-pressed', 'false')
+    rerender(<ChannelStrip {...DEFAULT_PROPS} selected />)
+    expect(screen.getByRole('button', { name: 'Select channel 1' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('renders the FX button and opens effects on click', () => {
+    const onOpenEffects = vi.fn()
+    render(<ChannelStrip {...DEFAULT_PROPS} onOpenEffects={onOpenEffects} />)
+    const fxButton = screen.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' })
+    expect(fxButton).toBeInTheDocument()
+    fireEvent.click(fxButton)
+    expect(onOpenEffects).toHaveBeenCalledWith(0)
+  })
+
+  it('FX button shows effect count and all-bypassed state', () => {
+    const delay = { id: 'fx-1', type: 'delay' as const, bypassed: true, timeMs: 375, feedback: 0.35, mix: 0.3, pingPong: false, tempoSync: false, noteDivision: '1/8' as const }
+    const reverb = { id: 'fx-2', type: 'reverb' as const, bypassed: true, roomSize: 0.55, decay: 0.45, mix: 0.25 }
+    render(<ChannelStrip {...DEFAULT_PROPS} effects={[delay, reverb]} />)
+    const fxButton = screen.getByRole('button', { name: 'Open channel 1 effects, 2 of 4 used' })
+    expect(fxButton).toBeInTheDocument()
+    expect(fxButton.className).toContain('channel-fx-button-bypassed')
   })
 })

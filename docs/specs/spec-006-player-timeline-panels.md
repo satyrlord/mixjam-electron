@@ -1,7 +1,7 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIALLY IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -103,9 +103,8 @@ browser adjacencies.
   channel's FX action selects that channel and activates FX.
 - On narrow windows, the tab row scrolls horizontally or uses a labeled
   overflow control; tab targets do not shrink below 44 by 44 CSS pixels.
-- The former lower-left Song Controls/Mixer reveal seam is removed. Resizing or
-  collapsing the upper MixJam Browser remains independent of the full-width
-  Bottom Workspace.
+- The Bottom Workspace has no Song Controls/Mixer reveal seam. Resizing or
+  collapsing the upper MixJam Browser remains independent of its full width.
 
 ### Song Panel Controls
 
@@ -114,12 +113,19 @@ browser adjacencies.
 - BPM is a vertical slider from 50 to 200 and has an editable numeric value for
   precise entry. Both surfaces reflect one transport BPM value; invalid or
   out-of-range input is not committed.
+- The BPM numeric field uses a compact 42-by-28px visible input inside its
+  44px-high label target; it must not compete visually with the fader.
 - Master Volume uses the same vertical fader grammar as channel gain, including
   value placement and unity indication. Output Level uses the same vertical
   meter grammar and color zones as channel meters.
 - Vertical sliders expose `aria-orientation="vertical"`, unit-aware value text,
   Arrow Up/Right to increase, Arrow Down/Left to decrease, and Home/End for
-  minimum/maximum. Visible controls have at least 44-by-44 CSS-pixel hit areas.
+  minimum/maximum. Their pointer target is at least 44 CSS pixels wide and the
+  slider thumb is centered on the visible track. Compact inputs may use
+  a 44-by-44 label target around a smaller visible field.
+- Linear faders use the shared `VerticalFader` wrapper over Radix Slider so
+  thumb positioning, pointer capture, and vertical keyboard semantics do not
+  depend on browser-specific range-input pseudo-elements.
 - The vertical rule applies to linear sliders and meters. Bipolar pan and
   continuous FX parameters remain rotary controls.
 
@@ -301,7 +307,7 @@ browser adjacencies.
 
 ## Acceptance Criteria (testable)
 
-- [ ] **AC-001:** The active Player renders the MixJam Browser and Tracker in
+- [x] **AC-001:** The active Player renders the MixJam Browser and Tracker in
   the upper work band, a full-width Middle Strip, and one full-width Bottom
   Workspace below it.
 - [x] **AC-002:** The MixJam Browser is visible in the upper-left of the active
@@ -311,21 +317,21 @@ browser adjacencies.
 - [x] **AC-002a:** The User Folder contribution to the MixJam Browser includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
 - [x] **AC-002b:** The MixJam Browser sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
 - [x] **AC-002c:** When the MixJam Browser has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank region or browser-specific action buttons.
-- [ ] **AC-002d:** Resizing the MixJam Browser/Tracker seam changes and persists
+- [x] **AC-002d:** Resizing the MixJam Browser/Tracker seam changes and persists
   only the upper split; it does not resize or divide the Bottom Workspace.
 - [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
-- [ ] **AC-004:** The Bottom Workspace presents Song, Mixer, FX, and Samples as
+- [x] **AC-004:** The Bottom Workspace presents Song, Mixer, FX, and Samples as
   ordered peer tabs; the lower reveal seam no longer exists.
-- [ ] **AC-004a:** With no valid persisted selection, Song is active. A valid
+- [x] **AC-004a:** With no valid persisted selection, Song is active. A valid
   last tab is restored after remount, and each mounted panel preserves its
   internal state while inactive.
-- [ ] **AC-004b:** The tabs implement automatic activation, wrapping
+- [x] **AC-004b:** The tabs implement automatic activation, wrapping
   Left/Right Arrow navigation, Home/End, roving tabindex, and correctly linked
   tab/tab-panel ARIA attributes.
-- [ ] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
+- [x] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
   Song, and remains usable at narrow widths without targets below 44 by 44 CSS
   pixels.
-- [ ] **AC-004d:** The Song panel shows vertical BPM and Master Volume sliders
+- [x] **AC-004d:** The Song panel shows vertical BPM and Master Volume sliders
   beside a vertical Output Level meter. BPM accepts 50 to 200, initializes to
   120 for a new project, and supports precise numeric entry.
 - [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, functional M and S buttons, and a functional pan knob.
@@ -348,7 +354,7 @@ browser adjacencies.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
 - [x] **AC-015:** The BPM slider shows the current BPM and changing it updates the engine's BPM immediately.
-- [ ] **AC-015a:** The Song panel's slider and numeric field are two editing
+- [x] **AC-015a:** The Song panel's slider and numeric field are two editing
   surfaces for one BPM value and always reflect the transport's current BPM.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
@@ -367,6 +373,28 @@ browser adjacencies.
   the drag image; any minimum drag surface, theme-shadow clearance, or group
   badge uses transparent space outside that rectangle.
 - [x] **AC-025:** Space toggles Play/Pause when focus is not in a text control.
+
+## Bottom Workspace Validation Evidence
+
+- `src/renderer/src/components/PlayerView.test.tsx` verifies ordered peer tabs,
+  first-launch and persisted selection, mounted panels, automatic keyboard
+  activation, song status, and the upper-only resize seam.
+- `tmp/verify-bottom-workspace/evidence.md` records production Chromium
+  geometry, narrow-window targets, tab-state retention, Sample Browser
+  remeasurement, and cross-tab Mixer-to-FX behavior.
+- `tests/e2e/lane-head-overlap.spec.ts` verifies that collapsing or expanding
+  the MixJam Browser updates the parent grid in the same interaction and keeps
+  the Tracker ruler, lane names, and lane heads clear of the browser rail.
+- `src/renderer/src/components/PlayerView.test.tsx` verifies the shared vertical
+  Song controls, precise BPM entry and rejection, and orientation-aware BPM
+  keyboard commands.
+- `tmp/verify-vertical-controls/evidence.md` records production Chromium
+  geometry at desktop and narrow widths, vertical direction, 44px targets,
+  keyboard behavior, and focus indicators across every bundled theme.
+- `tmp/verify-complete-system/evidence.md` records the complete production
+  Chromium matrix across all 16 themes, 1280px and 480px viewports, and all
+  four tabs, plus tab persistence, roving keyboard navigation, FX channel
+  selection, Sample Browser state retention, and rendered geometry.
 
 ## Non-Goals (deferred to later specs)
 

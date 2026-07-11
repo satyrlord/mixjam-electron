@@ -164,12 +164,12 @@ the engine never knows who is listening.
 - [x] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.
 - [x] **AC-013:** A soloed lane plays; all non-soloed lanes are silent. Un-soloing restores normal playback.
 
-## Non-Goals (deferred to later specs)
+## Non-Goals
 
 - Transport controls and the visual playhead are specified by spec-006.
 - Time-stretching is outside this spec's engine contract and is implemented by
   spec-009.
-- No per-channel audio effects (delay, reverb, compression). FX is spec-010.
+- Per-channel effects are specified by spec-010.
 - No offline rendering for export. Export is spec-012.
 - No multi-channel audio output (only stereo master).
 - No live input monitoring or recording.

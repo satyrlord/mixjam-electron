@@ -39,13 +39,10 @@ export function timelinePixelsPerSecond(
     : DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
 }
 
-// Left-column (Song Controls rail) resize seam bounds. The CSS fallback in
-// index.css (`var(--left-col-w, 420px)`) must stay in sync with the default.
+// Upper MixJam Browser/Tracker split bounds. The CSS fallback in index.css
+// (`var(--left-col-w, 420px)`) must stay in sync with the default.
 export const LEFT_COL_DEFAULT_PX = 420
 export const LEFT_COL_MIN_PX = 168
-// The mixer column (168px master + 104px min mixer) appears past this width;
-// below it the mixer is considered hidden.
-export const LEFT_COL_MIXER_THRESHOLD_PX = 272
 // Keep the seam reachable: never persist/apply a width that would push column 2
 // (and the seam itself) off-screen. Capped as a fraction of the viewport.
 export const LEFT_COL_MAX_FRACTION = 0.8

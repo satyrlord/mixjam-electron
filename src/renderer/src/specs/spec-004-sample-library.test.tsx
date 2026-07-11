@@ -140,7 +140,7 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onToggleChannelSolo: noop,
   onRemoveChannel: noop,
   onRestoreChannel: noop,
-  onAddChannelEffect: noop,
+  onAddChannelEffect: () => null,
   onUpdateChannelEffect: noop,
   onToggleChannelEffectBypass: noop,
   onRemoveChannelEffect: noop,
@@ -149,6 +149,9 @@ const DEFAULT_MIXER: PlayerMixerProps = {
 }
 
 function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {
+  // These tests exercise the Samples workflow, so restore that persisted tab
+  // instead of relying on the application's first-launch Song default.
+  localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
   return render(
     <PlayerView
       mixJamFiles={[]}

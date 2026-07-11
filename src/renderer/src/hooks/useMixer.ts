@@ -221,7 +221,9 @@ export function useMixer(
       for (const ch of chs) {
         for (const effect of ch.effects) {
           if (effect.type !== 'compressor') continue
-          const reduction = effect.bypassed ? 0 : playbackEngine.getChannelEffectReduction?.(ch.channelIndex, effect.id) ?? 0
+          const reduction = effect.bypassed
+            ? 0
+            : playbackEngine.getChannelEffectReduction(ch.channelIndex, effect.id)
           newReductions.set(effect.id, reduction)
           if (Math.abs(reduction - (prevReductions.get(effect.id) ?? 0)) >= 0.1) anyChanged = true
         }

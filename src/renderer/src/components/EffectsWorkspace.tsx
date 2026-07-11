@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EFFECT_PRESETS,
   applyEffectPreset,
@@ -11,15 +11,16 @@ import {
   type NoteDivision
 } from '../engine/effects'
 import type { ChannelState } from '../hooks/useMixer'
-import { clamp } from '../lib/sample-utils'
+import { RotaryField, ToggleField } from './RotaryField'
 
 interface EffectsWorkspaceProps {
   channels: ChannelState[]
   selectedChannelIndex: number | null
   selectedEffectId: string | null
   effectReductions: ReadonlyMap<string, number>
+  onSelectChannel: (channelIndex: number) => void
   onSelectEffect: (effectId: string | null) => void
-  onAdd: (channelIndex: number, type: EffectType) => EffectSlot | null | void
+  onAdd: (channelIndex: number, type: EffectType) => EffectSlot | null
   onUpdate: (channelIndex: number, effect: EffectSlot) => void
   onToggleBypass: (channelIndex: number, effectId: string) => void
   onRemove: (channelIndex: number, effectId: string) => void
@@ -42,7 +43,8 @@ const EFFECT_DESCRIPTIONS: Record<EffectType, string> = {
 export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
   const {
     channels, selectedChannelIndex, selectedEffectId, effectReductions,
-    onSelectEffect, onAdd, onUpdate, onToggleBypass, onRemove, onRestore, onMove
+    onSelectChannel, onSelectEffect, onAdd, onUpdate, onToggleBypass, onRemove,
+    onRestore, onMove
   } = props
   const channel = channels.find((candidate) => candidate.channelIndex === selectedChannelIndex)
   const selected = channel?.effects.find((effect) => effect.id === selectedEffectId) ?? null
@@ -93,6 +95,20 @@ export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
         <span className="effects-eyebrow">Signal chain</span>
         <h2>Channel {channel.channelIndex + 1} effects</h2>
       </div>
+      <label className="effects-channel-selector">
+        Channel
+        <select
+          aria-label="FX channel"
+          value={channel.channelIndex}
+          onChange={(event) => onSelectChannel(Number(event.currentTarget.value))}
+        >
+          {channels.map((candidate) => (
+            <option key={candidate.channelIndex} value={candidate.channelIndex}>
+              Channel {candidate.channelIndex + 1}
+            </option>
+          ))}
+        </select>
+      </label>
       <span className="effects-slot-count">{channel.effects.length} of 4 used</span>
     </header>
 
@@ -272,61 +288,4 @@ function renderControls(effect: EffectSlot, onChange: (effect: EffectSlot) => vo
       <small>Shows how much loud audio is being turned down.</small>
     </div>
   </>
-}
-
-function ToggleField({ label, help, checked, onChange }: { label: string; help: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return <label className="effect-toggle"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.currentTarget.checked)} /><strong>{label}</strong><span>{help}</span></label>
-}
-
-function RotaryField({ label, help, value, defaultValue, min, max, step, suffix = '', percent = false, onChange }: {
-  label: string; help: string; value: number; defaultValue: number; min: number; max: number; step: number; suffix?: string; percent?: boolean; onChange: (value: number) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const dragRef = useRef<{ y: number; value: number } | null>(null)
-  const quantize = (next: number, quantum = step) => clamp(Math.round(next / quantum) * quantum, min, max)
-  const displayValue = percent ? Math.round(value * 100) : Number(value.toFixed(step < 1 ? 1 : 0))
-  const unit = percent ? '%' : suffix
-  const commit = () => {
-    const parsed = Number(draft)
-    if (Number.isFinite(parsed)) onChange(quantize(percent ? parsed / 100 : parsed))
-    setEditing(false)
-  }
-  return <div className="rotary-field">
-    <strong>{label}</strong>
-    <div
-      className="rotary-control"
-      role="slider"
-      tabIndex={0}
-      aria-label={label}
-      aria-valuemin={percent ? min * 100 : min}
-      aria-valuemax={percent ? max * 100 : max}
-      aria-valuenow={percent ? value * 100 : value}
-      aria-valuetext={`${displayValue}${unit}`}
-      style={{ '--rotary-angle': `${-135 + ((value - min) / (max - min)) * 270}deg` } as React.CSSProperties}
-      onDoubleClick={() => onChange(defaultValue)}
-      onPointerDown={(event) => { if (event.button !== 0) return; dragRef.current = { y: event.clientY, value }; event.currentTarget.setPointerCapture(event.pointerId) }}
-      onPointerMove={(event) => {
-        if (!dragRef.current || !event.currentTarget.hasPointerCapture(event.pointerId)) return
-        const sensitivity = (max - min) / 150
-        const next = dragRef.current.value + (dragRef.current.y - event.clientY) * sensitivity * (event.shiftKey ? 0.1 : 1)
-        onChange(quantize(next, event.shiftKey ? step / 10 : step))
-      }}
-      onPointerUp={(event) => { dragRef.current = null; event.currentTarget.releasePointerCapture(event.pointerId) }}
-      onKeyDown={(event) => {
-        let next: number | null = null
-        const increment = step * (event.shiftKey ? 0.1 : 1)
-        if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + increment
-        if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - increment
-        if (event.key === 'Home') next = min
-        if (event.key === 'End') next = max
-        if (next !== null) { event.preventDefault(); onChange(quantize(next, event.shiftKey ? step / 10 : step)) }
-      }}
-    ><i /></div>
-    {editing ? <input className="rotary-value-input" autoFocus value={draft} aria-label={`${label} value`} onChange={(event) => setDraft(event.currentTarget.value)} onBlur={commit} onKeyDown={(event) => {
-      if (event.key === 'Enter') commit()
-      if (event.key === 'Escape') setEditing(false)
-    }} /> : <button type="button" className="rotary-value" onClick={() => { setDraft(String(displayValue)); setEditing(true) }}>{displayValue}{unit}</button>}
-    <span>{help}</span>
-  </div>
 }

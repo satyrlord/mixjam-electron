@@ -243,7 +243,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
-  it('AC-010: Player content has five labeled shell regions', async () => {
+  it('AC-010: Player content has the upper work, Middle Strip, and Bottom Workspace regions', async () => {
     render(<App />)
 
     await clickStartNewMixJam()
@@ -254,14 +254,15 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     const tracker = await screen.findByText('Lane 1')
     const mixJamFiles = screen.getByText('MixJam Browser')
     const middleStrip = screen.getByText('Untitled')
-    const songControls = screen.getByText('Song Controls')
-    const sampleBrowser = screen.getByRole('region', { name: /sample browser/i })
+    const bottomWorkspace = screen.getByRole('region', { name: 'Bottom Workspace' })
 
     expect(mixJamFiles).toBeInTheDocument()
     expect(tracker).toBeInTheDocument()
     expect(middleStrip).toBeInTheDocument()
-    expect(songControls).toBeInTheDocument()
-    expect(sampleBrowser).toBeInTheDocument()
+    expect(bottomWorkspace).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Song', 'Mixer', 'FX', 'Samples'
+    ])
   })
 
   it('AC-011: app root occupies full viewport height with overflow hidden', () => {

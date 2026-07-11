@@ -6,7 +6,6 @@ description: >
   asks for design feedback ("review this design", "critique this screen",
   "what do you think of this UI?"). Use after design-router when a theme has
   been selected and applied.
-argument-hint: "<Figma URL, screenshot, file, or description>"
 ---
 
 # Design Critique
@@ -66,9 +65,25 @@ them.
 
 ## Output
 
-Write findings to [OUTPUT.md](OUTPUT.md) following that template. The output
-is complete when every lens has at least one observation (positive or
-negative), every negative finding has a severity and a concrete
+Write every critique to `<repository-root>/tmp/design-critique/OUTPUT.md`.
+Create the directory when absent and overwrite the previous critique unless
+the user requests a versioned artifact. Never write generated output inside
+the skill folder.
+
+Use these headings in order:
+
+1. `Context and assumptions`
+2. `Overall impression`
+3. `First impression`
+4. `Usability`
+5. `Visual hierarchy`
+6. `Consistency`
+7. `Accessibility`
+8. `What works well`
+9. `Priority recommendations`
+
+The output is complete when every lens has at least one observation (positive
+or negative), every negative finding has a severity and a concrete
 recommendation, and the priority recommendations are ordered by impact.
 
 ## Completion Criterion
@@ -76,4 +91,5 @@ recommendation, and the priority recommendations are ordered by impact.
 The critique is done when design input is collected, all five lenses are
 applied with at least one finding each, every negative finding carries a
 severity and a concrete recommendation, at least one thing that works well
-is named, and the output follows the OUTPUT.md template.
+is named, and `tmp/design-critique/OUTPUT.md` exists with the required heading
+order.

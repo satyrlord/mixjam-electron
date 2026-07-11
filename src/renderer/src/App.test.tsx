@@ -42,6 +42,7 @@ describe('App', () => {
       expect(screen.getByText('sunrise')).toBeInTheDocument()
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     const kickRow = await screen.findByRole('button', { name: /kick_808/ })
     fireEvent.click(kickRow)
 

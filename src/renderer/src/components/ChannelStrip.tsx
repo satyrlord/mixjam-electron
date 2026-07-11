@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { clamp, meterFillPct, nextPanCycle } from '../lib/sample-utils'
+import { useCallback, useEffect, useRef } from 'react'
+import { clamp, nextPanCycle } from '../lib/sample-utils'
 import ChannelEffects from './ChannelEffects'
 import type { EffectSlot } from '../engine/effects'
+import { VerticalFader } from './VerticalControls'
 
 interface ChannelStripProps {
   channelIndex: number
@@ -21,14 +22,6 @@ interface ChannelStripProps {
   onRemove: (channelIndex: number) => void
   onSelect?: (channelIndex: number) => void
   onOpenEffects?: (channelIndex: number) => void
-}
-
-/** Zone color for a dB value via CSS custom property tokens.
- *  green < -12, yellow -12..-3, red > -3. */
-function dbColorZoneVar(db: number): string {
-  if (db > -3) return 'var(--meter-red)'
-  if (db > -12) return 'var(--meter-yellow)'
-  return 'var(--meter-green)'
 }
 
 const PAN_KEY_STEP = 0.05
@@ -62,24 +55,6 @@ export default function ChannelStrip({
   // unmounts mid-drag (e.g. navigating Home while holding the mouse button).
   const dragCleanupRef = useRef<(() => void) | null>(null)
   useEffect(() => () => dragCleanupRef.current?.(), [])
-
-  const [volDragging, setVolDragging] = useState(false)
-
-  const handleVolChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onSetGain(channelIndex, Number(e.currentTarget.value) / 100)
-    },
-    [channelIndex, onSetGain]
-  )
-
-  const handleVolPointerDown = useCallback((e: React.PointerEvent) => {
-    // Ignore non-primary buttons (right/middle) — a right-click would otherwise
-    // flip the readout on and leave it stuck when the context menu eats the
-    // matching pointerup. Primary press and touch both report button 0.
-    if (e.button > 0) return
-    setVolDragging(true)
-  }, [])
-  const handleVolPointerUp = useCallback(() => setVolDragging(false), [])
 
   const handlePanMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -144,9 +119,6 @@ export default function ChannelStrip({
     [channelIndex, pan, onSetPan]
   )
 
-  const levelPct = meterFillPct(levelDb)
-  const peakPct = meterFillPct(peakDb)
-
   return (
     <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}${selected ? ' mixer-channel-strip-selected' : ''}`}>
       <div className="mixer-channel-label">
@@ -162,38 +134,25 @@ export default function ChannelStrip({
         </button>
       </div>
 
-      <div className="mixer-channel-vol-wrap">
-        {volDragging && (
-          <div className="mixer-channel-vol-readout">{Math.round(gain * 100)}%</div>
-        )}
-        <div className="mixer-channel-unity-tick" aria-hidden="true" />
-        <input
-          type="range"
-          className="mixer-channel-vol"
-          min="0"
-          max="100"
-          value={Math.round(gain * 100)}
-          aria-label={`Channel ${channelIndex + 1} Volume`}
-          onChange={handleVolChange}
-          onPointerDown={handleVolPointerDown}
-          onPointerUp={handleVolPointerUp}
-          onPointerCancel={handleVolPointerUp}
-          onBlur={handleVolPointerUp}
-        />
-        <div className="mixer-channel-meter">
-          <div
-            className="mixer-channel-meter-fill"
-            style={{
-              height: `${levelPct}%`,
-              background: dbColorZoneVar(levelDb)
-            }}
-          />
-          <div
-            className="mixer-channel-meter-peak"
-            style={{ bottom: `${Math.min(peakPct, 99)}%` }}
-          />
-        </div>
-      </div>
+      <VerticalFader
+        className="mixer-channel-vol-wrap"
+        inputClassName="mixer-channel-vol"
+        readoutClassName="mixer-channel-vol-readout"
+        unityClassName="mixer-channel-unity-tick"
+        meterFillClassName="mixer-channel-meter-fill"
+        meterPeakClassName="mixer-channel-meter-peak"
+        ariaLabel={`Channel ${channelIndex + 1} Volume`}
+        value={Math.round(gain * 100)}
+        min={0}
+        max={100}
+        step={1}
+        valueText={`${Math.round(gain * 100)}%`}
+        unityValue={100}
+        meterDb={levelDb}
+        peakDb={peakDb}
+        showDragValue
+        onChange={(value) => onSetGain(channelIndex, value / 100)}
+      />
 
       <div
         className="mixer-channel-pan"

@@ -107,7 +107,7 @@ export interface PlayerMixerProps {
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
   onRestoreChannel: () => void
-  onAddChannelEffect: (channelIndex: number, type: EffectType) => EffectSlot | null | void
+  onAddChannelEffect: (channelIndex: number, type: EffectType) => EffectSlot | null
   onUpdateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
   onToggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
   onRemoveChannelEffect: (channelIndex: number, effectId: string) => void

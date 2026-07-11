@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import PlayerView from './PlayerView'
+import PlayerView, { reconcileSelectedChannelIndex } from './PlayerView'
 import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
@@ -156,7 +156,7 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onToggleChannelSolo: noop,
   onRemoveChannel: noop,
   onRestoreChannel: noop,
-  onAddChannelEffect: noop,
+  onAddChannelEffect: () => null,
   onUpdateChannelEffect: noop,
   onToggleChannelEffectBypass: noop,
   onRemoveChannelEffect: noop,
@@ -185,10 +185,11 @@ function renderPlayer(overrides: TrackerOverrides = {}) {
 }
 
 describe('PlayerView', () => {
-  // The seam-drag tests persist the left-column width; clear it after each test
-  // so a failing assertion can't leak a stored width into later mounts.
+  // Workspace and resize tests persist UI state. Clear it after each test so a
+  // failing assertion cannot leak state into later mounts.
   afterEach(() => {
     localStorage.removeItem('mixjam-left-col-w')
+    localStorage.removeItem('mixjam:bottom-workspace-tab')
   })
 
   it('renders the Player regions and MixJam Browser', () => {
@@ -200,6 +201,7 @@ describe('PlayerView', () => {
     expect(screen.getByText('MixJam Browser')).toBeInTheDocument()
     expect(screen.getByText('club-night')).toBeInTheDocument()
     expect(screen.getByText('Lane 1')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     expect(screen.getByText('Song Controls')).toBeInTheDocument()
     expect(screen.getByRole('listbox', { name: /sample categories/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
@@ -545,6 +547,93 @@ describe('PlayerView', () => {
     expect(songControls).toContainElement(bpmSlider)
     expect(songControls).toContainElement(volumeSlider)
     expect(screen.getByRole('meter', { name: 'Output Level' })).toBeInTheDocument()
+    expect(bpmSlider).toHaveAttribute('aria-orientation', 'vertical')
+    expect(volumeSlider).toHaveAttribute('aria-orientation', 'vertical')
+    expect(bpmSlider.closest('.vertical-fader')).not.toBeNull()
+    expect(volumeSlider.closest('.vertical-fader')).not.toBeNull()
+    expect(screen.getByRole('meter', { name: 'Output Level' })).toHaveClass('vertical-meter')
+  })
+
+  it('AC-004d: BPM supports precise valid numeric entry and rejects invalid values', () => {
+    const onSetBpm = vi.fn()
+    renderPlayer({ transport: { bpm: 120, onSetBpm } })
+
+    const input = screen.getByRole('textbox', { name: 'BPM value' })
+    fireEvent.change(input, { target: { value: '137' } })
+    fireEvent.blur(input)
+    expect(onSetBpm).toHaveBeenLastCalledWith(137)
+
+    onSetBpm.mockClear()
+    fireEvent.change(input, { target: { value: '220' } })
+    fireEvent.blur(input)
+    expect(onSetBpm).not.toHaveBeenCalled()
+  })
+
+  it('AC-004d: vertical BPM keyboard controls increase upward and support endpoints', () => {
+    const onSetBpm = vi.fn()
+    renderPlayer({ transport: { bpm: 120, onSetBpm } })
+    const slider = screen.getByRole('slider', { name: 'BPM' })
+
+    fireEvent.keyDown(slider, { key: 'ArrowUp' })
+    expect(onSetBpm).toHaveBeenLastCalledWith(121)
+    fireEvent.keyDown(slider, { key: 'Home' })
+    expect(onSetBpm).toHaveBeenLastCalledWith(50)
+    fireEvent.keyDown(slider, { key: 'End' })
+    expect(onSetBpm).toHaveBeenLastCalledWith(200)
+  })
+
+  it('defaults to four ordered Bottom Workspace tabs with mounted peer panels', () => {
+    renderPlayer({})
+
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Song', 'Mixer', 'FX', 'Samples'])
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[0]).toHaveAttribute('tabindex', '0')
+    expect(document.querySelectorAll('.bottom-workspace-panel')).toHaveLength(4)
+    expect(document.querySelector('#song-panel')).not.toHaveAttribute('hidden')
+    expect(document.querySelector('#mixer-panel')).toHaveAttribute('hidden')
+    expect(document.querySelector('#effects-panel')).toHaveAttribute('hidden')
+    expect(document.querySelector('#samples-panel')).toHaveAttribute('hidden')
+  })
+
+  it('keeps FX channel selection stable, then falls forward and backward after removal', () => {
+    const channels = [{ channelIndex: 0 }, { channelIndex: 2 }, { channelIndex: 4 }]
+    expect(reconcileSelectedChannelIndex(channels, 2)).toBe(2)
+    expect(reconcileSelectedChannelIndex([{ channelIndex: 0 }, { channelIndex: 4 }], 2)).toBe(4)
+    expect(reconcileSelectedChannelIndex([{ channelIndex: 0 }], 4)).toBe(0)
+    expect(reconcileSelectedChannelIndex([], 0)).toBeNull()
+  })
+
+  it('restores and persists the active Bottom Workspace tab', () => {
+    localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
+    renderPlayer({})
+
+    expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
+    expect(localStorage.getItem('mixjam:bottom-workspace-tab')).toBe('mixer')
+  })
+
+  it('uses automatic activation and wrapping keyboard navigation for workspace tabs', () => {
+    renderPlayer({})
+
+    const song = screen.getByRole('tab', { name: 'Song' })
+    song.focus()
+    fireEvent.keyDown(song, { key: 'ArrowLeft' })
+    expect(screen.getByRole('tab', { name: 'Samples' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true')
+
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Samples' }), { key: 'Home' })
+    expect(song).toHaveFocus()
+    fireEvent.keyDown(song, { key: 'End' })
+    expect(screen.getByRole('tab', { name: 'Samples' })).toHaveFocus()
+  })
+
+  it('shows compact song status that activates Song', () => {
+    localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
+    renderPlayer({ transport: { bpm: 128, masterGain: 0.75 } })
+
+    fireEvent.click(screen.getByRole('button', { name: '128 BPM, Master 75%' }))
+    expect(screen.getByRole('tab', { name: 'Song' })).toHaveAttribute('aria-selected', 'true')
   })
 
   // --- AC-004b: BPM slider ranges 50-200, defaults to 120 ---
@@ -552,9 +641,9 @@ describe('PlayerView', () => {
     renderPlayer({ transport: { bpm: 120 } })
 
     const input = screen.getByRole('slider', { name: 'BPM' })
-    expect(input).toHaveAttribute('min', '50')
-    expect(input).toHaveAttribute('max', '200')
-    expect(input).toHaveValue('120')
+    expect(input).toHaveAttribute('aria-valuemin', '50')
+    expect(input).toHaveAttribute('aria-valuemax', '200')
+    expect(input).toHaveAttribute('aria-valuenow', '120')
   })
 
   // --- AC-005: 16 lanes render ---
@@ -692,24 +781,23 @@ describe('PlayerView', () => {
     const onSetBpm = vi.fn()
     renderPlayer({ transport: { bpm: 120, onSetBpm } })
 
-    fireEvent.change(screen.getByRole('slider', { name: 'BPM' }), {
-      target: { value: '140' }
-    })
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'BPM' }), { key: 'ArrowUp' })
 
-    expect(onSetBpm).toHaveBeenCalledWith(140)
+    expect(onSetBpm).toHaveBeenCalledWith(121)
   })
 
   // --- AC-015a: the Song Controls slider is the single BPM control ---
   it('AC-015a: Song Controls BPM slider reflects the bpm prop', () => {
     renderPlayer({ transport: { bpm: 145 } })
 
-    expect(screen.getByRole('slider', { name: 'BPM' })).toHaveValue('145')
-    expect(screen.getByText('145 BPM')).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'BPM' })).toHaveAttribute('aria-valuenow', '145')
+    expect(screen.getByRole('textbox', { name: 'BPM value' })).toHaveValue('145')
   })
 
   // --- AC-016: Browser vertical resize handle ---
   it('AC-016: browser vertical resize handle is present and draggable', () => {
     renderPlayer({})
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
 
     const handle = screen.getByRole('separator', { name: 'Resize category tree' })
     expect(handle).toBeInTheDocument()
@@ -764,13 +852,9 @@ describe('PlayerView', () => {
     expect(dataTransfer.setData).toHaveBeenCalledWith('application/mixjam-sample', expect.any(String))
   })
 
-  it('handles horizontal browser resize drag', () => {
+  it('does not expose the retired horizontal lower-workspace resize seam', () => {
     renderPlayer({})
-
-    const handle = screen.getByRole('separator', { name: 'Resize sample browser' })
-    fireEvent.mouseDown(handle, { clientY: 200 })
-    fireEvent.mouseMove(window, { clientY: 100 })
-    fireEvent.mouseUp(window)
+    expect(screen.queryByRole('separator', { name: 'Resize sample browser' })).toBeNull()
   })
 
   it('renders the sample palette slot from categoryId when no category filter is active', () => {
@@ -861,17 +945,17 @@ describe('PlayerView', () => {
     renderPlayer({ transport: { masterGain: 0.8, onSetMasterGain } })
 
     const slider = screen.getByLabelText('Master Volume')
-    fireEvent.change(slider, { target: { value: '50' } })
-    expect(onSetMasterGain).toHaveBeenCalledWith(0.5)
+    fireEvent.keyDown(slider, { key: 'ArrowDown' })
+    expect(onSetMasterGain).toHaveBeenCalledWith(0.79)
   })
 
   it('calls onSetBpm when the BPM slider changes', () => {
     const onSetBpm = vi.fn()
     renderPlayer({ transport: { bpm: 120, onSetBpm } })
 
-    fireEvent.change(screen.getByLabelText('BPM'), { target: { value: '140' } })
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'BPM' }), { key: 'ArrowUp' })
 
-    expect(onSetBpm).toHaveBeenCalledWith(140)
+    expect(onSetBpm).toHaveBeenCalledWith(121)
   })
 
   it('calls onSelectCategory(undefined) when All button is clicked', () => {
@@ -1293,10 +1377,10 @@ describe('PlayerView', () => {
     vi.useRealTimers()
   })
 
-  it('left-column resize seam handles drag correctly', () => {
+  it('upper MixJam Browser resize seam handles drag correctly', () => {
     renderPlayer({})
 
-    const seam = screen.getByRole('separator', { name: 'Resize left column' })
+    const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
     fireEvent.mouseDown(seam, { clientX: 168 })
     fireEvent.mouseMove(window, { clientX: 268 })
     fireEvent.mouseUp(window)
@@ -1328,7 +1412,7 @@ describe('PlayerView', () => {
     expect(playhead).toBeNull()
   })
 
-  // --- spec-007 2026-07-07 amendments ---
+  // spec-007 mixer behavior
 
   const CHANNEL = (channelIndex: number) => ({
     channelIndex,
@@ -1339,10 +1423,10 @@ describe('PlayerView', () => {
     effects: []
   })
 
-  it('AC-016 (rev 2): dragging the seam persists the column width for the next app launch', () => {
+  it('AC-002d: dragging the upper seam persists the browser width for the next app launch', () => {
     renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
 
-    const seam = screen.getByRole('separator', { name: 'Resize left column' })
+    const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
     fireEvent.mouseDown(seam, { clientX: 420 })
     fireEvent.mouseMove(window, { clientX: 220 })
     fireEvent.mouseUp(window)
@@ -1351,7 +1435,7 @@ describe('PlayerView', () => {
     expect(stored).toBeGreaterThanOrEqual(168)
   })
 
-  it('AC-016 (rev 2): a persisted column width is applied on mount', () => {
+  it('AC-002d: a persisted browser width is applied on mount', () => {
     localStorage.setItem('mixjam-left-col-w', '200')
     renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
 
@@ -1359,9 +1443,9 @@ describe('PlayerView', () => {
     expect(playerView.style.getPropertyValue('--left-col-w')).toBe('200px')
   })
 
-  it('AC-016 (rev 2): the Mixer toggle button no longer exists', () => {
+  it('AC-004: Mixer is a peer tab instead of a reveal toggle', () => {
     renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
-    expect(screen.queryByRole('button', { name: /mixer/i })).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Mixer' })).toBeInTheDocument()
   })
 
   it('AC-017: restore button shows only when a channel can be restored and fires onRestoreChannel', () => {
@@ -1370,6 +1454,7 @@ describe('PlayerView', () => {
       mixer: { channels: [CHANNEL(0)], canRestoreChannel: true, onRestoreChannel }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
     const restore = screen.getByRole('button', { name: 'Restore removed channel' })
     fireEvent.click(restore)
     expect(onRestoreChannel).toHaveBeenCalled()
@@ -1383,6 +1468,7 @@ describe('PlayerView', () => {
   it('AC-020: strip labels are stable channelIndex + 1 with gaps after removal', () => {
     // Channels 0 and 2 present, channel 1 removed: labels must read 1 and 3.
     renderPlayer({ mixer: { channels: [CHANNEL(0), CHANNEL(2)], canRestoreChannel: true } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
 
     const labels = Array.from(
       document.querySelectorAll('.mixer-channel-label > span')

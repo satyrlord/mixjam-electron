@@ -1,7 +1,7 @@
 # Spec 010 — Per-Channel Audio Effects
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIALLY IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -60,7 +60,7 @@ can chain effects in order and adjust parameters per channel.
   visible. The selector retains the current channel across tab changes. If the
   selected channel is removed, it selects the next channel, then the previous
   channel, then shows the existing empty-mixer state.
-- Each fixed 40 px mixer strip has one 40-by-44 px FX entry button with a
+- Each fixed 44 px mixer strip has one 44-by-44 px FX entry button with a
   zero-to-four count and an all-bypassed state. Channel labels select a channel
   without changing tabs; the FX button selects its channel and opens the FX tab.
 - The selected channel displays an explicit left-to-right chain rail. Named
@@ -113,10 +113,10 @@ can chain effects in order and adjust parameters per channel.
 - [x] **AC-005:** Reordering effects changes the sound (for example, compression before delay differs from compression after delay).
 - [x] **AC-006:** Removing an effect from the chain cleans up its audio nodes — no memory leak.
 - [x] **AC-007:** Effects on channel A do not affect channel B.
-- [ ] **AC-008:** FX occupies a non-modal, full-width peer tab in the Bottom
+- [x] **AC-008:** FX occupies a non-modal, full-width peer tab in the Bottom
   Workspace. Opening FX from a mixer strip selects that channel and activates
   FX without hiding the tracker.
-- [ ] **AC-008a:** FX provides a labeled internal channel selector, retains its
+- [x] **AC-008a:** FX provides a labeled internal channel selector, retains its
   selection across tab changes, and handles selected-channel removal without
   requiring Mixer to remain visible.
 - [x] **AC-009:** The selected channel shows the complete ordered chain with
@@ -152,6 +152,20 @@ can chain effects in order and adjust parameters per channel.
   reverb tail, compressor gain reduction and bypass, and order-dependent output.
 - `tmp/verify-audio-effects/evidence.md` records the built Chromium layout
   assertions and screenshot.
+- `tmp/verify-vertical-controls/evidence.md` records the 44 px Mixer strip
+  geometry shared by the channel fader and FX entry point.
+- `tmp/verify-complete-system/evidence.md` verifies Mixer-to-FX channel
+  selection, FX selector state, upper-work visibility, and FX panel geometry
+  across every theme at wide and narrow viewport sizes.
+- `src/renderer/src/components/PlayerView.test.tsx` and
+  `tmp/verify-bottom-workspace/evidence.md` verify the full-width FX tab,
+  persisted workspace selection, internal channel selection, selected-channel
+  removal fallback, and the Mixer-to-FX transition.
+- `src/renderer/src/hooks/useMixer.test.ts` verifies that the live compressor
+  reduction reader is polled through `PlaybackEngine` and that bypassed or
+  removed compressors report no stale reduction. The method is listed in
+  Fallow's `usedClassMembers` because the analyzer does not trace that live
+  call through the React engine ref.
 
 ## Non-Goals
 

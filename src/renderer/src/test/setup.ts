@@ -31,6 +31,14 @@ if (typeof window !== 'undefined') {
     }
   }
 
+  // jsdom does not implement pointer capture. Radix Slider uses it for drag
+  // continuity; browsers provide these methods natively.
+  if (typeof Element.prototype.setPointerCapture === 'undefined') {
+    Element.prototype.setPointerCapture = () => undefined
+    Element.prototype.releasePointerCapture = () => undefined
+    Element.prototype.hasPointerCapture = () => false
+  }
+
   // jsdom's canvas getContext logs a loud "Not implemented" error and returns
   // null. Give canvas components a silent no-op 2D context instead: property
   // writes are stored, any other read yields a no-op function. Tests that need
