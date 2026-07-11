@@ -134,6 +134,7 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   channelPeaks: new Map(),
   effectReductions: new Map(),
   canRestoreChannel: false,
+  onSetVisualTelemetryActive: noop,
   onSetChannelGain: noop,
   onSetChannelPan: noop,
   onToggleChannelMute: noop,

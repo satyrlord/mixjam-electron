@@ -101,6 +101,7 @@ export interface PlayerMixerProps {
   channelPeaks: ReadonlyMap<number, number>
   effectReductions: ReadonlyMap<string, number>
   canRestoreChannel: boolean
+  onSetVisualTelemetryActive: (active: boolean) => void
   onSetChannelGain: (channelIndex: number, gain: number) => void
   onSetChannelPan: (channelIndex: number, pan: number) => void
   onToggleChannelMute: (channelIndex: number) => void

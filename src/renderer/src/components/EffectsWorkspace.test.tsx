@@ -84,7 +84,7 @@ describe('EffectsWorkspace', () => {
   })
 
   it('shows the disabled add-effect state when 4 effects are present', () => {
-    const fx = Array.from({ length: 4 }, (_, i) => createDefaultEffect('delay'))
+    const fx = Array.from({ length: 4 }, () => createDefaultEffect('delay'))
     const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: fx }
     render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={fx[0]!.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
     expect(screen.getByText('4 of 4 effects used')).toBeInTheDocument()

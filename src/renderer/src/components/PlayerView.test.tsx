@@ -150,6 +150,7 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   channelPeaks: new Map(),
   effectReductions: new Map(),
   canRestoreChannel: false,
+  onSetVisualTelemetryActive: noop,
   onSetChannelGain: noop,
   onSetChannelPan: noop,
   onToggleChannelMute: noop,
@@ -611,6 +612,22 @@ describe('PlayerView', () => {
     expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true')
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
     expect(localStorage.getItem('mixjam:bottom-workspace-tab')).toBe('mixer')
+  })
+
+  it('runs visual telemetry only while Mixer or FX is active', () => {
+    const onSetVisualTelemetryActive = vi.fn()
+    const { unmount } = renderPlayer({ mixer: { onSetVisualTelemetryActive } })
+
+    expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(false)
+    fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
+    expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(true)
+    fireEvent.click(screen.getByRole('tab', { name: 'FX' }))
+    expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(true)
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
+    expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(false)
+
+    unmount()
+    expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(false)
   })
 
   it('uses automatic activation and wrapping keyboard navigation for workspace tabs', () => {

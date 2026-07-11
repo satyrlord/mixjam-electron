@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ScanProgress } from '../../../shared/backend-api'
+import type { AnalysisProgress, ScanProgress } from '../../../shared/backend-api'
 import type { WorkerMessage, WorkerRequest } from './protocol'
 import { createWorkerProxy } from './worker-proxy'
 
@@ -48,11 +48,10 @@ describe('worker proxy', () => {
     await expect(result).rejects.toThrow('not found')
   })
 
-  it('forwards and logs fatal scan details from the worker', () => {
+  it('forwards fatal scan details from the worker', () => {
     const worker = new FakeWorker()
     const proxy = createWorkerProxy(worker)
     const listener = vi.fn()
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     proxy.onScanProgress(listener)
     const progress: ScanProgress = {
       status: 'error',
@@ -66,8 +65,6 @@ describe('worker proxy', () => {
     worker.emit({ type: 'scan-progress', progress })
 
     expect(listener).toHaveBeenCalledWith(progress)
-    expect(consoleError).toHaveBeenCalledWith('Scan failed:', 'database is full')
-    consoleError.mockRestore()
   })
 
   it('fans out events and supports unsubscribe', () => {
@@ -144,29 +141,27 @@ describe('worker proxy', () => {
     expect(done).not.toHaveBeenCalled()
   })
 
-  it('logs analysis error without explicit detail via fallback message', () => {
+  it('forwards analysis error without explicit detail via fallback message', () => {
     const worker = new FakeWorker()
     const proxy = createWorkerProxy(worker)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const listener = vi.fn()
     proxy.onAnalysisProgress(listener)
 
-    worker.emit({ type: 'analysis-progress', progress: { status: 'error', analyzed: 0, total: 0 } })
+    const progress: AnalysisProgress = { status: 'error', analyzed: 0, total: 0 }
+    worker.emit({ type: 'analysis-progress', progress })
 
-    expect(consoleError).toHaveBeenCalledWith('Analysis failed:', 'Unknown backend error')
-    consoleError.mockRestore()
+    expect(listener).toHaveBeenCalledWith(progress)
   })
 
-  it('logs scan error without explicit detail via fallback message', () => {
+  it('forwards scan error without explicit detail via fallback message', () => {
     const worker = new FakeWorker()
     const proxy = createWorkerProxy(worker)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const listener = vi.fn()
     proxy.onScanProgress(listener)
 
-    worker.emit({ type: 'scan-progress', progress: { status: 'error', phase: null, found: 0, processed: 0, total: 0 } })
+    const progress: ScanProgress = { status: 'error', phase: null, found: 0, processed: 0, total: 0 }
+    worker.emit({ type: 'scan-progress', progress })
 
-    expect(consoleError).toHaveBeenCalledWith('Scan failed:', 'Unknown backend error')
-    consoleError.mockRestore()
+    expect(listener).toHaveBeenCalledWith(progress)
   })
 })

@@ -59,9 +59,6 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
       return
     }
     if (message.type === 'scan-progress') {
-      if (message.progress.status === 'error') {
-        console.error('Scan failed:', message.progress.error ?? 'Unknown backend error')
-      }
       for (const listener of progressListeners) listener(message.progress)
       return
     }
@@ -70,9 +67,6 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
       return
     }
     if (message.type === 'analysis-progress') {
-      if (message.progress.status === 'error') {
-        console.error('Analysis failed:', message.progress.error ?? 'Unknown backend error')
-      }
       for (const listener of analysisProgressListeners) listener(message.progress)
       return
     }

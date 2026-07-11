@@ -113,7 +113,10 @@ Stereo width is out of scope.
   output `StereoPannerNode` and before the master bus. `fftSize` 256.
 - **Update loop:** Single `requestAnimationFrame` loop reads all 16 analysers,
   computes RMS (`20 * log10(rms)`), clamps to [-60, 0] dB, updates peak hold,
-  and calls `setState` once per frame with batched values.
+  and calls `setState` once per frame with batched values. The loop is active
+  only while Mixer or FX is visible because its channel levels and compressor
+  reduction values are visual telemetry; hiding both panels cancels it without
+  changing the audio graph or mixer state.
 - **Peak hold:** Tracks the maximum recent RMS. Decays at ~30 dB/s when no new
   peak exceeds it. Rendered as a 2px CSS-positioned line.
 - Color zones: green (-60 to -12 dB), yellow (-12 to -3 dB), red (-3 to 0 dB).
@@ -250,6 +253,8 @@ interaction. Do NOT implement one without the other.
 - [x] **AC-022:** The mute-active button fill measures at least 3:1 contrast against the inactive button in every bundled theme, and a muted channel's strip is visibly dimmed.
 - [x] **AC-023:** A channel fader shows its percentage value while dragging and renders a unity (100%) tick mark.
 - [x] **AC-024:** The master meter label reads "Output Level".
+- [x] **AC-025:** The shared Mixer/FX visual-telemetry frame loop is cancelled
+  while Song or Samples is active and restarts when Mixer or FX becomes active.
 
 ## Control-System Validation Evidence
 
@@ -257,6 +262,8 @@ interaction. Do NOT implement one without the other.
   gain uses the shared Radix-backed vertical fader and meter, preserves its
   value and unity affordances, and handles Arrow, Home, and End keys in visual
   orientation.
+- `src/renderer/src/hooks/useMixer.test.ts` verifies that inactive workspaces
+  schedule no visual-telemetry frame and that deactivation cancels a live loop.
 - `tmp/verify-vertical-controls/evidence.md` records production Chromium
   geometry for all 16 fixed-width strips and the shared fader/meter grammar.
 - `tmp/verify-complete-system/evidence.md` verifies all 16 strips at 44px in

@@ -4,7 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 
 export default tseslint.config(
-  { ignores: ['out/**', 'dist/**', 'node_modules/**', '*.config.*', 'tmp/**', 'coverage/**', 'coverage-unit/**'] },
+  { ignores: ['out/**', 'dist/**', 'node_modules/**', '*.config.*', 'tmp/**', 'coverage/**', 'coverage-unit/**', 'tests/e2e/mock-backend.js'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

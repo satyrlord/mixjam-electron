@@ -30,6 +30,7 @@ export interface MixerState {
 }
 
 export interface MixerActions {
+  setVisualTelemetryActive: (active: boolean) => void
   setChannelGain: (channelIndex: number, gain: number) => void
   setChannelPan: (channelIndex: number, pan: number) => void
   toggleChannelMute: (channelIndex: number) => void
@@ -126,6 +127,7 @@ export function useMixer(
   const [channelLevels, setChannelLevels] = useState<Map<number, number>>(new Map())
   const [channelPeaks, setChannelPeaks] = useState<Map<number, number>>(new Map())
   const [effectReductions, setEffectReductions] = useState<Map<string, number>>(new Map())
+  const [visualTelemetryActive, setVisualTelemetryActive] = useState(false)
 
   // Keep a ref copy for the rAF loop so it never captures stale state.
   const channelsRef = useRef(channels)
@@ -150,12 +152,15 @@ export function useMixer(
   const prevLevelsRef = useRef(new Map<number, number>())
   const prevReductionsRef = useRef(new Map<string, number>())
 
-  // rAF meter loop — reads all channel analysers once per frame, computes RMS,
-  // updates peak hold, and batches a single setState. Only runs while the
-  // PlaybackEngine exists; stops updating state when values are unchanged.
+  // Mixer meters and FX compressor reduction are visual-only telemetry. Keep
+  // the panels mounted to preserve their UI state, but run their shared frame
+  // loop only while either panel is visible.
   useEffect(() => {
+    if (!visualTelemetryActive) return
+
     let rafId: number
     let running = true
+    lastFrameRef.current = 0
 
     const tick = (now: number) => {
       if (!running) return
@@ -280,8 +285,9 @@ export function useMixer(
     return () => {
       running = false
       cancelAnimationFrame(rafId)
+      lastFrameRef.current = 0
     }
-  }, [playbackEngineRef])
+  }, [playbackEngineRef, visualTelemetryActive])
 
   // Apply channel state to PlaybackEngine when entering the Player (a fresh PlaybackEngine
   // is created on each entry). Also replays removed channel indices so channel
@@ -431,6 +437,7 @@ export function useMixer(
     channelPeaks,
     effectReductions,
     canRestoreChannel: channels.length < DEFAULT_CHANNEL_COUNT,
+    setVisualTelemetryActive,
     setChannelGain,
     setChannelPan,
     toggleChannelMute,

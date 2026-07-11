@@ -1,7 +1,6 @@
 // App-state persistence for the browser backend. Folder selections and the
 // recent-project registry live in localStorage; project files stay real files
-// in the User Folder, reached through its stored directory handle. The legacy
-// storage key remains unchanged so existing users keep their selections.
+// in the User Folder, reached through its stored directory handle.
 
 import type { FolderRef, MixJamFileItem, FolderSelections } from '../../../shared/backend-api'
 import { loadFolderHandle } from './handle-store'

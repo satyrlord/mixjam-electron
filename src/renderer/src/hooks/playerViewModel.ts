@@ -100,6 +100,7 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       channelPeaks: app.channelPeaks,
       effectReductions: app.effectReductions,
       canRestoreChannel: app.canRestoreChannel,
+      onSetVisualTelemetryActive: app.setVisualTelemetryActive,
       onSetChannelGain: app.setChannelGain,
       onSetChannelPan: app.setChannelPan,
       onToggleChannelMute: app.toggleChannelMute,

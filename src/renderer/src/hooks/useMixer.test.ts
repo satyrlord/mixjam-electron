@@ -225,6 +225,7 @@ describe('useMixer', () => {
     playback.activeVoiceCount = 1
     playback.getChannelEffectReduction.mockReturnValue(4.2)
     const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
+    act(() => result.current.setVisualTelemetryActive(true))
     act(() => result.current.addChannelEffect(0, 'compressor'))
     const compressor = result.current.channels[0]!.effects[0]!
     act(() => { tickOnce(16) })
@@ -313,11 +314,25 @@ describe('useMixer', () => {
     mockPlaybackEngine.activeVoiceCount = 0
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
 
-    renderHook(() => useMixer(playbackEngineRef, 'home'))
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
+    act(() => result.current.setVisualTelemetryActive(true))
 
     act(() => { tickOnce() })
 
     expect(mockPlaybackEngine.getChannelAnalyser).not.toHaveBeenCalled()
+  })
+
+  it('runs the visual telemetry frame loop only while its workspace is active', () => {
+    setupRafMock()
+    const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame')
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'player'))
+
+    expect(rafCallback).toBeNull()
+    act(() => result.current.setVisualTelemetryActive(true))
+    expect(rafCallback).not.toBeNull()
+    act(() => result.current.setVisualTelemetryActive(false))
+    expect(cancelSpy).toHaveBeenCalled()
+    expect(rafCallback).toBeNull()
   })
 
   it('rAF loop reads analyser data when playbackEngine has active voices', () => {
@@ -333,6 +348,7 @@ describe('useMixer', () => {
     }
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
+    act(() => result.current.setVisualTelemetryActive(true))
 
     act(() => { tickOnce() })
 
@@ -360,6 +376,7 @@ describe('useMixer', () => {
     }
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
+    act(() => result.current.setVisualTelemetryActive(true))
 
     act(() => { tickOnce() })
 
@@ -374,8 +391,9 @@ describe('useMixer', () => {
   it('cancels rAF on unmount', () => {
     setupRafMock()
     const playbackEngineRef = createPlaybackEngineRef()
-    const { unmount } = renderHook(() => useMixer(playbackEngineRef, 'home'))
+    const { result, unmount } = renderHook(() => useMixer(playbackEngineRef, 'home'))
     const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame')
+    act(() => result.current.setVisualTelemetryActive(true))
 
     unmount()
 
@@ -466,6 +484,7 @@ describe('useMixer', () => {
     }
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
+    act(() => result.current.setVisualTelemetryActive(true))
 
     // Tick 1: non-zero sample, levels should be populated
     act(() => { tickOnce(1000) })
@@ -581,6 +600,7 @@ describe('useMixer', () => {
     playback.getChannelAnalyser.mockReturnValue(analyser)
     playback.getChannelEffectReduction.mockReturnValue(3.5)
     const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
+    act(() => result.current.setVisualTelemetryActive(true))
     act(() => { result.current.addChannelEffect(0, 'compressor') })
     const compressorId = result.current.channels[0]!.effects[0]!.id
     act(() => { tickOnce(1000) })
@@ -601,6 +621,7 @@ describe('useMixer', () => {
     const playback = createMockPlaybackEngine()
     playback.activeVoiceCount = 0
     const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
+    act(() => result.current.setVisualTelemetryActive(true))
     act(() => { result.current.addChannelEffect(0, 'compressor') })
     act(() => { tickOnce(1000) })
     expect(result.current.channelLevels.size).toBe(0)

@@ -6,7 +6,7 @@ lookahead-scheduler pattern.
 ## Lookahead scheduler
 
 `AudioContext` time is sample-accurate, but JS timers are not. Bridge them with the
-standard pattern (Chris Wilson, "A Tale of Two Clocks"):
+standard lookahead-scheduler pattern:
 
 - A coarse `setInterval` "ticks" every ~25 ms.
 - Each tick, schedule every step whose time falls within a lookahead window

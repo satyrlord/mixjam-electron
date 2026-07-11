@@ -96,6 +96,9 @@ browser adjacencies.
 - All four panels remain mounted while inactive and are hidden from layout and
   the accessibility tree. Tab changes therefore preserve Sample scroll/filter
   state, Mixer state, FX selection, and unfinished control interactions.
+- Mixer meters and FX compressor reduction share visual-only telemetry. Its
+  animation-frame loop runs only while Mixer or FX is active; Song and Samples
+  pause that loop without changing audio state or unmounting any panel.
 - The tab row shows compact read-only BPM and Master Volume status. The status
   is an accessible button that activates Song; it does not create a second
   editable BPM or volume control.
@@ -334,6 +337,9 @@ browser adjacencies.
 - [x] **AC-004d:** The Song panel shows vertical BPM and Master Volume sliders
   beside a vertical Output Level meter. BPM accepts 50 to 200, initializes to
   120 for a new project, and supports precise numeric entry.
+- [x] **AC-004e:** Mixer/FX visual telemetry runs only while Mixer or FX is the
+  active Bottom Workspace tab. Song, Samples, and leaving Player cancel its
+  animation-frame loop without changing audio state.
 - [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, functional M and S buttons, and a functional pan knob.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
@@ -378,7 +384,7 @@ browser adjacencies.
 
 - `src/renderer/src/components/PlayerView.test.tsx` verifies ordered peer tabs,
   first-launch and persisted selection, mounted panels, automatic keyboard
-  activation, song status, and the upper-only resize seam.
+  activation, song status, telemetry activation, and the upper-only resize seam.
 - `tmp/verify-bottom-workspace/evidence.md` records production Chromium
   geometry, narrow-window targets, tab-state retention, Sample Browser
   remeasurement, and cross-tab Mixer-to-FX behavior.

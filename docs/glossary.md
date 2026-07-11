@@ -1,18 +1,5 @@
 # Glossary
 
-A term-resolution document for AI agents. This file exists to disambiguate
-terms where the specs are silent, inconsistent, or diverge from web DAW
-expectations. Only terms that an AI would plausibly misinterpret are listed.
-
-This glossary is a work in progress. Terms are added as they are clarified.
-The quick index below lists only terms that are actually defined here.
-
-The glossary is canonical for terminology. The owning specs remain canonical
-for behavior and acceptance criteria. A terminology conflict must be resolved
-in the glossary, its owning documentation, and affected code in the same
-change. Persisted names may remain for compatibility when the exception is
-explicit or migrated.
-
 ## Quick index
 
 - [App state](#app-state)
