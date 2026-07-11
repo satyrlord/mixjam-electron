@@ -70,9 +70,8 @@ categories. Libraries are saved queries, not file copies.
 
 ### Sample Browser Container
 
-The sample browser occupies the lower-right browser region in the MixJam
-Player, to the right of the Song Controls rail and below the full-width Middle
-Strip from spec-006. Its internal layout:
+The sample browser occupies the Samples panel in the full-width Bottom
+Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ```text
 .browser-region
@@ -84,8 +83,8 @@ Strip from spec-006. Its internal layout:
       └── .tiles              — virtualized rows of sample bubbles
 ```
 
-- The Song Controls rail is a separate lower-left region from spec-006. The
-  mixer column (spec-007) does not live inside the sample browser.
+- Song, Mixer, and FX are peer panels outside the Samples panel. Their controls
+  do not live inside the sample browser.
 - A vertical resize handle separates the category tree from the sample list
   inside the browser region (defined in spec-006).
 - Selected sample details do not open a third pane inside the browser region.

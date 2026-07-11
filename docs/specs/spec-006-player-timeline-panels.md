@@ -1,17 +1,17 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIALLY IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
 
 Implement the MixJam Player's visual region layout from the approved General
 Layout mock-up: an upper row with the MixJam Browser and Tracker, a full-width
-Middle Strip containing the Transport Ribbon and global controls, and a
-lower row with a Song Controls rail and the Sample Browser. Within that shell,
-define the 16-lane Tracker, sample bubbles, ruler, moving playhead, and browser
-adjacencies.
+Middle Strip containing the Transport Ribbon and global controls, and one
+full-width Bottom Workspace with Song, Mixer, FX, and Samples tabs. Within that
+shell, define the 16-lane Tracker, sample bubbles, ruler, moving playhead, and
+browser adjacencies.
 
 ## User Stories
 
@@ -23,11 +23,12 @@ adjacencies.
   primary work area so arrangement stays visually dominant.
 - **US-003:** As a user, I see a full-width Middle Strip between the tracker
   and browser so transport controls and global song state live on a clear seam.
-- **US-004:** As a user, I see a dedicated Song Controls rail in the lower-left
-  so global song controls are always available without stealing space from the
-  browser.
+- **US-004:** As a user, I can switch the full-width Bottom Workspace between
+  Song, Mixer, FX, and Samples without learning different reveal mechanisms.
 - **US-004a:** As a user, I can adjust master volume, monitor overall loudness,
-  and change BPM from the default Song Controls rail without opening the mixer.
+  and change BPM from the Song panel without opening the Mixer.
+- **US-004b:** As a keyboard user, I can navigate and activate every Bottom
+  Workspace tab using the standard tablist keyboard model.
 - **US-005:** As a user, I can place sample bubbles onto lanes and see the
   same source-duration-derived geometry used in the Sample Browser.
 - **US-006:** As a user, I see a moving playhead sweep across the timeline
@@ -48,7 +49,7 @@ adjacencies.
 ```text
 .player (flex-column, full viewport below header/footer from spec-001)
   ├── .upper-work       — flex row, main top work band
-  │   ├── .mixjam-browser — left rail, shared width with song-controls
+  │   ├── .mixjam-browser — independently resizable/collapsible left rail
   │   └── .tracker-region       — upper-right primary arrangement surface
   │       ├── .ruler            — horizontal bar with tick marks + bar numbers
   │       └── .lane-scroll      — scrollable lane container
@@ -57,28 +58,70 @@ adjacencies.
   │               ├── .lane-head — 168px: name, M/S buttons, pan knob
   │               └── .lane-canvas — clip placement area
   ├── .middle-strip     — 44px, full-width transport + global status band
-  └── .lower-work       — flex row, main bottom work band
-      ├── .song-controls-rail — left rail, default-visible control region
-      │   └── .mixer-reveal    — mixer column, shown/hidden via the rail's drag seam (spec-007)
-      └── .browser-region      — lower-right sample browser (spec-004)
-          ├── .category-tree
-          ├── .browser-resize-v — 5px, internal vertical drag handle
-          └── .sample-list
+  └── .bottom-workspace — full-width tabbed work band
+      ├── .bottom-workspace-tabs — Song | Mixer | FX | Samples + song status
+      └── .bottom-workspace-panel — active peer panel
+          ├── Song      — BPM, Master Volume, Output Level
+          ├── Mixer     — full-width channel strips (spec-007)
+          ├── FX        — channel selector + effect editor (spec-010)
+          └── Samples   — category tree + virtualized sample list (spec-004)
 ```
 
 ### Region Contract
 
-- The active Player uses a two-column layout in the upper and lower work
-  bands, with a shared left rail seam and a wider right-hand primary workspace.
+- The active Player uses a two-column layout only in the upper work band. The
+  Bottom Workspace spans the full Player width and does not inherit the upper
+  MixJam Browser/Tracker split.
 - The **MixJam Browser** is visible in the active Player layout. This
   spec only reserves the region; project-switching behavior is defined later.
-- The **Song Controls rail** is visible by default in the lower-left. Its
-  right edge is the reveal seam for the implemented mixer panel (spec-007).
+- The **Bottom Workspace** is the only lower-band container. Song, Mixer, FX,
+  and Samples are peer tabs; future peer workflows append tabs to the same
+  tablist instead of adding another reveal system.
 - The **Middle Strip** is a fixed, full-width band between the upper and lower
   work areas. Its center Transport Ribbon contains transport controls only;
   project name, search, Re-scan, and Help remain outside that subregion.
-- The **Sample Browser** remains in the lower-right work region and owns its
-  own internal category-tree ↔ sample-list split.
+- The **Sample Browser** lives in the Samples panel and owns its internal
+  category-tree ↔ sample-list split.
+
+### Bottom Workspace
+
+- Tab order is **Song, Mixer, FX, Samples**. Song is active only when no valid
+  saved tab exists. Thereafter, the last active tab persists in localStorage as
+  `mixjam:bottom-workspace-tab`; missing or unknown values fall back to Song.
+- The tablist uses automatic activation. Left/Right Arrow moves focus and
+  activates the previous/next tab with wrapping; Home/End activates the
+  first/last tab. One tab has `tabIndex=0`; all others have `tabIndex=-1`.
+  Tabs and panels are connected with `id`, `aria-controls`, and
+  `aria-labelledby`.
+- All four panels remain mounted while inactive and are hidden from layout and
+  the accessibility tree. Tab changes therefore preserve Sample scroll/filter
+  state, Mixer state, FX selection, and unfinished control interactions.
+- The tab row shows compact read-only BPM and Master Volume status. The status
+  is an accessible button that activates Song; it does not create a second
+  editable BPM or volume control.
+- An explicit workflow transition may activate a tab. In particular, a mixer
+  channel's FX action selects that channel and activates FX.
+- On narrow windows, the tab row scrolls horizontally or uses a labeled
+  overflow control; tab targets do not shrink below 44 by 44 CSS pixels.
+- The former lower-left Song Controls/Mixer reveal seam is removed. Resizing or
+  collapsing the upper MixJam Browser remains independent of the full-width
+  Bottom Workspace.
+
+### Song Panel Controls
+
+- BPM, Master Volume, and Output Level form one leading-edge group of vertical
+  modules. Linear controls and meters increase from bottom to top.
+- BPM is a vertical slider from 50 to 200 and has an editable numeric value for
+  precise entry. Both surfaces reflect one transport BPM value; invalid or
+  out-of-range input is not committed.
+- Master Volume uses the same vertical fader grammar as channel gain, including
+  value placement and unity indication. Output Level uses the same vertical
+  meter grammar and color zones as channel meters.
+- Vertical sliders expose `aria-orientation="vertical"`, unit-aware value text,
+  Arrow Up/Right to increase, Arrow Down/Left to decrease, and Home/End for
+  minimum/maximum. Visible controls have at least 44-by-44 CSS-pixel hit areas.
+- The vertical rule applies to linear sliders and meters. Bipolar pan and
+  continuous FX parameters remain rotary controls.
 
 ### Ruler
 
@@ -189,12 +232,14 @@ adjacencies.
 - Global shortcuts (Space, Delete, Ctrl+Z/Y, ?) are suppressed while a text
   input, textarea, select, or contenteditable element has focus.
 
-### Left Rails
+### Player Subregions
 
 #### MixJam Browser
 
 - Occupies the upper-left region of the active Player layout.
-- Uses the same width as the Song Controls rail to keep the left seam aligned.
+- Its right edge resizes only the upper MixJam Browser/Tracker split. The width
+  persists in localStorage as `mixjam-left-col-w` and never constrains the
+  Bottom Workspace.
 - Includes a collapse/expand toggle (state persisted to localStorage as
   `mixjam:recents-rail-collapsed`). When collapsed, only the toggle button is
   visible, and the browser stays visually flush so it does not leave a stray
@@ -226,22 +271,27 @@ adjacencies.
 - Full project deserialization (restoring lanes/placements from the `.mixjam`
   file) remains deferred to project save/load work (spec-011).
 
-#### Song Controls rail
+#### Song panel
 
-- Occupies the lower-left region of the active Player layout.
-- Visible by default.
-- Default-visible controls:
+- Occupies the Song panel in the full-width Bottom Workspace.
+- First-launch default; subsequent visits restore the last active tab.
+- Controls:
   - **BPM slider** — project tempo control, from 50 BPM to 200 BPM.
   - **Master Volume slider** — global output level control for the full mix.
   - **dB loudness meter** — master-output loudness display for the current mix.
 - Changing the BPM slider updates the engine's transport BPM immediately.
-- Owns song-level controls and the right-edge reveal affordance for the
-  implemented mixer panel (spec-007).
-- Dragging the right-edge reveal seam to the right widens the rail; once the
-  reveal threshold is crossed, mixer content may appear inside the expanded
-  rail without moving into the sample-browser region.
+- Owns song-level controls only. Mixer visibility is controlled by the Bottom
+  Workspace tabs, not by resizing Song.
 
 ### Resize Handles
+
+**MixJam Browser vertical handle** (`.upper-work-resize`):
+
+- 5px width, `ew-resize` cursor, on the upper work band's browser/tracker seam.
+- Resizes only the MixJam Browser/Tracker split and persists the expanded width
+  as `mixjam-left-col-w`; the existing collapse state remains authoritative
+  while collapsed.
+- Does not cross the Middle Strip or change the Bottom Workspace width.
 
 **Browser vertical handle** (`.browser-resize-v`):
 
@@ -251,18 +301,33 @@ adjacencies.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** The active Player layout renders five primary regions matching the mock-up: MixJam Browser,
-  Tracker region, full-width Middle Strip, Song Controls rail, and Sample Browser region.
-- [x] **AC-002:** The MixJam Browser is visible in the upper-left of the active Player by default, shares the same width as the Song
-  Controls rail below it, shows a merged list of recently opened `.mixjam` files plus `.mixjam` files discovered from the current
-  User Folder, and can be collapsed/expanded via a toggle button (state persisted to localStorage).
+- [ ] **AC-001:** The active Player renders the MixJam Browser and Tracker in
+  the upper work band, a full-width Middle Strip, and one full-width Bottom
+  Workspace below it.
+- [x] **AC-002:** The MixJam Browser is visible in the upper-left of the active
+  Player by default, shows a merged list of recently opened `.mixjam` files
+  plus `.mixjam` files discovered from the current User Folder, and can be
+  collapsed/expanded via a persisted toggle button.
 - [x] **AC-002a:** The User Folder contribution to the MixJam Browser includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
 - [x] **AC-002b:** The MixJam Browser sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
 - [x] **AC-002c:** When the MixJam Browser has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank region or browser-specific action buttons.
+- [ ] **AC-002d:** Resizing the MixJam Browser/Tracker seam changes and persists
+  only the upper split; it does not resize or divide the Bottom Workspace.
 - [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
-- [x] **AC-004:** The Song Controls rail is visible by default in the lower-left; widening its right-edge reveal seam may expose mixer content without relocating the sample browser into the left rail.
-- [x] **AC-004a:** The default Song Controls container shows BPM and Master Volume sliders together with a master dB loudness meter.
-- [x] **AC-004b:** The BPM slider accepts 50 BPM to 200 BPM and initializes to 120 BPM for a new project.
+- [ ] **AC-004:** The Bottom Workspace presents Song, Mixer, FX, and Samples as
+  ordered peer tabs; the lower reveal seam no longer exists.
+- [ ] **AC-004a:** With no valid persisted selection, Song is active. A valid
+  last tab is restored after remount, and each mounted panel preserves its
+  internal state while inactive.
+- [ ] **AC-004b:** The tabs implement automatic activation, wrapping
+  Left/Right Arrow navigation, Home/End, roving tabindex, and correctly linked
+  tab/tab-panel ARIA attributes.
+- [ ] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
+  Song, and remains usable at narrow widths without targets below 44 by 44 CSS
+  pixels.
+- [ ] **AC-004d:** The Song panel shows vertical BPM and Master Volume sliders
+  beside a vertical Output Level meter. BPM accepts 50 to 200, initializes to
+  120 for a new project, and supports precise numeric entry.
 - [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, functional M and S buttons, and a functional pan knob.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
@@ -283,7 +348,8 @@ adjacencies.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
 - [x] **AC-015:** The BPM slider shows the current BPM and changing it updates the engine's BPM immediately.
-- [x] **AC-015a:** The Song Controls BPM slider is the single BPM control and always reflects the transport's current BPM.
+- [ ] **AC-015a:** The Song panel's slider and numeric field are two editing
+  surfaces for one BPM value and always reflect the transport's current BPM.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
 - [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position; the original remains unchanged.
@@ -321,3 +387,5 @@ adjacencies.
 ## References
 
 - [Current project architecture.md](../architecture.md) — Virtualization requirement, canvas rendering guidance.
+- [WAI-ARIA Tabs Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/) — tab roles, relationships, and keyboard behavior.
+- [Microsoft touch interactions](https://learn.microsoft.com/windows/apps/develop/input/touch-interactions#hit-targets) — 44-by-44 touch-optimized targets.

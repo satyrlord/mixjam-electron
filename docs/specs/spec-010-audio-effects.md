@@ -1,7 +1,7 @@
 # Spec 010 — Per-Channel Audio Effects
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIALLY IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -53,9 +53,13 @@ can chain effects in order and adjust parameters per channel.
 
 ### Effect UI
 
-- The lower-right workspace has `Samples` and `FX` tabs. `Samples` is the
-  default on mount. The FX tab is non-modal and keeps the tracker and mixer
+- FX is a peer in the full-width `Song | Mixer | FX | Samples` Bottom
+  Workspace from spec-006. The editor is non-modal and keeps the tracker
   available while parameters change in real time.
+- FX contains its own channel selector and does not depend on Mixer remaining
+  visible. The selector retains the current channel across tab changes. If the
+  selected channel is removed, it selects the next channel, then the previous
+  channel, then shows the existing empty-mixer state.
 - Each fixed 40 px mixer strip has one 40-by-44 px FX entry button with a
   zero-to-four count and an all-bypassed state. Channel labels select a channel
   without changing tabs; the FX button selects its channel and opens the FX tab.
@@ -109,9 +113,12 @@ can chain effects in order and adjust parameters per channel.
 - [x] **AC-005:** Reordering effects changes the sound (for example, compression before delay differs from compression after delay).
 - [x] **AC-006:** Removing an effect from the chain cleans up its audio nodes — no memory leak.
 - [x] **AC-007:** Effects on channel A do not affect channel B.
-- [x] **AC-008:** Samples and FX occupy non-modal tabs in the existing lower
-  workspace; opening FX from a strip selects that channel without hiding the
-  tracker or mixer.
+- [ ] **AC-008:** FX occupies a non-modal, full-width peer tab in the Bottom
+  Workspace. Opening FX from a mixer strip selects that channel and activates
+  FX without hiding the tracker.
+- [ ] **AC-008a:** FX provides a labeled internal channel selector, retains its
+  selection across tab changes, and handles selected-channel removal without
+  requiring Mixer to remain visible.
 - [x] **AC-009:** The selected channel shows the complete ordered chain with
   pointer and keyboard reordering, immediate bypass, an explained add flow,
   and an explicit four-slot status.

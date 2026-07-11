@@ -1,17 +1,15 @@
 # Spec 007 — Mixer
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIALLY IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline & Panel Layout)
 
 ## Objective
 
 Implement the N-channel mixer: per-channel gain, pan, mute/solo controls, and
 hardcoded 1:1 lane-to-channel routing. Default 16 channels, capped at 16 for
-this spec. The mixer UI lives inside the lower-left Song Controls rail, is
-visible by default, and is hidden by dragging the left-column seam below the
-reveal threshold. The seam carries a visible grip handle and the dragged width
-persists.
+this spec. The mixer UI occupies the full-width Mixer panel in the Bottom
+Workspace from spec-006 and remains reachable through its peer tab.
 
 ## User Stories
 
@@ -27,35 +25,21 @@ persists.
 
 ### Mixer Panel Location
 
-The mixer occupies space inside the lower-left Song Controls rail in the
-Player layout. The entire left column (shared by MixJamBrowser and
-SongControlsRail) resizes via a drag seam on its right edge and defaults to
-420px. The mixer column appears inside SongControlsRail to the right of
-SongControlsMain when the left column exceeds 272px (168px master section +
-104px threshold); below that width the mixer is hidden (there is no separate
-toggle — decision 32 replaced it with the drag seam):
+The mixer occupies the full-width Mixer panel in the Bottom Workspace. It does
+not share space with Song and does not depend on the upper work band's column
+width:
 
 ```text
-SongControlsRail (flex row, overflow: hidden)
-├── SongControlsMain   — 168px fixed width, master vol + dB meter
-└── MixerColumn        — visible when left-col-w > 272px
-    └── ChannelStrip × N  — 40px each, horizontal scroll when clipped
+BottomWorkspacePanel (Mixer active)
+└── MixerColumn
+    └── ChannelStrip × N — horizontal scroll only when the viewport is narrow
 ```
 
-The resize seam updates a CSS custom property `--left-col-w` on the grid
-container during drag (no React re-renders until mouseup). The strip row
-(`.mixer-strips`) scrolls horizontally (`overflow-x: auto`, thin themed
-scrollbar) so every strip stays reachable at any column width.
-
-The left-column resize seam carries an always-visible grip handle (a pill bar
-with three dots, centered vertically). Dragging the seam below the 272px
-threshold hides the mixer; the dragged width persists in localStorage
-(`mixjam-left-col-w`) and is re-applied on mount.
-
-When the upper MixJam Browser is collapsed, it collapses horizontally to
-a narrow tab and the tracker region expands across the full top row. This
-preserves full Song Controls + Mixer width in the lower-left rail while
-maximizing tracker editing surface above.
+The strip row (`.mixer-strips`) uses the available panel width and scrolls
+horizontally (`overflow-x: auto`, thin themed scrollbar) only when every strip
+cannot fit. Mixer state remains mounted when another Bottom Workspace tab is
+active. The upper MixJam Browser's resize/collapse behavior does not change the
+Mixer panel width.
 
 ### Channel Strip (per channel)
 
@@ -178,12 +162,11 @@ channel's mute/solo.
 | `useMixer(playbackEngineRef)` owns channel state | Mixer state stays separate from the transport engine |
 | Lane and channel mute/solo gates are ANDed | Both arrangement and mix filters apply |
 | One `AnalyserNode` per channel | All 16 meters update without graph switching |
-| The left column defaults to 420px and the strip row scrolls | The mixer is visible on entry and every strip remains reachable |
+| Mixer uses a full-width peer tab | All strips receive the lower workspace without competing with Song or Samples |
 | Routing is 1:1 and channel count is capped at 16 | Add/reorder needs the routing UI in spec-017 |
 | dB meters render in CSS | Fill height and peak hold do not need a canvas |
 | Stereo width waits for spec-010 | The control needs DSP before it has a product effect |
-| Channel state and left-column width use localStorage | Mixer state survives a page refresh |
-| The resize seam writes a CSS custom property during drag | Dragging does not trigger React renders |
+| Channel state uses localStorage | Mixer state survives a page refresh |
 | Lane and channel pan are independent | Two panners keep arrangement and mix controls distinct |
 | One rAF loop reads all meters | React receives one batched state update per frame |
 | Removed channels route their lanes through a master bypass | Removing a strip does not silence its lane |
@@ -193,7 +176,7 @@ channel's mute/solo.
 | Both pan knobs support drag, keyboard, and the same right-click cycle | Lane and channel controls share an interaction contract |
 | Mute-active fill meets 3:1 contrast | The state remains visible across all themes |
 | Faders show a drag value and unity tick | Gain changes have numeric feedback |
-| The seam grip hides the mixer below 272px | The same control resizes and hides the mixer |
+| The Bottom Workspace tab controls Mixer visibility | Peer workflows share one predictable navigation model |
 
 ## Implementation Notes
 
@@ -234,19 +217,6 @@ When adding or modifying pan knob behavior, ensure both `LaneRow.tsx` and
 `ChannelStrip.tsx` stay in sync for the right-click cycle and keyboard
 interaction. Do NOT implement one without the other.
 
-### Resize seam
-
-The grid is `.player-view` with `grid-template-columns: 168px minmax(0, 1fr)`.
-Swapping to `var(--left-col-w, 168px)` is safe — custom properties are valid in
-track lists. The `168px` values inside column 2 (`.tracker-ruler-spacer`,
-`LANE_HEAD_WIDTH_PX` inline widths) must NOT adopt the variable; they are
-ruler-alignment constants per spec-006. Setting `--left-col-w` imperatively via
-`element.style.setProperty` during drag survives React re-renders because the
-JSX `style` prop does NOT include `--left-col-w`; React's style diffing only
-touches keys present in the JSX `style` prop, leaving the imperative value
-intact. The CSS fallback sets the initial width to 420px; the drag handler's
-168px minimum clamp lets users narrow the column below the mixer threshold.
-
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** 16 channel strips (40px each) are visible in the mixer column, each with VOL slider, dB meter, pan knob, M and S buttons.
@@ -257,16 +227,20 @@ intact. The CSS fallback sets the initial width to 420px; the drag handler's
 - [x] **AC-006:** Lane-level mute/solo and channel-level mute/solo are independent ANDed gates. A lane is audible when its own mute AND its channel's mute are off, and it passes both solo filters.
 - [x] **AC-008:** User can remove a channel via hover-revealed x button; the corresponding lane is re-routed to the master bypass bus
   (audible at unity gain with lane pan applied). Remaining strips shift down and keep their stable channel labels; the remove button also appears on keyboard focus.
-- [x] **AC-009:** Dragging the left-column right-edge resize seam past 272px (168px + 104px threshold) reveals the mixer column. Dragging below 272px hides it.
+- [ ] **AC-009:** Activating Mixer shows its full-width panel; activating a
+  peer tab hides it without unmounting Mixer state. No lower reveal seam is
+  present.
 - [x] **AC-011:** Channel state (gain, pan, mute, solo) persists across page refreshes via localStorage.
 - [x] **AC-012:** The lane-head pan knob and mixer-strip pan knob control independent values (lane pan and channel pan respectively); both are applied in the audio chain.
 - [x] **AC-013:** Removing all channels leaves all 16 lanes routed to the master bypass bus; all lanes remain audible. The mixer column shows no channel strips.
 
-- [x] **AC-014:** On first entry to the Player, the left column is 420px wide and the mixer column is visible without any seam drag.
-- [x] **AC-015:** All 16 channel strips are reachable by horizontal scroll at any column width above the 272px threshold; keyboard-tabbing through strips scrolls them into view
-  without clipping the master section.
-- [x] **AC-016:** The left-column resize seam shows an always-visible grip handle; dragging it below 272px hides the mixer completely; the dragged width persists across
-  page refresh so a hidden mixer stays hidden.
+- [ ] **AC-014:** The Mixer panel receives the full Bottom Workspace width and
+  is independent of the upper MixJam Browser/Tracker column width.
+- [ ] **AC-015:** All 16 channel strips are visible when space permits and are
+  reachable by horizontal scroll when the viewport is too narrow;
+  keyboard-tabbing scrolls a clipped strip into view.
+- [ ] **AC-016:** Mixer panel state survives tab changes, and the selected
+  Bottom Workspace tab survives remount according to spec-006.
 - [x] **AC-017:** A restore affordance re-adds the lowest removed channel at default state (gain 0.8, pan 0, unmuted, unsoloed) and re-routes its lane from the master bypass
   back to the channel. It is disabled/absent when no channel is removed.
 - [x] **AC-018:** Right-clicking ANY pan knob (lane-head or mixer-strip) never shows a context menu and steps the cycle: any position → C; C → 100% R; 100% R → 100% L; 100% L → C.

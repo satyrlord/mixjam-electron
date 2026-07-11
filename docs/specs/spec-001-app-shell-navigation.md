@@ -60,11 +60,10 @@ Implement view switching, the header bar, and the footer.
 - **Timer** displays `00:00.0` format, absolutely centered in the header
   regardless of left/right content width.
 - The tracker content area below the header shows the structural skeleton of
-  the app using the approved player region map: five empty labeled rectangular
-  zones (MixJam Browser, Tracker region, full-width Middle
-  Strip, Song Controls rail, Sample Browser region). No lane rows, no button
-  icons, and no detailed sub-zones inside those regions — completely blank
-  placeholders.
+  the app using the approved player region map: MixJam Browser and Tracker in
+  the upper work band, a full-width Middle Strip, and a full-width Bottom
+  Workspace. The Bottom Workspace contains Song, Mixer, FX, and Samples tabs;
+  its detailed behavior belongs to spec-006.
 - **Footer** is unchanged from Home Screen.
 
 ### View Switching
@@ -152,8 +151,9 @@ Implementation validation should be tracked in implementation PR/test evidence.
   (with window resize in the Electron shell), cancelling stays on the Home Screen.
 - [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
-- [x] **AC-010:** The Player content area shows five empty labeled rectangular zones (MixJam Browser, Tracker, Middle Strip,
-  Song Controls, Sample Browser) — no lane rows, no icons, and no detailed sub-zones inside those regions.
+- [x] **AC-010:** The Player content area provides structural regions for the
+  upper work band, full-width Middle Strip, and lower work band; spec-006 owns
+  their detailed current layout and controls.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 - [x] **AC-013:** In a browser-only host where `window.shellAPI` is missing, the renderer runs the

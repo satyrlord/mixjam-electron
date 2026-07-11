@@ -95,6 +95,13 @@ the project name, [Transport Ribbon](#transport-ribbon), sample
 search, Re-scan, and Help. It is not a synonym for the Transport Ribbon. See
 [spec 006](specs/spec-006-player-timeline-panels.md).
 
+## Bottom Workspace
+
+The full-width tabbed region below the [Middle Strip](#middle-strip) in the
+[Player](#player). Its peer tabs are Song, Mixer, FX, and Samples. Use *Bottom
+Workspace* for the shared container; use the individual tab name for the
+workflow shown inside it. See [spec 006](specs/spec-006-player-timeline-panels.md).
+
 ## MixJam
 
 The `.mixjam` file format. A MixJam file serializes a [song](#song) or
