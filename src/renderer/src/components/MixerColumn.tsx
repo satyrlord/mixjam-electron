@@ -1,23 +1,20 @@
 import ChannelStrip from './ChannelStrip'
 import type { ChannelState } from '../hooks/useMixer'
-import type { EffectSlot, EffectType } from '../engine/effects'
 
 interface MixerColumnProps {
   channels: ChannelState[]
   channelLevels: ReadonlyMap<number, number>
   channelPeaks: ReadonlyMap<number, number>
   canRestoreChannel: boolean
+  selectedChannelIndex: number | null
   onSetChannelGain: (channelIndex: number, gain: number) => void
   onSetChannelPan: (channelIndex: number, pan: number) => void
   onToggleChannelMute: (channelIndex: number) => void
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
   onRestoreChannel: () => void
-  onAddChannelEffect: (channelIndex: number, type: EffectType) => void
-  onUpdateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
-  onToggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
-  onRemoveChannelEffect: (channelIndex: number, effectId: string) => void
-  onMoveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
+  onSelectChannel: (channelIndex: number) => void
+  onOpenChannelEffects: (channelIndex: number) => void
 }
 
 /** Scrollable column of channel strips inside the SongControlsRail. */
@@ -26,17 +23,15 @@ export default function MixerColumn({
   channelLevels,
   channelPeaks,
   canRestoreChannel,
+  selectedChannelIndex,
   onSetChannelGain,
   onSetChannelPan,
   onToggleChannelMute,
   onToggleChannelSolo,
   onRemoveChannel,
   onRestoreChannel,
-  onAddChannelEffect,
-  onUpdateChannelEffect,
-  onToggleChannelEffectBypass,
-  onRemoveChannelEffect,
-  onMoveChannelEffect
+  onSelectChannel,
+  onOpenChannelEffects
 }: MixerColumnProps) {
   return (
     <div className="mixer-column">
@@ -71,16 +66,14 @@ export default function MixerColumn({
               levelDb={channelLevels.get(ch.channelIndex) ?? -100}
               peakDb={channelPeaks.get(ch.channelIndex) ?? -100}
               effects={ch.effects}
+              selected={selectedChannelIndex === ch.channelIndex}
               onSetGain={onSetChannelGain}
               onSetPan={onSetChannelPan}
               onToggleMute={onToggleChannelMute}
               onToggleSolo={onToggleChannelSolo}
               onRemove={onRemoveChannel}
-              onAddEffect={onAddChannelEffect}
-              onUpdateEffect={onUpdateChannelEffect}
-              onToggleEffectBypass={onToggleChannelEffectBypass}
-              onRemoveEffect={onRemoveChannelEffect}
-              onMoveEffect={onMoveChannelEffect}
+              onSelect={onSelectChannel}
+              onOpenEffects={onOpenChannelEffects}
             />
           ))}
         </div>

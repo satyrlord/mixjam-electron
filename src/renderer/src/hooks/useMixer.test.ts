@@ -16,6 +16,7 @@ function createMockPlaybackEngine() {
   return {
     activeVoiceCount: 0,
     getChannelAnalyser: vi.fn().mockReturnValue(analyser),
+    getChannelEffectReduction: vi.fn().mockReturnValue(0),
     setChannelGain: vi.fn(),
     setChannelPan: vi.fn(),
     setChannelMute: vi.fn(),
@@ -202,6 +203,35 @@ describe('useMixer', () => {
     expect(randomUuid).toHaveBeenCalledTimes(1)
     const channelZeroCalls = mockPlaybackEngine.setChannelEffects.mock.calls.filter(([channelIndex]) => channelIndex === 0)
     expect(channelZeroCalls).toEqual([[0, result.current.channels[0]!.effects]])
+  })
+
+  it('restores a removed effect snapshot at its original position', () => {
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'player'))
+    act(() => {
+      result.current.addChannelEffect(0, 'delay')
+      result.current.addChannelEffect(0, 'reverb')
+    })
+    const removed = result.current.channels[0]!.effects[0]!
+    act(() => result.current.removeChannelEffect(0, removed.id))
+    let restored = false
+    act(() => { restored = result.current.restoreChannelEffect(0, removed, 0) })
+    expect(restored).toBe(true)
+    expect(result.current.channels[0]!.effects[0]).toEqual(removed)
+  })
+
+  it('publishes compressor reduction through the existing meter frame', () => {
+    setupRafMock()
+    const playback = createMockPlaybackEngine()
+    playback.activeVoiceCount = 1
+    playback.getChannelEffectReduction.mockReturnValue(4.2)
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
+    act(() => result.current.addChannelEffect(0, 'compressor'))
+    const compressor = result.current.channels[0]!.effects[0]!
+    act(() => { tickOnce(16) })
+    expect(result.current.effectReductions.get(compressor.id)).toBe(4.2)
+    act(() => result.current.removeChannelEffect(0, compressor.id))
+    act(() => { tickOnce(32) })
+    expect(result.current.effectReductions.has(compressor.id)).toBe(false)
   })
 
   it('migrates persisted pre-effects channel state to an empty chain', () => {

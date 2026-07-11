@@ -98,6 +98,7 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       channels: app.channels,
       channelLevels: app.channelLevels,
       channelPeaks: app.channelPeaks,
+      effectReductions: app.effectReductions,
       canRestoreChannel: app.canRestoreChannel,
       onSetChannelGain: app.setChannelGain,
       onSetChannelPan: app.setChannelPan,
@@ -109,6 +110,7 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       onUpdateChannelEffect: app.updateChannelEffect,
       onToggleChannelEffectBypass: app.toggleChannelEffectBypass,
       onRemoveChannelEffect: app.removeChannelEffect,
+      onRestoreChannelEffect: app.restoreChannelEffect,
       onMoveChannelEffect: app.moveChannelEffect
     }
   }

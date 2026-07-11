@@ -169,6 +169,10 @@ export class AudioEngine {
     return this.channelAnalysers.get(channelIndex)
   }
 
+  getChannelEffectReduction(channelIndex: number, effectId: string): number {
+    return this.channels.get(channelIndex)?.getEffectReduction(effectId) ?? 0
+  }
+
   removeChannel(channelIndex: number): void {
     const channel = this.channels.get(channelIndex)
     const analyser = this.channelAnalysers.get(channelIndex)

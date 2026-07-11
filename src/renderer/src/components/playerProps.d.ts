@@ -99,6 +99,7 @@ export interface PlayerMixerProps {
   channels: ChannelState[]
   channelLevels: ReadonlyMap<number, number>
   channelPeaks: ReadonlyMap<number, number>
+  effectReductions: ReadonlyMap<string, number>
   canRestoreChannel: boolean
   onSetChannelGain: (channelIndex: number, gain: number) => void
   onSetChannelPan: (channelIndex: number, pan: number) => void
@@ -106,9 +107,10 @@ export interface PlayerMixerProps {
   onToggleChannelSolo: (channelIndex: number) => void
   onRemoveChannel: (channelIndex: number) => void
   onRestoreChannel: () => void
-  onAddChannelEffect: (channelIndex: number, type: EffectType) => void
+  onAddChannelEffect: (channelIndex: number, type: EffectType) => EffectSlot | null | void
   onUpdateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
   onToggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
   onRemoveChannelEffect: (channelIndex: number, effectId: string) => void
+  onRestoreChannelEffect: (channelIndex: number, effect: EffectSlot, index: number) => boolean
   onMoveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
 }

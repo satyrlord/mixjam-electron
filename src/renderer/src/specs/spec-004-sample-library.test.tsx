@@ -132,6 +132,7 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   channels: [],
   channelLevels: new Map(),
   channelPeaks: new Map(),
+  effectReductions: new Map(),
   canRestoreChannel: false,
   onSetChannelGain: noop,
   onSetChannelPan: noop,
@@ -143,6 +144,7 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onUpdateChannelEffect: noop,
   onToggleChannelEffectBypass: noop,
   onRemoveChannelEffect: noop,
+  onRestoreChannelEffect: () => false,
   onMoveChannelEffect: noop
 }
 

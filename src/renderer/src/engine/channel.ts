@@ -30,6 +30,7 @@ export interface Channel {
   /** Update tempo-dependent processor parameters (e.g. delay time) without
    *  rebuilding the effect chain. No-op when no effects are tempo-synced. */
   setBpm(bpm: number): void
+  getEffectReduction(effectId: string): number
   disconnect(): void
 }
 
@@ -110,6 +111,11 @@ export function createChannel(context: BaseAudioContext, index: number): Channel
         const effect = effectState[i]
         if (effect) processors[i]?.updateParams?.(effect, bpm)
       }
+    },
+
+    getEffectReduction(effectId: string): number {
+      const index = effectState.findIndex((effect) => effect.id === effectId && effect.type === 'compressor' && !effect.bypassed)
+      return index < 0 ? 0 : processors[index]?.getReductionDb?.() ?? 0
     },
 
     disconnect(): void {

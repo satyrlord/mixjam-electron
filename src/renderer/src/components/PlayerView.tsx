@@ -29,6 +29,7 @@ import SongControlsRail from './SongControlsRail'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
+import EffectsWorkspace from './EffectsWorkspace'
 
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
 
@@ -222,6 +223,15 @@ export default function PlayerView({
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(false)
+  const [bottomTab, setBottomTab] = useState<'samples' | 'fx'>('samples')
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null)
+  const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (selectedChannelIndex !== null && mixer.channels.some((channel) => channel.channelIndex === selectedChannelIndex)) return
+    setSelectedChannelIndex(mixer.channels[0]?.channelIndex ?? null)
+    setSelectedEffectId(null)
+  }, [mixer.channels, selectedChannelIndex])
 
   // Refs for values read by the global keyboard shortcut handler so the
   // listener subscribes once instead of on every selection / transport change.
@@ -588,17 +598,15 @@ export default function PlayerView({
         mixerChannelLevels={mixer.channelLevels}
         mixerChannelPeaks={mixer.channelPeaks}
         canRestoreChannel={mixer.canRestoreChannel}
+        selectedChannelIndex={selectedChannelIndex}
         onSetChannelGain={mixer.onSetChannelGain}
         onSetChannelPan={mixer.onSetChannelPan}
         onToggleChannelMute={mixer.onToggleChannelMute}
         onToggleChannelSolo={mixer.onToggleChannelSolo}
         onRemoveChannel={mixer.onRemoveChannel}
         onRestoreChannel={mixer.onRestoreChannel}
-        onAddChannelEffect={mixer.onAddChannelEffect}
-        onUpdateChannelEffect={mixer.onUpdateChannelEffect}
-        onToggleChannelEffectBypass={mixer.onToggleChannelEffectBypass}
-        onRemoveChannelEffect={mixer.onRemoveChannelEffect}
-        onMoveChannelEffect={mixer.onMoveChannelEffect}
+        onSelectChannel={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null) }}
+        onOpenChannelEffects={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null); setBottomTab('fx') }}
       />
 
       <div
@@ -609,12 +617,35 @@ export default function PlayerView({
         onMouseDown={handleLeftColResizeStart}
       />
 
-      <SampleBrowser
-        browser={browser}
-        bubblePixelsPerSecond={bubblePixelsPerSecond}
-        flashSamplePath={activeFlashPath}
-        onSampleDragStart={handleSampleDragStart}
-      />
+      <section className="bottom-workspace" aria-label="Samples and effects workspace">
+        <div className="bottom-workspace-tabs" role="tablist" aria-label="Bottom workspace">
+          <button type="button" role="tab" aria-selected={bottomTab === 'samples'} aria-controls="samples-panel" onClick={() => setBottomTab('samples')}>Samples</button>
+          <button type="button" role="tab" aria-selected={bottomTab === 'fx'} aria-controls="effects-panel" onClick={() => setBottomTab('fx')}>FX</button>
+        </div>
+        <div id="samples-panel" className="bottom-workspace-panel" role="tabpanel" hidden={bottomTab !== 'samples'}>
+          <SampleBrowser
+            browser={browser}
+            bubblePixelsPerSecond={bubblePixelsPerSecond}
+            flashSamplePath={activeFlashPath}
+            onSampleDragStart={handleSampleDragStart}
+          />
+        </div>
+        <div id="effects-panel" className="bottom-workspace-panel" role="tabpanel" hidden={bottomTab !== 'fx'}>
+          <EffectsWorkspace
+            channels={mixer.channels}
+            selectedChannelIndex={selectedChannelIndex}
+            selectedEffectId={selectedEffectId}
+            effectReductions={mixer.effectReductions}
+            onSelectEffect={setSelectedEffectId}
+            onAdd={mixer.onAddChannelEffect}
+            onUpdate={mixer.onUpdateChannelEffect}
+            onToggleBypass={mixer.onToggleChannelEffectBypass}
+            onRemove={mixer.onRemoveChannelEffect}
+            onRestore={mixer.onRestoreChannelEffect}
+            onMove={mixer.onMoveChannelEffect}
+          />
+        </div>
+      </section>
 
       {contextMenu && (
         <div

@@ -66,7 +66,12 @@ input. Replaced and removed processors disconnect every node they own.
 - Reverb uses a generated two-channel impulse in a `ConvolverNode`; room size
   changes impulse energy and decay changes its duration and envelope.
 - Compression maps the documented controls onto `DynamicsCompressorNode` and
-  follows it with a linear makeup-gain stage.
+  follows it with a linear makeup-gain stage. Its processor exposes the native
+  node's negative `reduction` reading as a positive dB value through the
+  channel, audio-engine, and playback-engine facades. The mixer's existing
+  animation-frame meter loop reads that property for compressor effect ids;
+  bypass and missing processors return zero and no additional analyser is
+  inserted into the signal graph.
 - Bypass constructs a direct input-to-output route for that slot, so disabling
   DSP also removes its feedback or convolution nodes from the live graph.
 

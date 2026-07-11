@@ -53,15 +53,37 @@ can chain effects in order and adjust parameters per channel.
 
 ### Effect UI
 
-- Each effect slot shows: effect type icon, name, bypass button, remove button.
-- Clicking an effect slot opens a parameter panel with knobs/sliders for that
-  effect's parameters.
-- Adding an effect: dropdown or "+" button to select effect type.
-- The effect chain UI lives in the mixer column (spec-007), below the channel
-  strips, or in an expandable per-channel panel.
-- The fixed 40 px channel-strip width from spec-007 is preserved. Compact slots
-  show a type glyph and accessible name; selecting a slot opens its named
-  parameter panel with bypass, reorder, and remove actions.
+- The lower-right workspace has `Samples` and `FX` tabs. `Samples` is the
+  default on mount. The FX tab is non-modal and keeps the tracker and mixer
+  available while parameters change in real time.
+- Each fixed 40 px mixer strip has one 40-by-44 px FX entry button with a
+  zero-to-four count and an all-bypassed state. Channel labels select a channel
+  without changing tabs; the FX button selects its channel and opens the FX tab.
+- The selected channel displays an explicit left-to-right chain rail. Named
+  cards expose order, selection, bypass, a drag handle, pointer drop targets,
+  `Alt+ArrowLeft/Right`, and named Move left/right menu actions.
+- A described Add effect tile appends Delay, Reverb, or Compressor and becomes
+  a `4 of 4 effects used` status at the slot cap.
+- The selected effect opens a spacious editor below the chain. Rotary controls
+  support vertical pointer drag, Shift fine adjustment, Arrow keys, Home/End,
+  direct numeric entry, unit-aware accessible values, and double-click reset.
+  Discrete delay timing uses its existing note-division selector when tempo
+  sync is enabled.
+- Every parameter carries a plain-language explanation of its audible result.
+  Bypassed effects remain editable but are visually subdued.
+- Factory starting points are Classic Echo, Slapback, and Ping-Pong Eighths;
+  Studio Room, Tight Room, and Long Hall; and Classic Control, Gentle Glue, and
+  Leveler. Choosing one writes ordinary effect parameter fields. Further edits
+  display `Custom`; preset identity is never stored.
+- Compressor editing includes a live positive-dB gain-reduction meter read
+  from its `DynamicsCompressorNode`. Bypass, silence, and missing processors
+  report zero reduction; no analyser node is added.
+- Reset and Remove live in a labeled actions menu. Removing an effect shows a
+  six-second Undo action that restores the same id, values, and bounded chain
+  position when the channel still exists and has capacity.
+- Empty chains explain signal order and focus adding; an empty mixer explains
+  that a channel must be restored. Removing the selected effect selects the
+  next card, then the previous card, then the empty state.
 
 ### DSP Implementation
 
@@ -87,6 +109,22 @@ can chain effects in order and adjust parameters per channel.
 - [x] **AC-005:** Reordering effects changes the sound (for example, compression before delay differs from compression after delay).
 - [x] **AC-006:** Removing an effect from the chain cleans up its audio nodes — no memory leak.
 - [x] **AC-007:** Effects on channel A do not affect channel B.
+- [x] **AC-008:** Samples and FX occupy non-modal tabs in the existing lower
+  workspace; opening FX from a strip selects that channel without hiding the
+  tracker or mixer.
+- [x] **AC-009:** The selected channel shows the complete ordered chain with
+  pointer and keyboard reordering, immediate bypass, an explained add flow,
+  and an explicit four-slot status.
+- [x] **AC-010:** Every continuous parameter is editable with an accessible
+  rotary control, direct numeric input, keyboard steps, fine adjustment,
+  unit-aware output, and factory reset.
+- [x] **AC-011:** Built-in starting points apply existing effect fields,
+  preserve effect identity and bypass, and become Custom after an edit without
+  changing the persisted mixer wire format.
+- [x] **AC-012:** The compressor editor reports positive gain reduction from
+  the live compressor node and zero while bypassed, without analyser nodes.
+- [x] **AC-013:** Removing an effect offers one six-second Undo that restores
+  its snapshot and original bounded position when restoration remains valid.
 
 ## Validation Evidence
 
@@ -95,9 +133,11 @@ can chain effects in order and adjust parameters per channel.
   tempo sync, ping-pong routing, bypass restoration, ordered graph rebuilds,
   complete node cleanup, and channel isolation.
 - `src/renderer/src/components/ChannelEffects.test.tsx` and
-  `src/renderer/src/hooks/useMixer.test.ts` verify the editor contract, the
-  four-slot cap, state mutation, persistence, pre-effects state migration, and
-  rejection of malformed persisted effect slots.
+  `src/renderer/src/components/EffectsWorkspace.test.tsx`, and
+  `src/renderer/src/hooks/useMixer.test.ts` verify the strip entry point,
+  non-modal editor contract, presets, accessible parameter edits, removal
+  recovery, four-slot cap, reduction state, persistence, pre-effects migration,
+  and rejection of malformed persisted slots.
 - `tests/e2e/audio-effects.spec.ts` verifies add, edit, bypass, reorder, remove,
   and reload behavior against the production browser bundle.
 - `tests/e2e/audio-effects-rendering.spec.ts` bundles the real DSP module into

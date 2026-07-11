@@ -140,6 +140,18 @@ describe('spec-010 per-channel audio effects', () => {
     expect(context.created.gains.at(-1)!.gain.value).toBeCloseTo(1.995, 2)
   })
 
+  it('exposes positive compressor gain reduction and reports zero while bypassed', () => {
+    const context = createMockContext()
+    const channel = createChannel(context as unknown as BaseAudioContext, 0)
+    const compressor = createDefaultEffect('compressor') as CompressorEffect
+    channel.setEffects([compressor], 120)
+    context.created.compressors[0]!.reduction = -7.5
+    expect(channel.getEffectReduction(compressor.id)).toBe(7.5)
+
+    channel.setEffects([{ ...compressor, bypassed: true }], 120)
+    expect(channel.getEffectReduction(compressor.id)).toBe(0)
+  })
+
   it('updates compressor parameters in place (AC-003)', () => {
     const context = createMockContext()
     const channel = createChannel(context as unknown as BaseAudioContext, 0)

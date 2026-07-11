@@ -46,6 +46,7 @@ class MockDynamicsCompressorNode extends MockAudioNode {
   ratio = new MockAudioParam(12)
   attack = new MockAudioParam(0.003)
   release = new MockAudioParam(0.25)
+  reduction = 0
 }
 
 interface CreatedAudioNodes {

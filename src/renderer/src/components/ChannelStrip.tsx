@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { clamp, meterFillPct, nextPanCycle } from '../lib/sample-utils'
 import ChannelEffects from './ChannelEffects'
-import type { EffectSlot, EffectType } from '../engine/effects'
+import type { EffectSlot } from '../engine/effects'
 
 interface ChannelStripProps {
   channelIndex: number
@@ -13,16 +13,14 @@ interface ChannelStripProps {
   levelDb: number
   peakDb: number
   effects: EffectSlot[]
+  selected?: boolean
   onSetGain: (channelIndex: number, gain: number) => void
   onSetPan: (channelIndex: number, pan: number) => void
   onToggleMute: (channelIndex: number) => void
   onToggleSolo: (channelIndex: number) => void
   onRemove: (channelIndex: number) => void
-  onAddEffect: (channelIndex: number, type: EffectType) => void
-  onUpdateEffect: (channelIndex: number, effect: EffectSlot) => void
-  onToggleEffectBypass: (channelIndex: number, effectId: string) => void
-  onRemoveEffect: (channelIndex: number, effectId: string) => void
-  onMoveEffect: (channelIndex: number, effectId: string, toIndex: number) => void
+  onSelect?: (channelIndex: number) => void
+  onOpenEffects?: (channelIndex: number) => void
 }
 
 /** Zone color for a dB value via CSS custom property tokens.
@@ -51,16 +49,14 @@ export default function ChannelStrip({
   levelDb,
   peakDb,
   effects,
+  selected = false,
   onSetGain,
   onSetPan,
   onToggleMute,
   onToggleSolo,
   onRemove,
-  onAddEffect,
-  onUpdateEffect,
-  onToggleEffectBypass,
-  onRemoveEffect,
-  onMoveEffect
+  onSelect = () => undefined,
+  onOpenEffects = () => undefined
 }: ChannelStripProps) {
   // Track active window listeners so they are torn down if the component
   // unmounts mid-drag (e.g. navigating Home while holding the mouse button).
@@ -152,9 +148,10 @@ export default function ChannelStrip({
   const peakPct = meterFillPct(peakDb)
 
   return (
-    <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}`}>
+    <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}${selected ? ' mixer-channel-strip-selected' : ''}`}>
       <div className="mixer-channel-label">
         <span>{label}</span>
+        <button type="button" className="mixer-channel-select" aria-label={`Select channel ${channelIndex + 1}`} aria-pressed={selected} onClick={() => onSelect(channelIndex)} />
         <button
           type="button"
           className="mixer-channel-remove"
@@ -236,11 +233,7 @@ export default function ChannelStrip({
       <ChannelEffects
         channelIndex={channelIndex}
         effects={effects}
-        onAdd={onAddEffect}
-        onUpdate={onUpdateEffect}
-        onToggleBypass={onToggleEffectBypass}
-        onRemove={onRemoveEffect}
-        onMove={onMoveEffect}
+        onOpen={onOpenEffects}
       />
     </div>
   )

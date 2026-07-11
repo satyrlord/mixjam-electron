@@ -37,6 +37,34 @@ export interface CompressorEffect {
 
 export type EffectSlot = DelayEffect | ReverbEffect | CompressorEffect
 
+export type EffectPresetValues =
+  | Omit<DelayEffect, 'id' | 'type' | 'bypassed'>
+  | Omit<ReverbEffect, 'id' | 'type' | 'bypassed'>
+  | Omit<CompressorEffect, 'id' | 'type' | 'bypassed'>
+
+export interface EffectPreset {
+  name: string
+  values: EffectPresetValues
+}
+
+export const EFFECT_PRESETS: Record<EffectType, readonly EffectPreset[]> = {
+  delay: [
+    { name: 'Classic Echo', values: { timeMs: 375, feedback: 0.35, mix: 0.3, pingPong: false, tempoSync: false, noteDivision: '1/8' } },
+    { name: 'Slapback', values: { timeMs: 110, feedback: 0.18, mix: 0.22, pingPong: false, tempoSync: false, noteDivision: '1/8' } },
+    { name: 'Ping-Pong Eighths', values: { timeMs: 375, feedback: 0.42, mix: 0.35, pingPong: true, tempoSync: true, noteDivision: '1/8' } }
+  ],
+  reverb: [
+    { name: 'Studio Room', values: { roomSize: 0.55, decay: 0.45, mix: 0.25 } },
+    { name: 'Tight Room', values: { roomSize: 0.25, decay: 0.2, mix: 0.18 } },
+    { name: 'Long Hall', values: { roomSize: 0.85, decay: 0.75, mix: 0.35 } }
+  ],
+  compressor: [
+    { name: 'Classic Control', values: { threshold: -24, ratio: 4, attackMs: 10, releaseMs: 250, makeupGain: 0 } },
+    { name: 'Gentle Glue', values: { threshold: -18, ratio: 2, attackMs: 30, releaseMs: 250, makeupGain: 1.5 } },
+    { name: 'Leveler', values: { threshold: -30, ratio: 3, attackMs: 60, releaseMs: 600, makeupGain: 3 } }
+  ]
+}
+
 const NOTE_DIVISIONS = new Set<string>(['1/4', '1/8', '1/16', '1/8T', '1/16T'])
 
 function isFiniteNumber(value: unknown): value is number {
@@ -83,6 +111,19 @@ export function createDefaultEffect(type: EffectType): EffectSlot {
   return { ...common, type, threshold: -24, ratio: 4, attackMs: 10, releaseMs: 250, makeupGain: 0 }
 }
 
+export function applyEffectPreset(effect: EffectSlot, presetName: string): EffectSlot {
+  const preset = EFFECT_PRESETS[effect.type].find((candidate) => candidate.name === presetName)
+  return preset ? { ...effect, ...preset.values } as EffectSlot : effect
+}
+
+export function effectPresetName(effect: EffectSlot): string | null {
+  const ignored = new Set(['id', 'type', 'bypassed'])
+  const values = effect as unknown as Record<string, unknown>
+  return EFFECT_PRESETS[effect.type].find((preset) =>
+    Object.entries(preset.values).every(([key, value]) => ignored.has(key) || values[key] === value)
+  )?.name ?? null
+}
+
 const EFFECT_META: Record<EffectType, { name: string; glyph: string }> = {
   delay: { name: 'Delay', glyph: 'D' },
   reverb: { name: 'Reverb', glyph: 'R' },
@@ -118,6 +159,8 @@ export interface EffectProcessor {
    *  (threshold, ratio, attack, release, makeup). Reverb is not updatable
    *  in place because its impulse is baked at creation time. */
   updateParams?(effect: EffectSlot, bpm: number): void
+  /** Positive gain reduction in dB for metered processors; zero otherwise. */
+  getReductionDb?(): number
 }
 
 function connectDryWet(
@@ -278,6 +321,9 @@ function createCompressor(context: BaseAudioContext, effect: CompressorEffect): 
       compressor.attack.value = clamp(effect.attackMs, 0, 200) / 1000
       compressor.release.value = clamp(effect.releaseMs, 5, 3000) / 1000
       makeup.gain.value = Math.pow(10, clamp(effect.makeupGain, 0, 24) / 20)
+    },
+    getReductionDb(): number {
+      return Number.isFinite(compressor.reduction) ? Math.max(0, -compressor.reduction) : 0
     }
   }
 }

@@ -33,6 +33,12 @@ export default function SongControlsMain({
           aria-label="BPM"
           title="BPM (50-200)"
           onChange={(e) => onSetBpm(Number(e.currentTarget.value))}
+          onWheel={(e) => {
+            e.preventDefault()
+            const delta = e.deltaY < 0 ? 1 : -1
+            const next = Math.min(200, Math.max(50, bpm + delta))
+            onSetBpm(next)
+          }}
         />
       </label>
       <label className="song-control">

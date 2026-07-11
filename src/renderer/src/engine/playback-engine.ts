@@ -212,6 +212,10 @@ export class PlaybackEngine {
     return this.engine.getChannelAnalyser(channelIndex)
   }
 
+  getChannelEffectReduction(channelIndex: number, effectId: string): number {
+    return this.engine.getChannelEffectReduction(channelIndex, effectId)
+  }
+
   // Preview a sample as a one-shot.
   //
   // Monophonic toggle: clicking the same sample again stops its preview;
