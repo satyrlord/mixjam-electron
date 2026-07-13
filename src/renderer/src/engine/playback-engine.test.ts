@@ -3,7 +3,6 @@ import { type EngineLane } from './lane-evaluation'
 import { PlaybackEngine } from './playback-engine'
 import { type SchedulerClock } from './scheduler'
 import { MockAudioContext, MockBufferSourceNode, createMockContext } from '../test/mockAudioContext'
-import type { TimeStretchProcessor } from './time-stretch'
 import { createDefaultEffect } from './effects'
 
 function mockClock(): SchedulerClock & { fire: () => void } {
@@ -22,9 +21,10 @@ function flushAsync(): Promise<void> {
 function makePlaybackEngine(opts: {
   context?: MockAudioContext
   lanes?: EngineLane[]
+  getLanes?: () => readonly EngineLane[]
   loadSampleBytes?: (p: string) => Promise<ArrayBuffer | null>
   audioTime?: number
-  stretchProcessor?: TimeStretchProcessor
+  sampleCache?: { maxEntries: number }
 }) {
   const context = opts.context ?? createMockContext()
   const clock = mockClock()
@@ -33,10 +33,10 @@ function makePlaybackEngine(opts: {
     createContext: () => context as unknown as AudioContext,
     clock,
     now: () => audioTime,
-    getLanes: () => opts.lanes ?? [],
+    getLanes: opts.getLanes ?? (() => opts.lanes ?? []),
     loadSampleBytes: opts.loadSampleBytes ?? (async () => new ArrayBuffer(8)),
-    bpm: 120,
-    timeStretch: opts.stretchProcessor ? { processor: opts.stretchProcessor } : undefined
+    sampleCache: opts.sampleCache,
+    bpm: 120
   })
   return { playbackEngine, context, clock }
 }
@@ -104,6 +104,101 @@ describe('PlaybackEngine.previewSample', () => {
 })
 
 describe('PlaybackEngine.triggerLane edge cases', () => {
+  it('preloads only the nearest cache-sized working set with bounded concurrency', async () => {
+    let activeLoads = 0
+    let maxActiveLoads = 0
+    const loadedPaths: string[] = []
+    const loadSampleBytes = vi.fn(async (samplePath: string) => {
+      loadedPaths.push(samplePath)
+      activeLoads += 1
+      maxActiveLoads = Math.max(maxActiveLoads, activeLoads)
+      await Promise.resolve()
+      activeLoads -= 1
+      return new ArrayBuffer(8)
+    })
+    const lanes: EngineLane[] = [
+      {
+        index: 0,
+        muted: false,
+        solo: false,
+        pan: 0,
+        channelIndex: 0,
+        placements: Array.from({ length: 9 }, (_, index) => ({
+          startTick: (index + 1) * 8,
+          durationTicks: 8,
+          samplePath: `sample-${index + 1}.wav`
+        }))
+      }
+    ]
+    const { playbackEngine } = makePlaybackEngine({
+      lanes,
+      loadSampleBytes,
+      sampleCache: { maxEntries: 8 }
+    })
+
+    await playbackEngine.start(0)
+
+    expect(loadedPaths).toEqual(
+      Array.from({ length: 8 }, (_, index) => `sample-${index + 1}.wav`)
+    )
+    expect(maxActiveLoads).toBe(4)
+    expect(playbackEngine.audioEngine.samples.size).toBe(8)
+    await playbackEngine.close()
+  })
+
+  it('refills the upcoming working set after a scheduled placement consumes it', async () => {
+    const loadSampleBytes = vi.fn(async () => new ArrayBuffer(8))
+    const lanes: EngineLane[] = [
+      {
+        index: 0,
+        muted: false,
+        solo: false,
+        pan: 0,
+        channelIndex: 0,
+        placements: [
+          { startTick: 0, durationTicks: 8, samplePath: 'current.wav' },
+          { startTick: 8, durationTicks: 8, samplePath: 'next.wav' }
+        ]
+      }
+    ]
+    const { playbackEngine } = makePlaybackEngine({
+      lanes,
+      loadSampleBytes,
+      sampleCache: { maxEntries: 1 }
+    })
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    expect(loadSampleBytes).toHaveBeenCalledTimes(2)
+    expect(playbackEngine.audioEngine.samples.has('current.wav')).toBe(false)
+    expect(playbackEngine.audioEngine.samples.has('next.wav')).toBe(true)
+    await playbackEngine.close()
+  })
+
+  it('allows a later preload after an unexpected preparation failure', async () => {
+    let fail = true
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [{ startTick: 0, durationTicks: 8, samplePath: 'recover.wav' }]
+    }]
+    const getLanes = vi.fn(() => {
+      if (fail) throw new Error('temporary arrangement failure')
+      return lanes
+    })
+    const { playbackEngine } = makePlaybackEngine({ getLanes })
+
+    await expect(playbackEngine.start(0)).rejects.toThrow('temporary arrangement failure')
+    fail = false
+    await expect(playbackEngine.start(0)).resolves.toBe(true)
+    expect(getLanes.mock.calls.length).toBeGreaterThanOrEqual(2)
+    await playbackEngine.close()
+  })
+
   it('skips trigger when loadSampleBytes returns null', async () => {
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'gone.wav' }] }
@@ -128,11 +223,12 @@ describe('PlaybackEngine.triggerLane edge cases', () => {
       lanes,
       loadSampleBytes: () => deferred
     })
-    await playbackEngine.start(0)
-    // Stop before the buffer load resolves
+    const starting = playbackEngine.start(0)
+    await flushAsync()
+    // Stop before arrangement preparation finishes loading the buffer.
     playbackEngine.stop()
-    // Now resolve the load
     resolveLoad(new ArrayBuffer(8))
+    await expect(starting).resolves.toBe(false)
     await flushAsync()
     expect(playbackEngine.audioEngine.activeVoiceCount).toBe(0)
     await playbackEngine.close()
@@ -164,15 +260,12 @@ describe('PlaybackEngine.setChannelEffects', () => {
     await playbackEngine.close()
   })
 
-  it('stretches preview audio from sample BPM to project BPM', async () => {
-    const stretched = { duration: 0.5 } as AudioBuffer
-    const stretch = vi.fn(async () => stretched)
-    const { playbackEngine, context } = makePlaybackEngine({ stretchProcessor: { stretch } })
+  it('resamples preview audio from sample BPM to project BPM', async () => {
+    const { playbackEngine, context } = makePlaybackEngine({})
 
     await playbackEngine.previewSample('loop.wav', 100)
 
-    expect(stretch).toHaveBeenCalledWith(expect.anything(), 1.2)
-    expect(context.created.sources.at(-1)?.buffer).toBe(stretched)
+    expect(context.created.sources.at(-1)?.playbackRate.value).toBe(1.2)
     await playbackEngine.close()
   })
 })
@@ -232,9 +325,13 @@ describe('PlaybackEngine.removeChannel', () => {
     await playbackEngine.close()
   })
 
-  it('replayRemovedChannels marks channels as removed', async () => {
+  it('replayRemovedChannels reconciles removals when a project is replaced', async () => {
     const { playbackEngine } = makePlaybackEngine({})
     playbackEngine.replayRemovedChannels([1, 2, 3])
+    const removedChannels = (playbackEngine as unknown as { removedChannels: Set<number> }).removedChannels
+    expect([...removedChannels]).toEqual([1, 2, 3])
+    playbackEngine.replayRemovedChannels([2, 3])
+    expect([...removedChannels]).toEqual([2, 3])
     await playbackEngine.close()
   })
 
@@ -279,83 +376,76 @@ describe('PlaybackEngine.seek', () => {
   })
 })
 
-describe('PlaybackEngine time-stretching', () => {
-  it('precomputes stretches before the scheduler creates the first voice', async () => {
-    let resolve!: (value: AudioBuffer) => void
-    const pending = new Promise<AudioBuffer>((done) => { resolve = done })
-    const stretch = vi.fn(() => pending)
+describe('PlaybackEngine tempo-following resampling', () => {
+  it('preloads samples before the scheduler creates the first voice', async () => {
+    let resolve!: (value: ArrayBuffer) => void
+    const pending = new Promise<ArrayBuffer>((done) => { resolve = done })
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
-    const { playbackEngine, context } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
+    const { playbackEngine, context } = makePlaybackEngine({ lanes, loadSampleBytes: () => pending })
 
     const starting = playbackEngine.start(0)
     await flushAsync()
     expect(context.created.sources).toHaveLength(0)
 
-    resolve({ duration: 0.5 } as AudioBuffer)
+    resolve(new ArrayBuffer(8))
     await expect(starting).resolves.toBe(true)
     await flushAsync()
     expect(context.created.sources).toHaveLength(1)
     await playbackEngine.close()
   })
 
-  it('reports a canceled preparation without starting the scheduler', async () => {
-    let resolve!: (value: AudioBuffer) => void
-    const pending = new Promise<AudioBuffer>((done) => { resolve = done })
-    const stretch = vi.fn(() => pending)
+  it('reports a canceled preload without starting the scheduler', async () => {
+    let resolve!: (value: ArrayBuffer) => void
+    const pending = new Promise<ArrayBuffer>((done) => { resolve = done })
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
-    const { playbackEngine, context } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
+    const { playbackEngine, context } = makePlaybackEngine({ lanes, loadSampleBytes: () => pending })
 
     const starting = playbackEngine.start(0)
     await flushAsync()
     playbackEngine.stop()
-    resolve({ duration: 0.5 } as AudioBuffer)
+    resolve(new ArrayBuffer(8))
 
     await expect(starting).resolves.toBe(false)
     expect(context.created.sources).toHaveLength(0)
     await playbackEngine.close()
   })
 
-  it('stretches a native-BPM placement before creating its voice', async () => {
-    const stretched = { duration: 0.5 } as AudioBuffer
-    const stretch = vi.fn(async () => stretched)
+  it('sets playback rate from a placement persisted musical duration', async () => {
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
-    const { playbackEngine, context } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
+    const { playbackEngine, context } = makePlaybackEngine({ lanes })
     playbackEngine.setBpm(120)
 
     await playbackEngine.start(0)
     await flushAsync()
 
-    expect(stretch).toHaveBeenCalledWith(expect.anything(), 1.2)
-    expect(context.created.sources.at(-1)?.buffer).toBe(stretched)
+    expect(context.created.sources.at(-1)?.playbackRate.value).toBe(2)
     await playbackEngine.close()
   })
 
-  it('keeps null-native-BPM placements at native rate', async () => {
-    const stretch = vi.fn(async (source: AudioBuffer) => source)
+  it('resamples null-native-BPM placements to their persisted musical duration', async () => {
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'hit.wav', nativeBPM: null }] }
     ]
-    const { playbackEngine } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
+    const { playbackEngine, context } = makePlaybackEngine({ lanes })
 
     await playbackEngine.start(0)
     await flushAsync()
 
-    expect(stretch).not.toHaveBeenCalled()
+    expect(context.created.sources.at(-1)?.playbackRate.value).toBe(2)
     await playbackEngine.close()
   })
 
-  it('reuses a cached stretch when project BPM returns to a prior value', async () => {
-    const stretch = vi.fn(async () => ({ duration: 1 } as AudioBuffer))
+  it('uses the current project BPM each time playback starts', async () => {
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
-    const { playbackEngine } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
+    const { playbackEngine, context } = makePlaybackEngine({ lanes })
 
     for (const bpm of [120, 80, 120]) {
       playbackEngine.setBpm(bpm)
@@ -364,7 +454,7 @@ describe('PlaybackEngine time-stretching', () => {
       playbackEngine.stop()
     }
 
-    expect(stretch).toHaveBeenCalledTimes(2)
+    expect(context.created.sources.map((source) => source.playbackRate.value)).toEqual([2, 4 / 3, 2])
     await playbackEngine.close()
   })
 })

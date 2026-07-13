@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
   PlayerMixerProps,
+  PlayerProjectProps,
   PlayerTransportProps
 } from './playerProps'
 import {
   LANE_HEAD_WIDTH_PX,
   LEFT_COL_MIN_PX,
+  TRACKER_TIMELINE_MIN_WIDTH_PX,
+  TRACKER_TOTAL_TICKS,
   timelinePixelsPerSecond
 } from '../lib/arrangement'
 import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
-import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
+import { isEditableTarget, useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
 import { useDragCleanups } from '../hooks/useDragCleanups'
 import { usePlacementDrag } from '../hooks/usePlacementDrag'
 import MixJamBrowser from './MixJamBrowser'
@@ -21,6 +24,7 @@ import SongControlsMain from './SongControlsMain'
 import MixerColumn from './MixerColumn'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
+import SongProgressBar from './SongProgressBar'
 import ShortcutsOverlay from './ShortcutsOverlay'
 import EffectsWorkspace from './EffectsWorkspace'
 import BottomWorkspace, {
@@ -30,6 +34,8 @@ import BottomWorkspace, {
 import { ContextMenuContent, ContextMenuItem, ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 import { Panel, PanelGroup, PanelResizeHandle, usePanelRef, type PanelLayout } from './ui/ResizablePanels'
 import { SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
+
+const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
 
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
 const UPPER_LAYOUT_STORAGE_KEY = 'mixjam:upper-work-layout'
@@ -87,6 +93,7 @@ export interface PlayerViewProps {
   arrangement: TrackerArrangementProps
   transport: PlayerTransportProps
   mixer: PlayerMixerProps
+  project: PlayerProjectProps
 }
 
 export default function PlayerView({
@@ -94,20 +101,22 @@ export default function PlayerView({
   browser,
   arrangement,
   transport,
-  mixer
+  mixer,
+  project
 }: PlayerViewProps) {
   const { lanes, laneShouldDim, currentTick } = arrangement
   const { transportState, onTransportSeek } = transport
 
-  const totalTicks = 256
+  const totalTicks = TRACKER_TOTAL_TICKS
   const rulerBeatCount = totalTicks / TICKS_PER_BEAT
 
   // Lane content width measurement for consistent bubble widths
   const lanesRef = useRef<HTMLDivElement>(null)
+  const timelineRef = useRef<HTMLDivElement>(null)
   const [laneContentWidth, setLaneContentWidth] = useState(0)
 
   useEffect(() => {
-    const el = lanesRef.current
+    const el = timelineRef.current
     if (!el) return
     const measure = () => setLaneContentWidth(el.clientWidth - LANE_HEAD_WIDTH_PX)
     measure()
@@ -123,6 +132,17 @@ export default function PlayerView({
     transport.bpm
   )
   const lastGridTick = Math.floor((totalTicks - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
+  const sampleDurationTicksByPath = useMemo(() => {
+    const result = new Map<string, number>()
+    for (const lane of lanes) {
+      for (const placement of lane.placements) {
+        if (!result.has(placement.samplePath)) {
+          result.set(placement.samplePath, placement.durationTicks)
+        }
+      }
+    }
+    return result
+  }, [lanes])
 
   const [selectedPlacementIds, setSelectedPlacementIds] = useState<Set<string>>(new Set())
   const clearSelection = useCallback(() => setSelectedPlacementIds(new Set()), [])
@@ -141,7 +161,6 @@ export default function PlayerView({
     totalTicks,
     selectedPlacementIds,
     pixelsPerTick,
-    bubblePixelsPerSecond,
     onClearSelection: clearSelection,
     onPlaceSampleDetailOnLane: arrangement.onPlaceSampleDetailOnLane,
     onMovePlacement: arrangement.onMovePlacement,
@@ -186,6 +205,11 @@ export default function PlayerView({
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null)
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null)
   const { onSetVisualTelemetryActive } = mixer
+  const {
+    busy: projectBusy,
+    onSave: saveProject,
+    onSaveAs: saveProjectAs
+  } = project
 
   useEffect(() => {
     onSetVisualTelemetryActive(bottomTab === 'mixer' || bottomTab === 'fx')
@@ -203,6 +227,18 @@ export default function PlayerView({
       // Storage can be unavailable; the active in-memory tab still works.
     }
   }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 's') return
+      if (event.repeat || isEditableTarget(event.target) || projectBusy) return
+      event.preventDefault()
+      if (event.shiftKey) void saveProjectAs()
+      else void saveProject()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [projectBusy, saveProject, saveProjectAs])
 
   const handleMixJamBrowserCollapsedChange = useCallback((collapsed: boolean) => {
     setMixJamBrowserCollapsed(collapsed)
@@ -314,6 +350,8 @@ export default function PlayerView({
             >
               <MixJamBrowser
                 mixJamFiles={mixJamFiles}
+                busy={project.busy}
+                onOpenProject={(path) => void project.onOpenPath(path)}
                 onCollapsedChange={handleMixJamBrowserCollapsedChange}
               />
             </Panel>
@@ -327,23 +365,29 @@ export default function PlayerView({
             <Panel id="tracker" minSize="320px">
 
               <section className="tracker-zone tracker-region">
-        {currentTick < totalTicks && (
-          <div
-            className="tracker-playhead"
-            style={{
-              left: `calc(${LANE_HEAD_WIDTH_PX}px + (${currentTick} / ${totalTicks}) * (100% - ${LANE_HEAD_WIDTH_PX}px))`,
-            }}
-            aria-hidden="true"
-          />
-        )}
         <ContextMenuRoot onOpenChange={(open) => { if (!open) setContextMenu(null) }}>
           <ContextMenuTrigger asChild>
             <div
+              id={TRACKER_SCROLLPORT_ID}
               className="tracker-lanes"
               ref={lanesRef}
               onMouseDown={handleLanesMouseDown}
               onContextMenuCapture={() => setContextMenu(null)}
             >
+          <div
+            className="tracker-timeline"
+            ref={timelineRef}
+            style={{ minWidth: TRACKER_TIMELINE_MIN_WIDTH_PX }}
+          >
+          {currentTick < totalTicks && (
+            <div
+              className="tracker-playhead"
+              style={{
+                left: `calc(${LANE_HEAD_WIDTH_PX}px + (${currentTick} / ${totalTicks}) * (100% - ${LANE_HEAD_WIDTH_PX}px))`,
+              }}
+              aria-hidden="true"
+            />
+          )}
           {selectionRect && (() => {
             const x = Math.min(selectionRect.startX, selectionRect.currentX)
             const y = Math.min(selectionRect.startY, selectionRect.currentY)
@@ -382,7 +426,6 @@ export default function PlayerView({
                 lane={lane}
                 dimmed={dimmed}
                 totalTicks={totalTicks}
-                bubblePixelsPerSecond={bubblePixelsPerSecond}
                 flashSamplePath={activeFlashPath}
                 selectedPlacementIds={selectedPlacementIds}
                 missingSamplePaths={arrangement.missingSamplePaths}
@@ -396,6 +439,7 @@ export default function PlayerView({
               />
             )
           })}
+          </div>
             </div>
           </ContextMenuTrigger>
           {contextMenu && (
@@ -405,11 +449,18 @@ export default function PlayerView({
             </ContextMenuContent>
           )}
         </ContextMenuRoot>
+        <SongProgressBar scrollportRef={lanesRef} scrollportId={TRACKER_SCROLLPORT_ID} />
               </section>
             </Panel>
           </PanelGroup>
 
           <MiddleStrip
+        projectName={project.name}
+        projectDirty={project.dirty}
+        projectBusy={project.busy}
+        onOpenProject={() => void project.onOpen()}
+        onSaveProject={() => void project.onSave()}
+        onSaveProjectAs={() => void project.onSaveAs()}
         transportState={transportState}
         canUndo={transport.canUndo}
         canRedo={transport.canRedo}
@@ -489,6 +540,9 @@ export default function PlayerView({
             active={bottomTab === 'samples'}
             browser={browser}
             bubblePixelsPerSecond={bubblePixelsPerSecond}
+            pixelsPerTick={pixelsPerTick}
+            projectBpm={transport.bpm}
+            durationTicksBySamplePath={sampleDurationTicksByPath}
             flashSamplePath={activeFlashPath}
             onSampleDragStart={handleSampleDragStart}
           />

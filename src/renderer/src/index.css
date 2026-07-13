@@ -1170,6 +1170,10 @@ html[data-theme-ready='true'] body {
   width: 168px;
   flex-shrink: 0;
   cursor: default;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--gradient-ruler), var(--bg-panel);
 }
 
 .tracker-ruler-tick {
@@ -1194,9 +1198,70 @@ html[data-theme-ready='true'] body {
 
 .tracker-lanes {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   position: relative;
+}
+
+.tracker-lanes::-webkit-scrollbar:horizontal {
+  height: 0;
+}
+
+/* One shared wide surface keeps the ruler, playhead, lane canvases, and
+   selection overlay horizontally synchronized inside .tracker-lanes. Its
+   minimum width is supplied from the Tracker timing constants. */
+.tracker-timeline {
+  min-height: 100%;
+  position: relative;
+}
+
+.song-progress-bar {
+  flex: 0 0 18px;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border-top: var(--edge);
+  background: var(--gradient-ruler), var(--bg-panel);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.song-progress-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border: var(--edge-pill);
+  border-radius: var(--radius);
+  background: var(--bg-base);
+  box-shadow: var(--shadow-inset, none);
+}
+
+.song-progress-thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 4px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  box-shadow: var(--shadow-control, none);
+}
+
+.song-progress-bar:hover:not([data-disabled='true']) .song-progress-thumb {
+  background: var(--highlight);
+}
+
+.song-progress-bar:focus-visible {
+  outline: 1px solid var(--highlight);
+  outline-offset: -2px;
+}
+
+.song-progress-bar[data-disabled='true'] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.song-progress-bar[data-disabled='true'] .song-progress-thumb {
+  background: var(--pill-bg);
 }
 
 .selection-rect {
@@ -1226,6 +1291,9 @@ html[data-theme-ready='true'] body {
   padding: 0 6px;
   border-right: var(--edge);
   background: var(--bg-panel);
+  position: sticky;
+  left: 0;
+  z-index: 4;
 }
 
 .tracker-lane-name {
@@ -1237,6 +1305,19 @@ html[data-theme-ready='true'] body {
   text-overflow: ellipsis;
   min-width: 0;
   flex: 1;
+}
+
+.tracker-lane-missing {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border: 1px solid var(--playhead);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--playhead) 22%, var(--bg-panel));
+  color: var(--text);
+  font: 700 11px/1 var(--font-chrome);
 }
 
 .tracker-lane-controls {
@@ -1461,6 +1542,75 @@ html[data-theme-ready='true'] body {
   font-size: 13px;
   color: var(--text);
   white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strip-proj-dirty {
+  color: var(--highlight);
+}
+
+.strip-project-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.strip-project-actions button {
+  border: var(--edge-pill);
+  border-radius: var(--radius);
+  background: var(--pill-bg);
+  color: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: 9px;
+  line-height: 1;
+  min-height: 24px;
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+
+.strip-project-actions button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.strip-project-actions button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.project-notice {
+  position: fixed;
+  z-index: 1000;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(680px, calc(100vw - 32px));
+  padding: 9px 12px;
+  border: 1px solid var(--highlight);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-panel);
+  color: var(--text);
+  font-family: var(--font-label);
+  font-size: 12px;
+}
+
+.project-notice-error {
+  border-color: var(--playhead);
+}
+
+.project-notice button {
+  min-width: 28px;
+  min-height: 28px;
+  border: var(--edge-pill);
+  border-radius: var(--radius);
+  background: var(--pill-bg);
+  color: var(--text);
 }
 
 .strip-sep {

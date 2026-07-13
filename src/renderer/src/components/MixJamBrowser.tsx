@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import type { MixJamFileItem } from '../../../shared/backend-api'
-import { PROJECT_LOAD_COMING_SOON } from './HomeScreen'
 import { Tooltip } from './ui/Tooltip'
 
 // Retain the legacy value so an existing collapsed preference survives rename.
@@ -17,24 +16,25 @@ function loadCollapsed(): boolean {
 
 interface MixJamBrowserProps {
   mixJamFiles: MixJamFileItem[]
+  busy?: boolean
+  onOpenProject: (projectRelpath: string) => void
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
 export default function MixJamBrowser({
   mixJamFiles,
+  busy = false,
+  onOpenProject,
   onCollapsedChange
 }: MixJamBrowserProps) {
   const [collapsed, setCollapsed] = useState(loadCollapsed)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     onCollapsedChange?.(collapsed)
   }, [collapsed, onCollapsedChange])
 
   const toggle = () => {
     const next = !collapsed
-    // Keep the parent grid and the rail in the same React update so the
-    // collapsed rail never occupies the old expanded grid column for a frame.
-    onCollapsedChange?.(next)
     setCollapsed(next)
     try {
       if (next) localStorage.setItem(STORAGE_KEY, '1')
@@ -61,20 +61,21 @@ export default function MixJamBrowser({
       {!collapsed && (
         mixJamFiles.length === 0 ? (
           <p className="mixjam-browser-empty">
-            No MixJam projects yet. Project save/load is coming soon.
+            No MixJam projects yet. Save this project or open an existing `.mixjam` file.
           </p>
         ) : (
           <ol className="mixjam-browser-list">
             {mixJamFiles.map((project) => (
               <li key={project.path} className="mixjam-browser-item">
-                <Tooltip content={PROJECT_LOAD_COMING_SOON}><span className="mixjam-tooltip-anchor"><button
+                <button
                   type="button"
                   className="mixjam-browser-open"
-                  disabled
+                  disabled={busy}
+                  onClick={() => onOpenProject(project.path)}
                 >
                   <span className="mixjam-browser-name">{project.displayName}</span>
                   <span className="mixjam-browser-path">{project.path}</span>
-                </button></span></Tooltip>
+                </button>
               </li>
             ))}
           </ol>

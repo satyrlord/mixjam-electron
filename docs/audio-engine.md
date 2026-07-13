@@ -21,6 +21,12 @@ than enough for an eJay/Acid-style tracker.
 
 - Decode each sample once into an `AudioBuffer` and cache it (keyed by sample id),
   with an LRU cap so a 35GB library never tries to live in memory.
+- Before playback, decode only the nearest cache-sized window of upcoming unique
+  samples with bounded concurrency. Refill that window as scheduled placements
+  consume it; never read an entire large arrangement into a smaller cache.
+- Working-set replacement invalidates decoded and pending non-member entries;
+  late decode completion cannot restore an entry that was discarded. A failed
+  serialized preload does not prevent later playback sessions from preparing.
 - File bytes reach the engine through the injected `loadSampleBytes` callback,
   backed by `BackendAPI.readSampleBytes(rootId, relpath)` — a read through the
   Sample Folder's File System Access handle, so reads cannot escape the granted
@@ -45,10 +51,11 @@ than enough for an eJay/Acid-style tracker.
   `AudioBufferSourceNode.playbackRate` to the speed ratio. Rates above 1 shorten
   and pitch up the source; rates below 1 lengthen and pitch it down. This is a
   re-pitch mode, not a pitch-preserving phase vocoder.
-- The runtime exposes a `preparing` transport state while required buffers are
-  decoded. The scheduler, audible playback state, and elapsed timer start
-  together only after preparation succeeds; Stop cancels an in-flight decode.
-  Project-BPM edits restart scheduling with the new rate.
+- The runtime exposes a `preparing` transport state while the upcoming buffer
+  window is decoded. The scheduler, audible playback state, and elapsed timer
+  start together only after preparation succeeds; Stop cancels an in-flight
+  start. Project-BPM edits restart scheduling with the new rate while playing,
+  but do no file or decode work while stopped.
 - Decoded buffers use the existing sample LRU cache. Changing BPM allocates no
   offline rendered buffer and needs no ratio-dependent cache.
 - Invalid persisted placement timing falls back to native rate for that voice

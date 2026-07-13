@@ -66,6 +66,56 @@ describe('SampleTileGrid', () => {
     expect((buttons[1] as HTMLElement).style.width).toBe('240px')
   })
 
+  it('uses a placed sample musical span instead of remapping its width at the current BPM', () => {
+    const { container, rerender } = render(
+      <SampleTileGrid
+        samples={[makeSample({ durationSeconds: 4, bpm: null })]}
+        pixelsPerTick={2}
+        projectBpm={120}
+        durationTicksBySamplePath={new Map([['a.wav', 64]])}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategorySlot={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
+      />
+    )
+
+    expect((container.querySelector('.sample-bubble') as HTMLElement).style.width).toBe('128px')
+
+    rerender(
+      <SampleTileGrid
+        samples={[makeSample({ durationSeconds: 4, bpm: null })]}
+        pixelsPerTick={2}
+        projectBpm={60}
+        durationTicksBySamplePath={new Map([['a.wav', 64]])}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        activeCategorySlot={undefined}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
+      />
+    )
+
+    expect((container.querySelector('.sample-bubble') as HTMLElement).style.width).toBe('128px')
+  })
+
   it('shows empty message when no samples and not loading', () => {
     const { container } = render(
       <SampleTileGrid

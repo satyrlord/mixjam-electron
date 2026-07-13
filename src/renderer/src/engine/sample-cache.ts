@@ -12,6 +12,11 @@ export interface SampleCacheOptions {
   maxEntries?: number
 }
 
+interface PendingDecode {
+  token: symbol
+  promise: Promise<AudioBuffer>
+}
+
 const DEFAULT_MAX_ENTRIES = 64
 
 export class SampleDecodeError extends Error {
@@ -29,7 +34,7 @@ export class SampleCache {
   private readonly buffers = new Map<string, AudioBuffer>()
   // In-flight decodes are deduplicated so two concurrent requests for the same
   // sample share one decode rather than racing.
-  private readonly pending = new Map<string, Promise<AudioBuffer>>()
+  private readonly pending = new Map<string, PendingDecode>()
   private readonly maxEntries: number
 
   constructor(
@@ -41,6 +46,10 @@ export class SampleCache {
 
   get size(): number {
     return this.buffers.size
+  }
+
+  get capacity(): number {
+    return this.maxEntries
   }
 
   has(sampleId: string): boolean {
@@ -66,28 +75,42 @@ export class SampleCache {
     }
 
     const inFlight = this.pending.get(sampleId)
-    if (inFlight !== undefined) return inFlight
+    if (inFlight !== undefined) return inFlight.promise
 
+    const token = Symbol(sampleId)
     const decodePromise = this.decode(bytes)
       .then((buffer) => {
-        this.touch(sampleId, buffer)
-        this.evictIfNeeded()
+        if (this.pending.get(sampleId)?.token === token) {
+          this.touch(sampleId, buffer)
+          this.evictIfNeeded()
+        }
         return buffer
       })
       .catch((cause: unknown) => {
         throw new SampleDecodeError(sampleId, cause)
       })
       .finally(() => {
-        this.pending.delete(sampleId)
+        if (this.pending.get(sampleId)?.token === token) {
+          this.pending.delete(sampleId)
+        }
       })
 
-    this.pending.set(sampleId, decodePromise)
+    this.pending.set(sampleId, { token, promise: decodePromise })
     return decodePromise
   }
 
   clear(): void {
     this.buffers.clear()
     this.pending.clear()
+  }
+
+  retain(sampleIds: ReadonlySet<string>): void {
+    for (const sampleId of this.buffers.keys()) {
+      if (!sampleIds.has(sampleId)) this.buffers.delete(sampleId)
+    }
+    for (const sampleId of this.pending.keys()) {
+      if (!sampleIds.has(sampleId)) this.pending.delete(sampleId)
+    }
   }
 
   private touch(sampleId: string, buffer: AudioBuffer): void {

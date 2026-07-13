@@ -150,6 +150,20 @@ describe('LaneRow', () => {
     expect(clampedCall).toBeGreaterThanOrEqual(-1)
   })
 
+  it('mouse wheel adjusts the lane pan knob by 0.05 (AC-021)', () => {
+    const onSetLanePan = vi.fn()
+    render(
+      <LaneRow {...DEFAULT_PROPS} lane={makeLane({ pan: 0 })} onSetLanePan={onSetLanePan} />
+    )
+    const panKnob = screen.getByRole('slider', { name: 'Pan Lane 1' })
+
+    fireEvent.wheel(panKnob, { deltaY: -100 })
+    expect(onSetLanePan).toHaveBeenLastCalledWith(0, 0.05)
+
+    fireEvent.wheel(panKnob, { deltaY: 100 })
+    expect(onSetLanePan).toHaveBeenLastCalledWith(0, -0.05)
+  })
+
   it('pan slider is keyboard-focusable', () => {
     render(<LaneRow {...DEFAULT_PROPS} />)
     const panSlider = screen.getByRole('slider', { name: 'Pan Lane 1' })

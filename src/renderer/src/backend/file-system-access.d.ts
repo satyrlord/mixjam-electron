@@ -15,6 +15,27 @@ interface FileSystemDirectoryHandle {
   entries(): AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>
   keys(): AsyncIterableIterator<string>
   values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>
+  resolve(possibleDescendant: FileSystemHandle): Promise<string[] | null>
+}
+
+interface FilePickerAcceptType {
+  description?: string
+  accept: Record<string, string | string[]>
+}
+
+interface FilePickerOptions {
+  id?: string
+  startIn?: 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos' | FileSystemHandle
+  types?: FilePickerAcceptType[]
+  excludeAcceptAllOption?: boolean
+}
+
+interface OpenFilePickerOptions extends FilePickerOptions {
+  multiple?: boolean
+}
+
+interface SaveFilePickerOptions extends FilePickerOptions {
+  suggestedName?: string
 }
 
 interface DirectoryPickerOptions {
@@ -25,4 +46,6 @@ interface DirectoryPickerOptions {
 
 interface Window {
   showDirectoryPicker(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>
+  showOpenFilePicker(options?: OpenFilePickerOptions): Promise<FileSystemFileHandle[]>
+  showSaveFilePicker(options?: SaveFilePickerOptions): Promise<FileSystemFileHandle>
 }

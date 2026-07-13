@@ -7,24 +7,21 @@ import { Tooltip } from './ui/Tooltip'
 
 const HOME_RECENT_LIMIT = 4
 
-// Project load requires .mixjam persistence (spec-011), which has not shipped.
-// The affordances stay visible but disabled so the UI does not promise a load
-// it cannot perform yet.
-export const PROJECT_LOAD_COMING_SOON =
-  'Coming soon — opening projects arrives with .mixjam save/load (spec-011)'
-
 interface HomeScreenProps {
   userFolder: FolderView
   sampleFolder: FolderView
   canStart: boolean
   mixJamFiles: MixJamFileItem[]
+  projectBusy: boolean
   activeTheme: string
   onThemeChange: (themeKey: string) => void
   onPickUser: () => void
   onPickSample: () => void
   onRestoreUser: () => void
   onRestoreSample: () => void
-  onStart: () => void
+  onStart: () => Promise<void>
+  onLoad: () => Promise<boolean>
+  onOpenProject: (projectRelpath: string) => Promise<boolean>
 }
 
 const userIcon = (
@@ -54,13 +51,16 @@ export default function HomeScreen({
   sampleFolder,
   canStart,
   mixJamFiles,
+  projectBusy,
   activeTheme,
   onThemeChange,
   onPickUser,
   onPickSample,
   onRestoreUser,
   onRestoreSample,
-  onStart
+  onStart,
+  onLoad,
+  onOpenProject
 }: HomeScreenProps) {
   const sampleDisabled = userFolder.status !== 'set'
   const homeRecent = mixJamFiles.slice(0, HOME_RECENT_LIMIT)
@@ -134,15 +134,20 @@ export default function HomeScreen({
           />
 
           <div className="home-launch">
-            <button className="btn-primary" onClick={onStart} disabled={!canStart}>
+            <button className="btn-primary" onClick={() => void onStart()} disabled={!canStart || projectBusy}>
               Start New MixJam
             </button>
             {!canStart && <p className="home-launch-hint">Select both folders above to start.</p>}
           </div>
 
-          <Tooltip content={PROJECT_LOAD_COMING_SOON}>
-            <span className="mixjam-tooltip-anchor"><button className="link-secondary" disabled>Load MixJam</button></span>
-          </Tooltip>
+          <button
+            type="button"
+            className="link-secondary"
+            disabled={!canStart || projectBusy}
+            onClick={() => void onLoad()}
+          >
+            {projectBusy ? 'Opening…' : 'Load MixJam'}
+          </button>
 
           {homeRecent.length > 0 && (
             <div className="home-recent">
@@ -150,12 +155,15 @@ export default function HomeScreen({
               <ul className="home-recent-list">
                 {homeRecent.map((project) => (
                   <li key={project.path}>
-                    <Tooltip content={PROJECT_LOAD_COMING_SOON}>
-                      <span className="mixjam-tooltip-anchor"><button type="button" className="home-recent-item" disabled>
+                    <button
+                      type="button"
+                      className="home-recent-item"
+                      disabled={!canStart || projectBusy}
+                      onClick={() => void onOpenProject(project.path)}
+                    >
                         <span className="home-recent-name">{project.displayName}</span>
                         <span className="home-recent-path">{project.path}</span>
-                      </button></span>
-                    </Tooltip>
+                    </button>
                   </li>
                 ))}
               </ul>

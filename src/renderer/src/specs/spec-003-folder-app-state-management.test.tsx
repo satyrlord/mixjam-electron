@@ -111,17 +111,16 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
     expect(vi.mocked(api().resizeToPlayer)).toHaveBeenCalledTimes(1)
   })
 
-  it('AC-008: Load MixJam is independent of folder state (disabled until spec-011)', async () => {
-    // With no folders selected the launch gate blocks Start, but Load MixJam is
-    // not part of the gate — its disabled state comes from spec-011 not having
-    // shipped, signalled by the coming-soon tooltip rather than the gate hint.
+  it('AC-008: Load MixJam becomes available when both project folders are ready', async () => {
+    // Projects use User Folder-relative project paths and Sample Folder-relative
+    // sample references, so the same folder gate applies to starting and loading.
     await renderFirstLaunch()
 
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
     expect(loadButton).toBeDisabled()
     expect(loadButton).not.toHaveAttribute('title')
 
-    // Selecting folders opens the launch gate but does not change Load MixJam.
+    // Selecting both folders opens the launch gate for both actions.
     vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)
     fireEvent.click(pickButton('User Folder'))
     await waitFor(() => expect(pickButton('Sample Folder')).toBeEnabled())
@@ -131,7 +130,7 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
       expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeEnabled()
     )
 
-    expect(screen.getByRole('button', { name: 'Load MixJam' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Load MixJam' })).toBeEnabled()
   })
 
   it('AC-009: each Pick Folder invokes the directory picker with the matching role', async () => {

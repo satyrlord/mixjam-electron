@@ -20,6 +20,13 @@ import {
   saveFolderSelections,
   writeAppConfig
 } from './app-state'
+import {
+  findMissingSampleFiles,
+  openMixJamFile,
+  readMixJamFile,
+  saveMixJamFileAs,
+  writeMixJamFile
+} from './project-files'
 
 // Inlined from package.json/git at build time (see electron.vite.config.ts).
 declare const __APP_VERSION__: string | undefined
@@ -77,6 +84,11 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
       recordRecentProject(projectRelpath)
       return Promise.resolve()
     },
+    openMixJamFile,
+    readMixJamFile,
+    saveMixJamFileAs,
+    writeMixJamFile,
+    findMissingSampleFiles,
 
     pickFolder,
     validateFolder,

@@ -23,7 +23,6 @@ describe('useTransportRuntime', () => {
       result.current.transportSkipBack()
       result.current.transportSeek(32)
       result.current.setBpm(128)
-      result.current.prepareTempoChange()
       result.current.previewSample('kick.wav')
       result.current.setMasterGain(0.5)
     })
@@ -59,5 +58,31 @@ describe('useTransportRuntime', () => {
 
     expect(result.current.transportState).toBe('stopped')
     expect(renderCount).toBe(renderCountAfterMount)
+  })
+
+  it('does not read or decode arrangement samples for a stopped BPM edit', () => {
+    const backendAPI = createBackendAPI()
+    const readSampleBytes = vi.mocked(backendAPI.readSampleBytes)
+    const sampleFolder = { id: 'samples', name: 'Samples' }
+    const getLanes = () => [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }]
+    }]
+    const { result } = renderHook(() => useTransportRuntime({
+      backendAPI,
+      sampleFolder,
+      active: true,
+      getLanes,
+      initialBpm: 120,
+      initialMasterGain: 0.8
+    }))
+
+    act(() => result.current.setBpm(128))
+
+    expect(readSampleBytes).not.toHaveBeenCalled()
   })
 })

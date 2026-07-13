@@ -116,3 +116,13 @@ export interface PlayerMixerProps {
   onRestoreChannelEffect: (channelIndex: number, effect: EffectSlot, index: number) => boolean
   onMoveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
 }
+
+export interface PlayerProjectProps {
+  name: string
+  dirty: boolean
+  busy: boolean
+  onOpen: () => Promise<boolean>
+  onOpenPath: (projectRelpath: string) => Promise<boolean>
+  onSave: () => Promise<boolean>
+  onSaveAs: () => Promise<boolean>
+}

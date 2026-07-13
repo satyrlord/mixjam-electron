@@ -47,7 +47,6 @@ export interface UsePlacementDragParams {
   totalTicks: number
   selectedPlacementIds: ReadonlySet<string>
   pixelsPerTick: number
-  bubblePixelsPerSecond: number
   /** Called to clear the current placement selection. */
   onClearSelection: () => void
   /** Begin dragging a placement from the tracker. Called from LaneRow's onDragStart. */
@@ -64,7 +63,7 @@ export interface UsePlacementDragParams {
 export function usePlacementDrag(params: UsePlacementDragParams) {
   const {
     lanes, totalTicks, selectedPlacementIds,
-    pixelsPerTick, bubblePixelsPerSecond,
+    pixelsPerTick,
     onClearSelection, onPlacementDragStart,
     onPlaceSampleDetailOnLane, onMovePlacement, onDuplicatePlacement,
     onMovePlacementGroup, onDuplicatePlacementGroup
@@ -120,8 +119,7 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
         for (const placement of lane.placements) {
           const { x: bubbleX, width: bubbleWidth } = sampleBubbleScreenRect(
             placement,
-            pixelsPerTick,
-            bubblePixelsPerSecond
+            pixelsPerTick
           )
           if (bubbleX + bubbleWidth > x1 && bubbleX < x2) {
             ids.add(placement.id)
@@ -142,7 +140,7 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return onUp
-  }, [onClearSelection, lanes, pixelsPerTick, bubblePixelsPerSecond])
+  }, [onClearSelection, lanes, pixelsPerTick])
 
   // ──────────────── Sample drag start ────────────────
 

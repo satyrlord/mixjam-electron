@@ -105,12 +105,15 @@ describe('LaneSampleBubbleCanvas', () => {
     expect(mockCtx.fillText).toHaveBeenCalledWith('snare.wav', expect.any(Number), expect.any(Number))
   })
 
-  it('draws source duration at the supplied shared timeline scale', () => {
+  it('draws placement duration at the shared timeline scale', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, width: 480, height: 44, top: 0, right: 480, bottom: 44, left: 0,
+      toJSON: () => ({})
+    })
     render(
       <LaneSampleBubbleCanvas
         placements={[{ ...PLACEMENTS[0]!, durationSeconds: 1 }]}
         totalTicks={64}
-        bubblePixelsPerSecond={120}
         laneIndex={0}
         flashSamplePath={null}
         selectedPlacementIds={new Set()}
@@ -307,6 +310,10 @@ describe('LaneSampleBubbleCanvas', () => {
 
   it('sets a custom drag image showing only the grabbed sample bubble', () => {
     vi.useFakeTimers()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, width: 168, height: 44, top: 0, right: 168, bottom: 44, left: 0,
+      toJSON: () => ({})
+    })
     const { container } = render(
       <LaneSampleBubbleCanvas
         placements={PLACEMENTS}
@@ -332,7 +339,7 @@ describe('LaneSampleBubbleCanvas', () => {
     expect(ghost).toBeInstanceOf(HTMLCanvasElement)
     expect(document.body.contains(ghost)).toBe(true)
     // The drag-image canvas keeps a 48px usable surface, but the sample bubble
-    // inside it retains the canonical 0.5s * 84px/s = 42px width.
+    // inside it retains the canonical 16 ticks * 2.625px/tick = 42px width.
     expect(ghost.style.width).toBe('48px')
     expect(mockCtx.rect).toHaveBeenCalledWith(8, 0, 26, 32)
     // The ghost renders only the grabbed bubble's label, not the lane's other placements

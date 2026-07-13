@@ -99,6 +99,9 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - Each placement's `sampleRef` is a path relative to the Sample Folder root,
   never an absolute path or embedded audio bytes. `nativeBPM` is the analysis
   value captured when that placement was added; null means native-rate playback.
+- All placements with the same `sampleRef` use one project-owned
+  `durationTicks` value. Conflicting spans are invalid project data rather than
+  an implicit choice based on lane or array order.
 - `song` contains every saved Song-panel control. For v1 this is project BPM
   and Master Volume (`masterGain`). Live meter readings and transport position
   are runtime telemetry, not saved Song settings.
@@ -133,6 +136,9 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - "Save" (Ctrl+S) writes to the current project file path.
 - "Save As…" (Ctrl+Shift+S) opens a native file picker to choose a new
   location (defaults to User Folder).
+- Save shortcuts do not fire or suppress browser defaults from text-entry
+  controls, on repeated keydown events, or while another project operation is
+  busy.
 - First save of a new project triggers "Save As…".
 - Unsaved changes indicator: a dot/asterisk next to the project name in the
   Middle Strip. Any arrangement, Song, Mixer, routing, or FX edit marks the
@@ -140,6 +146,9 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - Save is atomic through the File System Access API writable stream: writes go
   to the implementation's temporary backing file and replace the target only
   when `close()` completes successfully. A failed write is aborted.
+- A user-initiated open or save action requests access again when a persisted
+  User Folder handle is in the browser's `prompt` state. The action fails with
+  the folder-required message only if access is unavailable afterward.
 
 ### Load Flow
 
@@ -200,6 +209,13 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   the documented defaults rather than the previous session's values.
 - [x] **AC-012:** Loading project B after project A replaces all Song, Mixer, routing, and FX state; no value from project A leaks into project B.
 - [x] **AC-013:** If a saved project is edited without saving, closing and reopening the app and loading that project restores the last saved values, not the later unsaved values.
+- [x] **AC-014:** User-initiated open and save actions can restore access to a
+  persisted User Folder handle whose permission state is `prompt`.
+- [x] **AC-015:** Save shortcuts are ignored without `preventDefault()` while
+  focus is in a text-entry control, the keydown is a repeat, or project I/O is
+  already busy.
+- [x] **AC-016:** Loading rejects projects that assign conflicting
+  `durationTicks` values to placements with the same `sampleRef`.
 
 ## Implementation Evidence
 
@@ -208,14 +224,15 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   rejection, roundtrips, and dirty fingerprints.
 - `src/renderer/src/backend/project-files.test.ts` covers filtered open/save
   pickers, User Folder containment, writable close/abort behavior, direct
-  reads/writes, cancellation, and missing-sample checks.
+  reads/writes, permission restoration, denial, cancellation, and
+  missing-sample checks.
 - `src/renderer/src/hooks/useProjectPersistence.test.ts` covers complete state
   replacement, recent-project updates, Save As, unsaved reload behavior,
   defaults, missing samples, and project A to project B isolation.
 - `src/renderer/src/hooks/useMixer.test.ts` proves Mixer and FX no longer
   hydrate from or persist to app-level storage.
 - `src/renderer/src/components/PlayerView.test.tsx` covers the project controls,
-  keyboard shortcuts, dirty identity, and affected-lane warning badge.
+  keyboard shortcut ownership, dirty identity, and affected-lane warning badge.
 - `tests/e2e/project-save-load.spec.ts` drives project load, Save As, new-project
   reset, Mixer/FX restoration, and missing-sample warnings in built Chromium.
 - `tmp/verify-project-save-load/evidence.md` records production-bundle browser

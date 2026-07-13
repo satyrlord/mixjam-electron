@@ -174,6 +174,41 @@ describe('useAppState', () => {
     expect(lane0?.placements[0]?.durationTicks).toBe(32)
   })
 
+  it('hydrates a placement dropped before background BPM analysis completes', async () => {
+    vi.useRealTimers()
+    const backendAPI = createBackendAPI()
+    const source = {
+      ...DEFAULT_SAMPLE_ROWS[0]!,
+      relpath: 'unplugged loop 1.wav',
+      filename: 'unplugged loop 1.wav',
+      duration: 40,
+      bpm: null,
+      bpmSource: null
+    }
+    vi.mocked(backendAPI.querySamples).mockResolvedValue({ rows: [source], total: 1 })
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples[0]?.bpm).toBeNull())
+    act(() => {
+      result.current.placeSampleDetailOnLane(
+        { name: source.filename, relpath: source.relpath, tags: [], bpm: null, duration: source.duration },
+        0,
+        0
+      )
+    })
+    expect(result.current.lanes[0]?.placements[0]?.nativeBPM).toBeNull()
+
+    vi.mocked(backendAPI.querySamples).mockResolvedValue({
+      rows: [{ ...source, bpm: 95.8, bpmSource: 'analysis' }],
+      total: 1
+    })
+    const analysisDone = vi.mocked(backendAPI.onAnalysisDone).mock.calls[0]![0]
+    act(() => { analysisDone() })
+
+    await waitFor(() => expect(result.current.samples[0]?.bpm).toBe(95.8))
+    await waitFor(() => expect(result.current.lanes[0]?.placements[0]?.nativeBPM).toBe(95.8))
+  })
+
   it('falls back when loadMixJamFiles fails', async () => {
     vi.useRealTimers()
     const backendAPI = createBackendAPI()

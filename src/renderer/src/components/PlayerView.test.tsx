@@ -7,6 +7,7 @@ import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
   PlayerMixerProps,
+  PlayerProjectProps,
   PlayerTransportProps
 } from './playerProps'
 import type { MixJamFileItem, SampleListItem } from '../../../shared/backend-api'
@@ -16,6 +17,7 @@ import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 const INDEX_CSS_PATH = resolve(process.cwd(), 'src/renderer/src/index.css')
 
 const asyncNoop = async () => { /* empty */ }
+const asyncFalse = async () => false
 
 const RECENT_PROJECTS: MixJamFileItem[] = [
   {
@@ -166,12 +168,23 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onMoveChannelEffect: noop
 }
 
+const DEFAULT_PROJECT: PlayerProjectProps = {
+  name: 'Untitled',
+  dirty: false,
+  busy: false,
+  onOpen: asyncFalse,
+  onOpenPath: asyncFalse,
+  onSave: asyncFalse,
+  onSaveAs: asyncFalse
+}
+
 interface TrackerOverrides {
   mixJamFiles?: MixJamFileItem[]
   browser?: Partial<PlayerBrowserProps>
   arrangement?: Partial<TrackerArrangementProps>
   transport?: Partial<PlayerTransportProps>
   mixer?: Partial<PlayerMixerProps>
+  project?: Partial<PlayerProjectProps>
 }
 
 function renderPlayer(overrides: TrackerOverrides = {}) {
@@ -182,6 +195,7 @@ function renderPlayer(overrides: TrackerOverrides = {}) {
       arrangement={{ ...DEFAULT_ARRANGEMENT, ...overrides.arrangement }}
       transport={{ ...DEFAULT_TRANSPORT, ...overrides.transport }}
       mixer={{ ...DEFAULT_MIXER, ...overrides.mixer }}
+      project={{ ...DEFAULT_PROJECT, ...overrides.project }}
     />
   )
 }
@@ -212,12 +226,103 @@ describe('PlayerView', () => {
     expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
   })
 
-  it('lists MixJam files as disabled until project load ships (spec-011)', () => {
-    renderPlayer({ mixJamFiles: RECENT_PROJECTS })
+  it('opens MixJam Browser entries through project persistence', () => {
+    const onOpenPath = vi.fn().mockResolvedValue(true)
+    renderPlayer({ mixJamFiles: RECENT_PROJECTS, project: { onOpenPath } })
 
     const entry = screen.getByRole('button', { name: /club-night/ })
-    expect(entry).toBeDisabled()
-    expect(entry).not.toHaveAttribute('title')
+    expect(entry).toBeEnabled()
+    fireEvent.click(entry)
+    expect(onOpenPath).toHaveBeenCalledWith('club-night.mixjam')
+  })
+
+  it('shows project identity and routes project buttons and save shortcuts', () => {
+    const onOpen = vi.fn().mockResolvedValue(true)
+    const onSave = vi.fn().mockResolvedValue(true)
+    const onSaveAs = vi.fn().mockResolvedValue(true)
+    renderPlayer({
+      project: {
+        name: 'club-night',
+        dirty: true,
+        onOpen,
+        onSave,
+        onSaveAs
+      }
+    })
+
+    expect(screen.getByLabelText('club-night, unsaved changes')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save As…' }))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSaveAs).toHaveBeenCalledTimes(1)
+
+    const saveEvent = new KeyboardEvent('keydown', {
+      key: 's',
+      ctrlKey: true,
+      cancelable: true
+    })
+    window.dispatchEvent(saveEvent)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'S', metaKey: true, shiftKey: true }))
+    expect(onSave).toHaveBeenCalledTimes(2)
+    expect(onSaveAs).toHaveBeenCalledTimes(2)
+    expect(saveEvent.defaultPrevented).toBe(true)
+  })
+
+  it('leaves Save shortcuts alone while editing or repeating', () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    renderPlayer({ project: { onSave } })
+    const bpmInput = screen.getByRole('textbox', { name: 'BPM value' })
+    const events = [
+      new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', { key: 's', ctrlKey: true, repeat: true, cancelable: true })
+    ]
+
+    bpmInput.dispatchEvent(events[0]!)
+    window.dispatchEvent(events[1]!)
+
+    expect(onSave).not.toHaveBeenCalled()
+    expect(events.every((event) => !event.defaultPrevented)).toBe(true)
+  })
+
+  it('does not consume Save while another project operation is busy', () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    renderPlayer({ project: { busy: true, onSave } })
+    const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true })
+
+    window.dispatchEvent(event)
+
+    expect(onSave).not.toHaveBeenCalled()
+    expect(event.defaultPrevented).toBe(false)
+  })
+
+  it('marks lanes whose project placements reference missing samples', () => {
+    const lanesWithMissingPlacement: LaneState[] = LANES.map((lane) =>
+      lane.index === 0
+        ? {
+            ...lane,
+            placements: [{
+              id: 'missing-placement',
+              samplePath: 'Missing/kick.wav',
+              sampleName: 'kick.wav',
+              startTick: 0,
+              durationTicks: 16,
+              durationSeconds: 0.5
+            }]
+          }
+        : lane
+    )
+
+    renderPlayer({
+      arrangement: {
+        lanes: lanesWithMissingPlacement,
+        missingSamplePaths: new Set(['Missing/kick.wav'])
+      }
+    })
+
+    expect(screen.getByRole('img', { name: 'Lane 1 contains a missing sample' })).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Lane 2 contains a missing sample' })).not.toBeInTheDocument()
   })
 
   it('renders sample bubbles on a lane after placement', () => {
@@ -686,8 +791,8 @@ describe('PlayerView', () => {
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
-    // currentTick=64 out of totalTicks=256 => 0.25 fraction
-    expect(playhead!.getAttribute('style')).toContain('0.25')
+    // currentTick=64 out of the 4,096-tick MVP span.
+    expect(playhead!.getAttribute('style')).toContain('0.015625')
   })
 
   it('AC-010: playhead remains visible at its position when transport is stopped', () => {
@@ -695,7 +800,7 @@ describe('PlayerView', () => {
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
-    expect(playhead!.getAttribute('style')).toContain('0.15625')
+    expect(playhead!.getAttribute('style')).toContain('0.00976563')
   })
 
   // --- AC-011: Ruler tick marks and bar numbers ---
@@ -717,8 +822,8 @@ describe('PlayerView', () => {
     renderPlayer({})
 
     const ticks = document.querySelectorAll('.tracker-ruler-tick')
-    expect(ticks).toHaveLength(32)
-    expect(document.querySelectorAll('.tracker-ruler-tick-bar')).toHaveLength(8)
+    expect(ticks).toHaveLength(512)
+    expect(document.querySelectorAll('.tracker-ruler-tick-bar')).toHaveLength(128)
   })
 
   it('AC-011: keeps the lane head box at the same rendered width as the ruler spacer', () => {
@@ -727,6 +832,55 @@ describe('PlayerView', () => {
     expect(css).toMatch(
       /\.tracker-lane-head\s*\{[\s\S]*box-sizing:\s*border-box;/m
     )
+  })
+
+  it('AC-011b/c: uses the fixed 128-bar timeline with a dedicated progress control', () => {
+    const { container } = renderPlayer({})
+    const scrollport = container.querySelector('.tracker-lanes')
+    const timeline = scrollport?.querySelector(':scope > .tracker-timeline')
+    const css = readFileSync(INDEX_CSS_PATH, 'utf8')
+
+    expect(timeline).not.toBeNull()
+    expect(timeline?.querySelector('.tracker-ruler')).not.toBeNull()
+    expect(timeline?.querySelector('.tracker-playhead')).not.toBeNull()
+    expect(timeline?.querySelectorAll('.tracker-lane')).toHaveLength(16)
+    expect(timeline).toHaveStyle({ minWidth: '21672px' })
+    expect(screen.getByRole('scrollbar', { name: 'Song Progress Bar' })).toHaveAttribute(
+      'aria-controls',
+      'tracker-song-scrollport'
+    )
+    expect(css).toMatch(/\.tracker-lanes\s*\{[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*auto;/m)
+    expect(css).toMatch(/\.tracker-lanes::-webkit-scrollbar:horizontal\s*\{[^}]*height:\s*0;/m)
+    expect(css).toMatch(/\.tracker-ruler-spacer\s*\{[^}]*position:\s*sticky;[^}]*left:\s*0;/m)
+    expect(css).toMatch(/\.tracker-lane-head\s*\{[^}]*position:\s*sticky;[^}]*left:\s*0;/m)
+  })
+
+  it('AC-011b: Song Progress Bar navigation does not seek transport', () => {
+    const onTransportSeek = vi.fn()
+    const { container } = renderPlayer({ transport: { onTransportSeek } })
+    const scrollport = container.querySelector<HTMLDivElement>('.tracker-lanes')!
+    let scrollLeft = 0
+    Object.defineProperties(scrollport, {
+      clientWidth: { configurable: true, get: () => 1000 },
+      scrollWidth: { configurable: true, get: () => 2500 },
+      scrollLeft: {
+        configurable: true,
+        get: () => scrollLeft,
+        set: (value: number) => { scrollLeft = value }
+      }
+    })
+    fireEvent.scroll(scrollport)
+
+    const progress = screen.getByRole('scrollbar', { name: 'Song Progress Bar' })
+    const progressTrack = container.querySelector('.song-progress-track')!
+    vi.spyOn(progressTrack, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 200, bottom: 18,
+      width: 200, height: 18, toJSON: () => ({})
+    })
+    fireEvent.pointerDown(progress, { clientX: 100, pointerId: 1, button: 0 })
+
+    expect(scrollport.scrollLeft).toBe(750)
+    expect(onTransportSeek).not.toHaveBeenCalled()
   })
 
   it('shows a non-reentrant preparing state that Stop can cancel', () => {
@@ -768,7 +922,7 @@ describe('PlayerView', () => {
     fireEvent.keyDown(ruler, { key: 'End' })
     fireEvent.keyDown(ruler, { key: 'PageDown' })
 
-    expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 248, 16])
+    expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 4088, 16])
   })
 
   // --- AC-015: BPM slider updates transport immediately ---
@@ -1388,10 +1542,10 @@ describe('PlayerView', () => {
   })
 
   it('hides playhead when currentTick exceeds totalTicks', () => {
-    // totalTicks is hardcoded to 256 in PlayerView
+    // The fixed MVP span ends at tick 4,096.
     renderPlayer({
       transport: { transportState: 'playing' },
-      arrangement: { currentTick: 300 }
+      arrangement: { currentTick: 4096 }
     })
 
     const playhead = document.querySelector('.tracker-playhead')

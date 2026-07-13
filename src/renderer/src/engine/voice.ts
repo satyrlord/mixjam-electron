@@ -26,6 +26,7 @@ export interface CreateVoiceParams {
   destination: AudioNode
   when: number
   laneIndex: number
+  playbackRate?: number
   events?: VoiceEvents
 }
 
@@ -35,10 +36,12 @@ export function createVoice({
   destination,
   when,
   laneIndex,
+  playbackRate = 1,
   events
 }: CreateVoiceParams): Voice {
   const source = context.createBufferSource()
   source.buffer = buffer
+  source.playbackRate.value = playbackRate
   source.connect(destination)
 
   let state: VoiceLifecycle = 'playing'

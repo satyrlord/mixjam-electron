@@ -87,7 +87,7 @@ browser adjacencies.
   work areas. Its center Transport Ribbon contains transport controls only;
   project name, search, Re-scan, and Help remain outside that subregion.
 - The **Sample Browser** lives in the Samples panel and owns its internal
-  category-tree ↔ sample-list split.
+  category-tree/sample-list split.
 
 ### Bottom Workspace
 
@@ -193,13 +193,13 @@ browser adjacencies.
 - Rendered as rounded rectangles on the lane canvas.
 - Position: `left` computed from the clip placement's start tick multiplied by
   pixels-per-tick.
-- Width: source audio duration projected through the Tracker's current time
-  scale (`pixels-per-tick / seconds-per-tick`), with a 12px minimum and a
-  two-second fallback when duration is unknown. The Tracker passes the same
-  pixels-per-second value to the Sample Browser, so a sample is identical in
-  both views and its right edge aligns with the ruler time at which its source
-  audio ends. BPM or viewport changes resize every representation together;
-  placement duration and UI context do not create a different width.
+- Width: the placement's project-owned `durationTicks` multiplied by the shared
+  pixels-per-tick scale, with a 12px minimum. BPM changes do not resize placed
+  sample bubbles; viewport scale changes resize every representation together.
+  The Sample Browser reuses an existing placement span for an already-placed
+  sample. Before first placement, it estimates the span from source duration
+  and detected BPM, or the current project BPM when detection is unavailable,
+  so the first drop preserves the same dimensions across views.
 - Height: 32px, vertically centered in the 44px lane.
 - Label: sample filename, truncated.
 - Bubble color: driven by a per-sample hue derived from category or a hash of
@@ -408,8 +408,9 @@ visible across themes and viewport sizes.
   shared horizontal position of the ruler, playhead, selections, and every lane
   canvas while lane heads remain pinned. It is keyboard- and pointer-operable,
   exposes its current and maximum positions accessibly, and stays visible but
-  disabled when the song fits the viewport. Native horizontal scrollbar chrome
-  is not the visible navigation control.
+  disabled when the song fits the viewport. Its `aria-controls` target is the
+  actual Tracker scrollport ID supplied by the parent. Native horizontal
+  scrollbar chrome is not the visible navigation control.
 - [x] **AC-011c:** The MVP Tracker exposes 128 bars in 4/4 (4,096 ticks) at a
   minimum density of 42px per beat. Ruler ticks, placement bounds, seeking, and
   playhead limits all use that same span.

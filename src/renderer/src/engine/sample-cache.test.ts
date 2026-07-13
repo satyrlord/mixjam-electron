@@ -49,6 +49,8 @@ describe('SampleCache', () => {
   it('evicts least-recently-used entries beyond the configured cap', async () => {
     const cache = new SampleCache(vi.fn(async () => makeBuffer('x')), { maxEntries: 2 })
 
+    expect(cache.capacity).toBe(2)
+
     await cache.load('a', new ArrayBuffer(8))
     await cache.load('b', new ArrayBuffer(8))
     // Touch 'a' so 'b' becomes least-recently-used.
@@ -59,5 +61,37 @@ describe('SampleCache', () => {
     expect(cache.has('b')).toBe(false)
     expect(cache.has('c')).toBe(true)
     expect(cache.size).toBe(2)
+  })
+
+  it('discards decoded entries outside a requested working set', async () => {
+    const cache = new SampleCache(vi.fn(async () => makeBuffer('x')))
+    await cache.load('past', new ArrayBuffer(8))
+    await cache.load('upcoming', new ArrayBuffer(8))
+
+    cache.retain(new Set(['upcoming']))
+
+    expect(cache.has('past')).toBe(false)
+    expect(cache.has('upcoming')).toBe(true)
+  })
+
+  it('does not restore an invalidated entry when its pending decode resolves', async () => {
+    let resolvePast!: (buffer: AudioBuffer) => void
+    const pastDecode = new Promise<AudioBuffer>((resolve) => { resolvePast = resolve })
+    const staleBuffer = makeBuffer('stale')
+    const replacementBuffer = makeBuffer('replacement')
+    const decode = vi.fn()
+      .mockReturnValueOnce(pastDecode)
+      .mockResolvedValueOnce(replacementBuffer)
+    const cache = new SampleCache(decode)
+
+    const staleLoad = cache.load('past', new ArrayBuffer(8))
+    cache.retain(new Set())
+    const replacement = await cache.load('past', new ArrayBuffer(8))
+    resolvePast(staleBuffer)
+
+    await expect(staleLoad).resolves.toBe(staleBuffer)
+    expect(cache.peek('past')).toBe(replacement)
+    expect(cache.peek('past')).toBe(replacementBuffer)
+    expect(decode).toHaveBeenCalledTimes(2)
   })
 })

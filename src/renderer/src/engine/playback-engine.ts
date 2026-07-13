@@ -11,12 +11,13 @@ import { type Channel } from './channel'
 import { createScheduler, type Scheduler, type SchedulerClock } from './scheduler'
 import { type EngineLane, triggersForTick } from './lane-evaluation'
 import { type Voice } from './voice'
-import { TimeStretchEngine, type TimeStretchEngineOptions } from './time-stretch'
+import { stretchRatio, stretchRatioForDuration } from './time-stretch'
 import type { EffectSlot } from './effects'
 import type { MasterMeterSnapshot } from './master-meter'
 
 // Default per-channel gain (matches the mixer's createDefaultChannel).
 const DEFAULT_CHANNEL_GAIN = 0.8
+const PRELOAD_CONCURRENCY = 4
 
 // Returns the raw bytes for a sample path, or null if unreadable.
 export type LoadSampleBytes = (samplePath: string) => Promise<ArrayBuffer | null>
@@ -30,13 +31,11 @@ export interface PlaybackEngineOptions extends AudioEngineOptions {
   clock?: SchedulerClock
   // Audio clock override for tests (defaults to engine.currentTime).
   now?: () => number
-  timeStretch?: TimeStretchEngineOptions
 }
 
 export class PlaybackEngine {
   private readonly engine: AudioEngine
   private readonly scheduler: Scheduler
-  private readonly timeStretch: TimeStretchEngine
   // Persist channel controls so lazily-created channels can replay state.
   private readonly channelPans = new Map<number, number>()
   private readonly channelGains = new Map<number, number>()
@@ -59,11 +58,11 @@ export class PlaybackEngine {
   private previewPath: string | null = null
   private meterFrozen = false
   private frozenMeterSnapshot: MasterMeterSnapshot | null = null
+  private preloadQueue: Promise<void> = Promise.resolve()
 
   constructor(private readonly options: PlaybackEngineOptions) {
     this.currentBpm = options.bpm ?? 120
     this.engine = new AudioEngine(options)
-    this.timeStretch = new TimeStretchEngine(options.timeStretch)
     const now = options.now ?? (() => this.engine.currentTime)
     // The scheduler reads BPM live through this adapter so tempo changes during
     // playback take effect on the next tick.
@@ -97,12 +96,6 @@ export class PlaybackEngine {
     for (const channelIndex of this.channelEffects.keys()) {
       this.engine.getChannel(channelIndex)?.setBpm(bpm)
     }
-  }
-
-  /** Prepares every tempo-dependent buffer in the current arrangement. The
-   * runtime owns when playback pauses and resumes around this work. */
-  prepareCurrentArrangement(): Promise<void> {
-    return this.prepareStretchableLanes(this.currentBpm)
   }
 
   setMasterGain(value: number): void {
@@ -212,8 +205,12 @@ export class PlaybackEngine {
   }
 
   replayRemovedChannels(indices: number[]): void {
-    for (const idx of indices) {
-      this.removedChannels.add(idx)
+    const next = new Set(indices)
+    for (const idx of [...this.removedChannels]) {
+      if (!next.has(idx)) this.restoreChannel(idx)
+    }
+    for (const idx of next) {
+      if (!this.removedChannels.has(idx)) this.removeChannel(idx)
     }
   }
 
@@ -252,12 +249,11 @@ export class PlaybackEngine {
     this.previewPath = samplePath
 
     let buffer: AudioBuffer | null
+    let playbackRate: number
     try {
       await this.engine.resume()
       buffer = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
-      if (buffer) {
-        buffer = await this.timeStretch.prepare(samplePath, buffer, nativeBPM, this.currentBpm)
-      }
+      playbackRate = stretchRatio(nativeBPM, this.currentBpm) ?? 1
     } catch {
       // Decode/read failure: clear the claimed path so the next click retries.
       if (this.previewPath === samplePath) this.previewPath = null
@@ -277,7 +273,7 @@ export class PlaybackEngine {
         this.previewVoice = null
         this.previewPath = null
       }
-    })
+    }, playbackRate)
   }
 
   // Decoded buffer for a sample, from cache or a fresh load. Used by the UI to
@@ -310,10 +306,9 @@ export class PlaybackEngine {
     this.meterFrozen = false
     this.frozenMeterSnapshot = null
     await this.engine.resume()
-    // Initial playback must not make the first loop trigger pay the WASM load
-    // and offline-render cost. Decode and stretch the current arrangement once
-    // before starting the sample-accurate scheduler.
-    await this.prepareStretchableLanes(this.currentBpm)
+    // Decode a bounded upcoming working set before the scheduler starts so the
+    // first trigger does not pay asynchronous file-read/decode cost.
+    await this.queueUpcomingPreload(fromTick)
     if (generation !== this.playGeneration) return false
     this.lastScheduledTick = fromTick - 1
     this.scheduler.start(fromTick)
@@ -366,7 +361,6 @@ export class PlaybackEngine {
     this.channelSolos.clear()
     this.removedChannels.clear()
     this.laneVoices.clear()
-    this.timeStretch.clear()
   }
 
   private channelFor(channelIndex: number): Channel {
@@ -429,11 +423,12 @@ export class PlaybackEngine {
         trigger.channelIndex,
         trigger.samplePath,
         trigger.pan,
-        trigger.nativeBPM,
+        trigger.placement.durationTicks,
         this.currentBpm,
         when
       )
     }
+    if (triggers.length > 0) void this.queueUpcomingPreload(tick + 1)
   }
 
   private async triggerLane(
@@ -441,7 +436,7 @@ export class PlaybackEngine {
     channelIndex: number,
     samplePath: string,
     lanePan: number,
-    nativeBPM: number | null,
+    durationTicks: number,
     projectBpm: number,
     when: number
   ): Promise<void> {
@@ -455,9 +450,15 @@ export class PlaybackEngine {
     }
     if (!buffer) return
 
-    buffer = await this.timeStretch.prepare(samplePath, buffer, nativeBPM, projectBpm)
+    let playbackRate = 1
+    try {
+      playbackRate = stretchRatioForDuration(buffer.duration, durationTicks, projectBpm)
+    } catch {
+      // Invalid persisted timing falls back to native-rate playback instead of
+      // preventing the remaining arrangement from playing.
+    }
 
-    // Playback was stopped/paused while the buffer loaded or stretched: drop
+    // Playback was stopped or paused while the buffer loaded: drop
     // this trigger so no stray voice starts after the user hit stop.
     if (generation !== this.playGeneration) return
 
@@ -470,7 +471,8 @@ export class PlaybackEngine {
       buffer,
       destination,
       when,
-      laneIndex: laneIndex
+      laneIndex: laneIndex,
+      playbackRate
     })
     this.laneVoices.set(laneIndex, voice)
   }
@@ -481,33 +483,50 @@ export class PlaybackEngine {
     return this.engine.samples.load(samplePath, bytes)
   }
 
-  private async prepareStretchableLanes(projectBpm: number): Promise<void> {
-    const samples = new Map<string, { samplePath: string; nativeBPM: number }>()
+  private queueUpcomingPreload(fromTick: number): Promise<void> {
+    const preload = this.preloadQueue.then(() => this.preloadUpcomingSamples(fromTick))
+    this.preloadQueue = preload.catch(() => undefined)
+    return preload
+  }
+
+  private async preloadUpcomingSamples(fromTick: number): Promise<void> {
+    const upcoming = [] as Array<{ samplePath: string, startTick: number }>
     for (const lane of this.options.getLanes()) {
       for (const placement of lane.placements) {
-        const nativeBPM = placement.nativeBPM
-        if (nativeBPM == null || !Number.isFinite(nativeBPM) || nativeBPM <= 0) continue
-        samples.set(`${placement.samplePath}\0${nativeBPM}`, {
-          samplePath: placement.samplePath,
-          nativeBPM
-        })
+        if (placement.startTick >= fromTick) {
+          upcoming.push({ samplePath: placement.samplePath, startTick: placement.startTick })
+        }
       }
     }
+    upcoming.sort((left, right) =>
+      left.startTick - right.startTick || left.samplePath.localeCompare(right.samplePath)
+    )
 
-    const requests: Promise<unknown>[] = []
-    for (const { samplePath, nativeBPM } of samples.values()) {
-      requests.push((async () => {
+    const samplePaths: string[] = []
+    const seen = new Set<string>()
+    for (const { samplePath } of upcoming) {
+      if (seen.has(samplePath)) continue
+      seen.add(samplePath)
+      samplePaths.push(samplePath)
+      if (samplePaths.length === this.engine.samples.capacity) break
+    }
+    this.engine.samples.retain(seen)
+
+    for (let offset = 0; offset < samplePaths.length; offset += PRELOAD_CONCURRENCY) {
+      await Promise.all(samplePaths.slice(offset, offset + PRELOAD_CONCURRENCY).map(async (samplePath) => {
         try {
-          const source = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
-          if (source) {
-            await this.timeStretch.prepare(samplePath, source, nativeBPM, projectBpm)
-          }
+          if (!this.engine.samples.peek(samplePath)) await this.loadBuffer(samplePath)
         } catch {
           // Loading failures are handled like trigger-time decode failures:
           // skip this sample without preventing the remaining arrangement.
         }
-      })())
+      }))
     }
-    await Promise.all(requests)
+
+    // Preserve the nearest samples as the most recently used entries even if
+    // asynchronous decodes completed in a different order.
+    for (let index = samplePaths.length - 1; index >= 0; index--) {
+      this.engine.samples.peek(samplePaths[index]!)
+    }
   }
 }

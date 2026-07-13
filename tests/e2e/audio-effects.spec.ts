@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 
-test('the FX workspace edits, presets, bypasses, reorders, removes, undoes, and restores from storage', async ({ seededPage: page }) => {
+test('the FX workspace edits, bypasses, reorders, removes, undoes, and does not leak into a new session', async ({ seededPage: page }) => {
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
   await page.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' }).click()
@@ -26,16 +26,16 @@ test('the FX workspace edits, presets, bypasses, reorders, removes, undoes, and 
   await expect(cards.nth(1)).toContainText('Delay')
   await expect(cards.nth(1)).toHaveClass(/effect-card-bypassed/)
 
-  await page.reload()
-  await page.getByRole('button', { name: 'Start New MixJam' }).click()
-  await page.getByRole('tab', { name: 'Mixer' }).click()
-  await page.getByRole('button', { name: 'Open channel 1 effects, 2 of 4 used' }).click()
-  await expect(page.locator('.effect-card').first()).toContainText('Reverb')
-
   await page.getByText('Delay', { exact: true }).first().click()
   await page.getByText('Actions', { exact: true }).click()
   await page.getByRole('menuitem', { name: 'Remove effect' }).click()
   await expect(page.locator('.effect-card')).toHaveCount(1)
   await page.locator('.effect-undo-toast').getByRole('button', { name: 'Undo' }).click()
   await expect(page.locator('.effect-card')).toHaveCount(2)
+
+  await page.reload()
+  await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  await page.getByRole('tab', { name: 'Mixer' }).click()
+  await page.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' }).click()
+  await expect(page.locator('.effect-card')).toHaveCount(0)
 })

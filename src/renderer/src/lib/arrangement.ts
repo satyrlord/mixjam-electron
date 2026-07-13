@@ -1,6 +1,6 @@
 import type { SampleListItem } from '../../../shared/backend-api'
 import { type EngineLane } from '../engine/lane-evaluation'
-import { tickDurationSeconds } from '../engine/transport'
+import { BEATS_PER_BAR, TICKS_PER_BAR, tickDurationSeconds } from '../engine/transport'
 import { clamp } from './sample-utils'
 
 /** Detail passed around the UI after a user selects or drags a sample. All
@@ -17,6 +17,11 @@ export const DEFAULT_LANE_COUNT = 16
 export const LANE_HEIGHT_PX = 44
 export const LANE_HEAD_WIDTH_PX = 168
 export const RULER_HEIGHT_PX = 24
+export const TRACKER_BAR_COUNT = 128
+export const TRACKER_BEAT_WIDTH_PX = 42
+export const TRACKER_TOTAL_TICKS = TRACKER_BAR_COUNT * TICKS_PER_BAR
+export const TRACKER_TIMELINE_MIN_WIDTH_PX =
+  LANE_HEAD_WIDTH_PX + TRACKER_BAR_COUNT * BEATS_PER_BAR * TRACKER_BEAT_WIDTH_PX
 export const DEFAULT_PLACEMENT_DURATION_TICKS = 32
 export const SAMPLE_BUBBLE_HEIGHT_PX = 32
 export const DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND = 84
@@ -48,12 +53,15 @@ export interface ClipPlacement {
   sampleName: string
   startTick: number
   durationTicks: number
-  /** Audio duration in seconds — drives the bubble width so a sample has the
-   *  same pixel size everywhere (tracker, browser, any view). */
+  /** Immutable source-audio duration in seconds. Tracker geometry and playback
+   * duration are controlled by durationTicks. */
   durationSeconds: number | null
   /** Native tempo captured from the sample when it is placed. Keeping tempo
    * with the placement lets one lane contain loops at different tempos. */
   nativeBPM?: number | null
+  /** Transient marker for a placement created before background analysis had
+   * produced a native BPM. It is intentionally omitted from project files. */
+  nativeBPMPending?: boolean
   /** Category-derived palette slot, stored at placement time. The slot (not a
    *  hex) is what stays stable; the color resolves from the active theme's
    *  palette at draw time (spec-002 Sample Palette). */
@@ -89,16 +97,28 @@ export function sampleBubbleWidth(
   return Math.max(SAMPLE_BUBBLE_MIN_WIDTH_PX, duration * scale)
 }
 
-/** Pixel-space rect shared by Tracker drawing and hit-testing. Placement
- * position follows the timeline; bubble width follows only source duration. */
+/** Convert a placement-owned musical span to its shared pixel width. */
+export function sampleBubbleWidthFromTicks(
+  durationTicks: number,
+  pixelsPerTick: number
+): number {
+  const musicalWidth = durationTicks * pixelsPerTick
+  return Math.max(
+    SAMPLE_BUBBLE_MIN_WIDTH_PX,
+    Number.isFinite(musicalWidth) && musicalWidth > 0 ? musicalWidth : 0
+  )
+}
+
+/** Pixel-space rect shared by Tracker drawing and hit-testing. Both placement
+ * position and width follow the musical timeline, so BPM changes cannot morph
+ * the arrangement. */
 export function sampleBubbleScreenRect(
   placement: ClipPlacement,
-  pixelsPerTick: number,
-  pixelsPerSecond: number = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
+  pixelsPerTick: number
 ): { x: number; width: number } {
   return {
     x: placement.startTick * pixelsPerTick,
-    width: sampleBubbleWidth(placement.durationSeconds, pixelsPerSecond)
+    width: sampleBubbleWidthFromTicks(placement.durationTicks, pixelsPerTick)
   }
 }
 
@@ -163,6 +183,7 @@ export function placeSampleOnLane(
       nativeBPM: sampleBpm !== null && sampleBpm !== undefined && Number.isFinite(sampleBpm) && sampleBpm > 0
         ? sampleBpm
         : null,
+      nativeBPMPending: sampleBpm === null || sampleBpm === undefined || !Number.isFinite(sampleBpm) || sampleBpm <= 0,
       slot
     }
 
@@ -175,6 +196,29 @@ export function placeSampleOnLane(
       placements: sortPlacements([...lane.placements, newPlacement])
     }
   })
+}
+
+/** Fills only placements that were created before analysis finished. Positive
+ * BPM values captured at drop time remain placement-owned and never drift when
+ * sample metadata is edited later. */
+export function resolvePendingPlacementBpms(
+  lanes: LaneState[],
+  sampleBpms: ReadonlyMap<string, number>
+): LaneState[] {
+  let changed = false
+  const next = lanes.map((lane) => {
+    let laneChanged = false
+    const placements = lane.placements.map((placement) => {
+      if (!placement.nativeBPMPending) return placement
+      const bpm = sampleBpms.get(placement.samplePath)
+      if (bpm === undefined || !Number.isFinite(bpm) || bpm <= 0) return placement
+      changed = true
+      laneChanged = true
+      return { ...placement, nativeBPM: bpm, nativeBPMPending: false }
+    })
+    return laneChanged ? { ...lane, placements } : lane
+  })
+  return changed ? next : lanes
 }
 
 function sortPlacements(placements: ClipPlacement[]): ClipPlacement[] {

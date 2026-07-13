@@ -39,7 +39,6 @@ export interface TransportRuntime {
   setBpm: (nextBpm: number) => void
   setMasterGain: (value: number) => void
   resetMasterMeter: () => void
-  prepareTempoChange: () => void
 }
 
 export function useTransportRuntime({
@@ -270,18 +269,6 @@ export function useTransportRuntime({
     if (!playbackEngine) return
     if (runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') {
       restartAfterPreparation(playbackEngine.currentTick)
-    } else {
-      void playbackEngine.prepareCurrentArrangement()
-    }
-  }, [restartAfterPreparation])
-
-  const prepareTempoChange = useCallback(() => {
-    const playbackEngine = playbackEngineRef.current
-    if (!playbackEngine) return
-    if (runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') {
-      restartAfterPreparation(playbackEngine.currentTick)
-    } else {
-      void playbackEngine.prepareCurrentArrangement()
     }
   }, [restartAfterPreparation])
 
@@ -315,7 +302,6 @@ export function useTransportRuntime({
     getSampleBuffer,
     setBpm,
     setMasterGain,
-    resetMasterMeter,
-    prepareTempoChange
+    resetMasterMeter
   }
 }

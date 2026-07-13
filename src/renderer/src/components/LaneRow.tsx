@@ -1,6 +1,5 @@
 import { memo, useCallback } from 'react'
 import {
-  DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   LANE_HEAD_WIDTH_PX,
   LANE_HEIGHT_PX,
   type LaneState
@@ -14,7 +13,6 @@ interface LaneRowProps {
   lane: LaneState
   dimmed: boolean
   totalTicks: number
-  bubblePixelsPerSecond?: number
   flashSamplePath: string | null
   selectedPlacementIds: ReadonlySet<string>
   missingSamplePaths: ReadonlySet<string>
@@ -33,7 +31,6 @@ function LaneRow({
   lane,
   dimmed,
   totalTicks,
-  bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   flashSamplePath,
   selectedPlacementIds,
   missingSamplePaths,
@@ -45,6 +42,9 @@ function LaneRow({
   onDragOver,
   onDrop
 }: LaneRowProps) {
+  const hasMissingSample = lane.placements.some((placement) =>
+    missingSamplePaths.has(placement.samplePath)
+  )
   const handleDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => onDrop(lane.index, event),
     [onDrop, lane.index]
@@ -57,6 +57,13 @@ function LaneRow({
     >
       <div className="tracker-lane-head" style={{ width: LANE_HEAD_WIDTH_PX }}>
         <span className="tracker-lane-name">{lane.name}</span>
+        {hasMissingSample && (
+          <Tooltip content="This lane references a missing sample"><span
+            className="tracker-lane-missing"
+            role="img"
+            aria-label={`${lane.name} contains a missing sample`}
+          >!</span></Tooltip>
+        )}
         <div className="tracker-lane-controls">
           <Tooltip content={lane.muted ? 'Unmute lane' : 'Mute lane'}><button
             type="button"
@@ -101,7 +108,6 @@ function LaneRow({
         <LaneSampleBubbleCanvas
           placements={lane.placements}
           totalTicks={totalTicks}
-          bubblePixelsPerSecond={bubblePixelsPerSecond}
           laneIndex={lane.index}
           flashSamplePath={flashSamplePath}
           selectedPlacementIds={selectedPlacementIds}

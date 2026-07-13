@@ -14,6 +14,7 @@ import {
   placeSampleOnLane,
   removePlacementFromLane,
   removePlacements,
+  resolvePendingPlacementBpms,
   placementDurationTicks,
   setLanePan,
   toEngineLanes,
@@ -27,11 +28,27 @@ import { useTransportRuntime } from './useTransportRuntime'
 import { useUndoHistory } from './useUndoHistory'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
 
-const DEFAULT_BPM = 120
+export const DEFAULT_BPM = 120
+export const DEFAULT_MASTER_GAIN = 0.8
 
 const UNDO_HISTORY_LIMIT = 100
 
 type View = 'home' | 'player'
+
+function canonicalSampleDurationTicks(
+  lanes: readonly LaneState[],
+  samplePath: string
+): number | null {
+  let durationTicks: number | null = null
+  for (const lane of lanes) {
+    for (const placement of lane.placements) {
+      if (placement.samplePath !== samplePath) continue
+      if (durationTicks === null) durationTicks = placement.durationTicks
+      else if (durationTicks !== placement.durationTicks) return null
+    }
+  }
+  return durationTicks
+}
 
 export interface TransportEngineState {
   view: View
@@ -50,7 +67,13 @@ export interface TransportEngineState {
 
 export interface TransportEngineActions {
   setView: (view: View) => void
+  replaceProjectState: (state: {
+    lanes: LaneState[]
+    bpm: number
+    masterGain: number
+  }) => void
   placeSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
+  resolvePendingPlacementBpms: (sampleBpms: ReadonlyMap<string, number>) => void
   movePlacement: (placementId: string, toLaneIndex: number, newStartTick: number) => void
   duplicatePlacement: (placementId: string, toLaneIndex: number, newStartTick: number) => void
   movePlacementGroup: (moves: PlacementGroupEntry[]) => void
@@ -94,7 +117,7 @@ export function useTransportEngine(
     active: view === 'player',
     getLanes: getEngineLanes,
     initialBpm: DEFAULT_BPM,
-    initialMasterGain: 0.8
+    initialMasterGain: DEFAULT_MASTER_GAIN
   })
   const {
     playbackEngineRef,
@@ -116,17 +139,56 @@ export function useTransportEngine(
     resetMasterMeter
   } = runtime
 
-  const { pushEdit, undo, redo, setCurrent } = lanesHistory
+  const { pushEdit, undo, redo, setCurrent, reset } = lanesHistory
+
+  const replaceProjectState = useCallback((state: {
+    lanes: LaneState[]
+    bpm: number
+    masterGain: number
+  }) => {
+    transportStop()
+    const lanes = state.lanes.map((lane) => ({
+      ...lane,
+      placements: lane.placements.map((placement) => ({ ...placement }))
+    }))
+    reset(lanes)
+    setBpm(state.bpm)
+    setMasterGain(state.masterGain)
+    const playbackEngine = playbackEngineRef.current
+    if (playbackEngine) {
+      for (const lane of lanes) playbackEngine.setLanePan(lane.index, lane.pan)
+    }
+  }, [playbackEngineRef, reset, setBpm, setMasterGain, transportStop])
 
   const placeSampleDetailOnLane = useCallback(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
-      const placementTicks = placementDurationTicks(detail.duration, bpm)
-      pushEdit((current) =>
-        placeSampleOnLane(current, laneIndex, detail.relpath, detail.name, startTick, placementTicks, detail.duration, detail.slot, detail.bpm)
-      )
+      pushEdit((current) => {
+        const referenceBpm = detail.bpm !== null && Number.isFinite(detail.bpm) && detail.bpm > 0
+          ? detail.bpm
+          : bpm
+        const placementTicks = canonicalSampleDurationTicks(current, detail.relpath) ??
+          placementDurationTicks(detail.duration, referenceBpm)
+        return placeSampleOnLane(
+          current,
+          laneIndex,
+          detail.relpath,
+          detail.name,
+          startTick,
+          placementTicks,
+          detail.duration,
+          detail.slot,
+          detail.bpm
+        )
+      })
     },
     [bpm, pushEdit]
   )
+
+  const handleResolvePendingPlacementBpms = useCallback((sampleBpms: ReadonlyMap<string, number>) => {
+    const current = lanesHistory.currentRef.current
+    const next = resolvePendingPlacementBpms(current, sampleBpms)
+    if (next !== current) setCurrent(next)
+  }, [lanesHistory.currentRef, setCurrent])
 
   const handleToggleLaneMute = useCallback((laneIndex: number) => {
     setCurrent(toggleLaneMute(lanesHistory.currentRef.current, laneIndex))
@@ -210,7 +272,9 @@ export function useTransportEngine(
     canRedo: lanesHistory.canRedo,
     playbackEngineRef,
     setView,
+    replaceProjectState,
     placeSampleDetailOnLane,
+    resolvePendingPlacementBpms: handleResolvePendingPlacementBpms,
     movePlacement: handleMovePlacement,
     duplicatePlacement: handleDuplicatePlacement,
     movePlacementGroup: handleMovePlacementGroup,

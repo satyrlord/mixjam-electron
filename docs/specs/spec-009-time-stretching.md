@@ -88,7 +88,9 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 - Nullable native-BPM metadata never decides whether a placed sample follows
   project tempo. It is only an input when first establishing a placement span
   and when previewing an unplaced sample.
-- Samples are decoded before the scheduler starts. There is no offline render,
+- A cache-sized window of the nearest upcoming unique samples is decoded before
+  the scheduler starts, then refilled as scheduled placements consume that
+  window. Decode work runs with bounded concurrency. There is no offline render,
   generated tempo buffer, WASM processor, or ratio-dependent audio cache.
 - Sample Browser preview has no placement span. It derives playback rate from
   detected sample BPM when available and otherwise previews at native rate.
@@ -104,6 +106,13 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 
 - The existing decoded-source LRU cache is shared by every playback rate; a BPM
   edit does not allocate another audio buffer.
+- Preparation never requests more unique samples than the LRU can retain.
+  Editing BPM while stopped performs no file read or decode; editing while
+  playing prepares the upcoming window before scheduling resumes.
+- A failed preload rejects only its requesting operation; the serialized queue
+  recovers so later playback sessions can prepare normally.
+- Working-set replacement invalidates both decoded and in-flight non-member
+  samples, so a late decode cannot repopulate a discarded cache entry.
 - Invalid persisted placement timing falls back to native-rate playback for
   that voice rather than preventing the remaining arrangement from playing.
 - Stop, pause, close, and transport-generation guards cover asynchronous
@@ -152,6 +161,10 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
   without crashing or blocking other lanes.
 - [x] **AC-012:** Sample Browser preview follows detected sample BPM when
   present and remains native-rate when no preview timing reference exists.
+- [x] **AC-013:** Playback preparation is bounded to the decoded-source cache
+  capacity with limited concurrent reads, refills during playback, and performs
+  no arrangement reads for a stopped BPM edit. One failed preparation does not
+  poison later sessions, and late invalidated decodes do not re-enter the cache.
 
 ## Verification Evidence
 
@@ -169,8 +182,8 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
   BPM caused 1.791524 seconds of silence at each 111 BPM boundary, while the
   140 BPM control was continuous within one frame.
 - `tests/e2e/time-stretch-content.spec.ts` proves the production browser uses
-  the native source buffer at a `111 / 140` playback rate and fills the expected
-  8.648649-second span.
+  a deterministic generated PCM WAV at a `111 / 140` playback rate and fills
+  the expected 8.648649-second span without relying on a local fixture corpus.
 - `tmp/verify-bpm-boundary-fix/` records the post-fix production Chromium audio
   node timing and canvas invariance checks. Both metadata cases have a measured
   boundary error below one output sample frame.

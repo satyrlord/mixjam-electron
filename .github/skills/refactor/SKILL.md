@@ -15,7 +15,7 @@ mix cleanup with new feature work or widen into drive-by edits.
 Project-specific hazards — read more context before touching these
 (Chesterton's fence):
 
-- IPC channel lifecycle: main↔renderer contracts defined in the preload
+- IPC channel lifecycle: main-to-renderer contracts defined in the preload
   contextBridge; changing channel names, payload shapes, or sync/async
   semantics silently breaks the typed API between processes
 - React stale closures (renderer): memoized callbacks or effect

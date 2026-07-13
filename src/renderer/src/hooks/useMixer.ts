@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlaybackEngine } from '../engine/playback-engine'
-import { safeJsonParse } from '../lib/safeJsonParse'
 import { createDefaultEffect, isEffectSlot, type EffectSlot, type EffectType } from '../engine/effects'
 
 const DEFAULT_CHANNEL_COUNT = 16
 const PEAK_HOLD_DECAY_DB_PER_S = 30
 const SILENCE_DB = -100
+const LEGACY_STORAGE_KEY = 'mixjam-mixer-channels'
 
 export interface ChannelState {
   /** The channel index in the audio graph (lane N → channel N for 1:1 routing). */
@@ -31,6 +31,7 @@ export interface MixerState {
 
 export interface MixerActions {
   setVisualTelemetryActive: (active: boolean) => void
+  replaceChannels: (channels: ChannelState[]) => void
   setChannelGain: (channelIndex: number, gain: number) => void
   setChannelPan: (channelIndex: number, pan: number) => void
   toggleChannelMute: (channelIndex: number) => void
@@ -47,51 +48,13 @@ export interface MixerActions {
 
 export type Mixer = MixerState & MixerActions
 
-const STORAGE_KEY = 'mixjam-mixer-channels'
-
-function loadChannelState(): ChannelState[] {
-  // Accept a persisted empty array: removing all channels is a legitimate
-  // state that must survive reload. Rejecting it here resurrected 16 default
-  // strips while the removed-indices list still routed every lane to the
-  // master bypass — a mixer whose controls silently did nothing.
-  const stored = safeJsonParse(
-    localStorage.getItem(STORAGE_KEY) ?? '',
-    createDefaultChannels(),
-    (v): v is unknown[] => Array.isArray(v)
-  )
-  const normalized = stored.flatMap((value) => normalizeChannel(value))
-  return normalized.length > 0 || stored.length === 0 ? normalized : createDefaultChannels()
-}
-
-function normalizeChannel(value: unknown): ChannelState[] {
-  if (!value || typeof value !== 'object') return []
-  const channel = value as Partial<ChannelState>
-  if (!Number.isInteger(channel.channelIndex) || channel.channelIndex! < 0 || channel.channelIndex! >= DEFAULT_CHANNEL_COUNT) return []
-  return [{
-    channelIndex: channel.channelIndex!,
-    gain: typeof channel.gain === 'number' ? channel.gain : DEFAULT_CHANNEL_GAIN,
-    pan: typeof channel.pan === 'number' ? channel.pan : 0,
-    muted: channel.muted === true,
-    solo: channel.solo === true,
-    effects: Array.isArray(channel.effects) ? channel.effects.filter(isEffectSlot).slice(0, 4) : []
-  }]
-}
-
-function saveChannelState(channels: ChannelState[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(channels))
-  } catch {
-    // Storage full or unavailable — non-critical.
-  }
-}
-
 const DEFAULT_CHANNEL_GAIN = 0.8
 
 function createDefaultChannel(channelIndex: number): ChannelState {
   return { channelIndex, gain: DEFAULT_CHANNEL_GAIN, pan: 0, muted: false, solo: false, effects: [] }
 }
 
-function createDefaultChannels(): ChannelState[] {
+export function createDefaultChannels(): ChannelState[] {
   return Array.from({ length: DEFAULT_CHANNEL_COUNT }, (_, i) => createDefaultChannel(i))
 }
 
@@ -123,7 +86,7 @@ export function useMixer(
   playbackEngineRef: React.RefObject<PlaybackEngine | null>,
   view: string
 ): Mixer {
-  const [channels, setChannels] = useState<ChannelState[]>(loadChannelState)
+  const [channels, setChannels] = useState<ChannelState[]>(createDefaultChannels)
   const [channelLevels, setChannelLevels] = useState<Map<number, number>>(new Map())
   const [channelPeaks, setChannelPeaks] = useState<Map<number, number>>(new Map())
   const [effectReductions, setEffectReductions] = useState<Map<string, number>>(new Map())
@@ -140,12 +103,15 @@ export function useMixer(
   // Per-channel reusable Float32Array buffers for analyser reads.
   const meterBuffersRef = useRef(new Map<number, Float32Array>())
 
-  // Persist channel state to localStorage on every change. Removed channels are
-  // encoded by their absence from this array — there is no separate removed
-  // list to drift out of sync (removed indices are derived on reload).
+  // Spec 011 moved audible project state into .mixjam files. Remove the legacy
+  // app-level snapshot without importing it into the new or loaded project.
   useEffect(() => {
-    saveChannelState(channels)
-  }, [channels])
+    try {
+      localStorage.removeItem(LEGACY_STORAGE_KEY)
+    } catch {
+      // Storage can be unavailable; mixer state is in memory either way.
+    }
+  }, [])
 
   // Previous frame's levels — kept outside state so the rAF loop can diff
   // against it without triggering renders.
@@ -291,7 +257,7 @@ export function useMixer(
 
   // Apply channel state to PlaybackEngine when entering the Player (a fresh PlaybackEngine
   // is created on each entry). Also replays removed channel indices so channel
-  // removal survives page reload.
+  // removal from the active project is reflected in the newly created graph.
   useEffect(() => {
     if (view !== 'player') return
     const playbackEngine = playbackEngineRef.current
@@ -312,6 +278,22 @@ export function useMixer(
       playbackEngine.setChannelSolo(ch.channelIndex, ch.solo)
     }
   }, [view, playbackEngineRef, channels])
+
+  const replaceChannels = useCallback((nextChannels: ChannelState[]) => {
+    const next = nextChannels
+      .map((channel) => ({
+        ...channel,
+        effects: channel.effects.filter(isEffectSlot).map((effect) => ({ ...effect }))
+      }))
+      .sort((left, right) => left.channelIndex - right.channelIndex)
+    setChannels(next)
+    setChannelLevels(new Map())
+    setChannelPeaks(new Map())
+    setEffectReductions(new Map())
+    peaksRef.current = new Map()
+    prevLevelsRef.current = new Map()
+    prevReductionsRef.current = new Map()
+  }, [])
 
   const setChannelGain = useCallback((channelIndex: number, gain: number) => {
     setChannels((prev) =>
@@ -438,6 +420,7 @@ export function useMixer(
     effectReductions,
     canRestoreChannel: channels.length < DEFAULT_CHANNEL_COUNT,
     setVisualTelemetryActive,
+    replaceChannels,
     setChannelGain,
     setChannelPan,
     toggleChannelMute,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { createEvent, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { RotaryField, ToggleField } from './RotaryField'
 
@@ -84,6 +84,49 @@ describe('RotaryField', () => {
     render(<RotaryField {...defaultProps} onChange={onChange} />)
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: 'ArrowLeft' })
     expect(onChange).toHaveBeenCalledWith(374)
+  })
+
+  it('increments on wheel up and prevents page scrolling', () => {
+    const onChange = vi.fn()
+    render(<RotaryField {...defaultProps} onChange={onChange} />)
+    const slider = screen.getByRole('slider', { name: 'Time' })
+    const event = createEvent.wheel(slider, { deltaY: -100, cancelable: true })
+
+    fireEvent(slider, event)
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(onChange).toHaveBeenCalledWith(376)
+  })
+
+  it('decrements on wheel down', () => {
+    const onChange = vi.fn()
+    render(<RotaryField {...defaultProps} onChange={onChange} />)
+
+    fireEvent.wheel(screen.getByRole('slider', { name: 'Time' }), { deltaY: 100 })
+
+    expect(onChange).toHaveBeenCalledWith(374)
+  })
+
+  it('applies fine adjustment with Shift+wheel', () => {
+    const onChange = vi.fn()
+    render(<RotaryField label="Mix" help="Blends" value={0.35} defaultValue={0.3} min={0} max={1} step={0.01} suffix="" percent onChange={onChange} />)
+
+    fireEvent.wheel(screen.getByRole('slider', { name: 'Mix' }), { deltaY: -100, shiftKey: true })
+
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0]![0]).toBeCloseTo(0.351)
+  })
+
+  it('ignores wheel events without vertical movement', () => {
+    const onChange = vi.fn()
+    render(<RotaryField {...defaultProps} onChange={onChange} />)
+    const slider = screen.getByRole('slider', { name: 'Time' })
+    const event = createEvent.wheel(slider, { deltaY: 0 })
+
+    fireEvent(slider, event)
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('jumps to min on Home', () => {

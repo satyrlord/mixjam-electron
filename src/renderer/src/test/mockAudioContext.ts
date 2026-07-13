@@ -129,6 +129,8 @@ export class MockBufferSourceNode extends MockAudioNode {
   started = false
   stopped = false
   startWhen: number | null = null
+  // fallow-ignore-next-line unused-class-member
+  playbackRate = new MockAudioParam(1)
 
   // fallow-ignore-next-line unused-class-member
   start(when?: number): void {

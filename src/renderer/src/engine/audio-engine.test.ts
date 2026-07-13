@@ -83,6 +83,21 @@ describe('AudioEngine', () => {
     expect(channelAnalyser.connectedTo).toContain(masterGain)
   })
 
+  it('triggerVoice applies the requested playback rate to the source', () => {
+    const { engine, context } = makeEngine()
+    const channel = engine.createChannel()
+
+    engine.triggerVoice({
+      buffer: makeBuffer(),
+      channel,
+      when: 0,
+      laneIndex: 0,
+      playbackRate: 0.75
+    })
+
+    expect(context.created.sources[0].playbackRate.value).toBe(0.75)
+  })
+
   // AC-007
   it('voice.stop() before buffer end terminates and fires voiceEnded', () => {
     const { engine, context } = makeEngine()
@@ -207,6 +222,14 @@ describe('AudioEngine', () => {
     // Verify source is connected to preview gain
     const source = context.created.sources[0]
     expect(source.connectedTo).toContain(previewGain)
+  })
+
+  it('previewBuffer applies its tempo-following playback rate', () => {
+    const { engine, context } = makeEngine()
+
+    engine.previewBuffer(makeBuffer(), 0, undefined, 1.25)
+
+    expect(context.created.sources[0].playbackRate.value).toBe(1.25)
   })
 
   it('previewBuffer voice cleanup disconnects the temporary gain node', () => {

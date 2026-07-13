@@ -54,5 +54,23 @@ export function useUndoHistory<T>(initialValue: T, limit = 100) {
     setCurrent(value)
   }, [])
 
-  return { current, currentRef, pushEdit, setCurrent: setCurrentValue, undo, redo, canUndo, canRedo }
+  /** Replaces the document snapshot and clears undo/redo history. Project
+   *  replacement must never let edits from the previous project leak back in. */
+  const reset = useCallback((value: T) => {
+    historyRef.current = { past: [], future: [] }
+    currentRef.current = value
+    setCurrent(value)
+  }, [])
+
+  return {
+    current,
+    currentRef,
+    pushEdit,
+    setCurrent: setCurrentValue,
+    reset,
+    undo,
+    redo,
+    canUndo,
+    canRedo
+  }
 }

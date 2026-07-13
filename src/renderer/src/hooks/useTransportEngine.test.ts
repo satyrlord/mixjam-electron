@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
 import { useTransportEngine } from './useTransportEngine'
 import { PlaybackEngine } from '../engine/playback-engine'
+import { createDefaultLanes } from '../lib/arrangement'
 
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
 
@@ -198,6 +199,85 @@ describe('useTransportEngine', () => {
 
     await act(async () => { result.current.removePlacementFromLane(0, 'nonexistent') })
     expect(result.current.lanes[0].placements).toHaveLength(0)
+  })
+
+  it('uses detected sample BPM to establish a stable placement musical span', async () => {
+    vi.useRealTimers()
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+
+    await waitFor(() => expect(result.current.lanes).toBeDefined())
+
+    await act(async () => {
+      result.current.placeSampleDetailOnLane(
+        { name: 'slow-loop.wav', relpath: '/s/slow-loop.wav', tags: [], bpm: 60, duration: 4 },
+        0, 0
+      )
+      result.current.placeSampleDetailOnLane(
+        { name: 'unknown-loop.wav', relpath: '/s/unknown-loop.wav', tags: [], bpm: null, duration: 4 },
+        1, 0
+      )
+    })
+
+    expect(result.current.lanes[0].placements[0].durationTicks).toBe(32)
+    expect(result.current.lanes[1].placements[0].durationTicks).toBe(64)
+  })
+
+  it('reuses the first project-owned span when the same unanalysed sample is placed after a BPM change', async () => {
+    vi.useRealTimers()
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+
+    await waitFor(() => expect(result.current.lanes).toBeDefined())
+
+    await act(async () => {
+      result.current.placeSampleDetailOnLane(
+        { name: 'loop.wav', relpath: '/s/loop.wav', tags: [], bpm: null, duration: 4 },
+        0, 0
+      )
+    })
+    await act(async () => { result.current.setBpm(60) })
+    await act(async () => {
+      result.current.placeSampleDetailOnLane(
+        { name: 'loop.wav', relpath: '/s/loop.wav', tags: [], bpm: null, duration: 4 },
+        1, 64
+      )
+    })
+
+    expect(result.current.lanes[0].placements[0].durationTicks).toBe(64)
+    expect(result.current.lanes[1].placements[0].durationTicks).toBe(64)
+  })
+
+  it('recomputes from sample metadata instead of choosing between conflicting spans', async () => {
+    vi.useRealTimers()
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    const lanes = createDefaultLanes()
+    const sharedPlacement = {
+      samplePath: '/s/loop.wav',
+      sampleName: 'loop.wav',
+      durationSeconds: 4,
+      nativeBPM: null
+    }
+    lanes[0] = {
+      ...lanes[0]!,
+      placements: [{ ...sharedPlacement, id: 'first', startTick: 0, durationTicks: 32 }]
+    }
+    lanes[1] = {
+      ...lanes[1]!,
+      placements: [{ ...sharedPlacement, id: 'second', startTick: 64, durationTicks: 48 }]
+    }
+
+    await act(async () => {
+      result.current.replaceProjectState({ lanes, bpm: 120, masterGain: 0.8 })
+      result.current.placeSampleDetailOnLane(
+        { name: 'loop.wav', relpath: '/s/loop.wav', tags: [], bpm: null, duration: 4 },
+        2,
+        128
+      )
+    })
+
+    expect(result.current.lanes[2].placements[0].durationTicks).toBe(64)
   })
 
   it('removePlacementFromLane removes a placement', async () => {

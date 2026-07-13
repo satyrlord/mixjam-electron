@@ -29,6 +29,12 @@ function TransportIcon({ shape, mirrored = false }: {
 }
 
 interface MiddleStripProps {
+  projectName: string
+  projectDirty: boolean
+  projectBusy: boolean
+  onOpenProject: () => void
+  onSaveProject: () => void
+  onSaveProjectAs: () => void
   transportState: RuntimeTransportState
   canUndo: boolean
   canRedo: boolean
@@ -48,6 +54,12 @@ interface MiddleStripProps {
 }
 
 export default function MiddleStrip({
+  projectName,
+  projectDirty,
+  projectBusy,
+  onOpenProject,
+  onSaveProject,
+  onSaveProjectAs,
   transportState,
   canUndo,
   canRedo,
@@ -74,8 +86,17 @@ export default function MiddleStrip({
   return (
     <section className="middle-strip">
       <div className="strip-left">
-        {/* Real project names arrive with .mixjam save/load (spec-011). */}
-        <span className="strip-proj">Untitled</span>
+        <span
+          className="strip-proj"
+          aria-label={`${projectName}${projectDirty ? ', unsaved changes' : ''}`}
+        >
+          {projectName}{projectDirty && <span className="strip-proj-dirty" aria-hidden="true"> *</span>}
+        </span>
+        <div className="strip-project-actions" aria-label="Project file actions">
+          <button type="button" onClick={onOpenProject} disabled={projectBusy}>Open</button>
+          <button type="button" onClick={onSaveProject} disabled={projectBusy}>Save</button>
+          <button type="button" onClick={onSaveProjectAs} disabled={projectBusy}>Save As…</button>
+        </div>
       </div>
       <div className="transport-ribbon" aria-label="Transport Ribbon">
         <Tooltip content="Skip back to start"><button type="button" className="transport-button" aria-label="Skip Back" onClick={onTransportSkipBack}>

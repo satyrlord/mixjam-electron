@@ -13,10 +13,10 @@ interleave with an in-flight scan. Progress and lifecycle events are posted to
 the BackendAPI facade on the UI thread.
 
 ```text
-UI thread ──startScan(FolderRef)──▶ backend worker
-   ▲                                  │ load handle from IndexedDB
-   │                                  │ walk handle + upsert stubs (phase 1)
-   └── progress/done events ◀─────────┘ metadata (phase 2), analysis (phase 3)
+UI thread --startScan(FolderRef)--> backend worker
+   ^                                  | load handle from IndexedDB
+   |                                  | walk handle + upsert stubs (phase 1)
+   +-- progress/done events <---------+ metadata (phase 2), analysis (phase 3)
 ```
 
 The traversal walks the Sample Folder's `FileSystemDirectoryHandle`; file

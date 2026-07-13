@@ -1,12 +1,14 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { useLibraryData, type LibraryData } from './useLibraryData'
 import { useTransportEngine, type TransportEngine } from './useTransportEngine'
 import { useMixer, type Mixer } from './useMixer'
+import { useProjectPersistence, type ProjectPersistence } from './useProjectPersistence'
 
 const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
-export type AppState = LibraryData & TransportEngine & Mixer & {
+export type AppState = LibraryData & TransportEngine & Mixer & ProjectPersistence & {
+  startNewProject: () => Promise<void>
   goToPlayer: () => Promise<void>
   goToHome: () => Promise<void>
   openRepo: () => Promise<void>
@@ -16,9 +18,10 @@ export type AppState = LibraryData & TransportEngine & Mixer & {
  * Orchestrator hook that wires the library-data and transport-engine hooks
  * together, handling the cross-cutting navigation and sample-placement flows.
  *
- * Project load (Load MixJam / opening a MixJam file) is intentionally
- * absent: .mixjam persistence is spec-011, and until it ships the UI gates
- * those affordances instead of promising a load that discards its result.
+ * Project persistence stays on the renderer main thread because File System
+ * Access pickers require user activation. The backend facade supplies only
+ * contained User/Sample Folder file operations; this hook coordinates those
+ * operations with the transport and mixer state owners.
  */
 export function useAppState(
   backendAPI: BackendAPI,
@@ -28,9 +31,36 @@ export function useAppState(
   const lib = useLibraryData(backendAPI, userFolder, sampleFolder)
   const engine = useTransportEngine(backendAPI, sampleFolder)
   const mixer = useMixer(engine.playbackEngineRef, engine.view)
+  const project = useProjectPersistence({
+    backendAPI,
+    userFolder,
+    sampleFolder,
+    lanes: engine.lanes,
+    bpm: engine.bpm,
+    masterGain: engine.masterGain,
+    channels: mixer.channels,
+    replaceTransportProject: engine.replaceProjectState,
+    replaceChannels: mixer.replaceChannels,
+    reloadMixJamFiles: lib.reloadMixJamFiles
+  })
 
-  const { setView } = engine
+  const { resolvePendingPlacementBpms, setView } = engine
   const { setSelectedSampleDetail, startLibraryScan, scanProgress, dbIndexed } = lib
+  const {
+    beginNewProject,
+    openProjectPicker: openProjectFromPicker,
+    openProjectPath: openProjectFromPath
+  } = project
+
+  useEffect(() => {
+    const sampleBpms = new Map<string, number>()
+    for (const sample of lib.samples) {
+      if (sample.bpm !== null && Number.isFinite(sample.bpm) && sample.bpm > 0) {
+        sampleBpms.set(sample.relpath, sample.bpm)
+      }
+    }
+    if (sampleBpms.size > 0) resolvePendingPlacementBpms(sampleBpms)
+  }, [lib.samples, resolvePendingPlacementBpms])
 
   const goToPlayer = useCallback(async () => {
     await backendAPI.resizeToPlayer()
@@ -44,6 +74,23 @@ export function useAppState(
     }
   }, [backendAPI, setView, sampleFolder, scanProgress.status, dbIndexed, startLibraryScan])
 
+  const startNewProject = useCallback(async () => {
+    beginNewProject()
+    await goToPlayer()
+  }, [beginNewProject, goToPlayer])
+
+  const openProjectPicker = useCallback(async () => {
+    const opened = await openProjectFromPicker()
+    if (opened) await goToPlayer()
+    return opened
+  }, [goToPlayer, openProjectFromPicker])
+
+  const openProjectPath = useCallback(async (projectRelpath: string) => {
+    const opened = await openProjectFromPath(projectRelpath)
+    if (opened) await goToPlayer()
+    return opened
+  }, [goToPlayer, openProjectFromPath])
+
   const goToHome = useCallback(async () => {
     await backendAPI.resizeToHome()
     setSelectedSampleDetail(null)
@@ -54,10 +101,20 @@ export function useAppState(
     await backendAPI.openExternal(GITHUB_URL)
   }, [backendAPI])
 
+  const missingSamplePaths = useMemo(() => new Set([
+    ...lib.missingSamplePaths,
+    ...project.projectMissingSamplePaths
+  ]), [lib.missingSamplePaths, project.projectMissingSamplePaths])
+
   return {
     ...lib,
     ...engine,
     ...mixer,
+    ...project,
+    missingSamplePaths,
+    startNewProject,
+    openProjectPicker,
+    openProjectPath,
     goToPlayer,
     goToHome,
     openRepo

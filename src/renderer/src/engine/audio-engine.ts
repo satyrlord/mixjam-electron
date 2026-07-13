@@ -34,6 +34,7 @@ export interface TriggerVoiceParams {
   channel: Channel
   when: number
   laneIndex: number
+  playbackRate?: number
 }
 
 const SILENCE_DB = -100
@@ -206,7 +207,12 @@ export class AudioEngine {
 
   /** Preview a buffer as a one-shot through a temporary gain node connected
    *  directly to the master bus. */
-  previewBuffer(buffer: AudioBuffer, when = 0, onEnded?: (voice: Voice) => void): Voice {
+  previewBuffer(
+    buffer: AudioBuffer,
+    when = 0,
+    onEnded?: (voice: Voice) => void,
+    playbackRate = 1
+  ): Voice {
     const { context, masterGain } = this.ctx
     const previewGain = context.createGain()
     previewGain.gain.value = 0.8
@@ -217,6 +223,7 @@ export class AudioEngine {
       destination: previewGain,
       when,
       laneIndex: -1,
+      playbackRate,
       events: {
         onStarted: (v) => this.activeVoices.add(v),
         onEnded: (v) => {
@@ -229,16 +236,29 @@ export class AudioEngine {
     return voice
   }
 
-  triggerVoice({ buffer, channel, when, laneIndex }: TriggerVoiceParams): Voice {
+  triggerVoice({ buffer, channel, when, laneIndex, playbackRate }: TriggerVoiceParams): Voice {
     return this.triggerVoiceTo({
       buffer,
       destination: channel.input,
       when,
-      laneIndex
+      laneIndex,
+      playbackRate
     })
   }
 
-  triggerVoiceTo({ buffer, destination, when, laneIndex }: { buffer: AudioBuffer; destination: AudioNode; when: number; laneIndex: number }): Voice {
+  triggerVoiceTo({
+    buffer,
+    destination,
+    when,
+    laneIndex,
+    playbackRate
+  }: {
+    buffer: AudioBuffer
+    destination: AudioNode
+    when: number
+    laneIndex: number
+    playbackRate?: number
+  }): Voice {
     const { context } = this.ctx
     const voice = createVoice({
       context,
@@ -246,6 +266,7 @@ export class AudioEngine {
       destination,
       when,
       laneIndex,
+      playbackRate,
       events: {
         onStarted: (v) => this.activeVoices.add(v),
         onEnded: (v) => this.activeVoices.delete(v)

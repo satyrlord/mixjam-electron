@@ -5,6 +5,7 @@ import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
   PlayerMixerProps,
+  PlayerProjectProps,
   PlayerTransportProps
 } from '../components/playerProps'
 import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
@@ -150,6 +151,16 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onMoveChannelEffect: noop
 }
 
+const DEFAULT_PROJECT: PlayerProjectProps = {
+  name: 'Untitled',
+  dirty: false,
+  busy: false,
+  onOpen: async () => false,
+  onOpenPath: async () => false,
+  onSave: async () => false,
+  onSaveAs: async () => false
+}
+
 function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {
   // These tests exercise the Samples workflow, so restore that persisted tab
   // instead of relying on the application's first-launch Song default.
@@ -161,6 +172,7 @@ function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {
       arrangement={DEFAULT_ARRANGEMENT}
       transport={DEFAULT_TRANSPORT}
       mixer={DEFAULT_MIXER}
+      project={DEFAULT_PROJECT}
     />
   )
 }

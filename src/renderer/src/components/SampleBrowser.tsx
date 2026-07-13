@@ -23,6 +23,9 @@ interface SampleBrowserProps {
   active: boolean
   browser: PlayerBrowserProps
   bubblePixelsPerSecond?: number
+  pixelsPerTick?: number
+  projectBpm?: number
+  durationTicksBySamplePath?: ReadonlyMap<string, number>
   flashSamplePath: string | null
   onSampleDragStart: (event: React.DragEvent, detail: FooterSampleDetail) => void
 }
@@ -31,6 +34,9 @@ export default function SampleBrowser({
   active,
   browser,
   bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
+  pixelsPerTick,
+  projectBpm,
+  durationTicksBySamplePath,
   flashSamplePath,
   onSampleDragStart
 }: SampleBrowserProps) {
@@ -228,6 +234,9 @@ export default function SampleBrowser({
           active={active}
           samples={samples}
           bubblePixelsPerSecond={bubblePixelsPerSecond}
+          pixelsPerTick={pixelsPerTick}
+          projectBpm={projectBpm}
+          durationTicksBySamplePath={durationTicksBySamplePath}
           selectedSamplePath={selectedSamplePath}
           flashSamplePath={flashSamplePath}
           activeCategorySlot={activeCategorySlot}

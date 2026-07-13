@@ -174,15 +174,16 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(timer?.closest('.header-right')).toBeNull()
   })
 
-  it('AC-007: Load MixJam is disabled with a coming-soon hint until spec-011 ships', () => {
+  it('AC-007: Load MixJam opens the project picker and cancellation stays on Home', async () => {
     render(<App />)
 
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
-    expect(loadButton).toBeDisabled()
+    await waitFor(() => expect(loadButton).toBeEnabled())
     expect(loadButton).not.toHaveAttribute('title')
 
     fireEvent.click(loadButton)
 
+    await waitFor(() => expect(vi.mocked(window.backendAPI.openMixJamFile)).toHaveBeenCalledTimes(1))
     expect(screen.queryByText('Lane 1')).not.toBeInTheDocument()
   })
 

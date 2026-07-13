@@ -65,4 +65,19 @@ describe('useUndoHistory', () => {
     expect(result.current.canRedo).toBe(false)
     expect(result.current.current).toBe(99)
   })
+
+  it('reset replaces the document and clears both undo and redo history', () => {
+    const { result } = renderHook(() => useUndoHistory(0))
+    act(() => { result.current.pushEdit(() => 1) })
+    act(() => { result.current.pushEdit(() => 2) })
+    act(() => { result.current.undo() })
+    expect(result.current.canUndo).toBe(true)
+    expect(result.current.canRedo).toBe(true)
+
+    act(() => { result.current.reset(42) })
+
+    expect(result.current.current).toBe(42)
+    expect(result.current.canUndo).toBe(false)
+    expect(result.current.canRedo).toBe(false)
+  })
 })

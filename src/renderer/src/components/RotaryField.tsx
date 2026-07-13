@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { clamp } from '../lib/sample-utils'
 import { Tooltip } from './ui/Tooltip'
 
@@ -58,6 +58,7 @@ export function RotaryControl({
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void
   children?: React.ReactNode
 }) {
+  const controlRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<{ coordinate: number; value: number } | null>(null)
   const quantize = (next: number, quantum = step) =>
     clamp(Math.round(next / quantum) * quantum, min, max)
@@ -65,8 +66,25 @@ export function RotaryControl({
     dragAxis === 'vertical' ? event.clientY : event.clientX
   const direction = dragAxis === 'vertical' ? -1 : 1
 
+  useEffect(() => {
+    const control = controlRef.current
+    if (!control) return
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return
+      event.preventDefault()
+      const quantum = event.shiftKey ? step / 10 : step
+      const increment = event.deltaY < 0 ? quantum : -quantum
+      onChange(clamp(Math.round((value + increment) / quantum) * quantum, min, max))
+    }
+
+    control.addEventListener('wheel', handleWheel, { passive: false })
+    return () => control.removeEventListener('wheel', handleWheel)
+  }, [max, min, onChange, step, value])
+
   return (
     <div
+      ref={controlRef}
       className={className}
       role="slider"
       tabIndex={0}
@@ -150,7 +168,7 @@ export function RotaryField({
   const normalizedValue = max === min ? 0 : clamp((value - min) / (max - min), 0, 1)
   const angle = -135 + normalizedValue * 270
   const activeArcLength = normalizedValue * 270
-  const interactionHint = `Adjust ${label}: drag up or down. Hold Shift for fine control. Use arrow keys to step, Home or End for the range limits, and double-click to reset.`
+  const interactionHint = `Adjust ${label}: drag up or down or use the mouse wheel. Hold Shift for fine control. Use arrow keys to step, Home or End for the range limits, and double-click to reset.`
   const commit = () => {
     const parsed = Number(draft)
     if (Number.isFinite(parsed)) onChange(quantize(percent ? parsed / 100 : parsed))

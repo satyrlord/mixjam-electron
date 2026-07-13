@@ -2,6 +2,7 @@ import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
   PlayerMixerProps,
+  PlayerProjectProps,
   PlayerTransportProps
 } from '../components/playerProps'
 import type { AppState } from './useAppState'
@@ -11,6 +12,7 @@ export interface PlayerViewModel {
   arrangement: TrackerArrangementProps
   transport: PlayerTransportProps
   mixer: PlayerMixerProps
+  project: PlayerProjectProps
 }
 
 export function createPlayerViewModel(app: AppState): PlayerViewModel {
@@ -113,6 +115,15 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       onRemoveChannelEffect: app.removeChannelEffect,
       onRestoreChannelEffect: app.restoreChannelEffect,
       onMoveChannelEffect: app.moveChannelEffect
+    },
+    project: {
+      name: app.projectName,
+      dirty: app.projectDirty,
+      busy: app.projectBusy,
+      onOpen: app.openProjectPicker,
+      onOpenPath: app.openProjectPath,
+      onSave: app.saveProject,
+      onSaveAs: app.saveProjectAs
     }
   }
 }

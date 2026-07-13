@@ -33,6 +33,12 @@ export interface MixJamFileItem {
   lastOpened: string | null
 }
 
+export interface MixJamFileContents {
+  /** Path of the .mixjam file relative to the User Folder ('/'-separated). */
+  path: string
+  contents: string
+}
+
 export interface TagItem {
   id: number
   name: string
@@ -189,6 +195,19 @@ export interface BackendAPI {
   saveFolderSelections: (selections: FolderSelections) => Promise<void>
   loadMixJamFiles: (userFolder: FolderRef | null) => Promise<MixJamFileItem[]>
   recordRecentProject: (projectRelpath: string) => Promise<void>
+  openMixJamFile: (userFolder: FolderRef) => Promise<MixJamFileContents | null>
+  readMixJamFile: (userFolder: FolderRef, projectRelpath: string) => Promise<MixJamFileContents>
+  saveMixJamFileAs: (
+    userFolder: FolderRef,
+    suggestedName: string,
+    contents: string
+  ) => Promise<MixJamFileContents | null>
+  writeMixJamFile: (
+    userFolder: FolderRef,
+    projectRelpath: string,
+    contents: string
+  ) => Promise<void>
+  findMissingSampleFiles: (sampleFolder: FolderRef, relpaths: string[]) => Promise<string[]>
   /** Shows the directory picker. Resolves null when the user cancels. Picking
    *  a folder that is already stored reuses its existing ref (and scan root). */
   pickFolder: (role: FolderRole) => Promise<FolderRef | null>

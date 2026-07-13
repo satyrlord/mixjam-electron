@@ -62,6 +62,66 @@
     return { rows: rows.slice(offset, offset + limit), total: total }
   }
 
+  function makeProject(name, bpm) {
+    var lanes = []
+    var channels = []
+    for (var i = 0; i < 16; i += 1) {
+      lanes.push({
+        index: i,
+        name: 'Lane ' + (i + 1),
+        muted: false,
+        solo: false,
+        pan: 0,
+        channelId: 'ch-' + (i + 1),
+        placements: i === 0 ? [{
+          id: 'placement-' + name,
+          sampleRef: 'Drums/Kicks/kick_808.wav',
+          sampleName: 'kick_808.wav',
+          nativeBPM: 120,
+          startTick: 0,
+          durationTicks: 32,
+          durationSeconds: 0.5,
+          slot: 2
+        }] : []
+      })
+      channels.push({
+        id: 'ch-' + (i + 1),
+        index: i,
+        name: 'Channel ' + (i + 1),
+        gain: i === 0 ? 0.64 : 0.8,
+        pan: 0,
+        muted: false,
+        solo: false,
+        fx: i === 0 ? [{
+          id: 'fx-' + name,
+          type: 'delay',
+          bypassed: false,
+          timeMs: 375,
+          feedback: 0.35,
+          mix: 0.3,
+          pingPong: false,
+          tempoSync: false,
+          noteDivision: '1/8'
+        }] : []
+      })
+    }
+    return JSON.stringify({
+      formatVersion: 1,
+      appVersion: 'v0.test.0',
+      createdAt: '2026-06-28T12:00:00.000Z',
+      modifiedAt: '2026-06-28T12:00:00.000Z',
+      song: { bpm: bpm, masterGain: 0.7 },
+      lanes: lanes,
+      channels: channels
+    }, null, 2) + '\n'
+  }
+
+  var MOCK_PROJECT_FILES = {
+    'club-night.mixjam': makeProject('club-night', 138),
+    'archive/sunrise.mixjam': makeProject('sunrise', 104)
+  }
+  window.__mixjamProjectFiles = MOCK_PROJECT_FILES
+
   window.backendAPI = {
     getVersion: function () { return Promise.resolve('v0.test.0') },
     resizeToPlayer: function () { return Promise.resolve() },
@@ -71,6 +131,29 @@
     saveFolderSelections: function () { return Promise.resolve() },
     loadMixJamFiles: function () { return Promise.resolve(MOCK_MIXJAM_FILES) },
     recordRecentProject: function () { return Promise.resolve() },
+    openMixJamFile: function () {
+      return Promise.resolve({ path: 'club-night.mixjam', contents: MOCK_PROJECT_FILES['club-night.mixjam'] })
+    },
+    readMixJamFile: function (_folder, path) {
+      if (!MOCK_PROJECT_FILES[path]) return Promise.reject(new Error('Project fixture not found: ' + path))
+      return Promise.resolve({ path: path, contents: MOCK_PROJECT_FILES[path] })
+    },
+    saveMixJamFileAs: function (_folder, _suggestedName, contents) {
+      var path = 'saved-project.mixjam'
+      MOCK_PROJECT_FILES[path] = contents
+      if (!MOCK_MIXJAM_FILES.some(function (item) { return item.path === path })) {
+        MOCK_MIXJAM_FILES.unshift({ path: path, displayName: 'saved-project', lastOpened: new Date().toISOString() })
+      }
+      return Promise.resolve({ path: path, contents: contents })
+    },
+    writeMixJamFile: function (_folder, path, contents) {
+      MOCK_PROJECT_FILES[path] = contents
+      return Promise.resolve()
+    },
+    findMissingSampleFiles: function (_folder, relpaths) {
+      var existing = MOCK_SAMPLES.map(function (sample) { return sample.relpath })
+      return Promise.resolve(relpaths.filter(function (path) { return existing.indexOf(path) === -1 }))
+    },
     pickFolder: function () { return Promise.resolve(null) },
     validateFolder: function () { return Promise.resolve('ok') },
     requestFolderAccess: function () { return Promise.resolve(true) },

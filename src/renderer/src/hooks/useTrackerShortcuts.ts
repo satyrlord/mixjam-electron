@@ -3,7 +3,7 @@ import type { RuntimeTransportState } from './useTransportRuntime'
 
 /** True when the event originates in a text-entry control, where global
  *  shortcuts (Space, Delete, Ctrl+Z…) must not fire. */
-function isEditableTarget(target: EventTarget | null): boolean {
+export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return (
     target.tagName === 'INPUT' ||

@@ -36,6 +36,21 @@ export default function App() {
         onHome={app.goToHome}
         onThemeChange={handleThemeChange}
       />
+      {(app.projectError || app.projectWarning) && (
+        <div
+          className={`project-notice${app.projectError ? ' project-notice-error' : ''}`}
+          role="alert"
+        >
+          <span>{app.projectError ?? app.projectWarning}</span>
+          <button
+            type="button"
+            aria-label="Dismiss project message"
+            onClick={app.clearProjectNotice}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <main className="content">
         {app.view === 'home' ? (
           <HomeScreen
@@ -43,13 +58,16 @@ export default function App() {
             sampleFolder={sampleFolder}
             canStart={canStart}
             mixJamFiles={app.mixJamFiles}
+            projectBusy={app.projectBusy}
             activeTheme={activeTheme}
             onThemeChange={handleThemeChange}
             onPickUser={pickUser}
             onPickSample={pickSample}
             onRestoreUser={restoreUser}
             onRestoreSample={restoreSample}
-            onStart={app.goToPlayer}
+            onStart={app.startNewProject}
+            onLoad={app.openProjectPicker}
+            onOpenProject={app.openProjectPath}
           />
         ) : (
           <PlayerView
@@ -58,6 +76,7 @@ export default function App() {
             arrangement={player.arrangement}
             transport={player.transport}
             mixer={player.mixer}
+            project={player.project}
           />
         )}
       </main>

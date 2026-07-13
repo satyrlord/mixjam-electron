@@ -5,7 +5,9 @@ import type { FooterSampleDetail } from '../lib/arrangement'
 import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   SAMPLE_BUBBLE_HEIGHT_PX,
-  sampleBubbleWidth
+  placementDurationTicks,
+  sampleBubbleWidth,
+  sampleBubbleWidthFromTicks
 } from '../lib/arrangement'
 import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 import { Tooltip } from './ui/Tooltip'
@@ -61,6 +63,9 @@ interface SampleTileGridProps {
   active?: boolean
   samples: SampleListItem[]
   bubblePixelsPerSecond?: number
+  pixelsPerTick?: number
+  projectBpm?: number
+  durationTicksBySamplePath?: ReadonlyMap<string, number>
   selectedSamplePath: string | null
   flashSamplePath: string | null
   /** Palette-slot override when a category filter is active — all visible samples share it. */
@@ -90,6 +95,9 @@ function SampleTileGrid({
   active = true,
   samples,
   bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
+  pixelsPerTick,
+  projectBpm,
+  durationTicksBySamplePath,
   selectedSamplePath,
   flashSamplePath,
   activeCategorySlot,
@@ -135,17 +143,28 @@ function SampleTileGrid({
     [categories]
   )
 
-  // Source duration is the only width input, so a sample is pixel-identical
-  // in every view regardless of BPM, viewport, or placement duration.
+  // Once a sample has been placed, its project-owned musical span is the width
+  // source in every view. Before first placement, detected BPM supplies that
+  // span; an unanalysed sample uses the current project BPM as its first-drop
+  // reference.
   const tiles = useMemo(
     () =>
       samples.map((sample) => {
-        const width = sampleBubbleWidth(sample.durationSeconds, bubblePixelsPerSecond)
+        const referenceBpm = sample.bpm !== null && Number.isFinite(sample.bpm) && sample.bpm > 0
+          ? sample.bpm
+          : projectBpm
+        const durationTicks = durationTicksBySamplePath?.get(sample.relpath) ??
+          (referenceBpm !== undefined
+            ? placementDurationTicks(sample.durationSeconds, referenceBpm)
+            : undefined)
+        const width = durationTicks !== undefined && pixelsPerTick !== undefined
+          ? sampleBubbleWidthFromTicks(durationTicks, pixelsPerTick)
+          : sampleBubbleWidth(sample.durationSeconds, bubblePixelsPerSecond)
         const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
         const slot = activeCategorySlot ?? (catName ? categorySlot(catName) : undefined)
         return { sample, width, slot }
       }),
-    [samples, bubblePixelsPerSecond, activeCategorySlot, categoryNames]
+    [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, activeCategorySlot, categoryNames]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.

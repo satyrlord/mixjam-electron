@@ -149,18 +149,18 @@ describe('useMixer', () => {
     expect(mockPlaybackEngine.removeChannel).toHaveBeenCalledWith(0)
   })
 
-  it('persists channel state to localStorage on change', () => {
+  it('does not persist project-owned channel state and removes the legacy snapshot', () => {
+    localStorage.setItem('mixjam-mixer-channels', '[{"gain":0.1}]')
     const playbackEngineRef = createPlaybackEngineRef()
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.setChannelGain(0, 0.3) })
 
-    const stored = JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? '[]')
-    expect(stored).toHaveLength(16)
-    expect(stored[0]!.gain).toBe(0.3)
+    expect(result.current.channels[0]!.gain).toBe(0.3)
+    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
   })
 
-  it('adds, updates, bypasses, reorders, removes, and persists up to four effects', () => {
+  it('adds, updates, bypasses, reorders, and removes up to four effects in project state', () => {
     const mockPlaybackEngine = createMockPlaybackEngine()
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'))
@@ -186,7 +186,20 @@ describe('useMixer', () => {
     act(() => result.current.removeChannelEffect(0, delay.id))
     expect(result.current.channels[0]!.effects).toHaveLength(3)
     expect(mockPlaybackEngine.setChannelEffects).toHaveBeenCalled()
-    expect(JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? '[]')[0].effects).toHaveLength(3)
+    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
+  })
+
+  it('replaces the complete project-owned mixer snapshot', () => {
+    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'player'))
+    act(() => result.current.replaceChannels([{
+      channelIndex: 3,
+      gain: 0.4,
+      pan: -0.2,
+      muted: true,
+      solo: false,
+      effects: []
+    }]))
+    expect(result.current.channels).toEqual([expect.objectContaining({ channelIndex: 3, gain: 0.4 })])
   })
 
   it('commits one engine update and one effect identity under StrictMode', () => {
@@ -235,13 +248,13 @@ describe('useMixer', () => {
     expect(result.current.effectReductions.has(compressor.id)).toBe(false)
   })
 
-  it('migrates persisted pre-effects channel state to an empty chain', () => {
+  it('ignores legacy pre-effects channel state instead of importing it into a project', () => {
     localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{ channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false }]))
     const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'home'))
     expect(result.current.channels[0]!.effects).toEqual([])
   })
 
-  it('drops malformed persisted effect slots', () => {
+  it('ignores malformed legacy effect slots and removes the obsolete key', () => {
     localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{
       channelIndex: 0,
       gain: 0.5,
@@ -254,9 +267,10 @@ describe('useMixer', () => {
     const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'home'))
 
     expect(result.current.channels[0]!.effects).toEqual([])
+    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
   })
 
-  it('restores channel state from localStorage on mount', () => {
+  it('starts from defaults even when a complete legacy mixer snapshot exists', () => {
     const savedChannels = Array.from({ length: 16 }, (_, i) => ({
       channelIndex: i,
       gain: 0.5,
@@ -270,18 +284,20 @@ describe('useMixer', () => {
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(result.current.channels).toHaveLength(16)
-    expect(result.current.channels[0]!.gain).toBe(0.5)
-    expect(result.current.channels[0]!.pan).toBe(-0.5)
-    expect(result.current.channels[0]!.muted).toBe(true)
+    expect(result.current.channels[0]!.gain).toBe(0.8)
+    expect(result.current.channels[0]!.pan).toBe(0)
+    expect(result.current.channels[0]!.muted).toBe(false)
+    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
   })
 
-  it('falls back to defaults when localStorage has invalid data', () => {
+  it('removes corrupt legacy storage and keeps defaults', () => {
     localStorage.setItem('mixjam-mixer-channels', 'not-json')
     const playbackEngineRef = createPlaybackEngineRef()
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     expect(result.current.channels).toHaveLength(16)
     expect(result.current.channels[0]!.gain).toBe(0.8)
+    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
   })
 
   it('applies channel state to PlaybackEngine when view switches to the Player', () => {
@@ -552,18 +568,16 @@ describe('useMixer', () => {
     expect(indices).toEqual([...indices].sort((a, b) => a - b))
   })
 
-  it('restore encodes removal by channel absence, not a separate removed list', () => {
+  it('restore encodes removal by channel absence in the in-memory project state', () => {
     const playbackEngineRef = createPlaybackEngineRef()
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.removeChannel(4) })
     act(() => { result.current.restoreChannel() })
 
-    // Persisted channels array is the single source of truth: channel 4 present.
-    const stored = JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? '[]')
-    expect(stored.some((ch: { channelIndex: number }) => ch.channelIndex === 4)).toBe(true)
+    expect(result.current.channels.some((ch) => ch.channelIndex === 4)).toBe(true)
     expect(result.current.canRestoreChannel).toBe(false)
-    // No separate removed-indices key is written.
+    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
     expect(localStorage.getItem('mixjam-mixer-removed')).toBeNull()
   })
 
@@ -629,7 +643,7 @@ describe('useMixer', () => {
     expect(result.current.effectReductions.get(compressorId)).toBe(0)
   })
 
-  it('empty channels array survives reload without resurrecting defaults', () => {
+  it('allows a project to remove every channel without resurrecting defaults', () => {
     const mockPlaybackEngine = createMockPlaybackEngine()
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
@@ -639,8 +653,7 @@ describe('useMixer', () => {
       act(() => { result.current.removeChannel(i) })
     }
     expect(result.current.channels).toHaveLength(0)
-    const stored = JSON.parse(localStorage.getItem('mixjam-mixer-channels') ?? 'null')
-    expect(stored).toEqual([])
+    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
     expect(result.current.canRestoreChannel).toBe(true)
   })
 })

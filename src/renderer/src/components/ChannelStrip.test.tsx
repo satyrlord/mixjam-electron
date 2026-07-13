@@ -193,6 +193,18 @@ describe('ChannelStrip', () => {
     expect(onSetPan).not.toHaveBeenCalled()
   })
 
+  it('mouse wheel adjusts the channel pan knob by 0.05 (AC-021)', () => {
+    const onSetPan = vi.fn()
+    render(<ChannelStrip {...DEFAULT_PROPS} pan={0} onSetPan={onSetPan} />)
+    const panKnob = screen.getByRole('slider', { name: 'Channel 1 Pan' })
+
+    fireEvent.wheel(panKnob, { deltaY: -100 })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, 0.05)
+
+    fireEvent.wheel(panKnob, { deltaY: 100 })
+    expect(onSetPan).toHaveBeenLastCalledWith(0, -0.05)
+  })
+
   it('right-click cycles from key-step residue near center (AC-018 epsilon)', () => {
     const onSetPan = vi.fn()
     // ArrowRight×3 then ArrowLeft×3 lands on ~1.4e-17, which reads as Center but

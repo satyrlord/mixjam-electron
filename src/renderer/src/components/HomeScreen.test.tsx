@@ -34,6 +34,7 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
       sampleFolder={SET_FOLDER}
       canStart={true}
       mixJamFiles={[]}
+      projectBusy={false}
       activeTheme="emerald"
       onThemeChange={vi.fn()}
       onPickUser={vi.fn()}
@@ -41,6 +42,8 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
       onRestoreUser={vi.fn()}
       onRestoreSample={vi.fn()}
       onStart={vi.fn()}
+      onLoad={vi.fn()}
+      onOpenProject={vi.fn()}
       {...overrides}
     />
   )
@@ -79,16 +82,28 @@ describe('HomeScreen', () => {
     expect(screen.getByText('ambient-set')).toBeTruthy()
   })
 
-  it('disables Load MixJam and recent project entries until spec-011 ships', () => {
-    renderHome({ mixJamFiles: RECENT_PROJECTS })
+  it('opens the native project picker and recent project entries', () => {
+    const onLoad = vi.fn()
+    const onOpenProject = vi.fn()
+    renderHome({ mixJamFiles: RECENT_PROJECTS, onLoad, onOpenProject })
 
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
-    expect(loadButton).toBeDisabled()
-    expect(loadButton).not.toHaveAttribute('title')
+    expect(loadButton).toBeEnabled()
+    fireEvent.click(loadButton)
+    expect(onLoad).toHaveBeenCalledTimes(1)
 
     const recentEntry = screen.getByText('club-night').closest('button')!
-    expect(recentEntry).toBeDisabled()
-    expect(recentEntry).not.toHaveAttribute('title')
+    expect(recentEntry).toBeEnabled()
+    fireEvent.click(recentEntry)
+    expect(onOpenProject).toHaveBeenCalledWith('club-night.mixjam')
+  })
+
+  it('disables project actions while a project operation is busy', () => {
+    renderHome({ mixJamFiles: RECENT_PROJECTS, projectBusy: true })
+
+    expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Opening…' })).toBeDisabled()
+    expect(screen.getByText('club-night').closest('button')).toBeDisabled()
   })
 
   it('shows only up to 4 recent projects', () => {

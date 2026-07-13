@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
   DEFAULT_LANE_COUNT,
+  TRACKER_BAR_COUNT,
+  TRACKER_BEAT_WIDTH_PX,
+  TRACKER_TIMELINE_MIN_WIDTH_PX,
+  TRACKER_TOTAL_TICKS,
   LANE_HEIGHT_PX,
   LANE_HEAD_WIDTH_PX,
   DEFAULT_PLACEMENT_DURATION_TICKS,
@@ -15,6 +19,7 @@ import {
   movePlacement,
   placeSampleOnLane,
   removePlacementFromLane,
+  resolvePendingPlacementBpms,
   setLanePan,
   toEngineLanes,
   toggleLaneMute,
@@ -35,16 +40,16 @@ describe('sampleBubbleScreenRect', () => {
     expect(timelinePixelsPerSecond(1920, 256, 120)).toBe(120)
   })
 
-  it('uses the shared timeline scale for source-duration width', () => {
+  it('uses the placement musical span for BPM-invariant width', () => {
     const placement = { id: 'p', samplePath: 's', sampleName: 'n', startTick: 32, durationTicks: 16, durationSeconds: 1 }
-    expect(sampleBubbleScreenRect(placement, 2, 120)).toEqual({ x: 64, width: 120 })
-    expect(sampleBubbleScreenRect({ ...placement, durationTicks: 1 }, 1, 120)).toEqual({ x: 32, width: 120 })
+    expect(sampleBubbleScreenRect(placement, 2)).toEqual({ x: 64, width: 32 })
+    expect(sampleBubbleScreenRect({ ...placement, durationTicks: 1 }, 1)).toEqual({ x: 32, width: 12 })
   })
 
-  it('uses the shared minimum and unknown-duration fallback', () => {
+  it('does not change placement width when source duration metadata changes', () => {
     const placement = { id: 'p', samplePath: 's', sampleName: 'n', startTick: 0, durationTicks: 1, durationSeconds: 0.1 }
     expect(sampleBubbleScreenRect(placement, 1).width).toBe(12)
-    expect(sampleBubbleScreenRect({ ...placement, durationSeconds: null }, 1).width).toBe(168)
+    expect(sampleBubbleScreenRect({ ...placement, durationSeconds: null }, 1).width).toBe(12)
   })
 })
 
@@ -60,6 +65,13 @@ describe('arrangement lane constants', () => {
 
   it('defaults placements to 32 ticks', () => {
     expect(DEFAULT_PLACEMENT_DURATION_TICKS).toBe(32)
+  })
+
+  it('defines the fixed MVP song span and minimum timeline density', () => {
+    expect(TRACKER_BAR_COUNT).toBe(128)
+    expect(TRACKER_TOTAL_TICKS).toBe(4096)
+    expect(TRACKER_BEAT_WIDTH_PX).toBe(42)
+    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(21672)
   })
 })
 
@@ -122,6 +134,20 @@ describe('placeSampleOnLane', () => {
     next = placeSampleOnLane(next, 0, 'Loops/fast.wav', 'fast.wav', 32, 32, 1, 0, 140)
 
     expect(next[0]!.placements.map((placement) => placement.nativeBPM)).toEqual([90, 140])
+  })
+
+  it('resolves only native BPM values that were pending when placed', () => {
+    const lanes = createDefaultLanes()
+    let next = placeSampleOnLane(lanes, 0, 'Loops/pending.wav', 'pending.wav', 0, 32, 40, 0, null)
+    next = placeSampleOnLane(next, 0, 'Loops/pinned.wav', 'pinned.wav', 32, 32, 4, 0, 120)
+
+    const resolved = resolvePendingPlacementBpms(next, new Map([
+      ['Loops/pending.wav', 95.8],
+      ['Loops/pinned.wav', 128]
+    ]))
+
+    expect(resolved[0]!.placements.map((placement) => placement.nativeBPM)).toEqual([95.8, 120])
+    expect(resolved[0]!.placements.map((placement) => placement.nativeBPMPending)).toEqual([false, false])
   })
 
   it('keeps both placements when the second starts after the first one ends', () => {
