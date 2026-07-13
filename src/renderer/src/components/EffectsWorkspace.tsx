@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   EFFECT_PRESETS,
   applyEffectPreset,
@@ -114,17 +114,19 @@ export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
     </header>
 
     <div className="effects-chain" aria-label="Ordered effect chain">
-      {channel.effects.map((effect, index) => <EffectCard
-        key={effect.id}
-        effect={effect}
-        index={index}
-        count={channel.effects.length}
-        selected={effect.id === selectedEffectId}
-        onSelect={() => onSelectEffect(effect.id)}
-        onToggleBypass={() => onToggleBypass(channel.channelIndex, effect.id)}
-        onMove={(toIndex) => onMove(channel.channelIndex, effect.id, toIndex)}
-        onDropEffect={(effectId, toIndex) => onMove(channel.channelIndex, effectId, toIndex)}
-      />)}
+      {channel.effects.map((effect, index) => <Fragment key={effect.id}>
+        <EffectCard
+          effect={effect}
+          index={index}
+          count={channel.effects.length}
+          selected={effect.id === selectedEffectId}
+          onSelect={() => onSelectEffect(effect.id)}
+          onToggleBypass={() => onToggleBypass(channel.channelIndex, effect.id)}
+          onMove={(toIndex) => onMove(channel.channelIndex, effect.id, toIndex)}
+          onDropEffect={(effectId, toIndex) => onMove(channel.channelIndex, effectId, toIndex)}
+        />
+        <SignalConnector />
+      </Fragment>)}
       <AddEffect
         disabled={channel.effects.length >= 4}
         onAdd={(type) => {
@@ -188,7 +190,16 @@ function EffectCard({ effect, index, count, selected, onSelect, onToggleBypass, 
         if (event.key === 'ArrowRight' && index < count - 1) { event.preventDefault(); onMove(index + 1) }
       }}
     >
-      <span className="effect-card-handle" aria-hidden="true">::</span>
+      <span className="effect-card-handle" aria-hidden="true">
+        <svg viewBox="0 0 12 18">
+          <circle cx="3" cy="3" r="1.25" />
+          <circle cx="9" cy="3" r="1.25" />
+          <circle cx="3" cy="9" r="1.25" />
+          <circle cx="9" cy="9" r="1.25" />
+          <circle cx="3" cy="15" r="1.25" />
+          <circle cx="9" cy="15" r="1.25" />
+        </svg>
+      </span>
       <span className="effect-card-number">{index + 1}</span>
       <span className="effect-card-icon" aria-hidden="true">{effectGlyph(effect.type)}</span>
       <span className="effect-card-name">{effectName(effect.type)}</span>
@@ -199,10 +210,16 @@ function EffectCard({ effect, index, count, selected, onSelect, onToggleBypass, 
       aria-label={`${effect.bypassed ? 'Enable' : 'Bypass'} ${effectName(effect.type)}`}
       aria-pressed={!effect.bypassed}
       onClick={onToggleBypass}
-    >On</button>
+    >{effect.bypassed ? 'Bypassed' : 'Enabled'}</button>
     <DropdownMenuRoot>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="effect-card-menu-trigger" aria-label={`${effectName(effect.type)} order actions`}>...</button>
+        <button type="button" className="effect-card-menu-trigger" aria-label={`${effectName(effect.type)} order actions`}>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="4" cy="10" r="1.5" />
+            <circle cx="10" cy="10" r="1.5" />
+            <circle cx="16" cy="10" r="1.5" />
+          </svg>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem disabled={index === 0} onSelect={() => onMove(index - 1)}>Move left</DropdownMenuItem>
@@ -212,11 +229,23 @@ function EffectCard({ effect, index, count, selected, onSelect, onToggleBypass, 
   </article>
 }
 
+function SignalConnector() {
+  return <span className="effect-chain-connector" aria-hidden="true">
+    <svg viewBox="0 0 28 12">
+      <path d="M1 6h22" />
+      <path d="m18 2 5 4-5 4" />
+    </svg>
+  </span>
+}
+
 function AddEffect({ disabled, onAdd }: { disabled: boolean; onAdd: (type: EffectType) => void }) {
   if (disabled) return <div className="add-effect add-effect-disabled">4 of 4 effects used</div>
   return <DropdownMenuRoot>
     <DropdownMenuTrigger asChild>
-      <button type="button" className="add-effect"><span aria-hidden="true">+</span>Add effect</button>
+      <button type="button" className="add-effect">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" /></svg>
+        Add effect
+      </button>
     </DropdownMenuTrigger>
     <DropdownMenuContent className="add-effect-menu" align="start">
       {(['delay', 'reverb', 'compressor'] as const).map((type) => (
@@ -240,7 +269,12 @@ function EffectEditor({ effect, reductionDb, onChange, onReset, onRemove }: {
   return <div className={`effect-detail${effect.bypassed ? ' effect-detail-bypassed' : ''}`}>
     <header className="effect-detail-head">
       <div>
-        <h3>{effectName(effect.type)}</h3>
+        <div className="effect-detail-title">
+          <h3>{effectName(effect.type)}</h3>
+          <span className={`effect-detail-state${effect.bypassed ? ' effect-detail-state-bypassed' : ''}`}>
+            {effect.bypassed ? 'Bypassed' : 'Enabled'}
+          </span>
+        </div>
         <p>{EFFECT_DESCRIPTIONS[effect.type]}</p>
       </div>
       <label className="effect-preset">Starting point
@@ -288,8 +322,22 @@ function renderControls(effect: EffectSlot, onChange: (effect: EffectSlot) => vo
     <RotaryField label="Attack" help="Sets how quickly compression begins." value={effect.attackMs} defaultValue={10} min={0} max={200} step={1} suffix=" ms" onChange={(attackMs) => onChange({ ...effect, attackMs })} />
     <RotaryField label="Release" help="Sets how quickly compression lets go." value={effect.releaseMs} defaultValue={250} min={5} max={3000} step={5} suffix=" ms" onChange={(releaseMs) => onChange({ ...effect, releaseMs })} />
     <RotaryField label="Makeup" help="Restores level after compression." value={effect.makeupGain} defaultValue={0} min={0} max={24} step={0.5} suffix=" dB" onChange={(makeupGain) => onChange({ ...effect, makeupGain })} />
-    <div className="reduction-meter" aria-label={`Gain reduction ${reductionDb.toFixed(1)} dB`}>
-      <span>Reduction</span><div><i style={{ height: `${Math.min(100, reductionDb / 24 * 100)}%` }} /></div><output>{reductionDb.toFixed(1)} dB</output>
+    <div
+      className="reduction-meter"
+      role="meter"
+      aria-label={`Gain reduction ${reductionDb.toFixed(1)} dB`}
+      aria-valuemin={0}
+      aria-valuemax={24}
+      aria-valuenow={Number(reductionDb.toFixed(1))}
+    >
+      <div className="reduction-meter-head">
+        <strong>Gain reduction</strong>
+        <output>{reductionDb.toFixed(1)} dB</output>
+      </div>
+      <div className="reduction-meter-body" aria-hidden="true">
+        <span className="reduction-meter-scale"><span>24</span><span>12</span><span>0 dB</span></span>
+        <div className="reduction-meter-track"><i style={{ height: `${Math.min(100, reductionDb / 24 * 100)}%` }} /></div>
+      </div>
       <small>Shows how much loud audio is being turned down.</small>
     </div>
   </>

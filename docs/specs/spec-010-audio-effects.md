@@ -65,7 +65,9 @@ can chain effects in order and adjust parameters per channel.
   without changing tabs; the FX button selects its channel and opens the FX tab.
 - The selected channel displays an explicit left-to-right chain rail. Named
   cards expose order, selection, bypass, a drag handle, pointer drop targets,
-  `Alt+ArrowLeft/Right`, and named Move left/right menu actions.
+  `Alt+ArrowLeft/Right`, and named Move left/right menu actions. Visible
+  connectors reinforce the signal direction, and bypass uses explicit
+  `Enabled` and `Bypassed` state text rather than an ambiguous power label.
 - A described Add effect tile appends Delay, Reverb, or Compressor and becomes
   a `4 of 4 effects used` status at the slot cap.
 - The selected effect opens a spacious editor below the chain. Rotary controls
@@ -73,8 +75,20 @@ can chain effects in order and adjust parameters per channel.
   direct numeric entry, unit-aware accessible values, and double-click reset.
   Discrete delay timing uses its existing note-division selector when tempo
   sync is enabled.
+- Rotary faces are project-owned inline SVG, not an external component. Each
+  face uses a fixed 270-degree range track, a high-contrast value arc, an inset
+  cap, and a short pointer anchored inside that cap. The rendering is shared
+  without changing the established pointer, keyboard, reset, or direct-entry
+  contract.
 - Every parameter carries a plain-language explanation of its audible result.
-  Bypassed effects remain editable but are visually subdued.
+  Bypassed effects remain editable but are visually subdued. Explanatory copy
+  is at least 12 px, and the interaction hint is available on hover, focus, and
+  through an accessible description.
+- Editable parameters share one visual surface instead of separate nested
+  cards. Output-only metering is grouped separately, includes scale endpoints,
+  and remains visually distinct from inputs. Every FX button, selector,
+  editable value, and menu trigger has a hit target of at least 44 by 44 CSS
+  pixels.
 - Factory starting points are Classic Echo, Slapback, and Ping-Pong Eighths;
   Studio Room, Tight Room, and Long Hall; and Classic Control, Gentle Glue, and
   Leveler. Choosing one writes ordinary effect parameter fields. Further edits
@@ -138,6 +152,13 @@ can chain effects in order and adjust parameters per channel.
 - [x] **AC-014:** Effect menus implement standard dropdown focus/keyboard
   behavior, and rotary controls support pointer capture, touch, fine adjustment,
   keyboard operation, and reset through the shared control.
+- [x] **AC-015:** Rotary controls use the project-owned SVG range track, value
+  arc, inset cap, and anchored pointer while preserving direct entry and the
+  complete interaction contract without adding a component library.
+- [x] **AC-016:** The FX chain exposes visible signal-direction connectors and
+  explicit enabled/bypassed text; editable controls use one grouped surface,
+  output metering is separate and scaled, explanatory copy is at least 12 px,
+  and all FX interaction targets are at least 44 by 44 CSS pixels.
 
 ## Validation Evidence
 
@@ -158,6 +179,10 @@ can chain effects in order and adjust parameters per channel.
   reverb tail, compressor gain reduction and bypass, and order-dependent output.
 - `tmp/verify-audio-effects/evidence.md` records the built Chromium layout
   assertions and screenshot.
+- `tmp/verify-fx-workspace-redesign/evidence.md` verifies the project-owned SVG
+  dial geometry, tooltip and edit interactions, 44 px hit targets, grouped
+  editor hierarchy, scaled meter, signal connector, explicit bypass states,
+  all-theme highlight tokens, and the 900 px layout in built Chromium.
 - `tmp/verify-vertical-controls/evidence.md` records the 44 px Mixer strip
   geometry shared by the channel fader and FX entry point.
 - `tmp/verify-complete-system/evidence.md` verifies Mixer-to-FX channel

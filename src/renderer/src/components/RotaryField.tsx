@@ -1,5 +1,6 @@
-import { useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useId, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { clamp } from '../lib/sample-utils'
+import { Tooltip } from './ui/Tooltip'
 
 export function ToggleField({ label, help, checked, onChange }: {
   label: string
@@ -33,6 +34,7 @@ export function RotaryControl({
   endValue = max,
   dragAxis = 'vertical',
   ariaMultiplier = 1,
+  describedBy,
   style,
   onChange,
   onContextMenu,
@@ -50,6 +52,7 @@ export function RotaryControl({
   endValue?: number
   dragAxis?: 'horizontal' | 'vertical'
   ariaMultiplier?: number
+  describedBy?: string
   style?: CSSProperties
   onChange: (value: number) => void
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void
@@ -72,6 +75,7 @@ export function RotaryControl({
       aria-valuemax={max * ariaMultiplier}
       aria-valuenow={value * ariaMultiplier}
       aria-valuetext={valueText}
+      aria-describedby={describedBy}
       style={style}
       onDoubleClick={() => onChange(defaultValue)}
       onContextMenu={onContextMenu}
@@ -136,12 +140,17 @@ export function RotaryField({
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const interactionHintId = useId()
   const quantize = (next: number, quantum = step) =>
     clamp(Math.round(next / quantum) * quantum, min, max)
   const displayValue = percent
     ? Math.round(value * 100)
     : Number(value.toFixed(step < 1 ? 1 : 0))
   const unit = percent ? '%' : suffix
+  const normalizedValue = max === min ? 0 : clamp((value - min) / (max - min), 0, 1)
+  const angle = -135 + normalizedValue * 270
+  const activeArcLength = normalizedValue * 270
+  const interactionHint = `Adjust ${label}: drag up or down. Hold Shift for fine control. Use arrow keys to step, Home or End for the range limits, and double-click to reset.`
   const commit = () => {
     const parsed = Number(draft)
     if (Number.isFinite(parsed)) onChange(quantize(percent ? parsed / 100 : parsed))
@@ -150,25 +159,54 @@ export function RotaryField({
   return (
     <div className="rotary-field">
       <strong>{label}</strong>
-      <RotaryControl
-        className="rotary-control"
-        label={label}
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        valueText={`${displayValue}${unit}`}
-        defaultValue={defaultValue}
-        ariaMultiplier={percent ? 100 : 1}
-        style={
-          {
-            '--rotary-angle': `${-135 + ((value - min) / (max - min)) * 270}deg`
-          } as React.CSSProperties
-        }
-        onChange={onChange}
-      >
-        <i />
-      </RotaryControl>
+      <Tooltip content={interactionHint}>
+        <span className="rotary-tooltip-trigger">
+          <RotaryControl
+            className="rotary-control"
+            label={label}
+            value={value}
+            min={min}
+            max={max}
+            step={step}
+            valueText={`${displayValue}${unit}`}
+            defaultValue={defaultValue}
+            ariaMultiplier={percent ? 100 : 1}
+            describedBy={interactionHintId}
+            onChange={onChange}
+          >
+            <svg className="rotary-dial" viewBox="0 0 64 64" aria-hidden="true">
+              <circle
+                className="rotary-dial-track"
+                cx="32"
+                cy="32"
+                r="25"
+                pathLength="360"
+                transform="rotate(135 32 32)"
+              />
+              <circle
+                className="rotary-dial-value"
+                cx="32"
+                cy="32"
+                r="25"
+                pathLength="360"
+                strokeDasharray={`${activeArcLength} ${360 - activeArcLength}`}
+                transform="rotate(135 32 32)"
+              />
+              <circle className="rotary-dial-cap" cx="32" cy="32" r="17" />
+              <line
+                className="rotary-dial-pointer"
+                x1="32"
+                y1="17"
+                x2="32"
+                y2="25"
+                transform={`rotate(${angle} 32 32)`}
+              />
+              <circle className="rotary-dial-center" cx="32" cy="32" r="2" />
+            </svg>
+          </RotaryControl>
+        </span>
+      </Tooltip>
+      <span id={interactionHintId} className="fx-visually-hidden">{interactionHint}</span>
       {editing ? (
         <input
           className="rotary-value-input"

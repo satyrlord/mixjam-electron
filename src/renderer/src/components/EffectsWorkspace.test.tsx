@@ -48,8 +48,10 @@ describe('EffectsWorkspace', () => {
 
   it('bypasses, removes, and restores the selected effect', () => {
     render(<Harness initial={[createDefaultEffect('compressor')]} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Bypass Compressor' }))
-    expect(screen.getByRole('button', { name: 'Enable Compressor' })).toBeInTheDocument()
+    const enabled = screen.getByRole('button', { name: 'Bypass Compressor' })
+    expect(enabled).toHaveTextContent('Enabled')
+    fireEvent.click(enabled)
+    expect(screen.getByRole('button', { name: 'Enable Compressor' })).toHaveTextContent('Bypassed')
     fireEvent.keyDown(screen.getByText('Actions'), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove effect' }))
     expect(screen.getByRole('status')).toHaveTextContent('Compressor removed')
@@ -103,10 +105,9 @@ describe('EffectsWorkspace', () => {
 
   it('reorders an effect via Move left/right menu', () => {
     render(<Harness initial={[createDefaultEffect('delay'), createDefaultEffect('reverb')]} />)
-    // Open the order actions menu on the second effect card via its "..." text
-    const ellipsisButtons = screen.getAllByText('...')
-    expect(ellipsisButtons.length).toBe(2)
-    fireEvent.keyDown(ellipsisButtons[1]!, { key: 'Enter' })
+    const orderButtons = screen.getAllByRole('button', { name: /order actions/ })
+    expect(orderButtons.length).toBe(2)
+    fireEvent.keyDown(orderButtons[1]!, { key: 'Enter' })
     const moveLefts = screen.getAllByRole('menuitem', { name: 'Move left' })
     fireEvent.click(moveLefts[moveLefts.length - 1]!)
   })
@@ -122,6 +123,10 @@ describe('EffectsWorkspace', () => {
     const reductions = new Map<string, number>([[compressor.id, 4.2]])
     const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [compressor] }
     render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={compressor.id} effectReductions={reductions} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
+    const meter = screen.getByRole('meter', { name: 'Gain reduction 4.2 dB' })
+    expect(meter).toHaveAttribute('aria-valuemin', '0')
+    expect(meter).toHaveAttribute('aria-valuemax', '24')
+    expect(meter).toHaveAttribute('aria-valuenow', '4.2')
     expect(screen.getByText('4.2 dB')).toBeInTheDocument()
   })
 
@@ -197,6 +202,29 @@ describe('EffectsWorkspace', () => {
     expect(screen.getByRole('slider', { name: 'Attack' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Release' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Makeup' })).toBeInTheDocument()
+  })
+
+  it('renders project-owned SVG dial faces with accessible interaction hints', () => {
+    const compressor = createDefaultEffect('compressor')
+    const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [compressor] }
+    render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={compressor.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
+
+    const threshold = screen.getByRole('slider', { name: 'Threshold' })
+    expect(threshold.querySelector('.rotary-dial-track')).toBeInTheDocument()
+    expect(threshold.querySelector('.rotary-dial-value')).toBeInTheDocument()
+    expect(threshold.querySelector('.rotary-dial-cap')).toBeInTheDocument()
+    expect(threshold.querySelector('.rotary-dial-pointer')).toBeInTheDocument()
+    const descriptionId = threshold.getAttribute('aria-describedby')
+    expect(descriptionId).toBeTruthy()
+    expect(document.getElementById(descriptionId!)).toHaveTextContent('Hold Shift for fine control')
+  })
+
+  it('shows signal direction connectors between the chain and add slot', () => {
+    const compressor = createDefaultEffect('compressor')
+    const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [compressor] }
+    const { container } = render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={compressor.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
+
+    expect(container.querySelectorAll('.effect-chain-connector')).toHaveLength(1)
   })
 
   it('deselects effect when channel changes to one without that effect', () => {
