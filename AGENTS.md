@@ -8,7 +8,7 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 
 - Specs 001-010 are implemented; check individual spec files for current AC
   wording and evidence.
-- Specs 011-012 are validated but not implemented.
+- Spec 011 is implemented. Spec 012 is validated but not implemented.
 - Specs 013-016 are unvalidated stubs.
 - Spec 017 is an unvalidated draft.
 
@@ -26,7 +26,8 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 The browser build is the primary app: SQLite runs as `@sqlite.org/sqlite-wasm`
 (opfs-sahpool VFS) inside a backend Web Worker (`src/renderer/src/backend/`),
 folder access uses the File System Access API with handles persisted in
-IndexedDB, and app state lives in localStorage. The Electron main process is
+IndexedDB, app preferences live in localStorage, and project-owned Song,
+arrangement, Mixer, routing, and FX state lives in `.mixjam` files. The Electron main process is
 a thin shell (window sizing, `app://` protocol, auto-granted `fileSystem`
 permission, openExternal allowlist) exposing `window.shellAPI`; the same
 renderer bundle runs unchanged in any Chromium browser (GitHub Pages) and in

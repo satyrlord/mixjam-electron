@@ -31,7 +31,8 @@
 │  │  • indexer — directory-handle traversal +         │  │
 │  │    music-metadata parseBlob (see indexing.md)     │  │
 │  └───────────────────────────────────────────────────┘  │
-│  Folder handles in IndexedDB · app state in localStorage │
+│  Folder handles in IndexedDB · preferences in localStorage│
+│  Song, arrangement, Mixer, routing, and FX in .mixjam     │
 │  tracker/player (Web Audio) · skinnable via CSS vars     │
 └─────────────────────────────────────────────────────────┘
    Host A: any Chromium browser (GitHub Pages, https)

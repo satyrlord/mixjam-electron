@@ -30,13 +30,17 @@ than enough for an eJay/Acid-style tracker.
 
 ### Offline time-stretching
 
-- Samples are automatically time-stretched to match the project BPM using
-  their auto-detected native BPM from analysis (spec-008). The stretch ratio
-  is `projectBPM / nativeBPM`; a null native BPM and a ratio of 1 are
-  zero-work passthroughs.
-- A placement captures its sample's native BPM when it is added. The scheduler
-  reads BPM from each placement, so one lane may contain loops with different
-  native tempos without one drop retuning another.
+- Tracker audio is time-stretched to each placement's stored musical span. The
+  target duration is `durationTicks * 60 / (projectBPM * 8)`, and the speed
+  ratio is `sourceDurationSeconds / targetDurationSeconds`. Nullable BPM
+  analysis metadata never bypasses placement stretching.
+- A positive detected sample BPM establishes the musical span on first drop.
+  When BPM is unknown, the current project BPM establishes it, so first-drop
+  playback is native-rate and later project BPM changes still stretch it.
+  Subsequent placements of the same sample reuse that project-owned span.
+- `startTick` and `durationTicks` remain unchanged across BPM edits. Only the
+  tick-to-seconds mapping and rendered buffer change, preserving visual and
+  audible boundaries between consecutive placements.
 - The stretch algorithm is a phase vocoder (Bungee, equivalent in approach to
   Elastique) compiled to embedded WASM. Vite emits its self-contained
   AudioWorklet processor as a static asset that works in both the browser
@@ -55,8 +59,9 @@ than enough for an eJay/Acid-style tracker.
   playback runtime, and returns the decoded native-rate buffer. Playback does not
   crash or repeatedly retry a broken module. Concurrent failures share that one
   disable transition and therefore still emit only one warning.
-- Sample-browser preview is also stretched to the project BPM so the preview
-  sounds identical to how the sample will play in the tracker.
+- Sample-browser preview uses detected sample BPM when available. A sample with
+  no preview timing reference plays at native rate; once placed, Tracker
+  playback is governed by the placement span instead.
 
 ## Per-channel insert effects
 

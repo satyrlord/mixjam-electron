@@ -79,9 +79,9 @@ Each card shows:
   above to start."
 - Once both folders are set, the button becomes active and clicking it
   navigates to the MixJam Player (per spec-001).
-- The "Load MixJam" link is independent of folder selection state — it is not
-  part of the launch gate. It stays disabled until spec-011 ships real project
-  loading (per spec-001).
+- The "Load MixJam" link uses the same two-folder readiness gate. Project paths
+  are User Folder-relative and sample references are Sample Folder-relative,
+  so both folders must be available before a project can load.
 
 ### Folder Picker Behavior
 
@@ -136,8 +136,8 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-005:** "Start New MixJam" button is disabled when either folder is unset.
 - [x] **AC-006:** A hint label appears below the disabled button: "Select both folders above to start."
 - [x] **AC-007:** When both folders are set, "Start New MixJam" becomes active and navigates to the MixJam Player on click.
-- [x] **AC-008:** "Load MixJam" is independent of the folder launch gate: folder selection state
-  never toggles it. It stays disabled until spec-011 ships (per spec-001).
+- [x] **AC-008:** "Load MixJam" is disabled until both folders are available,
+  then becomes active and opens the spec-011 project picker.
 - [x] **AC-009:** Each "Pick Folder" button opens the directory picker with the mode matching its folder role.
 - [x] **AC-010:** Selected folder names are displayed on their respective cards after successful validation.
 - [x] **AC-010b:** The User Folder picker is hinted to start in the OS Documents folder.
@@ -152,8 +152,7 @@ Folder's directory handle). It is not user-editable.
 ## Non-Goals (deferred to later specs)
 
 - No sample library scanning or manifest generation — that's spec-004.
-- No project file loading beyond the file picker (spec-001 placeholder
-  behavior). Project save/load is spec-011.
+- Project save/load behavior belongs to spec-011.
 - No sample analysis or metadata extraction. Sample analysis is spec-008.
 - No folder size calculation, free space check, or disk health validation.
 - No multi-folder sample library (only one Sample Folder at a time).

@@ -117,9 +117,9 @@ can chain effects in order and adjust parameters per channel.
 - A channel keeps stable input and output nodes while its internal ordered
   effect route is rebuilt. Existing voices therefore remain connected when a
   slot changes, and every replaced processor disconnects all nodes it owns.
-- Effect chains are persisted with the existing mixer channel state in
-  `localStorage`. Mixer state written before spec-010 migrates to an empty
-  chain.
+- Effect chains are project-owned. Spec-011 writes each channel's complete
+  ordered FX chain into the active `.mixjam` file and restores it only when
+  that project is loaded. FX values are not persisted as app-level state.
 
 ## Acceptance Criteria (testable)
 
@@ -170,10 +170,12 @@ can chain effects in order and adjust parameters per channel.
   `src/renderer/src/components/EffectsWorkspace.test.tsx`, and
   `src/renderer/src/hooks/useMixer.test.ts` verify the strip entry point,
   non-modal editor contract, presets, accessible parameter edits, removal
-  recovery, four-slot cap, reduction state, persistence, pre-effects migration,
-  and rejection of malformed persisted slots.
-- `tests/e2e/audio-effects.spec.ts` verifies add, edit, bypass, reorder, remove,
-  and reload behavior against the production browser bundle.
+  recovery, four-slot cap, reduction state, project-state replacement, and
+  rejection of malformed project slots.
+- `tests/e2e/audio-effects.spec.ts` verifies add, edit, bypass, reorder, and
+  remove behavior against the production browser bundle.
+- `tests/e2e/project-save-load.spec.ts` verifies that ordered FX chains restore
+  from their project and reset for a new project.
 - `tests/e2e/audio-effects-rendering.spec.ts` bundles the real DSP module into
   Chromium and uses `OfflineAudioContext` to verify a rendered delay echo,
   reverb tail, compressor gain reduction and bypass, and order-dependent output.

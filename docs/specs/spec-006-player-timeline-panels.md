@@ -29,14 +29,17 @@ browser adjacencies.
   and change BPM from the Song panel without opening the Mixer.
 - **US-004b:** As a keyboard user, I can navigate and activate every Bottom
   Workspace tab using the standard tablist keyboard model.
-- **US-005:** As a user, I can place sample bubbles onto lanes and see the
-  same source-duration-derived geometry used in the Sample Browser.
+- **US-005:** As a user, I can place sample bubbles onto lanes and see the same
+  project-owned musical-span geometry in the Sample Browser, unaffected by BPM
+  changes.
 - **US-006:** As a user, I see a moving playhead sweep across the timeline
   during playback, synchronized to the audio.
 - **US-007:** As a user, I see a ruler with bar numbers and tick marks so I
   can orient myself in the arrangement.
 - **US-007a:** As a user, I can click the ruler to move the playhead to the
   nearest beat so I can start or resume playback from a precise grid position.
+- **US-007b:** As a user, I can use an always-visible Song Progress Bar to
+  navigate across at least 128 bars without changing playback position.
 - **US-008:** As a user, I can use the Middle Strip transport buttons (Skip
   Back, Play/Pause, Stop) to control playback.
 - **US-009:** As a user, I can drag the browser's internal vertical resize
@@ -54,11 +57,12 @@ browser adjacencies.
   │   ├── .mixjam-browser — independently resizable/collapsible left rail
   │   └── .tracker-region       — upper-right primary arrangement surface
   │       ├── .ruler            — horizontal bar with tick marks + bar numbers
-  │       └── .lane-scroll      — scrollable lane container
+  │       ├── .lane-scroll      — scrollable lane container
   │           ├── .playhead     — absolute, full-height, 2px wide
   │           └── .lane × 16    — 44px height each
   │               ├── .lane-head — 168px: name, M/S buttons, pan knob
   │               └── .lane-canvas — clip placement area
+  │       └── .song-progress-bar — persistent horizontal timeline navigation
   ├── .middle-strip     — 44px, full-width transport + global status band
   └── .bottom-workspace — full-width tabbed work band
       ├── .bottom-workspace-tabs — Song | Mixer | FX | Samples + song status
@@ -149,7 +153,23 @@ browser adjacencies.
 - Tick marks use the same beat/bar model as the lane canvas: a transparent
   tick every beat and a stronger tick every bar.
 - Bar numbers: 1, 5, 9, 13… (every 4 bars), monospace font, muted color.
-- Scrolls horizontally in sync with the lane canvas.
+- The MVP song span is 128 bars in 4/4: 4,096 ticks at 8 ticks per beat and
+  32 ticks per bar. The timeline keeps a 42px-per-beat minimum density, so the
+  128-bar canvas is 21,504px wide plus the 168px lane head. A wider viewport
+  may expand that surface but never compresses the 128 bars below this density.
+- The ruler, playhead, selection overlay, and all lane canvases share one
+  horizontal scroll position. Lane heads and the ruler's lane-head spacer stay
+  pinned while the rest of the song moves beneath them.
+- The **Song Progress Bar** is the only visible horizontal timeline-navigation
+  control. It is always rendered below the lanes, uses theme tokens for its
+  track, thumb, hover, focus, and disabled states, and remains visible but
+  disabled when the song is no wider than the Tracker viewport. Native
+  horizontal scrollbar chrome is hidden so operating-system auto-hide behavior
+  cannot remove the control.
+- The Song Progress Bar thumb size reflects the visible fraction of the song;
+  its position mirrors the shared horizontal scroll offset. Pointer dragging,
+  track clicks, Arrow keys, Page Up/Down, Home, and End update the visible song
+  range without seeking the playhead or changing transport state.
 - Clicking the timeline portion of the ruler moves the engine and visual
   playhead to the nearest beat boundary (every 8 ticks). The lane-head spacer
   is not a seek target.
@@ -198,7 +218,7 @@ browser adjacencies.
   DOM nodes (enables smooth scrolling at high placement counts).
 - A placement drag image may use a larger transparent canvas for shadow padding,
   pointer offset, or a multi-selection badge. The sample bubble drawn inside
-  that canvas keeps the canonical source-duration width and 32px height.
+  that canvas keeps the canonical musical-span width and 32px height.
 
 ### Playhead
 
@@ -290,7 +310,7 @@ browser adjacencies.
   - right-clicking an entry shows a context menu with **Open** and
     **Copy Path**
 - Full project deserialization (restoring lanes/placements from the `.mixjam`
-  file) remains deferred to project save/load work (spec-011).
+  file) is implemented by project save/load (spec-011).
 
 #### Song panel
 
@@ -372,9 +392,9 @@ visible across themes and viewport sizes.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample bubble from the Sample Browser and dropping it onto a lane creates a clip placement snapped to the nearest beat boundary.
-  Its bubble is 32px high and uses the shared source-duration width. The width
-  spans the same amount of Tracker time as the source audio at the current BPM,
-  and the corresponding Sample Browser bubble has the identical pixel width.
+  Its bubble is 32px high and uses the placement's project-owned musical span.
+  Changing BPM never changes its position or width, and the corresponding
+  Sample Browser bubble has the identical pixel width.
 - [x] **AC-008a:** Holding Alt while dropping a sample or moving a placement bypasses beat-snap and places it at per-tick precision (freeform).
 - [x] **AC-009:** Placing a sample that overlaps an existing placement on the same lane keeps both sample bubbles visually intact; only the audio
   is monophonic. Overlap never deletes or trims the earlier placement's data.
@@ -384,6 +404,15 @@ visible across themes and viewport sizes.
 - [x] **AC-011a:** Clicking the ruler timeline moves the playhead to the nearest 8-tick beat boundary. Arrow Left and Arrow Right move by one beat,
   while Home and End move to the timeline boundaries. The engine seeks to the same tick; playback continues from that tick when already playing,
   while paused or stopped transport remains paused or stopped.
+- [x] **AC-011b:** The always-rendered, skinnable Song Progress Bar controls the
+  shared horizontal position of the ruler, playhead, selections, and every lane
+  canvas while lane heads remain pinned. It is keyboard- and pointer-operable,
+  exposes its current and maximum positions accessibly, and stays visible but
+  disabled when the song fits the viewport. Native horizontal scrollbar chrome
+  is not the visible navigation control.
+- [x] **AC-011c:** The MVP Tracker exposes 128 bars in 4/4 (4,096 ticks) at a
+  minimum density of 42px per beat. Ruler ticks, placement bounds, seeking, and
+  playhead limits all use that same span.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
@@ -408,7 +437,8 @@ visible across themes and viewport sizes.
   hints without native `title` attributes.
 - [x] **AC-024:** Clicking a MixJam Browser entry records it as most-recently opened, re-sorts the browser, and shows its name in the
   Middle Strip. Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
-  Full project deserialization (restoring lanes/placements from the `.mixjam` file) remains deferred to spec-011.
+  Full project deserialization restores lanes and placements from the `.mixjam`
+  file through spec-011.
 - [x] **AC-025:** A sample bubble keeps its canonical width and 32px height in
   the drag image; any minimum drag surface, theme-shadow clearance, or group
   badge uses transparent space outside that rectangle.
@@ -438,6 +468,11 @@ visible across themes and viewport sizes.
 - `tmp/verify-ui-primitives/evidence.md` records production Chromium checks for
   pointer and keyboard resizing, menus, popovers, tabs, tooltips, dialog focus,
   touch rotary input, and timeline keyboard stepping.
+- `tmp/verify-tracker-horizontal-scroll/` records production Chromium evidence
+  for the Song Progress Bar at 1280x800, a 5120x1440 ultrawide viewport, and
+  DPR 2. The checks cover all 128 bars, shared ruler/lane scrolling, pinned lane
+  heads, keyboard and pointer navigation, theme changes, the visible disabled
+  state, unchanged transport position, and canonical sample-bubble geometry.
 
 ## Non-Goals (deferred to later specs)
 

@@ -36,14 +36,11 @@ Implement view switching, the header bar, and the footer.
     (same behavior as the header selector).
   - Setup column (right): a raised panel holding the two folder cards
     (spec-003), the launch gate, the Load MixJam link, and — when any exist —
-    up to four recent projects that are selectable on click (shows project
-    name in the Middle Strip; full project loading is deferred to spec-011,
-    see spec-006 AC-024).
+    up to four recent projects that are selectable on click and load the full
+    project through spec-011.
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
-  - "Load MixJam" link — secondary action. Disabled with a "coming soon"
-    tooltip until `.mixjam` save/load ships (spec-011); a load the app cannot
-    perform is not offered as clickable. Once spec-011 lands it opens a file
-    picker filtered to the project file extension (the File System Access
+  - "Load MixJam" link — secondary action. Once both folders are available,
+    it opens a file picker filtered to `.mixjam` (the File System Access
     `showOpenFilePicker`; the Electron shell surfaces it as a native dialog).
 - **Footer** (40px): "Select User Folder" link anchored to the left
   margin, version string anchored to the right margin.
@@ -70,8 +67,8 @@ Implement view switching, the header bar, and the footer.
 
 - Clicking "Start New MixJam" on the Home Screen replaces the content area
   with the MixJam Player.
-- "Load MixJam" is disabled until spec-011 ships. It will open the file picker
-  and navigate to the Player once real project loading exists.
+- "Load MixJam" opens the project file picker and navigates to the Player only
+  after a valid project loads. Cancelling stays on Home.
 - Clicking the home link "&lt; Return to Main Menu" in the Player header
   returns to the Home Screen.
 - View switching must be instantaneous (no page reload, no navigation delay).
@@ -86,7 +83,8 @@ The browser build is the real app: the same bundle and backend used by the
 Electron shell.
 
 - The renderer always installs the real browser backend (sqlite-wasm over
-  OPFS, File System Access folders, localStorage app state). Host detection only
+  OPFS, File System Access folders, localStorage preferences, and `.mixjam`
+  project state). Host detection only
   selects the optional `window.shellAPI` (present inside the Electron shell).
 - There is **no demo mode**: with no granted Sample Folder the home screen
   gates the tracker exactly as on desktop. Onboarding for users without
@@ -146,9 +144,9 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
 - [x] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
 - [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
-- [x] **AC-007:** "Load MixJam" is disabled with a "coming soon" tooltip until spec-011 ships.
-  Once project loading exists, clicking opens a file picker and selecting a file navigates to the Player
-  (with window resize in the Electron shell), cancelling stays on the Home Screen.
+- [x] **AC-007:** Once both folders are available, clicking "Load MixJam"
+  opens a filtered file picker and selecting a valid project navigates to the
+  Player (with window resize in the Electron shell); cancelling stays on Home.
 - [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
 - [x] **AC-010:** The Player content area provides structural regions for the
@@ -166,10 +164,9 @@ Implementation validation should be tracked in implementation PR/test evidence.
   Theming is spec-002.
 - No real audio playback, no transport controls, no BPM — all Player content
   is structural placeholder. Audio engine is spec-005.
-- No project file format, no actual file loading. Project save/load is spec-011.
+- Project file format and persistence behavior belong to spec-011.
 - No folder selection for sample libraries. Folder management is spec-003.
 - No sample data, no sample-bubble rendering, no lane interaction. Tracker timeline is spec-006.
 - No settings persistence — the settings link in the footer is a placeholder.
-- "Load MixJam" stays disabled until spec-011 provides real file loading.
 - No keyboard shortcuts.
 - No window resize constraints beyond the full-viewport rule.

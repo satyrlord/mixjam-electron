@@ -22,6 +22,7 @@
 - [Sample Folder](#sample-folder)
 - [Session](#session)
 - [Song](#song)
+- [Song Progress Bar](#song-progress-bar)
 - [Track](#track)
 - [Tracker](#tracker)
 - [Transport](#transport)
@@ -136,12 +137,12 @@ browse `.mixjam` files or define saved [libraries](#library).
 ## Sample bubble
 
 The visual snapshot of a sample or WAV file, regardless of context. Every
-sample bubble is 32px high. Its width projects the source duration through the
-Player's current timeline scale, with a 12px minimum and a two-second fallback
-when duration is unknown. The Tracker derives that shared pixels-per-second
-scale from its pixels-per-tick spacing and the current transport BPM, then the
-Sample Browser and every other view use the same value. A viewport or BPM
-change may resize all bubbles together, but the same sample remains perfectly
+sample bubble is 32px high. In a project, its width represents the sample's
+placement-owned musical duration in ticks at the Player's shared
+pixels-per-tick scale, with a 12px minimum. Project BPM changes never move or
+resize placed bubbles: they change how quickly the source audio is rendered
+inside that stable musical span. The Sample Browser reuses the same stored span
+for an already-placed sample, so the same sample remains perfectly
 identical everywhere in the UI. Placement duration and UI context never create
 a different geometry. Drag-image canvases may add transparent padding for
 shadows, pointer offset, or a group badge, but the sample-bubble rectangle
@@ -166,6 +167,18 @@ settings are [app state](#app-state), not session data.
 An exact synonym for [project](#project): the loaded or newly created document
 currently being edited in the Player. It is represented on disk by the
 `.mixjam` format.
+
+## Song Progress Bar
+
+The always-rendered, skinnable horizontal control below the [Tracker](#tracker)
+lanes. It shows and changes which part of the song timeline is visible without
+seeking the playhead or changing transport state. Its thumb represents the
+visible fraction and follows the Tracker's horizontal scroll position. The
+control remains visible but disabled when the entire song fits in the Tracker
+viewport.
+
+Use *Song Progress Bar*, not *horizontal scrollbar*, *timeline slider*, or
+*transport progress bar*, for this Player control.
 
 ## Track
 

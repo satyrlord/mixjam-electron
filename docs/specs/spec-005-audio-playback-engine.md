@@ -160,7 +160,10 @@ the engine never knows who is listening.
 - [x] **AC-001:** Calling `play()` on the transport transitions state to `playing` and advances the playhead each tick.
 - [x] **AC-002:** Calling `pause()` holds the current tick; calling `play()` again resumes from that tick.
 - [x] **AC-003:** Calling `stop()` resets the playhead to tick 0 and sets state to `stopped`.
-- [x] **AC-004:** Changing BPM from 120 to 140 changes the step duration from 62.5ms to ~53.6ms. Subsequent ticks fire at the new tempo.
+- [x] **AC-004:** Changing BPM from 120 to 140 changes the step duration from
+  62.5ms to ~53.6ms. Subsequent ticks fire at the new tempo without mutating
+  placement start ticks or musical durations; placement audio rendering follows
+  spec-009.
 - [x] **AC-005:** The scheduler fires `onSchedule(tick, when)` callbacks for ticks within the lookahead window. A unit test with a mock clock verifies this.
 - [x] **AC-006:** `triggerVoice()` creates an `AudioBufferSourceNode` connected to the channel's gain/pan chain → master gain → destination.
 - [x] **AC-007:** Calling `voice.stop()` before the buffer ends terminates the voice; a `voiceEnded` event fires.

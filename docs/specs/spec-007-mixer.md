@@ -176,7 +176,7 @@ channel's mute/solo.
 | Routing is 1:1 and channel count is capped at 16 | Add/reorder needs the routing UI in spec-017 |
 | dB meters render in CSS | Fill height and peak hold do not need a canvas |
 | Stereo width waits for spec-010 | The control needs DSP before it has a product effect |
-| Channel state uses localStorage | Mixer state survives a page refresh |
+| Channel state is project-owned | Project save/load restores the mix without leaking it into other sessions |
 | Lane and channel pan are independent | Two panners keep arrangement and mix controls distinct |
 | One rAF loop reads all meters | React receives one batched state update per frame |
 | Removed channels route their lanes through a master bypass | Removing a strip does not silence its lane |
@@ -240,7 +240,9 @@ interaction. Do NOT implement one without the other.
 - [x] **AC-009:** Activating Mixer shows its full-width panel; activating a
   peer tab hides it without unmounting Mixer state. No lower reveal seam is
   present.
-- [x] **AC-011:** Channel state (gain, pan, mute, solo) persists across page refreshes via localStorage.
+- [x] **AC-011:** Channel state (presence, gain, pan, mute, and solo) is saved
+  in the active `.mixjam` project by spec-011 and is not persisted as
+  app-level state.
 - [x] **AC-012:** The lane-head pan knob and mixer-strip pan knob control independent values (lane pan and channel pan respectively); both are applied in the audio chain.
 - [x] **AC-013:** Removing all channels leaves all 16 lanes routed to the master bypass bus; all lanes remain audible. The mixer column shows no channel strips.
 
