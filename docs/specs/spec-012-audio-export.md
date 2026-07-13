@@ -8,7 +8,7 @@
 
 Export the full arrangement as a stereo audio file: WAV (uncompressed) and MP3
 (compressed). The export renders all lanes through the mixer, including effects,
-at the project BPM with time-stretching applied.
+at the project BPM with spec-009 tempo-following resampling applied.
 
 ## User Stories
 
@@ -36,10 +36,10 @@ at the project BPM with time-stretching applied.
 
 - Uses an `OfflineAudioContext` to render the arrangement faster than
   real-time.
-- The entire arrangement (all lanes, mixer channels, effects, time-stretching)
+- The entire arrangement (all lanes, mixer channels, effects, tempo resampling)
   is rendered to a single stereo buffer.
 - Rendering respects: lane routing, channel gain/pan, mute/solo states, BPM,
-  time-stretch ratios, and all active effects.
+  playback-rate ratios, and all active effects.
 - The rendered buffer is then encoded to WAV or MP3.
 
 ### WAV Export
@@ -79,7 +79,8 @@ at the project BPM with time-stretching applied.
 - [ ] **AC-007:** Cancelling an export mid-way produces no output file.
 - [ ] **AC-008:** A 16-bit WAV export has valid 16-bit samples (no clipping above 0 dBFS unless intentional).
 - [ ] **AC-009:** The export duration equals the arrangement duration (last placement end minus first placement start) plus the silence tail.
-- [ ] **AC-010:** Export with time-stretching active produces stretched audio in the output (not native-rate).
+- [ ] **AC-010:** Export applies the same placement-owned playback rates as live
+  playback instead of exporting placed samples at native rate.
 
 ## Non-Goals
 

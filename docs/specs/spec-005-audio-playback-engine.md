@@ -193,8 +193,7 @@ the engine never knows who is listening.
 ## Non-Goals
 
 - Transport controls and the visual playhead are specified by spec-006.
-- Time-stretching is outside this spec's engine contract and is implemented by
-  spec-009.
+- Tempo-following resampling is specified by spec-009.
 - Per-channel effects are specified by spec-010.
 - No offline rendering for export. Export is spec-012.
 - No multi-channel audio output (only stereo master).

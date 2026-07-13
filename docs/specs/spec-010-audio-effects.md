@@ -71,8 +71,10 @@ can chain effects in order and adjust parameters per channel.
 - A described Add effect tile appends Delay, Reverb, or Compressor and becomes
   a `4 of 4 effects used` status at the slot cap.
 - The selected effect opens a spacious editor below the chain. Rotary controls
-  support vertical pointer drag, Shift fine adjustment, Arrow keys, Home/End,
-  direct numeric entry, unit-aware accessible values, and double-click reset.
+  support vertical pointer drag, mouse-wheel steps, Shift fine adjustment,
+  Arrow keys, Home/End, direct numeric entry, unit-aware accessible values,
+  and double-click reset. Wheel up increases and wheel down decreases by one
+  configured step; a handled wheel event does not scroll the surrounding page.
   Discrete delay timing uses its existing note-division selector when tempo
   sync is enabled.
 - Rotary faces are project-owned inline SVG, not an external component. Each
@@ -140,8 +142,8 @@ can chain effects in order and adjust parameters per channel.
   pointer and keyboard reordering, immediate bypass, an explained add flow,
   and an explicit four-slot status.
 - [x] **AC-010:** Every continuous parameter is editable with an accessible
-  rotary control, direct numeric input, keyboard steps, fine adjustment,
-  unit-aware output, and factory reset.
+  rotary control, mouse-wheel steps, direct numeric input, keyboard steps,
+  fine adjustment, unit-aware output, and factory reset.
 - [x] **AC-011:** Built-in starting points apply existing effect fields,
   preserve effect identity and bypass, and become Custom after an edit without
   changing the persisted mixer wire format.

@@ -11,9 +11,10 @@ must preserve every placement's start tick and musical duration while rendering
 its source audio faster or slower to fill that unchanged span. Consecutive
 sample bubbles remain consecutive visually and audibly at every supported BPM.
 
-The implementation uses pitch-preserving time stretching. Re-pitch-style
-resampling may be added later as a user-selectable mode, but it must obey the
-same placement timing contract.
+The implemented playback mode is real-time re-pitch resampling through Web
+Audio. It changes playback speed and pitch together, like a turntable. A future
+pitch-preserving algorithm may replace or complement this mode, but it must
+obey the same placement timing contract.
 
 ## Assumptions and Decision
 
@@ -36,9 +37,9 @@ same placement timing contract.
 - **US-002:** As a user, consecutive sample bubbles remain gapless after a BPM
   change instead of exposing silence caused by native-rate playback.
 - **US-003:** As a user, a sample without detected BPM still follows the
-  project once placed; missing analysis metadata must not disable stretching.
-- **US-004:** As a user, stretching preserves pitch well enough that drums stay
-  punchy and melodic loops stay in tune.
+  project once placed; missing analysis metadata must not disable resampling.
+- **US-004:** As a user, changing project BPM audibly changes placed sample
+  speed instead of padding the native-rate audio with silence.
 
 ## Timing Model
 
@@ -60,57 +61,53 @@ same placement timing contract.
 - A background analysis result may still fill captured `nativeBPM` provenance,
   but it must not silently rewrite an existing placement's musical span.
 
-### Stretch ratio
+### Playback ratio
 
 For a placement at the current project BPM:
 
 ```text
 targetDurationSeconds = durationTicks * 60 / (projectBPM * 8)
-speedRatio = sourceDurationSeconds / targetDurationSeconds
+playbackRate = sourceDurationSeconds / targetDurationSeconds
 ```
 
-- Ratio greater than 1 shortens the source; ratio less than 1 lengthens it.
-- Ratio 1 is a zero-work passthrough.
-- The scheduler triggers the rendered buffer at `startTick`. The next
+- A rate greater than 1 shortens and pitches up the source; a rate less than 1
+  lengthens and pitches it down.
+- Rate 1 plays the decoded source unchanged.
+- The scheduler triggers the source at `startTick`. The next
   consecutive placement may trigger at `startTick + durationTicks` without an
   intentional gap or overlap.
 - Example: a 140 BPM four-bar loop stored as 128 ticks targets 8.648649 seconds
   at 111 BPM. Its speed ratio is `111 / 140`, independent of whether analysis
   metadata is present.
 
-## Stretch Engine
+## Resampling Engine
 
-- Uses Bungee, a phase-vocoder time-stretching algorithm compiled to WASM and
-  embedded in an AudioWorklet.
-- `stretch(buffer: AudioBuffer, ratio: number): Promise<AudioBuffer>`.
-- Tracker playback requests output by source duration, placement
-  `durationTicks`, and current project BPM. It does not decide whether to
-  stretch from nullable native-BPM metadata.
-- Stretching is prepared when playback starts or project BPM changes, not on
-  every voice trigger. The transport exposes a non-reentrant `preparing` state
-  until all required buffers are ready.
-- Sample Browser preview has no placement span. It continues to use detected
-  sample BPM when available and otherwise previews at native rate.
+- Each Tracker voice uses the decoded source `AudioBuffer` directly and sets
+  `AudioBufferSourceNode.playbackRate` from source duration, placement
+  `durationTicks`, and current project BPM.
+- Nullable native-BPM metadata never decides whether a placed sample follows
+  project tempo. It is only an input when first establishing a placement span
+  and when previewing an unplaced sample.
+- Samples are decoded before the scheduler starts. There is no offline render,
+  generated tempo buffer, WASM processor, or ratio-dependent audio cache.
+- Sample Browser preview has no placement span. It derives playback rate from
+  detected sample BPM when available and otherwise previews at native rate.
 
-## Stretch Quality
+## Resampling Quality
 
-- The default mode preserves pitch.
-- Transient preservation is required for drums.
-- Noticeable artifacts on representative melodic material are a failure of the
-  subjective listening check even if duration tests pass.
+- Speed and pitch change together. This is intentional for the implemented
+  re-pitch mode and must be visible in product documentation.
+- Web Audio performs interpolation during rate conversion. MixJam does not
+  currently promise transient, formant, or pitch preservation.
 
 ## Caching and Failure
 
-- Rendered buffers are cached by `(sampleId, ratio)` with LRU eviction.
-- Concurrent requests for one key share a promise. Returning to a previous BPM
-  reuses its cached buffer until eviction.
-- The AudioWorklet/WASM asset is emitted by Vite for browser and Electron
-  production builds.
-- If the processor fails, the runtime logs one warning and falls back to the
-  decoded source buffer. Playback remains usable, but tempo-following accuracy
-  is degraded and the failure must not retry on every trigger.
+- The existing decoded-source LRU cache is shared by every playback rate; a BPM
+  edit does not allocate another audio buffer.
+- Invalid persisted placement timing falls back to native-rate playback for
+  that voice rather than preventing the remaining arrangement from playing.
 - Stop, pause, close, and transport-generation guards cover asynchronous
-  preparation so a late result cannot create a stray voice.
+  sample decoding so a late result cannot create a stray voice.
 
 ## Visual Contract
 
@@ -130,10 +127,10 @@ speedRatio = sourceDurationSeconds / targetDurationSeconds
   and `durationTicks`; Tracker bubbles do not move, resize, or create visual
   gaps.
 - [x] **AC-002:** A source whose placement spans 128 ticks targets 128 ticks at
-  every BPM. At 111 BPM its rendered duration is approximately 8.648649 seconds.
-- [x] **AC-003:** A placement with `nativeBPM: null` is stretched from its
+  every BPM. At 111 BPM its audible duration is approximately 8.648649 seconds.
+- [x] **AC-003:** A placement with `nativeBPM: null` is resampled from its
   source duration to its stored musical span. Null BPM does not bypass Tracker
-  time stretching.
+  tempo following.
 - [x] **AC-004:** Three consecutive copies placed at ticks 0, 128, and 256 have
   no audible boundary gap after changing project BPM from 140 to 111, within
   one output sample frame of scheduling/render rounding.
@@ -141,26 +138,28 @@ speedRatio = sourceDurationSeconds / targetDurationSeconds
   Tracker and Sample Browser, and that width is unchanged by a BPM edit.
 - [x] **AC-006:** Two placements of the same unanalysed sample reuse its first
   project-owned musical span even when the second is added at another BPM.
-- [x] **AC-007:** Pitch-preserving output keeps a 440Hz sine at 440Hz within the
-  verification tolerance after stretching.
-- [x] **AC-008:** Cached output is reused when returning to a previous ratio.
-- [x] **AC-009:** While cold preparation is pending, transport shows
-  `preparing`, elapsed time does not advance, and duplicate Play requests do not
-  start duplicate schedulers. Stop or Space cancels preparation.
-- [x] **AC-010:** Editing BPM while playing pauses at the current tick, prepares
-  placement-duration output, and resumes the scheduler, audible state, and
-  elapsed timer together.
-- [x] **AC-011:** Processor failure logs one warning and falls back without a
-  crash or repeated retries.
+- [x] **AC-007:** At 111 BPM, a 140 BPM loop voice has
+  `AudioBufferSourceNode.playbackRate` approximately `111 / 140`; its source
+  buffer remains at native duration while its audible duration fills 128 ticks.
+- [x] **AC-008:** Tempo following does not create an offline buffer whose
+  nominal duration is longer than its audible content.
+- [x] **AC-009:** While cold decoding is pending, transport shows `preparing`,
+  elapsed time does not advance, and duplicate Play requests do not start
+  duplicate schedulers. Stop or Space cancels preparation.
+- [x] **AC-010:** Editing BPM while playing restarts scheduling from the current
+  tick with voices using the new playback rate.
+- [x] **AC-011:** Invalid placement timing falls back to native-rate playback
+  without crashing or blocking other lanes.
 - [x] **AC-012:** Sample Browser preview follows detected sample BPM when
   present and remains native-rate when no preview timing reference exists.
 
 ## Verification Evidence
 
-- `time-stretch.test.ts` covers placement-duration ratio math, source-buffer
-  validation, passthrough, cache reuse, concurrent deduplication, LRU eviction,
-  and processor failure.
-- `playback-engine.test.ts` proves preparation and triggering use
+- `time-stretch.test.ts` covers preview and placement-duration playback-rate
+  math plus invalid source and placement durations.
+- `audio-engine.test.ts` proves Tracker and preview rates reach the actual
+  `AudioBufferSourceNode`.
+- `playback-engine.test.ts` proves decoding and triggering use
   `durationTicks` for both positive and null native-BPM placements.
 - `arrangement.test.ts`, `useTransportEngine.test.ts`, and
   `SampleTileGrid.test.tsx` cover BPM-invariant geometry, first-drop span
@@ -169,8 +168,12 @@ speedRatio = sourceDurationSeconds / targetDurationSeconds
   reproduction with the real `SPHERE001_TRNCE_140_A_SC4(R).wav` fixture: null
   BPM caused 1.791524 seconds of silence at each 111 BPM boundary, while the
   140 BPM control was continuous within one frame.
-- `tmp/verify-bpm-boundary-fix/` records the post-fix production Chromium
-  rendered-audio and canvas invariance checks.
+- `tests/e2e/time-stretch-content.spec.ts` proves the production browser uses
+  the native source buffer at a `111 / 140` playback rate and fills the expected
+  8.648649-second span.
+- `tmp/verify-bpm-boundary-fix/` records the post-fix production Chromium audio
+  node timing and canvas invariance checks. Both metadata cases have a measured
+  boundary error below one output sample frame.
 - Verification commands:
   - `npm run typecheck`
   - targeted `vitest` suites for stretching, playback, arrangement, transport,
@@ -184,8 +187,9 @@ speedRatio = sourceDurationSeconds / targetDurationSeconds
 - Continuous tempo automation and sample-accurate live ratio modulation are not
   implemented. BPM edits use an atomic prepare-and-resume transition.
 - No manual warp markers or per-placement BPM editor.
+- No pitch-preserving phase-vocoder or Elastique-style mode.
 - No formant-preservation mode for vocals.
-- No user-selectable re-pitch mode in this spec.
+- No user-selectable playback algorithm in this spec.
 - Automated pitch and duration checks do not replace subjective listening on a
   broader library.
 

@@ -114,8 +114,8 @@ CREATE TABLE stem_cache (
 - **Tracker:** "Separate and spread" is a context menu action on any clip placement.
   It separates the source sample (if not cached) and places four placements on
   lanes N, N+1, N+2, N+3 starting at the source placement's start tick.
-- **Time-stretching (spec-009):** stems inherit their parent's `nativeBPM`. The
-  stretch engine treats them identically to physical samples.
+- **Tempo following (spec-009):** stems inherit their parent's `nativeBPM` for
+  first-placement span estimation and are resampled like physical samples.
 - **Semantic search (spec-015):** stems get their own embeddings computed during
   a background pass after separation, so "find similar" works on individual
   stems.

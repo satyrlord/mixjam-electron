@@ -72,6 +72,9 @@ Each channel strip is 44px wide and a vertical stack:
     ArrowLeft/ArrowRight adjust pan by 0.05 (clamped to [-1, 1]);
     `aria-valuetext` announces the position ("Center", "40% left",
     "100% right").
+  - **Mouse wheel:** wheel up increases pan and wheel down decreases pan by
+    0.05. Hold Shift for fine adjustment. A handled wheel event does not
+    scroll the surrounding page.
 - **M button** — mute toggle, 16×16px. The active fill must meet 3:1 non-text
   contrast against the inactive pill, and a muted channel's strip dims as a
   whole.
@@ -222,6 +225,9 @@ The lane-head pan knob (`LaneRow.tsx`) and the mixer-strip pan knob
 - **Keyboard:** ArrowLeft/ArrowDown and ArrowRight/ArrowUp adjust by 0.05
   clamped; Home centers; End goes hard right (mixer only). Both knobs are
   focusable (`tabIndex={0}`, `role="slider"`).
+- **Mouse wheel:** wheel up increases and wheel down decreases by 0.05;
+  Shift uses the shared fine-adjustment step. Handled wheel events suppress
+  surrounding page scroll.
 
 When adding or modifying pan knob behavior, ensure both `LaneRow.tsx` and
 `ChannelStrip.tsx` stay in sync for the right-click cycle and keyboard
@@ -258,7 +264,9 @@ interaction. Do NOT implement one without the other.
 - [x] **AC-018:** Right-clicking ANY pan knob (lane-head or mixer-strip) never shows a context menu and steps the cycle: any position → C; C → 100% R; 100% R → 100% L; 100% L → C.
 - [x] **AC-019:** The remove button is visible when its strip is hovered AND when the button has keyboard focus (`:focus-visible`).
 - [x] **AC-020:** Channel labels are stable `channelIndex + 1` for both the visible label and every aria-label; after removing a middle channel the numbering shows a gap instead of renumbering.
-- [x] **AC-021:** The pan knob is reachable with Tab; ArrowLeft/ArrowRight change pan by 0.05 clamped to [-1, 1]; `aria-valuetext` reflects the position.
+- [x] **AC-021:** Both pan knobs are reachable with Tab; ArrowLeft/ArrowRight
+  and mouse-wheel movement change pan by 0.05 clamped to [-1, 1], Shift-wheel
+  provides fine adjustment, and `aria-valuetext` reflects the position.
 - [x] **AC-022:** The mute-active button fill measures at least 3:1 contrast against the inactive button in every bundled theme, and a muted channel's strip is visibly dimmed.
 - [x] **AC-023:** A channel fader shows its percentage value while dragging and renders a unity (100%) tick mark.
 - [x] **AC-024:** The master meter label reads "Output Level" and uses
