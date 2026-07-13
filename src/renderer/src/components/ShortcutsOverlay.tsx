@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { DialogClose, DialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
+import { useRef } from 'react'
 
 interface ShortcutEntry {
   keys: string
@@ -54,33 +55,27 @@ interface ShortcutsOverlayProps {
  *  in the middle strip or the "?" key; closed by Esc, the close button, or a
  *  click on the backdrop. */
 export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
+  const returnFocusRef = useRef<HTMLElement | null>(
+    document.activeElement instanceof HTMLElement ? document.activeElement : null
+  )
   return (
-    <div className="shortcuts-overlay" onClick={onClose}>
-      <div
+    <DialogRoot open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent
         className="shortcuts-panel"
-        role="dialog"
-        aria-modal="true"
         aria-label="Keyboard shortcuts"
-        onClick={(e) => e.stopPropagation()}
+        aria-modal="true"
+        aria-describedby={undefined}
+        onOverlayClick={onClose}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          returnFocusRef.current?.focus()
+        }}
       >
         <div className="shortcuts-head">
-          <h2 className="shortcuts-title">Keyboard Shortcuts</h2>
-          <button
-            type="button"
-            className="shortcuts-close"
-            aria-label="Close shortcuts"
-            onClick={onClose}
-          >
-            ×
-          </button>
+          <DialogTitle asChild><h2 className="shortcuts-title">Keyboard Shortcuts</h2></DialogTitle>
+          <DialogClose asChild>
+            <button type="button" className="shortcuts-close" aria-label="Close shortcuts">×</button>
+          </DialogClose>
         </div>
         <div className="shortcuts-sections">
           {SHORTCUT_SECTIONS.map((section) => (
@@ -97,7 +92,7 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
             </section>
           ))}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </DialogRoot>
   )
 }

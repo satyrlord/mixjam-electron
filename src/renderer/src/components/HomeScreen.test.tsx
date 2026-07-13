@@ -84,11 +84,11 @@ describe('HomeScreen', () => {
 
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
     expect(loadButton).toBeDisabled()
-    expect(loadButton).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
+    expect(loadButton).not.toHaveAttribute('title')
 
     const recentEntry = screen.getByText('club-night').closest('button')!
     expect(recentEntry).toBeDisabled()
-    expect(recentEntry).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
+    expect(recentEntry).not.toHaveAttribute('title')
   })
 
   it('shows only up to 4 recent projects', () => {

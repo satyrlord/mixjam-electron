@@ -83,6 +83,7 @@ function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowser
 function renderBrowser(overrides: Partial<PlayerBrowserProps> = {}) {
   return render(
     <SampleBrowser
+      active
       browser={makeBrowser(overrides)}
       flashSamplePath={null}
       onSampleDragStart={vi.fn()}
@@ -143,18 +144,12 @@ describe('SampleBrowser', () => {
     expect(screen.queryByRole('tab', { name: /tags/i })).not.toBeInTheDocument()
   })
 
-  it('clamps category-tree resize while dragging', () => {
-    const { container } = renderBrowser()
-    const cats = container.querySelector('.cats') as HTMLElement
+  it('exposes an accessible category-tree resize separator', () => {
+    renderBrowser()
     const separator = screen.getByRole('separator', { name: /resize category tree/i })
 
-    expect(cats.style.width).toBe('152px')
-    fireEvent.mouseDown(separator, { clientX: 100 })
-    fireEvent.mouseMove(window, { clientX: -100 })
-    expect(cats.style.width).toBe('80px')
-    fireEvent.mouseMove(window, { clientX: 1000 })
-    expect(cats.style.width).toBe('400px')
-    fireEvent.mouseUp(window)
+    expect(separator).toHaveAttribute('tabindex', '0')
+    expect(separator).toHaveAttribute('aria-valuenow')
   })
 
   it('assigns and unassigns tags from the sample context menu', async () => {
@@ -163,21 +158,21 @@ describe('SampleBrowser', () => {
     const { container } = renderBrowser({ onAssignTagToSample, onUnassignTagFromSample })
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Untag: Punchy' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Punchy' }))
     await waitFor(() => expect(onUnassignTagFromSample).toHaveBeenCalledWith(SAMPLE, 10))
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 25, clientY: 35 })
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Tag: Dry' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Dry' }))
     await waitFor(() => expect(onAssignTagToSample).toHaveBeenCalledWith(SAMPLE, 11))
   })
 
-  it('shows an empty context-menu note and dismisses it on outside click', () => {
+  it('shows an empty context-menu note and dismisses it on Escape', () => {
     const { container } = renderBrowser({ tags: [] })
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     expect(screen.getByText(/no tags yet/i)).toBeInTheDocument()
 
-    fireEvent.click(window)
+    fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByText(/no tags yet/i)).not.toBeInTheDocument()
   })
 
@@ -188,7 +183,7 @@ describe('SampleBrowser', () => {
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
-    expect(screen.getByRole('dialog', { name: /analysis for kick.wav/i })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /analysis for kick.wav/i })).toBeInTheDocument()
     expect(screen.getByLabelText('Sample BPM')).toHaveValue(120)
 
     fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '' } })
@@ -197,6 +192,7 @@ describe('SampleBrowser', () => {
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    await screen.findByRole('dialog', { name: /analysis for kick.wav/i })
     fireEvent.click(screen.getByRole('button', { name: /analyze blank fields/i }))
     await waitFor(() => expect(onReanalyzeSample).toHaveBeenCalledWith(SAMPLE))
   })
@@ -207,6 +203,7 @@ describe('SampleBrowser', () => {
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    await screen.findByRole('dialog', { name: /analysis for kick.wav/i })
 
     fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '140' } })
     fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
@@ -219,6 +216,7 @@ describe('SampleBrowser', () => {
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    await screen.findByRole('dialog', { name: /analysis for kick.wav/i })
 
     fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '140' } })
     fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
@@ -231,18 +229,20 @@ describe('SampleBrowser', () => {
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    await screen.findByRole('dialog', { name: /analysis for kick.wav/i })
 
     fireEvent.change(screen.getByLabelText('Sample musical key'), { target: { value: 'Am' } })
     fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
     await waitFor(() => expect(onUpdateSampleAnalysis).toHaveBeenCalledWith(SAMPLE, { musicalKey: 'Am' }))
   })
 
-  it('preserves analysis provenance when BPM text is numerically unchanged', () => {
+  it('preserves analysis provenance when BPM text is numerically unchanged', async () => {
     const onUpdateSampleAnalysis = vi.fn(asyncNoop)
     const { container } = renderBrowser({ onUpdateSampleAnalysis })
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    await screen.findByRole('dialog', { name: /analysis for kick.wav/i })
     fireEvent.change(screen.getByLabelText('Sample BPM'), { target: { value: '120.0' } })
     fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))
 
@@ -256,6 +256,7 @@ describe('SampleBrowser', () => {
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
     fireEvent.click(screen.getByRole('menuitem', { name: /edit bpm, key, and type/i }))
+    await screen.findByRole('dialog', { name: /analysis for kick.wav/i })
 
     fireEvent.change(screen.getByLabelText('Sample type'), { target: { value: 'Snare' } })
     fireEvent.click(screen.getByRole('button', { name: /save overrides/i }))

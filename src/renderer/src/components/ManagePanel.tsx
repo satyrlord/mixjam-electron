@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/backend-api'
 import { ROOT_CATEGORY_NAMES } from '../lib/sample-utils'
+import { TabsContent, TabsList, TabsRoot, TabsTrigger } from './ui/Tabs'
+import { Tooltip } from './ui/Tooltip'
 
 type ManageTab = 'tags' | 'libraries' | 'categories'
 
@@ -81,23 +83,21 @@ export default function ManagePanel({
 
   return (
     <div className="manage-panel" style={{ left: leftOffset }}>
-      <div className="manage-tabs" role="tablist">
+      <TabsRoot value={tab} onValueChange={(value) => setTab(value as ManageTab)} activationMode="automatic">
+      <TabsList className="manage-tabs" aria-label="Manage sample metadata">
         {(['tags', 'libraries', 'categories'] as const).map((t) => (
-          <button
+          <TabsTrigger
             key={t}
-            role="tab"
-            type="button"
-            aria-selected={tab === t}
+            value={t}
             className={`manage-tab${tab === t ? ' manage-tab-active' : ''}`}
             onClick={() => setTab(t)}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
+          </TabsTrigger>
         ))}
-      </div>
+      </TabsList>
 
-      {tab === 'tags' && (
-        <div className="manage-content">
+      <TabsContent value="tags" className="manage-content">
           <ul className="manage-list">
             {tags.map((tag) => (
               <li key={tag.id} className="manage-list-item">
@@ -164,21 +164,18 @@ export default function ManagePanel({
               disabled={!newTagName.trim()}
             >Create Tag</button>
           </div>
-        </div>
-      )}
+      </TabsContent>
 
-      {tab === 'libraries' && (
-        <div className="manage-content">
+      <TabsContent value="libraries" className="manage-content">
           <ul className="manage-list">
             {libraries.map((lib) => (
               <li key={lib.id} className="manage-list-item">
-                <button
+                <Tooltip content={`Open ${lib.name} — restores its saved filters`}><button
                   type="button"
                   className="manage-name manage-name-open"
-                  title={`Open ${lib.name} — restores its saved filters`}
                   aria-label={`Open library ${lib.name}`}
                   onClick={() => onApplyLibrary(lib)}
-                >{lib.name}</button>
+                >{lib.name}</button></Tooltip>
                 <button
                   type="button"
                   className="manage-action manage-action-delete"
@@ -208,11 +205,9 @@ export default function ManagePanel({
               disabled={!newLibraryName.trim()}
             >Save current filters</button>
           </div>
-        </div>
-      )}
+      </TabsContent>
 
-      {tab === 'categories' && (
-        <div className="manage-content">
+      <TabsContent value="categories" className="manage-content">
           <ul className="manage-list">
             {rootCategories.filter((c) => !isRootHardcoded(c.name)).map((cat) => (
               <li key={cat.id} className="manage-list-item">
@@ -255,8 +250,8 @@ export default function ManagePanel({
               disabled={!newCategoryName.trim()}
             >+</button>
           </div>
-        </div>
-      )}
+      </TabsContent>
+      </TabsRoot>
     </div>
   )
 }

@@ -32,8 +32,8 @@ function Harness({ initial = [] }: { initial?: EffectSlot[] }) {
 describe('EffectsWorkspace', () => {
   it('adds a described effect and opens its factory preset', () => {
     render(<Harness />)
-    fireEvent.click(screen.getByText('Add effect'))
-    fireEvent.click(screen.getByRole('button', { name: /Delay/ }))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Add effect' }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: /Delay/ }))
     expect(screen.getByRole('heading', { name: 'Delay' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Starting point' })).toHaveValue('Classic Echo')
   })
@@ -50,7 +50,7 @@ describe('EffectsWorkspace', () => {
     render(<Harness initial={[createDefaultEffect('compressor')]} />)
     fireEvent.click(screen.getByRole('button', { name: 'Bypass Compressor' }))
     expect(screen.getByRole('button', { name: 'Enable Compressor' })).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Actions'))
+    fireEvent.keyDown(screen.getByText('Actions'), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove effect' }))
     expect(screen.getByRole('status')).toHaveTextContent('Compressor removed')
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
@@ -106,16 +106,14 @@ describe('EffectsWorkspace', () => {
     // Open the order actions menu on the second effect card via its "..." text
     const ellipsisButtons = screen.getAllByText('...')
     expect(ellipsisButtons.length).toBe(2)
-    fireEvent.click(ellipsisButtons[1]!)
+    fireEvent.keyDown(ellipsisButtons[1]!, { key: 'Enter' })
     const moveLefts = screen.getAllByRole('menuitem', { name: 'Move left' })
     fireEvent.click(moveLefts[moveLefts.length - 1]!)
   })
 
   it('resets selected effect to factory defaults', () => {
     render(<Harness initial={[createDefaultEffect('delay')]} />)
-    // The Actions summary is a <summary> inside <details className="effect-actions">
-    // Its aria-label is "Delay actions"
-    fireEvent.click(screen.getByText('Actions'))
+    fireEvent.keyDown(screen.getByText('Actions'), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Reset to factory settings' }))
   })
 
@@ -130,7 +128,7 @@ describe('EffectsWorkspace', () => {
   it('undo toast disappears after timeout', async () => {
     vi.useFakeTimers()
     render(<Harness initial={[createDefaultEffect('compressor')]} />)
-    fireEvent.click(screen.getByText('Actions'))
+    fireEvent.keyDown(screen.getByText('Actions'), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove effect' }))
     expect(screen.getByRole('status')).toHaveTextContent('Compressor removed')
     vi.advanceTimersByTime(6000)
@@ -144,7 +142,7 @@ describe('EffectsWorkspace', () => {
     const compressor = createDefaultEffect('compressor')
     const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [compressor] }
     render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={compressor.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={onRestore} onMove={vi.fn()} />)
-    fireEvent.click(screen.getByText('Actions'))
+    fireEvent.keyDown(screen.getByText('Actions'), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove effect' }))
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(screen.getByText(/Could not restore/)).toBeInTheDocument()
@@ -294,7 +292,7 @@ describe('EffectsWorkspace', () => {
     const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: fx }
     render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={fx[0]!.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={onSelectEffect} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={onRemove} onRestore={vi.fn()} onMove={vi.fn()} />)
 
-    fireEvent.click(screen.getByText('Actions'))
+    fireEvent.keyDown(screen.getByText('Actions'), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove effect' }))
     expect(onRemove).toHaveBeenCalledWith(0, fx[0]!.id)
     expect(onSelectEffect).toHaveBeenCalledWith(fx[1]!.id)

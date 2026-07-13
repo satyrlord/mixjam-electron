@@ -2,6 +2,7 @@ import type { AnalysisProgress, ScanProgress } from '../../../shared/backend-api
 import ScanProgressBar from './ScanProgressBar'
 import AnalysisProgressBar from './AnalysisProgressBar'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
+import { Tooltip } from './ui/Tooltip'
 
 // Transport and edit glyphs as inline SVGs: emoji codepoints render through a
 // color emoji font on Windows and ignore the theme's currentColor.
@@ -77,43 +78,40 @@ export default function MiddleStrip({
         <span className="strip-proj">Untitled</span>
       </div>
       <div className="transport-ribbon" aria-label="Transport Ribbon">
-        <button type="button" className="transport-button" aria-label="Skip Back" title="Skip back to start" onClick={onTransportSkipBack}>
+        <Tooltip content="Skip back to start"><button type="button" className="transport-button" aria-label="Skip Back" onClick={onTransportSkipBack}>
           <TransportIcon shape="skip-back" />
-        </button>
-        <button
+        </button></Tooltip>
+        <Tooltip content={isPreparing ? 'Preparing audio; Stop cancels' : isPlaying ? 'Pause (Space)' : 'Play (Space)'}><span className="mixjam-tooltip-anchor"><button
           type="button"
           className={`transport-button${isPlaying || isPreparing ? ' transport-button-play' : ''}`}
           aria-label={isPreparing ? 'Preparing playback' : isPlaying ? 'Pause' : 'Play'}
-          title={isPreparing ? 'Preparing audio; Stop cancels' : isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           onClick={isPlaying ? onTransportPause : onTransportPlay}
           disabled={isPreparing}
         >
           <TransportIcon shape={isPlaying ? 'pause' : 'play'} />
-        </button>
-        <button type="button" className="transport-button" aria-label="Stop" title="Stop" onClick={onTransportStop}>
+        </button></span></Tooltip>
+        <Tooltip content="Stop"><button type="button" className="transport-button" aria-label="Stop" onClick={onTransportStop}>
           <TransportIcon shape="stop" />
-        </button>
+        </button></Tooltip>
         <span className="strip-sep" />
-        <button
+        <Tooltip content="Undo (Ctrl+Z)"><span className="mixjam-tooltip-anchor"><button
           type="button"
           className="transport-button"
           aria-label="Undo"
-          title="Undo (Ctrl+Z)"
           disabled={!canUndo}
           onClick={onUndo}
         >
           <TransportIcon shape="undo" />
-        </button>
-        <button
+        </button></span></Tooltip>
+        <Tooltip content="Redo (Ctrl+Y)"><span className="mixjam-tooltip-anchor"><button
           type="button"
           className="transport-button"
           aria-label="Redo"
-          title="Redo (Ctrl+Y)"
           disabled={!canRedo}
           onClick={onRedo}
         >
           <TransportIcon shape="undo" mirrored />
-        </button>
+        </button></span></Tooltip>
       </div>
       <div className="strip-right">
         <ScanProgressBar progress={scanProgress} />
@@ -126,36 +124,33 @@ export default function MiddleStrip({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.currentTarget.value)}
         />
-        <button
+        <Tooltip content="Re-scan the Sample Folder into the library"><span className="mixjam-tooltip-anchor"><button
           type="button"
           className="strip-rescan"
           onClick={() => void onStartScan()}
           disabled={libraryBusy}
           aria-label={scanBusy ? 'Scanning...' : analysisBusy ? 'Analyzing samples...' : 'Re-scan'}
-          title="Re-scan the Sample Folder into the library"
         >
           {scanBusy ? 'Scanning...' : analysisBusy ? 'Analyzing...' : 'Re-scan'}
-        </button>
+        </button></span></Tooltip>
         {scanBusy && (
-          <button
+          <Tooltip content="Cancel the current re-scan"><button
             type="button"
             className="strip-cancel-scan"
             onClick={() => void onCancelScan()}
             aria-label="Cancel scan"
-            title="Cancel the current re-scan"
           >
             Cancel
-          </button>
+          </button></Tooltip>
         )}
-        <button
+        <Tooltip content="Keyboard shortcuts (?)"><button
           type="button"
           className="strip-help"
           aria-label="Keyboard shortcuts"
-          title="Keyboard shortcuts (?)"
           onClick={onOpenShortcuts}
         >
           ?
-        </button>
+        </button></Tooltip>
       </div>
     </section>
   )

@@ -133,8 +133,7 @@ describe('useAppState', () => {
       result.current.setSelectedSampleDetail({
         name: 'kick_808.wav',
         relpath: 'Drums/Kicks/kick_808.wav',
-        tags: ['Drums', 'Kick'],
-        duration: null
+        tags: ['Drums', 'Kick'], bpm: null, duration: null
       })
     })
 
@@ -162,7 +161,7 @@ describe('useAppState', () => {
 
     act(() => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick_808.wav', relpath: 'Drums/Kicks/kick_808.wav', tags: [], duration: null },
+        { name: 'kick_808.wav', relpath: 'Drums/Kicks/kick_808.wav', tags: [], bpm: null, duration: null },
         0,
         0
       )
@@ -235,8 +234,7 @@ describe('useAppState', () => {
       result.current.setSelectedSampleDetail({
         name: 'kick_808.wav',
         relpath: visiblePath,
-        tags: ['Drums', 'Kick'],
-        duration: null
+        tags: ['Drums', 'Kick'], bpm: null, duration: null
       })
     })
 
@@ -506,7 +504,7 @@ describe('useAppState', () => {
 
     await act(async () => { await result.current.goToPlayer() })
 
-    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], bpm: null, duration: null }, 0, 0) })
     const cid = result.current.lanes[0].placements[0].id
 
     act(() => { result.current.movePlacement(cid, 2, 64) })
@@ -522,7 +520,7 @@ describe('useAppState', () => {
 
     await act(async () => { await result.current.goToPlayer() })
 
-    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], duration: null }, 0, 0) })
+    act(() => { result.current.placeSampleDetailOnLane({ name: 'k.wav', relpath: '/s/k.wav', tags: [], bpm: null, duration: null }, 0, 0) })
     const cid = result.current.lanes[0].placements[0].id
 
     act(() => { result.current.removePlacementFromLane(0, cid) })

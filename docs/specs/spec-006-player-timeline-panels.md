@@ -41,6 +41,8 @@ browser adjacencies.
   Back, Play/Pause, Stop) to control playback.
 - **US-009:** As a user, I can drag the browser's internal vertical resize
   handle to adjust the split between the category tree and the sample list.
+- **US-010:** As a user, I can resize the upper work area against the Bottom
+  Workspace so the tracker or the active lower workflow gets the space I need.
 
 ## Scope
 
@@ -95,7 +97,8 @@ browser adjacencies.
   `aria-labelledby`.
 - All four panels remain mounted while inactive and are hidden from layout and
   the accessibility tree. Tab changes therefore preserve Sample scroll/filter
-  state, Mixer state, FX selection, and unfinished control interactions.
+  state, Mixer state, FX selection, and unfinished control interactions. The
+  inactive Samples panel mounts no virtual rows and cannot request result pages.
 - Mixer meters and FX compressor reduction share visual-only telemetry. Its
   animation-frame loop runs only while Mixer or FX is active; Song and Samples
   pause that loop without changing audio state or unmounting any panel.
@@ -119,8 +122,14 @@ browser adjacencies.
 - The BPM numeric field uses a compact 42-by-28px visible input inside its
   44px-high label target; it must not compete visually with the fader.
 - Master Volume uses the same vertical fader grammar as channel gain, including
-  value placement and unity indication. Output Level uses the same vertical
-  meter grammar and color zones as channel meters.
+  value placement and unity indication. Output Level keeps the shared themed
+  meter chrome and color tokens, but its live fill is Momentary LUFS rather than
+  channel RMS dBFS.
+- Output Level shows compact M, S, I, and TP values with explicit LUFS and dBTP
+  units. When the standards-based processor is unavailable it identifies the
+  fallback value as dBFS. A keyboard-reachable `Reset loudness measurement`
+  button starts a new Integrated/LRA session without stopping Momentary or
+  Short-term updates.
 - Vertical sliders expose `aria-orientation="vertical"`, unit-aware value text,
   Arrow Up/Right to increase, Arrow Down/Left to decrease, and Home/End for
   minimum/maximum. Their pointer target is at least 44 CSS pixels wide and the
@@ -218,8 +227,9 @@ browser adjacencies.
 - Right segment: search, Re-scan, and a "?" help button that opens the
   keyboard-shortcuts overlay.
 - Transport buttons call the engine via the bridge layer (spec-005).
-- Transport, BPM, mute/solo, and pan controls carry `title` tooltips including
-  their shortcut hints where one exists.
+- Transport, BPM, mute/solo, and pan controls use the shared accessible tooltip
+  primitive, including shortcut hints where one exists. Native `title`
+  attributes are not used as the tooltip system.
 
 ### Undo/Redo
 
@@ -238,6 +248,8 @@ browser adjacencies.
 - The "?" Middle Strip button and the "?" key open a modal overlay listing all
   keyboard and mouse shortcuts (transport, placement editing, browser).
 - Esc, the close button, or a backdrop click dismisses it.
+- The overlay uses modal dialog semantics, traps focus while open, and restores
+  focus to the opener when dismissed.
 - Global shortcuts (Space, Delete, Ctrl+Z/Y, ?) are suppressed while a text
   input, textarea, select, or contenteditable element has focus.
 
@@ -287,7 +299,8 @@ browser adjacencies.
 - Controls:
   - **BPM slider** — project tempo control, from 50 BPM to 200 BPM.
   - **Master Volume slider** — global output level control for the full mix.
-  - **dB loudness meter** — master-output loudness display for the current mix.
+  - **LUFS loudness meter** — Momentary fill with M/S/I LUFS and true-peak dBTP
+    readouts for the master output, plus an explicitly labeled RMS dBFS fallback.
 - Changing the BPM slider updates the engine's transport BPM immediately.
 - Owns song-level controls only. Mixer visibility is controlled by the Bottom
   Workspace tabs, not by resizing Song.
@@ -308,6 +321,18 @@ browser adjacencies.
 - Same smooth-drag pattern.
 - Splits the category tree from the sample list within the browser region.
 
+**Bottom Workspace horizontal handle** (`.bottom-workspace-resize`):
+
+- Sits below the fixed-height Middle Strip and changes the height allocation
+  between the upper work area and the full-width Bottom Workspace.
+- Supports pointer, touch, and keyboard resizing, exposes separator value/min/max
+  semantics, and persists the resulting layout as
+  `mixjam:bottom-workspace-layout`.
+
+All three split handles use the shared resizable-panel primitive rather than
+window-level mouse listeners. Their focus indicator and hit target remain
+visible across themes and viewport sizes.
+
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** The active Player renders the MixJam Browser and Tracker in
@@ -327,7 +352,8 @@ browser adjacencies.
   ordered peer tabs; the lower reveal seam no longer exists.
 - [x] **AC-004a:** With no valid persisted selection, Song is active. A valid
   last tab is restored after remount, and each mounted panel preserves its
-  internal state while inactive.
+  internal state while inactive. The hidden Samples panel keeps its virtual DOM
+  empty and does not advance windowed paging until it is visible and measured.
 - [x] **AC-004b:** The tabs implement automatic activation, wrapping
   Left/Right Arrow navigation, Home/End, roving tabindex, and correctly linked
   tab/tab-panel ARIA attributes.
@@ -335,8 +361,10 @@ browser adjacencies.
   Song, and remains usable at narrow widths without targets below 44 by 44 CSS
   pixels.
 - [x] **AC-004d:** The Song panel shows vertical BPM and Master Volume sliders
-  beside a vertical Output Level meter. BPM accepts 50 to 200, initializes to
-  120 for a new project, and supports precise numeric entry.
+  beside a vertical Output Level meter whose live fill is Momentary LUFS. It
+  exposes M/S/I in LUFS, TP in dBTP, an explicit RMS dBFS fallback, and a
+  keyboard-reachable Reset action. BPM accepts 50 to 200, initializes to 120
+  for a new project, and supports precise numeric entry.
 - [x] **AC-004e:** Mixer/FX visual telemetry runs only while Mixer or FX is the
   active Bottom Workspace tab. Song, Samples, and leaving Player cancel its
   animation-frame loop without changing audio state.
@@ -363,6 +391,9 @@ browser adjacencies.
 - [x] **AC-015a:** The Song panel's slider and numeric field are two editing
   surfaces for one BPM value and always reflect the transport's current BPM.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
+- [x] **AC-016a:** Dragging the Bottom Workspace separator changes its rendered
+  height at wide and narrow resolutions. Pointer, touch, and keyboard input all
+  work, separator ARIA reports the current value, and the layout persists.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
 - [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position; the original remains unchanged.
 - [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; placements whose bounds intersect the rectangle are selected (highlighted with a white border).
@@ -370,8 +401,11 @@ browser adjacencies.
 - [x] **AC-021:** Dragging a sample bubble that is part of a multi-selection moves the entire placement group, maintaining relative offsets. Shift-dragging the group duplicates all members.
 - [x] **AC-022:** Ctrl+Z undoes the last placement edit (place, move, duplicate, delete, group operations); Ctrl+Y or Ctrl+Shift+Z redoes it.
   The Middle Strip Undo/Redo buttons mirror the shortcuts and disable when their history stack is empty. A multi-placement delete undoes as a single step.
-- [x] **AC-023:** The "?" Middle Strip button and the "?" key open a keyboard-shortcuts overlay; Esc, the close button, or a backdrop click dismisses it.
-  Transport, BPM, mute/solo, and pan controls have tooltip hints.
+- [x] **AC-023:** The "?" Middle Strip button and the "?" key open a modal
+  keyboard-shortcuts dialog; Esc, the close button, or a backdrop click
+  dismisses it, background interaction is blocked, and focus returns to the
+  opener. Transport, BPM, mute/solo, and pan controls have accessible tooltip
+  hints without native `title` attributes.
 - [x] **AC-024:** Clicking a MixJam Browser entry records it as most-recently opened, re-sorts the browser, and shows its name in the
   Middle Strip. Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
   Full project deserialization (restoring lanes/placements from the `.mixjam` file) remains deferred to spec-011.
@@ -401,12 +435,15 @@ browser adjacencies.
   Chromium matrix across all 16 themes, 1280px and 480px viewports, and all
   four tabs, plus tab persistence, roving keyboard navigation, FX channel
   selection, Sample Browser state retention, and rendered geometry.
+- `tmp/verify-ui-primitives/evidence.md` records production Chromium checks for
+  pointer and keyboard resizing, menus, popovers, tabs, tooltips, dialog focus,
+  touch rotary input, and timeline keyboard stepping.
 
 ## Non-Goals (deferred to later specs)
 
 - No bulk project management actions (pinning, removing entries, or custom grouping) inside the MixJam Browser.
-- No user-resizable split between the upper and lower work bands; the full-width
-  Middle Strip is a fixed seam, not a drag handle.
+- The Middle Strip itself remains fixed-height; resizing is owned by the
+  dedicated separator immediately below it, not by dragging the strip.
 - No placement-duration resize after placement.
 - No lane reordering (drag lane up/down).
 - No lane add/remove UI; the current arrangement and supported engine surface

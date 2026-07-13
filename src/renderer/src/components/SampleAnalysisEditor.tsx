@@ -4,11 +4,10 @@ import {
   type SampleAnalysisPatch,
   type SampleListItem
 } from '../../../shared/backend-api'
+import { Tooltip } from './ui/Tooltip'
 
 interface SampleAnalysisEditorProps {
   sample: SampleListItem
-  x: number
-  y: number
   onClose: () => void
   onUpdate: (sample: SampleListItem, patch: SampleAnalysisPatch) => Promise<void>
   onReanalyze: (sample: SampleListItem) => Promise<void>
@@ -16,8 +15,6 @@ interface SampleAnalysisEditorProps {
 
 export default function SampleAnalysisEditor({
   sample,
-  x,
-  y,
   onClose,
   onUpdate,
   onReanalyze
@@ -62,10 +59,6 @@ export default function SampleAnalysisEditor({
   return (
     <div
       className="analysis-editor"
-      role="dialog"
-      aria-label={`Analysis for ${sample.name}`}
-      style={{ left: x, top: y }}
-      onClick={(event) => event.stopPropagation()}
     >
       <strong>{sample.name}</strong>
       <label>
@@ -103,14 +96,13 @@ export default function SampleAnalysisEditor({
       {error && <span className="analysis-editor-error">{error}</span>}
       <div className="analysis-editor-actions">
         <button type="button" disabled={busy} onClick={save}>Save overrides</button>
-        <button
+        <Tooltip content="Analyze fields that are currently blank"><button
           type="button"
           disabled={busy}
-          title="Analyze fields that are currently blank"
           onClick={() => void run(() => onReanalyze(sample), true)}
         >
           Analyze blank fields
-        </button>
+        </button></Tooltip>
         <button type="button" disabled={busy} onClick={onClose}>Cancel</button>
       </div>
     </div>

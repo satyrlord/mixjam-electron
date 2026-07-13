@@ -65,8 +65,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 ### Audio Engine
 
 - Owns the single `AudioContext` and the master `GainNode`.
-- Owns a master metering tap (`AnalyserNode` or equivalent) after the master
-  gain stage so UI can render overall loudness.
+- Keeps the audible `masterGain -> analyser -> destination` route and adds an
+  optional post-master-gain `AudioWorkletNode` branch for standards-based
+  programme loudness. Optional metering never sits in the audible route.
 - Provides a factory for mixer channels (`createChannel(index?)`). The channel
   registry is keyed by the caller's channel index — lane N always resolves to
   channel N even when channels are created lazily out of order — so
@@ -77,8 +78,16 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   the master bus, and returns a `Voice` handle.
 - Provides `setMasterGain(value)` — 0 to 1 range, applied after all channel
   routing.
-- Provides a read-only master meter stream or polling surface that reports
-  current output loudness in dB for UI metering.
+- Provides a project-owned read-only master snapshot with RMS dBFS fallback,
+  Momentary/Short-term/Integrated LUFS, maximum true peak in dBTP, and
+  Loudness Range in LU. Package-specific message types do not cross the engine
+  boundary.
+- Initializes the self-hosted `loudness-worklet` 1.6.9 asset from `resume()` at
+  most once. Registration failure warns once, does not block playback, and
+  keeps the analyser fallback active.
+- Preserves Integrated/LRA history across pause/resume and freezes it on Stop.
+  Starting at tick zero after Stop, loading another project, explicit Reset,
+  or discontinuous seek/skip begins a new integration session.
 - Maintains an active voice registry — tracks which voices are currently
   playing.
 - `stopAllVoices()` — immediately stops all active voices.
@@ -158,7 +167,21 @@ the engine never knows who is listening.
 - [x] **AC-008:** `stopAllVoices()` immediately stops all active voices. Active voice count drops to 0.
 - [x] **AC-009:** `createChannel()` returns a channel with independent gain and pan. Setting gain on channel A does not affect channel B.
 - [x] **AC-009a:** Calling `setMasterGain()` changes the master output level without muting or altering individual channel settings.
-- [x] **AC-009b:** The engine exposes a master loudness value in dB that can drive the Song Controls meter during playback.
+- [x] **AC-009b:** The engine exposes one normalized master snapshot containing
+  RMS dBFS fallback and nullable Momentary, Short-term, Integrated LUFS,
+  maximum true peak dBTP, and Loudness Range LU values.
+- [x] **AC-009c:** The audible master route remains
+  `masterGain -> analyser -> destination`; the loudness worklet is a parallel,
+  measurement-only branch whose failure cannot mute or alter output.
+- [x] **AC-009d:** Worklet initialization is memoized, uses the self-hosted
+  checksummed 1.6.9 asset under the production CSP, reports every 100 ms, and
+  logs at most one warning before retaining RMS fallback.
+- [x] **AC-009e:** Pause/resume preserves integration; Stop freezes it; start
+  from tick zero after Stop, project replacement, Reset, and discontinuous
+  seek/skip reset Integrated LUFS and LRA history.
+- [x] **AC-009f:** The 100 ms UI meter poll commits state only when at least one
+  normalized snapshot field changes; unchanged stopped-state snapshots do not
+  rerender the Player.
 - [x] **AC-010:** Decoding the same sample twice returns the cached `AudioBuffer` — no duplicate decode.
 - [x] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
 - [x] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.

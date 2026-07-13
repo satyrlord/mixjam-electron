@@ -1,5 +1,6 @@
 import type { FooterSampleDetail } from '../lib/arrangement'
 import WaveformPreview from './WaveformPreview'
+import { Tooltip } from './ui/Tooltip'
 
 interface FooterProps {
   view: 'home' | 'player'
@@ -20,14 +21,9 @@ export default function Footer({
 }: FooterProps) {
   return (
     <footer className="footer">
-      <button
-        type="button"
-        className="footer-link"
-        title="Choose where MixJam saves your projects and app settings"
-        onClick={onSelectFolder}
-      >
-        Select User Folder
-      </button>
+      <Tooltip content="Choose where MixJam saves your projects and app settings">
+        <button type="button" className="footer-link" onClick={onSelectFolder}>Select User Folder</button>
+      </Tooltip>
       <div className="footer-detail" aria-live="polite">
         {view === 'player' && sampleDetail ? (
           <>

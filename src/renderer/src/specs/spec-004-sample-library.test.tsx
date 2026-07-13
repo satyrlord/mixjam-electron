@@ -9,6 +9,7 @@ import type {
 } from '../components/playerProps'
 import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
 import type { LaneState } from '../lib/arrangement'
+import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 
 const noop = () => undefined
 const asyncNoop = async () => { /* empty */ }
@@ -105,7 +106,6 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   onRemovePlacementFromLane: noop,
   onRemovePlacements: noop,
   onSetLanePan: noop,
-  onSetLaneNativeBpm: noop,
   onToggleLaneMute: noop,
   onToggleLaneSolo: noop
 }
@@ -114,11 +114,12 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   transportState: 'stopped',
   bpm: 120,
   masterGain: 0.8,
-  masterLevelDb: -100,
+  masterMeter: emptyMasterMeterSnapshot(),
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
   onSetMasterGain: noop,
+  onResetMasterMeter: noop,
   onUndo: noop,
   onRedo: noop,
   onTransportPlay: noop,

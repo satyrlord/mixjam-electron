@@ -10,7 +10,8 @@ export const SHELL_IPC_CHANNELS = {
 } as const
 
 /** Host capabilities exposed by the Electron preload as window.shellAPI.
- *  Absent in the plain browser, where the backend substitutes fallbacks. */
+ *  Absent in the plain browser, where the renderer uses browser-native
+ *  equivalents. */
 export interface ShellAPI {
   getVersion: () => Promise<string>
   resizeToPlayer: () => Promise<void>

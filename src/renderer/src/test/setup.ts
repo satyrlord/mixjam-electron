@@ -5,7 +5,7 @@ if (typeof window !== 'undefined') {
   const { bootstrapTheme } = await import('../theme/themes')
   const { cleanup } = await import('@testing-library/react')
   const { afterEach } = await import('vitest')
-  const { MockAudioContext } = await import('./mockAudioContext')
+  const { MockAudioContext, MockAudioWorkletNode } = await import('./mockAudioContext')
   await import('@testing-library/jest-dom/vitest')
 
   Object.defineProperty(window, 'backendAPI', {
@@ -19,6 +19,11 @@ if (typeof window !== 'undefined') {
     configurable: true,
     writable: true,
     value: MockAudioContext
+  })
+  Object.defineProperty(globalThis, 'AudioWorkletNode', {
+    configurable: true,
+    writable: true,
+    value: MockAudioWorkletNode
   })
 
   // jsdom lacks ResizeObserver; provide a no-op stub so canvas-based components
@@ -37,6 +42,13 @@ if (typeof window !== 'undefined') {
     Element.prototype.setPointerCapture = () => undefined
     Element.prototype.releasePointerCapture = () => undefined
     Element.prototype.hasPointerCapture = () => false
+  }
+  if (typeof window.PointerEvent === 'undefined') {
+    Object.defineProperty(window, 'PointerEvent', {
+      configurable: true,
+      writable: true,
+      value: MouseEvent
+    })
   }
 
   // jsdom's canvas getContext logs a loud "Not implemented" error and returns

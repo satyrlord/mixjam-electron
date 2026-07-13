@@ -41,13 +41,16 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
     {
       "index": 0,
       "name": "Lane 1",
-      "sampleRef": "Kicks/kick_808.wav",
-      "nativeBPM": null,
       "muted": false,
       "solo": false,
       "channelId": "ch-1",
       "placements": [
-        { "startTick": 0, "durationTicks": 32 }
+        {
+          "sampleRef": "Kicks/kick_808.wav",
+          "nativeBPM": null,
+          "startTick": 0,
+          "durationTicks": 32
+        }
       ]
     }
   ],
@@ -66,8 +69,9 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 }
 ```
 
-- `sampleRef` is a path relative to the Sample Folder root. Never an absolute
-  path, never embedded audio bytes.
+- Each placement's `sampleRef` is a path relative to the Sample Folder root,
+  never an absolute path or embedded audio bytes. `nativeBPM` is the analysis
+  value captured when that placement was added; null means native-rate playback.
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
 

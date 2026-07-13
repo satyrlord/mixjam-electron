@@ -4,6 +4,11 @@ import { type Transport, type TransportState, createTransport, TICKS_PER_BEAT } 
 import { PlaybackEngine } from '../engine/playback-engine'
 import type { EngineLane } from '../engine/lane-evaluation'
 import { useSyncedRef } from './useSyncedRef'
+import {
+  emptyMasterMeterSnapshot,
+  masterMeterSnapshotsEqual,
+  type MasterMeterSnapshot
+} from '../engine/master-meter'
 
 export type RuntimeTransportState = TransportState | 'preparing'
 
@@ -23,16 +28,17 @@ export interface TransportRuntime {
   bpm: number
   masterGain: number
   elapsedMs: number
-  masterLevelDb: number
+  masterMeter: MasterMeterSnapshot
   transportPlay: () => void
   transportPause: () => void
   transportStop: () => void
   transportSkipBack: () => void
   transportSeek: (tick: number) => void
-  previewSample: (samplePath: string) => void
+  previewSample: (samplePath: string, nativeBPM?: number | null) => void
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
   setBpm: (nextBpm: number) => void
   setMasterGain: (value: number) => void
+  resetMasterMeter: () => void
   prepareTempoChange: () => void
 }
 
@@ -51,7 +57,9 @@ export function useTransportRuntime({
   const [bpm, setBpmState] = useState(initialBpm)
   const [masterGain, setMasterGainState] = useState(initialMasterGain)
   const [elapsedMs, setElapsedMs] = useState(0)
-  const [masterLevelDb, setMasterLevelDb] = useState(-100)
+  const [masterMeter, setMasterMeter] = useState<MasterMeterSnapshot>(
+    emptyMasterMeterSnapshot()
+  )
   const currentTickRef = useSyncedRef(currentTick)
   const activeRef = useSyncedRef(active)
   const bpmRef = useRef(initialBpm)
@@ -160,7 +168,8 @@ export function useTransportRuntime({
     commitTransportState(transport.state)
 
     const meterTimer = window.setInterval(() => {
-      setMasterLevelDb(playbackEngine.getMasterLevelDb())
+      const nextMeter = playbackEngine.getMasterMeterSnapshot()
+      setMasterMeter((current) => masterMeterSnapshotsEqual(current, nextMeter) ? current : nextMeter)
       const nextTick = playbackEngine.currentTick
       currentTickRef.current = nextTick
       setCurrentTick(nextTick)
@@ -177,7 +186,7 @@ export function useTransportRuntime({
       currentTickRef.current = 0
       commitTransportState('stopped')
       setCurrentTick(0)
-      setMasterLevelDb(-100)
+      setMasterMeter(emptyMasterMeterSnapshot())
     }
   }, [active, backendAPI, sampleFolder, getLanes, currentTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState])
 
@@ -233,7 +242,7 @@ export function useTransportRuntime({
     setCurrentTick(nextTick)
   }, [activeRef, currentTickRef, restartAfterPreparation])
 
-  const previewSample = useCallback((samplePath: string) => {
+  const previewSample = useCallback((samplePath: string, nativeBPM: number | null = null) => {
     const playbackEngine = playbackEngineRef.current
     const transport = transportRef.current
     if (!playbackEngine) return
@@ -241,9 +250,9 @@ export function useTransportRuntime({
       const tick = playbackEngine.currentTick
       const downbeat = Math.ceil((tick + 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
       const when = transport.tickToTime(downbeat, tick, playbackEngine.audioEngine.currentTime)
-      void playbackEngine.previewSample(samplePath, when)
+      void playbackEngine.previewSample(samplePath, nativeBPM, when)
     } else {
-      void playbackEngine.previewSample(samplePath)
+      void playbackEngine.previewSample(samplePath, nativeBPM)
     }
   }, [])
 
@@ -282,6 +291,13 @@ export function useTransportRuntime({
     playbackEngineRef.current?.setMasterGain(value)
   }, [])
 
+  const resetMasterMeter = useCallback(() => {
+    const playbackEngine = playbackEngineRef.current
+    if (!playbackEngine) return
+    playbackEngine.resetMasterMeter()
+    setMasterMeter(playbackEngine.getMasterMeterSnapshot())
+  }, [])
+
   return {
     playbackEngineRef,
     transportState,
@@ -289,7 +305,7 @@ export function useTransportRuntime({
     bpm,
     masterGain,
     elapsedMs,
-    masterLevelDb,
+    masterMeter,
     transportPlay,
     transportPause,
     transportStop,
@@ -299,6 +315,7 @@ export function useTransportRuntime({
     getSampleBuffer,
     setBpm,
     setMasterGain,
+    resetMasterMeter,
     prepareTempoChange
   }
 }

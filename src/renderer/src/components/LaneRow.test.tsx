@@ -25,12 +25,10 @@ const DEFAULT_PROPS = {
   onToggleLaneMute: vi.fn(),
   onToggleLaneSolo: vi.fn(),
   onSetLanePan: vi.fn(),
-  onSetLaneNativeBpm: vi.fn(),
   onPlacementDragStart: vi.fn(),
   onPlacementContextMenu: vi.fn(),
   onDragOver: vi.fn(),
   onDrop: vi.fn(),
-  trackDragCleanup: () => vi.fn()
 }
 
 describe('LaneRow', () => {
@@ -46,32 +44,6 @@ describe('LaneRow', () => {
   it('dimmed lane gets the dimmed class', () => {
     render(<LaneRow {...DEFAULT_PROPS} dimmed />)
     expect(document.querySelector('.tracker-lane')!.className).toContain('tracker-lane-dimmed')
-  })
-
-  it('edits and clears the lane native BPM', () => {
-    const onSetLaneNativeBpm = vi.fn()
-    const { rerender } = render(
-      <LaneRow {...DEFAULT_PROPS} onSetLaneNativeBpm={onSetLaneNativeBpm} />
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Set native BPM for Lane 1' }))
-    const input = screen.getByRole('spinbutton', { name: 'Native BPM for Lane 1' })
-    fireEvent.change(input, { target: { value: '128.5' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(onSetLaneNativeBpm).toHaveBeenLastCalledWith(0, 128.5)
-
-    rerender(
-      <LaneRow
-        {...DEFAULT_PROPS}
-        lane={makeLane({ nativeBPM: 128.5 })}
-        onSetLaneNativeBpm={onSetLaneNativeBpm}
-      />
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Set native BPM for Lane 1' }))
-    const populatedInput = screen.getByRole('spinbutton', { name: 'Native BPM for Lane 1' })
-    fireEvent.change(populatedInput, { target: { value: '' } })
-    fireEvent.keyDown(populatedInput, { key: 'Enter' })
-    expect(onSetLaneNativeBpm).toHaveBeenLastCalledWith(0, null)
   })
 
   it('pan slider shows correct aria-valuenow', () => {

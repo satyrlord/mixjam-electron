@@ -85,6 +85,9 @@ can chain effects in order and adjust parameters per channel.
 - Reset and Remove live in a labeled actions menu. Removing an effect shows a
   six-second Undo action that restores the same id, values, and bounded chain
   position when the channel still exists and has capacity.
+- Add, order, and actions menus use the shared accessible dropdown primitive.
+  Rotary parameters use the same project-owned pointer-capture control as pan,
+  including touch input, Shift fine adjustment, keyboard steps, and reset.
 - Empty chains explain signal order and focus adding; an empty mixer explains
   that a channel must be restored. Removing the selected effect selects the
   next card, then the previous card, then the empty state.
@@ -132,6 +135,9 @@ can chain effects in order and adjust parameters per channel.
   the live compressor node and zero while bypassed, without analyser nodes.
 - [x] **AC-013:** Removing an effect offers one six-second Undo that restores
   its snapshot and original bounded position when restoration remains valid.
+- [x] **AC-014:** Effect menus implement standard dropdown focus/keyboard
+  behavior, and rotary controls support pointer capture, touch, fine adjustment,
+  keyboard operation, and reset through the shared control.
 
 ## Validation Evidence
 

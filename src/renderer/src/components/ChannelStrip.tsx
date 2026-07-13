@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { clamp, nextPanCycle } from '../lib/sample-utils'
+import { nextPanCycle } from '../lib/sample-utils'
 import ChannelEffects from './ChannelEffects'
 import type { EffectSlot } from '../engine/effects'
 import { VerticalFader } from './VerticalControls'
+import { RotaryControl } from './RotaryField'
 
 interface ChannelStripProps {
   channelIndex: number
@@ -23,8 +23,6 @@ interface ChannelStripProps {
   onSelect?: (channelIndex: number) => void
   onOpenEffects?: (channelIndex: number) => void
 }
-
-const PAN_KEY_STEP = 0.05
 
 function panValueText(pan: number): string {
   const pct = Math.round(Math.abs(pan) * 100)
@@ -51,74 +49,6 @@ export default function ChannelStrip({
   onSelect = () => undefined,
   onOpenEffects = () => undefined
 }: ChannelStripProps) {
-  // Track active window listeners so they are torn down if the component
-  // unmounts mid-drag (e.g. navigating Home while holding the mouse button).
-  const dragCleanupRef = useRef<(() => void) | null>(null)
-  useEffect(() => () => dragCleanupRef.current?.(), [])
-
-  const handlePanMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      // Ignore right/middle press — it must not start a scrub drag, or it races
-      // the right-click cycle (AC-018) and audibly sweeps pan.
-      if (e.button > 0) return
-      e.preventDefault()
-      const startX = e.clientX
-      const startPan = pan
-      const sensitivity = 0.008
-
-      const onMove = (me: MouseEvent) => {
-        const delta = (me.clientX - startX) * sensitivity
-        onSetPan(channelIndex, clamp(startPan + delta, -1, 1))
-      }
-
-      const onUp = () => {
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-        dragCleanupRef.current = null
-      }
-
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-      dragCleanupRef.current = onUp
-    },
-    [channelIndex, pan, onSetPan]
-  )
-
-  const handlePanContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      onSetPan(channelIndex, nextPanCycle(pan))
-    },
-    [channelIndex, pan, onSetPan]
-  )
-
-  const handlePanKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      let next: number
-      switch (e.key) {
-        case 'ArrowLeft':
-        case 'ArrowDown':
-          next = clamp(pan - PAN_KEY_STEP, -1, 1)
-          break
-        case 'ArrowRight':
-        case 'ArrowUp':
-          next = clamp(pan + PAN_KEY_STEP, -1, 1)
-          break
-        case 'Home':
-          next = 0
-          break
-        case 'End':
-          next = 1
-          break
-        default:
-          return
-      }
-      e.preventDefault()
-      onSetPan(channelIndex, next)
-    },
-    [channelIndex, pan, onSetPan]
-  )
-
   return (
     <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}${selected ? ' mixer-channel-strip-selected' : ''}`}>
       <div className="mixer-channel-label">
@@ -154,19 +84,23 @@ export default function ChannelStrip({
         onChange={(value) => onSetGain(channelIndex, value / 100)}
       />
 
-      <div
+      <RotaryControl
         className="mixer-channel-pan"
-        role="slider"
-        tabIndex={0}
-        aria-label={`Channel ${channelIndex + 1} Pan`}
-        aria-valuemin={-1}
-        aria-valuemax={1}
-        aria-valuenow={Math.round(pan * 100) / 100}
-        aria-valuetext={panValueText(pan)}
+        label={`Channel ${channelIndex + 1} Pan`}
+        value={pan}
+        min={-1}
+        max={1}
+        step={0.05}
+        valueText={panValueText(pan)}
+        defaultValue={0}
+        homeValue={0}
+        dragAxis="horizontal"
         style={{ '--pan-angle': `${pan * 135}deg` } as React.CSSProperties}
-        onMouseDown={handlePanMouseDown}
-        onContextMenu={handlePanContextMenu}
-        onKeyDown={handlePanKeyDown}
+        onChange={(value) => onSetPan(channelIndex, value)}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          onSetPan(channelIndex, nextPanCycle(pan))
+        }}
       />
 
       <div className="mixer-channel-buttons">

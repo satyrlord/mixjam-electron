@@ -119,7 +119,7 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
 
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
     expect(loadButton).toBeDisabled()
-    expect(loadButton).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
+    expect(loadButton).not.toHaveAttribute('title')
 
     // Selecting folders opens the launch gate but does not change Load MixJam.
     vi.mocked(api().pickFolder).mockResolvedValueOnce(USER_REF)

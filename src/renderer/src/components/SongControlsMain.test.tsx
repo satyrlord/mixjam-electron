@@ -1,14 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import SongControlsMain from './SongControlsMain'
+import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 
 describe('SongControlsMain', () => {
   const defaultProps = {
     bpm: 140,
     masterGain: 0.8,
-    masterLevelDb: -3,
+    masterMeter: emptyMasterMeterSnapshot(-3),
     onSetBpm: vi.fn(),
-    onSetMasterGain: vi.fn()
+    onSetMasterGain: vi.fn(),
+    onResetMasterMeter: vi.fn()
   } as const
 
   it('renders BPM, master volume, and output level sections', () => {
@@ -30,9 +32,36 @@ describe('SongControlsMain', () => {
     expect(screen.getByText('80%')).toBeInTheDocument()
   })
 
-  it('displays output level in dB', () => {
+  it('labels the RMS fallback as dBFS', () => {
     render(<SongControlsMain {...defaultProps} />)
-    expect(screen.getByText('-3 dB')).toBeInTheDocument()
+    expect(screen.getAllByText('-3.0 dBFS').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('meter', { name: 'Output Level' })).toHaveAttribute('aria-valuemin', '-100')
+  })
+
+  it('shows standards-based M/S/I/TP units and resets the integration session', () => {
+    const onResetMasterMeter = vi.fn()
+    render(<SongControlsMain
+      {...defaultProps}
+      masterMeter={{
+        available: true,
+        rmsDbfs: -12,
+        momentaryLufs: -18.2,
+        shortTermLufs: -19.1,
+        integratedLufs: -20.3,
+        truePeakDbtp: -1.4,
+        loudnessRangeLu: 5.2
+      }}
+      onResetMasterMeter={onResetMasterMeter}
+    />)
+
+    expect(screen.getAllByText('-18.2 LUFS').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('-19.1 LUFS')).toBeInTheDocument()
+    expect(screen.getByText('-20.3 LUFS')).toBeInTheDocument()
+    expect(screen.getByText('-1.4 dBTP')).toBeInTheDocument()
+    expect(screen.getByRole('meter', { name: 'Output Level' })).toHaveAttribute('aria-valuetext', '-18.2 LUFS')
+    expect(screen.getByRole('meter', { name: 'Output Level' })).toHaveAttribute('aria-valuemin', '-60')
+    fireEvent.click(screen.getByRole('button', { name: 'Reset loudness measurement' }))
+    expect(onResetMasterMeter).toHaveBeenCalledOnce()
   })
 
   it('commits BPM on blur when valid', () => {

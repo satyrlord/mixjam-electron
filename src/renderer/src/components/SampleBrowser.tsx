@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
@@ -6,12 +6,21 @@ import {
 } from '../lib/arrangement'
 import { bubbleStyle, categorySlot } from '../lib/sample-utils'
 import type { PlayerBrowserProps } from './playerProps'
-import { useDragResize } from '../hooks/useDragResize'
 import ManagePanel from './ManagePanel'
 import SampleTileGrid from './SampleTileGrid'
 import SampleAnalysisEditor from './SampleAnalysisEditor'
+import { Panel, PanelGroup, PanelResizeHandle } from './ui/ResizablePanels'
+import {
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel
+} from './ui/ContextMenu'
+import { PopoverAnchor, PopoverContent, PopoverRoot } from './ui/Popover'
+import { Tooltip } from './ui/Tooltip'
 
 interface SampleBrowserProps {
+  active: boolean
   browser: PlayerBrowserProps
   bubblePixelsPerSecond?: number
   flashSamplePath: string | null
@@ -19,6 +28,7 @@ interface SampleBrowserProps {
 }
 
 export default function SampleBrowser({
+  active,
   browser,
   bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   flashSamplePath,
@@ -37,45 +47,50 @@ export default function SampleBrowser({
     sortDir,
     tags,
     categories,
-    libraries
+    libraries,
+    onAssignTagToSample,
+    onUnassignTagFromSample
   } = browser
 
   const [managePanelOpen, setManagePanelOpen] = useState(false)
 
-  // Browser internal vertical resize: category-tree width in px.
   const [catsWidth, setCatsWidth] = useState(152)
 
-  const handleCatsResizeStart = useDragResize(
-    useCallback(() => catsWidth, [catsWidth]),
-    useCallback((dx, _dy, startWidth) => {
-      setCatsWidth(Math.max(80, Math.min(400, startWidth + dx)))
-    }, [])
-  )
-
   // Sample-tile context menu state (tag assignment, spec-004 AC-007)
-  const [sampleMenu, setSampleMenu] = useState<{
-    x: number
-    y: number
-    sample: SampleListItem
-  } | null>(null)
-  const [analysisEditor, setAnalysisEditor] = useState<{
-    x: number
-    y: number
-    sample: SampleListItem
-  } | null>(null)
-
-  const handleSampleContextMenu = useCallback((sample: SampleListItem, e: React.MouseEvent) => {
-    e.preventDefault()
-    setSampleMenu({ x: e.clientX, y: e.clientY, sample })
+  const [analysisEditor, setAnalysisEditor] = useState<SampleListItem | null>(null)
+  const analysisAnchorRef = useRef<HTMLElement | null>(null)
+  const handleSampleContextMenuOpen = useCallback((_sample: SampleListItem, anchor: HTMLButtonElement) => {
+    analysisAnchorRef.current = anchor
   }, [])
-
-  // Dismiss the context menu on any click outside
-  useEffect(() => {
-    if (!sampleMenu && !analysisEditor) return
-    const dismiss = () => { setSampleMenu(null); setAnalysisEditor(null) }
-    window.addEventListener('click', dismiss)
-    return () => window.removeEventListener('click', dismiss)
-  }, [sampleMenu, analysisEditor])
+  const renderSampleContextMenu = useCallback((sample: SampleListItem) => (
+    <ContextMenuContent aria-label={`Tags for ${sample.name}`}>
+      <ContextMenuItem
+        onSelect={() => { window.setTimeout(() => setAnalysisEditor(sample), 0) }}
+      >
+        Edit BPM, key, and type
+      </ContextMenuItem>
+      {tags.length === 0 ? (
+        <ContextMenuLabel className="context-menu-note">
+          No tags yet — create one in the Manage panel.
+        </ContextMenuLabel>
+      ) : tags.map((tag) => {
+        const assigned = sample.tagIds.includes(tag.id)
+        return (
+          <ContextMenuCheckboxItem
+            key={tag.id}
+            checked={assigned}
+            textValue={tag.name}
+            onCheckedChange={() => {
+              if (assigned) void onUnassignTagFromSample(sample, tag.id)
+              else void onAssignTagToSample(sample, tag.id)
+            }}
+          >
+            {tag.name}
+          </ContextMenuCheckboxItem>
+        )
+      })}
+    </ContextMenuContent>
+  ), [tags, onAssignTagToSample, onUnassignTagFromSample])
 
   const rootCategories = categories.filter((c) => c.parentId === null)
   const childCategories = (parentId: number): CategoryItem[] =>
@@ -98,16 +113,36 @@ export default function SampleBrowser({
 
   return (
     <section className="browser-region" aria-label="Sample Browser">
-      <div className="cats" style={{ width: catsWidth }}>
-        <button
-          type="button"
-          className="cat-manage-btn"
-          aria-label={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
-          title={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
-          onClick={() => setManagePanelOpen((v) => !v)}
+      <PanelGroup
+        id="sample-browser-split"
+        className="sample-browser-panels"
+        orientation="horizontal"
+        defaultLayout={{ categories: 24, samples: 76 }}
+        onLayoutChanged={(layout) => {
+          const region = document.querySelector('.browser-region')
+          if (region && layout.categories !== undefined) {
+            setCatsWidth(region.clientWidth * layout.categories / 100)
+          }
+        }}
+      >
+        <Panel
+          id="categories"
+          defaultSize="152px"
+          minSize="80px"
+          maxSize="400px"
+          groupResizeBehavior="preserve-pixel-size"
         >
-          {managePanelOpen ? '× Close' : '+ Manage'}
-        </button>
+          <div className="cats">
+            <Tooltip content={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}>
+              <button
+                type="button"
+                className="cat-manage-btn"
+                aria-label={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
+                onClick={() => setManagePanelOpen((v) => !v)}
+              >
+                {managePanelOpen ? '× Close' : '+ Manage'}
+              </button>
+            </Tooltip>
         <div className="cat-grid" role="listbox" aria-label="Sample categories">
           {rootCategories.map((cat) => {
             const isSelected = selectedCategoryId === cat.id
@@ -125,18 +160,14 @@ export default function SampleBrowser({
               </button>
             )
           })}
-        </div>
-      </div>
+            </div>
+          </div>
+        </Panel>
 
-      <div
-        className="browser-resize-v"
-        role="separator"
-        aria-label="Resize category tree"
-        aria-orientation="vertical"
-        onMouseDown={handleCatsResizeStart}
-      />
+        <PanelResizeHandle className="browser-resize-v" aria-label="Resize category tree" />
 
-      <div className="tiles-section">
+        <Panel id="samples" minSize="240px">
+          <div className="tiles-section">
         <div className="subcats-row">
           {selectedCategoryId !== undefined && (
             <button
@@ -167,7 +198,6 @@ export default function SampleBrowser({
                 className={`subcat subcat-tag${active ? ' subcat-active' : ''}`}
                 onClick={() => browser.onToggleTagFilter(tag.id)}
                 aria-pressed={active}
-                title={active ? `Stop filtering by ${tag.name}` : `Filter by ${tag.name}`}
               >
                 {active ? `${tag.name} ×` : tag.name}
               </button>
@@ -195,6 +225,7 @@ export default function SampleBrowser({
         </div>
 
         <SampleTileGrid
+          active={active}
           samples={samples}
           bubblePixelsPerSecond={bubblePixelsPerSecond}
           selectedSamplePath={selectedSamplePath}
@@ -208,9 +239,12 @@ export default function SampleBrowser({
           onSelectSampleDetail={browser.onSelectSampleDetail}
           onPreviewSample={browser.onPreviewSample}
           onSampleDragStart={onSampleDragStart}
-          onSampleContextMenu={handleSampleContextMenu}
+          onSampleContextMenuOpen={handleSampleContextMenuOpen}
+          renderSampleContextMenu={renderSampleContextMenu}
         />
-      </div>
+          </div>
+        </Panel>
+      </PanelGroup>
 
       {managePanelOpen && (
         <ManagePanel
@@ -229,59 +263,19 @@ export default function SampleBrowser({
         />
       )}
 
-      {sampleMenu && (
-        <div
-          className="context-menu"
-          style={{ left: sampleMenu.x, top: sampleMenu.y }}
-          role="menu"
-          aria-label={`Tags for ${sampleMenu.sample.name}`}
-        >
-          <button
-            type="button"
-            className="context-menu-item"
-            role="menuitem"
-            onClick={(event) => {
-              event.stopPropagation()
-              setAnalysisEditor(sampleMenu)
-              setSampleMenu(null)
-            }}
-          >
-            Edit BPM, key, and type
-          </button>
-          {tags.length === 0 ? (
-            <span className="context-menu-note">No tags yet — create one in the Manage panel.</span>
-          ) : (
-            tags.map((tag) => {
-              const assigned = sampleMenu.sample.tagIds.includes(tag.id)
-              return (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className="context-menu-item"
-                  role="menuitemcheckbox"
-                  aria-checked={assigned}
-                  onClick={() => {
-                    if (assigned) void browser.onUnassignTagFromSample(sampleMenu.sample, tag.id)
-                    else void browser.onAssignTagToSample(sampleMenu.sample, tag.id)
-                    setSampleMenu(null)
-                  }}
-                >
-                  {assigned ? `Untag: ${tag.name}` : `Tag: ${tag.name}`}
-                </button>
-              )
-            })
-          )}
-        </div>
-      )}
-
-      {analysisEditor && (
-        <SampleAnalysisEditor
-          {...analysisEditor}
-          onClose={() => setAnalysisEditor(null)}
-          onUpdate={browser.onUpdateSampleAnalysis}
-          onReanalyze={browser.onReanalyzeSample}
-        />
-      )}
+      <PopoverRoot modal open={analysisEditor !== null} onOpenChange={(open) => { if (!open) setAnalysisEditor(null) }}>
+        <PopoverAnchor virtualRef={analysisAnchorRef} />
+        {analysisEditor && (
+          <PopoverContent aria-label={`Analysis for ${analysisEditor.name}`} align="start">
+            <SampleAnalysisEditor
+              sample={analysisEditor}
+              onClose={() => setAnalysisEditor(null)}
+              onUpdate={browser.onUpdateSampleAnalysis}
+              onReanalyze={browser.onReanalyzeSample}
+            />
+          </PopoverContent>
+        )}
+      </PopoverRoot>
     </section>
   )
 }

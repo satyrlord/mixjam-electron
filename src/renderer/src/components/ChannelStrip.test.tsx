@@ -55,19 +55,19 @@ describe('ChannelStrip', () => {
     expect(onSetGain).toHaveBeenLastCalledWith(0, 1)
   })
 
-  it('pan slider fires onSetPan on mouse drag', () => {
+  it('pan slider fires onSetPan on pointer drag', () => {
     const onSetPan = vi.fn()
     render(<ChannelStrip {...DEFAULT_PROPS} onSetPan={onSetPan} />)
 
     const panSlider = screen.getByRole('slider', { name: 'Channel 1 Pan' })
-    fireEvent.mouseDown(panSlider, { clientX: 100 })
-    fireEvent.mouseMove(window, { clientX: 200 })
+    fireEvent.pointerDown(panSlider, { button: 0, pointerId: 1, pointerType: 'mouse', clientX: 100 })
+    fireEvent.pointerMove(panSlider, { pointerId: 1, pointerType: 'mouse', clientX: 200 })
     expect(onSetPan).toHaveBeenCalledWith(0, expect.any(Number))
     const calledPan = onSetPan.mock.calls[0]![1] as number
     expect(calledPan).toBeGreaterThan(0)
     expect(calledPan).toBeLessThanOrEqual(1)
 
-    fireEvent.mouseUp(window)
+    fireEvent.pointerUp(panSlider, { pointerId: 1, pointerType: 'mouse' })
   })
 
   it('mute button fires onToggleMute', () => {
@@ -236,18 +236,18 @@ describe('ChannelStrip', () => {
     expect(document.querySelector('.mixer-channel-unity-tick')).toBeInTheDocument()
   })
 
-  it('cleans up window listeners on unmount during pan drag', () => {
-    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+  it('uses pointer capture instead of window-level drag listeners', () => {
+    const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
     render(<ChannelStrip {...DEFAULT_PROPS} />)
 
     const panSlider = screen.getByRole('slider', { name: 'Channel 1 Pan' })
-    fireEvent.mouseDown(panSlider, { clientX: 100 })
-    fireEvent.mouseUp(window)
+    fireEvent.pointerDown(panSlider, { button: 0, pointerId: 1, pointerType: 'mouse', clientX: 100 })
+    fireEvent.pointerUp(panSlider, { pointerId: 1, pointerType: 'mouse' })
 
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function))
+    expect(addEventListenerSpy).not.toHaveBeenCalledWith('mousemove', expect.any(Function))
+    expect(addEventListenerSpy).not.toHaveBeenCalledWith('mouseup', expect.any(Function))
 
-    removeEventListenerSpy.mockRestore()
+    addEventListenerSpy.mockRestore()
   })
 
   // --- spec-010 effects integration ---

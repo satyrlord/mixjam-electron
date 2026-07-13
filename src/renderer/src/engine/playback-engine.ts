@@ -13,6 +13,7 @@ import { type EngineLane, triggersForTick } from './lane-evaluation'
 import { type Voice } from './voice'
 import { TimeStretchEngine, type TimeStretchEngineOptions } from './time-stretch'
 import type { EffectSlot } from './effects'
+import type { MasterMeterSnapshot } from './master-meter'
 
 // Default per-channel gain (matches the mixer's createDefaultChannel).
 const DEFAULT_CHANNEL_GAIN = 0.8
@@ -56,6 +57,8 @@ export class PlaybackEngine {
   // Monophonic preview: only one sample previews at a time.
   private previewVoice: Voice | null = null
   private previewPath: string | null = null
+  private meterFrozen = false
+  private frozenMeterSnapshot: MasterMeterSnapshot | null = null
 
   constructor(private readonly options: PlaybackEngineOptions) {
     this.currentBpm = options.bpm ?? 120
@@ -106,8 +109,14 @@ export class PlaybackEngine {
     this.engine.setMasterGain(value)
   }
 
-  getMasterLevelDb(): number {
-    return this.engine.getMasterLevelDb()
+  getMasterMeterSnapshot(): MasterMeterSnapshot {
+    return this.frozenMeterSnapshot ?? this.engine.getMasterMeterSnapshot()
+  }
+
+  resetMasterMeter(): void {
+    this.engine.resetMasterMeter()
+    this.meterFrozen = false
+    this.frozenMeterSnapshot = null
   }
 
   setChannelPan(channelIndex: number, pan: number): void {
@@ -224,7 +233,11 @@ export class PlaybackEngine {
   // When `whenSeconds` is provided (a future AudioContext time), the preview
   // is scheduled at that exact moment — used for quantised downbeat preview
   // while the transport is playing.  Omit to play immediately.
-  async previewSample(samplePath: string, whenSeconds?: number): Promise<void> {
+  async previewSample(
+    samplePath: string,
+    nativeBPM: number | null = null,
+    whenSeconds?: number
+  ): Promise<void> {
     // Toggle: same sample clicked again → stop. (previewPath is set the moment a
     // preview is requested, before the async load, so the toggle is reliable
     // even on rapid double-clicks.)
@@ -242,6 +255,9 @@ export class PlaybackEngine {
     try {
       await this.engine.resume()
       buffer = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
+      if (buffer) {
+        buffer = await this.timeStretch.prepare(samplePath, buffer, nativeBPM, this.currentBpm)
+      }
     } catch {
       // Decode/read failure: clear the claimed path so the next click retries.
       if (this.previewPath === samplePath) this.previewPath = null
@@ -288,6 +304,11 @@ export class PlaybackEngine {
   // browser autoplay policy is satisfied by the originating user gesture.
   async start(fromTick = 0): Promise<boolean> {
     const generation = this.playGeneration
+    if (this.meterFrozen && fromTick === 0) {
+      this.engine.resetMasterMeter()
+    }
+    this.meterFrozen = false
+    this.frozenMeterSnapshot = null
     await this.engine.resume()
     // Initial playback must not make the first loop trigger pay the WASM load
     // and offline-render cost. Decode and stretch the current arrangement once
@@ -312,6 +333,9 @@ export class PlaybackEngine {
     this.scheduler.stop()
     this.scheduler.reset(nextTick)
     this.engine.stopAllVoices()
+    this.engine.resetMasterMeter()
+    this.meterFrozen = false
+    this.frozenMeterSnapshot = null
     this.laneVoices.clear()
     this.lastScheduledTick = nextTick - 1
   }
@@ -321,7 +345,9 @@ export class PlaybackEngine {
     this.scheduler.stop()
     // Stop returns the playhead to the start; pause() leaves it where it is.
     this.scheduler.reset(0)
+    this.frozenMeterSnapshot = this.engine.getMasterMeterSnapshot()
     this.engine.stopAllVoices()
+    this.meterFrozen = true
     this.laneVoices.clear()
     this.lastScheduledTick = -1
   }
@@ -456,24 +482,31 @@ export class PlaybackEngine {
   }
 
   private async prepareStretchableLanes(projectBpm: number): Promise<void> {
-    const requests: Promise<unknown>[] = []
+    const samples = new Map<string, { samplePath: string; nativeBPM: number }>()
     for (const lane of this.options.getLanes()) {
-      if (lane.nativeBPM == null || !Number.isFinite(lane.nativeBPM) || lane.nativeBPM <= 0) {
-        continue
+      for (const placement of lane.placements) {
+        const nativeBPM = placement.nativeBPM
+        if (nativeBPM == null || !Number.isFinite(nativeBPM) || nativeBPM <= 0) continue
+        samples.set(`${placement.samplePath}\0${nativeBPM}`, {
+          samplePath: placement.samplePath,
+          nativeBPM
+        })
       }
-      for (const samplePath of new Set(lane.placements.map((placement) => placement.samplePath))) {
-        requests.push((async () => {
-          try {
-            const source = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
-            if (source) {
-              await this.timeStretch.prepare(samplePath, source, lane.nativeBPM, projectBpm)
-            }
-          } catch {
-            // Loading failures are handled like trigger-time decode failures:
-            // skip this sample without preventing the remaining lanes.
+    }
+
+    const requests: Promise<unknown>[] = []
+    for (const { samplePath, nativeBPM } of samples.values()) {
+      requests.push((async () => {
+        try {
+          const source = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
+          if (source) {
+            await this.timeStretch.prepare(samplePath, source, nativeBPM, projectBpm)
           }
-        })())
-      }
+        } catch {
+          // Loading failures are handled like trigger-time decode failures:
+          // skip this sample without preventing the remaining arrangement.
+        }
+      })())
     }
     await Promise.all(requests)
   }

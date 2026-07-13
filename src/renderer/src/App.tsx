@@ -4,6 +4,7 @@ import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import PlayerView from './components/PlayerView'
 import ScanOverlay from './components/ScanOverlay'
+import { TooltipProvider } from './components/ui/Tooltip'
 import { useAppState } from './hooks/useAppState'
 import { useFolderSetup } from './hooks/useFolderSetup'
 import { createPlayerViewModel } from './hooks/playerViewModel'
@@ -26,7 +27,8 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app">
+    <TooltipProvider>
+      <div className="app">
       <Header
         view={app.view}
         timer={app.timerText}
@@ -68,6 +70,7 @@ export default function App() {
         getSampleBuffer={app.getSampleBuffer}
       />
       {!app.dbIndexed && <ScanOverlay progress={app.scanProgress} />}
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

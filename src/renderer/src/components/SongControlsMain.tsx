@@ -1,20 +1,24 @@
 import { useEffect, useState } from 'react'
-import { VerticalFader, VerticalMeter } from './VerticalControls'
+import { VerticalFader } from './VerticalControls'
+import MasterLoudnessMeter from './MasterLoudnessMeter'
+import type { MasterMeterSnapshot } from '../engine/master-meter'
 
 interface SongControlsMainProps {
   bpm: number
   masterGain: number
-  masterLevelDb: number
+  masterMeter: MasterMeterSnapshot
   onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
+  onResetMasterMeter: () => void
 }
 
 export default function SongControlsMain({
   bpm,
   masterGain,
-  masterLevelDb,
+  masterMeter,
   onSetBpm,
-  onSetMasterGain
+  onSetMasterGain,
+  onResetMasterMeter
 }: SongControlsMainProps) {
   const [bpmDraft, setBpmDraft] = useState(String(bpm))
 
@@ -61,7 +65,7 @@ export default function SongControlsMain({
             valueText={`${bpm} BPM`}
             maxLabel="200"
             minLabel="50"
-            title="BPM (50-200)"
+            tooltip="BPM (50-200)"
             wheelStep
             onChange={onSetBpm}
           />
@@ -84,17 +88,16 @@ export default function SongControlsMain({
             onChange={(value) => onSetMasterGain(value / 100)}
           />
         </section>
-        <section className="song-control-module song-meter-module">
+        <section className="song-control-module song-meter-module master-loudness-module">
           <header className="song-control-head">
             <span>Output Level</span>
-            <output className="song-control-value">{Math.round(masterLevelDb)} dB</output>
+            <output className="song-control-value">
+              {masterMeter.available && masterMeter.momentaryLufs !== null
+                ? `${masterMeter.momentaryLufs.toFixed(1)} LUFS`
+                : `${masterMeter.rmsDbfs.toFixed(1)} dBFS`}
+            </output>
           </header>
-          <VerticalMeter
-            ariaLabel="Output Level"
-            valueDb={masterLevelDb}
-            maxLabel="0 dB"
-            minLabel="-60"
-          />
+          <MasterLoudnessMeter snapshot={masterMeter} onReset={onResetMasterMeter} />
         </section>
       </div>
     </div>

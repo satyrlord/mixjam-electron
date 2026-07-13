@@ -55,6 +55,7 @@ describe('Footer', () => {
           name: 'kick_808.wav',
           relpath: 'Drums/Kicks/kick_808.wav',
           tags: ['Drums', 'Kick'],
+          bpm: null,
           duration: null
         }}
         onSelectFolder={vi.fn()}
@@ -77,6 +78,7 @@ describe('Footer', () => {
           name: 'snare.wav',
           relpath: 'Drums/snare.wav',
           tags: ['Percussion'],
+          bpm: null,
           duration: 0.8
         }}
         onSelectFolder={vi.fn()}

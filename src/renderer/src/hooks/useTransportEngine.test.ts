@@ -111,34 +111,6 @@ describe('useTransportEngine', () => {
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(72)
   })
 
-  it('setLaneNativeBpm updates lane tempo state', async () => {
-    const api = createBackendAPI()
-    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'home'))
-
-    act(() => {
-      result.current.setLaneNativeBpm(3, 128)
-    })
-    expect(result.current.lanes[3]!.nativeBPM).toBe(128)
-
-    act(() => {
-      result.current.setLaneNativeBpm(3, null)
-    })
-    expect(result.current.lanes[3]!.nativeBPM).toBeNull()
-  })
-
-  it('prepares the updated lane tempo before its next trigger', async () => {
-    const prepare = vi.spyOn(PlaybackEngine.prototype, 'prepareCurrentArrangement')
-      .mockResolvedValue(undefined)
-    const api = createBackendAPI()
-    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
-    await waitFor(() => expect(result.current.playbackEngineRef.current).not.toBeNull())
-
-    act(() => result.current.setLaneNativeBpm(3, 128))
-
-    expect(result.current.lanes[3]!.nativeBPM).toBe(128)
-    expect(prepare).toHaveBeenCalledTimes(1)
-  })
-
   it('does not enter playing or advance elapsed time until preparation completes', async () => {
     vi.useFakeTimers()
     let finishStart!: (started: boolean) => void
@@ -237,7 +209,7 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
     })
@@ -257,11 +229,11 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'a.wav', relpath: '/s/a.wav', tags: [], duration: 0.5 },
+        { name: 'a.wav', relpath: '/s/a.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
       result.current.placeSampleDetailOnLane(
-        { name: 'b.wav', relpath: '/s/b.wav', tags: [], duration: 0.5 },
+        { name: 'b.wav', relpath: '/s/b.wav', tags: [], bpm: null, duration: 0.5 },
         0, 32
       )
     })
@@ -281,7 +253,7 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
     })
@@ -332,7 +304,7 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
     })
@@ -354,7 +326,7 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
     })
@@ -374,7 +346,7 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
     })
@@ -399,11 +371,11 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
       result.current.placeSampleDetailOnLane(
-        { name: 'snare.wav', relpath: '/s/snare.wav', tags: [], duration: 0.5 },
+        { name: 'snare.wav', relpath: '/s/snare.wav', tags: [], bpm: null, duration: 0.5 },
         1, 0
       )
     })
@@ -496,7 +468,7 @@ describe('useTransportEngine', () => {
 
     await act(async () => {
       result.current.placeSampleDetailOnLane(
-        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], duration: 0.5 },
+        { name: 'kick.wav', relpath: '/s/kick.wav', tags: [], bpm: null, duration: 0.5 },
         0, 0
       )
     })

@@ -11,6 +11,11 @@ import { type Voice, createVoice } from './voice'
 import { SampleCache, type SampleCacheOptions } from './sample-cache'
 import { clamp } from '../lib/sample-utils'
 import type { EffectSlot } from './effects'
+import {
+  MasterMeter,
+  type MasterMeterOptions,
+  type MasterMeterSnapshot
+} from './master-meter'
 
 // Factory injected so tests can supply a mock AudioContext. In production this
 // is `() => new AudioContext()`.
@@ -21,6 +26,7 @@ export interface AudioEngineOptions {
   sampleCache?: SampleCacheOptions
   // FFT size for the master analyser; smaller is cheaper, larger is smoother.
   meterFftSize?: number
+  masterMeter?: MasterMeterOptions
 }
 
 export interface TriggerVoiceParams {
@@ -53,6 +59,7 @@ export class AudioEngine {
   private nodes: AudioNodes | null = null
   private readonly createContextImpl: AudioContextFactory
   private readonly meterFftSize: number
+  private readonly masterMeter: MasterMeter
   private readonly activeVoices = new Set<Voice>()
   private masterGainValue = 1
   private channelCount = 0
@@ -66,6 +73,7 @@ export class AudioEngine {
   constructor(options: AudioEngineOptions = {}) {
     this.createContextImpl = options.createContext ?? defaultContextFactory
     this.meterFftSize = options.meterFftSize ?? 1024
+    this.masterMeter = new MasterMeter(options.masterMeter)
     this.samples = new SampleCache(
       (bytes) => this.ctx.context.decodeAudioData(bytes),
       options.sampleCache
@@ -122,7 +130,10 @@ export class AudioEngine {
 
   /** Resume the AudioContext after a user gesture (autoplay policy). */
   async resume(): Promise<void> {
-    await this.ctx.context.resume()
+    const { context, masterGain } = this.ctx
+    await context.resume()
+    // Optional telemetry must never delay or reject audible playback.
+    void this.masterMeter.initialize(context, masterGain, context.destination)
   }
 
   // Creates (or returns) the mixer channel for the given index.
@@ -270,6 +281,14 @@ export class AudioEngine {
     return Math.max(SILENCE_DB, 20 * Math.log10(rms))
   }
 
+  getMasterMeterSnapshot(): MasterMeterSnapshot {
+    return this.masterMeter.getSnapshot(this.getMasterLevelDb())
+  }
+
+  resetMasterMeter(): void {
+    this.masterMeter.reset()
+  }
+
   stopAllVoices(): void {
     for (const voice of this.activeVoices) {
       voice.stop()
@@ -284,6 +303,7 @@ export class AudioEngine {
     this.channelAnalysers.clear()
     this.channelMeterBuffers.clear()
     this.channelCount = 0
+    this.masterMeter.close()
     if (this.nodes) {
       await this.nodes.context.close()
       this.nodes = null

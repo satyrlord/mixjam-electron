@@ -3,6 +3,7 @@
 ## Quick index
 
 - [App state](#app-state)
+- [Bottom Workspace](#bottom-workspace)
 - [Channel](#channel)
 - [Clip](#clip)
 - [Clip bubble](#clip-bubble)
@@ -14,7 +15,7 @@
 - [MixJam Browser](#mixjam-browser)
 - [Player](#player)
 - [Project](#project)
-- [Recent Projects rail](#mixjam-browser)
+- [Recent Projects rail](#recent-projects-rail)
 - [Sample](#sample)
 - [Sample Browser](#sample-browser)
 - [Sample bubble](#sample-bubble)
@@ -64,7 +65,7 @@ duration does not create a differently sized kind of bubble.
 ## Lane
 
 A horizontal arrangement row in the [Tracker](#tracker). A lane owns clip
-placements and lane-level controls such as mute, solo, pan, and native BPM.
+placements and lane-level controls such as mute, solo, and pan.
 Lane state is separate from [channel](#channel) state and mixer routing. See
 [spec 005](specs/spec-005-audio-playback-engine.md) and
 [spec 006](specs/spec-006-player-timeline-panels.md).

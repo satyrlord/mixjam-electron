@@ -84,7 +84,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
 
     startScan: async (sampleFolder) => {
       requestStoragePersistence()
-      await call('startScan', sampleFolder.id)
+      return call('startScan', sampleFolder.id)
     },
     cancelScan: () => call('cancelScan'),
     getScanProgress: () => call('getScanProgress'),

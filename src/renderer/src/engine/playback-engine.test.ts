@@ -163,6 +163,18 @@ describe('PlaybackEngine.setChannelEffects', () => {
     expect(context.created.delays).toHaveLength(1)
     await playbackEngine.close()
   })
+
+  it('stretches preview audio from sample BPM to project BPM', async () => {
+    const stretched = { duration: 0.5 } as AudioBuffer
+    const stretch = vi.fn(async () => stretched)
+    const { playbackEngine, context } = makePlaybackEngine({ stretchProcessor: { stretch } })
+
+    await playbackEngine.previewSample('loop.wav', 100)
+
+    expect(stretch).toHaveBeenCalledWith(expect.anything(), 1.2)
+    expect(context.created.sources.at(-1)?.buffer).toBe(stretched)
+    await playbackEngine.close()
+  })
 })
 
 describe('PlaybackEngine.setChannelPan', () => {
@@ -273,7 +285,7 @@ describe('PlaybackEngine time-stretching', () => {
     const pending = new Promise<AudioBuffer>((done) => { resolve = done })
     const stretch = vi.fn(() => pending)
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, nativeBPM: 100, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
     const { playbackEngine, context } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
 
@@ -293,7 +305,7 @@ describe('PlaybackEngine time-stretching', () => {
     const pending = new Promise<AudioBuffer>((done) => { resolve = done })
     const stretch = vi.fn(() => pending)
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, nativeBPM: 100, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
     const { playbackEngine, context } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
 
@@ -307,11 +319,11 @@ describe('PlaybackEngine time-stretching', () => {
     await playbackEngine.close()
   })
 
-  it('stretches a native-BPM lane before creating its voice', async () => {
+  it('stretches a native-BPM placement before creating its voice', async () => {
     const stretched = { duration: 0.5 } as AudioBuffer
     const stretch = vi.fn(async () => stretched)
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, nativeBPM: 100, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
     const { playbackEngine, context } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
     playbackEngine.setBpm(120)
@@ -324,10 +336,10 @@ describe('PlaybackEngine time-stretching', () => {
     await playbackEngine.close()
   })
 
-  it('keeps null-native-BPM lanes at native rate', async () => {
+  it('keeps null-native-BPM placements at native rate', async () => {
     const stretch = vi.fn(async (source: AudioBuffer) => source)
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, nativeBPM: null, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'hit.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'hit.wav', nativeBPM: null }] }
     ]
     const { playbackEngine } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
 
@@ -341,7 +353,7 @@ describe('PlaybackEngine time-stretching', () => {
   it('reuses a cached stretch when project BPM returns to a prior value', async () => {
     const stretch = vi.fn(async () => ({ duration: 1 } as AudioBuffer))
     const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, nativeBPM: 100, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav' }] }
+      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'loop.wav', nativeBPM: 100 }] }
     ]
     const { playbackEngine } = makePlaybackEngine({ lanes, stretchProcessor: { stretch } })
 
@@ -426,6 +438,65 @@ describe('PlaybackEngine.pause', () => {
     playbackEngine.pause()
     expect(playbackEngine.audioEngine.activeVoiceCount).toBe(0)
     await playbackEngine.close()
+  })
+})
+
+describe('PlaybackEngine master-meter sessions', () => {
+  it('preserves integration across pause/resume', async () => {
+    const { playbackEngine } = makePlaybackEngine({})
+    const reset = vi.spyOn(playbackEngine.audioEngine, 'resetMasterMeter')
+
+    await playbackEngine.start(0)
+    playbackEngine.pause()
+    await playbackEngine.start(0)
+
+    expect(reset).not.toHaveBeenCalled()
+    await playbackEngine.close()
+  })
+
+  it('freezes on Stop and resets when playback starts again at tick zero', async () => {
+    const { playbackEngine } = makePlaybackEngine({})
+    const reset = vi.spyOn(playbackEngine.audioEngine, 'resetMasterMeter')
+
+    await playbackEngine.start(0)
+    playbackEngine.stop()
+    expect(reset).not.toHaveBeenCalled()
+    await playbackEngine.start(0)
+
+    expect(reset).toHaveBeenCalledOnce()
+    await playbackEngine.close()
+  })
+
+  it('keeps the Stop snapshot stable while later worklet values change', () => {
+    const { playbackEngine } = makePlaybackEngine({})
+    const stoppedSnapshot = {
+      available: true,
+      rmsDbfs: -18,
+      momentaryLufs: -20,
+      shortTermLufs: -21,
+      integratedLufs: -22,
+      truePeakDbtp: -1,
+      loudnessRangeLu: 4
+    }
+    const laterSnapshot = { ...stoppedSnapshot, momentaryLufs: null, shortTermLufs: null }
+    const read = vi.spyOn(playbackEngine.audioEngine, 'getMasterMeterSnapshot')
+      .mockReturnValueOnce(stoppedSnapshot)
+      .mockReturnValue(laterSnapshot)
+
+    playbackEngine.stop()
+
+    expect(playbackEngine.getMasterMeterSnapshot()).toEqual(stoppedSnapshot)
+    expect(read).toHaveBeenCalledOnce()
+  })
+
+  it('resets integrated history on discontinuous seek and explicit reset', () => {
+    const { playbackEngine } = makePlaybackEngine({})
+    const reset = vi.spyOn(playbackEngine.audioEngine, 'resetMasterMeter')
+
+    playbackEngine.seek(32)
+    playbackEngine.resetMasterMeter()
+
+    expect(reset).toHaveBeenCalledTimes(2)
   })
 })
 

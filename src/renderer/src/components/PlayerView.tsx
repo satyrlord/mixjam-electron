@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import type {
   TrackerArrangementProps,
@@ -8,15 +8,11 @@ import type {
 } from './playerProps'
 import {
   LANE_HEAD_WIDTH_PX,
-  LEFT_COL_DEFAULT_PX,
-  LEFT_COL_MAX_FRACTION,
   LEFT_COL_MIN_PX,
   timelinePixelsPerSecond
 } from '../lib/arrangement'
-import { clamp, nearestTick } from '../lib/sample-utils'
 import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import { useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
-import { useDragResize } from '../hooks/useDragResize'
 import { useDragCleanups } from '../hooks/useDragCleanups'
 import { usePlacementDrag } from '../hooks/usePlacementDrag'
 import MixJamBrowser from './MixJamBrowser'
@@ -31,8 +27,13 @@ import BottomWorkspace, {
   isBottomWorkspaceTab,
   type BottomWorkspaceTab
 } from './BottomWorkspace'
+import { ContextMenuContent, ContextMenuItem, ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
+import { Panel, PanelGroup, PanelResizeHandle, usePanelRef, type PanelLayout } from './ui/ResizablePanels'
+import { SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
 
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
+const UPPER_LAYOUT_STORAGE_KEY = 'mixjam:upper-work-layout'
+const BOTTOM_LAYOUT_STORAGE_KEY = 'mixjam:bottom-workspace-layout'
 const BOTTOM_WORKSPACE_STORAGE_KEY = 'mixjam:bottom-workspace-tab'
 
 function initialBottomWorkspaceTab(): BottomWorkspaceTab {
@@ -41,6 +42,29 @@ function initialBottomWorkspaceTab(): BottomWorkspaceTab {
     return isBottomWorkspaceTab(stored) ? stored : 'song'
   } catch {
     return 'song'
+  }
+}
+
+function loadPanelLayout(key: string, fallback: PanelLayout): PanelLayout {
+  try {
+    const stored = localStorage.getItem(key)
+    if (!stored) return fallback
+    const parsed = JSON.parse(stored) as unknown
+    if (!parsed || typeof parsed !== 'object') return fallback
+    const entries = Object.entries(parsed)
+    if (entries.length !== Object.keys(fallback).length) return fallback
+    if (entries.some(([, value]) => typeof value !== 'number' || !Number.isFinite(value))) return fallback
+    return Object.fromEntries(entries) as PanelLayout
+  } catch {
+    return fallback
+  }
+}
+
+function savePanelLayout(key: string, layout: PanelLayout): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(layout))
+  } catch {
+    // Storage can be unavailable; the current layout still remains usable.
   }
 }
 
@@ -100,36 +124,6 @@ export default function PlayerView({
   )
   const lastGridTick = Math.floor((totalTicks - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
 
-  const handleRulerClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const contentWidth = rect.width - LANE_HEAD_WIDTH_PX
-    const clickX = event.clientX - rect.left - LANE_HEAD_WIDTH_PX
-    if (clickX < 0 || clickX > contentWidth) return
-    onTransportSeek(nearestTick(clickX, contentWidth, totalTicks, TICKS_PER_BEAT))
-  }, [onTransportSeek])
-
-  const handleRulerKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-    let nextTick: number
-    switch (event.key) {
-      case 'ArrowLeft':
-        nextTick = Math.max(0, Math.ceil(currentTick / TICKS_PER_BEAT - 1) * TICKS_PER_BEAT)
-        break
-      case 'ArrowRight':
-        nextTick = Math.min(lastGridTick, Math.floor(currentTick / TICKS_PER_BEAT + 1) * TICKS_PER_BEAT)
-        break
-      case 'Home':
-        nextTick = 0
-        break
-      case 'End':
-        nextTick = lastGridTick
-        break
-      default:
-        return
-    }
-    event.preventDefault()
-    onTransportSeek(nextTick)
-  }, [currentTick, lastGridTick, onTransportSeek])
-
   const [selectedPlacementIds, setSelectedPlacementIds] = useState<Set<string>>(new Set())
   const clearSelection = useCallback(() => setSelectedPlacementIds(new Set()), [])
 
@@ -167,6 +161,27 @@ export default function PlayerView({
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(false)
+  const browserPanelRef = usePanelRef()
+  const [upperDefaultLayout] = useState<PanelLayout>(() => {
+    const fallbackBrowserPercent = (() => {
+      try {
+        const legacyWidth = Number(localStorage.getItem(LEFT_COL_STORAGE_KEY))
+        if (Number.isFinite(legacyWidth) && legacyWidth >= LEFT_COL_MIN_PX) {
+          return Math.max(15, Math.min(45, legacyWidth / window.innerWidth * 100))
+        }
+      } catch {
+        // Use the regular default below.
+      }
+      return 33
+    })()
+    return loadPanelLayout(UPPER_LAYOUT_STORAGE_KEY, {
+      browser: fallbackBrowserPercent,
+      tracker: 100 - fallbackBrowserPercent
+    })
+  })
+  const [verticalDefaultLayout] = useState<PanelLayout>(() =>
+    loadPanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, { upper: 64, bottom: 36 })
+  )
   const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(initialBottomWorkspaceTab)
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null)
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null)
@@ -188,6 +203,12 @@ export default function PlayerView({
       // Storage can be unavailable; the active in-memory tab still works.
     }
   }, [])
+
+  const handleMixJamBrowserCollapsedChange = useCallback((collapsed: boolean) => {
+    setMixJamBrowserCollapsed(collapsed)
+    if (collapsed) browserPanelRef.current?.collapse()
+    else browserPanelRef.current?.expand()
+  }, [browserPanelRef])
 
   useEffect(() => {
     const nextChannelIndex = reconcileSelectedChannelIndex(mixer.channels, selectedChannelIndex)
@@ -232,14 +253,6 @@ export default function PlayerView({
   const [flashVisible, setFlashVisible] = useState(false)
   const activeFlashPath = flashVisible ? flashSamplePath : null
 
-  // Dismiss the placement context menu on any click outside
-  useEffect(() => {
-    if (!contextMenu) return
-    const dismiss = () => setContextMenu(null)
-    window.addEventListener('click', dismiss)
-    return () => window.removeEventListener('click', dismiss)
-  }, [contextMenu])
-
   // Flash effect: blink the highlight 3 times (6 visibility toggles) then clear.
   useEffect(() => {
     if (!flashSamplePath) return
@@ -272,72 +285,48 @@ export default function PlayerView({
     setContextMenu(null)
   }, [contextMenu, browser])
 
-  // Upper-work resize seam: drag the MixJam Browser edge to resize only the
-  // browser/tracker split. The full-width Bottom Workspace is independent.
-  const playerViewRef = useRef<HTMLDivElement>(null)
-
-  // Clamp a left-column width to [min, viewport fraction] so a persisted or
-  // dragged value can never push column 2 (and the seam itself) off-screen —
-  // there is no in-app way to recover from an off-viewport seam.
-  const clampLeftColWidth = useCallback((px: number): number => {
-    const max = Math.max(LEFT_COL_MIN_PX, window.innerWidth * LEFT_COL_MAX_FRACTION)
-    return clamp(px, LEFT_COL_MIN_PX, max)
-  }, [])
-
-  // Write the upper browser width to the shared grid's first-column variable.
-  const applyLeftColWidth = useCallback((px: number): void => {
-    const el = playerViewRef.current
-    if (!el) return
-    const width = clampLeftColWidth(px)
-    el.style.setProperty('--left-col-w', `${width}px`)
-  }, [clampLeftColWidth])
-
-  // Apply the persisted width before paint. The JSX style prop must never
-  // contain --left-col-w or React would clobber the imperative drag value.
-  useLayoutEffect(() => {
-    const stored = parseFloat(localStorage.getItem(LEFT_COL_STORAGE_KEY) ?? '')
-    applyLeftColWidth(
-      Number.isFinite(stored) && stored >= LEFT_COL_MIN_PX ? stored : LEFT_COL_DEFAULT_PX
-    )
-  }, [applyLeftColWidth])
-
-  const handleLeftColResizeStart = useDragResize(
-    useCallback(() => {
-      const el = playerViewRef.current
-      return el
-        ? parseFloat(getComputedStyle(el).getPropertyValue('--left-col-w')) ||
-            LEFT_COL_DEFAULT_PX
-        : LEFT_COL_DEFAULT_PX
-    }, []),
-    useCallback((dx, _dy, initialPx) => {
-      applyLeftColWidth(initialPx + dx)
-    }, [applyLeftColWidth]),
-    useCallback(() => {
-      // Inline style, not computed: it holds the value the drag just wrote.
-      const width = parseFloat(
-        playerViewRef.current?.style.getPropertyValue('--left-col-w') ?? ''
-      )
-      if (Number.isFinite(width)) {
-        try {
-          localStorage.setItem(LEFT_COL_STORAGE_KEY, String(width))
-        } catch {
-          // Storage full or unavailable — non-critical.
-        }
-      }
-    }, [])
-  )
-
   return (
-    <div
-      ref={playerViewRef}
+    <PanelGroup
+      id="player-workspace-split"
       className={`player-view${mixJamBrowserCollapsed ? ' mixjam-browser-collapsed' : ''}`}
+      orientation="vertical"
+      defaultLayout={verticalDefaultLayout}
+      onLayoutChanged={(layout) => savePanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, layout)}
     >
-      <MixJamBrowser
-        mixJamFiles={mixJamFiles}
-        onCollapsedChange={setMixJamBrowserCollapsed}
-      />
+      <Panel id="upper" minSize="244px">
+        <div className="upper-middle-work">
+          <PanelGroup
+            id="upper-work-split"
+            className="upper-work-group"
+            orientation="horizontal"
+            defaultLayout={upperDefaultLayout}
+            onLayoutChanged={(layout) => savePanelLayout(UPPER_LAYOUT_STORAGE_KEY, layout)}
+          >
+            <Panel
+              id="browser"
+              panelRef={browserPanelRef}
+              defaultSize="420px"
+              minSize={`${LEFT_COL_MIN_PX}px`}
+              maxSize="45vw"
+              groupResizeBehavior="preserve-pixel-size"
+              collapsible
+              collapsedSize="30px"
+            >
+              <MixJamBrowser
+                mixJamFiles={mixJamFiles}
+                onCollapsedChange={handleMixJamBrowserCollapsedChange}
+              />
+            </Panel>
 
-      <section className="tracker-zone tracker-region">
+            <PanelResizeHandle
+              className="upper-work-resize"
+              aria-label="Resize MixJam Browser"
+              disabled={mixJamBrowserCollapsed}
+            />
+
+            <Panel id="tracker" minSize="320px">
+
+              <section className="tracker-zone tracker-region">
         {currentTick < totalTicks && (
           <div
             className="tracker-playhead"
@@ -347,7 +336,14 @@ export default function PlayerView({
             aria-hidden="true"
           />
         )}
-        <div className="tracker-lanes" ref={lanesRef} onMouseDown={handleLanesMouseDown}>
+        <ContextMenuRoot onOpenChange={(open) => { if (!open) setContextMenu(null) }}>
+          <ContextMenuTrigger asChild>
+            <div
+              className="tracker-lanes"
+              ref={lanesRef}
+              onMouseDown={handleLanesMouseDown}
+              onContextMenuCapture={() => setContextMenu(null)}
+            >
           {selectionRect && (() => {
             const x = Math.min(selectionRect.startX, selectionRect.currentX)
             const y = Math.min(selectionRect.startY, selectionRect.currentY)
@@ -355,28 +351,29 @@ export default function PlayerView({
             const h = Math.abs(selectionRect.currentY - selectionRect.startY)
             return <div className="selection-rect" style={{ left: x, top: y, width: w, height: h }} />
           })()}
-          <div
+          <SliderRoot
             className="tracker-ruler"
-            role="slider"
-            tabIndex={0}
             aria-label="Tracker timeline"
-            aria-valuemin={0}
-            aria-valuemax={lastGridTick}
-            aria-valuenow={Math.min(currentTick, lastGridTick)}
-            onClick={handleRulerClick}
-            onKeyDown={handleRulerKeyDown}
+            value={[Math.min(currentTick, lastGridTick)]}
+            min={0}
+            max={lastGridTick}
+            step={TICKS_PER_BEAT}
+            onValueChange={([tick]) => onTransportSeek(tick)}
           >
             <div className="tracker-ruler-spacer" />
-            {Array.from({ length: rulerBeatCount }, (_, i) => {
-              const isBar = i % BEATS_PER_BAR === 0
-              const barNumber = i / BEATS_PER_BAR + 1
-              return (
-                <div key={i} className={`tracker-ruler-tick${isBar ? ' tracker-ruler-tick-bar' : ''}`}>
-                  {isBar && barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
-                </div>
-              )
-            })}
-          </div>
+            <SliderTrack className="tracker-ruler-track">
+              {Array.from({ length: rulerBeatCount }, (_, i) => {
+                const isBar = i % BEATS_PER_BAR === 0
+                const barNumber = i / BEATS_PER_BAR + 1
+                return (
+                  <div key={i} className={`tracker-ruler-tick${isBar ? ' tracker-ruler-tick-bar' : ''}`}>
+                    {isBar && barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
+                  </div>
+                )
+              })}
+            </SliderTrack>
+            <SliderThumb className="tracker-ruler-thumb" aria-label="Tracker timeline" />
+          </SliderRoot>
           {lanes.map((lane) => {
             const dimmed = laneShouldDim(lane)
             return (
@@ -392,19 +389,27 @@ export default function PlayerView({
                 onToggleLaneMute={arrangement.onToggleLaneMute}
                 onToggleLaneSolo={arrangement.onToggleLaneSolo}
                 onSetLanePan={arrangement.onSetLanePan}
-                onSetLaneNativeBpm={arrangement.onSetLaneNativeBpm}
                 onPlacementDragStart={handlePlacementDragStart}
                 onPlacementContextMenu={setContextMenu}
                 onDragOver={handleLaneCanvasDragOver}
                 onDrop={handleLaneCanvasDrop}
-                trackDragCleanup={trackDragCleanup}
               />
             )
           })}
-        </div>
-      </section>
+            </div>
+          </ContextMenuTrigger>
+          {contextMenu && (
+            <ContextMenuContent aria-label={`Placement actions for ${contextMenu.sampleName}`}>
+              <ContextMenuItem onSelect={handleContextDelete}>Delete</ContextMenuItem>
+              <ContextMenuItem onSelect={handleContextLocate}>Locate in Browser</ContextMenuItem>
+            </ContextMenuContent>
+          )}
+        </ContextMenuRoot>
+              </section>
+            </Panel>
+          </PanelGroup>
 
-      <MiddleStrip
+          <MiddleStrip
         transportState={transportState}
         canUndo={transport.canUndo}
         canRedo={transport.canRedo}
@@ -421,17 +426,17 @@ export default function PlayerView({
         onStartScan={browser.onStartScan}
         onCancelScan={browser.onCancelScan}
         onOpenShortcuts={() => setShortcutsOpen(true)}
+          />
+        </div>
+      </Panel>
+
+      <PanelResizeHandle
+        className="bottom-workspace-resize"
+        aria-label="Resize bottom workspace"
       />
 
-      <div
-        className="upper-work-resize"
-        role="separator"
-        aria-label="Resize MixJam Browser"
-        aria-orientation="vertical"
-        onMouseDown={handleLeftColResizeStart}
-      />
-
-      <BottomWorkspace
+      <Panel id="bottom" minSize="60px" maxSize="60%">
+        <BottomWorkspace
         activeTab={bottomTab}
         bpm={transport.bpm}
         masterGain={transport.masterGain}
@@ -440,9 +445,10 @@ export default function PlayerView({
           <SongControlsMain
             bpm={transport.bpm}
             masterGain={transport.masterGain}
-            masterLevelDb={transport.masterLevelDb}
+            masterMeter={transport.masterMeter}
             onSetBpm={transport.onSetBpm}
             onSetMasterGain={transport.onSetMasterGain}
+            onResetMasterMeter={transport.onResetMasterMeter}
           />
         )}
         mixer={(
@@ -480,40 +486,17 @@ export default function PlayerView({
         )}
         samples={(
           <SampleBrowser
+            active={bottomTab === 'samples'}
             browser={browser}
             bubblePixelsPerSecond={bubblePixelsPerSecond}
             flashSamplePath={activeFlashPath}
             onSampleDragStart={handleSampleDragStart}
           />
         )}
-      />
-
-      {contextMenu && (
-        <div
-          className="context-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          role="menu"
-        >
-          <button
-            type="button"
-            className="context-menu-item"
-            role="menuitem"
-            onClick={handleContextDelete}
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            className="context-menu-item"
-            role="menuitem"
-            onClick={handleContextLocate}
-          >
-            Locate in Browser
-          </button>
-        </div>
-      )}
+        />
+      </Panel>
 
       {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
-    </div>
+    </PanelGroup>
   )
 }

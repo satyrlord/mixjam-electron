@@ -3,6 +3,7 @@ import BrandMark from './BrandMark'
 import type { FolderView } from '../hooks/useFolderSetup'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import { THEME_OPTIONS, resolveTheme } from '../theme/themes'
+import { Tooltip } from './ui/Tooltip'
 
 const HOME_RECENT_LIMIT = 4
 
@@ -92,18 +93,18 @@ export default function HomeScreen({
                 const theme = resolveTheme(option.key)
                 const isActive = activeTheme === option.key
                 return (
-                  <button
-                    key={option.key}
-                    type="button"
-                    className={`home-theme-swatch${isActive ? ' home-theme-swatch-active' : ''}`}
-                    style={{
-                      background: `linear-gradient(135deg, ${theme.colors.accent} 0 50%, ${theme.colors['bg-base']} 50% 100%)`
-                    }}
-                    title={option.name}
-                    aria-label={`Switch to ${option.name} theme`}
-                    aria-pressed={isActive}
-                    onClick={() => onThemeChange(option.key)}
-                  />
+                  <Tooltip key={option.key} content={option.name}>
+                    <button
+                      type="button"
+                      className={`home-theme-swatch${isActive ? ' home-theme-swatch-active' : ''}`}
+                      style={{
+                        background: `linear-gradient(135deg, ${theme.colors.accent} 0 50%, ${theme.colors['bg-base']} 50% 100%)`
+                      }}
+                      aria-label={`Switch to ${option.name} theme`}
+                      aria-pressed={isActive}
+                      onClick={() => onThemeChange(option.key)}
+                    />
+                  </Tooltip>
                 )
               })}
             </div>
@@ -139,9 +140,9 @@ export default function HomeScreen({
             {!canStart && <p className="home-launch-hint">Select both folders above to start.</p>}
           </div>
 
-          <button className="link-secondary" disabled title={PROJECT_LOAD_COMING_SOON}>
-            Load MixJam
-          </button>
+          <Tooltip content={PROJECT_LOAD_COMING_SOON}>
+            <span className="mixjam-tooltip-anchor"><button className="link-secondary" disabled>Load MixJam</button></span>
+          </Tooltip>
 
           {homeRecent.length > 0 && (
             <div className="home-recent">
@@ -149,15 +150,12 @@ export default function HomeScreen({
               <ul className="home-recent-list">
                 {homeRecent.map((project) => (
                   <li key={project.path}>
-                    <button
-                      type="button"
-                      className="home-recent-item"
-                      disabled
-                      title={PROJECT_LOAD_COMING_SOON}
-                    >
-                      <span className="home-recent-name">{project.displayName}</span>
-                      <span className="home-recent-path">{project.path}</span>
-                    </button>
+                    <Tooltip content={PROJECT_LOAD_COMING_SOON}>
+                      <span className="mixjam-tooltip-anchor"><button type="button" className="home-recent-item" disabled>
+                        <span className="home-recent-name">{project.displayName}</span>
+                        <span className="home-recent-path">{project.path}</span>
+                      </button></span>
+                    </Tooltip>
                   </li>
                 ))}
               </ul>

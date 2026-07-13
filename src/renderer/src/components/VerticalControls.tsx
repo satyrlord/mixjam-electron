@@ -1,6 +1,7 @@
-import * as Slider from '@radix-ui/react-slider'
 import { useState, type CSSProperties, type PointerEvent, type WheelEvent } from 'react'
 import { clamp, meterFillPct } from '../lib/sample-utils'
+import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
+import { Tooltip } from './ui/Tooltip'
 
 function joinClasses(...classes: Array<string | undefined>): string {
   return classes.filter(Boolean).join(' ')
@@ -62,7 +63,7 @@ interface VerticalFaderProps {
   unityClassName?: string
   meterFillClassName?: string
   meterPeakClassName?: string
-  title?: string
+  tooltip?: string
   unityValue?: number
   meterDb?: number
   peakDb?: number
@@ -86,7 +87,7 @@ export function VerticalFader({
   unityClassName,
   meterFillClassName,
   meterPeakClassName,
-  title,
+  tooltip,
   unityValue,
   meterDb,
   peakDb,
@@ -138,7 +139,7 @@ export function VerticalFader({
         {showDragValue && dragging && (
           <output className={joinClasses('vertical-fader-readout', readoutClassName)}>{valueText}</output>
         )}
-        <Slider.Root
+        <SliderRoot
           className="vertical-fader-input"
           orientation="vertical"
           value={[value]}
@@ -152,53 +153,18 @@ export function VerticalFader({
           onPointerCancel={endDrag}
           onBlur={endDrag}
         >
-          <Slider.Track className="vertical-fader-native-track">
-            <Slider.Range className="vertical-fader-native-range" />
-          </Slider.Track>
-          <Slider.Thumb
-            className={joinClasses('vertical-fader-thumb', inputClassName)}
-            aria-label={ariaLabel}
-            aria-valuetext={valueText}
-            title={title}
-          />
-        </Slider.Root>
+          <SliderTrack className="vertical-fader-native-track">
+            <SliderRange className="vertical-fader-native-range" />
+          </SliderTrack>
+          {tooltip ? (
+            <Tooltip content={tooltip}>
+              <SliderThumb className={joinClasses('vertical-fader-thumb', inputClassName)} aria-label={ariaLabel} aria-valuetext={valueText} />
+            </Tooltip>
+          ) : (
+            <SliderThumb className={joinClasses('vertical-fader-thumb', inputClassName)} aria-label={ariaLabel} aria-valuetext={valueText} />
+          )}
+        </SliderRoot>
       </div>
-      {minLabel && <span className="vertical-control-endpoint vertical-control-endpoint-min">{minLabel}</span>}
-    </div>
-  )
-}
-
-interface VerticalMeterProps {
-  ariaLabel: string
-  valueDb: number
-  minDb?: number
-  maxDb?: number
-  maxLabel?: string
-  minLabel?: string
-  className?: string
-}
-
-export function VerticalMeter({
-  ariaLabel,
-  valueDb,
-  minDb = -100,
-  maxDb = 0,
-  maxLabel,
-  minLabel,
-  className
-}: VerticalMeterProps) {
-  return (
-    <div
-      className={joinClasses('vertical-meter', className)}
-      role="meter"
-      aria-label={ariaLabel}
-      aria-valuemin={minDb}
-      aria-valuemax={maxDb}
-      aria-valuenow={Math.round(valueDb)}
-      aria-valuetext={`${Math.round(valueDb)} dB`}
-    >
-      {maxLabel && <span className="vertical-control-endpoint vertical-control-endpoint-max">{maxLabel}</span>}
-      <MeterTrack valueDb={valueDb} />
       {minLabel && <span className="vertical-control-endpoint vertical-control-endpoint-min">{minLabel}</span>}
     </div>
   )

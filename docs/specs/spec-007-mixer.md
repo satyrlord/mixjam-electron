@@ -109,6 +109,9 @@ Stereo width is out of scope.
 ### dB Meter
 
 - Displays real-time RMS output level per channel.
+- Channel values and peak hold remain RMS dBFS. Standards-based LUFS and true
+  peak processing belongs only to the post-master Output Level meter in the
+  Song panel; no per-channel loudness worklets are created.
 - **Audio source:** One `AnalyserNode` per channel, inserted after the channel's
   output `StereoPannerNode` and before the master bus. `fftSize` 256.
 - **Update loop:** Single `requestAnimationFrame` loop reads all 16 analysers,
@@ -128,6 +131,10 @@ Stereo width is out of scope.
 - AC-010 (multiple lanes sharing one channel) is deferred.
 
 ### Lane / Channel Pan Independence
+
+Lane and channel pan use the shared project-owned rotary control. It captures
+pointer input (including touch), supports Shift fine adjustment and keyboard
+steps, and preserves pan's center reset and right-click cycle behavior.
 
 Lane-level pan and channel-level pan are independent values, both applied in
 the audio chain. Lane pan uses a **per-lane persistent `StereoPannerNode`**
@@ -252,7 +259,9 @@ interaction. Do NOT implement one without the other.
 - [x] **AC-021:** The pan knob is reachable with Tab; ArrowLeft/ArrowRight change pan by 0.05 clamped to [-1, 1]; `aria-valuetext` reflects the position.
 - [x] **AC-022:** The mute-active button fill measures at least 3:1 contrast against the inactive button in every bundled theme, and a muted channel's strip is visibly dimmed.
 - [x] **AC-023:** A channel fader shows its percentage value while dragging and renders a unity (100%) tick mark.
-- [x] **AC-024:** The master meter label reads "Output Level".
+- [x] **AC-024:** The master meter label reads "Output Level" and uses
+  standards-based master LUFS/dBTP values when available, while all 16 channel
+  meters remain RMS dBFS with their existing peak-hold behavior.
 - [x] **AC-025:** The shared Mixer/FX visual-telemetry frame loop is cancelled
   while Song or Samples is active and restarts when Mixer or FX becomes active.
 

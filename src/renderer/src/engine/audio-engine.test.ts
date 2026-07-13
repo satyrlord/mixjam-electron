@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AudioEngine } from './audio-engine'
-import { MockAudioContext, createMockContext } from '../test/mockAudioContext'
+import { MockAudioContext, MockAudioWorkletNode, createMockContext } from '../test/mockAudioContext'
 
 function makeBuffer(): AudioBuffer {
   return { duration: 1, length: 44100, numberOfChannels: 2, sampleRate: 44100 } as AudioBuffer
@@ -13,6 +13,11 @@ function makeEngine(): { engine: AudioEngine; context: MockAudioContext } {
 }
 
 describe('AudioEngine', () => {
+  it('test AudioWorklet mock exposes the message-port surface used by the engine', () => {
+    const worklet = new MockAudioWorkletNode()
+    expect(worklet.port.onmessage).toBeNull()
+  })
+
   it('creates the AudioContext lazily, not in the constructor', () => {
     const context = createMockContext()
     let created = 0
@@ -37,6 +42,24 @@ describe('AudioEngine', () => {
     const [analyser] = context.created.analysers
     expect(masterGain.connectedTo).toContain(analyser)
     expect(analyser.connectedTo).toContain(context.destination)
+  })
+
+  it('adds loudness metering as a silent parallel branch without changing the audible route', async () => {
+    const { engine, context } = makeEngine()
+    await engine.resume()
+    await Promise.resolve()
+
+    const [masterGain, bypassGain, silentSink] = context.created.gains
+    const [analyser] = context.created.analysers
+    const worklet = masterGain.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
+    expect(masterGain.connectedTo).toContain(analyser)
+    expect(analyser.connectedTo).toContain(context.destination)
+    expect(worklet).toBeInstanceOf(MockAudioWorkletNode)
+    expect(worklet?.port).toBeDefined()
+    expect(worklet?.connectedTo).toContain(silentSink)
+    expect(silentSink.gain.value).toBe(0)
+    expect(silentSink.connectedTo).toContain(context.destination)
+    expect(bypassGain.gain.value).toBe(1)
   })
 
   // AC-006

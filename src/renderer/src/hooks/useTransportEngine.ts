@@ -15,7 +15,6 @@ import {
   removePlacementFromLane,
   removePlacements,
   placementDurationTicks,
-  setLaneNativeBpm,
   setLanePan,
   toEngineLanes,
   toggleLaneMute,
@@ -26,6 +25,7 @@ import { PlaybackEngine } from '../engine/playback-engine'
 import { formatTimer } from '../lib/formatTimer'
 import { useTransportRuntime } from './useTransportRuntime'
 import { useUndoHistory } from './useUndoHistory'
+import type { MasterMeterSnapshot } from '../engine/master-meter'
 
 const DEFAULT_BPM = 120
 
@@ -41,7 +41,7 @@ export interface TransportEngineState {
   currentTick: number
   bpm: number
   masterGain: number
-  masterLevelDb: number
+  masterMeter: MasterMeterSnapshot
   elapsedMs: number
   canUndo: boolean
   canRedo: boolean
@@ -60,8 +60,7 @@ export interface TransportEngineActions {
   undo: () => void
   redo: () => void
   setLanePan: (laneIndex: number, pan: number) => void
-  setLaneNativeBpm: (laneIndex: number, nativeBPM: number | null) => void
-  previewSample: (samplePath: string) => void
+  previewSample: (samplePath: string, nativeBPM?: number | null) => void
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
   toggleLaneMute: (laneIndex: number) => void
   toggleLaneSolo: (laneIndex: number) => void
@@ -73,6 +72,7 @@ export interface TransportEngineActions {
   transportSeek: (tick: number) => void
   setBpm: (bpm: number) => void
   setMasterGain: (value: number) => void
+  resetMasterMeter: () => void
 }
 
 export type TransportEngine = TransportEngineState & TransportEngineActions
@@ -103,7 +103,7 @@ export function useTransportEngine(
     bpm,
     masterGain,
     elapsedMs,
-    masterLevelDb,
+    masterMeter,
     previewSample,
     getSampleBuffer,
     transportPlay,
@@ -113,7 +113,7 @@ export function useTransportEngine(
     transportSeek,
     setBpm,
     setMasterGain,
-    prepareTempoChange
+    resetMasterMeter
   } = runtime
 
   const { pushEdit, undo, redo, setCurrent } = lanesHistory
@@ -122,7 +122,7 @@ export function useTransportEngine(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
       const placementTicks = placementDurationTicks(detail.duration, bpm)
       pushEdit((current) =>
-        placeSampleOnLane(current, laneIndex, detail.relpath, detail.name, startTick, placementTicks, detail.duration, detail.slot)
+        placeSampleOnLane(current, laneIndex, detail.relpath, detail.name, startTick, placementTicks, detail.duration, detail.slot, detail.bpm)
       )
     },
     [bpm, pushEdit]
@@ -188,14 +188,6 @@ export function useTransportEngine(
     [setCurrent, lanesHistory.currentRef, playbackEngineRef]
   )
 
-  const handleSetLaneNativeBpm = useCallback(
-    (laneIndex: number, nativeBPM: number | null) => {
-      setCurrent(setLaneNativeBpm(lanesHistory.currentRef.current, laneIndex, nativeBPM))
-      prepareTempoChange()
-    },
-    [setCurrent, lanesHistory.currentRef, prepareTempoChange]
-  )
-
   const timerText = useMemo(() => formatTimer(elapsedMs), [elapsedMs])
   const lanes = lanesHistory.current
   const anySoloed = useMemo(() => anyLaneSoloed(lanes), [lanes])
@@ -212,7 +204,7 @@ export function useTransportEngine(
     currentTick,
     bpm,
     masterGain,
-    masterLevelDb,
+    masterMeter,
     elapsedMs,
     canUndo: lanesHistory.canUndo,
     canRedo: lanesHistory.canRedo,
@@ -228,7 +220,6 @@ export function useTransportEngine(
     undo,
     redo,
     setLanePan: handleSetLanePan,
-    setLaneNativeBpm: handleSetLaneNativeBpm,
     previewSample,
     getSampleBuffer,
     toggleLaneMute: handleToggleLaneMute,
@@ -240,6 +231,7 @@ export function useTransportEngine(
     transportSkipBack,
     transportSeek,
     setBpm,
-    setMasterGain
+    setMasterGain,
+    resetMasterMeter
   }
 }

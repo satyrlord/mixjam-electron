@@ -6,6 +6,7 @@
 | ----- | ------ | ----------------------------- |
 | Hosts | **Browser-first (Chromium) + thin Electron shell** | One backend, two hosts. Browser build is primary (GitHub Pages); Electron loads the same bundle from `app://`. Chromium-only. |
 | UI | **React + TypeScript** | React was not the prior bottleneck; virtualization was. Prior React investment is kept. |
+| UI primitives | **Project wrappers over Radix UI and react-resizable-panels** | Shared keyboard, focus, portal, collision, pointer, and ARIA behavior without third-party imports in features. |
 | Large-list rendering | **Virtualized list/grid** (TanStack Virtual or react-window) | ~30–50 DOM rows exist at once, recycled on scroll. Mandatory for any view that can show many samples. |
 | Data layer | **SQLite via `@sqlite.org/sqlite-wasm`** (opfs-sahpool VFS) in a backend Web Worker | Indexed SQL, never in-memory JS. FTS5 prefix search. No COOP/COEP. One connection via Web Lock. |
 | File access | **File System Access API** | `showDirectoryPicker` grants a `FileSystemDirectoryHandle` in IndexedDB. Handles are contained to their subtree. Electron auto-grants `fileSystem`. |
@@ -53,6 +54,9 @@ Rules of the process model:
   persisted directory handle); samples are `(root_id, relpath)`. Reading a file
   resolves the relpath through the root's handle, so reads cannot escape a
   granted folder by construction.
+- **The shell does not provide filesystem fallbacks.** Automated browser and
+  Electron checks seed the renderer's `BackendAPI` test facade; environment
+  variables and renderer-supplied paths never grant host filesystem access.
 - **One tab.** A Web Lock (`mixjam-app`) is taken before the app mounts; a
   second tab shows a friendly notice instead of failing on DB open.
 - **Audio stays on the renderer main thread** (Web Audio API). The engine loads

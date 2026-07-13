@@ -26,8 +26,6 @@ describe('SampleAnalysisEditor', () => {
     render(
       <SampleAnalysisEditor
         sample={SAMPLE_WITHOUT_ANALYSIS}
-        x={10}
-        y={20}
         onClose={vi.fn()}
         onUpdate={vi.fn()}
         onReanalyze={vi.fn()}

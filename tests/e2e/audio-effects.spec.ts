@@ -7,9 +7,9 @@ test('the FX workspace edits, presets, bypasses, reorders, removes, undoes, and 
   await expect(page.getByRole('tab', { name: 'FX' })).toHaveAttribute('aria-selected', 'true')
 
   await page.getByText('Add effect', { exact: false }).click()
-  await page.getByRole('button', { name: /Delay.*repeating echoes/i }).click()
+  await page.getByRole('menuitem', { name: /Delay.*repeating echoes/i }).click()
   await page.getByText('Add effect', { exact: false }).click()
-  await page.getByRole('button', { name: /Reverb.*room, studio/i }).click()
+  await page.getByRole('menuitem', { name: /Reverb.*room, studio/i }).click()
 
   await page.getByText('Delay', { exact: true }).first().click()
   await page.getByRole('button', { name: '375 ms' }).click()

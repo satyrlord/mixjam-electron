@@ -30,19 +30,24 @@ than enough for an eJay/Acid-style tracker.
 
 ### Offline time-stretching
 
-- A lane's optional native BPM selects pitch-preserving time-stretching before
-  voice creation. The speed ratio is `projectBPM / nativeBPM`; a null native BPM
-  and a ratio of 1 are zero-work passthroughs.
-- `bungee-pitch-shift` supplies an MIT-licensed Bungee phase vocoder compiled to
-  embedded WASM. Vite emits its self-contained AudioWorklet processor as a static
-  asset that works in both the browser build and Electron shell.
+- Samples are automatically time-stretched to match the project BPM using
+  their auto-detected native BPM from analysis (spec-008). The stretch ratio
+  is `projectBPM / nativeBPM`; a null native BPM and a ratio of 1 are
+  zero-work passthroughs.
+- A placement captures its sample's native BPM when it is added. The scheduler
+  reads BPM from each placement, so one lane may contain loops with different
+  native tempos without one drop retuning another.
+- The stretch algorithm is a phase vocoder (Bungee, equivalent in approach to
+  Elastique) compiled to embedded WASM. Vite emits its self-contained
+  AudioWorklet processor as a static asset that works in both the browser
+  build and Electron shell.
 - Stretching renders through an `OfflineAudioContext`, producing a reusable
   `AudioBuffer`. Playback never runs stretch DSP on each voice trigger.
 - The runtime exposes a `preparing` transport state while required buffers are
   decoded or stretched. The scheduler, audible playback state, and elapsed timer
   start together only after preparation succeeds; Stop cancels an in-flight
-  preparation. Project-BPM and lane-native-BPM edits use the same transition
-  before playback resumes.
+  preparation. Project-BPM edits use the same transition before playback
+  resumes.
 - Completed stretched buffers use a separate `(sampleId, ratio)` LRU cache, and
   concurrent requests for the same key share one promise. Old ratios remain in
   the cache until eviction so a BPM change can be reversed without recomputing.
@@ -50,6 +55,8 @@ than enough for an eJay/Acid-style tracker.
   playback runtime, and returns the decoded native-rate buffer. Playback does not
   crash or repeatedly retry a broken module. Concurrent failures share that one
   disable transition and therefore still emit only one warning.
+- Sample-browser preview is also stretched to the project BPM so the preview
+  sounds identical to how the sample will play in the tracker.
 
 ## Per-channel insert effects
 
@@ -78,6 +85,34 @@ input. Replaced and removed processors disconnect every node they own.
 Effect definitions live in the renderer mixer state and persist in the same
 `mixjam-mixer-channels` local-storage entry as gain, pan, mute, and solo.
 Older entries without an effects field load with an empty chain.
+
+## Master loudness metering
+
+The master bus keeps its audible route unchanged:
+`masterGain -> analyser -> destination`. The analyser remains the RMS dBFS
+fallback and an A/B reference. A measurement-only branch after `masterGain`
+feeds a self-hosted `loudness-worklet` 1.6.9 processor. The optional worklet is
+never placed in series with the audible route; when Chromium needs its output
+to be pulled, it connects through a zero-gain sink to the destination.
+
+The processor implements ITU-R BS.1770-5 / EBU Mode measurement. MixJam owns a
+stable snapshot contract containing RMS dBFS fallback plus Momentary,
+Short-term, and Integrated LUFS, maximum true peak in dBTP, and Loudness Range
+in LU. The worklet publishes at 100 ms intervals, matching the renderer's
+existing meter poll cadence. Its generated release asset is emitted by Vite
+from `src/renderer/src/engine/worklets/`; the production loader does not create
+a `blob:` URL, so the packaged `worker-src 'self'` policy remains strict.
+
+Registration starts from the existing asynchronous `AudioEngine.resume()`
+gesture path and is memoized. Failure logs once, never blocks playback, and
+leaves the RMS fallback available. Pause/resume preserves an integration
+session. Stop freezes the final values. A new start from tick zero, project
+replacement, explicit reset, or discontinuous seek/skip resets Integrated LUFS
+and Loudness Range; Momentary and Short-term readings continue after reset.
+
+The 16 channel meters remain lightweight post-channel RMS dBFS meters with
+peak hold. Standards-based programme loudness is measured only on the stereo
+master bus.
 
 ## Native-addon escape hatch — when to leave Web Audio
 

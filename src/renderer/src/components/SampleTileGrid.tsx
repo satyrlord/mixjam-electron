@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/arrangement'
@@ -8,6 +8,8 @@ import {
   sampleBubbleWidth
 } from '../lib/arrangement'
 import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
+import { Tooltip } from './ui/Tooltip'
+import { ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 
 // Bubble geometry shared with the tracker: a sample bubble is 32px tall
 // everywhere in the UI (hard rule), and browser rows keep the 6px gap the old
@@ -19,6 +21,7 @@ const TILES_H_PADDING_PX = 10
 // Request the next windowed page when the scroll position is within this many
 // rows of the end of the loaded prefix.
 const LOAD_MORE_ROW_MARGIN = 6
+const UNMEASURED_FALLBACK_ROW_LIMIT = 12
 
 interface TileRow {
   /** Index of the first tile in the row (inclusive). */
@@ -55,6 +58,7 @@ function packTileRows(widths: readonly number[], rowWidth: number, gap: number):
 }
 
 interface SampleTileGridProps {
+  active?: boolean
   samples: SampleListItem[]
   bubblePixelsPerSecond?: number
   selectedSamplePath: string | null
@@ -68,9 +72,10 @@ interface SampleTileGridProps {
   hasMore: boolean
   onLoadMore: () => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
-  onPreviewSample: (samplePath: string) => void
+  onPreviewSample: (samplePath: string, nativeBPM: number | null) => void
   onSampleDragStart: (event: React.DragEvent, detail: FooterSampleDetail) => void
-  onSampleContextMenu: (sample: SampleListItem, event: React.MouseEvent) => void
+  onSampleContextMenuOpen: (sample: SampleListItem, anchor: HTMLButtonElement) => void
+  renderSampleContextMenu: (sample: SampleListItem) => ReactNode
 }
 
 /**
@@ -82,6 +87,7 @@ interface SampleTileGridProps {
  * Memoized so the tracker's 10Hz playhead updates skip re-rendering the grid.
  */
 function SampleTileGrid({
+  active = true,
   samples,
   bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   selectedSamplePath,
@@ -95,15 +101,20 @@ function SampleTileGrid({
   onSelectSampleDetail,
   onPreviewSample,
   onSampleDragStart,
-  onSampleContextMenu
+  onSampleContextMenuOpen,
+  renderSampleContextMenu
 }: SampleTileGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [viewport, setViewport] = useState({ width: 0, height: 0 })
+  const [viewport, setViewport] = useState({ width: 0, height: 0, hidden: false })
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const measure = () => setViewport({ width: el.clientWidth, height: el.clientHeight })
+    const measure = () => setViewport({
+      width: el.clientWidth,
+      height: el.clientHeight,
+      hidden: el.closest('[hidden]') !== null
+    })
     measure()
     // Debounce ResizeObserver callbacks so rapid resize events (e.g. window
     // drag) do not trigger an expensive row-repack on every frame.
@@ -117,7 +128,7 @@ function SampleTileGrid({
       cancelAnimationFrame(rafId)
       ro.disconnect()
     }
-  }, [])
+  }, [active])
 
   const categoryNames = useMemo(
     () => new Map(categories.map((c) => [c.id, c.name])),
@@ -151,26 +162,29 @@ function SampleTileGrid({
     overscan: 6
   })
 
-  // Fallback for an unmeasured viewport (first paint, jsdom): a zero-height
-  // scroll rect would virtualize down to nothing, so render every row until
-  // real measurements arrive.
+  // Keep first paint useful without ever expanding a hidden or unmeasured
+  // result set into the full DOM. Hidden tabs mount no rows; a visible viewport
+  // gets a small bounded fallback until TanStack Virtual has real dimensions.
   const virtualRows =
-    viewport.height > 0
+    !active || viewport.hidden
+      ? []
+      : viewport.height > 0
       ? virtualizer.getVirtualItems().map((item) => ({ index: item.index, start: item.start }))
-      : rows.map((_, index) => ({ index, start: index * ROW_PITCH_PX }))
+      : rows.slice(0, UNMEASURED_FALLBACK_ROW_LIMIT)
+        .map((_, index) => ({ index, start: index * ROW_PITCH_PX }))
 
   // Windowed paging: pull the next page once the viewport nears the end of the
   // loaded rows.
   const lastVisibleRow = virtualRows.length > 0 ? virtualRows[virtualRows.length - 1].index : -1
   useEffect(() => {
-    if (!hasMore || loading) return
+    if (!active || !hasMore || loading || viewport.hidden || viewport.height <= 0 || virtualRows.length === 0) return
     if (rows.length === 0 || lastVisibleRow >= rows.length - LOAD_MORE_ROW_MARGIN) {
       onLoadMore()
     }
-  }, [hasMore, loading, lastVisibleRow, rows.length, onLoadMore])
+  }, [active, hasMore, loading, lastVisibleRow, rows.length, onLoadMore, viewport.hidden, viewport.height, virtualRows.length])
 
   return (
-    <div className="tiles" ref={scrollRef}>
+    <div className="tiles" ref={scrollRef} data-active={active ? 'true' : 'false'}>
       <div className="tiles-virtual-canvas" style={{ height: rows.length * ROW_PITCH_PX }}>
         {virtualRows.map(({ index, start }) => {
           const row = rows[index]
@@ -183,38 +197,47 @@ function SampleTileGrid({
             >
               {tiles.slice(row.start, row.end).map(({ sample, width, slot }) => {
                 const isSelected = selectedSamplePath === sample.relpath
+                const tooltip = `${sample.name || 'Unknown'} — click to preview, drag onto a lane, right-click to tag`
                 return (
-                  <button
-                    key={sample.id}
-                    type="button"
-                    className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' sample-bubble-flash' : ''}`}
-                    style={{ width: `${width}px`, ...(slot !== undefined ? bubbleStyle(slot) : {}) } as React.CSSProperties}
-                    title={`${sample.name || 'Unknown'} — click to preview, drag onto a lane, right-click to tag`}
-                    draggable
-                    onDragStart={(e) =>
-                      onSampleDragStart(e, {
-                        name: sample.name,
-                        relpath: sample.relpath,
-                        tags: sample.tags,
-                        duration: sample.durationSeconds,
-                        slot
-                      })
-                    }
-                    onContextMenu={(e) => onSampleContextMenu(sample, e)}
-                    onClick={() => {
-                      onSelectSampleDetail({
-                        name: sample.name,
-                        relpath: sample.relpath,
-                        tags: sample.tags,
-                        duration: sample.durationSeconds,
-                        slot
-                      })
-                      onPreviewSample(sample.relpath)
-                    }}
-                  >
-                    <b>{(sample.name || 'Unknown').replace(/\.[^.]+$/, '')}</b>
-                    <i>{formatDuration(sample.durationSeconds)}</i>
-                  </button>
+                  <ContextMenuRoot key={sample.id}>
+                    <Tooltip content={tooltip}>
+                      <ContextMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' sample-bubble-flash' : ''}`}
+                          style={{ width: `${width}px`, ...(slot !== undefined ? bubbleStyle(slot) : {}) } as React.CSSProperties}
+                          draggable
+                          onPointerDown={(event) => onSampleContextMenuOpen(sample, event.currentTarget)}
+                          onContextMenu={(event) => onSampleContextMenuOpen(sample, event.currentTarget)}
+                          onDragStart={(e) =>
+                            onSampleDragStart(e, {
+                              name: sample.name,
+                              relpath: sample.relpath,
+                              tags: sample.tags,
+                              bpm: sample.bpm,
+                              duration: sample.durationSeconds,
+                              slot
+                            })
+                          }
+                          onClick={() => {
+                            onSelectSampleDetail({
+                              name: sample.name,
+                              relpath: sample.relpath,
+                              tags: sample.tags,
+                              bpm: sample.bpm,
+                              duration: sample.durationSeconds,
+                              slot
+                            })
+                            onPreviewSample(sample.relpath, sample.bpm)
+                          }}
+                        >
+                          <b>{(sample.name || 'Unknown').replace(/\.[^.]+$/, '')}</b>
+                          <i>{formatDuration(sample.durationSeconds)}</i>
+                        </button>
+                      </ContextMenuTrigger>
+                    </Tooltip>
+                    {renderSampleContextMenu(sample)}
+                  </ContextMenuRoot>
                 )
               })}
             </div>

@@ -401,8 +401,6 @@ function LaneSampleBubbleCanvas({
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     const placement = hitTest(e.clientX)
     if (!placement) return
-    e.preventDefault()
-    e.stopPropagation()
     onPlacementContextMenu({
       x: e.clientX,
       y: e.clientY,

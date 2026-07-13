@@ -15,7 +15,6 @@ import {
   movePlacement,
   placeSampleOnLane,
   removePlacementFromLane,
-  setLaneNativeBpm,
   setLanePan,
   toEngineLanes,
   toggleLaneMute,
@@ -115,6 +114,14 @@ describe('placeSampleOnLane', () => {
     expect(placements?.[1]?.sampleName).toBe('snare.wav')
     expect(placements?.[1]?.startTick).toBe(16)
     expect(placements?.[1]?.durationTicks).toBe(32)
+  })
+
+  it('keeps each placement native BPM independent on a shared lane', () => {
+    const lanes = createDefaultLanes()
+    let next = placeSampleOnLane(lanes, 0, 'Loops/slow.wav', 'slow.wav', 0, 32, 1, 0, 90)
+    next = placeSampleOnLane(next, 0, 'Loops/fast.wav', 'fast.wav', 32, 32, 1, 0, 140)
+
+    expect(next[0]!.placements.map((placement) => placement.nativeBPM)).toEqual([90, 140])
   })
 
   it('keeps both placements when the second starts after the first one ends', () => {
@@ -289,26 +296,10 @@ describe('setLanePan', () => {
   })
 })
 
-describe('setLaneNativeBpm', () => {
-  it('sets a positive native BPM and preserves other lanes', () => {
-    const lanes = createDefaultLanes()
-    const state = setLaneNativeBpm(lanes, 2, 128)
-
-    expect(state[2]!.nativeBPM).toBe(128)
-    expect(state[1]!.nativeBPM).toBeNull()
-  })
-
-  it('normalizes invalid values to native-rate playback', () => {
-    const lanes = createDefaultLanes()
-    expect(setLaneNativeBpm(lanes, 0, 0)[0]!.nativeBPM).toBeNull()
-    expect(setLaneNativeBpm(lanes, 0, Number.NaN)[0]!.nativeBPM).toBeNull()
-  })
-})
-
 describe('toEngineLanes', () => {
   it('maps UI lanes with placements to engine lanes', () => {
     const lanes = createDefaultLanes()
-    const withPlacement = placeSampleOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0, 32, 0.5)
+    const withPlacement = placeSampleOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0, 32, 0.5, 0, 124)
     const engineLanes = toEngineLanes(withPlacement)
 
     expect(engineLanes).toHaveLength(16)
@@ -316,6 +307,7 @@ describe('toEngineLanes', () => {
     expect(engineLanes[0]!.placements[0]!.samplePath).toBe('Drums/kick.wav')
     expect(engineLanes[0]!.placements[0]!.startTick).toBe(0)
     expect(engineLanes[0]!.placements[0]!.durationTicks).toBe(32)
+    expect(engineLanes[0]!.placements[0]!.nativeBPM).toBe(124)
     expect(engineLanes[0]!.channelIndex).toBe(0)
   })
 

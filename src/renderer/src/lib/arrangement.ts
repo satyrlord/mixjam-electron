@@ -5,7 +5,7 @@ import { clamp } from './sample-utils'
 
 /** Detail passed around the UI after a user selects or drags a sample. All
  *  paths are relpaths within the active Sample Folder's scan root. */
-export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags'> & {
+export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags' | 'bpm'> & {
   duration: number | null
   /** Category-derived palette slot (0-7, 8 = Unsorted). The hex resolves at
    *  draw time from the active theme's palette, so placements recolor on theme
@@ -39,13 +39,8 @@ export function timelinePixelsPerSecond(
     : DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND
 }
 
-// Upper MixJam Browser/Tracker split bounds. The CSS fallback in index.css
-// (`var(--left-col-w, 420px)`) must stay in sync with the default.
-export const LEFT_COL_DEFAULT_PX = 420
+// The upper MixJam Browser must leave its collapse control reachable.
 export const LEFT_COL_MIN_PX = 168
-// Keep the seam reachable: never persist/apply a width that would push column 2
-// (and the seam itself) off-screen. Capped as a fraction of the viewport.
-export const LEFT_COL_MAX_FRACTION = 0.8
 
 export interface ClipPlacement {
   id: string
@@ -56,6 +51,9 @@ export interface ClipPlacement {
   /** Audio duration in seconds — drives the bubble width so a sample has the
    *  same pixel size everywhere (tracker, browser, any view). */
   durationSeconds: number | null
+  /** Native tempo captured from the sample when it is placed. Keeping tempo
+   * with the placement lets one lane contain loops at different tempos. */
+  nativeBPM?: number | null
   /** Category-derived palette slot, stored at placement time. The slot (not a
    *  hex) is what stays stable; the color resolves from the active theme's
    *  palette at draw time (spec-002 Sample Palette). */
@@ -68,8 +66,6 @@ export interface LaneState {
   muted: boolean
   solo: boolean
   pan: number
-  /** Native tempo for loop material; null keeps samples at native rate. */
-  nativeBPM?: number | null
   placements: ClipPlacement[]
 }
 
@@ -113,7 +109,6 @@ export function createDefaultLanes(): LaneState[] {
     muted: false,
     solo: false,
     pan: 0,
-    nativeBPM: null,
     placements: []
   }))
 }
@@ -126,12 +121,12 @@ export function toEngineLanes(lanes: readonly LaneState[]): EngineLane[] {
     muted: lane.muted,
     solo: lane.solo,
     pan: lane.pan,
-    nativeBPM: lane.nativeBPM ?? null,
     channelIndex: lane.index,
     placements: lane.placements.map((placement) => ({
       startTick: placement.startTick,
       durationTicks: placement.durationTicks,
-      samplePath: placement.samplePath
+      samplePath: placement.samplePath,
+      nativeBPM: placement.nativeBPM ?? null
     }))
   }))
 }
@@ -150,7 +145,8 @@ export function placeSampleOnLane(
   startTick: number,
   durationTicks: number = DEFAULT_PLACEMENT_DURATION_TICKS,
   durationSeconds?: number | null,
-  slot?: number
+  slot?: number,
+  sampleBpm?: number | null
 ): LaneState[] {
   return lanes.map((lane) => {
     if (lane.index !== laneIndex) return lane
@@ -164,6 +160,9 @@ export function placeSampleOnLane(
       startTick,
       durationTicks,
       durationSeconds: durationSeconds ?? null,
+      nativeBPM: sampleBpm !== null && sampleBpm !== undefined && Number.isFinite(sampleBpm) && sampleBpm > 0
+        ? sampleBpm
+        : null,
       slot
     }
 
@@ -273,7 +272,8 @@ export function duplicatePlacement(
   if (!found) return lanes
   return placeSampleOnLane(
     lanes, toLaneIndex, found.placement.samplePath, found.placement.sampleName,
-    newStartTick, found.placement.durationTicks, found.placement.durationSeconds, found.placement.slot
+    newStartTick, found.placement.durationTicks, found.placement.durationSeconds, found.placement.slot,
+    found.placement.nativeBPM
   )
 }
 
@@ -370,15 +370,3 @@ export function setLanePan(lanes: LaneState[], laneIndex: number, pan: number): 
   )
 }
 
-export function setLaneNativeBpm(
-  lanes: LaneState[],
-  laneIndex: number,
-  nativeBPM: number | null
-): LaneState[] {
-  const normalized = nativeBPM !== null && Number.isFinite(nativeBPM) && nativeBPM > 0
-    ? nativeBPM
-    : null
-  return lanes.map((lane) =>
-    lane.index === laneIndex ? { ...lane, nativeBPM: normalized } : lane
-  )
-}

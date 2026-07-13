@@ -17,7 +17,12 @@ class MockAudioNode {
     return target
   }
 
-  disconnect(): void {
+  disconnect(target?: MockAudioNode): void {
+    if (target) {
+      const index = this.connectedTo.indexOf(target)
+      if (index >= 0) this.connectedTo.splice(index, 1)
+      return
+    }
     this.disconnected = true
     this.connectedTo.length = 0
   }
@@ -106,6 +111,17 @@ class MockAnalyserNode extends MockAudioNode {
   }
 }
 
+export class MockAudioWorkletNode extends MockAudioNode {
+  readonly port = {
+    onmessage: null as ((event: MessageEvent<unknown>) => void) | null,
+    close: vi.fn()
+  }
+
+  constructor() {
+    super()
+  }
+}
+
 export class MockBufferSourceNode extends MockAudioNode {
   // fallow-ignore-next-line unused-class-member
   buffer: AudioBuffer | null = null
@@ -138,6 +154,7 @@ class MockAudioContextBase {
   currentTime = 0
   state: AudioContextState = 'suspended'
   destination = new MockAudioNode()
+  audioWorklet = { addModule: vi.fn(async (): Promise<void> => undefined) }
   readonly created: CreatedAudioNodes = {
     sources: [],
     gains: [],

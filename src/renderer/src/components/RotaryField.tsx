@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { clamp } from '../lib/sample-utils'
 
 export function ToggleField({ label, help, checked, onChange }: {
@@ -17,6 +17,97 @@ export function ToggleField({ label, help, checked, onChange }: {
       <strong>{label}</strong>
       <span>{help}</span>
     </label>
+  )
+}
+
+export function RotaryControl({
+  className,
+  label,
+  value,
+  min,
+  max,
+  step,
+  valueText,
+  defaultValue,
+  homeValue = min,
+  endValue = max,
+  dragAxis = 'vertical',
+  ariaMultiplier = 1,
+  style,
+  onChange,
+  onContextMenu,
+  children
+}: {
+  className: string
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  valueText: string
+  defaultValue: number
+  homeValue?: number
+  endValue?: number
+  dragAxis?: 'horizontal' | 'vertical'
+  ariaMultiplier?: number
+  style?: CSSProperties
+  onChange: (value: number) => void
+  onContextMenu?: (event: MouseEvent<HTMLElement>) => void
+  children?: React.ReactNode
+}) {
+  const dragRef = useRef<{ coordinate: number; value: number } | null>(null)
+  const quantize = (next: number, quantum = step) =>
+    clamp(Math.round(next / quantum) * quantum, min, max)
+  const coordinate = (event: React.PointerEvent<HTMLElement>) =>
+    dragAxis === 'vertical' ? event.clientY : event.clientX
+  const direction = dragAxis === 'vertical' ? -1 : 1
+
+  return (
+    <div
+      className={className}
+      role="slider"
+      tabIndex={0}
+      aria-label={label}
+      aria-valuemin={min * ariaMultiplier}
+      aria-valuemax={max * ariaMultiplier}
+      aria-valuenow={value * ariaMultiplier}
+      aria-valuetext={valueText}
+      style={style}
+      onDoubleClick={() => onChange(defaultValue)}
+      onContextMenu={onContextMenu}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return
+        dragRef.current = { coordinate: coordinate(event), value }
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }}
+      onPointerMove={(event) => {
+        if (!dragRef.current) return
+        const delta = (coordinate(event) - dragRef.current.coordinate) * direction
+        const next = dragRef.current.value + delta * ((max - min) / 150) * (event.shiftKey ? 0.1 : 1)
+        onChange(quantize(next, event.shiftKey ? step / 10 : step))
+      }}
+      onPointerUp={(event) => {
+        dragRef.current = null
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+      }}
+      onPointerCancel={() => { dragRef.current = null }}
+      onKeyDown={(event) => {
+        let next: number | null = null
+        const increment = step * (event.shiftKey ? 0.1 : 1)
+        if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + increment
+        if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - increment
+        if (event.key === 'Home') next = homeValue
+        if (event.key === 'End') next = endValue
+        if (next !== null) {
+          event.preventDefault()
+          onChange(quantize(next, event.shiftKey ? step / 10 : step))
+        }
+      }}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -45,7 +136,6 @@ export function RotaryField({
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const dragRef = useRef<{ y: number; value: number } | null>(null)
   const quantize = (next: number, quantum = step) =>
     clamp(Math.round(next / quantum) * quantum, min, max)
   const displayValue = percent
@@ -60,61 +150,25 @@ export function RotaryField({
   return (
     <div className="rotary-field">
       <strong>{label}</strong>
-      <div
+      <RotaryControl
         className="rotary-control"
-        role="slider"
-        tabIndex={0}
-        aria-label={label}
-        aria-valuemin={percent ? min * 100 : min}
-        aria-valuemax={percent ? max * 100 : max}
-        aria-valuenow={percent ? value * 100 : value}
-        aria-valuetext={`${displayValue}${unit}`}
+        label={label}
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        valueText={`${displayValue}${unit}`}
+        defaultValue={defaultValue}
+        ariaMultiplier={percent ? 100 : 1}
         style={
           {
             '--rotary-angle': `${-135 + ((value - min) / (max - min)) * 270}deg`
           } as React.CSSProperties
         }
-        onDoubleClick={() => onChange(defaultValue)}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return
-          dragRef.current = { y: event.clientY, value }
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerMove={(event) => {
-          if (
-            !dragRef.current ||
-            !event.currentTarget.hasPointerCapture(event.pointerId)
-          )
-            return
-          const sensitivity = (max - min) / 150
-          const next =
-            dragRef.current.value +
-            (dragRef.current.y - event.clientY) *
-              sensitivity *
-              (event.shiftKey ? 0.1 : 1)
-          onChange(quantize(next, event.shiftKey ? step / 10 : step))
-        }}
-        onPointerUp={(event) => {
-          dragRef.current = null
-          event.currentTarget.releasePointerCapture(event.pointerId)
-        }}
-        onKeyDown={(event) => {
-          let next: number | null = null
-          const increment = step * (event.shiftKey ? 0.1 : 1)
-          if (event.key === 'ArrowUp' || event.key === 'ArrowRight')
-            next = value + increment
-          if (event.key === 'ArrowDown' || event.key === 'ArrowLeft')
-            next = value - increment
-          if (event.key === 'Home') next = min
-          if (event.key === 'End') next = max
-          if (next !== null) {
-            event.preventDefault()
-            onChange(quantize(next, event.shiftKey ? step / 10 : step))
-          }
-        }}
+        onChange={onChange}
       >
         <i />
-      </div>
+      </RotaryControl>
       {editing ? (
         <input
           className="rotary-value-input"

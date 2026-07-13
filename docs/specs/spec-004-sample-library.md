@@ -47,6 +47,8 @@ categories. Libraries are saved queries, not file copies.
 - A full-screen progress overlay is shown through both phases of a folder's
   first scan. Samples are queried and displayed after `scan-done`; they do not
   appear incrementally during phase 1 or phase 2.
+- Scan status uses a native progress element with a visible text equivalent and
+  an accessible label; indeterminate phases omit a fabricated numeric value.
 - Indexing runs on a background thread/worker — the UI stays responsive.
 
 ### Incremental Re-Scan
@@ -86,7 +88,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - Song, Mixer, and FX are peer panels outside the Samples panel. Their controls
   do not live inside the sample browser.
 - A vertical resize handle separates the category tree from the sample list
-  inside the browser region (defined in spec-006).
+  inside the browser region (defined in spec-006). It supports pointer, touch,
+  and keyboard resizing and exposes its current value through separator ARIA.
 - Selected sample details do not open a third pane inside the browser region.
   They render in the center slot of the app-wide Player footer (spec-001) so
   the browser keeps its two-column tree/grid layout.
@@ -134,6 +137,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   sample tile opens a context menu listing every tag with its assignment state;
   clicking toggles assign/unassign. Every browser item is an indexed DB row, so
   tagging is always available.
+- The sample menu follows the standard context-menu keyboard model, remains
+  inside the viewport, returns focus on dismissal, and opens sample analysis in
+  a collision-aware modal popover anchored to the originating sample bubble.
 - All tags render as filter chips in the browser's subcategory row; clicking a
   chip toggles that tag in the active filter.
 - Tags have an optional color for visual identification.
@@ -183,8 +189,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - The UI requests windowed pages of results, not the entire dataset.
 - Virtualized rendering ensures constant DOM node count regardless of result
   set size. Tiles are packed into fixed-height rows and virtualized with
-  TanStack Virtual; only rows intersecting the scroll viewport are mounted. An
-  unmeasured viewport (first paint, jsdom) falls back to rendering all rows.
+  TanStack Virtual; only rows intersecting the scroll viewport are mounted. A
+  visible unmeasured viewport may render only a bounded first-paint window;
+  hidden viewports mount no rows and never request another result page.
 - No current 100k-row latency claim has been measured. Any throughput or query
   latency claim must be recorded with the real fixture/library subset and the
   exact measurement procedure.
@@ -194,7 +201,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-001:** On a folder's first scan, the app shows a full-screen loader ("Scanning sample folder...") with phase and progress through both indexing phases.
 - [x] **AC-002:** After `scan-done`, the browser queries the active folder and displays its indexed samples; first-scan results are not exposed before completion.
 - [x] **AC-003:** Phase 2 persists duration, sample rate, and channel metadata; files whose metadata cannot be parsed remain stubs without aborting the scan.
-- [x] **AC-004:** The sample bubble grid is virtualized — scrolling through indexed samples keeps a bounded DOM row count.
+- [x] **AC-004:** The sample bubble grid is virtualized — scrolling through
+  indexed samples keeps a bounded DOM row count, and an inactive Samples tab
+  mounts no sample rows or additional query pages while hidden.
 - [x] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, a manual "Re-scan" action, and a "Cancel scan" action (visible only while a scan is running).
 - [x] **AC-005:** Typing in the search field filters the sample grid in real-time, matching token prefixes in filename and relpath.
 - [x] **AC-006:** Clearing the search field restores the full sample list.
@@ -218,6 +227,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-017a:** A Sample Browser bubble uses the same current
   pixels-per-second scale as its Tracker representation, so equal source
   durations have equal widths and the two views remain pixel-identical.
+- [x] **AC-018:** Sample actions use an accessible, viewport-aware context menu;
+  the category/sample separator works by pointer, touch, and keyboard; and scan
+  progress exposes native progress semantics plus visible status text.
 
 ## Non-Goals (deferred to later specs)
 

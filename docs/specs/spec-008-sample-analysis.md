@@ -75,6 +75,11 @@ field "Type" to keep the two concepts distinct.
 - The sample context menu opens an analysis editor showing each value and its
   `analysis`, `manual`, or unset provenance. "Analyze blank fields" is the v1
   individual re-analysis trigger.
+- The editor is a modal, collision-aware popover anchored to the selected
+  sample bubble. Escape closes it and focus is managed independently of the
+  context menu that launched it.
+- Batch analysis status uses a native progress element with visible analyzed and
+  total text plus an accessible label.
 - Fatal scan and analysis errors retain their backend message, are logged by
   the renderer facade, and appear in the toolbar under the correct lifecycle.
   Analysis failures never overwrite scan state with a misleading scan error.
@@ -96,6 +101,9 @@ field "Type" to keep the two concepts distinct.
 - [x] **AC-006:** User can manually override BPM, key, or sample type for any sample.
 - [x] **AC-007:** A manual override is not overwritten by subsequent re-analysis.
 - [x] **AC-008:** Clearing a manual override allows the field to be re-analyzed.
+- [x] **AC-009:** The per-sample editor opens in a viewport-aware modal popover
+  from the sample context menu, and batch status exposes native progress
+  semantics with a visible text equivalent.
 
 ## Implementation Evidence
 

@@ -1,7 +1,6 @@
 // IndexedDB store for user-granted FileSystemDirectoryHandles. A FolderRef's
 // id keys a handle here; the same store is read from the main thread (picker,
 // validation, sample reads) and the backend worker (indexer traversal).
-
 import type { FolderRef } from '../../../shared/backend-api'
 
 const DB_NAME = 'mixjam-folders'

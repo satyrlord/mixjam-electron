@@ -17,7 +17,7 @@ describe('ScanProgressBar', () => {
     const err = container.querySelector('.scan-err')
     expect(err).toBeTruthy()
     expect(err?.textContent).toBe('Scan error: disk write failed')
-    expect(err).toHaveAttribute('title', 'disk write failed')
+    expect(err).not.toHaveAttribute('title')
   })
 
   it('renders progress percentage when scanning with total > 0', () => {
@@ -27,6 +27,7 @@ describe('ScanProgressBar', () => {
     const bar = container.querySelector('.scan-progress') as HTMLElement
     expect(bar).toBeTruthy()
     expect(bar.textContent).toContain('50%')
+    expect(container.querySelector('progress')).toHaveAttribute('value', '5')
   })
 
   it('renders 0% when total is 0', () => {

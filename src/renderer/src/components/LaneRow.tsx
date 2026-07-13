@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback } from 'react'
 import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   LANE_HEAD_WIDTH_PX,
@@ -7,6 +7,8 @@ import {
 } from '../lib/arrangement'
 import { nextPanCycle } from '../lib/sample-utils'
 import LaneSampleBubbleCanvas from './LaneSampleBubbleCanvas'
+import { RotaryControl } from './RotaryField'
+import { Tooltip } from './ui/Tooltip'
 
 interface LaneRowProps {
   lane: LaneState
@@ -19,14 +21,12 @@ interface LaneRowProps {
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
-  onSetLaneNativeBpm: (laneIndex: number, nativeBPM: number | null) => void
   onPlacementDragStart: (placementId: string, event: React.DragEvent) => void
   onPlacementContextMenu: (info: {
     x: number; y: number; laneIndex: number; placementId: string; samplePath: string; sampleName: string
   }) => void
   onDragOver: (event: React.DragEvent) => void
   onDrop: (laneIndex: number, event: React.DragEvent<HTMLDivElement>) => void
-  trackDragCleanup: (cleanup: () => void) => () => void
 }
 
 function LaneRow({
@@ -40,32 +40,15 @@ function LaneRow({
   onToggleLaneMute,
   onToggleLaneSolo,
   onSetLanePan,
-  onSetLaneNativeBpm,
   onPlacementDragStart,
   onPlacementContextMenu,
   onDragOver,
-  onDrop,
-  trackDragCleanup
+  onDrop
 }: LaneRowProps) {
-  const [editingBpm, setEditingBpm] = useState(false)
-  const [bpmDraft, setBpmDraft] = useState('')
   const handleDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => onDrop(lane.index, event),
     [onDrop, lane.index]
   )
-
-  const commitBpm = useCallback(() => {
-    const trimmed = bpmDraft.trim()
-    if (trimmed === '') {
-      onSetLaneNativeBpm(lane.index, null)
-    } else {
-      const value = Number(trimmed)
-      if (Number.isFinite(value) && value > 0) {
-        onSetLaneNativeBpm(lane.index, value)
-      }
-    }
-    setEditingBpm(false)
-  }, [bpmDraft, lane.index, onSetLaneNativeBpm])
 
   return (
     <div
@@ -73,108 +56,37 @@ function LaneRow({
       style={{ height: LANE_HEIGHT_PX }}
     >
       <div className="tracker-lane-head" style={{ width: LANE_HEAD_WIDTH_PX }}>
-        <div className="tracker-lane-identity">
-          <span className="tracker-lane-name">{lane.name}</span>
-          {editingBpm ? (
-            <input
-              className="tracker-lane-bpm-input"
-              type="number"
-              min="1"
-              step="0.1"
-              value={bpmDraft}
-              autoFocus
-              aria-label={`Native BPM for ${lane.name}`}
-              onChange={(event) => setBpmDraft(event.target.value)}
-              onBlur={commitBpm}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  commitBpm()
-                } else if (event.key === 'Escape') {
-                  event.preventDefault()
-                  setEditingBpm(false)
-                }
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              className="tracker-lane-bpm"
-              aria-label={`Set native BPM for ${lane.name}`}
-              title="Set the sample's native BPM; clear it for native-rate playback"
-              onClick={() => {
-                setBpmDraft(lane.nativeBPM?.toString() ?? '')
-                setEditingBpm(true)
-              }}
-            >
-              {lane.nativeBPM == null ? 'BPM --' : `${lane.nativeBPM} BPM`}
-            </button>
-          )}
-        </div>
+        <span className="tracker-lane-name">{lane.name}</span>
         <div className="tracker-lane-controls">
-          <button
+          <Tooltip content={lane.muted ? 'Unmute lane' : 'Mute lane'}><button
             type="button"
             className={`tracker-lane-mute${lane.muted ? ' tracker-lane-mute-active' : ''}`}
             aria-label={`Mute ${lane.name}`}
-            title={lane.muted ? 'Unmute lane' : 'Mute lane'}
             onClick={() => onToggleLaneMute(lane.index)}
-          >M</button>
-          <button
+          >M</button></Tooltip>
+          <Tooltip content={lane.solo ? 'Unsolo lane' : 'Solo lane'}><button
             type="button"
             className={`tracker-lane-solo${lane.solo ? ' tracker-lane-solo-active' : ''}`}
             aria-label={`Solo ${lane.name}`}
-            title={lane.solo ? 'Unsolo lane' : 'Solo lane'}
             onClick={() => onToggleLaneSolo(lane.index)}
-          >S</button>
-          <span
+          >S</button></Tooltip>
+          <RotaryControl
             className="tracker-lane-pan"
-            role="slider"
-            tabIndex={0}
-            aria-label={`Pan ${lane.name}`}
-            title="Drag or use Arrow keys to pan; Home to center"
-            aria-valuemin={-100}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(lane.pan * 100)}
+            label={`Pan ${lane.name}`}
+            value={lane.pan}
+            min={-1}
+            max={1}
+            step={0.05}
+            valueText={lane.pan === 0 ? 'Center' : `${Math.round(Math.abs(lane.pan) * 100)}% ${lane.pan < 0 ? 'left' : 'right'}`}
+            defaultValue={0}
+            homeValue={0}
+            dragAxis="horizontal"
+            ariaMultiplier={100}
             style={{ '--pan-angle': `${lane.pan * 135}deg` } as React.CSSProperties}
-            onKeyDown={(e) => {
-              const PAN_STEP = 0.05
-              if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-                e.preventDefault()
-                onSetLanePan(lane.index, Math.min(1, lane.pan + PAN_STEP))
-              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-                e.preventDefault()
-                onSetLanePan(lane.index, Math.max(-1, lane.pan - PAN_STEP))
-              } else if (e.key === 'Home') {
-                e.preventDefault()
-                onSetLanePan(lane.index, 0)
-              }
-            }}
-            onMouseDown={(e) => {
-              // Ignore right/middle press — it must not start a pan scrub, or
-              // it races the right-click cycle (AC-018) and audibly sweeps pan.
-              if (e.button > 0) return
-              e.preventDefault()
-              const startX = e.clientX
-              const startPan = lane.pan
-              const onMove = (moveEvent: MouseEvent) => {
-                const delta = (moveEvent.clientX - startX) * 0.01
-                onSetLanePan(lane.index, Math.max(-1, Math.min(1, startPan + delta)))
-              }
-              const onUp = () => {
-                window.removeEventListener('mousemove', onMove)
-                window.removeEventListener('mouseup', onUp)
-                untrack()
-              }
-              window.addEventListener('mousemove', onMove)
-              window.addEventListener('mouseup', onUp)
-              const untrack = trackDragCleanup(onUp)
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault()
+            onChange={(value) => onSetLanePan(lane.index, value)}
+            onContextMenu={(event) => {
+              event.preventDefault()
               onSetLanePan(lane.index, nextPanCycle(lane.pan))
-            }}
-            onDoubleClick={() => {
-              onSetLanePan(lane.index, 0)
             }}
           />
         </div>

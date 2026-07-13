@@ -12,6 +12,7 @@ import {
 } from '../engine/effects'
 import type { ChannelState } from '../hooks/useMixer'
 import { RotaryField, ToggleField } from './RotaryField'
+import { DropdownMenuContent, DropdownMenuItem, DropdownMenuRoot, DropdownMenuTrigger } from './ui/DropdownMenu'
 
 interface EffectsWorkspaceProps {
   channels: ChannelState[]
@@ -199,31 +200,33 @@ function EffectCard({ effect, index, count, selected, onSelect, onToggleBypass, 
       aria-pressed={!effect.bypassed}
       onClick={onToggleBypass}
     >On</button>
-    <details className="effect-card-menu">
-      <summary aria-label={`${effectName(effect.type)} order actions`}>...</summary>
-      <div role="menu">
-        <button type="button" role="menuitem" disabled={index === 0} onClick={() => onMove(index - 1)}>Move left</button>
-        <button type="button" role="menuitem" disabled={index === count - 1} onClick={() => onMove(index + 1)}>Move right</button>
-      </div>
-    </details>
+    <DropdownMenuRoot>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="effect-card-menu-trigger" aria-label={`${effectName(effect.type)} order actions`}>...</button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem disabled={index === 0} onSelect={() => onMove(index - 1)}>Move left</DropdownMenuItem>
+        <DropdownMenuItem disabled={index === count - 1} onSelect={() => onMove(index + 1)}>Move right</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenuRoot>
   </article>
 }
 
 function AddEffect({ disabled, onAdd }: { disabled: boolean; onAdd: (type: EffectType) => void }) {
-  return <details className="add-effect">
-    <summary aria-disabled={disabled} onClick={(event) => { if (disabled) event.preventDefault() }}>
-      <span aria-hidden="true">+</span>{disabled ? '4 of 4 effects used' : 'Add effect'}
-    </summary>
-    {!disabled && <div className="add-effect-menu">
-      {(['delay', 'reverb', 'compressor'] as const).map((type) => <button key={type} type="button" onClick={(event) => {
-        onAdd(type)
-        event.currentTarget.closest('details')?.removeAttribute('open')
-      }}>
-        <strong>{effectName(type)}</strong>
-        <span>{EFFECT_DESCRIPTIONS[type]}</span>
-      </button>)}
-    </div>}
-  </details>
+  if (disabled) return <div className="add-effect add-effect-disabled">4 of 4 effects used</div>
+  return <DropdownMenuRoot>
+    <DropdownMenuTrigger asChild>
+      <button type="button" className="add-effect"><span aria-hidden="true">+</span>Add effect</button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent className="add-effect-menu" align="start">
+      {(['delay', 'reverb', 'compressor'] as const).map((type) => (
+        <DropdownMenuItem key={type} onSelect={() => onAdd(type)} textValue={effectName(type)}>
+          <strong>{effectName(type)}</strong>
+          <span>{EFFECT_DESCRIPTIONS[type]}</span>
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenuRoot>
 }
 
 function EffectEditor({ effect, reductionDb, onChange, onReset, onRemove }: {
@@ -248,13 +251,15 @@ function EffectEditor({ effect, reductionDb, onChange, onReset, onRemove }: {
           {preset === 'Custom' && <option>Custom</option>}
         </select>
       </label>
-      <details className="effect-actions">
-        <summary aria-label={`${effectName(effect.type)} actions`}>Actions</summary>
-        <div role="menu">
-          <button type="button" role="menuitem" onClick={onReset}>Reset to factory settings</button>
-          <button type="button" role="menuitem" className="effect-remove" onClick={onRemove}>Remove effect</button>
-        </div>
-      </details>
+      <DropdownMenuRoot>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className="effect-actions" aria-label={`${effectName(effect.type)} actions`}>Actions</button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onReset}>Reset to factory settings</DropdownMenuItem>
+          <DropdownMenuItem className="effect-remove" onSelect={onRemove}>Remove effect</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenuRoot>
     </header>
     <div className="effect-controls">{renderControls(effect, onChange, reductionDb)}</div>
   </div>

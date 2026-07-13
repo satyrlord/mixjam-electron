@@ -12,6 +12,7 @@ import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryD
 import type { ChannelState } from '../hooks/useMixer'
 import type { EffectSlot, EffectType } from '../engine/effects'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
+import type { MasterMeterSnapshot } from '../engine/master-meter'
 
 export interface PlayerBrowserProps {
   samples: SampleListItem[]
@@ -33,7 +34,7 @@ export interface PlayerBrowserProps {
   onSearchChange: (query: string) => void
   onLoadMoreSamples: () => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
-  onPreviewSample: (samplePath: string) => void
+  onPreviewSample: (samplePath: string, nativeBPM: number | null) => void
   onSelectCategory: (id: number | undefined) => void
   onToggleTagFilter: (id: number) => void
   onSortChange: (col: SampleSortColumn) => void
@@ -72,7 +73,6 @@ export interface TrackerArrangementProps {
   onRemovePlacementFromLane: (laneIndex: number, placementId: string) => void
   onRemovePlacements: (placementIds: string[]) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
-  onSetLaneNativeBpm: (laneIndex: number, nativeBPM: number | null) => void
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
 }
@@ -81,11 +81,12 @@ export interface PlayerTransportProps {
   transportState: RuntimeTransportState
   bpm: number
   masterGain: number
-  masterLevelDb: number
+  masterMeter: MasterMeterSnapshot
   canUndo: boolean
   canRedo: boolean
   onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
+  onResetMasterMeter: () => void
   onUndo: () => void
   onRedo: () => void
   onTransportPlay: () => void

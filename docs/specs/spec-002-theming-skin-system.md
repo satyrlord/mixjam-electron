@@ -147,6 +147,11 @@ Special Elite). Every font listed in the table is bundled with the app.
 A theme's typeface is part of its identity, so each theme's font files live in
 `src/renderer/public/fonts/`.
 
+Typeface-wide metric corrections belong on the theme root and inherit through
+the UI. They must not be repeated as component-by-component font-size overrides;
+Arcade uses one inherited `font-size-adjust` rule for its small-x-height pixel
+fonts.
+
 All fonts must be bundled with the app and loaded from local files (no
 external CDN or Google Fonts dependency). Font files live in `src/renderer/public/fonts/`.
 

@@ -1,4 +1,5 @@
-import { useRef, type KeyboardEvent, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { TabsContent, TabsList, TabsRoot, TabsTrigger } from './ui/Tabs'
 
 const BOTTOM_WORKSPACE_TABS = ['song', 'mixer', 'fx', 'samples'] as const
 export type BottomWorkspaceTab = (typeof BOTTOM_WORKSPACE_TABS)[number]
@@ -35,45 +36,30 @@ export default function BottomWorkspace({
   samples,
   onTabChange
 }: BottomWorkspaceProps) {
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const panels: Record<BottomWorkspaceTab, ReactNode> = { song, mixer, fx, samples }
-
-  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: BottomWorkspaceTab) => {
-    const currentIndex = BOTTOM_WORKSPACE_TABS.indexOf(tab)
-    let nextIndex: number | null = null
-    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % BOTTOM_WORKSPACE_TABS.length
-    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + BOTTOM_WORKSPACE_TABS.length) % BOTTOM_WORKSPACE_TABS.length
-    if (event.key === 'Home') nextIndex = 0
-    if (event.key === 'End') nextIndex = BOTTOM_WORKSPACE_TABS.length - 1
-    if (nextIndex === null) return
-
-    event.preventDefault()
-    const nextTab = BOTTOM_WORKSPACE_TABS[nextIndex]
-    onTabChange(nextTab)
-    tabRefs.current[nextIndex]?.focus()
-  }
 
   const masterPercent = Math.round(masterGain * 100)
 
   return (
-    <section className="bottom-workspace" aria-label="Bottom Workspace">
-      <div className="bottom-workspace-tabs" role="tablist" aria-label="Bottom Workspace">
-        {BOTTOM_WORKSPACE_TABS.map((tab, index) => (
-          <button
+    <TabsRoot
+      className="bottom-workspace"
+      role="region"
+      aria-label="Bottom Workspace"
+      value={activeTab}
+      onValueChange={(value) => onTabChange(value as BottomWorkspaceTab)}
+      orientation="horizontal"
+      activationMode="automatic"
+    >
+      <TabsList className="bottom-workspace-tabs" aria-label="Bottom Workspace">
+        {BOTTOM_WORKSPACE_TABS.map((tab) => (
+          <TabsTrigger
             key={tab}
-            ref={(element) => { tabRefs.current[index] = element }}
-            id={`bottom-workspace-${tab}-tab`}
             className="bottom-workspace-tab"
-            type="button"
-            role="tab"
-            tabIndex={activeTab === tab ? 0 : -1}
-            aria-selected={activeTab === tab}
-            aria-controls={`${tab === 'fx' ? 'effects' : tab}-panel`}
+            value={tab}
             onClick={() => onTabChange(tab)}
-            onKeyDown={(event) => handleTabKeyDown(event, tab)}
           >
             {TAB_LABELS[tab]}
-          </button>
+          </TabsTrigger>
         ))}
         <button
           type="button"
@@ -85,19 +71,19 @@ export default function BottomWorkspace({
           <span aria-hidden="true">·</span>
           <span>Master {masterPercent}%</span>
         </button>
-      </div>
+      </TabsList>
       {BOTTOM_WORKSPACE_TABS.map((tab) => (
-        <div
+        <TabsContent
           key={tab}
-          id={`${tab === 'fx' ? 'effects' : tab}-panel`}
           className={`bottom-workspace-panel bottom-workspace-${tab}`}
-          role="tabpanel"
-          aria-labelledby={`bottom-workspace-${tab}-tab`}
+          data-panel-name={tab}
+          value={tab}
+          forceMount
           hidden={activeTab !== tab}
         >
           {panels[tab]}
-        </div>
+        </TabsContent>
       ))}
-    </section>
+    </TabsRoot>
   )
 }

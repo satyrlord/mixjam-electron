@@ -11,6 +11,7 @@ export interface EnginePlacement {
   startTick: number
   durationTicks: number
   samplePath: string
+  nativeBPM?: number | null
 }
 
 export interface EngineLane {
@@ -19,8 +20,6 @@ export interface EngineLane {
   solo: boolean
   /** Lane-level pan (-1..1), independent of channel pan. */
   pan: number
-  /** Native tempo of loop material; null/undefined keeps native-rate playback. */
-  nativeBPM?: number | null
   channelIndex: number
   placements: EnginePlacement[]
 }
@@ -70,7 +69,7 @@ export function triggersForTick(lanes: readonly EngineLane[], tick: number): Lan
           channelIndex: lane.channelIndex,
           samplePath: placement.samplePath,
           pan: lane.pan,
-          nativeBPM: lane.nativeBPM ?? null,
+          nativeBPM: placement.nativeBPM ?? null,
           placement
         })
       }

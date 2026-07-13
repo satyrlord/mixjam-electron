@@ -1,7 +1,6 @@
 // Folder picking, permission management, and relpath-based file access over
 // the File System Access API. Containment is structural: a directory handle
 // can only reach its own subtree, so no realpath/prefix checks exist here.
-
 import type { FolderRef, FolderRole, FolderValidation } from '../../../shared/backend-api'
 import { loadFolderHandle, saveFolderHandle } from './handle-store'
 

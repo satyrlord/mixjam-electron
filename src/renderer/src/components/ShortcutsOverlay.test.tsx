@@ -48,8 +48,7 @@ describe('ShortcutsOverlay', () => {
     const onClose = vi.fn()
     render(<ShortcutsOverlay onClose={onClose} />)
 
-    // Backdrop is the outer div with class shortcuts-overlay
-    const backdrop = document.querySelector('.shortcuts-overlay')
+    const backdrop = document.querySelector('.mixjam-dialog-overlay')
     expect(backdrop).toBeTruthy()
     fireEvent.click(backdrop!)
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -69,7 +68,7 @@ describe('ShortcutsOverlay', () => {
     const onClose = vi.fn()
     render(<ShortcutsOverlay onClose={onClose} />)
 
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -77,8 +76,8 @@ describe('ShortcutsOverlay', () => {
     const onClose = vi.fn()
     render(<ShortcutsOverlay onClose={onClose} />)
 
-    fireEvent.keyDown(window, { key: 'Enter' })
-    fireEvent.keyDown(window, { key: 'a' })
+    fireEvent.keyDown(document, { key: 'Enter' })
+    fireEvent.keyDown(document, { key: 'a' })
     expect(onClose).not.toHaveBeenCalled()
   })
 
@@ -88,7 +87,7 @@ describe('ShortcutsOverlay', () => {
 
     unmount()
 
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
   })
 })

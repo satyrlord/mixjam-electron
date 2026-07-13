@@ -179,7 +179,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
     expect(loadButton).toBeDisabled()
-    expect(loadButton).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
+    expect(loadButton).not.toHaveAttribute('title')
 
     fireEvent.click(loadButton)
 

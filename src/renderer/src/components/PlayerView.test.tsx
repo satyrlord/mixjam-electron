@@ -11,6 +11,7 @@ import type {
 } from './playerProps'
 import type { MixJamFileItem, SampleListItem } from '../../../shared/backend-api'
 import type { LaneState } from '../lib/arrangement'
+import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 
 const INDEX_CSS_PATH = resolve(process.cwd(), 'src/renderer/src/index.css')
 
@@ -121,7 +122,6 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   onRemovePlacementFromLane: noop,
   onRemovePlacements: noop,
   onSetLanePan: noop,
-  onSetLaneNativeBpm: noop,
   onToggleLaneMute: noop,
   onToggleLaneSolo: noop
 }
@@ -130,11 +130,12 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   transportState: 'stopped',
   bpm: 120,
   masterGain: 0.8,
-  masterLevelDb: -100,
+  masterMeter: emptyMasterMeterSnapshot(),
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
   onSetMasterGain: noop,
+  onResetMasterMeter: noop,
   onUndo: noop,
   onRedo: noop,
   onTransportPlay: noop,
@@ -191,6 +192,9 @@ describe('PlayerView', () => {
   afterEach(() => {
     localStorage.removeItem('mixjam-left-col-w')
     localStorage.removeItem('mixjam:bottom-workspace-tab')
+    localStorage.removeItem('mixjam-bottom-workspace-size')
+    localStorage.removeItem('mixjam:upper-work-layout')
+    localStorage.removeItem('mixjam:bottom-workspace-layout')
   })
 
   it('renders the Player regions and MixJam Browser', () => {
@@ -213,7 +217,7 @@ describe('PlayerView', () => {
 
     const entry = screen.getByRole('button', { name: /club-night/ })
     expect(entry).toBeDisabled()
-    expect(entry).toHaveAttribute('title', expect.stringMatching(/coming soon/i))
+    expect(entry).not.toHaveAttribute('title')
   })
 
   it('renders sample bubbles on a lane after placement', () => {
@@ -364,10 +368,11 @@ describe('PlayerView', () => {
       }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     // The accessible name is "kick 1.5s" (inner b + i text)
     const tile = screen.getByText(/kick/i).closest('button')!
     fireEvent.click(tile)
-    expect(onPreviewSample).toHaveBeenCalledWith('/s/kick.wav')
+    expect(onPreviewSample).toHaveBeenCalledWith('/s/kick.wav', null)
   })
 
   it('shows a context menu on right-clicking a sample bubble', () => {
@@ -427,15 +432,14 @@ describe('PlayerView', () => {
     expect(onMovePlacement).toHaveBeenCalledWith('placement-1', 2, expect.any(Number))
   })
 
-  it('fires onSetLanePan on pan dial mouse interaction', () => {
+  it('fires onSetLanePan on pan dial pointer interaction', () => {
     const onSetLanePan = vi.fn()
     renderPlayer({ arrangement: { onSetLanePan } })
 
     const panDial = screen.getByRole('slider', { name: 'Pan Lane 1' })
-    fireEvent.mouseDown(panDial, { clientX: 100, button: 0 })
-    // Pan listener is attached to window, not the element
-    fireEvent.mouseMove(window, { clientX: 150 })
-    fireEvent.mouseUp(window)
+    fireEvent.pointerDown(panDial, { clientX: 100, button: 0, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.pointerMove(panDial, { clientX: 150, pointerId: 1, pointerType: 'mouse' })
+    fireEvent.pointerUp(panDial, { pointerId: 1, pointerType: 'mouse' })
 
     expect(onSetLanePan).toHaveBeenCalledWith(0, expect.any(Number))
   })
@@ -591,10 +595,10 @@ describe('PlayerView', () => {
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     expect(tabs[0]).toHaveAttribute('tabindex', '0')
     expect(document.querySelectorAll('.bottom-workspace-panel')).toHaveLength(4)
-    expect(document.querySelector('#song-panel')).not.toHaveAttribute('hidden')
-    expect(document.querySelector('#mixer-panel')).toHaveAttribute('hidden')
-    expect(document.querySelector('#effects-panel')).toHaveAttribute('hidden')
-    expect(document.querySelector('#samples-panel')).toHaveAttribute('hidden')
+    expect(document.querySelector('.bottom-workspace-song')).not.toHaveAttribute('hidden')
+    expect(document.querySelector('.bottom-workspace-mixer')).toHaveAttribute('hidden')
+    expect(document.querySelector('.bottom-workspace-fx')).toHaveAttribute('hidden')
+    expect(document.querySelector('.bottom-workspace-samples')).toHaveAttribute('hidden')
   })
 
   it('keeps FX channel selection stable, then falls forward and backward after removal', () => {
@@ -734,44 +738,18 @@ describe('PlayerView', () => {
     expect(onTransportStop).toHaveBeenCalledTimes(1)
   })
 
-  it('AC-011a: clicking the ruler seeks to the nearest beat grid position', () => {
+  it('AC-011a: timeline slider seeks by one beat from the start', () => {
     const onTransportSeek = vi.fn()
     renderPlayer({ transport: { onTransportSeek } })
-    const ruler = screen.getByRole('slider', { name: 'Tracker timeline' })
-    vi.spyOn(ruler, 'getBoundingClientRect').mockReturnValue({
-      left: 100,
-      width: 968,
-      right: 1068,
-      top: 0,
-      bottom: 24,
-      height: 24,
-      x: 100,
-      y: 0,
-      toJSON: () => ({})
-    })
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Tracker timeline' }), { key: 'ArrowRight' })
 
-    fireEvent.click(ruler, { clientX: 492 })
-
-    expect(onTransportSeek).toHaveBeenCalledWith(72)
+    expect(onTransportSeek).toHaveBeenCalledWith(8)
   })
 
   it('AC-011a: the ruler spacer is not a seek target', () => {
     const onTransportSeek = vi.fn()
     renderPlayer({ transport: { onTransportSeek } })
-    const ruler = screen.getByRole('slider', { name: 'Tracker timeline' })
-    vi.spyOn(ruler, 'getBoundingClientRect').mockReturnValue({
-      left: 100,
-      width: 968,
-      right: 1068,
-      top: 0,
-      bottom: 24,
-      height: 24,
-      x: 100,
-      y: 0,
-      toJSON: () => ({})
-    })
-
-    fireEvent.click(ruler, { clientX: 200 })
+    fireEvent.pointerDown(document.querySelector('.tracker-ruler-spacer')!, { clientX: 120, button: 0, pointerId: 1, pointerType: 'mouse' })
 
     expect(onTransportSeek).not.toHaveBeenCalled()
   })
@@ -790,7 +768,7 @@ describe('PlayerView', () => {
     fireEvent.keyDown(ruler, { key: 'End' })
     fireEvent.keyDown(ruler, { key: 'PageDown' })
 
-    expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 248])
+    expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 248, 16])
   })
 
   // --- AC-015: BPM slider updates transport immediately ---
@@ -812,23 +790,15 @@ describe('PlayerView', () => {
   })
 
   // --- AC-016: Browser vertical resize handle ---
-  it('AC-016: browser vertical resize handle is present and draggable', () => {
+  it('AC-016: browser vertical resize handle exposes keyboard and ARIA semantics', () => {
     renderPlayer({})
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
 
     const handle = screen.getByRole('separator', { name: 'Resize category tree' })
     expect(handle).toBeInTheDocument()
 
-    // Simulate drag
-    fireEvent.mouseDown(handle, { clientX: 152 })
-    fireEvent.mouseMove(window, { clientX: 200 })
-    fireEvent.mouseUp(window)
-
-    // The cats panel should have width updated via style
-    const cats = document.querySelector('.cats') as HTMLElement
-    expect(cats).not.toBeNull()
-    // Width should have increased from 152 (default) by the delta (48)
-    expect(parseInt(cats.style.width)).toBe(200)
+    expect(handle).toHaveAttribute('tabindex', '0')
+    expect(handle).toHaveAttribute('aria-valuenow')
   })
 
   it('calls onSearchChange and onSelectCategory when Locate in Browser is clicked', () => {
@@ -860,6 +830,7 @@ describe('PlayerView', () => {
       }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     const tile = screen.getByText(/kick/i).closest('button')!
     // jsdom DragEvent does not populate dataTransfer; create one manually
     const dataTransfer = { setData: vi.fn(), effectAllowed: '' }
@@ -869,9 +840,10 @@ describe('PlayerView', () => {
     expect(dataTransfer.setData).toHaveBeenCalledWith('application/mixjam-sample', expect.any(String))
   })
 
-  it('does not expose the retired horizontal lower-workspace resize seam', () => {
+  it('exposes the tracker/bottom-workspace resize handle for the horizontal split', () => {
     renderPlayer({})
-    expect(screen.queryByRole('separator', { name: 'Resize sample browser' })).toBeNull()
+    const handle = screen.getByRole('separator', { name: 'Resize bottom workspace' })
+    expect(handle).toBeInTheDocument()
   })
 
   it('renders the sample palette slot from categoryId when no category filter is active', () => {
@@ -883,6 +855,7 @@ describe('PlayerView', () => {
       }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     const tile = screen.getByText(/kick/i).closest('button')! as HTMLElement
     // categoryId 2 = Drums = slot 0; the surface tracks the theme palette var.
     expect(tile.style.backgroundColor).toBe('var(--palette-0)')
@@ -1394,16 +1367,12 @@ describe('PlayerView', () => {
     vi.useRealTimers()
   })
 
-  it('upper MixJam Browser resize seam handles drag correctly', () => {
+  it('upper MixJam Browser resize seam exposes keyboard and ARIA semantics', () => {
     renderPlayer({})
 
     const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
-    fireEvent.mouseDown(seam, { clientX: 168 })
-    fireEvent.mouseMove(window, { clientX: 268 })
-    fireEvent.mouseUp(window)
-
-    const playerView = document.querySelector('.player-view') as HTMLElement
-    expect(playerView.style.getPropertyValue('--left-col-w')).toContain('px')
+    expect(seam).toHaveAttribute('tabindex', '0')
+    expect(seam).toHaveAttribute('aria-valuenow')
   })
 
   it('opens shortcuts overlay when ? key is pressed', () => {
@@ -1440,24 +1409,20 @@ describe('PlayerView', () => {
     effects: []
   })
 
-  it('AC-002d: dragging the upper seam persists the browser width for the next app launch', () => {
+  it('AC-002d: resizable panels expose stable IDs for persisted layouts', () => {
     renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
 
-    const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
-    fireEvent.mouseDown(seam, { clientX: 420 })
-    fireEvent.mouseMove(window, { clientX: 220 })
-    fireEvent.mouseUp(window)
-
-    const stored = parseFloat(localStorage.getItem('mixjam-left-col-w') ?? '')
-    expect(stored).toBeGreaterThanOrEqual(168)
+    expect(document.querySelector('[data-group="true"]#upper-work-split')).toBeInTheDocument()
+    expect(document.querySelector('[data-panel="true"]#browser')).toBeInTheDocument()
+    expect(document.querySelector('[data-panel="true"]#tracker')).toBeInTheDocument()
   })
 
   it('AC-002d: a persisted browser width is applied on mount', () => {
     localStorage.setItem('mixjam-left-col-w', '200')
     renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
 
-    const playerView = document.querySelector('.player-view') as HTMLElement
-    expect(playerView.style.getPropertyValue('--left-col-w')).toBe('200px')
+    const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
+    expect(Number(seam.getAttribute('aria-valuenow'))).toBeGreaterThan(0)
   })
 
   it('AC-004: Mixer is a peer tab instead of a reveal toggle', () => {

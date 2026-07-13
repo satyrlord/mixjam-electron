@@ -55,7 +55,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -80,7 +81,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -102,7 +104,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -124,7 +127,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -148,7 +152,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={onCtx}
+        onSampleContextMenuOpen={onCtx}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -162,7 +167,7 @@ describe('SampleTileGrid', () => {
   it('fires onSelectSampleDetail and onPreviewSample on click', () => {
     const onSelect = vi.fn()
     const onPreview = vi.fn()
-    const sample = makeSample()
+    const sample = makeSample({ bpm: 96 })
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
@@ -177,7 +182,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={onSelect}
         onPreviewSample={onPreview}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -185,7 +191,7 @@ describe('SampleTileGrid', () => {
     fireEvent.click(button)
 
     expect(onSelect).toHaveBeenCalledTimes(1)
-    expect(onPreview).toHaveBeenCalledWith('a.wav')
+    expect(onPreview).toHaveBeenCalledWith('a.wav', 96)
   })
 
   it('fires onSampleDragStart on drag start', () => {
@@ -205,7 +211,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={onDrag}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -231,7 +238,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -255,7 +263,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -279,7 +288,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -288,7 +298,7 @@ describe('SampleTileGrid', () => {
     expect(button.style.backgroundColor).toBe('var(--palette-3)')
   })
 
-  it('calls onLoadMore when hasMore is true and not loading', () => {
+  it('does not call onLoadMore before the viewport is measured', () => {
     vi.useFakeTimers()
     const onLoadMore = vi.fn()
     render(
@@ -305,13 +315,48 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
-    // In jsdom with 0 viewport, the fallback renders all rows so lastVisibleRow >= rows.length - margin
-    expect(onLoadMore).toHaveBeenCalled()
+    expect(onLoadMore).not.toHaveBeenCalled()
     vi.useRealTimers()
+  })
+
+  it('does not mount sample rows or request another page while inactive', () => {
+    const onLoadMore = vi.fn()
+    const samples = Array.from({ length: 20 }, (_, index) => makeSample({
+      id: `${index}.wav`,
+      dbId: index,
+      name: `${index}.wav`,
+      relpath: `${index}.wav`
+    }))
+
+    const { container } = render(
+      <div hidden>
+        <SampleTileGrid
+          active={false}
+          samples={samples}
+          selectedSamplePath={null}
+          flashSamplePath={null}
+          activeCategorySlot={undefined}
+          categories={CATEGORIES}
+          loading={false}
+          error={null}
+          hasMore
+          onLoadMore={onLoadMore}
+          onSelectSampleDetail={vi.fn()}
+          onPreviewSample={vi.fn()}
+          onSampleDragStart={vi.fn()}
+          onSampleContextMenuOpen={vi.fn()}
+          renderSampleContextMenu={() => null}
+        />
+      </div>
+    )
+
+    expect(container.querySelectorAll('.sample-bubble')).toHaveLength(0)
+    expect(onLoadMore).not.toHaveBeenCalled()
   })
 
   it('does not call onLoadMore when loading is true', () => {
@@ -330,7 +375,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
@@ -353,7 +399,8 @@ describe('SampleTileGrid', () => {
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
         onSampleDragStart={vi.fn()}
-        onSampleContextMenu={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
       />
     )
 
