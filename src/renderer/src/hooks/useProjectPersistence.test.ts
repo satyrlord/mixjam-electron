@@ -183,6 +183,36 @@ describe('useProjectPersistence', () => {
     expect(api.saveMixJamFileAs).not.toHaveBeenCalled()
   })
 
+  it('loads an external project without granting it a writable path', async () => {
+    vi.mocked(api.openMixJamFile).mockResolvedValue({
+      path: null,
+      fileName: 'external-set.mixjam',
+      contents: projectText(makeProject(136))
+    })
+    vi.mocked(api.saveMixJamFileAs).mockImplementation(async (_folder, _name, contents) => ({
+      path: 'imports/external-set.mixjam',
+      contents
+    }))
+    const { result } = renderHook(() => useHarness(api))
+
+    await act(async () => { await result.current.project.openProjectPicker() })
+
+    expect(result.current.bpm).toBe(136)
+    expect(result.current.project.projectName).toBe('external-set')
+    expect(result.current.project.projectPath).toBeNull()
+    expect(api.recordRecentProject).not.toHaveBeenCalled()
+
+    await act(async () => { await result.current.project.saveProject() })
+
+    expect(api.writeMixJamFile).not.toHaveBeenCalled()
+    expect(api.saveMixJamFileAs).toHaveBeenCalledWith(
+      USER_FOLDER,
+      'external-set.mixjam',
+      expect.any(String)
+    )
+    expect(api.recordRecentProject).toHaveBeenCalledWith('imports/external-set.mixjam')
+  })
+
   it('loading project B after project A does not merge state from A', async () => {
     const projectA = makeProject(128)
     projectA.channels = projectA.channels.slice(0, 2)

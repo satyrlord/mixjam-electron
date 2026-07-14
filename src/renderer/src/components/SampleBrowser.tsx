@@ -60,7 +60,7 @@ function CategoryTreeNode({
 
   return (
     <div
-      className="category-tree-node"
+      className={`category-tree-node${hasChildren ? ' category-tree-node-branch' : ''}`}
       role="treeitem"
       aria-level={depth + 1}
       aria-expanded={hasChildren ? expanded : undefined}
@@ -76,9 +76,7 @@ function CategoryTreeNode({
           >
             <span aria-hidden="true">{expanded ? '−' : '+'}</span>
           </button>
-        ) : (
-          <span className="category-tree-toggle-spacer" aria-hidden="true" />
-        )}
+        ) : null}
         <button
           type="button"
           className="sample-bubble-hit-target sample-bubble-category-target"

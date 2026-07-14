@@ -1,6 +1,7 @@
 import type {
   FolderRef,
-  MixJamFileContents
+  MixJamFileContents,
+  OpenedMixJamFileContents
 } from '../../../shared/backend-api'
 import { isProjectRelativePath } from '../project/project-file'
 import { resolveFileHandle } from './folder-access'
@@ -37,7 +38,13 @@ async function loadAccessibleFolder(
   return handle
 }
 
-async function relativeProjectPath(
+function assertMixJamFileName(fileName: string): void {
+  if (!fileName.toLowerCase().endsWith(MIXJAM_EXTENSION)) {
+    throw new Error('MixJam project filenames must end in .mixjam.')
+  }
+}
+
+async function writableProjectPath(
   root: FileSystemDirectoryHandle,
   file: FileSystemFileHandle
 ): Promise<string> {
@@ -46,10 +53,25 @@ async function relativeProjectPath(
   if (!isProjectRelativePath(relpath)) {
     throw new Error('MixJam projects must be saved inside the selected User Folder.')
   }
-  if (!relpath.toLowerCase().endsWith(MIXJAM_EXTENSION)) {
-    throw new Error('MixJam project filenames must end in .mixjam.')
-  }
+  assertMixJamFileName(relpath)
   return relpath
+}
+
+async function projectPathWithinUserFolder(
+  root: FileSystemDirectoryHandle | null,
+  file: FileSystemFileHandle
+): Promise<string | null> {
+  if (!root) return null
+  try {
+    const relpath = (await root.resolve(file))?.join('/') ?? ''
+    return isProjectRelativePath(relpath) && relpath.toLowerCase().endsWith(MIXJAM_EXTENSION)
+      ? relpath
+      : null
+  } catch {
+    // The picker grants access to the selected file itself. Failure to inspect
+    // the stored User Folder only means the file cannot be treated as writable.
+    return null
+  }
 }
 
 async function readFile(fileHandle: FileSystemFileHandle): Promise<string> {
@@ -75,13 +97,12 @@ async function writeFile(fileHandle: FileSystemFileHandle, contents: string): Pr
 
 export async function openMixJamFile(
   userFolder: FolderRef
-): Promise<MixJamFileContents | null> {
-  const root = await loadAccessibleFolder(userFolder, 'read')
+): Promise<OpenedMixJamFileContents | null> {
+  const root = await loadFolderHandle(userFolder.id)
   let handle: FileSystemFileHandle
   try {
     const selected = await window.showOpenFilePicker({
       id: 'mixjam-open-project',
-      startIn: root,
       types: PICKER_TYPES,
       excludeAcceptAllOption: true,
       multiple: false
@@ -94,8 +115,10 @@ export async function openMixJamFile(
     throw error
   }
 
+  assertMixJamFileName(handle.name)
   return {
-    path: await relativeProjectPath(root, handle),
+    path: await projectPathWithinUserFolder(root, handle),
+    fileName: handle.name,
     contents: await readFile(handle)
   }
 }
@@ -135,7 +158,7 @@ export async function saveMixJamFileAs(
     throw error
   }
 
-  const path = await relativeProjectPath(root, handle)
+  const path = await writableProjectPath(root, handle)
   await writeFile(handle, contents)
   return { path, contents }
 }

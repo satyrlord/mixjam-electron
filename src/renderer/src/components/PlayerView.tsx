@@ -480,29 +480,34 @@ export default function PlayerView({
             const h = Math.abs(selectionRect.currentY - selectionRect.startY)
             return <div className="selection-rect" style={{ left: x, top: y, width: w, height: h }} />
           })()}
-          <SliderRoot
-            className="tracker-ruler"
-            aria-label="Tracker timeline"
-            value={[Math.min(currentTick, lastGridTick)]}
-            min={0}
-            max={lastGridTick}
-            step={TICKS_PER_BEAT}
-            onValueChange={([tick]) => onTransportSeek(tick)}
-          >
+          <div className="tracker-ruler">
             <div className="tracker-ruler-spacer" />
-            <SliderTrack className="tracker-ruler-track">
-              {Array.from({ length: rulerBeatCount }, (_, i) => {
-                const isBar = i % BEATS_PER_BAR === 0
-                const barNumber = i / BEATS_PER_BAR + 1
-                return (
-                  <div key={i} className={`tracker-ruler-tick${isBar ? ' tracker-ruler-tick-bar' : ''}`}>
-                    {isBar && barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
-                  </div>
-                )
-              })}
-            </SliderTrack>
-            <SliderThumb className="tracker-ruler-thumb" aria-label="Tracker timeline" />
-          </SliderRoot>
+            <SliderRoot
+              className="tracker-ruler-seek"
+              value={[Math.min(currentTick, lastGridTick)]}
+              min={0}
+              max={totalTicks}
+              step={TICKS_PER_BEAT}
+              onValueChange={([tick]) => onTransportSeek(Math.min(tick, lastGridTick))}
+            >
+              <SliderTrack className="tracker-ruler-track">
+                {Array.from({ length: rulerBeatCount }, (_, i) => {
+                  const isBar = i % BEATS_PER_BAR === 0
+                  const barNumber = i / BEATS_PER_BAR + 1
+                  return (
+                    <div key={i} className={`tracker-ruler-tick${isBar ? ' tracker-ruler-tick-bar' : ''}`}>
+                      {isBar && barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
+                    </div>
+                  )
+                })}
+              </SliderTrack>
+              <SliderThumb
+                className="tracker-ruler-thumb"
+                aria-label="Tracker timeline"
+                aria-valuemax={lastGridTick}
+              />
+            </SliderRoot>
+          </div>
           {lanes.map((lane) => {
             const dimmed = laneShouldDim(lane)
             return (

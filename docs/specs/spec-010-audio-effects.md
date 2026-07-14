@@ -177,9 +177,15 @@ can chain effects in order and adjust parameters per channel.
 - [x] **AC-017:** Reordering the selected effect keeps its card visible inside
   the horizontal chain, and the compressor output meter spans two control-grid
   tracks without overflowing its editor at narrow supported widths.
+- [x] **AC-018:** Every FX parameter is a label-first vertical module with its
+  dial or switch, editable value, and explanatory copy on separate aligned
+  rows; help text never continues inline from a value or adjacent control.
 
 ## Validation Evidence
 
+- `tmp/verify-samples-fx-layout/evidence.md` records production Chromium
+  geometry and screenshots for the label-first FX modules at wide and narrow
+  widths in Emerald, Rack, and Soft.
 - `src/renderer/src/specs/spec-010-audio-effects.test.ts` verifies DSP node
   construction, parameter mapping and bounds, real-time parameter updates,
   tempo sync, ping-pong routing, bypass restoration, ordered graph rebuilds,

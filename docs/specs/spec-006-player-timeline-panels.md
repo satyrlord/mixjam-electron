@@ -415,7 +415,10 @@ visible across themes and viewport sizes.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
 - [x] **AC-011:** The ruler displays beat ticks and stronger bar ticks using the same beat/bar grid as the lane canvas, with bar numbers (1, 5, 9, 13…) in monospace font;
   the ruler x-origin aligns with the tracker grid, placements, and playhead.
-- [x] **AC-011a:** Clicking the ruler timeline moves the playhead to the nearest 8-tick beat boundary. Arrow Left and Arrow Right move by one beat,
+- [x] **AC-011a:** Clicking the ruler timeline moves the playhead to the nearest
+  8-tick beat boundary, with the clicked beat and rendered playhead sharing the
+  same pixel position at every horizontal scroll offset. Arrow Left and Arrow
+  Right move by one beat,
   while Home and End move to the timeline boundaries. The engine seeks to the same tick; playback continues from that tick when already playing,
   while paused or stopped transport remains paused or stopped.
 - [x] **AC-011b:** The always-rendered, skinnable Song Progress Bar controls the
@@ -438,6 +441,9 @@ visible across themes and viewport sizes.
 - [x] **AC-016a:** Dragging the Bottom Workspace separator changes its rendered
   height at wide and narrow resolutions. Pointer, touch, and keyboard input all
   work, separator ARIA reports the current value, and the layout persists.
+- [x] **AC-016b:** Root sample categories use a two-column grid. Expandable
+  hierarchy branches may span the grid so their nested children remain
+  readable, while leaf categories do not reserve an empty toggle gutter.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
 - [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position; the original remains unchanged.
 - [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; placements whose bounds intersect the rectangle are selected (highlighted with a white border).
@@ -477,6 +483,9 @@ visible across themes and viewport sizes.
 - `tmp/verify-bottom-workspace/evidence.md` records production Chromium
   geometry, narrow-window targets, tab-state retention, Sample Browser
   remeasurement, and cross-tab Mixer-to-FX behavior.
+- `tmp/verify-samples-fx-layout/evidence.md` records the restored two-column
+  root category grid, 44px targets, and unchanged 32px category bubbles in
+  production Chromium.
 - `tests/e2e/lane-head-overlap.spec.ts` verifies that collapsing or expanding
   the MixJam Browser updates the parent grid in the same interaction and keeps
   the Tracker ruler, lane names, and lane heads clear of the browser rail.
@@ -501,6 +510,9 @@ visible across themes and viewport sizes.
   DPR 2. The checks cover all 128 bars, shared ruler/lane scrolling, pinned lane
   heads, keyboard and pointer navigation, theme changes, the visible disabled
   state, unchanged transport position, and canonical sample-bubble geometry.
+- `tests/e2e/timeline-seek.spec.ts` and `tmp/verify-timeline-seek/evidence.md`
+  verify in production Chromium that an exact beat click seeks to that beat and
+  leaves the playhead centered on the clicked pixel at zero and nonzero scroll.
 
 ## Non-Goals (deferred to later specs)
 

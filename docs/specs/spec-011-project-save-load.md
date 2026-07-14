@@ -179,7 +179,8 @@ generator, its tests, and this contract are the durable repository assets.
 
 - "Save" (Ctrl+S) writes to the current project file path.
 - "Save As…" (Ctrl+Shift+S) opens a native file picker to choose a new
-  location (defaults to User Folder).
+  location (defaults to User Folder). The chosen file must remain inside the
+  User Folder; the app never writes project data elsewhere.
 - Save shortcuts do not fire or suppress browser defaults from text-entry
   controls, on repeated keydown events, or while another project operation is
   busy.
@@ -197,7 +198,12 @@ generator, its tests, and this contract are the durable repository assets.
 ### Load Flow
 
 - "Load MixJam" from the Home Screen or "Open" from the Player opens a native
-  file picker filtered to `.mixjam`.
+  file picker filtered to `.mixjam`. The user may load a project from any
+  folder because the picker grants read access to the selected file.
+- A project opened outside the User Folder is a read-only import: it keeps its
+  filename for display but has no current writable path. Its first Save opens
+  Save As so it can be stored inside the User Folder. It does not enter the
+  User Folder-relative recent-project registry until that save succeeds.
 - On load:
   1. Parse JSON and validate `formatVersion`.
   2. Verify the Sample Folder contains all referenced samples.
@@ -253,8 +259,9 @@ generator, its tests, and this contract are the durable repository assets.
   the documented defaults rather than the previous session's values.
 - [x] **AC-012:** Loading project B after project A replaces all Song, Mixer, routing, and FX state; no value from project A leaks into project B.
 - [x] **AC-013:** If a saved project is edited without saving, closing and reopening the app and loading that project restores the last saved values, not the later unsaved values.
-- [x] **AC-014:** User-initiated open and save actions can restore access to a
-  persisted User Folder handle whose permission state is `prompt`.
+- [x] **AC-014:** User-initiated save actions can restore write access to a
+  persisted User Folder handle whose permission state is `prompt`; opening a
+  picker-selected project does not require User Folder permission.
 - [x] **AC-015:** Save shortcuts are ignored without `preventDefault()` while
   focus is in a text-entry control, the keydown is a repeat, or project I/O is
   already busy.
@@ -272,6 +279,11 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-020:** Repeated generator runs never overwrite an existing project;
   filenames increase monotonically. A supplied seed reproduces the same sample
   selection and arrangement.
+- [x] **AC-021:** The open picker loads a valid `.mixjam` file selected from
+  outside the User Folder without requesting write access to that location.
+- [x] **AC-022:** A project loaded from outside the User Folder has no writable
+  current path; Save routes through Save As, and no write begins unless the
+  selected destination is inside the User Folder.
 
 ## Implementation Evidence
 
@@ -279,12 +291,13 @@ generator, its tests, and this contract are the durable repository assets.
   validation, safe relative paths, version-zero migration, newer-version
   rejection, roundtrips, and dirty fingerprints.
 - `src/renderer/src/backend/project-files.test.ts` covers filtered open/save
-  pickers, User Folder containment, writable close/abort behavior, direct
-  reads/writes, permission restoration, denial, cancellation, and
-  missing-sample checks.
+  pickers, external read-only opens, User Folder write containment, writable
+  close/abort behavior, direct reads/writes, cancellation, and missing-sample
+  checks.
 - `src/renderer/src/hooks/useProjectPersistence.test.ts` covers complete state
-  replacement, recent-project updates, Save As, unsaved reload behavior,
-  defaults, missing samples, and project A to project B isolation.
+  replacement, external-project Save As routing, recent-project updates,
+  unsaved reload behavior, defaults, missing samples, and project A to project
+  B isolation.
 - `src/renderer/src/hooks/useMixer.test.ts` proves Mixer and FX no longer
   hydrate from or persist to app-level storage.
 - `src/renderer/src/components/PlayerView.test.tsx` covers the project controls,

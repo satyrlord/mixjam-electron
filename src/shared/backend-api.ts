@@ -39,6 +39,16 @@ export interface MixJamFileContents {
   contents: string
 }
 
+export interface OpenedMixJamFileContents {
+  /**
+   * User Folder-relative path when the selected file is inside that folder.
+   * External files are read-only imports and therefore have no writable path.
+   */
+  path: string | null
+  fileName: string
+  contents: string
+}
+
 export interface TagItem {
   id: number
   name: string
@@ -195,7 +205,7 @@ export interface BackendAPI {
   saveFolderSelections: (selections: FolderSelections) => Promise<void>
   loadMixJamFiles: (userFolder: FolderRef | null) => Promise<MixJamFileItem[]>
   recordRecentProject: (projectRelpath: string) => Promise<void>
-  openMixJamFile: (userFolder: FolderRef) => Promise<MixJamFileContents | null>
+  openMixJamFile: (userFolder: FolderRef) => Promise<OpenedMixJamFileContents | null>
   readMixJamFile: (userFolder: FolderRef, projectRelpath: string) => Promise<MixJamFileContents>
   saveMixJamFileAs: (
     userFolder: FolderRef,

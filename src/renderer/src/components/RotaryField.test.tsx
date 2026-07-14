@@ -10,6 +10,7 @@ describe('ToggleField', () => {
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).not.toBeChecked()
     expect(document.querySelector('.effect-toggle-control')).toBeInTheDocument()
+    expect(screen.getByText('Off')).toHaveClass('effect-toggle-state')
 
     fireEvent.click(checkbox)
     expect(onChange).toHaveBeenCalledWith(true)
@@ -21,6 +22,7 @@ describe('ToggleField', () => {
 
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).toBeChecked()
+    expect(screen.getByText('On')).toHaveClass('effect-toggle-state')
 
     fireEvent.click(checkbox)
     expect(onChange).toHaveBeenCalledWith(false)
@@ -44,6 +46,7 @@ describe('RotaryField', () => {
     render(<RotaryField {...defaultProps} />)
     expect(screen.getByRole('slider', { name: 'Time' })).toBeInTheDocument()
     expect(screen.getByText('375 ms')).toBeInTheDocument()
+    expect(screen.getByText('Controls how long the echo waits.')).toHaveClass('effect-control-help')
   })
 
   it('renders with percent display', () => {

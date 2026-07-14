@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { BackendAPI, FolderRef, MixJamFileContents } from '../../../shared/backend-api'
+import type {
+  BackendAPI,
+  FolderRef,
+  MixJamFileContents,
+  OpenedMixJamFileContents
+} from '../../../shared/backend-api'
 import type { LaneState } from '../lib/arrangement'
 import { createDefaultLanes } from '../lib/arrangement'
 import type { ChannelState } from './useMixer'
@@ -123,7 +128,11 @@ export function useProjectPersistence({
     setProjectWarning(null)
   }, [])
 
-  const applyProject = useCallback((document: ProjectDocument, path: string) => {
+  const applyProject = useCallback((
+    document: ProjectDocument,
+    path: string | null,
+    displayName: string
+  ) => {
     const fingerprint = projectFingerprint(document)
     setReplacementTarget(fingerprint)
     setBaselineFingerprint(fingerprint)
@@ -135,24 +144,31 @@ export function useProjectPersistence({
     replaceChannels(document.channels)
     setMetadata({
       path,
-      displayName: displayNameForPath(path),
+      displayName,
       createdAt: document.createdAt,
       modifiedAt: document.modifiedAt
     })
   }, [replaceChannels, replaceTransportProject])
 
-  const finishOpen = useCallback(async (selection: MixJamFileContents): Promise<boolean> => {
+  const finishOpen = useCallback(async (
+    selection: MixJamFileContents | OpenedMixJamFileContents
+  ): Promise<boolean> => {
     const document = parseProject(selection.contents)
     if (!sampleFolder) throw new Error('Select a Sample Folder before opening a project.')
     const missing = await backendAPI.findMissingSampleFiles(sampleFolder, allSampleRefs(document))
-    await backendAPI.recordRecentProject(selection.path)
-    applyProject(document, selection.path)
+    if (selection.path !== null) {
+      await backendAPI.recordRecentProject(selection.path)
+    }
+    const displayPath = selection.path ?? ('fileName' in selection ? selection.fileName : 'Untitled.mixjam')
+    applyProject(document, selection.path, displayNameForPath(displayPath))
     const missingSet = new Set(missing)
     setProjectMissingSamplePaths(missingSet)
     setProjectWarning(missing.length === 0
       ? null
       : `${missing.length} referenced sample${missing.length === 1 ? '' : 's'} could not be found. Affected lanes are marked.`)
-    await reloadMixJamFiles()
+    if (selection.path !== null) {
+      await reloadMixJamFiles()
+    }
     return true
   }, [applyProject, backendAPI, reloadMixJamFiles, sampleFolder])
 

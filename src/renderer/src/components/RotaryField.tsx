@@ -10,6 +10,7 @@ export function ToggleField({ label, help, checked, onChange }: {
 }) {
   return (
     <label className="effect-toggle">
+      <strong>{label}</strong>
       <input
         className="effect-toggle-input"
         type="checkbox"
@@ -19,8 +20,8 @@ export function ToggleField({ label, help, checked, onChange }: {
       <span className="effect-toggle-control" aria-hidden="true">
         <span className="effect-toggle-thumb" />
       </span>
-      <strong>{label}</strong>
-      <span>{help}</span>
+      <span className="effect-toggle-state" aria-hidden="true">{checked ? 'On' : 'Off'}</span>
+      <span className="effect-control-help">{help}</span>
     </label>
   )
 }
@@ -255,7 +256,7 @@ export function RotaryField({
           {unit}
         </button>
       )}
-      <span>{help}</span>
+      <span className="effect-control-help">{help}</span>
     </div>
   )
 }

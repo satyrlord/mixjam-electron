@@ -342,10 +342,10 @@ function EffectEditor({ effect, reductionDb, onChange, onReset, onRemove }: {
 
 function renderControls(effect: EffectSlot, onChange: (effect: EffectSlot) => void, reductionDb: number) {
   if (effect.type === 'delay') return <>
-    {effect.tempoSync ? <label className="effect-choice">Note division
+    {effect.tempoSync ? <label className="effect-choice"><strong>Note division</strong>
       <select value={effect.noteDivision} onChange={(event) => onChange({ ...effect, noteDivision: event.currentTarget.value as NoteDivision })}>
         {['1/4', '1/8', '1/16', '1/8T', '1/16T'].map((division) => <option key={division}>{division}</option>)}
-      </select><span>Sets each echo to a musical beat division.</span>
+      </select><span className="effect-control-help">Sets each echo to a musical beat division.</span>
     </label> : <RotaryField label="Time" help="Controls how long the echo waits." value={effect.timeMs} defaultValue={375} min={0} max={2000} step={1} suffix=" ms" onChange={(timeMs) => onChange({ ...effect, timeMs })} />}
     <RotaryField label="Feedback" help="Controls how many echoes repeat." value={effect.feedback} defaultValue={0.35} min={0} max={1} step={0.01} percent onChange={(feedback) => onChange({ ...effect, feedback })} />
     <RotaryField label="Mix" help="Blends the echo with the original sound." value={effect.mix} defaultValue={0.3} min={0} max={1} step={0.01} percent onChange={(mix) => onChange({ ...effect, mix })} />

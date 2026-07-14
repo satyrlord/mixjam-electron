@@ -137,9 +137,11 @@ describe('SampleBrowser', () => {
   })
 
   it('renders an expandable category tree with nested children', () => {
-    renderBrowser()
+    const { container } = renderBrowser()
 
     expect(screen.getByRole('tree', { name: 'Sample categories' })).toBeInTheDocument()
+    expect(container.querySelector('.category-tree')).toHaveClass('category-tree')
+    expect(container.querySelector('.category-tree-toggle-spacer')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kicks' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Snares' })).toBeInTheDocument()
 

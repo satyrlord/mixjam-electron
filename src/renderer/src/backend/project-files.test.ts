@@ -58,10 +58,10 @@ describe('project file access', () => {
 
     await expect(openMixJamFile(USER_FOLDER)).resolves.toEqual({
       path: 'sets/club.mixjam',
+      fileName: 'club.mixjam',
       contents: '{"formatVersion":1}'
     })
     expect(window.showOpenFilePicker).toHaveBeenCalledWith(expect.objectContaining({
-      startIn: root,
       multiple: false,
       excludeAcceptAllOption: true
     }))
@@ -80,7 +80,7 @@ describe('project file access', () => {
     await expect(saveMixJamFileAs(USER_FOLDER, 'Untitled.mixjam', '{}')).resolves.toBeNull()
   })
 
-  it('requests stored-folder permission before opening a project', async () => {
+  it('does not request User Folder permission before opening a project', async () => {
     const root = fakeRoot(['club.mixjam'], 'prompt', 'granted')
     const file = fakeFile('club.mixjam')
     vi.mocked(loadFolderHandle).mockResolvedValue(root)
@@ -88,29 +88,33 @@ describe('project file access', () => {
 
     await expect(openMixJamFile(USER_FOLDER)).resolves.toMatchObject({ path: 'club.mixjam' })
 
-    expect(root.requestPermission).toHaveBeenCalledWith({ mode: 'read' })
+    expect(root.queryPermission).not.toHaveBeenCalled()
+    expect(root.requestPermission).not.toHaveBeenCalled()
   })
 
-  it('reports required access when stored-folder permission is denied', async () => {
-    const root = fakeRoot(['club.mixjam'], 'prompt', 'denied')
-    vi.mocked(loadFolderHandle).mockResolvedValue(root)
-    window.showOpenFilePicker = vi.fn()
-
-    await expect(openMixJamFile(USER_FOLDER)).rejects.toThrow(
-      'Access to the MixJam folder is required.'
-    )
-    expect(window.showOpenFilePicker).not.toHaveBeenCalled()
-  })
-
-  it('rejects picker selections outside the User Folder', async () => {
+  it('opens picker selections outside the User Folder as read-only imports', async () => {
     const root = fakeRoot(null)
-    const file = fakeFile('outside.mixjam')
+    const file = fakeFile('outside.mixjam', '{"external":true}')
     vi.mocked(loadFolderHandle).mockResolvedValue(root)
     window.showOpenFilePicker = vi.fn(async () => [file.handle])
 
-    await expect(openMixJamFile(USER_FOLDER)).rejects.toThrow(
-      'MixJam projects must be saved inside the selected User Folder.'
-    )
+    await expect(openMixJamFile(USER_FOLDER)).resolves.toEqual({
+      path: null,
+      fileName: 'outside.mixjam',
+      contents: '{"external":true}'
+    })
+  })
+
+  it('opens an external project when the stored User Folder handle is unavailable', async () => {
+    const file = fakeFile('outside.mixjam')
+    vi.mocked(loadFolderHandle).mockResolvedValue(null)
+    window.showOpenFilePicker = vi.fn(async () => [file.handle])
+
+    await expect(openMixJamFile(USER_FOLDER)).resolves.toMatchObject({
+      path: null,
+      fileName: 'outside.mixjam'
+    })
+    expect(window.showOpenFilePicker).toHaveBeenCalledTimes(1)
   })
 
   it('saves through createWritable and commits only by closing the stream', async () => {
@@ -126,6 +130,18 @@ describe('project file access', () => {
     expect(file.write).toHaveBeenCalledWith('{"ok":true}\n')
     expect(file.close).toHaveBeenCalledTimes(1)
     expect(file.abort).not.toHaveBeenCalled()
+  })
+
+  it('rejects Save As selections outside the User Folder before writing', async () => {
+    const root = fakeRoot(null)
+    const file = fakeFile('outside.mixjam')
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+    window.showSaveFilePicker = vi.fn(async () => file.handle)
+
+    await expect(saveMixJamFileAs(USER_FOLDER, 'outside.mixjam', '{}')).rejects.toThrow(
+      'MixJam projects must be saved inside the selected User Folder.'
+    )
+    expect(file.handle.createWritable).not.toHaveBeenCalled()
   })
 
   it('aborts a failed write and preserves the original error', async () => {
