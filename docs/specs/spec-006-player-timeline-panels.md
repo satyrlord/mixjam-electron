@@ -59,11 +59,11 @@ browser adjacencies.
   │       ├── .ruler            — horizontal bar with tick marks + bar numbers
   │       ├── .lane-scroll      — scrollable lane container
   │           ├── .playhead     — absolute, full-height, 2px wide
-  │           └── .lane × 16    — 44px height each
-  │               ├── .lane-head — 168px: name, M/S buttons, pan knob
+  │           └── .lane × 16    — 52px height each
+  │               ├── .lane-head — 220px: name, M/S buttons, pan knob
   │               └── .lane-canvas — clip placement area
   │       └── .song-progress-bar — persistent horizontal timeline navigation
-  ├── .middle-strip     — 44px, full-width transport + global status band
+  ├── .middle-strip     — 56px, full-width transport + global status band
   └── .bottom-workspace — full-width tabbed work band
       ├── .bottom-workspace-tabs — Song | Mixer | FX | Samples + song status
       └── .bottom-workspace-panel — active peer panel
@@ -111,6 +111,11 @@ browser adjacencies.
   editable BPM or volume control.
 - An explicit workflow transition may activate a tab. In particular, a mixer
   channel's FX action selects that channel and activates FX.
+- Samples exposes an explicit expand/restore action. Expansion grows the Bottom
+  Workspace to 60%; restoration returns to the previous user-controlled size.
+  Expansion intent and the restore size persist separately from the panel
+  layout, so manually resizing the workspace to 60% never turns Restore into a
+  hidden 36% jump.
 - On narrow windows, the tab row scrolls horizontally or uses a labeled
   overflow control; tab targets do not shrink below 44 by 44 CSS pixels.
 - The Bottom Workspace has no Song Controls/Mixer reveal seam. Resizing or
@@ -147,15 +152,15 @@ browser adjacencies.
 
 ### Ruler
 
-- Height: 24px, padded left 168px (lane-head width).
-- The lane-head rendered border box must remain exactly 168px wide so ruler
+- Height: 44px, padded left 220px (lane-head width).
+- The lane-head rendered border box must remain exactly 220px wide so ruler
   marks, tracker grid lines, placements, and playhead share the same x-origin.
 - Tick marks use the same beat/bar model as the lane canvas: a transparent
   tick every beat and a stronger tick every bar.
 - Bar numbers: 1, 5, 9, 13… (every 4 bars), monospace font, muted color.
 - The MVP song span is 128 bars in 4/4: 4,096 ticks at 8 ticks per beat and
   32 ticks per bar. The timeline keeps a 42px-per-beat minimum density, so the
-  128-bar canvas is 21,504px wide plus the 168px lane head. A wider viewport
+  128-bar canvas is 21,504px wide plus the 220px lane head. A wider viewport
   may expand that surface but never compresses the 128 bars below this density.
 - The ruler, playhead, selection overlay, and all lane canvases share one
   horizontal scroll position. Lane heads and the ruler's lane-head spacer stay
@@ -178,13 +183,13 @@ browser adjacencies.
 
 ### Lanes (16)
 
-- Height: 44px fixed per lane.
-- **Lane head** (168px wide):
-  - Lane name (e.g. "Lane 1"), 11px, truncated with ellipsis.
-  - Mute button (M) — 28×28px, toggle style. Muted lanes are visually dimmed.
-  - Solo button (S) — 28×28px, toggle style. When any lane is soloed,
+- Height: 52px fixed per lane.
+- **Lane head** (220px wide):
+  - Lane name (e.g. "Lane 1"), 12px, truncated with ellipsis.
+  - Mute button (M) — 44×44px, toggle style. Muted lanes are visually dimmed.
+  - Solo button (S) — 44×44px, toggle style. When any lane is soloed,
     non-soloed lanes are dimmed.
-  - Pan knob — 30×30px drag-to-pan dial with a highlight-token pointer.
+  - Pan knob — 44×44px drag-to-pan dial with a highlight-token pointer.
 - **Lane canvas:** flex:1, position:relative — hosts sample bubbles.
 - **Focused lane:** subtle accent-color left border on the lane head.
 
@@ -200,7 +205,8 @@ browser adjacencies.
   sample. Before first placement, it estimates the span from source duration
   and detected BPM, or the current project BPM when detection is unavailable,
   so the first drop preserves the same dimensions across views.
-- Height: 32px, vertically centered in the 44px lane.
+- Height: 32px, vertically centered in the 52px lane. Sample Browser buttons
+  wrap the same 32px visual in a separate 44px interaction target.
 - Label: sample filename, truncated.
 - Bubble color: driven by a per-sample hue derived from category or a hash of
   the filename.
@@ -231,7 +237,7 @@ browser adjacencies.
 
 ### Middle Strip
 
-- Height: 44px, spans the full player width including both left rails.
+- Height: 56px, spans the full player width including both left rails.
 - Owns the global transport and song state seam between the tracker and the
   browser.
 - Left segment: project name (the opened project's display name, "Untitled"
@@ -246,6 +252,9 @@ browser adjacencies.
     stack is empty (see Undo/Redo below).
 - Right segment: search, Re-scan, and a "?" help button that opens the
   keyboard-shortcuts overlay.
+- Transport commands use at least 44px targets, Play is a 48px dominant action,
+  and search is a full-height 44px field. Actionable labels are at least 13px;
+  secondary labels are at least 12px.
 - Transport buttons call the engine via the bridge layer (spec-005).
 - Transport, BPM, mute/solo, and pan controls use the shared accessible tooltip
   primitive, including shortcut hints where one exists. Native `title`
@@ -278,6 +287,8 @@ browser adjacencies.
 #### MixJam Browser
 
 - Occupies the upper-left region of the active Player layout.
+- Defaults to 24% of the upper work band (320px at the common desktop size)
+  instead of competing with the Tracker for one third of the viewport.
 - Its right edge resizes only the upper MixJam Browser/Tracker split. The width
   persists in localStorage as `mixjam-left-col-w` and never constrains the
   Bottom Workspace.
@@ -316,6 +327,9 @@ browser adjacencies.
 
 - Occupies the Song panel in the full-width Bottom Workspace.
 - First-launch default; subsequent visits restore the last active tab.
+- While the arrangement is empty, a persistent Tracker cue explains the first
+  sample action and opens Samples directly. Opening it also grows a compressed
+  Bottom Workspace to at least 50%.
 - Controls:
   - **BPM slider** — project tempo control, from 50 BPM to 200 BPM.
   - **Master Volume slider** — global output level control for the full mix.
@@ -388,7 +402,7 @@ visible across themes and viewport sizes.
 - [x] **AC-004e:** Mixer/FX visual telemetry runs only while Mixer or FX is the
   active Bottom Workspace tab. Song, Samples, and leaving Player cancel its
   animation-frame loop without changing audio state.
-- [x] **AC-005:** 16 lanes render at 44px each in the Tracker region with lane heads showing name, functional M and S buttons, and a functional pan knob.
+- [x] **AC-005:** 16 lanes render at 52px each in the Tracker region with 220px lane heads showing a name plus 44px M, S, and pan targets.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample bubble from the Sample Browser and dropping it onto a lane creates a clip placement snapped to the nearest beat boundary.
@@ -443,7 +457,15 @@ visible across themes and viewport sizes.
 - [x] **AC-025:** A sample bubble keeps its canonical width and 32px height in
   the drag image; any minimum drag surface, theme-shadow clearance, or group
   badge uses transparent space outside that rectangle.
-- [x] **AC-025:** Space toggles Play/Pause when focus is not in a text control.
+- [x] **AC-026:** Space toggles Play/Pause when focus is not in a text control.
+- [x] **AC-027:** An arrangement with no placements keeps a visible first-sample
+  cue in the Tracker; its Open Samples action activates Samples and grows the
+  Bottom Workspace to at least 50% when needed. The cue disappears after the
+  first placement.
+- [x] **AC-028:** Transport, lane, Mixer, category, sample, theme, header, and
+  footer actions expose 44px interaction targets without changing the 32px
+  sample-bubble visual. Actionable labels are at least 13px and secondary
+  labels are at least 12px on the captured desktop surfaces.
 
 ## Bottom Workspace Validation Evidence
 
@@ -459,6 +481,9 @@ visible across themes and viewport sizes.
 - `src/renderer/src/components/PlayerView.test.tsx` verifies the shared vertical
   Song controls, precise BPM entry and rejection, and orientation-aware BPM
   keyboard commands.
+- `tests/e2e/library.spec.ts` verifies that category, tag, sort, and management
+  actions render with at least 44-by-44px interaction boxes in production
+  Chromium.
 - `tmp/verify-vertical-controls/evidence.md` records production Chromium
   geometry at desktop and narrow widths, vertical direction, 44px targets,
   keyboard behavior, and focus indicators across every bundled theme.

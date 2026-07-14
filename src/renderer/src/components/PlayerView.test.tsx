@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import PlayerView, { reconcileSelectedChannelIndex } from './PlayerView'
 import type {
@@ -204,11 +204,13 @@ describe('PlayerView', () => {
   // Workspace and resize tests persist UI state. Clear it after each test so a
   // failing assertion cannot leak state into later mounts.
   afterEach(() => {
+    vi.restoreAllMocks()
     localStorage.removeItem('mixjam-left-col-w')
     localStorage.removeItem('mixjam:bottom-workspace-tab')
     localStorage.removeItem('mixjam-bottom-workspace-size')
     localStorage.removeItem('mixjam:upper-work-layout')
     localStorage.removeItem('mixjam:bottom-workspace-layout')
+    localStorage.removeItem('mixjam:bottom-workspace-expansion')
   })
 
   it('renders the Player regions and MixJam Browser', () => {
@@ -706,6 +708,73 @@ describe('PlayerView', () => {
     expect(document.querySelector('.bottom-workspace-samples')).toHaveAttribute('hidden')
   })
 
+  it('keeps a first-sample cue until a placement exists and opens Samples directly', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      const flexGrow = Number(this.style.flexGrow)
+      return flexGrow > 0 ? flexGrow * 10 : 1000
+    })
+    const { rerender } = renderPlayer({})
+
+    expect(screen.getByText('Start with a sample')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Samples' }))
+    expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => {
+      const layout = JSON.parse(localStorage.getItem('mixjam:bottom-workspace-layout') ?? '{}') as { bottom?: number }
+      expect(layout.bottom).toBeGreaterThanOrEqual(50)
+    })
+
+    const lanesWithPlacement = LANES.map((lane, index) => index === 0
+      ? { ...lane, placements: [{ id: 'placement-1', samplePath: 'kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
+      : lane)
+    rerender(<PlayerView
+      mixJamFiles={[]}
+      browser={DEFAULT_BROWSER}
+      arrangement={{ ...DEFAULT_ARRANGEMENT, lanes: lanesWithPlacement }}
+      transport={DEFAULT_TRANSPORT}
+      mixer={DEFAULT_MIXER}
+      project={DEFAULT_PROJECT}
+    />)
+    expect(screen.queryByRole('button', { name: 'Open Samples' })).toBeNull()
+  })
+
+  it('lets the Samples workspace expand and restore', () => {
+    renderPlayer({})
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
+    const expand = screen.getByRole('button', { name: 'Expand Samples' })
+    fireEvent.click(expand)
+    expect(screen.getByRole('button', { name: 'Restore workspace' })).toHaveAttribute('aria-pressed', 'true')
+    expect(JSON.parse(localStorage.getItem('mixjam:bottom-workspace-expansion') ?? '{}')).toMatchObject({
+      expanded: true,
+      previousBottomSize: expect.any(Number)
+    })
+  })
+
+  it('restores an explicitly expanded Samples control from saved state', () => {
+    localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
+    localStorage.setItem('mixjam:bottom-workspace-layout', JSON.stringify({ upper: 40, bottom: 60 }))
+    localStorage.setItem('mixjam:bottom-workspace-expansion', JSON.stringify({
+      expanded: true,
+      previousBottomSize: 42
+    }))
+    renderPlayer({})
+
+    expect(screen.getByRole('button', { name: 'Restore workspace' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Restore workspace' }))
+    expect(screen.getByRole('button', { name: 'Expand Samples' })).toHaveAttribute('aria-pressed', 'false')
+    expect(JSON.parse(localStorage.getItem('mixjam:bottom-workspace-expansion') ?? '{}')).toEqual({
+      expanded: false,
+      previousBottomSize: 42
+    })
+  })
+
+  it('does not treat a manually saved 60 percent workspace as expanded', () => {
+    localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
+    localStorage.setItem('mixjam:bottom-workspace-layout', JSON.stringify({ upper: 40, bottom: 60 }))
+    renderPlayer({})
+
+    expect(screen.getByRole('button', { name: 'Expand Samples' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('keeps FX channel selection stable, then falls forward and backward after removal', () => {
     const channels = [{ channelIndex: 0 }, { channelIndex: 2 }, { channelIndex: 4 }]
     expect(reconcileSelectedChannelIndex(channels, 2)).toBe(2)
@@ -844,7 +913,7 @@ describe('PlayerView', () => {
     expect(timeline?.querySelector('.tracker-ruler')).not.toBeNull()
     expect(timeline?.querySelector('.tracker-playhead')).not.toBeNull()
     expect(timeline?.querySelectorAll('.tracker-lane')).toHaveLength(16)
-    expect(timeline).toHaveStyle({ minWidth: '21672px' })
+    expect(timeline).toHaveStyle({ minWidth: '21724px' })
     expect(screen.getByRole('scrollbar', { name: 'Song Progress Bar' })).toHaveAttribute(
       'aria-controls',
       'tracker-song-scrollport'
@@ -1010,7 +1079,7 @@ describe('PlayerView', () => {
     })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    const tile = screen.getByText(/kick/i).closest('button')! as HTMLElement
+    const tile = screen.getByText(/kick/i).closest('.sample-bubble')! as HTMLElement
     // categoryId 2 = Drums = slot 0; the surface tracks the theme palette var.
     expect(tile.style.backgroundColor).toBe('var(--palette-0)')
   })
@@ -1200,7 +1269,7 @@ describe('PlayerView', () => {
     Object.defineProperty(lanes, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
     })
-    fireEvent.mouseDown(lanes, { ctrlKey: true, clientX: 200, clientY: 100 })
+    fireEvent.mouseDown(lanes, { ctrlKey: true, clientX: 230, clientY: 100 })
     fireEvent.mouseMove(window, { clientX: 300, clientY: 200 })
     const selRect = container.querySelector('.selection-rect')
     expect(selRect).not.toBeNull()
@@ -1404,9 +1473,9 @@ describe('PlayerView', () => {
     Object.defineProperty(lanesEl, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
     })
-    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 170, clientY: 30 })
+    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 230, clientY: 50 })
     act(() => {
-      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 180, clientY: 130, bubbles: true }))
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 240, clientY: 150, bubbles: true }))
     })
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
@@ -1469,9 +1538,9 @@ describe('PlayerView', () => {
       value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
     })
     // Rectangle-select only placement-1 (lane 0).
-    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 170, clientY: 30 })
+    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 230, clientY: 50 })
     act(() => {
-      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 180, clientY: 40, bubbles: true }))
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 240, clientY: 90, bubbles: true }))
     })
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
@@ -1607,7 +1676,7 @@ describe('PlayerView', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
 
     const labels = Array.from(
-      document.querySelectorAll('.mixer-channel-label > span')
+      document.querySelectorAll('.mixer-channel-select > span')
     ).map((el) => el.textContent)
     expect(labels).toEqual(['1', '3'])
     // The aria-labels agree with the visible labels.

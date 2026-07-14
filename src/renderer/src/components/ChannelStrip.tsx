@@ -52,8 +52,9 @@ export default function ChannelStrip({
   return (
     <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}${selected ? ' mixer-channel-strip-selected' : ''}`}>
       <div className="mixer-channel-label">
-        <span>{label}</span>
-        <button type="button" className="mixer-channel-select" aria-label={`Select channel ${channelIndex + 1}`} aria-pressed={selected} onClick={() => onSelect(channelIndex)} />
+        <button type="button" className="mixer-channel-select" aria-pressed={selected} onClick={() => onSelect(channelIndex)}>
+          <span>{label}</span>
+        </button>
         <button
           type="button"
           className="mixer-channel-remove"

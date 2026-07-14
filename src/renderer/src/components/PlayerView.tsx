@@ -40,7 +40,16 @@ const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
 const UPPER_LAYOUT_STORAGE_KEY = 'mixjam:upper-work-layout'
 const BOTTOM_LAYOUT_STORAGE_KEY = 'mixjam:bottom-workspace-layout'
+const BOTTOM_EXPANSION_STORAGE_KEY = 'mixjam:bottom-workspace-expansion'
 const BOTTOM_WORKSPACE_STORAGE_KEY = 'mixjam:bottom-workspace-tab'
+const DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT = 36
+const BOTTOM_WORKSPACE_EXPANDED_PERCENT = 60
+const BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT = 50
+
+interface BottomWorkspaceExpansionState {
+  expanded: boolean
+  previousBottomSize: number
+}
 
 function initialBottomWorkspaceTab(): BottomWorkspaceTab {
   try {
@@ -71,6 +80,30 @@ function savePanelLayout(key: string, layout: PanelLayout): void {
     localStorage.setItem(key, JSON.stringify(layout))
   } catch {
     // Storage can be unavailable; the current layout still remains usable.
+  }
+}
+
+function loadBottomWorkspaceExpansionState(fallbackSize: number): BottomWorkspaceExpansionState {
+  const fallback = { expanded: false, previousBottomSize: fallbackSize }
+  try {
+    const stored = localStorage.getItem(BOTTOM_EXPANSION_STORAGE_KEY)
+    if (!stored) return fallback
+    const parsed = JSON.parse(stored) as Partial<BottomWorkspaceExpansionState>
+    if (typeof parsed.expanded !== 'boolean' ||
+      typeof parsed.previousBottomSize !== 'number' ||
+      !Number.isFinite(parsed.previousBottomSize) ||
+      parsed.previousBottomSize <= 0 || parsed.previousBottomSize > 100) return fallback
+    return { expanded: parsed.expanded, previousBottomSize: parsed.previousBottomSize }
+  } catch {
+    return fallback
+  }
+}
+
+function saveBottomWorkspaceExpansionState(state: BottomWorkspaceExpansionState): void {
+  try {
+    localStorage.setItem(BOTTOM_EXPANSION_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Storage can be unavailable; the current in-memory state still works.
   }
 }
 
@@ -106,6 +139,7 @@ export default function PlayerView({
 }: PlayerViewProps) {
   const { lanes, laneShouldDim, currentTick } = arrangement
   const { transportState, onTransportSeek } = transport
+  const hasPlacedSamples = lanes.some((lane) => lane.placements.length > 0)
 
   const totalTicks = TRACKER_TOTAL_TICKS
   const rulerBeatCount = totalTicks / TICKS_PER_BEAT
@@ -191,7 +225,7 @@ export default function PlayerView({
       } catch {
         // Use the regular default below.
       }
-      return 33
+      return 24
     })()
     return loadPanelLayout(UPPER_LAYOUT_STORAGE_KEY, {
       browser: fallbackBrowserPercent,
@@ -199,9 +233,17 @@ export default function PlayerView({
     })
   })
   const [verticalDefaultLayout] = useState<PanelLayout>(() =>
-    loadPanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, { upper: 64, bottom: 36 })
+    loadPanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, {
+      upper: 100 - DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT,
+      bottom: DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT
+    })
   )
   const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(initialBottomWorkspaceTab)
+  const bottomPanelRef = usePanelRef()
+  const initialBottomSize = verticalDefaultLayout.bottom ?? DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT
+  const [initialExpansionState] = useState(() => loadBottomWorkspaceExpansionState(initialBottomSize))
+  const previousBottomSizeRef = useRef(initialExpansionState.previousBottomSize)
+  const [bottomWorkspaceExpanded, setBottomWorkspaceExpanded] = useState(initialExpansionState.expanded)
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null)
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null)
   const { onSetVisualTelemetryActive } = mixer
@@ -227,6 +269,35 @@ export default function PlayerView({
       // Storage can be unavailable; the active in-memory tab still works.
     }
   }, [])
+
+  const toggleBottomWorkspaceExpanded = useCallback(() => {
+    const panel = bottomPanelRef.current
+    if (!panel) return
+    if (bottomWorkspaceExpanded) {
+      saveBottomWorkspaceExpansionState({
+        expanded: false,
+        previousBottomSize: previousBottomSizeRef.current
+      })
+      panel.resize(`${previousBottomSizeRef.current}%`)
+      setBottomWorkspaceExpanded(false)
+      return
+    }
+    previousBottomSizeRef.current = panel.getSize().asPercentage
+    saveBottomWorkspaceExpansionState({
+      expanded: true,
+      previousBottomSize: previousBottomSizeRef.current
+    })
+    panel.resize(`${BOTTOM_WORKSPACE_EXPANDED_PERCENT}%`)
+    setBottomWorkspaceExpanded(true)
+  }, [bottomPanelRef, bottomWorkspaceExpanded])
+
+  const openSamplesFromCue = useCallback(() => {
+    setBottomTab('samples')
+    const panel = bottomPanelRef.current
+    if (panel && panel.getSize().asPercentage < BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT) {
+      panel.resize(`${BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT}%`)
+    }
+  }, [bottomPanelRef, setBottomTab])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -327,7 +398,14 @@ export default function PlayerView({
       className={`player-view${mixJamBrowserCollapsed ? ' mixjam-browser-collapsed' : ''}`}
       orientation="vertical"
       defaultLayout={verticalDefaultLayout}
-      onLayoutChanged={(layout) => savePanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, layout)}
+      onLayoutChanged={(layout, meta) => {
+        savePanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, layout)
+        const bottomSize = layout.bottom
+        if (!meta.isUserInteraction || bottomSize === undefined) return
+        previousBottomSizeRef.current = bottomSize
+        setBottomWorkspaceExpanded(false)
+        saveBottomWorkspaceExpansionState({ expanded: false, previousBottomSize: bottomSize })
+      }}
     >
       <Panel id="upper" minSize="244px">
         <div className="upper-middle-work">
@@ -341,7 +419,7 @@ export default function PlayerView({
             <Panel
               id="browser"
               panelRef={browserPanelRef}
-              defaultSize="420px"
+              defaultSize="320px"
               minSize={`${LEFT_COL_MIN_PX}px`}
               maxSize="45vw"
               groupResizeBehavior="preserve-pixel-size"
@@ -365,6 +443,13 @@ export default function PlayerView({
             <Panel id="tracker" minSize="320px">
 
               <section className="tracker-zone tracker-region">
+        {!hasPlacedSamples && (
+          <aside className="tracker-first-sample-cue" aria-label="Start with a sample">
+            <strong>Start with a sample</strong>
+            <span>Browse your library, preview a sound, then drag it onto any lane.</span>
+            <button type="button" onClick={openSamplesFromCue}>Open Samples</button>
+          </aside>
+        )}
         <ContextMenuRoot onOpenChange={(open) => { if (!open) setContextMenu(null) }}>
           <ContextMenuTrigger asChild>
             <div
@@ -486,12 +571,14 @@ export default function PlayerView({
         aria-label="Resize bottom workspace"
       />
 
-      <Panel id="bottom" minSize="60px" maxSize="60%">
+      <Panel id="bottom" panelRef={bottomPanelRef} minSize="60px" maxSize="60%">
         <BottomWorkspace
         activeTab={bottomTab}
         bpm={transport.bpm}
         masterGain={transport.masterGain}
+        expanded={bottomWorkspaceExpanded}
         onTabChange={setBottomTab}
+        onToggleExpanded={toggleBottomWorkspaceExpanded}
         song={(
           <SongControlsMain
             bpm={transport.bpm}
@@ -525,6 +612,9 @@ export default function PlayerView({
             selectedChannelIndex={selectedChannelIndex}
             selectedEffectId={selectedEffectId}
             effectReductions={mixer.effectReductions}
+            canRestoreChannel={mixer.canRestoreChannel}
+            onOpenMixer={() => setBottomTab('mixer')}
+            onRestoreChannel={mixer.onRestoreChannel}
             onSelectChannel={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null) }}
             onSelectEffect={setSelectedEffectId}
             onAdd={mixer.onAddChannelEffect}

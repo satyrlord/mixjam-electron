@@ -67,11 +67,11 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(screen.getByRole('button', { name: 'Load MixJam' })).toBeInTheDocument()
   })
 
-  it('AC-003: footer is 40px and shows settings/version links on both Home and Player', async () => {
+  it('AC-003: header and footer are 48px and show settings/version links on both Home and Player', async () => {
     const css = readUtf8(INDEX_CSS_PATH)
 
-    expect(css).toMatch(/\.header\s*\{[\s\S]*height:\s*40px;/m)
-    expect(css).toMatch(/\.footer\s*\{[\s\S]*height:\s*40px;/m)
+    expect(css).toMatch(/\.header\s*\{[\s\S]*height:\s*48px;/m)
+    expect(css).toMatch(/\.footer\s*\{[\s\S]*height:\s*48px;/m)
 
     render(<App />)
 

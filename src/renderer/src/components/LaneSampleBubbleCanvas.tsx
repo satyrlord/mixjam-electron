@@ -234,7 +234,7 @@ function buildSampleBubbleDragGhost(
   if (!ctx) return null
 
   ctx.scale(dpr, dpr)
-  ctx.font = `${themeTokenCache.fontWeight} 10px ${themeTokenCache.fontLabel}`
+  ctx.font = `${themeTokenCache.fontWeight} 12px ${themeTokenCache.fontLabel}`
   ctx.textBaseline = 'middle'
   drawSampleBubble(
     ctx,
@@ -323,7 +323,7 @@ function LaneSampleBubbleCanvas({
     const hitRects: SampleBubbleHitRect[] = []
     const accent = getComputedAccent()
 
-    ctx.font = `${themeTokenCache.fontWeight} 10px ${themeTokenCache.fontLabel}`
+    ctx.font = `${themeTokenCache.fontWeight} 12px ${themeTokenCache.fontLabel}`
     ctx.textBaseline = 'middle'
 
     for (const placement of placements) {

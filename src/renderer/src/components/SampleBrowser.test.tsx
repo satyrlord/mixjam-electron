@@ -102,6 +102,7 @@ describe('SampleBrowser', () => {
 
     fireEvent.click(screen.getByRole('option', { name: 'Drums' }))
     expect(onSelectCategory).toHaveBeenCalledWith(1)
+    expect(screen.getByRole('option', { name: 'Drums' })).toHaveClass('sample-bubble-hit-target')
 
     renderBrowser({ selectedCategoryId: 1, onSelectCategory })
     fireEvent.click(screen.getAllByRole('option', { name: 'Drums' })[1]!)

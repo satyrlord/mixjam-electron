@@ -64,6 +64,8 @@ describe('SampleTileGrid', () => {
     expect(buttons.length).toBe(2)
     expect((buttons[0] as HTMLElement).style.width).toBe('240px')
     expect((buttons[1] as HTMLElement).style.width).toBe('240px')
+    expect(container.querySelectorAll('button.sample-bubble-hit-target')).toHaveLength(2)
+    expect(buttons[0]?.closest('button')).toHaveClass('sample-bubble-hit-target')
   })
 
   it('uses a placed sample musical span instead of remapping its width at the current BPM', () => {

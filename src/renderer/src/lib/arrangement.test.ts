@@ -59,8 +59,8 @@ describe('arrangement lane constants', () => {
   })
 
   it('has expected lane dimensions', () => {
-    expect(LANE_HEIGHT_PX).toBe(44)
-    expect(LANE_HEAD_WIDTH_PX).toBe(168)
+    expect(LANE_HEIGHT_PX).toBe(52)
+    expect(LANE_HEAD_WIDTH_PX).toBe(220)
   })
 
   it('defaults placements to 32 ticks', () => {
@@ -71,7 +71,7 @@ describe('arrangement lane constants', () => {
     expect(TRACKER_BAR_COUNT).toBe(128)
     expect(TRACKER_TOTAL_TICKS).toBe(4096)
     expect(TRACKER_BEAT_WIDTH_PX).toBe(42)
-    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(21672)
+    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(21724)
   })
 })
 

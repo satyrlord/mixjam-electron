@@ -39,3 +39,48 @@ test('the FX workspace edits, bypasses, reorders, removes, undoes, and does not 
   await page.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' }).click()
   await expect(page.locator('.effect-card')).toHaveCount(0)
 })
+
+test('FX keeps reordered selection visible and contains the compressor meter at narrow widths', async ({ seededPage: page }) => {
+  await page.setViewportSize({ width: 640, height: 720 })
+  await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  await page.getByRole('tab', { name: 'FX' }).click()
+
+  for (let index = 0; index < 4; index++) {
+    await page.getByRole('button', { name: 'Add effect' }).click()
+    await page.getByRole('menuitem', { name: /Delay.*repeating echoes/i }).click()
+  }
+
+  await page.locator('.effect-card-main').first().click()
+  for (let index = 0; index < 3; index++) {
+    await page.locator('.effect-card-selected .effect-card-main').press('Alt+ArrowRight')
+  }
+
+  await expect.poll(async () => page.evaluate(() => {
+    const chain = document.querySelector('.effects-chain')
+    const selected = document.querySelector('.effect-card-selected')
+    if (!chain || !selected) return false
+    const chainRect = chain.getBoundingClientRect()
+    const selectedRect = selected.getBoundingClientRect()
+    return selectedRect.left >= chainRect.left + 12 && selectedRect.right <= chainRect.right - 12
+  })).toBe(true)
+
+  await page.reload()
+  await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  await page.getByRole('tab', { name: 'FX' }).click()
+  await page.getByRole('button', { name: 'Add effect' }).click()
+  await page.getByRole('menuitem', { name: /Compressor.*loud and quiet/i }).click()
+
+  const meterIsContained = await page.evaluate(() => {
+    const editor = document.querySelector('.effect-detail')
+    const controls = document.querySelector('.effect-controls')
+    const meter = document.querySelector('.reduction-meter')
+    if (!editor || !controls || !meter) return false
+    const editorRect = editor.getBoundingClientRect()
+    const controlsRect = controls.getBoundingClientRect()
+    const meterRect = meter.getBoundingClientRect()
+    return meterRect.left >= controlsRect.left &&
+      meterRect.right <= controlsRect.right &&
+      meterRect.right <= editorRect.right
+  })
+  expect(meterIsContained).toBe(true)
+})

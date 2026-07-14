@@ -39,6 +39,42 @@ const EXPECTED_THEME_NAMES = [
   'Arcade'
 ]
 
+const SIX_DIGIT_HEX = /^#[0-9A-Fa-f]{6}$/
+
+function assertSixDigitHex(value: string): void {
+  if (!SIX_DIGIT_HEX.test(value)) {
+    throw new Error(`Invalid theme color "${value}": expected #RRGGBB`)
+  }
+}
+
+function relativeLuminance(hex: string): number {
+  assertSixDigitHex(hex)
+  const channels = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16) / 255)
+  const [red, green, blue] = channels.map((channel) => channel <= 0.04045
+    ? channel / 12.92
+    : ((channel + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const foregroundLuminance = relativeLuminance(foreground)
+  const backgroundLuminance = relativeLuminance(background)
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance)
+  const darker = Math.min(foregroundLuminance, backgroundLuminance)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+function cssDeclarations(css: string, selector: string): Map<string, string> {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const body = css.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`, 's'))?.[1]
+  if (body === undefined) throw new Error(`Missing CSS rule for ${selector}`)
+  return new Map(body.split(';').flatMap((declaration) => {
+    const separator = declaration.indexOf(':')
+    if (separator < 0) return []
+    return [[declaration.slice(0, separator).trim(), declaration.slice(separator + 1).trim()]]
+  }))
+}
+
 const EXPECTED_EMERALD_COLORS = {
   accent: '#00674F',
   'accent-dark': '#004434',
@@ -306,6 +342,24 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
 
     expect(select).toHaveValue('emerald')
     expect(document.documentElement.style.cssText).toBe(beforeStyleSnapshot)
+  })
+
+  it('AC-018: dropdown foreground and background tokens remain readable in every theme', () => {
+    const css = readUtf8(INDEX_CSS_PATH)
+    const optionDeclarations = cssDeclarations(css, 'select option')
+    expect(optionDeclarations.get('color')).toBe('var(--text)')
+    expect(optionDeclarations.get('background-color')).toBe('var(--chrome)')
+    expect(css).not.toContain('var(--surface)')
+
+    for (const option of THEME_OPTIONS) {
+      const theme = resolveTheme(option.key)
+      expect(contrastRatio(theme.colors.text, theme.colors.chrome), `${theme.name} dropdown popup`).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('AC-018: contrast checks reject malformed theme colors with an actionable error', () => {
+    expect(() => contrastRatio('#fff', '#000000')).toThrow('Invalid theme color "#fff": expected #RRGGBB')
+    expect(() => contrastRatio('not-a-color', '#000000')).toThrow('Invalid theme color "not-a-color": expected #RRGGBB')
   })
 
   it('AC-010: Emerald theme JSON is parseable and has no duplicate keys in the declared schema', () => {

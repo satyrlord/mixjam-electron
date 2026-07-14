@@ -60,7 +60,7 @@ can chain effects in order and adjust parameters per channel.
   visible. The selector retains the current channel across tab changes. If the
   selected channel is removed, it selects the next channel, then the previous
   channel, then shows the existing empty-mixer state.
-- Each fixed 44 px mixer strip has one 44-by-44 px FX entry button with a
+- Each responsive mixer strip has one full-width, at-least-44px FX entry button with a
   zero-to-four count and an all-bypassed state. Channel labels select a channel
   without changing tabs; the FX button selects its channel and opens the FX tab.
 - The selected channel displays an explicit left-to-right chain rail. Named
@@ -70,6 +70,15 @@ can chain effects in order and adjust parameters per channel.
   `Enabled` and `Bypassed` state text rather than an ambiguous power label.
 - A described Add effect tile appends Delay, Reverb, or Compressor and becomes
   a `4 of 4 effects used` status at the slot cap.
+- An empty chain combines its explanation and Add action into one centered
+  surface. A no-channel state offers both Restore a channel and Open Mixer.
+- Chain cards compact responsively before overflow, the selected card scrolls
+  within the chain without shifting the surrounding workspace, and a themed
+  edge fade plus visible scrollbar signals clipped content. Visibility and
+  scroll correction run after selection and ordered-chain changes and use the
+  live chain/card viewport rectangles, so reordering, padding, or nested
+  offset-parent changes do not break selection tracking. Enabled uses a
+  restrained outline; Bypassed remains explicit.
 - The selected effect opens a spacious editor below the chain. Rotary controls
   support vertical pointer drag, mouse-wheel steps, Shift fine adjustment,
   Arrow keys, Home/End, direct numeric entry, unit-aware accessible values,
@@ -83,12 +92,14 @@ can chain effects in order and adjust parameters per channel.
   without changing the established pointer, keyboard, reset, or direct-entry
   contract.
 - Every parameter carries a plain-language explanation of its audible result.
-  Bypassed effects remain editable but are visually subdued. Explanatory copy
+  Bypassed effects remain editable; text stays fully opaque while decorative
+  card graphics and surfaces carry the subdued state. Explanatory copy
   is at least 12 px, and the interaction hint is available on hover, focus, and
   through an accessible description.
 - Editable parameters share one visual surface instead of separate nested
-  cards. Output-only metering is grouped separately, includes scale endpoints,
-  and remains visually distinct from inputs. Every FX button, selector,
+  cards. A centered responsive grid keeps short rows balanced. Output-only
+  metering is grouped separately, includes scale endpoints, uses an enlarged
+  live value and 120px meter, and remains visually distinct from inputs. Every FX button, selector,
   editable value, and menu trigger has a hit target of at least 44 by 44 CSS
   pixels.
 - Factory starting points are Classic Echo, Slapback, and Ping-Pong Eighths;
@@ -104,6 +115,8 @@ can chain effects in order and adjust parameters per channel.
 - Add, order, and actions menus use the shared accessible dropdown primitive.
   Rotary parameters use the same project-owned pointer-capture control as pan,
   including touch input, Shift fine adjustment, keyboard steps, and reset.
+- Delay booleans retain native checkbox semantics through visually hidden
+  inputs while using the project-owned switch visual and the full label target.
 - Empty chains explain signal order and focus adding; an empty mixer explains
   that a channel must be restored. Removing the selected effect selects the
   next card, then the previous card, then the empty state.
@@ -161,6 +174,9 @@ can chain effects in order and adjust parameters per channel.
   explicit enabled/bypassed text; editable controls use one grouped surface,
   output metering is separate and scaled, explanatory copy is at least 12 px,
   and all FX interaction targets are at least 44 by 44 CSS pixels.
+- [x] **AC-017:** Reordering the selected effect keeps its card visible inside
+  the horizontal chain, and the compressor output meter spans two control-grid
+  tracks without overflowing its editor at narrow supported widths.
 
 ## Validation Evidence
 
@@ -174,8 +190,9 @@ can chain effects in order and adjust parameters per channel.
   non-modal editor contract, presets, accessible parameter edits, removal
   recovery, four-slot cap, reduction state, project-state replacement, and
   rejection of malformed project slots.
-- `tests/e2e/audio-effects.spec.ts` verifies add, edit, bypass, reorder, and
-  remove behavior against the production browser bundle.
+- `tests/e2e/audio-effects.spec.ts` verifies add, edit, bypass, reorder, selected
+  card visibility, narrow compressor-meter containment, and remove behavior
+  against the production browser bundle.
 - `tests/e2e/project-save-load.spec.ts` verifies that ordered FX chains restore
   from their project and reset for a new project.
 - `tests/e2e/audio-effects-rendering.spec.ts` bundles the real DSP module into
@@ -187,7 +204,7 @@ can chain effects in order and adjust parameters per channel.
   dial geometry, tooltip and edit interactions, 44 px hit targets, grouped
   editor hierarchy, scaled meter, signal connector, explicit bypass states,
   all-theme highlight tokens, and the 900 px layout in built Chromium.
-- `tmp/verify-vertical-controls/evidence.md` records the 44 px Mixer strip
+- `tmp/verify-vertical-controls/evidence.md` records the earlier fixed-width Mixer strip
   geometry shared by the channel fader and FX entry point.
 - `tmp/verify-complete-system/evidence.md` verifies Mixer-to-FX channel
   selection, FX selector state, upper-work visibility, and FX panel geometry

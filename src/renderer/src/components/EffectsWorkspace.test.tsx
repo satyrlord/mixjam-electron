@@ -59,9 +59,15 @@ describe('EffectsWorkspace', () => {
     expect(screen.getByRole('heading', { name: 'Compressor' })).toBeInTheDocument()
   })
 
-  it('shows the no-channel empty state', () => {
-    render(<EffectsWorkspace channels={[]} selectedChannelIndex={null} selectedEffectId={null} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
+  it('shows direct recovery actions in the no-channel empty state', () => {
+    const onOpenMixer = vi.fn()
+    const onRestoreChannel = vi.fn()
+    render(<EffectsWorkspace channels={[]} selectedChannelIndex={null} selectedEffectId={null} effectReductions={new Map()} canRestoreChannel onOpenMixer={onOpenMixer} onRestoreChannel={onRestoreChannel} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
     expect(screen.getByText('No mixer channels')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Restore a channel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Mixer' }))
+    expect(onRestoreChannel).toHaveBeenCalledTimes(1)
+    expect(onOpenMixer).toHaveBeenCalledTimes(1)
   })
 
   it('provides an internal channel selector', () => {
@@ -82,7 +88,8 @@ describe('EffectsWorkspace', () => {
     const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [] }
     render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={null} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
     expect(screen.getByText('Build a signal chain')).toBeInTheDocument()
-    expect(screen.getByText(/Add an effect above/)).toBeInTheDocument()
+    expect(screen.getByText(/Add an effect to begin/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add effect' })).toBeInTheDocument()
   })
 
   it('shows the disabled add-effect state when 4 effects are present', () => {
@@ -90,6 +97,68 @@ describe('EffectsWorkspace', () => {
     const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: fx }
     render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={fx[0]!.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
     expect(screen.getByText('4 of 4 effects used')).toBeInTheDocument()
+  })
+
+  it('scrolls the selected card using viewport geometry relative to the chain', () => {
+    const effects = [createDefaultEffect('delay'), createDefaultEffect('reverb')]
+    const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects }
+    const props = {
+      channels: [channel], selectedChannelIndex: 0, effectReductions: new Map<string, number>(),
+      onSelectChannel: vi.fn(), onSelectEffect: vi.fn(), onAdd: vi.fn(), onUpdate: vi.fn(),
+      onToggleBypass: vi.fn(), onRemove: vi.fn(), onRestore: vi.fn(), onMove: vi.fn()
+    }
+    const { container, rerender } = render(<EffectsWorkspace {...props} selectedEffectId={null} />)
+    const chain = container.querySelector('.effects-chain') as HTMLDivElement
+    const cards = container.querySelectorAll<HTMLElement>('[data-effect-id]')
+    const scrollTo = vi.fn()
+    chain.scrollTo = scrollTo
+    Object.defineProperty(chain, 'scrollLeft', { configurable: true, value: 40, writable: true })
+    vi.spyOn(chain, 'getBoundingClientRect').mockReturnValue({
+      left: 100, right: 400, top: 0, bottom: 100, width: 300, height: 100, x: 100, y: 0, toJSON: () => ({})
+    })
+    vi.spyOn(cards[1]!, 'getBoundingClientRect').mockReturnValue({
+      left: 420, right: 500, top: 0, bottom: 80, width: 80, height: 80, x: 420, y: 0, toJSON: () => ({})
+    })
+
+    rerender(<EffectsWorkspace {...props} selectedEffectId={effects[1]!.id} />)
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 152, behavior: 'smooth' })
+  })
+
+  it('scrolls the selected card again when its chain position changes', () => {
+    const delay = createDefaultEffect('delay')
+    const reverb = createDefaultEffect('reverb')
+    const channel: ChannelState = {
+      channelIndex: 0,
+      gain: 0.8,
+      pan: 0,
+      muted: false,
+      solo: false,
+      effects: [delay, reverb]
+    }
+    const props = {
+      selectedChannelIndex: 0,
+      selectedEffectId: delay.id,
+      effectReductions: new Map<string, number>(),
+      onSelectChannel: vi.fn(), onSelectEffect: vi.fn(), onAdd: vi.fn(), onUpdate: vi.fn(),
+      onToggleBypass: vi.fn(), onRemove: vi.fn(), onRestore: vi.fn(), onMove: vi.fn()
+    }
+    const { container, rerender } = render(<EffectsWorkspace {...props} channels={[channel]} />)
+    const chain = container.querySelector('.effects-chain') as HTMLDivElement
+    const selectedCard = container.querySelector<HTMLElement>(`[data-effect-id="${delay.id}"]`)!
+    const scrollTo = vi.fn()
+    chain.scrollTo = scrollTo
+    Object.defineProperty(chain, 'scrollLeft', { configurable: true, value: 0, writable: true })
+    vi.spyOn(chain, 'getBoundingClientRect').mockReturnValue({
+      left: 20, right: 320, top: 0, bottom: 100, width: 300, height: 100, x: 20, y: 0, toJSON: () => ({})
+    })
+    vi.spyOn(selectedCard, 'getBoundingClientRect').mockReturnValue({
+      left: 350, right: 430, top: 0, bottom: 80, width: 80, height: 80, x: 350, y: 0, toJSON: () => ({})
+    })
+
+    rerender(<EffectsWorkspace {...props} channels={[{ ...channel, effects: [reverb, delay] }]} />)
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 122, behavior: 'smooth' })
   })
 
   it('reorders an effect via Alt+ArrowRight keyboard shortcut', () => {

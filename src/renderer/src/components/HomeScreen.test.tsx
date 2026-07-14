@@ -75,6 +75,16 @@ describe('HomeScreen', () => {
     expect(onThemeChange).toHaveBeenCalledWith('rust')
   })
 
+  it('keeps Home theme previews without repeating the selected theme name', () => {
+    renderHome({ activeTheme: 'enterprise' })
+
+    expect(screen.getByText('Home theme')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(document.querySelector('.home-theme-name')).toBeNull()
+    expect(screen.getAllByLabelText(/Switch to .* theme/)).toHaveLength(16)
+    expect(screen.getByLabelText('Switch to Enterprise theme')).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('renders recent projects when provided', () => {
     renderHome({ mixJamFiles: RECENT_PROJECTS })
 

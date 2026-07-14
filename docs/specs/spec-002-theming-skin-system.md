@@ -227,6 +227,11 @@ Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
   literals when they do not encode theme identity.
 - Switching between Home Screen and Player does not reset or re-apply the
   theme.
+- Native select popups explicitly pair `--text` with `--chrome` instead of
+  inheriting the operating system's default popup surface. The selected row
+  uses the system `HighlightText` and `Highlight` colors. Custom dropdown menus
+  use the same readable token pairs; destructive items use a colored edge and
+  the standard menu accent pair for their highlighted state.
 - Every scroll surface styles `::-webkit-scrollbar*` from theme tokens
   (via `color-mix` over `--text`/`--bg-panel`) so the native light Windows
   scrollbar never appears on dark themes. The standard `scrollbar-color`
@@ -369,6 +374,14 @@ hazard stripes in `--sample-bubble-missing` over a darkened variant.
 - [x] **AC-014:** Canvas sample-bubble labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
 - [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`; Beton Brut renders 2px structural rules and a 3px header rule.
 - [x] **AC-016:** The playhead renders a triangular cap colored from `--playhead`.
+- [x] **AC-017:** Home retains a labeled 8-by-2 grid of 44px theme-preview
+  swatches with explicit selected state, while the selected theme name appears
+  only once on Home: in the header selector.
+- [x] **AC-018:** Every native select trigger, option popup, and custom dropdown
+  menu maintains at least 4.5:1 text contrast in all 16 bundled themes. Native
+  option rows have an explicit themed background rather than a white user-agent
+  fallback. The automated contrast check rejects malformed colors unless they
+  use the required `#RRGGBB` form.
 
 ## Non-Goals (deferred to later specs)
 

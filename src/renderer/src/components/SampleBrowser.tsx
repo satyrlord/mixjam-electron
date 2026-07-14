@@ -158,11 +158,15 @@ export default function SampleBrowser({
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                className={`sample-bubble bubble-category${isSelected ? ' selected' : ''}`}
-                style={bubbleStyle(categorySlot(cat.name)) as React.CSSProperties}
+                className="sample-bubble-hit-target sample-bubble-category-target"
                 onClick={() => browser.onSelectCategory(isSelected ? undefined : cat.id)}
               >
-                {cat.name}
+                <span
+                  className={`sample-bubble bubble-category${isSelected ? ' selected' : ''}`}
+                  style={bubbleStyle(categorySlot(cat.name)) as React.CSSProperties}
+                >
+                  {cat.name}
+                </span>
               </button>
             )
           })}

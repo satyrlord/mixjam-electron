@@ -87,7 +87,9 @@ export default function HomeScreen({
           </ol>
 
           <div className="home-themes">
-            <span className="home-themes-label" id="home-themes-label">Make it yours</span>
+            <div className="home-themes-head">
+              <span className="home-themes-label" id="home-themes-label">Home theme</span>
+            </div>
             <div className="home-theme-swatches" role="group" aria-labelledby="home-themes-label">
               {THEME_OPTIONS.map((option) => {
                 const theme = resolveTheme(option.key)

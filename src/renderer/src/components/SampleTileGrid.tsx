@@ -4,7 +4,6 @@ import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/arrangement'
 import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
-  SAMPLE_BUBBLE_HEIGHT_PX,
   placementDurationTicks,
   sampleBubbleWidth,
   sampleBubbleWidthFromTicks
@@ -13,11 +12,11 @@ import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 import { Tooltip } from './ui/Tooltip'
 import { ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 
-// Bubble geometry shared with the tracker: a sample bubble is 32px tall
-// everywhere in the UI (hard rule), and browser rows keep the 6px gap the old
-// flex-wrap layout used.
+// The visible bubble stays 32px tall everywhere. The browser gives that visual
+// a separate 44px interaction target without changing the shared geometry.
+const SAMPLE_BUBBLE_TARGET_PX = 44
 const TILE_GAP_PX = 6
-const ROW_PITCH_PX = SAMPLE_BUBBLE_HEIGHT_PX + TILE_GAP_PX
+const ROW_PITCH_PX = SAMPLE_BUBBLE_TARGET_PX + TILE_GAP_PX
 const TILES_H_PADDING_PX = 10
 
 // Request the next windowed page when the scroll position is within this many
@@ -162,7 +161,7 @@ function SampleTileGrid({
           : sampleBubbleWidth(sample.durationSeconds, bubblePixelsPerSecond)
         const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
         const slot = activeCategorySlot ?? (catName ? categorySlot(catName) : undefined)
-        return { sample, width, slot }
+        return { sample, width, hitWidth: Math.max(width, SAMPLE_BUBBLE_TARGET_PX), slot }
       }),
     [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, activeCategorySlot, categoryNames]
   )
@@ -170,7 +169,7 @@ function SampleTileGrid({
   // clientWidth includes padding; subtract it to get the packable row width.
   const rowWidth = Math.max(0, viewport.width - TILES_H_PADDING_PX * 2)
   const rows = useMemo(
-    () => packTileRows(tiles.map((t) => t.width), rowWidth, TILE_GAP_PX),
+    () => packTileRows(tiles.map((t) => t.hitWidth), rowWidth, TILE_GAP_PX),
     [tiles, rowWidth]
   )
 
@@ -214,7 +213,7 @@ function SampleTileGrid({
               className="tiles-row"
               style={{ transform: `translateY(${start}px)` }}
             >
-              {tiles.slice(row.start, row.end).map(({ sample, width, slot }) => {
+              {tiles.slice(row.start, row.end).map(({ sample, width, hitWidth, slot }) => {
                 const isSelected = selectedSamplePath === sample.relpath
                 const tooltip = `${sample.name || 'Unknown'} — click to preview, drag onto a lane, right-click to tag`
                 return (
@@ -223,8 +222,8 @@ function SampleTileGrid({
                       <ContextMenuTrigger asChild>
                         <button
                           type="button"
-                          className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' sample-bubble-flash' : ''}`}
-                          style={{ width: `${width}px`, ...(slot !== undefined ? bubbleStyle(slot) : {}) } as React.CSSProperties}
+                          className="sample-bubble-hit-target"
+                          style={{ width: `${hitWidth}px` }}
                           draggable
                           onPointerDown={(event) => onSampleContextMenuOpen(sample, event.currentTarget)}
                           onContextMenu={(event) => onSampleContextMenuOpen(sample, event.currentTarget)}
@@ -250,8 +249,13 @@ function SampleTileGrid({
                             onPreviewSample(sample.relpath, sample.bpm)
                           }}
                         >
-                          <b>{(sample.name || 'Unknown').replace(/\.[^.]+$/, '')}</b>
-                          <i>{formatDuration(sample.durationSeconds)}</i>
+                          <span
+                            className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' sample-bubble-flash' : ''}`}
+                            style={{ width: `${width}px`, ...(slot !== undefined ? bubbleStyle(slot) : {}) } as React.CSSProperties}
+                          >
+                            <b>{(sample.name || 'Unknown').replace(/\.[^.]+$/, '')}</b>
+                            <i>{formatDuration(sample.durationSeconds)}</i>
+                          </span>
                         </button>
                       </ContextMenuTrigger>
                     </Tooltip>

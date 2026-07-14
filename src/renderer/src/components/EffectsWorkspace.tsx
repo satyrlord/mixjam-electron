@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   EFFECT_PRESETS,
   applyEffectPreset,
@@ -19,6 +19,9 @@ interface EffectsWorkspaceProps {
   selectedChannelIndex: number | null
   selectedEffectId: string | null
   effectReductions: ReadonlyMap<string, number>
+  canRestoreChannel?: boolean
+  onOpenMixer?: () => void
+  onRestoreChannel?: () => void
   onSelectChannel: (channelIndex: number) => void
   onSelectEffect: (effectId: string | null) => void
   onAdd: (channelIndex: number, type: EffectType) => EffectSlot | null
@@ -41,9 +44,14 @@ const EFFECT_DESCRIPTIONS: Record<EffectType, string> = {
   compressor: 'Even out loud and quiet moments for a steadier mix.'
 }
 
+const EFFECT_CHAIN_SCROLL_INSET_PX = 12
+
 export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
   const {
     channels, selectedChannelIndex, selectedEffectId, effectReductions,
+    canRestoreChannel = false,
+    onOpenMixer = () => undefined,
+    onRestoreChannel = () => undefined,
     onSelectChannel, onSelectEffect, onAdd, onUpdate, onToggleBypass, onRemove,
     onRestore, onMove
   } = props
@@ -51,6 +59,7 @@ export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
   const selected = channel?.effects.find((effect) => effect.id === selectedEffectId) ?? null
   const [removed, setRemoved] = useState<RemovedEffect | null>(null)
   const [undoMessage, setUndoMessage] = useState('')
+  const chainRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!removed) return
@@ -67,10 +76,34 @@ export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
     onSelectEffect(channel.effects[0]?.id ?? null)
   }, [channel, selectedEffectId, onSelectEffect])
 
+  useLayoutEffect(() => {
+    if (!selectedEffectId) return
+    const chain = chainRef.current
+    const selectedCard = Array.from(chain?.querySelectorAll<HTMLElement>('[data-effect-id]') ?? [])
+      .find((card) => card.dataset.effectId === selectedEffectId)
+    if (!chain || !selectedCard) return
+
+    const chainRect = chain.getBoundingClientRect()
+    const cardRect = selectedCard.getBoundingClientRect()
+    const visibleLeft = chainRect.left + EFFECT_CHAIN_SCROLL_INSET_PX
+    const visibleRight = chainRect.right - EFFECT_CHAIN_SCROLL_INSET_PX
+    if (cardRect.left >= visibleLeft && cardRect.right <= visibleRight) return
+
+    const nextLeft = cardRect.left < visibleLeft
+      ? Math.max(0, chain.scrollLeft + cardRect.left - visibleLeft)
+      : Math.max(0, chain.scrollLeft + cardRect.right - visibleRight)
+    if (typeof chain.scrollTo === 'function') chain.scrollTo({ left: nextLeft, behavior: 'smooth' })
+    else chain.scrollLeft = nextLeft
+  }, [selectedEffectId, channel?.effects])
+
   if (!channel) {
     return <section className="effects-workspace effects-workspace-empty" aria-label="Audio effects">
       <h2>No mixer channels</h2>
       <p>Restore a channel in the mixer before adding audio effects.</p>
+      <div className="effects-recovery-actions">
+        {canRestoreChannel && <button type="button" className="effects-recovery-primary" onClick={onRestoreChannel}>Restore a channel</button>}
+        <button type="button" className="effect-actions" onClick={onOpenMixer}>Open Mixer</button>
+      </div>
     </section>
   }
 
@@ -113,28 +146,28 @@ export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
       <span className="effects-slot-count">{channel.effects.length} of 4 used</span>
     </header>
 
-    <div className="effects-chain" aria-label="Ordered effect chain">
-      {channel.effects.map((effect, index) => <Fragment key={effect.id}>
-        <EffectCard
-          effect={effect}
-          index={index}
-          count={channel.effects.length}
-          selected={effect.id === selectedEffectId}
-          onSelect={() => onSelectEffect(effect.id)}
-          onToggleBypass={() => onToggleBypass(channel.channelIndex, effect.id)}
-          onMove={(toIndex) => onMove(channel.channelIndex, effect.id, toIndex)}
-          onDropEffect={(effectId, toIndex) => onMove(channel.channelIndex, effectId, toIndex)}
+    {channel.effects.length > 0 && <div ref={chainRef} className="effects-chain" aria-label="Ordered effect chain">
+        {channel.effects.map((effect, index) => <Fragment key={effect.id}>
+          <EffectCard
+            effect={effect}
+            index={index}
+            count={channel.effects.length}
+            selected={effect.id === selectedEffectId}
+            onSelect={() => onSelectEffect(effect.id)}
+            onToggleBypass={() => onToggleBypass(channel.channelIndex, effect.id)}
+            onMove={(toIndex) => onMove(channel.channelIndex, effect.id, toIndex)}
+            onDropEffect={(effectId, toIndex) => onMove(channel.channelIndex, effectId, toIndex)}
+          />
+          <SignalConnector />
+        </Fragment>)}
+        <AddEffect
+          disabled={channel.effects.length >= 4}
+          onAdd={(type) => {
+            const effect = onAdd(channel.channelIndex, type)
+            if (effect) onSelectEffect(effect.id)
+          }}
         />
-        <SignalConnector />
-      </Fragment>)}
-      <AddEffect
-        disabled={channel.effects.length >= 4}
-        onAdd={(type) => {
-          const effect = onAdd(channel.channelIndex, type)
-          if (effect) onSelectEffect(effect.id)
-        }}
-      />
-    </div>
+      </div>}
 
     {selected ? <EffectEditor
       effect={selected}
@@ -144,7 +177,14 @@ export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
       onRemove={removeSelected}
     /> : <div className="effects-empty-chain">
       <strong>Build a signal chain</strong>
-      <p>Add an effect above. Audio flows from left to right, and order changes the sound.</p>
+      <p>Add an effect to begin. Audio flows from left to right, and order changes the sound.</p>
+      <AddEffect
+        disabled={false}
+        onAdd={(type) => {
+          const effect = onAdd(channel.channelIndex, type)
+          if (effect) onSelectEffect(effect.id)
+        }}
+      />
     </div>}
 
     {removed && <div className="effect-undo-toast" role="status" aria-live="polite">
@@ -173,6 +213,7 @@ function EffectCard({ effect, index, count, selected, onSelect, onToggleBypass, 
   const [dragOver, setDragOver] = useState(false)
   return <article
     className={`effect-card${selected ? ' effect-card-selected' : ''}${effect.bypassed ? ' effect-card-bypassed' : ''}${dragOver ? ' effect-card-dragover' : ''}`}
+    data-effect-id={effect.id}
     draggable
     onDragStart={(event) => event.dataTransfer.setData('text/mixjam-effect-id', effect.id)}
     onDragOver={(event) => { event.preventDefault(); setDragOver(true) }}
@@ -266,7 +307,7 @@ function EffectEditor({ effect, reductionDb, onChange, onReset, onRemove }: {
   onRemove: () => void
 }) {
   const preset = effectPresetName(effect) ?? 'Custom'
-  return <div className={`effect-detail${effect.bypassed ? ' effect-detail-bypassed' : ''}`}>
+  return <div className={`effect-detail effect-detail-${effect.type}${effect.bypassed ? ' effect-detail-bypassed' : ''}`}>
     <header className="effect-detail-head">
       <div>
         <div className="effect-detail-title">

@@ -22,6 +22,23 @@ test.describe('Library', () => {
     await expect(seededPage.locator('.bubble-category').filter({ hasText: 'FX' })).toBeVisible()
   })
 
+  test('sample filtering and management actions keep 44px interaction targets', async ({ seededPage }) => {
+    await seededPage.getByRole('button', { name: /Manage tags/ }).click()
+
+    const actions = seededPage.locator('.subcat, .sort-btn, .manage-action')
+    await expect(actions.first()).toBeVisible()
+    const boxes = await actions.evaluateAll((elements) => elements.map((element) => {
+      const rect = element.getBoundingClientRect()
+      return { width: rect.width, height: rect.height }
+    }))
+
+    expect(boxes.length).toBeGreaterThan(0)
+    for (const box of boxes) {
+      expect(box.width).toBeGreaterThanOrEqual(44)
+      expect(box.height).toBeGreaterThanOrEqual(44)
+    }
+  })
+
   test('clicking a category filters samples', async ({ seededPage }) => {
     await seededPage.waitForTimeout(500)
 

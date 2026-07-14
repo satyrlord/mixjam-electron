@@ -11,10 +11,14 @@ export function ToggleField({ label, help, checked, onChange }: {
   return (
     <label className="effect-toggle">
       <input
+        className="effect-toggle-input"
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.currentTarget.checked)}
       />
+      <span className="effect-toggle-control" aria-hidden="true">
+        <span className="effect-toggle-thumb" />
+      </span>
       <strong>{label}</strong>
       <span>{help}</span>
     </label>

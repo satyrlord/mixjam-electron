@@ -25,6 +25,7 @@ describe('ChannelStrip', () => {
   it('renders label, volume slider, pan slider, mute/solo/remove buttons', () => {
     render(<ChannelStrip {...DEFAULT_PROPS} />)
     expect(screen.getByText('Kick')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kick' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Channel 1 Pan' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mute channel 1' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Solo channel 1' })).toBeInTheDocument()
@@ -267,15 +268,15 @@ describe('ChannelStrip', () => {
   it('select button fires onSelect with channel index', () => {
     const onSelect = vi.fn()
     render(<ChannelStrip {...DEFAULT_PROPS} onSelect={onSelect} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Select channel 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Kick' }))
     expect(onSelect).toHaveBeenCalledWith(0)
   })
 
   it('select button has aria-pressed matching selected prop', () => {
     const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} selected={false} />)
-    expect(screen.getByRole('button', { name: 'Select channel 1' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Kick' })).toHaveAttribute('aria-pressed', 'false')
     rerender(<ChannelStrip {...DEFAULT_PROPS} selected />)
-    expect(screen.getByRole('button', { name: 'Select channel 1' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Kick' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('renders the FX button and opens effects on click', () => {

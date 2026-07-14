@@ -9,6 +9,7 @@ describe('ToggleField', () => {
 
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).not.toBeChecked()
+    expect(document.querySelector('.effect-toggle-control')).toBeInTheDocument()
 
     fireEvent.click(checkbox)
     expect(onChange).toHaveBeenCalledWith(true)

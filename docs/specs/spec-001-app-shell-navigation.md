@@ -26,14 +26,14 @@ Implement view switching, the header bar, and the footer.
   from the `public/` folder.
 - **Window:** 1280×720, centered on screen, not resizable, no maximize button.
 - Full-viewport layout with header, centered content area, and footer.
-- **Header** (40px): brand "MixJam Electron" anchored to the left margin,
+- **Header** (48px): brand "MixJam Electron" anchored to the left margin,
   theme selector dropdown (right, non-functional — lists theme names but
   selection has no effect until spec-002).
 - **Content area:** two-column layout, vertically and horizontally centered.
   - Hero column (left): SVG brandmark (accent-gradient tile with a waveform
     pulse, painted with theme tokens only), "MixJam" wordmark, tagline, three
-    quick-start steps, and a theme-swatch row that switches the active theme
-    (same behavior as the header selector).
+    quick-start steps, and a labeled 8-by-2 theme-preview grid that switches
+    the active theme. The selected theme name appears only in the header selector.
   - Setup column (right): a raised panel holding the two folder cards
     (spec-003), the launch gate, the Load MixJam link, and — when any exist —
     up to four recent projects that are selectable on click and load the full
@@ -42,7 +42,7 @@ Implement view switching, the header bar, and the footer.
   - "Load MixJam" link — secondary action. Once both folders are available,
     it opens a file picker filtered to `.mixjam` (the File System Access
     `showOpenFilePicker`; the Electron shell surfaces it as a native dialog).
-- **Footer** (40px): "Select User Folder" link anchored to the left
+- **Footer** (48px): "Select User Folder" link anchored to the left
   margin, version string anchored to the right margin.
 - The Home Screen has no timer and no home link.
 
@@ -50,7 +50,7 @@ Implement view switching, the header bar, and the footer.
 
 - **Window:** 1920×1080, centered on screen, resizable, maximize button
   enabled.
-- Header (40px): home link "&lt; Return to Main Menu" (left, only in
+- Header (48px): home link "&lt; Return to Main Menu" (left, only in
   Player), brand "MixJam Electron" (right of home link), timer
   absolutely centered, theme selector dropdown (right, non-functional —
   lists theme names but selection has no effect until spec-002).
@@ -102,7 +102,7 @@ Electron shell.
 
 ### Header Bar (both views)
 
-- Fixed 40px height, full width.
+- Fixed 48px height, full width.
 - **Home Screen state:** brand "MixJam Electron" anchored to the left margin.
   Theme selector dropdown on the right (non-functional — lists theme names
   but selection has no effect until spec-002).
@@ -116,7 +116,7 @@ Electron shell.
 
 ### Footer (both views)
 
-- Fixed 40px height, full width (same fixed size as the header).
+- Fixed 48px height, full width (same fixed size as the header).
 - **Home Screen state:** left "Select User Folder" link (opens the User Folder
   picker and persists a valid selection to app state through the same flow
   as the Home Screen folder card), right version string.
@@ -137,7 +137,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" button and "Load MixJam" link.
-- [x] **AC-003:** Footer is 40px height (same as header), shows "Select User Folder" left and clickable version string right on both views.
+- [x] **AC-003:** Footer is 48px height (same as header), shows "Select User Folder" left and clickable version string right on both views.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
 - [x] **AC-004:** Clicking "Start New MixJam" resizes the window to 1920×1080 centered, enables the maximize button, and switches the content area to the MixJam Player.

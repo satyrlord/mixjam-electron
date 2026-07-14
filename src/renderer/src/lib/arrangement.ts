@@ -14,9 +14,9 @@ export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags
 }
 
 export const DEFAULT_LANE_COUNT = 16
-export const LANE_HEIGHT_PX = 44
-export const LANE_HEAD_WIDTH_PX = 168
-export const RULER_HEIGHT_PX = 24
+export const LANE_HEIGHT_PX = 52
+export const LANE_HEAD_WIDTH_PX = 220
+export const RULER_HEIGHT_PX = 44
 export const TRACKER_BAR_COUNT = 128
 export const TRACKER_BEAT_WIDTH_PX = 42
 export const TRACKER_TOTAL_TICKS = TRACKER_BAR_COUNT * TICKS_PER_BAR

@@ -23,7 +23,9 @@ interface BottomWorkspaceProps {
   mixer: ReactNode
   fx: ReactNode
   samples: ReactNode
+  expanded: boolean
   onTabChange: (tab: BottomWorkspaceTab) => void
+  onToggleExpanded: () => void
 }
 
 export default function BottomWorkspace({
@@ -34,7 +36,9 @@ export default function BottomWorkspace({
   mixer,
   fx,
   samples,
-  onTabChange
+  expanded,
+  onTabChange,
+  onToggleExpanded
 }: BottomWorkspaceProps) {
   const panels: Record<BottomWorkspaceTab, ReactNode> = { song, mixer, fx, samples }
 
@@ -71,6 +75,16 @@ export default function BottomWorkspace({
           <span aria-hidden="true">·</span>
           <span>Master {masterPercent}%</span>
         </button>
+        {activeTab === 'samples' && (
+          <button
+            type="button"
+            className="bottom-workspace-expand"
+            aria-pressed={expanded}
+            onClick={onToggleExpanded}
+          >
+            {expanded ? 'Restore workspace' : 'Expand Samples'}
+          </button>
+        )}
       </TabsList>
       {BOTTOM_WORKSPACE_TABS.map((tab) => (
         <TabsContent

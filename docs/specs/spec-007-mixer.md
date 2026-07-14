@@ -43,13 +43,15 @@ Mixer panel width.
 
 ### Channel Strip (per channel)
 
-Each channel strip is 44px wide and a vertical stack:
+Each channel strip is a responsive 96-124px vertical stack. Strips share the
+available width before the row enables horizontal scrolling:
 
-- **Channel label** — channel number, 11px muted text. Stable
-  `channelIndex + 1`, used for both the visible label and all aria-labels
-  so numbering reflects the fixed lane N → channel N routing.
-- **Remove button (x)** — revealed on strip hover and on `:focus-visible`
-  and removes the channel immediately. No confirmation is needed
+- **Channel label** — channel number, 13px muted text in a 44px target. Its
+  selection button takes its accessible name from that visible label; related
+  control labels use the same stable `channelIndex + 1` so numbering reflects
+  the fixed lane N → channel N routing.
+- **Remove button (x)** — always visible as a 44px target and removes the
+  channel immediately. No confirmation is needed
   because removal is reversible via restore (see Channel Management).
   Remaining strips shift to fill the gap and keep their stable labels, so
   numbering gaps mark removed channels.
@@ -75,11 +77,11 @@ Each channel strip is 44px wide and a vertical stack:
   - **Mouse wheel:** wheel up increases pan and wheel down decreases pan by
     0.05. Hold Shift for fine adjustment. A handled wheel event does not
     scroll the surrounding page.
-- **M button** — mute toggle, 16×16px. The active fill must meet 3:1 non-text
+- **M button** — mute toggle, at least 44×44px. The active fill must meet 3:1 non-text
   contrast against the inactive pill, and a muted channel's strip dims as a
   whole.
-- **S button** — solo toggle, 16×16px.
-  M and S buttons sit side-by-side (16px each + gap, fits within 44px strip).
+- **S button** — solo toggle, at least 44×44px.
+  M and S buttons share the full responsive strip width.
 
 Stereo width is out of scope.
 
@@ -184,7 +186,7 @@ channel's mute/solo.
 | One rAF loop reads all meters | React receives one batched state update per frame |
 | Removed channels route their lanes through a master bypass | Removing a strip does not silence its lane |
 | A restore action re-adds the lowest removed channel | Removal is reversible without exceeding the 16-channel cap |
-| Remove controls appear on hover and keyboard focus | Mouse and keyboard users can find the action |
+| Remove controls remain visible in a 44px target | Removal stays discoverable for mouse, keyboard, and touch users |
 | Channel labels use `channelIndex + 1` | Visible and accessible names match fixed routing |
 | Both pan knobs support drag, keyboard, and the same right-click cycle | Lane and channel controls share an interaction contract |
 | Mute-active fill meets 3:1 contrast | The state remains visible across all themes |
@@ -235,14 +237,14 @@ interaction. Do NOT implement one without the other.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** 16 channel strips (44px each) are visible in the mixer column, each with VOL slider, dB meter, pan knob, M and S buttons.
+- [x] **AC-001:** Up to 16 responsive 96-124px channel strips share the Mixer width before horizontal overflow, each with VOL slider, dB meter, 44px pan knob, M and S buttons.
 - [x] **AC-002:** Dragging a channel's VOL slider changes the audio output level for that channel in real-time.
 - [x] **AC-003:** The dB meter updates during playback, showing green/yellow/red zones proportional to output level, with a decaying peak hold line.
 - [x] **AC-004:** Clicking a channel's M button mutes that channel — lane N (hardcoded route) goes silent. The button shows active state.
 - [x] **AC-005:** Clicking a channel's S button soloes it — all other channels go silent. Clicking another channel's S transfers the solo.
 - [x] **AC-006:** Lane-level mute/solo and channel-level mute/solo are independent ANDed gates. A lane is audible when its own mute AND its channel's mute are off, and it passes both solo filters.
-- [x] **AC-008:** User can remove a channel via hover-revealed x button; the corresponding lane is re-routed to the master bypass bus
-  (audible at unity gain with lane pan applied). Remaining strips shift down and keep their stable channel labels; the remove button also appears on keyboard focus.
+- [x] **AC-008:** User can remove a channel via an always-visible 44px x button; the corresponding lane is re-routed to the master bypass bus
+  (audible at unity gain with lane pan applied). Remaining strips shift down and keep their stable channel labels.
 - [x] **AC-009:** Activating Mixer shows its full-width panel; activating a
   peer tab hides it without unmounting Mixer state. No lower reveal seam is
   present.
@@ -262,8 +264,10 @@ interaction. Do NOT implement one without the other.
 - [x] **AC-017:** A restore affordance re-adds the lowest removed channel at default state (gain 0.8, pan 0, unmuted, unsoloed) and re-routes its lane from the master bypass
   back to the channel. It is disabled/absent when no channel is removed.
 - [x] **AC-018:** Right-clicking ANY pan knob (lane-head or mixer-strip) never shows a context menu and steps the cycle: any position → C; C → 100% R; 100% R → 100% L; 100% L → C.
-- [x] **AC-019:** The remove button is visible when its strip is hovered AND when the button has keyboard focus (`:focus-visible`).
-- [x] **AC-020:** Channel labels are stable `channelIndex + 1` for both the visible label and every aria-label; after removing a middle channel the numbering shows a gap instead of renumbering.
+- [x] **AC-019:** The remove button remains visible as a 44px target without requiring hover or keyboard focus.
+- [x] **AC-020:** Channel labels are stable `channelIndex + 1`; the selection
+  button's accessible name matches its visible label, related control labels use
+  the same channel number, and removing a middle channel leaves a numbering gap.
 - [x] **AC-021:** Both pan knobs are reachable with Tab; ArrowLeft/ArrowRight
   and mouse-wheel movement change pan by 0.05 clamped to [-1, 1], Shift-wheel
   provides fine adjustment, and `aria-valuetext` reflects the position.
@@ -285,8 +289,8 @@ interaction. Do NOT implement one without the other.
   schedule no visual-telemetry frame and that deactivation cancels a live loop.
 - `tmp/verify-vertical-controls/evidence.md` records production Chromium
   geometry for all 16 fixed-width strips and the shared fader/meter grammar.
-- `tmp/verify-complete-system/evidence.md` verifies all 16 strips at 44px in
-  every bundled theme at both wide and narrow viewport sizes, including
+- `tmp/verify-complete-system/evidence.md` records the earlier fixed-width
+  baseline across every bundled theme at both wide and narrow viewport sizes, including
   keyboard focus scrolling to the final channel.
 
 ## Non-Goals
