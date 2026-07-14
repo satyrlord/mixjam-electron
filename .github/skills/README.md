@@ -29,4 +29,4 @@ the authoring and review standard.
 - [`grill-me`](./grill-me/SKILL.md)
 - [`handoff`](./handoff/SKILL.md)
 - [`teach`](./teach/SKILL.md)
-- [`writing-great-skills`](./writing-great-skills/SKILL.md)
+- [`create-skill`](./create-skill/SKILL.md)

@@ -131,6 +131,50 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - Closing with unsaved Song, Mixer, or FX changes may lose those changes because
   auto-save and crash recovery are out of scope.
 
+### Programmatic Mixer Test Song Generator
+
+The repository provides a Node/TypeScript generator for durable manual-test
+projects. It exercises the same `createDefaultLanes`, `placeSampleOnLane`,
+`serializeProject`, and `parseProject` APIs used by the application instead of
+driving the UI or hand-writing project JSON.
+
+- `npm run generate:mixer-test-song` reads WAV metadata from
+  `tmp/test-samples` and writes an auto-incremented project such as
+  `tmp/generated-songs/Classic-Trance-Mixer-Test-001.mixjam`.
+- `--samples-dir` and `--output-dir` override those defaults. To open a
+  generated project, grant its output directory as the User Folder and grant
+  the matching sample directory as the Sample Folder.
+- Every run uses 140 BPM and a 48-bar arrangement. At 140 BPM this is about
+  82.3 seconds, inside the required 60-to-90-second manual-test window.
+- The 16 lanes have musical roles rather than arbitrary sample distribution:
+  kick, clap/build, percussion, beat loop, stereo drum loop, bass, stereo
+  atmosphere, stereo anthem lead, piano harmony, vocal motif, extra texture,
+  and stereo transition FX.
+- The arrangement compresses the classic trance energy arc into six eight-bar
+  sections: DJ-style intro, theme build, percussion-free breakdown, buildup,
+  full anthem, and mix-out. This follows the breakdown/buildup/anthem formal
+  model documented by the [University of North Texas thesis on trance and
+  house form](https://digital.library.unt.edu/ark:/67531/metadc103332/), the
+  kick/offbeat-bass relationship in Ableton's
+  [Making Music](https://cdn-resources.ableton.com/resources/uploads/makingmusic/MakingMusic_DennisDeSantis.pdf),
+  and Native Instruments' guidance to introduce layers gradually and remove
+  percussion during the
+  [trance breakdown](https://blog.native-instruments.com/trance-music/).
+- The sample plan covers every folder-derived category in the fixture library
+  (`Bass`, `Beats`, `Drum`, `FX`, `Keys`, `Loop`, `Sphere`, `Vocals`, and
+  `Xtra`) plus the root-level `Unsorted` category. Tonal material uses the
+  fixture's A-keyed samples; untuned material uses X-marked samples.
+- A shared variation number selects compatible sample candidates across roles.
+  Runs use a generated seed by default, while `--seed` makes a result
+  reproducible. The selection policy is isolated from arrangement construction
+  so broader random generation can be added without changing persistence.
+- The saved Mixer state uses deliberate gain and pan differences and includes
+  delay, reverb, and compressor chains so the result is immediately useful for
+  manual Mixer and FX testing.
+
+Generated `.mixjam` files remain disposable test artifacts under `tmp/`; the
+generator, its tests, and this contract are the durable repository assets.
+
 ### Save Flow
 
 - "Save" (Ctrl+S) writes to the current project file path.
@@ -216,6 +260,18 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   already busy.
 - [x] **AC-016:** Loading rejects projects that assign conflicting
   `durationTicks` values to placements with the same `sampleRef`.
+- [x] **AC-017:** The generator writes a project that roundtrips through the
+  production project parser, has 140 BPM, spans exactly 48 bars (about 82.3
+  seconds), and contains 16 non-empty lanes.
+- [x] **AC-018:** The generated placements cover every fixture category,
+  including `Unsorted`, while every saved `sampleRef` remains relative to the
+  configured Sample Folder.
+- [x] **AC-019:** The generated project contains the documented six-section
+  trance arrangement and deliberate Mixer state with delay, reverb, and
+  compressor effects.
+- [x] **AC-020:** Repeated generator runs never overwrite an existing project;
+  filenames increase monotonically. A supplied seed reproduces the same sample
+  selection and arrangement.
 
 ## Implementation Evidence
 
@@ -235,6 +291,13 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   keyboard shortcut ownership, dirty identity, and affected-lane warning badge.
 - `tests/e2e/project-save-load.spec.ts` drives project load, Save As, new-project
   reset, Mixer/FX restoration, and missing-sample warnings in built Chromium.
+- `scripts/generate-mixer-test-song.test.ts` covers production-parser
+  roundtrips, exact duration, all-category sample references, the
+  percussion-free breakdown and full anthem, Mixer/FX variety, seeded
+  reproducibility, and exclusive auto-incremented output.
+- Real-corpus generator runs against `tmp/test-samples` produced consecutive
+  projects with 16 populated lanes, 447 placements, no missing sample
+  references, all ten categories, and an exact final tick of 1536.
 - `tmp/verify-project-save-load/evidence.md` records production-bundle browser
   assertions and screenshots.
 
