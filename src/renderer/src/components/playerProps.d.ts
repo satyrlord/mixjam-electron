@@ -42,6 +42,7 @@ export interface PlayerBrowserProps {
   onCancelScan: () => void
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
+  onSetTagColor: (id: number, color: string | null) => Promise<void>
   onDeleteTag: (id: number) => Promise<void>
   onAssignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
   onUnassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>

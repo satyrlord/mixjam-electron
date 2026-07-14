@@ -105,6 +105,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     listTags: () => call('listTags'),
     createTag: (name, color) => call('createTag', name, color),
     renameTag: (id, name) => call('renameTag', id, name),
+    setTagColor: (id, color) => call('setTagColor', id, color),
     deleteTag: (id) => call('deleteTag', id),
     assignTag: (sampleId, tagId) => call('assignTag', sampleId, tagId),
     unassignTag: (sampleId, tagId) => call('unassignTag', sampleId, tagId),

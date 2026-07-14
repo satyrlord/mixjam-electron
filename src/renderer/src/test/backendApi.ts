@@ -151,6 +151,7 @@ export function createBackendAPI(): BackendAPI {
       color: color ?? null
     })),
     renameTag: vi.fn().mockResolvedValue(undefined),
+    setTagColor: vi.fn().mockResolvedValue(undefined),
     deleteTag: vi.fn().mockResolvedValue(undefined),
     assignTag: vi.fn().mockResolvedValue(undefined),
     unassignTag: vi.fn().mockResolvedValue(undefined),

@@ -15,6 +15,7 @@ interface ManagePanelProps {
   leftOffset: number
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
+  onSetTagColor: (id: number, color: string | null) => Promise<void>
   onDeleteTag: (id: number) => Promise<void>
   onCreateCategory: (name: string, parentId?: number) => Promise<CategoryItem>
   onDeleteCategory: (id: number) => Promise<void>
@@ -23,7 +24,46 @@ interface ManagePanelProps {
   onApplyLibrary: (library: LibraryItem) => void
 }
 
-const isRootHardcoded = (name: string) => ROOT_CATEGORY_NAMES.includes(name)
+interface CategoryTreeEntry {
+  category: CategoryItem
+  path: string
+}
+
+function flattenCategoryTree(categories: readonly CategoryItem[]): CategoryTreeEntry[] {
+  const childrenByParent = new Map<number | null, CategoryItem[]>()
+  for (const category of categories) {
+    const siblings = childrenByParent.get(category.parentId) ?? []
+    siblings.push(category)
+    childrenByParent.set(category.parentId, siblings)
+  }
+  for (const siblings of childrenByParent.values()) {
+    siblings.sort((left, right) => left.name.localeCompare(right.name))
+  }
+
+  const entries: CategoryTreeEntry[] = []
+  const appendChildren = (parentId: number | null, parentPath: string): void => {
+    for (const category of childrenByParent.get(parentId) ?? []) {
+      const path = parentPath ? `${parentPath} / ${category.name}` : category.name
+      entries.push({ category, path })
+      appendChildren(category.id, path)
+    }
+  }
+  appendChildren(null, '')
+  return entries
+}
+
+const isProtectedCategory = (category: CategoryItem) =>
+  category.parentId === null && ROOT_CATEGORY_NAMES.includes(category.name)
+const DEFAULT_TAG_COLOR = '#00674f'
+
+function colorInputValue(color: string | null): string {
+  if (!color) return DEFAULT_TAG_COLOR
+  if (/^#[0-9a-f]{6}$/i.test(color)) return color
+  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(color)
+  return shortHex
+    ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`
+    : DEFAULT_TAG_COLOR
+}
 
 export default function ManagePanel({
   tags,
@@ -32,6 +72,7 @@ export default function ManagePanel({
   leftOffset,
   onCreateTag,
   onRenameTag,
+  onSetTagColor,
   onDeleteTag,
   onCreateCategory,
   onDeleteCategory,
@@ -42,6 +83,8 @@ export default function ManagePanel({
   const [tab, setTab] = useState<ManageTab>('tags')
 
   const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLOR)
+  const [newTagHasColor, setNewTagHasColor] = useState(false)
   const [renamingTagId, setRenamingTagId] = useState<number | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
@@ -53,8 +96,10 @@ export default function ManagePanel({
   const handleCreateTag = async () => {
     const name = newTagName.trim()
     if (!name) return
-    await onCreateTag(name)
+    if (newTagHasColor) await onCreateTag(name, newTagColor)
+    else await onCreateTag(name)
     setNewTagName('')
+    setNewTagHasColor(false)
   }
 
   const handleCommitRename = async (id: number) => {
@@ -79,7 +124,7 @@ export default function ManagePanel({
     setNewLibraryName('')
   }
 
-  const rootCategories = categories.filter((c) => c.parentId === null)
+  const categoryTree = flattenCategoryTree(categories)
 
   return (
     <div className="manage-panel" style={{ left: leftOffset }}>
@@ -101,6 +146,21 @@ export default function ManagePanel({
           <ul className="manage-list">
             {tags.map((tag) => (
               <li key={tag.id} className="manage-list-item">
+                <input
+                  type="color"
+                  className="manage-tag-color"
+                  value={colorInputValue(tag.color)}
+                  data-empty={tag.color === null ? 'true' : undefined}
+                  aria-label={`Set color for tag ${tag.name}`}
+                  onChange={(event) => void onSetTagColor(tag.id, event.currentTarget.value)}
+                />
+                <button
+                  type="button"
+                  className="manage-action manage-tag-color-clear"
+                  aria-label={`Clear color for tag ${tag.name}`}
+                  disabled={tag.color === null}
+                  onClick={() => void onSetTagColor(tag.id, null)}
+                >Clear</button>
                 {renamingTagId === tag.id ? (
                   <>
                     <input
@@ -146,7 +206,7 @@ export default function ManagePanel({
               </li>
             ))}
           </ul>
-          <div className="manage-create">
+          <div className="manage-create manage-create-tag">
             <input
               type="text"
               className="manage-input"
@@ -155,6 +215,22 @@ export default function ManagePanel({
               value={newTagName}
               onChange={(e) => setNewTagName(e.currentTarget.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateTag() }}
+            />
+            <label className="manage-tag-color-toggle">
+              <input
+                type="checkbox"
+                checked={newTagHasColor}
+                onChange={(event) => setNewTagHasColor(event.currentTarget.checked)}
+              />
+              Color
+            </label>
+            <input
+              type="color"
+              className="manage-tag-color"
+              value={newTagColor}
+              disabled={!newTagHasColor}
+              aria-label="New tag color"
+              onChange={(event) => setNewTagColor(event.currentTarget.value)}
             />
             <button
               type="button"
@@ -209,14 +285,14 @@ export default function ManagePanel({
 
       <TabsContent value="categories" className="manage-content">
           <ul className="manage-list">
-            {rootCategories.filter((c) => !isRootHardcoded(c.name)).map((cat) => (
-              <li key={cat.id} className="manage-list-item">
-                <span className="manage-name">{cat.name}</span>
+            {categoryTree.filter(({ category }) => !isProtectedCategory(category)).map(({ category, path }) => (
+              <li key={category.id} className="manage-list-item">
+                <span className="manage-name">{path}</span>
                 <button
                   type="button"
                   className="manage-action manage-action-delete"
-                  aria-label={`Delete category ${cat.name}`}
-                  onClick={() => void onDeleteCategory(cat.id)}
+                  aria-label={`Delete category ${path}`}
+                  onClick={() => void onDeleteCategory(category.id)}
                 >×</button>
               </li>
             ))}
@@ -238,8 +314,8 @@ export default function ManagePanel({
               onChange={(e) => setNewCategoryParentId(e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
             >
               <option value="">Root</option>
-              {rootCategories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {categoryTree.map(({ category, path }) => (
+                <option key={category.id} value={category.id}>{path}</option>
               ))}
             </select>
             <button

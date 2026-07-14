@@ -97,9 +97,10 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   onSortChange: noop,
   onStartScan: asyncNoop,
   onCancelScan: asyncNoop,
-  onCreateTag: asyncNoop as never,
-  onRenameTag: asyncNoop as never,
-  onDeleteTag: asyncNoop as never,
+      onCreateTag: asyncNoop as never,
+      onRenameTag: asyncNoop as never,
+      onSetTagColor: asyncNoop as never,
+      onDeleteTag: asyncNoop as never,
   onAssignTagToSample: asyncNoop as never,
   onUnassignTagFromSample: asyncNoop as never,
   onUpdateSampleAnalysis: asyncNoop as never,
@@ -224,7 +225,7 @@ describe('PlayerView', () => {
     expect(screen.getByText('Lane 1')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     expect(screen.getByText('Song Controls')).toBeInTheDocument()
-    expect(screen.getByRole('listbox', { name: /sample categories/i })).toBeInTheDocument()
+    expect(screen.getByRole('tree', { name: /sample categories/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
   })
 

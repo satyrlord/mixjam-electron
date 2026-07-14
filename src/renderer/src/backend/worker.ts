@@ -163,6 +163,7 @@ function buildCalls(db: DB): BackendCalls {
     listTags: () => library.listTags(db),
     createTag: (name, color) => library.createTag(db, name, color),
     renameTag: (id, name) => library.renameTag(db, id, name),
+    setTagColor: (id, color) => library.setTagColor(db, id, color),
     deleteTag: (id) => library.deleteTag(db, id),
     assignTag: (sampleId, tagId) => library.assignTag(db, sampleId, tagId),
     unassignTag: (sampleId, tagId) => library.unassignTag(db, sampleId, tagId),

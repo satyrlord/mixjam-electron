@@ -27,8 +27,7 @@ Implement view switching, the header bar, and the footer.
 - **Window:** 1280×720, centered on screen, not resizable, no maximize button.
 - Full-viewport layout with header, centered content area, and footer.
 - **Header** (48px): brand "MixJam Electron" anchored to the left margin,
-  theme selector dropdown (right, non-functional — lists theme names but
-  selection has no effect until spec-002).
+  theme selector dropdown on the right (behavior owned by spec-002).
 - **Content area:** two-column layout, vertically and horizontally centered.
   - Hero column (left): SVG brandmark (accent-gradient tile with a waveform
     pulse, painted with theme tokens only), "MixJam" wordmark, tagline, three
@@ -52,8 +51,8 @@ Implement view switching, the header bar, and the footer.
   enabled.
 - Header (48px): home link "&lt; Return to Main Menu" (left, only in
   Player), brand "MixJam Electron" (right of home link), timer
-  absolutely centered, theme selector dropdown (right, non-functional —
-  lists theme names but selection has no effect until spec-002).
+  absolutely centered, and theme selector dropdown on the right (behavior
+  owned by spec-002).
 - **Timer** displays `00:00.0` format, absolutely centered in the header
   regardless of left/right content width.
 - The tracker content area below the header shows the structural skeleton of
@@ -104,13 +103,11 @@ Electron shell.
 
 - Fixed 48px height, full width.
 - **Home Screen state:** brand "MixJam Electron" anchored to the left margin.
-  Theme selector dropdown on the right (non-functional — lists theme names
-  but selection has no effect until spec-002).
+  Theme selector dropdown on the right (behavior owned by spec-002).
 - **Player state:** home link "&lt; Return to Main Menu" (left),
   brand "MixJam Electron" (right of home link), timer (absolute center),
-  theme selector dropdown (right, non-functional — lists theme names but
-  selection has no effect until spec-002). The home link is not present in
-  the Home Screen state.
+  and theme selector dropdown on the right (behavior owned by spec-002). The
+  home link is not present in the Home Screen state.
 - The timer is always rendered via `position:absolute; left:50%; transform:translateX(-50%)`
   (or equivalent) — never a flex sibling.
 

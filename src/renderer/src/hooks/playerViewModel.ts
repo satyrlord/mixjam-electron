@@ -51,6 +51,7 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       onCancelScan: app.cancelLibraryScan,
       onCreateTag: app.createTag,
       onRenameTag: app.renameTag,
+      onSetTagColor: app.setTagColor,
       onDeleteTag: app.deleteTag,
       onAssignTagToSample: app.assignTagToSample,
       onUnassignTagFromSample: app.unassignTagFromSample,

@@ -472,6 +472,8 @@ visible across themes and viewport sizes.
 - `src/renderer/src/components/PlayerView.test.tsx` verifies ordered peer tabs,
   first-launch and persisted selection, mounted panels, automatic keyboard
   activation, song status, telemetry activation, and the upper-only resize seam.
+- `src/renderer/src/components/MixJamBrowser.test.tsx` verifies the Open and
+  Copy Path context-menu actions for discovered and recent project entries.
 - `tmp/verify-bottom-workspace/evidence.md` records production Chromium
   geometry, narrow-window targets, tab-state retention, Sample Browser
   remeasurement, and cross-tab Mixer-to-FX behavior.

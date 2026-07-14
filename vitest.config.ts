@@ -9,7 +9,8 @@ const NODE_BACKEND_TESTS = [
   'src/renderer/src/backend/analysis.test.ts',
   'src/renderer/src/backend/analysis-runner.test.ts',
   'src/renderer/src/backend/analysis-library.test.ts',
-  'src/renderer/src/backend/schema.test.ts'
+  'src/renderer/src/backend/schema.test.ts',
+  'scripts/generate-mixer-test-song.test.ts'
 ]
 
 export default defineConfig({

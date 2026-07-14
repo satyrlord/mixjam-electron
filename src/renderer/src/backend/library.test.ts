@@ -24,6 +24,7 @@ import {
   querySamples,
   renameTag,
   saveLibrary,
+  setTagColor,
   assignTag,
   syncCategoriesFromNames,
   unassignTag,
@@ -142,6 +143,18 @@ describe('renameTag (AC-008)', () => {
     renameTag(db, tag.id, 'NewName')
     const found = listTags(db).find((t) => t.id === tag.id)
     expect(found?.name).toBe('NewName')
+  })
+})
+
+describe('setTagColor (AC-007)', () => {
+  it('updates and clears a tag color', () => {
+    const tag = createTag(db, 'Colored')
+
+    setTagColor(db, tag.id, '#123456')
+    expect(listTags(db).find((item) => item.id === tag.id)?.color).toBe('#123456')
+
+    setTagColor(db, tag.id, null)
+    expect(listTags(db).find((item) => item.id === tag.id)?.color).toBeNull()
   })
 })
 

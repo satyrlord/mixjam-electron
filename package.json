@@ -19,7 +19,8 @@
     "test:e2e:electron": "npm run build && npx playwright test --project=electron-smoke",
     "test:all": "npm run test && npm run test:e2e",
     "coverage:all": "npm run test:coverage && npm run test:e2e:coverage",
-    "coverage:report": "node scripts/merge-coverage.mjs"
+    "coverage:report": "node scripts/merge-coverage.mjs",
+    "generate:mixer-test-song": "tsx scripts/generate-mixer-test-song.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -43,6 +44,7 @@
     "playwright-core": "^1.61.1",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.62.0",
+    "tsx": "^4.20.6",
     "v8-to-istanbul": "^9.3.0",
     "vite": "^7.1.12",
     "vitest": "^4.1.9"

@@ -223,6 +223,7 @@ export interface BackendAPI {
   listTags: () => Promise<TagItem[]>
   createTag: (name: string, color?: string) => Promise<TagItem>
   renameTag: (id: number, name: string) => Promise<void>
+  setTagColor: (id: number, color: string | null) => Promise<void>
   deleteTag: (id: number) => Promise<void>
   assignTag: (sampleId: number, tagId: number) => Promise<void>
   unassignTag: (sampleId: number, tagId: number) => Promise<void>

@@ -5,6 +5,7 @@ import { useSyncedRef } from './useSyncedRef'
 export interface SampleTagActions {
   createTag: (name: string, color?: string) => Promise<TagItem>
   renameTag: (id: number, name: string) => Promise<void>
+  setTagColor: (id: number, color: string | null) => Promise<void>
   deleteTag: (id: number) => Promise<void>
   assignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
   unassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
@@ -57,6 +58,11 @@ export function useSampleTags(
     )
   }, [backendAPI, setTags, tagsRef, patchAllSamples])
 
+  const setTagColor = useCallback(async (id: number, color: string | null) => {
+    await backendAPI.setTagColor(id, color)
+    setTags((prev) => prev.map((tag) => (tag.id === id ? { ...tag, color } : tag)))
+  }, [backendAPI, setTags])
+
   const deleteTag = useCallback(async (id: number) => {
     // Resolve the tag's display name before removing it from state, so we can
     // remove the correct entry from the alphabetically-sorted `tags` array
@@ -99,5 +105,12 @@ export function useSampleTags(
     patchSampleTags(sample.relpath, nextIds, nextNames)
   }, [backendAPI, tagsRef, patchSampleTags])
 
-  return { createTag, renameTag, deleteTag, assignTagToSample, unassignTagFromSample }
+  return {
+    createTag,
+    renameTag,
+    setTagColor,
+    deleteTag,
+    assignTagToSample,
+    unassignTagFromSample
+  }
 }

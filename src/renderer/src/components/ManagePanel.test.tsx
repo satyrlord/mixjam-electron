@@ -11,7 +11,9 @@ const TAGS: TagItem[] = [
 const CATEGORIES: CategoryItem[] = [
   { id: 1, name: 'Bass', parentId: null },
   { id: 2, name: 'Drums', parentId: null },
-  { id: 3, name: 'Unsorted', parentId: null }
+  { id: 3, name: 'Unsorted', parentId: null },
+  { id: 4, name: 'Kicks', parentId: 2 },
+  { id: 5, name: 'Acoustic', parentId: 4 }
 ]
 
 const LIBRARIES: LibraryItem[] = [
@@ -26,6 +28,7 @@ function renderPanel(overrides?: Partial<Parameters<typeof ManagePanel>[0]>) {
     leftOffset: 157,
     onCreateTag: vi.fn(async () => ({ id: 99, name: 'New', color: null })),
     onRenameTag: vi.fn(async () => undefined),
+    onSetTagColor: vi.fn(async () => undefined),
     onDeleteTag: vi.fn(async () => undefined),
     onCreateCategory: vi.fn(async () => ({ id: 50, name: 'NewCat', parentId: null })),
     onDeleteCategory: vi.fn(async () => undefined),
@@ -53,6 +56,18 @@ describe('ManagePanel', () => {
       fireEvent.keyDown(input, { key: 'Enter' })
 
       await vi.waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Funky'))
+    })
+
+    it('creates a tag with an optional color', async () => {
+      const onCreateTag = vi.fn(async () => ({ id: 99, name: 'Funky', color: '#123456' }))
+      renderPanel({ onCreateTag })
+
+      fireEvent.change(screen.getByLabelText('New tag name'), { target: { value: 'Funky' } })
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Color' }))
+      fireEvent.change(screen.getByLabelText('New tag color'), { target: { value: '#123456' } })
+      fireEvent.click(screen.getByLabelText('Create tag'))
+
+      await vi.waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Funky', '#123456'))
     })
 
     it('does not create a tag with an empty name', async () => {
@@ -119,6 +134,20 @@ describe('ManagePanel', () => {
       fireEvent.click(screen.getByLabelText('Delete tag Alpha'))
       await vi.waitFor(() => expect(onDeleteTag).toHaveBeenCalledWith(1))
     })
+
+    it('updates and clears a tag color', async () => {
+      const onSetTagColor = vi.fn(async () => undefined)
+      renderPanel({ onSetTagColor })
+
+      fireEvent.change(screen.getByLabelText('Set color for tag Alpha'), {
+        target: { value: '#123456' }
+      })
+      await vi.waitFor(() => expect(onSetTagColor).toHaveBeenCalledWith(1, '#123456'))
+
+      fireEvent.click(screen.getByLabelText('Clear color for tag Alpha'))
+      await vi.waitFor(() => expect(onSetTagColor).toHaveBeenCalledWith(1, null))
+      expect(screen.getByLabelText('Clear color for tag Beta')).toBeDisabled()
+    })
   })
 
   describe('libraries tab', () => {
@@ -182,15 +211,31 @@ describe('ManagePanel', () => {
   })
 
   describe('categories tab', () => {
-    it('renders non-root-hardcoded categories', () => {
+    it('renders every manageable category as a full hierarchy path', () => {
       const { container } = renderPanel()
       fireEvent.click(screen.getByText('Categories'))
-      // Bass and Drums are shown; Unsorted is hidden (isRootHardcoded)
       const listItems = container.querySelectorAll('.manage-list-item .manage-name')
       const names = Array.from(listItems).map((el) => el.textContent)
       expect(names).toContain('Bass')
       expect(names).toContain('Drums')
+      expect(names).toContain('Drums / Kicks')
+      expect(names).toContain('Drums / Kicks / Acoustic')
       expect(names).not.toContain('Unsorted')
+    })
+
+    it('offers every category depth as a parent', () => {
+      renderPanel()
+      fireEvent.click(screen.getByText('Categories'))
+
+      const options = screen.getByLabelText('Parent category').querySelectorAll('option')
+      expect(Array.from(options).map((option) => option.textContent)).toEqual([
+        'Root',
+        'Bass',
+        'Drums',
+        'Drums / Kicks',
+        'Drums / Kicks / Acoustic',
+        'Unsorted'
+      ])
     })
 
     it('creates a category with a parent', async () => {
@@ -204,6 +249,19 @@ describe('ManagePanel', () => {
       fireEvent.click(screen.getByLabelText('Add category'))
 
       await vi.waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('SubBass', 1))
+    })
+
+    it('creates a category under a nested parent', async () => {
+      const onCreateCategory = vi.fn(async () => ({ id: 50, name: 'Processed', parentId: 5 }))
+      renderPanel({ onCreateCategory })
+      fireEvent.click(screen.getByText('Categories'))
+      fireEvent.change(screen.getByLabelText('New category name'), {
+        target: { value: 'Processed' }
+      })
+      fireEvent.change(screen.getByLabelText('Parent category'), { target: { value: '5' } })
+      fireEvent.click(screen.getByLabelText('Add category'))
+
+      await vi.waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('Processed', 5))
     })
 
     it('does not create a category with an empty name', async () => {
@@ -221,6 +279,15 @@ describe('ManagePanel', () => {
       fireEvent.click(screen.getByText('Categories'))
       fireEvent.click(screen.getByLabelText('Delete category Bass'))
       await vi.waitFor(() => expect(onDeleteCategory).toHaveBeenCalledWith(1))
+    })
+
+    it('deletes a nested category from its hierarchy path', async () => {
+      const onDeleteCategory = vi.fn(async () => undefined)
+      renderPanel({ onDeleteCategory })
+      fireEvent.click(screen.getByText('Categories'))
+      fireEvent.click(screen.getByLabelText('Delete category Drums / Kicks / Acoustic'))
+
+      await vi.waitFor(() => expect(onDeleteCategory).toHaveBeenCalledWith(5))
     })
 
     it('creates a category on Enter key', async () => {

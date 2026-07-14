@@ -61,6 +61,7 @@ export interface LibraryDataActions {
   loadMoreSamples: () => void
   createTag: (name: string, color?: string) => Promise<TagItem>
   renameTag: (id: number, name: string) => Promise<void>
+  setTagColor: (id: number, color: string | null) => Promise<void>
   deleteTag: (id: number) => Promise<void>
   assignTagToSample: (sample: SampleListItem, tagId: number) => Promise<void>
   unassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
@@ -495,6 +496,7 @@ export function useLibraryData(
     loadMoreSamples,
     createTag: tagActions.createTag,
     renameTag: tagActions.renameTag,
+    setTagColor: tagActions.setTagColor,
     deleteTag: tagActions.deleteTag,
     assignTagToSample: tagActions.assignTagToSample,
     unassignTagFromSample: tagActions.unassignTagFromSample,

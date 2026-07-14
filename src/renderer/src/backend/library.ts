@@ -154,6 +154,10 @@ export function renameTag(db: DB, id: number, name: string): void {
   db.prepare('UPDATE tags SET name = ? WHERE id = ?').run(name, id)
 }
 
+export function setTagColor(db: DB, id: number, color: string | null): void {
+  db.prepare('UPDATE tags SET color = ? WHERE id = ?').run(color, id)
+}
+
 export function deleteTag(db: DB, id: number): void {
   db.prepare('DELETE FROM tags WHERE id = ?').run(id)
 }

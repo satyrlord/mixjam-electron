@@ -1,8 +1,8 @@
 # MixJam Electron Agent Skills
 
 Each skill's `SKILL.md` frontmatter is the source of truth for invocation and
-triggering. Use [`writing-great-skills`](./writing-great-skills/SKILL.md) as
-the authoring and review standard.
+triggering. Use [`create-skill`](./create-skill/SKILL.md) as the authoring and
+review standard.
 
 ## Development Workflow
 
@@ -10,6 +10,7 @@ the authoring and review standard.
 - [`add-feature`](./add-feature/SKILL.md)
 - [`dead-code-audit`](./dead-code-audit/SKILL.md)
 - [`diagnose`](./diagnose/SKILL.md)
+- [`generate-mix`](./generate-mix/SKILL.md)
 - [`refactor`](./refactor/SKILL.md)
 - [`run-quality-gate`](./run-quality-gate/SKILL.md)
 - [`verify`](./verify/SKILL.md)

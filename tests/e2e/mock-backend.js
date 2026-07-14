@@ -165,8 +165,13 @@
     getAnalysisProgress: function () { return Promise.resolve({ status: 'idle', analyzed: 0, total: 0 }) },
     querySamples: function (req) { return Promise.resolve(querySamples(req)) },
     listTags: function () { return Promise.resolve(MOCK_TAGS) },
-    createTag: function (name) { return Promise.resolve({ id: 99, name: name, color: null }) },
+    createTag: function (name, color) { return Promise.resolve({ id: 99, name: name, color: color || null }) },
     renameTag: function () { return Promise.resolve() },
+    setTagColor: function (id, color) {
+      var tag = MOCK_TAGS.find(function (item) { return item.id === id })
+      if (tag) tag.color = color
+      return Promise.resolve()
+    },
     deleteTag: function () { return Promise.resolve() },
     assignTag: function () { return Promise.resolve() },
     unassignTag: function () { return Promise.resolve() },

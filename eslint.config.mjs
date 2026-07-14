@@ -36,7 +36,7 @@ export default tseslint.config(
   },
   {
     // Build scripts run under Node.js.
-    files: ['scripts/**/*.{mjs,js}'],
+    files: ['scripts/**/*.{ts,mjs,js}'],
     languageOptions: { globals: { ...globals.node } }
   },
   {

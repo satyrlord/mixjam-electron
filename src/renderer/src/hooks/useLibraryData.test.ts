@@ -209,6 +209,27 @@ describe('useLibraryData', () => {
     expect(result.current.tags[0]!.name).toBe('Beta')
   })
 
+  it('updates and clears a tag color in state', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const existing: TagItem = { id: 5, name: 'Alpha', color: null }
+    vi.mocked(api.listTags).mockResolvedValue([existing])
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.tags).toHaveLength(1))
+
+    await act(async () => {
+      await result.current.setTagColor(5, '#123456')
+    })
+    expect(api.setTagColor).toHaveBeenCalledWith(5, '#123456')
+    expect(result.current.tags[0]!.color).toBe('#123456')
+
+    await act(async () => {
+      await result.current.setTagColor(5, null)
+    })
+    expect(result.current.tags[0]!.color).toBeNull()
+  })
+
   it('deletes a tag from state and selected tag ids', async () => {
     vi.useRealTimers()
     const api = makeApi()

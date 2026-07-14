@@ -82,6 +82,7 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   onCancelScan: asyncNoop,
   onCreateTag: asyncNoop as never,
   onRenameTag: asyncNoop as never,
+  onSetTagColor: asyncNoop as never,
   onDeleteTag: asyncNoop as never,
   onAssignTagToSample: asyncNoop as never,
   onUnassignTagFromSample: asyncNoop as never,
@@ -186,10 +187,10 @@ function openManagePanel(tab: 'Tags' | 'Libraries' | 'Categories') {
 describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   // -------------------------------------------------------------------------
-  // AC-004a: browser toolbar
+  // AC-004a: global library controls
   // -------------------------------------------------------------------------
 
-  it('AC-004a: browser toolbar shows search input, result count, and Re-scan action', () => {
+  it('AC-004a: Middle Strip shows search and Re-scan controls', () => {
     renderPlayer({ samples: [], totalCount: 0 })
     expect(screen.getByRole('searchbox', { name: /search samples/i })).toBeInTheDocument()
     // Result count renders in subcats-count when there are results; strip has scan controls
@@ -217,19 +218,19 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   })
 
   // -------------------------------------------------------------------------
-  // AC-010: "Unsorted" hardcoded category tile
+  // AC-010: "Unsorted" hardcoded category
   // -------------------------------------------------------------------------
 
-  it('AC-010: Unsorted hardcoded category tile is always visible in the category grid', () => {
+  it('AC-010: Unsorted hardcoded category is always visible in the category tree', () => {
     renderPlayer()
-    expect(screen.getByRole('option', { name: 'Unsorted' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Unsorted' })).toBeInTheDocument()
   })
 
   it('AC-010: folder-derived categories appear alongside Unsorted', () => {
     renderPlayer({ categories: DEFAULT_CATEGORIES })
-    expect(screen.getByRole('option', { name: 'Unsorted' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Bass' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Loop' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Unsorted' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Bass' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Loop' })).toBeInTheDocument()
   })
 
   it('AC-010a: user can type a new category name and click + to create it', async () => {
@@ -262,6 +263,19 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     await waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('Kicks', 2))
   })
 
+  it('AC-010b: subcategories render under an expandable parent', () => {
+    renderPlayer({
+      categories: [
+        ...DEFAULT_CATEGORIES,
+        { id: 5, name: 'Kicks', parentId: 4 }
+      ]
+    })
+
+    expect(screen.getByRole('button', { name: 'Kicks' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Drums' }))
+    expect(screen.queryByRole('button', { name: 'Kicks' })).not.toBeInTheDocument()
+  })
+
   // -------------------------------------------------------------------------
   // AC-007 / AC-008 / AC-009: tag CRUD
   // -------------------------------------------------------------------------
@@ -290,6 +304,21 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
       // AC-007 is about the manage list.
       const manageList = container.querySelector('.manage-list')!
       expect(within(manageList as HTMLElement).getByText('Kick')).toBeInTheDocument()
+    })
+
+    it('AC-007: user can set and clear a tag color', async () => {
+      const onSetTagColor = vi.fn().mockResolvedValue(undefined)
+      const tags: TagItem[] = [{ id: 1, name: 'Kick', color: '#123456' }]
+      renderPlayer({ tags, onSetTagColor })
+
+      openManagePanel('Tags')
+      fireEvent.change(screen.getByLabelText('Set color for tag Kick'), {
+        target: { value: '#654321' }
+      })
+      await waitFor(() => expect(onSetTagColor).toHaveBeenCalledWith(1, '#654321'))
+
+      fireEvent.click(screen.getByRole('button', { name: 'Clear color for tag Kick' }))
+      await waitFor(() => expect(onSetTagColor).toHaveBeenCalledWith(1, null))
     })
 
     it('AC-008: rename tag calls onRenameTag and updates display', async () => {
@@ -460,11 +489,11 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // AC-011: category filter activates via tile press
   // -------------------------------------------------------------------------
 
-  it('AC-011: clicking a category tile calls onSelectCategory with the category id', () => {
+  it('AC-011: clicking a category calls onSelectCategory with the category id', () => {
     const onSelectCategory = vi.fn()
     renderPlayer({ onSelectCategory })
 
-    fireEvent.click(screen.getByRole('option', { name: 'Drums' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Drums' }))
     expect(onSelectCategory).toHaveBeenCalledWith(4)
   })
 })

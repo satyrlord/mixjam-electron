@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
@@ -28,6 +28,88 @@ interface SampleBrowserProps {
   durationTicksBySamplePath?: ReadonlyMap<string, number>
   flashSamplePath: string | null
   onSampleDragStart: (event: React.DragEvent, detail: FooterSampleDetail) => void
+}
+
+function tagColorStyle(color: string | null): React.CSSProperties | undefined {
+  return color ? ({ '--tag-color': color } as React.CSSProperties) : undefined
+}
+
+interface CategoryTreeNodeProps {
+  category: CategoryItem
+  childrenByParent: ReadonlyMap<number | null, CategoryItem[]>
+  collapsedCategoryIds: ReadonlySet<number>
+  selectedCategoryId: number | undefined
+  depth: number
+  onToggleExpanded: (id: number) => void
+  onSelectCategory: (id: number | undefined) => void
+}
+
+function CategoryTreeNode({
+  category,
+  childrenByParent,
+  collapsedCategoryIds,
+  selectedCategoryId,
+  depth,
+  onToggleExpanded,
+  onSelectCategory
+}: CategoryTreeNodeProps) {
+  const children = childrenByParent.get(category.id) ?? []
+  const hasChildren = children.length > 0
+  const expanded = hasChildren && !collapsedCategoryIds.has(category.id)
+  const selected = selectedCategoryId === category.id
+
+  return (
+    <div
+      className="category-tree-node"
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-expanded={hasChildren ? expanded : undefined}
+      aria-selected={selected}
+    >
+      <div className="category-tree-row" style={{ paddingInlineStart: `${depth * 14}px` }}>
+        {hasChildren ? (
+          <button
+            type="button"
+            className="category-tree-toggle"
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${category.name}`}
+            onClick={() => onToggleExpanded(category.id)}
+          >
+            <span aria-hidden="true">{expanded ? '−' : '+'}</span>
+          </button>
+        ) : (
+          <span className="category-tree-toggle-spacer" aria-hidden="true" />
+        )}
+        <button
+          type="button"
+          className="sample-bubble-hit-target sample-bubble-category-target"
+          onClick={() => onSelectCategory(selected ? undefined : category.id)}
+        >
+          <span
+            className={`sample-bubble bubble-category${selected ? ' selected' : ''}`}
+            style={bubbleStyle(categorySlot(category.name)) as React.CSSProperties}
+          >
+            {category.name}
+          </span>
+        </button>
+      </div>
+      {expanded && (
+        <div className="category-tree-children" role="group">
+          {children.map((child) => (
+            <CategoryTreeNode
+              key={child.id}
+              category={child}
+              childrenByParent={childrenByParent}
+              collapsedCategoryIds={collapsedCategoryIds}
+              selectedCategoryId={selectedCategoryId}
+              depth={depth + 1}
+              onToggleExpanded={onToggleExpanded}
+              onSelectCategory={onSelectCategory}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function SampleBrowser({
@@ -61,6 +143,7 @@ export default function SampleBrowser({
   const [managePanelOpen, setManagePanelOpen] = useState(false)
 
   const [catsWidth, setCatsWidth] = useState(152)
+  const [collapsedCategoryIds, setCollapsedCategoryIds] = useState<Set<number>>(() => new Set())
 
   // Sample-tile context menu state (tag assignment, spec-004 AC-007)
   const [analysisEditor, setAnalysisEditor] = useState<SampleListItem | null>(null)
@@ -91,6 +174,12 @@ export default function SampleBrowser({
               else void onAssignTagToSample(sample, tag.id)
             }}
           >
+            <span
+              className="tag-color-dot"
+              style={tag.color ? { backgroundColor: tag.color } : undefined}
+              data-empty={tag.color === null ? 'true' : undefined}
+              aria-hidden="true"
+            />
             {tag.name}
           </ContextMenuCheckboxItem>
         )
@@ -98,13 +187,26 @@ export default function SampleBrowser({
     </ContextMenuContent>
   ), [tags, onAssignTagToSample, onUnassignTagFromSample])
 
-  const rootCategories = categories.filter((c) => c.parentId === null)
-  const childCategories = (parentId: number): CategoryItem[] =>
-    categories.filter((c) => c.parentId === parentId)
+  const childrenByParent = useMemo(() => {
+    const grouped = new Map<number | null, CategoryItem[]>()
+    for (const category of categories) {
+      const siblings = grouped.get(category.parentId) ?? []
+      siblings.push(category)
+      grouped.set(category.parentId, siblings)
+    }
+    return grouped
+  }, [categories])
 
-  const subcatChips: CategoryItem[] = selectedCategoryId !== undefined
-    ? childCategories(selectedCategoryId)
-    : []
+  const rootCategories = childrenByParent.get(null) ?? []
+
+  const toggleCategoryExpanded = useCallback((id: number) => {
+    setCollapsedCategoryIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const activeCategorySlot = selectedCategoryId !== undefined
     ? categorySlot(
@@ -149,27 +251,19 @@ export default function SampleBrowser({
                 {managePanelOpen ? '× Close' : '+ Manage'}
               </button>
             </Tooltip>
-        <div className="cat-grid" role="listbox" aria-label="Sample categories">
-          {rootCategories.map((cat) => {
-            const isSelected = selectedCategoryId === cat.id
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                className="sample-bubble-hit-target sample-bubble-category-target"
-                onClick={() => browser.onSelectCategory(isSelected ? undefined : cat.id)}
-              >
-                <span
-                  className={`sample-bubble bubble-category${isSelected ? ' selected' : ''}`}
-                  style={bubbleStyle(categorySlot(cat.name)) as React.CSSProperties}
-                >
-                  {cat.name}
-                </span>
-              </button>
-            )
-          })}
+            <div className="category-tree" role="tree" aria-label="Sample categories">
+              {rootCategories.map((category) => (
+                <CategoryTreeNode
+                  key={category.id}
+                  category={category}
+                  childrenByParent={childrenByParent}
+                  collapsedCategoryIds={collapsedCategoryIds}
+                  selectedCategoryId={selectedCategoryId}
+                  depth={0}
+                  onToggleExpanded={toggleCategoryExpanded}
+                  onSelectCategory={browser.onSelectCategory}
+                />
+              ))}
             </div>
           </div>
         </Panel>
@@ -189,16 +283,6 @@ export default function SampleBrowser({
               All
             </button>
           )}
-          {subcatChips.map((sub) => (
-            <button
-              key={sub.id}
-              type="button"
-              className={`subcat${selectedCategoryId === sub.id ? ' subcat-active' : ''}`}
-              onClick={() => browser.onSelectCategory(selectedCategoryId === sub.id ? undefined : sub.id)}
-            >
-              {sub.name}
-            </button>
-          ))}
           {tags.map((tag) => {
             const active = selectedTagIds.includes(tag.id)
             return (
@@ -206,6 +290,8 @@ export default function SampleBrowser({
                 key={`tag-${tag.id}`}
                 type="button"
                 className={`subcat subcat-tag${active ? ' subcat-active' : ''}`}
+                style={tagColorStyle(tag.color)}
+                data-has-color={tag.color ? 'true' : undefined}
                 onClick={() => browser.onToggleTagFilter(tag.id)}
                 aria-pressed={active}
               >
@@ -267,6 +353,7 @@ export default function SampleBrowser({
           leftOffset={catsWidth}
           onCreateTag={browser.onCreateTag}
           onRenameTag={browser.onRenameTag}
+          onSetTagColor={browser.onSetTagColor}
           onDeleteTag={browser.onDeleteTag}
           onCreateCategory={browser.onCreateCategory}
           onDeleteCategory={browser.onDeleteCategory}

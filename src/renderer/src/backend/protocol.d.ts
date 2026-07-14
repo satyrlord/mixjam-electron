@@ -26,6 +26,7 @@ export interface BackendCalls {
   listTags: () => TagItem[]
   createTag: (name: string, color?: string) => TagItem
   renameTag: (id: number, name: string) => void
+  setTagColor: (id: number, color: string | null) => void
   deleteTag: (id: number) => void
   assignTag: (sampleId: number, tagId: number) => void
   unassignTag: (sampleId: number, tagId: number) => void

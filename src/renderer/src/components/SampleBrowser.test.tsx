@@ -66,6 +66,7 @@ function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowser
     onCancelScan: asyncNoop,
     onCreateTag: asyncNoop as never,
     onRenameTag: asyncNoop as never,
+    onSetTagColor: asyncNoop as never,
     onDeleteTag: asyncNoop as never,
     onAssignTagToSample: asyncNoop as never,
     onUnassignTagFromSample: asyncNoop as never,
@@ -100,16 +101,16 @@ describe('SampleBrowser', () => {
     const onSelectCategory = vi.fn()
     renderBrowser({ onSelectCategory })
 
-    fireEvent.click(screen.getByRole('option', { name: 'Drums' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Drums' }))
     expect(onSelectCategory).toHaveBeenCalledWith(1)
-    expect(screen.getByRole('option', { name: 'Drums' })).toHaveClass('sample-bubble-hit-target')
+    expect(screen.getByRole('button', { name: 'Drums' })).toHaveClass('sample-bubble-hit-target')
 
     renderBrowser({ selectedCategoryId: 1, onSelectCategory })
-    fireEvent.click(screen.getAllByRole('option', { name: 'Drums' })[1]!)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Drums' })[1]!)
     expect(onSelectCategory).toHaveBeenCalledWith(undefined)
   })
 
-  it('renders subcategory chips, tag filters, and sort controls for active filters', () => {
+  it('renders nested categories, tag filters, and sort controls for active filters', () => {
     const onSelectCategory = vi.fn()
     const onToggleTagFilter = vi.fn()
     const onSortChange = vi.fn()
@@ -133,6 +134,29 @@ describe('SampleBrowser', () => {
     expect(onToggleTagFilter).toHaveBeenCalledWith(10)
     expect(onSortChange).toHaveBeenCalledWith('dateAdded')
     expect(screen.getByRole('button', { name: /dur/i })).toHaveAttribute('aria-sort', 'descending')
+  })
+
+  it('renders an expandable category tree with nested children', () => {
+    renderBrowser()
+
+    expect(screen.getByRole('tree', { name: 'Sample categories' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Kicks' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Snares' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Drums' }))
+    expect(screen.queryByRole('button', { name: 'Kicks' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Snares' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Drums' }))
+    expect(screen.getByRole('button', { name: 'Kicks' })).toBeInTheDocument()
+  })
+
+  it('shows tag colors on filter chips', () => {
+    renderBrowser()
+
+    const tag = screen.getByRole('button', { name: 'Punchy' })
+    expect(tag).toHaveAttribute('data-has-color', 'true')
+    expect(tag.style.getPropertyValue('--tag-color')).toBe('#ff0000')
   })
 
   it('opens and closes the manage panel', () => {

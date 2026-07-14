@@ -176,7 +176,8 @@ external CDN or Google Fonts dependency). Font files live in `src/renderer/publi
 | 15 | Riso | `riso` | Two-ink risograph print, overprint shadows (light) | Fully implemented |
 | 16 | Arcade | `arcade` | Cabinet purple, hard outlines, pixel type | Fully implemented |
 
-`normalizeThemeKey` maps the unsupported `studio` and `screen` keys to Emerald.
+`normalizeThemeKey` resolves any unsupported theme key through the generic
+Emerald fallback.
 
 ### Emerald Theme — Full Token Values
 
@@ -209,8 +210,8 @@ Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
 ### Theme Selector
 
 - Present in both Home Screen and Player headers (right side).
-- In spec-001 the selector was non-functional (listed themes, no effect).
-  This spec makes it functional.
+- Spec-001 owns the selector's shell placement; this spec owns its runtime
+  behavior.
 - Dropdown lists all 16 theme names.
 - Default selection: **Emerald**.
 - Changing the selection to any theme applies it immediately.

@@ -73,9 +73,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   channel N even when channels are created lazily out of order — so
   `setChannelPan(index, pan)` targets the right channel. A pan set before a
   lane's first trigger is stored and applied when its channel is created.
-- Provides `triggerVoice(buffer, channel, when, laneIndex)` — creates a new
-  `AudioBufferSourceNode`, routes it through the channel's gain/pan chain into
-  the master bus, and returns a `Voice` handle.
+- Provides `triggerVoice({ buffer, channel, when, laneIndex, playbackRate? })`
+  — creates a new `AudioBufferSourceNode`, routes it through the channel's
+  gain/pan chain into the master bus, and returns a `Voice` handle.
 - Provides `setMasterGain(value)` — 0 to 1 range, applied after all channel
   routing.
 - Provides a project-owned read-only master snapshot with RMS dBFS fallback,

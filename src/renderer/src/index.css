@@ -2565,8 +2565,8 @@ select option:disabled {
 
 /* ── Upper MixJam Browser resize seam ── */
 .upper-work-resize {
-  width: 4px;
-  cursor: col-resize;
+  width: 5px;
+  cursor: ew-resize;
   background: transparent;
   z-index: 20;
   transition: background 0.15s;
@@ -2852,20 +2852,49 @@ select option:disabled {
   border-color: var(--accent);
 }
 
-.cat-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+.category-tree {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-/* Category grid tiles */
-.cat-grid .sample-bubble {
+.category-tree-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.category-tree-toggle,
+.category-tree-toggle-spacer {
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+
+.category-tree-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: 18px/1 var(--font-mono);
+  cursor: pointer;
+}
+
+.category-tree-toggle:hover {
+  color: var(--highlight);
+}
+
+.category-tree-row .sample-bubble-category-target {
+  flex: 1;
+  min-width: 44px;
+}
+
+.category-tree .sample-bubble {
   height: var(--sample-bubble-height, 32px);
   justify-content: center;
-  width: auto;
+  width: 100%;
 }
 
-.cat-grid .sample-bubble.selected {
+.category-tree .sample-bubble.selected {
   box-shadow:
     0 0 12px color-mix(in srgb, currentColor 70%, var(--sample-bubble-text)),
     0 0 4px rgba(255, 255, 255, 0.3);
@@ -2934,6 +2963,11 @@ select option:disabled {
 
 .subcat-tag {
   border-style: solid;
+}
+
+.subcat-tag[data-has-color='true'] {
+  border-color: var(--tag-color);
+  box-shadow: inset 4px 0 var(--tag-color);
 }
 
 .subcats-count {
@@ -3144,6 +3178,32 @@ select option:disabled {
   border-color: var(--playhead);
 }
 
+.manage-tag-color {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  border: var(--edge-pill);
+  border-radius: var(--radius);
+  background: var(--pill-bg);
+  cursor: pointer;
+}
+
+.manage-tag-color[data-empty='true'],
+.manage-tag-color:disabled {
+  opacity: 0.45;
+}
+
+.manage-tag-color-clear {
+  width: 52px;
+  font-size: 11px;
+}
+
+.manage-tag-color-clear:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .manage-empty {
   color: var(--text-muted);
   font-family: var(--font-mono);
@@ -3159,6 +3219,29 @@ select option:disabled {
   align-items: center;
   padding: 6px 10px;
   border-top: var(--edge);
+}
+
+.manage-tag-color-toggle {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font: 12px/1.2 var(--font-label);
+  cursor: pointer;
+}
+
+.tag-color-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid color-mix(in srgb, var(--text) 45%, transparent);
+  border-radius: 50%;
+}
+
+.tag-color-dot[data-empty='true'] {
+  background: transparent;
+  border-style: dashed;
 }
 
 .manage-input {

@@ -61,8 +61,8 @@ categories. Libraries are saved queries, not file copies.
 - Missing files: marked as missing (not deleted) so tags survive a temporarily
   disconnected drive. Hidden from normal browsing.
 - A manual "Re-scan" action triggers a full check of the Sample Folder. The
-  existing browser remains visible and progress is shown in the toolbar rather
-  than the first-scan full-screen overlay.
+  existing browser remains visible and progress is shown in the Middle Strip
+  rather than the first-scan full-screen overlay.
 - A "Cancel scan" action is available during an active scan. Cancelling bumps a
   generation counter; the in-flight scan stops at its next cancellation check.
   Already committed rows remain in the database, and the progress indicator
@@ -80,8 +80,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   ├── .category-tree      — expandable category/subcategory tree (left portion)
   ├── .browser-resize-v   — internal vertical split handle
   └── .sample-pane        — main browser workspace
-      ├── .browser-toolbar    — result count and filter status
-      ├── .sort-row           — filename/duration/date-added sort controls
+      ├── .filter-sort-row    — filters, result count, and sort controls
       └── .tiles              — virtualized rows of sample bubbles
 ```
 
@@ -111,7 +110,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ### Full-Text Search
 
-- A search input lives in the browser toolbar at the top of the sample pane.
+- A search input lives in the app-wide Middle Strip from spec-006. It filters
+  the Samples panel without moving global search into a tab-scoped surface.
 - As the user types, results filter in real-time (debounced, ~150ms).
 - Search matches against filename and relpath.
 - Results respect any active tag/category filter (search within filtered set).
@@ -122,12 +122,13 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   and the grid requests the next page as the user scrolls near the end of the
   loaded rows. The renderer never accumulates the full result set up front.
 
-### Browser Toolbar
+### Library Controls
 
-- Left: search input.
-- Middle: result count summary for the current filter/search set.
-- Right: manual "Re-scan" action.
-- Toolbar actions never bypass SQLite-backed query/filter flow; they only
+- The Middle Strip owns sample search, manual Re-scan, Cancel while scanning,
+  and scan progress.
+- The Samples panel's filter/sort row owns category and tag filters, the result
+  count summary, and filename/duration/date-added sorting.
+- These controls never bypass the SQLite-backed query/filter flow; they only
   change the current browser query state or trigger the indexed re-scan path.
 
 ### Dynamic Tagging
@@ -142,7 +143,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   a collision-aware modal popover anchored to the originating sample bubble.
 - All tags render as filter chips in the browser's subcategory row; clicking a
   chip toggles that tag in the active filter.
-- Tags have an optional color for visual identification.
+- Tags have an optional color for visual identification. The manage panel can
+  set or clear that color during creation or later editing, and colored tags
+  carry the same indicator in filter chips and sample context menus.
 - Tag assignment is many-to-many: one sample can have many tags, one tag can
   apply to many samples.
 - Deleting a tag removes it from all assigned samples (no orphaned references).
@@ -162,6 +165,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   category folder becomes a subcategory, and so on.
 - Users can create additional custom top-level categories and subcategories
   via the manage panel; folder-derived and user-created categories coexist.
+- The manage panel lists nested categories by their full hierarchy path and
+  offers every depth as a parent, so users can create and delete categories
+  below an existing subcategory without losing context.
 - Filtering by a category shows samples in that category AND all its
   descendants (subcategories).
 - The category tree is displayed in the browser panel as an expandable tree:
@@ -204,23 +210,30 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-004:** The sample bubble grid is virtualized — scrolling through
   indexed samples keeps a bounded DOM row count, and an inactive Samples tab
   mounts no sample rows or additional query pages while hidden.
-- [x] **AC-004a:** The sample browser shows a toolbar with search input, result count summary, a manual "Re-scan" action, and a "Cancel scan" action (visible only while a scan is running).
+- [x] **AC-004a:** The Middle Strip shows sample search, manual "Re-scan," scan
+  progress, and a "Cancel scan" action only while scanning; the Samples panel
+  shows the current result count and filter/sort controls.
 - [x] **AC-005:** Typing in the search field filters the sample grid in real-time, matching token prefixes in filename and relpath.
 - [x] **AC-006:** Clearing the search field restores the full sample list.
 - [x] **AC-006b:** Clearing or unselecting a category restores all matching samples across every SQLite result window, not only the first page.
 - [x] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
-- [x] **AC-007:** User can create a new tag, see it in the tag list, and assign it to a sample.
+- [x] **AC-007:** User can create a new tag with or without a color, later set
+  or clear its color, see the visual indicator in tag affordances, and assign
+  the tag to a sample.
 - [x] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.
 - [x] **AC-009:** User can delete a tag — it is removed from all assigned samples.
 - [x] **AC-010:** "Unsorted" is the only hardcoded category tile; all other root categories are derived from the sample-folder structure (each top-level subdirectory becomes a category).
 - [x] **AC-010a:** User can create a new custom top-level category via the manage panel.
-- [x] **AC-010b:** User can create a subcategory under any category. The tree displays correctly.
+- [x] **AC-010b:** User can create and delete a subcategory under any category;
+  the manage panel exposes the full hierarchy and the browser tree displays it
+  correctly.
 - [x] **AC-011:** Filtering by a category shows samples in that category AND all its descendants.
 - [x] **AC-012:** User can save the current filter/search state as a named library.
 - [x] **AC-013:** Opening a saved library restores its filters and shows the matching samples.
 - [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
 - [x] **AC-015:** Re-scanning detects new, changed, and missing files; changed files preserve their tags.
-  The existing browser remains visible with toolbar progress, and cancellation retains already committed batches.
+  The existing browser remains visible with Middle Strip progress, and
+  cancellation retains already committed batches.
 - [x] **AC-015a:** Re-scan is disabled while automatic sample analysis is active.
 - [x] **AC-016:** The sample grid can be sorted by filename, duration, and date added (ascending/descending).
 - [x] **AC-017:** Clicking a sample bubble previews its audio and renders its decoded waveform in the Player footer.
