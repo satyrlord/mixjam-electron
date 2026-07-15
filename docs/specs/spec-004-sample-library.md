@@ -23,8 +23,8 @@ categories. Libraries are saved queries, not file copies.
   results as I type.
 - **US-004:** As a user, I can create custom tags and assign them to samples,
   building my own organizational system.
-- **US-005:** As a user, I can organize tags into a parent/child hierarchy
-  (categories and subcategories).
+- **US-005:** As a user, I can organize samples with a parent/child category
+  hierarchy that remains independent of tags.
 - **US-006:** As a user, I can filter samples by tag/category and see only
   matching results.
 - **US-007:** As a user, I can save a set of filters as a named "library"
@@ -95,10 +95,12 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ### Sample Browser Grid
 
-- Samples render as the same fixed-height bubble used by the tracker. Bubbles
-  show the filename and duration and retain identical geometry across views.
-  Their shared width uses the Tracker's current pixels-per-second scale so the
-  visible length corresponds to the source audio duration.
+- Samples render as the same 32px-high bubble used by the Tracker. Bubbles show
+  the filename and source duration and retain identical geometry across views.
+  Their shared width uses the Tracker's pixels-per-tick scale and the sample's
+  project-owned musical span. Before first placement, the browser estimates the
+  span from source duration and detected BPM, or the current project BPM when
+  detection is unavailable, following spec-009.
 - Sort controls support filename, duration, and date added. Selecting the active
   sort again toggles ascending/descending.
 - Selecting a bubble highlights it, previews its audio, and populates the Player
@@ -237,9 +239,10 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-015a:** Re-scan is disabled while automatic sample analysis is active.
 - [x] **AC-016:** The sample grid can be sorted by filename, duration, and date added (ascending/descending).
 - [x] **AC-017:** Clicking a sample bubble previews its audio and renders its decoded waveform in the Player footer.
-- [x] **AC-017a:** A Sample Browser bubble uses the same current
-  pixels-per-second scale as its Tracker representation, so equal source
-  durations have equal widths and the two views remain pixel-identical.
+- [x] **AC-017a:** A Sample Browser bubble uses the same project-owned musical
+  span and current pixels-per-tick scale as its Tracker representation. Before
+  first placement it uses the spec-009 span estimate, so the first drop and both
+  views remain pixel-identical.
 - [x] **AC-018:** Sample actions use an accessible, viewport-aware context menu;
   the category/sample separator works by pointer, touch, and keyboard; and scan
   progress exposes native progress semantics plus visible status text.

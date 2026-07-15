@@ -1,4 +1,4 @@
-# Spec 008 — Sample Analysis & Auto-Categorization
+# Spec 008 — Sample Analysis & Type Classification
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** IMPLEMENTED
@@ -8,18 +8,19 @@
 
 Automatically analyze samples to detect BPM, musical key, and sample type
 (kick, snare, hat, loop, etc.) using a heuristic classifier. Results populate
-the sample library metadata and enable auto-categorization.
+the sample library's acoustic metadata without changing its organizational
+category tree or tags.
 
 ## User Stories
 
 - **US-001:** As a user, my sample library is automatically analyzed for BPM
   and key without me doing anything manual.
-- **US-002:** As a user, samples are auto-categorized (e.g. "Kick", "Snare",
-  "Bass", "Loop") based on their acoustic properties.
+- **US-002:** As a user, samples receive an acoustic type (e.g. "Kick",
+  "Snare", "Bass", "Loop") based on their acoustic properties.
 - **US-003:** As a user, I see analysis progress while large batches of samples
   are being processed.
 - **US-004:** As a user, I can manually override auto-detected BPM, key, and
-  category for any sample.
+  sample type without changing the sample's organizational category.
 
 ## Scope
 
@@ -57,10 +58,10 @@ the sample library metadata and enable auto-categorization.
   - **Zero-crossing rate** (noisiness)
   - **Onset/transient detection** (percussiveness)
   - **Duration** (short = one-shot, long = loop)
-- Classifies into categories: Kick, Snare, Hi-hat, Percussion, Bass, Synth,
+- Classifies into sample types: Kick, Snare, Hi-hat, Percussion, Bass, Synth,
   FX, Vocal, Loop, Atmosphere, Other.
 - Classification runs after BPM/key detection (uses the same decoded buffer).
-- User can manually override the auto-detected category.
+- User can manually override the auto-detected sample type.
 
 `sample_type` is deliberately separate from `samples.category_id`. The latter
 is the organizational folder/user category contract implemented by spec-004
@@ -126,7 +127,29 @@ field "Type" to keep the two concepts distinct.
 
 ### Real Fixture Measurement
 
-Measured on the 684 WAV files (379,291,366 bytes) under `tmp/test-samples` at
+The current corpus contains 8,014 WAV files (2,748,710,958 bytes) with SHA-256
+`a67f38f505f7e52f6b26d45ac4b706014035fdf09452bd44f9b1033731f16dbc`.
+The corpus owner confirms that every file is 140 BPM and A minor. A sequential
+production `analyzeWav` measurement on an Intel i7-11700 with Node 24.18.0
+found:
+
+- all 8,014 files decoded; none were unsupported or failed;
+- BPM was non-NULL for 7,363 files (91.88 percent coverage), but only 1,290
+  detected values (17.52 percent) were within the AC-003 plus or minus 5 BPM
+  window around 140 BPM;
+- key was non-NULL for 6,264 files (78.16 percent coverage), and 3,651 detected
+  values (58.29 percent) were exactly `Am`;
+- sample type was non-NULL for all 8,014 files; no classification-accuracy
+  claim is made because folder names are not ground truth;
+- three timed passes took 141.627, 141.534, and 142.276 seconds. Their average
+  was 141.812 seconds, 56.51 files per second, and 19.38 MB per second.
+
+These results establish current-corpus coverage, accuracy limitations, and
+sequential throughput; they do not change the algorithm or claim a 100k-file
+performance result. `npm run measure:analysis-corpus` reproduces the
+measurement, and `tmp/measure-analysis-corpus/` contains raw per-file evidence.
+
+The earlier historical baseline measured 684 WAV files (379,291,366 bytes) at
 corpus revision `37735a88cf9f9c5ca6186b24aafb03c61416eb11`:
 
 - all 684 files decoded;

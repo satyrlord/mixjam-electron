@@ -1,145 +1,76 @@
 # AGENTS.md
 
-Guidance for AI coding agents working in this repository.
+Imperative rules for AI coding agents. For background and rationale, see [docs/README.md](docs/README.md).
 
-This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, GitHub Pages). Do not share or copy schemas, docs, or code with them.
+Use simple English: short sentences, common words, plain structure. No idioms or jargon unless defined in the glossary.
 
-## Status
+## Spec status
 
-- Specs 001-004 and 007-010 are implemented. Specs 005-006 are partially
-  implemented: the validated 999-bar capacity, content-derived song end, and
-  Jump to End revision remain pending. Check individual spec files for current
-  AC wording and evidence.
-- Spec 011 is implemented. Spec 012 is validated but not implemented.
-- Specs 013-016 are unvalidated stubs.
-- Spec 017 is an unvalidated draft.
+See [docs/README.md#specs](docs/README.md#specs). Specs 001-011 are implemented; check individual spec files for AC wording and evidence.
 
-## Key docs
+## Always consult these docs
 
-- [docs/glossary.md](docs/glossary.md) — canonical project terminology and disambiguation
+- [docs/glossary.md](docs/glossary.md) — terminology
 - [docs/architecture.md](docs/architecture.md) — stack, process model, non-goals
 - [docs/data-model.md](docs/data-model.md) — SQLite schema, FTS5, indexes
-- [docs/query-schema.md](docs/query-schema.md) — current `rule_json` subset and target predicate-tree compiler
-- [docs/indexing.md](docs/indexing.md) — first-run scan, incremental re-scan
-- [docs/audio-engine.md](docs/audio-engine.md) — Web Audio scheduler, native-addon escape hatch
-
-## Architecture (web-first, thin Electron shell)
-
-The browser build is the primary app: SQLite runs as `@sqlite.org/sqlite-wasm`
-(opfs-sahpool VFS) inside a backend Web Worker (`src/renderer/src/backend/`),
-folder access uses the File System Access API with handles persisted in
-IndexedDB, app preferences live in localStorage, and project-owned Song,
-arrangement, Mixer, routing, and FX state lives in `.mixjam` files. The Electron main process is
-a thin shell (window sizing, `app://` protocol, auto-granted `fileSystem`
-permission, openExternal allowlist) exposing `window.shellAPI`; the same
-renderer bundle runs unchanged in any Chromium browser (GitHub Pages) and in
-the shell. Chromium-only is an accepted constraint. See
-[docs/architecture.md](docs/architecture.md).
+- [docs/query-schema.md](docs/query-schema.md) — `rule_json` subset and target compiler
+- [docs/indexing.md](docs/indexing.md) — scan and re-scan logic
+- [docs/audio-engine.md](docs/audio-engine.md) — Web Audio scheduler
 
 ## Commands
 
+See [docs/README.md](docs/README.md) for the full command table. Key commands:
+
 ```sh
-npm run dev           # launch Electron with the dev-server renderer
-npm run build         # production build (out/main, out/preload, out/renderer)
-npm run preview       # preview the production build
-npm test              # vitest run
-npm run test:watch    # vitest in watch mode
-npm run test:coverage # vitest with v8 coverage report
-npm run test:e2e      # build + browser Playwright tests
-npm run test:e2e:electron # build + Electron smoke tests
-npm run test:all      # unit + browser e2e
+npm run dev           # Electron with hot reload
+npm run build         # production build
+npm test              # vitest (single pass)
 npm run typecheck     # tsc -b
 npm run lint          # eslint .
 npm run fallow        # dead-code audit
-npm run package:electron  # package with electron-builder (portable/AppImage/dmg)
 ```
 
-Before running `dev` or `build`, remove the `ELECTRON_RUN_AS_NODE` env var if set — it breaks Electron launch.
+Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launch.
 
-The browser build is `out/renderer` — a static bundle; serve it from any plain
-static server (no COOP/COEP headers required).
+## Hard rules
 
-## Agent-session and handoff conventions
-
-- **The working tree is shared.** The user may edit files or commit while you work. Re-read a file
-  before editing it if any time or any scripted bulk change has passed since your last read; check
-  `git log`/`git status` before summarizing what changed, and never assume a mid-agent-session snapshot is
-  still current. If you script a bulk rewrite (rename sweeps), your own in-agent-session read state is stale
-  afterward too — re-read before hand-editing the same files.
-- **Conflicts between a plan/handoff doc and this file:** the newer, more specific document wins.
-  Do not stall on the contradiction — follow the handoff, and update AGENTS.md and the affected
-  docs/specs in the same change so the contradiction does not outlive the agent session.
-- **Multi-phase plans executed in one agent session:** scaffolding whose only purpose is keeping
-  intermediate states shippable across agent sessions (temporary adapters, compatibility shims scheduled
-  for deletion in a later phase) should be skipped when all phases land in one pass. Say so in the
-  report. When *writing* a handoff, state whether phases are expected to land across agent sessions.
-- **Performance claims need real data.** For scan/indexing throughput work, use the real fixtures in
-  `tmp/test-samples` (or ask for a pointer to a real library subset) instead of synthetic files.
-  If a perf-sensitive change ships with only synthetic or functional verification, flag the missing
-  measurement explicitly in the report rather than implying it was measured.
-- **Deploy-origin checks:** verifying the browser build on a local static server (no COOP/COEP
-  headers) is the accepted stand-in for a real GitHub Pages origin. Do not push branches or trigger
-  deploys just to test an origin unless the task explicitly authorizes it; note that the real-origin
-  confirmation happens on the next push to main.
-- **Close-out ritual before finishing or writing a handoff.** Run a self-critique pass:
-  1. **What are you least confident about?** List what you did not properly investigate. For
-     each item, name a concrete command or test that would verify or disprove it (not "investigate
-     this"). If you cannot name a cheap check, the uncertainty is likely filler.
-  2. **What did you skip, defer, or not investigate?** Be explicit — not "the tests pass" but
-     "edge case X was never tested; error path Y was not exercised."
-  3. **What assumptions went unstated?** Surface reasoning shortcuts you took for granted.
-     Overconfident errors are harder to spot than uncertain ones.
-  4. **What is the biggest thing the user might be missing?** Surface blind spots you see but
-     they have not considered.
-  Log the results in the agent-session handoff. Do not start fixing uncovered gaps in the close-out
-  — that turns two minutes into another hour. Let the handoff carry them forward.
-- **Fresh-eyes audit for critical work.** When an agent session produces a large or risky change, the
-  agent should recommend a fresh-eyes review: paste the final output or handoff doc into a new
-  agent context and ask it to "Evaluate this. Anything missed?" A clean-room audit (different
-  provider, no skills/memories) catches confidently-wrong assumptions the original agent cannot
-  see.
-- **Anti-pattern: asking the agent to investigate its own doubts without concrete verification
-  steps.** The agent will use the same assumptions that created the doubt and return reassured.
-  Always pair an uncertainty with a specific check.
-- **Anti-pattern: repeated "are you sure?"** The agent will just double down. Use the concrete
-  verification step instead.
-
-## Hard rules — do not violate
-
-- Virtualize all large sample lists (TanStack Virtual or react-window). Never render the full dataset as real DOM nodes.
-- All filtering and sorting hits SQLite in the backend worker. The UI requests windowed pages through the BackendAPI facade, never full result sets.
+- Virtualize large sample lists (TanStack Virtual or react-window). Never render the full dataset as real DOM nodes.
+- Filter and sort in SQLite (backend worker). UI requests windowed pages through BackendAPI only.
 - A library is a saved `rule_json` query, not copied files or symlinks.
-- Never string-concatenate user input into SQL. All queries use parameterized statements.
-- All DB access stays in the backend worker (`src/renderer/src/backend/`) — opfs-sahpool is worker-only and single-connection. Never open a second connection or touch the DB from the UI thread.
-- No absolute paths in the data model or contract. Folders are `FolderRef`s keying persisted directory handles; samples are `(root_id, relpath)`.
-- Keep the Electron renderer sandboxed: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `contextBridge` preload exposing only the narrow `ShellAPI`.
-Everything else must work without the shell.
-- Audio stays on the renderer main thread (Web Audio API); the engine loads bytes via `readSampleBytes(rootId, relpath)`.
+- Use parameterized SQL statements. Never concatenate user input into SQL.
+- All DB access stays in `src/renderer/src/backend/` (opfs-sahpool, worker-only, single-connection). Never open a second connection or touch DB from the UI thread.
+- No absolute paths. Folders are `FolderRef` (persisted directory handles); samples are `(root_id, relpath)`.
+- Electron renderer: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. Preload exposes only `ShellAPI` via `contextBridge`. Everything must work without the shell.
+- Audio on the renderer main thread (Web Audio API). Load bytes via `readSampleBytes(rootId, relpath)`.
 - No emoji in code, docs, specs, or skills.
-- Update specs after each bug fix or change request in the chat. Specific user requests overrule spec decisions.
-- A sample bubble is merely the snapshot of a WAV file, the visual representation of a WAV file, regardless of context.
-This is why they have to be PERFECTLY identical EVERYWHERE IN THE UI and have exactly the same height and width everywhere, including the tracker, sample browser
-or any other view, window or interface in the app.
+- Update specs after each bug fix or change request. User requests overrule spec decisions.
+- Sample bubbles must be identical everywhere in the UI: same height, same width, in every view.
 
-## Do not relitigate
+## Resolved decisions — do not reopen
 
-These decisions are resolved:
+- Web-first: one browser backend, thin Electron shell. No demo/mock mode (onboarding without samples is spec-013).
+- `@sqlite.org/sqlite-wasm` with opfs-sahpool VFS. One tab, enforced by Web Lock.
+- `rule_json` predicate tree compiles to parameterized SQL. Current executable subset: one `and` group with optional text, one category, tag-any leaves. Do not extend before validator and full compiler land (see `docs/query-schema.md`).
+- Two-phase background indexer, `(size, mtime)` change detection, soft-delete for missing files.
+- Web Audio API lookahead scheduler for v1; native addon only if latency triggers it.
+- Library export out of scope for v1.
 
-- Web-first architecture: one browser backend, thin Electron shell; no demo/mock mode on any host (onboarding without samples is spec-013).
-- `@sqlite.org/sqlite-wasm` with the opfs-sahpool VFS (not wa-sqlite — GPL; not the plain `opfs` VFS — needs COOP/COEP, which GitHub Pages cannot set). One tab, enforced by a Web Lock.
-- `rule_json` versioned predicate tree compiling to parameterized SQL is the
-  accepted target contract. The current executable subset is one `and` group
-  with optional text, one category, and tag-any leaves; do not extend it before
-  the validator and full compiler land (see `docs/query-schema.md`).
-- Two-phase background indexer, `(size, mtime)` change detection, soft-delete for missing files
-- Web Audio API lookahead scheduler for v1; native addon only on a measured latency trigger
-- Library export out of scope for v1
+## Session conventions
 
-## Test setup notes
+- **Parallel subagents first.** Prefer dispatching independent work (search, file reads, research, audits) to parallel `Explore` subagents. The main agent is the orchestrator — keep it free and interactive for the user to interrupt without blocking background work.
+- **Working tree is shared.** Re-read files before editing if any time has passed since your last read. Check `git log`/`git status` before summarizing changes.
+- **Newer, more specific doc wins** in conflicts with this file. Follow the newer doc, then update both.
+- **Skip scaffolding** that only exists to keep intermediate states shippable across sessions when all phases land in one session.
+- **Performance claims need real data.** Use `tmp/test-samples` fixtures, not synthetic files. Flag missing measurements explicitly.
+- **Deploy-origin checks:** verify browser build on a local static server (no COOP/COEP headers). Do not push branches just to test an origin.
+- **Close-out before finishing:** run a self-critique pass. List: (1) least confident items with concrete verification commands, (2) skipped or deferred work, (3) unstated assumptions, (4) biggest blind spot for the user. Log results in the handoff. Do not start fixing gaps — let the handoff carry them.
+- **Fresh-eyes audit** for large/risky changes: paste the handoff into a new agent context and ask "Evaluate this. Anything missed?"
+- **Anti-pattern:** asking the agent to investigate its own doubts without a concrete check. Always pair uncertainty with a specific verification step.
+- **Anti-pattern:** repeated "are you sure?" — use the concrete verification step instead.
 
-- `globals: false` in vitest config means testing-library auto-cleanup is off. `setup.ts` calls `cleanup()` in `afterEach`. Shared renderer mock is in `test/backendApi.ts` (installed as `window.backendAPI`).
-- Vitest runs two projects: `renderer` (jsdom) for UI and app-state tests, and `backend` (node environment)
-for the sqlite-wasm suites (`backend/library.test.ts`, `backend/indexer.test.ts`) using an in-memory database.
-- Indexer tests use a map-backed fake `FileSystemDirectoryHandle` plus generated minimal WAV files, so `parseBlob` extracts real metadata.
-- `setup.ts` stubs `HTMLCanvasElement.getContext` with a silent no-op 2D context (jsdom's own throws/logs "Not implemented"); tests that assert drawing install their own mock over it.
-- On Windows, `setSize()` must come before `setResizable(false)` or the size call is silently ignored.
+## Test gotchas
+
+- `globals: false` — testing-library auto-cleanup is off. `setup.ts` calls `cleanup()` in `afterEach`.
+- Vitest has two projects: `renderer` (jsdom) and `backend` (node, in-memory sqlite-wasm).
+- `setup.ts` stubs `HTMLCanvasElement.getContext` with a no-op 2D context. Tests that assert drawing must install their own mock.
+- On Windows: call `setSize()` before `setResizable(false)` or the size call is silently ignored.

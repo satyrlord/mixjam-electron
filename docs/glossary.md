@@ -3,31 +3,55 @@
 ## Quick index
 
 - [App state](#app-state)
+- [Arrangement](#arrangement)
+- [Arrangement capacity](#arrangement-capacity)
 - [Bottom Workspace](#bottom-workspace)
+- [Category](#category)
 - [Channel](#channel)
 - [Clip](#clip)
 - [Clip bubble](#clip-bubble)
 - [Clip placement](#clip-placement)
+- [Effect chain](#effect-chain)
+- [External project](#external-project)
+- [FolderRef](#folderref)
+- [FX](#fx)
+- [FX chain](#fx-chain)
 - [Lane](#lane)
 - [Library](#library)
 - [Middle Strip](#middle-strip)
 - [MixJam](#mixjam)
 - [MixJam Browser](#mixjam-browser)
+- [Musical span](#musical-span)
+- [Native BPM](#native-bpm)
 - [Player](#player)
 - [Project](#project)
+- [Project BPM](#project-bpm)
+- [Read-only import](#read-only-import)
 - [Recent Projects rail](#recent-projects-rail)
 - [Sample](#sample)
 - [Sample Browser](#sample-browser)
 - [Sample bubble](#sample-bubble)
 - [Sample Folder](#sample-folder)
+- [Sample reference](#sample-reference)
+- [Sample type](#sample-type)
 - [Session](#session)
+- [Skin](#skin)
 - [Song](#song)
+- [Song Controls](#song-controls)
+- [Song end](#song-end)
+- [Song length](#song-length)
+- [Song panel](#song-panel)
 - [Song Progress Bar](#song-progress-bar)
+- [Source duration](#source-duration)
+- [Subcategory](#subcategory)
+- [Tag](#tag)
+- [Theme](#theme)
 - [Track](#track)
 - [Tracker](#tracker)
 - [Transport](#transport)
 - [Transport Ribbon](#transport-ribbon)
 - [User Folder](#user-folder)
+- [Voice](#voice)
 
 ## App state
 
@@ -35,6 +59,29 @@ Host-local context outside the current project: selected folders, persisted
 directory handles, permissions, settings, current view, caches, and transient
 runtime flags. App state is not a [session](#session) and is not stored in the
 `.mixjam` project format.
+
+## Arrangement
+
+The project-owned timeline content: [lanes](#lane) and their
+[clip placements](#clip-placement). The [Tracker](#tracker) is the visual
+surface used to edit the arrangement. An arrangement is part of a
+[song](#song), which also owns Song settings, Mixer state, routing, and FX.
+
+## Arrangement capacity
+
+The fixed addressable range of the arrangement: 999 bars in 4/4, or 31,968
+ticks at 8 ticks per beat. Capacity limits placement and navigation but is not
+[song end](#song-end) or song length. Empty capacity is not serialized into a
+`.mixjam` file. See [spec 005](specs/spec-005-audio-playback-engine.md) and
+[spec 006](specs/spec-006-player-timeline-panels.md).
+
+## Category
+
+A node in the hierarchical organizational tree used to browse and filter
+[samples](#sample). Categories may be derived from Sample Folder directories or
+created by the user. A sample has one primary category and may have additional
+[subcategory](#subcategory) assignments. Categories are distinct from flat
+[tags](#tag) and from acoustic [sample type](#sample-type) metadata.
 
 ## Channel
 
@@ -59,9 +106,42 @@ not name a separate or variable-width visual representation.
 ## Clip placement
 
 The nonvisual arrangement record that places a [sample](#sample) on a
-[lane](#lane), including its start tick and playback duration. The Tracker
-renders the referenced sample as a [sample bubble](#sample-bubble); placement
-duration does not create a differently sized kind of bubble.
+[lane](#lane), including its start tick and [musical span](#musical-span). The
+Tracker renders the referenced sample as a [sample bubble](#sample-bubble);
+placement data does not create a second kind of visual object.
+
+## Effect chain
+
+Use [FX chain](#fx-chain). The two terms name the same ordered processor chain;
+*FX chain* is preferred in compact product and persistence language.
+
+## External project
+
+Use [read-only import](#read-only-import) for a project opened from outside the
+[User Folder](#user-folder). *External project* may describe its origin, but it
+does not imply a second project format.
+
+## FolderRef
+
+An opaque application identifier that keys a persisted directory handle. A
+`FolderRef` is not an absolute path, URL, or directory name. File access always
+resolves a relative path through the referenced handle. See
+[architecture.md](architecture.md) and
+[spec 003](specs/spec-003-folder-app-state-management.md).
+
+## FX
+
+The per-[channel](#channel) insert-effects workflow and its peer panel in the
+[Bottom Workspace](#bottom-workspace). An *FX sample* instead means a source
+audio file whose [sample type](#sample-type) is an effect sound; it remains a
+[sample](#sample), not a signal processor.
+
+## FX chain
+
+The ordered list of insert-effect slots owned by one mixer [channel](#channel).
+Signal flows through the slots in order, and the complete chain is project-owned
+state serialized in the `.mixjam` file. See
+[spec 010](specs/spec-010-audio-effects.md).
 
 ## Lane
 
@@ -103,12 +183,30 @@ The [Player](#player) region that lists and opens `.mixjam` files. It is
 distinct from the [Sample Browser](#sample-browser). The older name *Recent
 Projects rail* describes the same region too narrowly.
 
+## Musical span
+
+The project-owned duration of a sample expressed in ticks as `durationTicks`.
+It determines placed playback boundaries and [sample bubble](#sample-bubble)
+width. The first span is derived from [source duration](#source-duration) using
+[Native BPM](#native-bpm) when available, or the current
+[Project BPM](#project-bpm) otherwise. Later placements with the same
+[sample reference](#sample-reference) reuse that span; Project BPM edits never
+mutate it. See [spec 009](specs/spec-009-time-stretching.md).
+
+## Native BPM
+
+Tempo metadata associated with a source sample and captured as placement
+provenance. Native BPM helps establish the first [musical span](#musical-span)
+and controls unplaced preview rate. It may be unknown, late, or manually edited,
+so it is not the timing authority after a musical span exists.
+
 ## Player
 
 The complete active song view: Tracker, Sample Browser, MixJam Browser, Middle
-Strip, Transport Ribbon, mixer, Song Controls, and the other active-project
-regions. *Player* does not mean only the audio engine, a preview widget, or the
-Tracker. See [spec 001](specs/spec-001-app-shell-navigation.md) and
+Strip, Transport Ribbon, mixer, [Song panel](#song-panel), and the other
+active-project regions. *Player* does not mean only the audio engine, a preview
+widget, or the Tracker. See
+[spec 001](specs/spec-001-app-shell-navigation.md) and
 [spec 006](specs/spec-006-player-timeline-panels.md).
 
 ## Project
@@ -116,6 +214,21 @@ Tracker. See [spec 001](specs/spec-001-app-shell-navigation.md) and
 An exact synonym for [song](#song): the loaded or newly created document that
 the app edits and that the `.mixjam` format represents. *Project* is common in
 technical persistence and implementation discussions.
+
+## Project BPM
+
+The tempo owned by the active [project](#project) and its
+[Transport](#transport). It maps musical ticks to elapsed seconds and controls
+rendered playback rate. Changing Project BPM does not move placements, change
+their [musical spans](#musical-span), or resize sample bubbles.
+
+## Read-only import
+
+A [project](#project) opened from outside the [User Folder](#user-folder). The
+source file is readable, but the project has no current writable path in the
+app. Its first Save uses Save As and must choose a destination inside the User
+Folder; after that save, it is an ordinary writable project. See
+[spec 011](specs/spec-011-project-save-load.md).
 
 ## Recent Projects rail
 
@@ -125,8 +238,8 @@ that the region is limited to a recency list rather than `.mixjam` browsing.
 ## Sample
 
 One indexed local audio-file source from the active [Sample Folder](#sample-folder),
-identified by its folder root and relative path. A sample is source data, not
-its arrangement placement and not its visual representation.
+identified by its [sample reference](#sample-reference). A sample is source
+data, not its arrangement placement and not its visual representation.
 
 ## Sample Browser
 
@@ -138,15 +251,15 @@ browse `.mixjam` files or define saved [libraries](#library).
 
 The visual snapshot of a sample or WAV file, regardless of context. Every
 sample bubble is 32px high. In a project, its width represents the sample's
-placement-owned musical duration in ticks at the Player's shared
-pixels-per-tick scale, with a 12px minimum. Project BPM changes never move or
+[musical span](#musical-span) in ticks at the Player's shared pixels-per-tick
+scale, with a 12px minimum. [Project BPM](#project-bpm) changes never move or
 resize placed bubbles: they change how quickly the source audio is rendered
 inside that stable musical span. The Sample Browser reuses the same stored span
-for an already-placed sample, so the same sample remains perfectly
-identical everywhere in the UI. Placement duration and UI context never create
-a different geometry. Drag-image canvases may add transparent padding for
-shadows, pointer offset, or a group badge, but the sample-bubble rectangle
-inside them keeps the shared dimensions.
+for an already-placed sample, so the same sample remains perfectly identical
+everywhere in the UI. Placement data and UI context never create a different
+geometry. Drag-image canvases may add transparent padding for shadows, pointer
+offset, or a group badge, but the sample-bubble rectangle inside them keeps the
+shared dimensions.
 
 ## Sample Folder
 
@@ -155,6 +268,20 @@ app indexes and reads it but never writes projects or exports into it. It is
 not a [library](#library) or the [Sample Browser](#sample-browser). See
 [spec 003](specs/spec-003-folder-app-state-management.md).
 
+## Sample reference
+
+The location-independent identity used to resolve a [sample](#sample). In the
+runtime index it is the `(root_id, relpath)` pair. In a `.mixjam` placement,
+`sampleRef` stores only the path relative to the active Sample Folder root.
+Sample references never contain absolute paths or embedded audio bytes.
+
+## Sample type
+
+Acoustic classification metadata such as Kick, Snare, Bass, FX, Vocal, or Loop.
+It may come from analysis or a manual override and is labeled *Type* in the UI.
+Sample type never assigns or replaces an organizational [category](#category)
+or [tag](#tag). See [spec 008](specs/spec-008-sample-analysis.md).
+
 ## Session
 
 The current unsaved state of a [project](#project). It covers both a new
@@ -162,19 +289,52 @@ project with no backing `.mixjam` file and unsaved modifications made after a
 `.mixjam` file was loaded or saved. Folder selections, permissions, and host
 settings are [app state](#app-state), not session data.
 
+## Skin
+
+Use [theme](#theme) for a concrete named token set or JSON definition.
+*Skinning* describes the app's ability to change its appearance; a skin is not
+a second artifact type beside a theme.
+
 ## Song
 
 An exact synonym for [project](#project): the loaded or newly created document
 currently being edited in the Player. It is represented on disk by the
-`.mixjam` format. Its scrollable arrangement capacity is 999 bars, but its
-length is the exact latest placement-end tick across all lanes. Internal silence
-does not end a song while any later placement remains. Empty capacity is not
-serialized into the project file.
+`.mixjam` format. Its [arrangement capacity](#arrangement-capacity) is distinct
+from its exact [song end](#song-end).
+
+## Song Controls
+
+Use [Song panel](#song-panel) for the Bottom Workspace region. *Song Controls*
+is the visible heading and implementation shorthand for the controls inside
+that panel, not a sibling region or a separate reveal surface.
+
+## Song end
+
+The exact exclusive end tick of the latest [clip placement](#clip-placement)
+across all lanes, represented internally as `songEndTick`. An empty song ends
+at tick 0. Muting, soloing, missing sample files, and internal silence do not
+change it. Song end is derived from placements and is not serialized or rounded
+to a beat or bar. It is distinct from [arrangement capacity](#arrangement-capacity).
+
+## Song length
+
+Use [song end](#song-end) when referring to the content-derived end of the
+arrangement. Do not use *song length* for the fixed 999-bar arrangement
+capacity.
+
+## Song panel
+
+The peer panel selected by the Song tab in the
+[Bottom Workspace](#bottom-workspace). It contains Project BPM, Master Volume,
+and Output Level controls. Use *Song panel* for the region and
+[Song Controls](#song-controls) only for its visible heading or implementation
+shorthand.
 
 ## Song Progress Bar
 
 The always-rendered, skinnable horizontal control below the [Tracker](#tracker)
-lanes. It shows and changes which part of the 999-bar arrangement capacity is
+lanes. It shows and changes which part of the
+[arrangement capacity](#arrangement-capacity) is
 visible without seeking the playhead or changing transport state. Its thumb
 represents the visible fraction of that capacity and follows the Tracker's
 horizontal scroll position. The control remains visible but disabled when the
@@ -182,6 +342,32 @@ entire arrangement capacity fits in the Tracker viewport.
 
 Use *Song Progress Bar*, not *horizontal scrollbar*, *timeline slider*, or
 *transport progress bar*, for this Player control.
+
+## Source duration
+
+The immutable length of a source audio file in seconds. It remains file
+metadata and may be shown in sample details or used to calculate playback rate.
+Once a [musical span](#musical-span) exists, source duration does not control
+placed geometry or scheduled duration by itself.
+
+## Subcategory
+
+A non-root [category](#category) node. Subcategories represent deeper Sample
+Folder directory levels or user-created hierarchy, and category filtering may
+include all descendants. They are not child tags.
+
+## Tag
+
+A user-defined, optionally colored label assigned many-to-many to
+[samples](#sample). Tags are independent of the hierarchical
+[category](#category) tree and acoustic [sample type](#sample-type) metadata.
+
+## Theme
+
+A named set of design-token values stored as a JSON definition and applied to
+the entire app at runtime. *Theme* is the canonical name for each selectable
+appearance; [skinning](#skin) names the capability, not a second artifact type.
+See [spec 002](specs/spec-002-theming-skin-system.md).
 
 ## Track
 
@@ -192,7 +378,8 @@ synonym for lane or mixer channel.
 
 The playlist or arrangement region inside the [Player](#player). It contains
 the timeline, ruler, playhead, lanes, and clip placements onto which samples
-are dropped. It is not the whole active Player view.
+are dropped. It displays the [arrangement](#arrangement) but is not the
+arrangement data or the whole active Player view.
 
 ## Transport
 
@@ -212,3 +399,10 @@ The user-selected, read-write physical output root. The app writes `.mixjam`
 files, exports, and app configuration into it. It is distinct from the
 read-only [Sample Folder](#sample-folder). See
 [spec 003](specs/spec-003-folder-app-state-management.md).
+
+## Voice
+
+A single triggered sample-playback instance in the audio engine, backed by a
+one-shot `AudioBufferSourceNode`. A voice is transient and is not a sample,
+lane, mixer channel, or Voice/Vocal [sample type](#sample-type). See
+[spec 005](specs/spec-005-audio-playback-engine.md).

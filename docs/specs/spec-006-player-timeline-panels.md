@@ -1,8 +1,7 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIALLY IMPLEMENTED — 999-bar capacity,
-content-derived song end, and Jump to End are pending
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -231,6 +230,16 @@ browser adjacencies.
   sample's information.
 - Placements are rendered on a canvas element for performance — not as individual
   DOM nodes (enables smooth scrolling at high placement counts).
+- The logical lane spans the full 999-bar surface, but each lane's canvas backing
+  store is bounded to the visible Tracker viewport and redraws in full-timeline
+  coordinates while scrolling. Scroll events coalesce into at most one redraw
+  per animation frame. No canvas bitmap may use the full 167,832px lane width
+  because it exceeds Chromium's reliable canvas dimensions.
+- Sample drag payload access is defensive: the complete internal sample detail
+  is cached synchronously at drag start, before the browser protects payload
+  access. Dragover and drop reuse that cache, so an over-capacity sample still
+  advertises an unavailable target even when `DataTransfer.getData()` cannot be
+  read during dragover. External or malformed drag data is treated as absent.
 - A placement drag image may use a larger transparent canvas for shadow padding,
   pointer offset, or a multi-selection badge. The sample bubble drawn inside
   that canvas keeps the canonical musical-span width and 32px height.
@@ -257,7 +266,8 @@ browser adjacencies.
   - Jump to End (moves the playhead and Tracker view to the exact
     `songEndTick`). It is disabled when the song has no placements. When used
     during playback, it stops playback but parks the playhead and view at the
-    end instead of applying the natural-playback reset-to-zero rule.
+    end instead of applying the natural-playback reset-to-zero rule. Pressing
+    Play from that parked state restarts preparation and playback at tick 0.
   - Play / Pause (toggles; Play is accent-colored when stopped, Pause when
     playing). Space toggles the same action.
   - Stop (returns to tick 0 and stops).
@@ -423,11 +433,11 @@ visible across themes and viewport sizes.
   Changing BPM never changes its position or width, and the corresponding
   Sample Browser bubble has the identical pixel width.
 - [x] **AC-008a:** Holding Alt while dropping a sample or moving a placement bypasses beat-snap and places it at per-tick precision (freeform).
-- [ ] **AC-008b:** A drop or move near the arrangement boundary preserves the
+- [x] **AC-008b:** A drop or move near the arrangement boundary preserves the
   placement's complete duration and clamps its start so its end does not exceed
   tick 31,968. A placement longer than the whole capacity is rejected without
   a dialog, and illegal targets show an unavailable cursor or equivalent
-  inline pointer feedback.
+  inline pointer feedback even while the browser protects drag payload access.
 - [x] **AC-009:** Placing a sample that overlaps an existing placement on the same lane keeps both sample bubbles visually intact; only the audio
   is monophonic. Overlap never deletes or trims the earlier placement's data.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
@@ -447,17 +457,19 @@ visible across themes and viewport sizes.
   `aria-controls` target is the actual Tracker scrollport ID supplied by the
   parent. Native horizontal scrollbar chrome is not the visible navigation
   control.
-- [ ] **AC-011c:** The Tracker and Song Progress Bar expose all 999 bars in 4/4
+- [x] **AC-011c:** The Tracker and Song Progress Bar expose all 999 bars in 4/4
   (31,968 ticks) at a minimum density of 42px per beat. Ruler ticks, placement
   bounds, seeking, and playhead limits use that capacity, independently of the
   content-derived `songEndTick`.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
-- [ ] **AC-014a:** Jump to End moves both the playhead and Tracker viewport to
+- [x] **AC-014a:** Jump to End moves both the playhead and Tracker viewport to
   the exact `songEndTick` and is disabled for an empty song. If activated while
   playing, it stops playback and parks at the end; natural playback reaching
-  the same tick still stops and resets to tick 0 per spec-005.
+  the same tick still stops and resets to tick 0 per spec-005. Play from the
+  parked end synchronizes both engine and visual playheads to tick 0 before
+  asynchronous preparation begins.
 - [x] **AC-015:** The BPM slider shows the current BPM and changing it updates the engine's BPM immediately.
 - [x] **AC-015a:** The Song panel's slider and numeric field are two editing
   surfaces for one BPM value and always reflect the transport's current BPM.
@@ -501,7 +513,9 @@ visible across themes and viewport sizes.
 
 - `src/renderer/src/components/PlayerView.test.tsx` verifies ordered peer tabs,
   first-launch and persisted selection, mounted panels, automatic keyboard
-  activation, song status, telemetry activation, and the upper-only resize seam.
+  activation, song status, telemetry activation, the upper-only resize seam,
+  and cached oversized-sample rejection while dragover payload access is
+  protected.
 - `src/renderer/src/components/MixJamBrowser.test.tsx` verifies the Open and
   Copy Path context-menu actions for discovered and recent project entries.
 - `tmp/verify-bottom-workspace/evidence.md` records production Chromium
@@ -535,10 +549,15 @@ visible across themes and viewport sizes.
   DPR 2. The checks cover all 128 bars, shared ruler/lane scrolling, pinned lane
   heads, keyboard and pointer navigation, theme changes, the visible disabled
   state, unchanged transport position, and canonical sample-bubble geometry.
-  It does not verify the pending 999-bar capacity or Jump to End revision.
-- `tests/e2e/timeline-seek.spec.ts` and `tmp/verify-timeline-seek/evidence.md`
-  verify in production Chromium that an exact beat click seeks to that beat and
-  leaves the playhead centered on the clicked pixel at zero and nonzero scroll.
+- `tests/e2e/timeline-seek.spec.ts` verifies in production Chromium that exact
+  beat clicks share playhead geometry, Skip Back resets the playhead and
+  Tracker viewport, and Jump to End parks at the exact content-derived end and
+  brings it into view. It also delays sample preparation to prove that Play
+  from the parked end restarts at tick 0 without being cancelled by end
+  detection.
+- `tmp/verify-song-capacity/evidence.json` and its screenshots record a
+  168,052px built timeline, grid maximum tick 31,960, exact Jump to End tick
+  5,032 with scroll position 25,556, and Skip Back restoring both values to 0.
 
 ## Non-Goals (deferred to later specs)
 

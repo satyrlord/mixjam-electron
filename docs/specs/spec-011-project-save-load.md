@@ -98,13 +98,17 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 
 - Each placement's `sampleRef` is a path relative to the Sample Folder root,
   never an absolute path or embedded audio bytes. `nativeBPM` is the analysis
-  value captured when that placement was added; null means native-rate playback.
+  value captured when that placement was added; null means no native tempo was
+  known, not that placed playback bypasses spec-009 tempo following.
 - All placements with the same `sampleRef` use one project-owned
   `durationTicks` value. Conflicting spans are invalid project data rather than
   an implicit choice based on lane or array order.
 - The 999-bar arrangement capacity from specs 005 and 006 is implicit and is
   never materialized as empty bar, beat, or tick records. A `.mixjam` file saves
   only actual project state and placement records.
+- A placement end is exclusive: `startTick + durationTicks` may equal 31,968
+  but may not exceed it. Capacity validation errors identify the placement's
+  `durationTicks` field and state the exclusive-end calculation.
 - `songEndTick` is derived on load as the latest placement end and is not stored
   as redundant timeline padding or metadata. Internal and trailing empty bars
   therefore add no project-file size.
@@ -146,34 +150,44 @@ driving the UI or hand-writing project JSON.
 
 - `npm run generate:mixer-test-song` reads WAV metadata from
   `tmp/test-samples` and writes an auto-incremented project such as
-  `tmp/generated-songs/Classic-Trance-Mixer-Test-001.mixjam`.
+  `tmp/generated-songs/Ibiza-Melodic-Techno-Mixer-Test-001.mixjam`.
 - `--samples-dir` and `--output-dir` override those defaults. To open a
   generated project, grant its output directory as the User Folder and grant
   the matching sample directory as the Sample Folder.
-- Every run uses 140 BPM and a 48-bar arrangement. At 140 BPM this is about
-  82.3 seconds, inside the required 60-to-90-second manual-test window.
+- Every run uses 140 BPM and a 70-bar arrangement. At 140 BPM this is exactly
+  120 seconds.
+- Each selected sample establishes its placement span using native BPM from
+  metadata or an explicit filename label (`N BPM` or `BPM N`) when the value is
+  within the product's accepted 20-400 BPM domain, otherwise the 140 BPM
+  project tempo. Bare numeric filename tokens are identifiers, not tempo
+  evidence. The generator persists the same native BPM provenance used for
+  that calculation, matching the first-placement rule in spec-009.
 - The 16 lanes have musical roles rather than arbitrary sample distribution:
-  kick, clap/build, percussion, beat loop, stereo drum loop, bass, stereo
-  atmosphere, stereo anthem lead, piano harmony, vocal motif, extra texture,
-  and stereo transition FX.
-- The arrangement compresses the classic trance energy arc into six eight-bar
-  sections: DJ-style intro, theme build, percussion-free breakdown, buildup,
-  full anthem, and mix-out. This follows the breakdown/buildup/anthem formal
-  model documented by the [University of North Texas thesis on trance and
-  house form](https://digital.library.unt.edu/ark:/67531/metadc103332/), the
-  kick/offbeat-bass relationship in Ableton's
-  [Making Music](https://cdn-resources.ableton.com/resources/uploads/makingmusic/MakingMusic_DennisDeSantis.pdf),
-  and Native Instruments' guidance to introduce layers gradually and remove
-  percussion during the
-  [trance breakdown](https://blog.native-instruments.com/trance-music/).
-- The sample plan covers every folder-derived category in the fixture library
-  (`Bass`, `Beats`, `Drum`, `FX`, `Keys`, `Loop`, `Sphere`, `Vocals`, and
-  `Xtra`) plus the root-level `Unsorted` category. Tonal material uses the
-  fixture's A-keyed samples; untuned material uses X-marked samples.
-- A shared variation number selects compatible sample candidates across roles.
-  Runs use a generated seed by default, while `--seed` makes a result
-  reproducible. The selection policy is isolated from arrangement construction
-  so broader random generation can be added without changing persistence.
+  kick phrases, clap/snare, hi-hat/percussion, groove loops, bass, sequences,
+  keys, stereo layers, stereo spheres, voice, rap, extra texture, and stereo
+  transition FX.
+- The arrangement uses a seven-section Ibiza-inspired melodic-techno arc:
+  sunset DJ intro, tropical groove, melodic ascent, ocean-air breakdown,
+  terrace buildup, Ibiza peak, and sunrise mix-out. The breakdown removes the
+  five rhythm-and-bass lanes while melodic, atmospheric, vocal, and texture
+  material continues; the peak restores all principal rhythm and melody lanes.
+- The sample plan covers every folder-derived category in the current fixture
+  library (`Bass`, `Drum`, `Effect`, `Keys`, `Layer`, `Loop`, `Rap`, `Seq`,
+  `Sphere`, `Voice`, and `Xtra`). Stereo lanes use duration-matched left/right
+  files, while mono lanes exclude either half of a discovered stereo pair.
+- Each rhythmic, bass, melodic, vocal, rap, and texture lane alternates two
+  distinct clips within one song. Seeded candidate ordering draws from the
+  broader category pools, rejects unreadable or overlong clips, and keeps every
+  generated result reproducible.
+- Groove, bass, sequence, keys, stereo atmosphere, vocal, rap, texture, and
+  transition roles prefer tropical, coastal, warm, and sun-themed fixture
+  names when matching readable clips exist, then fall back to their broader
+  category pools. This keeps the generator compatible with smaller corpora
+  while making the repository corpus consistently Ibiza-inspired.
+- A shared variation number selects one of four timing profiles for groove
+  returns, vocal/rap calls and responses, and texture entries across the full
+  two-minute arc. Runs use a generated seed by default, while `--seed`
+  reproduces both sample selection and arrangement timing.
 - The saved Mixer state uses deliberate gain and pan differences and includes
   delay, reverb, and compressor chains so the result is immediately useful for
   manual Mixer and FX testing.
@@ -274,14 +288,15 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-016:** Loading rejects projects that assign conflicting
   `durationTicks` values to placements with the same `sampleRef`.
 - [x] **AC-017:** The generator writes a project that roundtrips through the
-  production project parser, has 140 BPM, spans exactly 48 bars (about 82.3
-  seconds), and contains 16 non-empty lanes.
-- [x] **AC-018:** The generated placements cover every fixture category,
-  including `Unsorted`, while every saved `sampleRef` remains relative to the
-  configured Sample Folder.
-- [x] **AC-019:** The generated project contains the documented six-section
-  trance arrangement and deliberate Mixer state with delay, reverb, and
-  compressor effects.
+  production project parser, has 140 BPM, spans exactly 70 bars (120 seconds),
+  and contains 16 non-empty lanes.
+- [x] **AC-018:** The generated placements cover every current fixture
+  category while every saved `sampleRef` remains relative to the configured
+  Sample Folder. Duration-matched stereo pairs remain paired on adjacent lanes.
+- [x] **AC-019:** The generated project contains the documented seven-section
+  Ibiza-inspired melodic-techno arrangement, uses style-biased sample pools,
+  alternates clips on ten lanes, varies cue timing by seed, and includes
+  deliberate Mixer state with delay, reverb, and compressor effects.
 - [x] **AC-020:** Repeated generator runs never overwrite an existing project;
   filenames increase monotonically. A supplied seed reproduces the same sample
   selection and arrangement.
@@ -293,12 +308,20 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-023:** Saving a project serializes placement records without a
   preallocated 999-bar timeline, empty bar/beat/tick entries, or a redundant
   `songEndTick`; loading derives the exact end from the saved placements.
+- [x] **AC-024:** Loading rejects a placement whose exclusive end tick
+  (`startTick + durationTicks`) exceeds 31,968, and the validation error points
+  to that placement's `durationTicks` field.
+- [x] **AC-025:** Generated placements calculate `durationTicks` from a
+  selected sample's positive native BPM when available, otherwise from the
+  140 BPM project tempo, and persist that same native BPM provenance.
 
 ## Implementation Evidence
 
 - `src/renderer/src/project/project-file.test.ts` covers strict schema
   validation, safe relative paths, version-zero migration, newer-version
-  rejection, roundtrips, and dirty fingerprints.
+  rejection, roundtrips, dirty fingerprints, sparse capacity-free
+  serialization, and field-specific rejection of exclusive placement ends
+  beyond tick 31,968.
 - `src/renderer/src/backend/project-files.test.ts` covers filtered open/save
   pickers, external read-only opens, User Folder write containment, writable
   close/abort behavior, direct reads/writes, cancellation, and missing-sample
@@ -315,11 +338,19 @@ generator, its tests, and this contract are the durable repository assets.
   reset, Mixer/FX restoration, and missing-sample warnings in built Chromium.
 - `scripts/generate-mixer-test-song.test.ts` covers production-parser
   roundtrips, exact duration, all-category sample references, the
-  percussion-free breakdown and full anthem, Mixer/FX variety, seeded
-  reproducibility, and exclusive auto-incremented output.
-- Real-corpus generator runs against `tmp/test-samples` produced consecutive
-  projects with 16 populated lanes, 447 placements, no missing sample
-  references, all ten categories, and an exact final tick of 1536.
+  percussion-free ocean-air breakdown and full Ibiza peak, style-biased sample
+  selection, Mixer/FX variety, native-BPM placement spans, seeded
+  reproducibility, exclusive auto-incremented output, the inclusive 20-400 BPM
+  boundary, explicit filename labels, and rejection of bare numeric filename
+  tokens such as `_01_`.
+- `tmp/analyze-generator-bpm/` records the 8,014-file corpus inventory that
+  found no metadata BPM values, no explicit filename BPM labels, and only four
+  bare numeric filenames (`007`, `303`, `404`, and `666`). The inventory is the
+  evidence for treating bare filename numbers as identifiers.
+- A real-corpus generator run against `tmp/test-samples` produced a project
+  with 16 populated lanes, 339 placements using 26 distinct samples, no
+  missing sample references, all 11 categories, and an exact final tick of
+  2240.
 - `tmp/verify-project-save-load/evidence.md` records production-bundle browser
   assertions and screenshots.
 

@@ -155,6 +155,23 @@ Implementation validation should be tracked in implementation PR/test evidence.
   full real app (browser backend, folder gating, theming) with no mock or demo data; window-resize
   calls are no-ops.
 
+## Native Window Evidence
+
+`tests/electron/smoke.spec.ts` queries the live Windows `BrowserWindow` through
+Playwright's Electron main-process bridge. It verifies the centered 1280 by
+720 non-resizable/non-maximizable Home state, the centered 1920 by 1080
+resizable/maximizable Player state, and the return to Home. The renderer unit
+suite separately verifies that the Home and Player navigation actions invoke
+those shell capabilities.
+
+The Windows-only `scripts/inspect-window-icon.ps1` probe reads the icon from the
+live HWND and compares it with a 32 by 32 PNG rendered from `public/app-icon.ico`
+by Electron's `nativeImage` implementation. The current probe measured a mean
+absolute channel difference of 6.53 and 98.69 percent foreground overlap,
+confirming the live MixJam skull rather than only the source asset's existence.
+Raw bounds, display work area, frame states, icon metrics, and screenshots are
+stored under `tmp/verify-electron-window-state/`.
+
 ## Non-Goals (deferred to later specs)
 
 - No theme switching — the app renders with a single hardcoded default look.

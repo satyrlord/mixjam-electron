@@ -1,8 +1,7 @@
 # Spec 005 — Audio Playback Engine
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIALLY IMPLEMENTED — 999-bar capacity and
-content-derived song-end behavior are pending
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-003 (Folder & App State Management)
 
 ## Objective
@@ -69,6 +68,8 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   resets the playhead to tick 0. Play on an empty project remains stopped at
   tick 0. Explicit navigation to the end may park the stopped playhead at
   `songEndTick`; it is not treated as natural playback reaching the boundary.
+  Pressing Play from that parked end synchronizes the engine and visual
+  playhead to tick 0 before preparation, then starts from the beginning.
 - If an edit shortens the song below the current playhead, a stopped or paused
   playhead and its view clamp to the new `songEndTick`. During playback, the
   same edit applies the natural-end rule and resets to tick 0.
@@ -220,16 +221,29 @@ the engine never knows who is listening.
 - [x] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
 - [x] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.
 - [x] **AC-013:** A soloed lane plays; all non-soloed lanes are silent. Un-soloing restores normal playback.
-- [ ] **AC-014:** The engine exposes the 999-bar capacity boundary of 31,968
+- [x] **AC-014:** The engine exposes the 999-bar capacity boundary of 31,968
   ticks separately from `songEndTick`, which equals the exact maximum
   `startTick + durationTicks` across all placements and is 0 for an empty song.
-- [ ] **AC-015:** Playback continues across internal silent gaps before
+- [x] **AC-015:** Playback continues across internal silent gaps before
   `songEndTick`; naturally reaching the end stops playback and resets the
-  playhead to tick 0, while Play on an empty song remains stopped at tick 0.
-- [ ] **AC-016:** Muting, soloing, or losing a referenced sample file does not
+  playhead to tick 0, Play from an explicitly parked end restarts at tick 0,
+  and Play on an empty song remains stopped at tick 0.
+- [x] **AC-016:** Muting, soloing, or losing a referenced sample file does not
   change `songEndTick`. If an edit shortens the song behind the playhead,
   stopped or paused navigation clamps to the new end, while active playback
   stops and resets to tick 0.
+
+## Song-Boundary Implementation Evidence
+
+- `src/renderer/src/lib/arrangement.test.ts` verifies the 31,968-tick capacity,
+  exact latest-placement end across silent gaps and muted lanes, empty-song
+  zero, complete-placement clamping, oversized-sample rejection, and
+  offset-preserving group clamping.
+- `src/renderer/src/hooks/useTransportEngine.test.ts` verifies empty-song Play,
+  exact Jump to End parking, delayed replay from the parked end, natural-end
+  stop/reset, and edit-time playhead clamping.
+- `src/renderer/src/project/project-file.test.ts` rejects persisted placements
+  beyond capacity and proves sparse project serialization.
 
 ## Non-Goals
 

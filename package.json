@@ -20,7 +20,9 @@
     "test:all": "npm run test && npm run test:e2e",
     "coverage:all": "npm run test:coverage && npm run test:e2e:coverage",
     "coverage:report": "node scripts/merge-coverage.mjs",
-    "generate:mixer-test-song": "tsx scripts/generate-mixer-test-song.ts"
+    "generate:mixer-test-song": "tsx scripts/generate-mixer-test-song.ts",
+    "measure:analysis-corpus": "tsx scripts/measure-analysis-corpus.ts",
+    "measure:song-progress-performance": "npm run build && node scripts/measure-song-progress-performance.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -9,6 +9,8 @@ in two halves:
 2. A **tracker/player** for arranging and playing back those samples — deliberately
    eJay/Sony Acid-simple, not a full DAW.
 
+This project is separate from MixJam Native (WinUI) and MixJam Web (React/Vite). Do not share schemas, docs, or code with them.
+
 Performance at that data scale and pixel-perfect CSS skinning are the two hard
 requirements that drive every architectural choice.
 
@@ -69,10 +71,14 @@ npm run coverage:report # merge collected coverage reports
 The SQL-layer and indexer suites run against sqlite-wasm with an in-memory
 database in a plain Node vitest project; everything else runs under jsdom.
 
-The test setup does not use vitest globals; `testing-library` auto-cleanup is
-disabled. `afterEach(cleanup)` is called from `src/renderer/src/test/setup.ts`.
-The shared BackendAPI mock for the renderer lives in
-`src/renderer/src/test/backendApi.ts`.
+### Test setup details
+
+- Vitest globals are disabled (`globals: false`). `testing-library` auto-cleanup is off. `setup.ts` calls `cleanup()` in `afterEach`.
+- The shared BackendAPI mock for the renderer lives in `src/renderer/src/test/backendApi.ts` (installed as `window.backendAPI`).
+- Vitest runs two projects: `renderer` (jsdom) for UI and app-state, and `backend` (node) for sqlite-wasm suites (`backend/library.test.ts`, `backend/indexer.test.ts`) using an in-memory database.
+- Indexer tests use a map-backed fake `FileSystemDirectoryHandle` plus generated minimal WAV files so `parseBlob` extracts real metadata.
+- `setup.ts` stubs `HTMLCanvasElement.getContext` with a no-op 2D context (jsdom's own throws "Not implemented"). Tests that assert drawing must install their own mock.
+- On Windows, call `setSize()` before `setResizable(false)` or the size call is silently ignored.
 
 ## Type-checking and linting
 
@@ -101,7 +107,7 @@ src/
       components/ UI components
       theme/      CSS variable theme loader
 docs/             Architecture and design documentation
-public/themes/    Skin JSON files
+public/themes/    Theme JSON files
 ```
 
 Some working directories are machine-local and gitignored: `tmp/` holds ad-hoc
@@ -113,15 +119,14 @@ renderer stays sandboxed with no `nodeIntegration`.
 
 ## Specs
 
-Feature specifications live in `docs/specs/`. Specs 001-004 and 007-011 are
-implemented. Specs 005-006 are partially implemented pending their validated
-999-bar capacity, content-derived song-end, and Jump to End revision. Spec 012
-is validated but not implemented, specs 013-016 are unvalidated stubs, and 017
-is an unvalidated draft. Check individual spec files for AC status and test
-evidence; test files live alongside the relevant source domain under `src/`.
+Feature specifications live in `docs/specs/`. Specs 001-011 are implemented.
+Spec 012 is validated but not implemented, specs 013-016 are unvalidated stubs,
+and 017 is an unvalidated draft. Check individual spec files for AC status and
+test evidence; test files live alongside the relevant source domain under
+`src/`.
 
-## Skinning
+## Theming and skinning
 
-The UI is skinnable via CSS custom properties. Skin definitions live in
-`public/themes/` as JSON files, are statically imported into the renderer bundle
-at build time, and can be switched at runtime.
+The UI is skinnable through named themes backed by CSS custom properties.
+Theme definitions live in `public/themes/` as JSON files, are statically
+imported into the renderer bundle at build time, and can be switched at runtime.
