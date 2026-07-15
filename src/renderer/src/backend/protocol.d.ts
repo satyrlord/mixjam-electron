@@ -19,7 +19,7 @@ export interface BackendCalls {
   querySamples: (req: SampleQueryRequest) => SampleQueryResponse
   hasSamples: (rootKey: string) => boolean
   listMissingRelpaths: (rootKey: string) => string[]
-  startScan: (rootKey: string) => void
+  startScan: (rootKey: string, uniformBatchConfirmed?: boolean) => void
   cancelScan: () => void
   getScanProgress: () => ScanProgress
   getAnalysisProgress: () => AnalysisProgress

@@ -94,9 +94,9 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     validateFolder,
     requestFolderAccess,
 
-    startScan: async (sampleFolder) => {
+    startScan: async (sampleFolder, uniformBatchConfirmed = false) => {
       requestStoragePersistence()
-      return call('startScan', sampleFolder.id)
+      return call('startScan', sampleFolder.id, uniformBatchConfirmed)
     },
     cancelScan: () => call('cancelScan'),
     getScanProgress: () => call('getScanProgress'),

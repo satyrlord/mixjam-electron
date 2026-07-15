@@ -160,8 +160,13 @@ is not a folder, copied collection, playlist, or set of duplicated files. See
 ## Middle Strip
 
 The complete full-width composite band in the [Player](#player). It includes
-the project name, [Transport Ribbon](#transport-ribbon), sample
-search, Re-scan, and Help. It is not a synonym for the Transport Ribbon. See
+the [Song Progress Bar](#song-progress-bar) as its first row, followed by the
+project name, [Transport Ribbon](#transport-ribbon), sample search, Re-scan,
+Uniform Re-scan, and Help. Uniform Re-scan is the explicit opt-in for a Sample
+Folder whose samples all share one tempo and key. The Middle Strip is fixed
+between the Tracker and Bottom Workspace, so Bottom Workspace resizing does not
+move the progress bar out of this band. It is not a synonym for the Transport
+Ribbon. See
 [spec 006](specs/spec-006-player-timeline-panels.md).
 
 ## Bottom Workspace
@@ -332,8 +337,10 @@ shorthand.
 
 ## Song Progress Bar
 
-The always-rendered, skinnable horizontal control below the [Tracker](#tracker)
-lanes. It shows and changes which part of the
+The always-rendered, skinnable horizontal control in the first row of the
+[Middle Strip](#middle-strip), directly below the [Tracker](#tracker). It is a
+direct child of the Middle Strip and remains there when the Bottom Workspace is
+resized. It shows and changes which part of the
 [arrangement capacity](#arrangement-capacity) is
 visible without seeking the playhead or changing transport state. Its thumb
 represents the visible fraction of that capacity and follows the Tracker's
@@ -391,7 +398,8 @@ and playhead progression. It is distinct from the visual
 
 The subregion of the [Middle Strip](#middle-strip) that contains transport
 controls and nothing else. The project name, sample search, Re-scan,
-and Help belong to the Middle Strip but are outside the Transport Ribbon.
+Uniform Re-scan, and Help belong to the Middle Strip but are outside the
+Transport Ribbon.
 
 ## User Folder
 

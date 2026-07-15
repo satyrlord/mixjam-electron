@@ -94,8 +94,10 @@ mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-man
 
 Analysis provenance is stored per field so a manual BPM does not prevent a
 missing key or sample type from being analyzed. Clearing a manual value clears
-both its value and source. Analysis writes only NULL fields whose source is not
-`manual`. `sample_type` is acoustic metadata; `category_id` remains the
+both its value and source. Re-analysis refreshes each non-manual field and may
+clear a stale automatic value when readable bytes do not produce that field;
+fields whose source is `manual` remain unchanged. `sample_type` is acoustic
+metadata; `category_id` remains the
 spec-004 organizational folder/user category and analysis never overwrites it.
 
 `PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).

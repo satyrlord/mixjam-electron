@@ -48,25 +48,46 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 
 ## Resolved decisions — do not reopen
 
-- Web-first: one browser backend, thin Electron shell. No demo/mock mode (onboarding without samples is spec-013).
+- Web-first: one browser backend, thin Electron shell. No demo/mock mode
+  (onboarding without samples is spec-013).
 - `@sqlite.org/sqlite-wasm` with opfs-sahpool VFS. One tab, enforced by Web Lock.
-- `rule_json` predicate tree compiles to parameterized SQL. Current executable subset: one `and` group with optional text, one category, tag-any leaves. Do not extend before validator and full compiler land (see `docs/query-schema.md`).
+- `rule_json` predicate tree compiles to parameterized SQL. Current executable subset:
+  one `and` group with optional text, one category, tag-any leaves.
+  Do not extend before validator and full compiler land (see `docs/query-schema.md`).
 - Two-phase background indexer, `(size, mtime)` change detection, soft-delete for missing files.
 - Web Audio API lookahead scheduler for v1; native addon only if latency triggers it.
 - Library export out of scope for v1.
 
 ## Session conventions
 
-- **Parallel subagents first.** Prefer dispatching independent work (search, file reads, research, audits) to parallel `Explore` subagents. The main agent is the orchestrator — keep it free and interactive for the user to interrupt without blocking background work.
-- **Working tree is shared.** Re-read files before editing if any time has passed since your last read. Check `git log`/`git status` before summarizing changes.
+- **Parallel subagents first.** Prefer dispatching independent work (search, file reads, research, audits)
+  to parallel `Explore` subagents. The main agent is the orchestrator — keep it free and interactive
+  for the user to interrupt without blocking background work.
+- **Working tree is shared.** Re-read files before editing if any time has passed since your last read. Check `git log`/`git status` before summarizing changes. Avoid overlapping edits unless ownership and merge order are explicit. Assume concurrent workers may share the same workspace.
 - **Newer, more specific doc wins** in conflicts with this file. Follow the newer doc, then update both.
-- **Skip scaffolding** that only exists to keep intermediate states shippable across sessions when all phases land in one session.
+- **Skip scaffolding** that only exists to keep intermediate states shippable across sessions when all phases land in one session. Retain temporary compatibility or migration work only when it serves a real deployment, review, rollback, or risk-control need.
 - **Performance claims need real data.** Use `tmp/test-samples` fixtures, not synthetic files. Flag missing measurements explicitly.
 - **Deploy-origin checks:** verify browser build on a local static server (no COOP/COEP headers). Do not push branches just to test an origin.
-- **Close-out before finishing:** run a self-critique pass. List: (1) least confident items with concrete verification commands, (2) skipped or deferred work, (3) unstated assumptions, (4) biggest blind spot for the user. Log results in the handoff. Do not start fixing gaps — let the handoff carry them.
-- **Fresh-eyes audit** for large/risky changes: paste the handoff into a new agent context and ask "Evaluate this. Anything missed?"
+- **Close-out before finishing:** run a self-critique pass. List: (1) least confident items with concrete verification commands, (2) skipped or deferred work, (3) unstated assumptions,
+  (4) biggest blind spot for the user. Log results in the handoff. Do not start fixing gaps — let the handoff carry them.
+- **Fresh-eyes audit** for large/risky changes: paste the handoff into a new agent context and ask
+  "Evaluate this. Anything missed?"
 - **Anti-pattern:** asking the agent to investigate its own doubts without a concrete check. Always pair uncertainty with a specific verification step.
 - **Anti-pattern:** repeated "are you sure?" — use the concrete verification step instead.
+
+## Evidence and uncertainty
+
+- Distinguish clearly between:
+  - Verified facts.
+  - Evidence-supported inferences.
+  - Assumptions.
+  - Unresolved questions.
+- Do not speculate about material facts. Resolve uncertainty by:
+  1. Inspecting the system or source material directly.
+  2. Checking authoritative documentation.
+  3. Running a specific test, command, query, or experiment.
+  4. Asking the user when the ambiguity cannot be resolved from available evidence.
+- State any uncertainty that remains after verification.
 
 ## Test gotchas
 

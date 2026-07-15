@@ -38,7 +38,7 @@ export interface PlayerBrowserProps {
   onSelectCategory: (id: number | undefined) => void
   onToggleTagFilter: (id: number) => void
   onSortChange: (col: SampleSortColumn) => void
-  onStartScan: () => void
+  onStartScan: (uniformBatchConfirmed?: boolean) => void
   onCancelScan: () => void
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>

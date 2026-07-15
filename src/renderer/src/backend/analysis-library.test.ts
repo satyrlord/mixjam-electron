@@ -54,6 +54,20 @@ describe('analysis persistence', () => {
     })
   })
 
+  it('replaces prior automatic values, including newly absent results', () => {
+    applyAnalysisResult(db, sampleId, { bpm: 90, musicalKey: 'C', sampleType: 'Kick' })
+    applyAnalysisResult(db, sampleId, { bpm: null, musicalKey: null, sampleType: 'Bass' })
+
+    expect(querySamples(db, { rootId: 'analysis-root' }).rows[0]).toMatchObject({
+      bpm: null,
+      bpmSource: null,
+      musicalKey: null,
+      musicalKeySource: null,
+      sampleType: 'Bass',
+      sampleTypeSource: 'analysis'
+    })
+  })
+
   it('AC-008: clearing one override makes that field analyzable again', () => {
     updateSampleAnalysis(db, sampleId, { bpm: 133, musicalKey: 'Am' })
     updateSampleAnalysis(db, sampleId, { bpm: null })

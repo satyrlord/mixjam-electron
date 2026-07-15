@@ -28,8 +28,10 @@ category tree or tags.
 
 - Runs in a background worker/thread — never blocks the UI.
 - Triggered after indexing (spec-004 phase 2 completes).
-- Processes samples where BPM/key/sample type are NULL and not manually
-  overridden.
+- Re-scan refreshes every automatic BPM, key, and sample-type value for the
+  active Sample Folder using per-file analysis. Per-field manual overrides are
+  never replaced. Readable unsupported or damaged bytes clear stale automatic
+  values; a transient file-read failure preserves them for a later retry.
 - Reports progress: `{ analyzed: N, total: M }`.
 - `scan-done` exposes the indexed library before analysis begins. Analysis then
   reports its own progress and emits `analysis-done`, which refreshes the
@@ -49,6 +51,38 @@ category tree or tags.
 - Chromagram analysis (Krumhansl-Schmuckler or similar key-finding algorithm).
 - Returns key as string (e.g. "Am", "C#", "Fm") or NULL.
 - User can manually set/override key per sample.
+
+### Uniform-Batch Calibration
+
+- Per-file BPM and key detection remains the first pass. Ordinary Re-scan never
+  applies whole-batch calibration. **Uniform Re-scan** asks the user to confirm
+  that every sample in the folder shares one tempo and key before the batch
+  runner may reconcile one-shots, partial phrases, and subdivision aliases.
+- Confirmation is the uniform-library contract. The duration and acoustic
+  guards below are additional error protection; they cannot distinguish every
+  genuine mixed-tempo pair from a subdivision-alias pair.
+- Tempo candidates come from integer beat counts over each decoded duration,
+  limited to 80-180 BPM and grouped in 0.5 BPM bins. Calibration requires at
+  least 16 decoded files, support from at least 90 percent of the batch, and a
+  winning bin at least 1.05 times the runner-up support. A duration-grid winner
+  must also have at least 16 acoustic BPM detections and agree with the
+  detected-BPM alias family of at least 55 percent of those detections. This
+  rejects a shared duration alias that is not supported by the audio.
+- Key calibration is allowed only after uniform tempo is established. The
+  leading per-file key must have at least 16 detections, at least 55 percent of
+  detected-key votes, and at least twice the runner-up support.
+- In a confirmed Uniform Re-scan, inferred BPM and key replace all automatic
+  results when their guards pass. This whole-batch relabeling is deliberate:
+  the user's uniform-folder contract is stronger than known one-shot and
+  subdivision aliases in the per-file heuristics. Manual overrides remain
+  protected by per-field provenance checks. A batch that is not confirmed, or
+  that fails a guard, keeps its per-file result for that field.
+- Per-file results are persisted before analysis progress advances. The final
+  calibration rewrite is one SQLite transaction, so cancellation cannot leave
+  only a calibrated prefix. A later Re-scan replaces prior `analysis` values
+  and naturally resumes after an interrupted pass.
+- Individual re-analysis has no batch context and therefore keeps the per-file
+  acoustic result.
 
 ### Sample Type Classification
 
@@ -105,15 +139,28 @@ field "Type" to keep the two concepts distinct.
 - [x] **AC-009:** The per-sample editor opens in a viewport-aware modal popover
   from the sample context menu, and batch status exposes native progress
   semantics with a visible text equivalent.
+- [x] **AC-010:** On the user-confirmed 140 BPM/A-minor corpus under
+  `tmp/test-samples`, at least 90 percent of all WAV files are within 5 BPM of
+  140 and at least 90 percent are exactly `Am`; NULL results count as misses.
+  The uniform-batch guards must still leave controlled mixed-tempo, mixed-key
+  batches unchanged, including a duration-alias batch split evenly between 80
+  and 90 BPM. Ordinary Re-scan must also preserve a controlled 100/150 BPM
+  alias-family mix, while confirmed Uniform Re-scan may calibrate the known
+  uniform corpus. Re-scan must replace stale `analysis` values, clear confirmed
+  unsupported automatic results, and preserve every manual field.
 
 ## Implementation Evidence
 
 - `analysis.test.ts` uses controlled PCM fixtures to verify ±5 BPM detection,
-  C-major key detection, kick classification, and WAV decoding.
+  C-major key detection, kick classification, WAV decoding, uniform-batch
+  calibration, and refusal to flatten a mixed-tempo/mixed-key batch.
 - `analysis-library.test.ts` verifies automatic/manual provenance, preservation
   of all three manual fields, and clear-then-reanalyze behavior in SQLite.
 - `analysis-runner.test.ts` verifies batch and single-sample progress,
-  cancellation, persistence, and per-file read-failure isolation.
+  cancellation, durable per-file persistence, atomic calibration, replacement
+  of stale automatic values, regular versus confirmed-uniform behavior,
+  clearing confirmed unsupported results, transient read-failure isolation,
+  and manual-field preservation.
 - `schema.test.ts` verifies the v1-to-v2 provenance migration is restart-safe.
 - `SampleBrowser.test.tsx` verifies the per-sample editor, clearing, and the
   individual re-analysis action, including that numerically equivalent BPM
@@ -130,24 +177,31 @@ field "Type" to keep the two concepts distinct.
 The current corpus contains 8,014 WAV files (2,748,710,958 bytes) with SHA-256
 `a67f38f505f7e52f6b26d45ac4b706014035fdf09452bd44f9b1033731f16dbc`.
 The corpus owner confirms that every file is 140 BPM and A minor. A sequential
-production `analyzeWav` measurement on an Intel i7-11700 with Node 24.18.0
-found:
+production `decodeWav` plus `analyzeDecodedAudio` pass followed by the same
+uniform-batch calibration used by `analysis-runner.ts` found:
 
 - all 8,014 files decoded; none were unsupported or failed;
-- BPM was non-NULL for 7,363 files (91.88 percent coverage), but only 1,290
-  detected values (17.52 percent) were within the AC-003 plus or minus 5 BPM
-  window around 140 BPM;
-- key was non-NULL for 6,264 files (78.16 percent coverage), and 3,651 detected
-  values (58.29 percent) were exactly `Am`;
+- the duration-grid vote inferred 140 BPM from 7,856 files (98.03 percent),
+  ahead of the 6,527-vote runner-up, while 4,484/7,363 acoustic BPM
+  detections (60.90 percent) supported its alias family; the guarded key vote
+  inferred `Am` from 3,651 raw detections, ahead of 1,366 `Dm` runner-up
+  detections;
+- final BPM coverage and accuracy were 8,014/8,014 (100 percent overall within
+  plus or minus 5 BPM), and final key coverage and accuracy were 8,014/8,014
+  (100 percent overall exact `Am`);
+- before calibration, the same pass produced 7,363 non-NULL BPM values with
+  only 1,290/8,014 (16.10 percent overall) within the target window, plus 6,264
+  non-NULL keys with 3,651/8,014 (45.56 percent overall) exactly `Am`;
 - sample type was non-NULL for all 8,014 files; no classification-accuracy
   claim is made because folder names are not ground truth;
-- three timed passes took 141.627, 141.534, and 142.276 seconds. Their average
-  was 141.812 seconds, 56.51 files per second, and 19.38 MB per second.
+- the correctness-only pass took 154.417 seconds, 51.90 files per second, and
+  17.80 MB per second on the recorded machine.
 
-These results establish current-corpus coverage, accuracy limitations, and
-sequential throughput; they do not change the algorithm or claim a 100k-file
-performance result. `npm run measure:analysis-corpus` reproduces the
-measurement, and `tmp/measure-analysis-corpus/` contains raw per-file evidence.
+These results establish the current-corpus target and guarded calibration
+behavior; they do not claim cross-library or 100k-file performance.
+`ANALYSIS_TIMED_RUNS=0 npm run measure:analysis-corpus` reproduces the
+correctness pass, and `tmp/measure-analysis-corpus/` contains raw and calibrated
+per-file evidence.
 
 The earlier historical baseline measured 684 WAV files (379,291,366 bytes) at
 corpus revision `37735a88cf9f9c5ca6186b24aafb03c61416eb11`:
@@ -171,5 +225,7 @@ one-shots, and instruments and therefore do not establish classifier accuracy.
   waveform remains a playback/browser feature, not analysis output.
 - No ML-based classification — purely heuristic.
 - No cross-library analysis accuracy guarantees.
-- No batch re-analysis trigger (individual only in v1).
+- No inferred or automatic whole-batch relabeling. Uniform Re-scan is an
+  explicit user-confirmed folder-wide action; the context-menu action remains
+  individual.
 - No automatic decoding for MP3, FLAC, OGG, or AIFF in v1.

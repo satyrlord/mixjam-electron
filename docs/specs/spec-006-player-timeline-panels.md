@@ -64,8 +64,9 @@ browser adjacencies.
   │           └── .lane × 16    — 52px height each
   │               ├── .lane-head — 220px: name, M/S buttons, pan knob
   │               └── .lane-canvas — clip placement area
-  │       └── .song-progress-bar — persistent horizontal timeline navigation
-  ├── .middle-strip     — 56px, full-width transport + global status band
+  ├── .middle-strip     — 100px, fixed full-width global-control band
+  │   ├── .song-progress-bar — 44px persistent timeline navigation row
+  │   └── .middle-strip-main — remaining transport + global status row
   └── .bottom-workspace — full-width tabbed work band
       ├── .bottom-workspace-tabs — Song | Mixer | FX | Samples + song status
       └── .bottom-workspace-panel — active peer panel
@@ -86,8 +87,10 @@ browser adjacencies.
   and Samples are peer tabs; future peer workflows append tabs to the same
   tablist instead of adding another reveal system.
 - The **Middle Strip** is a fixed, full-width band between the upper and lower
-  work areas. Its center Transport Ribbon contains transport controls only;
-  project name, search, Re-scan, and Help remain outside that subregion.
+  work areas. The Song Progress Bar is its first row and cannot scroll or resize
+  with the Tracker. Its center Transport Ribbon contains transport controls
+  only; project name, search, Re-scan, Uniform Re-scan, and Help remain outside
+  that subregion.
 - The **Sample Browser** lives in the Samples panel and owns its internal
   category-tree/sample-list split.
 
@@ -173,8 +176,9 @@ browser adjacencies.
   horizontal scroll position. Lane heads and the ruler's lane-head spacer stay
   pinned while the rest of the song moves beneath them.
 - The **Song Progress Bar** is the only visible horizontal timeline-navigation
-  control. It is always rendered below the lanes, uses theme tokens for its
-  track, thumb, hover, focus, and disabled states, and remains visible but
+  control. It is always rendered as the first row of the Middle Strip, directly
+  below the Tracker, uses theme tokens for its track, thumb, hover, focus, and
+  disabled states, and remains visible but
   disabled when the song is no wider than the Tracker viewport. Native
   horizontal scrollbar chrome is hidden so operating-system auto-hide behavior
   cannot remove the control.
@@ -273,8 +277,8 @@ browser adjacencies.
   - Stop (returns to tick 0 and stops).
   - Undo / Redo — separated by a seam, disabled when the respective history
     stack is empty (see Undo/Redo below).
-- Right segment: search, Re-scan, and a "?" help button that opens the
-  keyboard-shortcuts overlay.
+- Right segment: search, Re-scan, the confirmed Uniform Re-scan action, and a
+  "?" help button that opens the keyboard-shortcuts overlay.
 - Transport commands use at least 44px targets, Play is a 48px dominant action,
   and search is a full-height 44px field. Actionable labels are at least 13px;
   secondary labels are at least 12px.
@@ -456,14 +460,16 @@ visible across themes and viewport sizes.
   disabled when the full arrangement capacity fits the viewport. Its
   `aria-controls` target is the actual Tracker scrollport ID supplied by the
   parent. Native horizontal scrollbar chrome is not the visible navigation
-  control.
+  control. The progress control is a DOM child of the fixed Middle Strip and is
+  fully bounded by that strip at supported Player sizes.
 - [x] **AC-011c:** The Tracker and Song Progress Bar expose all 999 bars in 4/4
   (31,968 ticks) at a minimum density of 42px per beat. Ruler ticks, placement
   bounds, seeking, and playhead limits use that capacity, independently of the
   content-derived `songEndTick`.
 - [x] **AC-011d:** The Tracker region is constrained to its upper-panel height,
-  so the always-rendered Song Progress Bar remains visible and pointer-operable
-  above the Middle Strip and Bottom Workspace at the 1920x1080 Player size.
+  while the always-rendered Song Progress Bar remains visible and
+  pointer-operable as the first row of the Middle Strip at the 1280x720 and
+  1920x1080 Player sizes.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
@@ -561,6 +567,10 @@ visible across themes and viewport sizes.
 - `tmp/verify-song-capacity/evidence.json` and its screenshots record a
   168,052px built timeline, grid maximum tick 31,960, exact Jump to End tick
   5,032 with scroll position 25,556, and Skip Back restoring both values to 0.
+- `tmp/verify-middle-strip-progress/` records built-Chromium geometry,
+  center-point hit testing, and screenshots at 1280x720 and 1920x1080. At both
+  sizes the Song Progress Bar is a visible DOM child fully bounded by the
+  100px Middle Strip.
 - `npm run measure:song-progress-performance` reproduces the full-capacity
   built-Chromium characterization under
   `tmp/verify-song-progress-performance/`. Six raw CDP traces cover a real

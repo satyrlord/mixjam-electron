@@ -225,7 +225,7 @@ export interface BackendAPI {
   /** Re-requests permission for a stored handle (must run in a user gesture).
    *  Returns true when access was (re-)granted. */
   requestFolderAccess: (ref: FolderRef, role: FolderRole) => Promise<boolean>
-  startScan: (sampleFolder: FolderRef) => Promise<void>
+  startScan: (sampleFolder: FolderRef, uniformBatchConfirmed?: boolean) => Promise<void>
   cancelScan: () => Promise<void>
   getScanProgress: () => Promise<ScanProgress>
   getAnalysisProgress: () => Promise<AnalysisProgress>

@@ -4,6 +4,60 @@ import { TRACKER_TOTAL_TICKS } from '../../src/renderer/src/lib/arrangement'
 
 const TRACKER_LAST_GRID_TICK = Math.floor((TRACKER_TOTAL_TICKS - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
 
+for (const viewport of [
+  { width: 1280, height: 720 },
+  { width: 1920, height: 1080 }
+]) {
+  test(`Song Progress Bar stays fixed in the Middle Strip at ${viewport.width}x${viewport.height}`, async ({ seededPage: page }) => {
+    await page.setViewportSize(viewport)
+    await page.getByRole('button', { name: 'Start New MixJam' }).click()
+
+    const middleStrip = page.locator('.middle-strip')
+    const progress = page.getByRole('scrollbar', { name: 'Song Progress Bar' })
+    const resizeHandle = page.getByRole('separator', { name: 'Resize bottom workspace' })
+    await expect(progress).toBeVisible()
+    await expect(middleStrip).toContainText('Open')
+
+    const assertProgressGeometry = async () => {
+      const geometry = await middleStrip.evaluate((strip, control) => {
+        if (!(control instanceof HTMLElement)) throw new Error('Song Progress Bar is unavailable')
+        const stripBox = strip.getBoundingClientRect()
+        const progressBox = control.getBoundingClientRect()
+        const centerX = progressBox.left + progressBox.width / 2
+        const centerY = progressBox.top + progressBox.height / 2
+        const hit = document.elementFromPoint(centerX, centerY)
+        return {
+          isDirectChild: control.parentElement === strip,
+          isCenterHit: hit === control || (hit !== null && control.contains(hit)),
+          strip: { top: stripBox.top, bottom: stripBox.bottom, height: stripBox.height },
+          progress: { top: progressBox.top, bottom: progressBox.bottom },
+          viewportHeight: window.innerHeight
+        }
+      }, await progress.elementHandle())
+
+      expect(geometry.isDirectChild).toBe(true)
+      expect(geometry.isCenterHit).toBe(true)
+      expect(geometry.progress.top).toBeGreaterThanOrEqual(geometry.strip.top)
+      expect(geometry.progress.bottom).toBeLessThanOrEqual(geometry.strip.bottom)
+      expect(geometry.progress.bottom).toBeLessThanOrEqual(geometry.viewportHeight)
+      return geometry
+    }
+
+    const beforeResize = await assertProgressGeometry()
+    const resizeBox = await resizeHandle.boundingBox()
+    if (!resizeBox) throw new Error('Bottom Workspace resize handle is unavailable')
+    await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + resizeBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y - 60, { steps: 8 })
+    await page.mouse.up()
+    await expect.poll(async () => (await resizeHandle.boundingBox())?.y ?? resizeBox.y)
+      .toBeLessThan(resizeBox.y)
+
+    const afterResize = await assertProgressGeometry()
+    expect(afterResize.strip.height).toBe(beforeResize.strip.height)
+  })
+}
+
 test('ruler clicks and the playhead share the musical origin at zero and nonzero scroll', async ({ seededPage: page }) => {
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await expect(page.getByText('Lane 1', { exact: true })).toBeVisible()

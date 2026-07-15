@@ -196,7 +196,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     renderPlayer({ samples: [], totalCount: 0 })
     expect(screen.getByRole('searchbox', { name: /search samples/i })).toBeInTheDocument()
     // Result count renders in subcats-count when there are results; strip has scan controls
-    expect(screen.getByRole('button', { name: /re-scan/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Re-scan' })).toBeInTheDocument()
   })
 
   // -------------------------------------------------------------------------
@@ -422,9 +422,31 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     const onStartScan = vi.fn().mockResolvedValue(undefined)
     renderPlayer({ scanProgress: IDLE_PROGRESS, onStartScan })
 
-    fireEvent.click(screen.getByRole('button', { name: /re-scan/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Re-scan' }))
 
     await waitFor(() => expect(onStartScan).toHaveBeenCalledTimes(1))
+    expect(onStartScan).toHaveBeenCalledWith()
+  })
+
+  it('Uniform Re-scan requires confirmation and opts into batch calibration', async () => {
+    const onStartScan = vi.fn().mockResolvedValue(undefined)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPlayer({ scanProgress: IDLE_PROGRESS, onStartScan })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Uniform Re-scan' }))
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('every sample shares one tempo and key'))
+    await waitFor(() => expect(onStartScan).toHaveBeenCalledWith(true))
+  })
+
+  it('Uniform Re-scan does not start when confirmation is declined', () => {
+    const onStartScan = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderPlayer({ scanProgress: IDLE_PROGRESS, onStartScan })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Uniform Re-scan' }))
+
+    expect(onStartScan).not.toHaveBeenCalled()
   })
 
   // -------------------------------------------------------------------------

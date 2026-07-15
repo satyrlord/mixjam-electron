@@ -51,7 +51,7 @@ const ready: Promise<ReadyState> = (async () => {
   return { db, calls: buildCalls(db) }
 })()
 
-function startScan(db: DB, rootKey: string): void {
+function startScan(db: DB, rootKey: string, uniformBatchConfirmed = false): void {
   const generation = ++scanGeneration
   const isCurrent = (): boolean => generation === scanGeneration
 
@@ -96,7 +96,7 @@ function startScan(db: DB, rootKey: string): void {
         if (!isCurrent()) return
         analysisProgress = next
         emitEvent({ type: 'analysis-progress', progress: analysisProgress })
-      }, isCurrent)
+      }, isCurrent, uniformBatchConfirmed)
       if (!isCurrent()) return
       analysisProgress = { ...ANALYSIS_IDLE }
       emitEvent({ type: 'analysis-done' })
@@ -156,7 +156,8 @@ function buildCalls(db: DB): BackendCalls {
       library.querySamples(db, normalizeSampleQueryRequest(req)),
     hasSamples: (rootKey) => library.hasSamples(db, rootKey),
     listMissingRelpaths: (rootKey) => library.listMissingRelpaths(db, rootKey),
-    startScan: (rootKey) => startScan(db, rootKey),
+    startScan: (rootKey, uniformBatchConfirmed = false) =>
+      startScan(db, rootKey, uniformBatchConfirmed),
     cancelScan: () => cancelScan(),
     getScanProgress: () => ({ ...progress }),
     getAnalysisProgress: () => ({ ...analysisProgress }),

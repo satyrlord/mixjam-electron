@@ -56,8 +56,16 @@ available immediately. The same backend worker then decodes PCM/IEEE-float WAV
 files sequentially and extracts BPM, musical key, and acoustic sample type.
 Analysis has its own `{ status, analyzed, total }` progress events and yields to
 the worker event loop after every file so library queries continue to interleave.
-Only NULL, non-manual fields are written. Peak memory stays bounded to one
-decoded sample; `analysis-done` refreshes the current windowed renderer query.
+Each per-file result is committed before its progress count advances. Re-scan
+replaces prior `analysis` values but never manual fields. The worker retains
+only compact result summaries; decoded PCM remains bounded to one sample.
+Ordinary Re-scan stops after per-file analysis. Uniform Re-scan requires an
+explicit user confirmation that the whole folder shares one tempo and key,
+then commits guarded calibration in one transaction. In both paths,
+`analysis-done` refreshes the current windowed renderer query.
+
+Readable unsupported or damaged bytes clear stale non-manual analysis. A
+transient failure to read the file preserves prior metadata for a later retry.
 
 Manual values carry per-field `manual` provenance and survive re-scan and
 re-analysis. Clearing an override clears its source and permits the individual

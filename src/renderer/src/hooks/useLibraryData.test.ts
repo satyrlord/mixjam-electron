@@ -393,8 +393,21 @@ describe('useLibraryData', () => {
       await result.current.startLibraryScan()
     })
 
-    expect(api.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER)
+    expect(api.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER, false)
     expect(result.current.scanProgress.status).toBe('scanning')
+  })
+
+  it('passes confirmed uniform-batch calibration to the backend', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+    await act(async () => {
+      await result.current.startLibraryScan(true)
+    })
+
+    expect(api.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER, true)
   })
 
   it('reloadMixJamFiles refreshes from backendAPI', async () => {

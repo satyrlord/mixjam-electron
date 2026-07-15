@@ -1029,6 +1029,8 @@ describe('PlayerView', () => {
       'aria-controls',
       'tracker-song-scrollport'
     )
+    expect(screen.getByRole('scrollbar', { name: 'Song Progress Bar' }).closest('.middle-strip'))
+      .not.toBeNull()
     expect(css).toMatch(/\.tracker-lanes\s*\{[^}]*overflow-y:\s*auto;[^}]*overflow-x:\s*auto;/m)
     expect(css).toMatch(/\.tracker-lanes::-webkit-scrollbar:horizontal\s*\{[^}]*height:\s*0;/m)
     expect(css).toMatch(/\.tracker-ruler-spacer\s*\{[^}]*position:\s*sticky;[^}]*left:\s*0;/m)

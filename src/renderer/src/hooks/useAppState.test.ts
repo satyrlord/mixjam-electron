@@ -151,7 +151,7 @@ describe('useAppState', () => {
       await result.current.startLibraryScan()
     })
 
-    expect(backendAPI.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER)
+    expect(backendAPI.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER, false)
   })
 
   it('places a sample on a lane via drag-and-drop', async () => {

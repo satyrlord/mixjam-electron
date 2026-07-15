@@ -25,7 +25,6 @@ import SongControlsMain from './SongControlsMain'
 import MixerColumn from './MixerColumn'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
-import SongProgressBar from './SongProgressBar'
 import ShortcutsOverlay from './ShortcutsOverlay'
 import EffectsWorkspace from './EffectsWorkspace'
 import BottomWorkspace, {
@@ -589,12 +588,13 @@ export default function PlayerView({
             </ContextMenuContent>
           )}
         </ContextMenuRoot>
-        <SongProgressBar scrollportRef={lanesRef} scrollportId={TRACKER_SCROLLPORT_ID} />
               </section>
             </Panel>
           </PanelGroup>
 
           <MiddleStrip
+        trackerScrollportRef={lanesRef}
+        trackerScrollportId={TRACKER_SCROLLPORT_ID}
         projectName={project.name}
         projectDirty={project.dirty}
         projectBusy={project.busy}

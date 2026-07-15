@@ -55,7 +55,7 @@ export interface LibraryDataActions {
   setSearchQuery: (query: string) => void
   setSelectedCategoryId: (id: number | undefined) => void
   setSelectedTagIds: React.Dispatch<React.SetStateAction<number[]>>
-  startLibraryScan: () => Promise<void>
+  startLibraryScan: (uniformBatchConfirmed?: boolean) => Promise<void>
   cancelLibraryScan: () => Promise<void>
   /** Fetches the next windowed page of the current query (DB pipeline only). */
   loadMoreSamples: () => void
@@ -378,9 +378,9 @@ export function useLibraryData(
     return () => { active = false }
   }, [backendAPI])
 
-  const startLibraryScan = useCallback(async () => {
+  const startLibraryScan = useCallback(async (uniformBatchConfirmed = false) => {
     if (!sampleFolder || analysisProgress.status === 'analyzing') return
-    await backendAPI.startScan(sampleFolder)
+    await backendAPI.startScan(sampleFolder, uniformBatchConfirmed)
     setScanProgress({ status: 'scanning', phase: 1, found: 0, processed: 0, total: 0 })
   }, [analysisProgress.status, backendAPI, sampleFolder])
 

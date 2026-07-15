@@ -66,9 +66,9 @@ export function listAnalysisCandidates(db: DB, rootId: number): AnalysisCandidat
   return db.prepare(
     `SELECT id, relpath FROM samples
      WHERE root_id = ? AND scan_state = 1 AND (
-       (bpm IS NULL AND COALESCE(bpm_source, '') != 'manual') OR
-       (musical_key IS NULL AND COALESCE(musical_key_source, '') != 'manual') OR
-       (sample_type IS NULL AND COALESCE(sample_type_source, '') != 'manual')
+       COALESCE(bpm_source, '') != 'manual' OR
+       COALESCE(musical_key_source, '') != 'manual' OR
+       COALESCE(sample_type_source, '') != 'manual'
      ) ORDER BY id`
   ).all<AnalysisCandidate>(rootId)
 }
@@ -76,24 +76,31 @@ export function listAnalysisCandidates(db: DB, rootId: number): AnalysisCandidat
 export function applyAnalysisResult(
   db: DB,
   sampleId: number,
-  result: { bpm: number | null; musicalKey: string | null; sampleType: SampleType }
+  result: { bpm: number | null; musicalKey: string | null; sampleType: SampleType | null }
 ): void {
-  if (result.bpm !== null) {
-    db.prepare(
-      `UPDATE samples SET bpm = ?, bpm_source = 'analysis'
-       WHERE id = ? AND bpm IS NULL AND COALESCE(bpm_source, '') != 'manual'`
-    ).run(result.bpm, sampleId)
-  }
-  if (result.musicalKey !== null) {
-    db.prepare(
-      `UPDATE samples SET musical_key = ?, musical_key_source = 'analysis'
-       WHERE id = ? AND musical_key IS NULL AND COALESCE(musical_key_source, '') != 'manual'`
-    ).run(result.musicalKey, sampleId)
-  }
   db.prepare(
-    `UPDATE samples SET sample_type = ?, sample_type_source = 'analysis'
-     WHERE id = ? AND sample_type IS NULL AND COALESCE(sample_type_source, '') != 'manual'`
-  ).run(result.sampleType, sampleId)
+    `UPDATE samples SET
+       bpm = CASE WHEN COALESCE(bpm_source, '') != 'manual' THEN ? ELSE bpm END,
+       bpm_source = CASE WHEN COALESCE(bpm_source, '') != 'manual'
+         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE bpm_source END,
+       musical_key = CASE WHEN COALESCE(musical_key_source, '') != 'manual'
+         THEN ? ELSE musical_key END,
+       musical_key_source = CASE WHEN COALESCE(musical_key_source, '') != 'manual'
+         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE musical_key_source END,
+       sample_type = CASE WHEN COALESCE(sample_type_source, '') != 'manual'
+         THEN ? ELSE sample_type END,
+       sample_type_source = CASE WHEN COALESCE(sample_type_source, '') != 'manual'
+         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE sample_type_source END
+     WHERE id = ?`
+  ).run(
+    result.bpm,
+    result.bpm,
+    result.musicalKey,
+    result.musicalKey,
+    result.sampleType,
+    result.sampleType,
+    sampleId
+  )
 }
 
 export function updateSampleAnalysis(db: DB, sampleId: number, patch: SampleAnalysisPatch): void {

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   analyzeDecodedAudio,
   analyzeWav,
+  calibrateConfirmedUniformBatch,
   classifySample,
   decodeWav,
   detectBpm,
@@ -142,6 +143,100 @@ describe('sample analysis DSP', () => {
 
   it('returns null for unsupported or damaged data', () => {
     expect(decodeWav(new ArrayBuffer(12))).toBeNull()
+  })
+})
+
+describe('batch analysis calibration', () => {
+  const features = {
+    rms: 0.1,
+    spectralCentroid: 800,
+    zeroCrossingRate: 0.05,
+    transientRatio: 3
+  }
+
+  it('uses a uniform duration grid and dominant key to resolve short, long, and aliased samples', () => {
+    const rawBpms = [70, 93.3, 140, 186.7]
+    const results = Array.from({ length: 24 }, (_, index) => ({
+      bpm: index < 4 ? null : rawBpms[index % rawBpms.length],
+      musicalKey: index < 14 ? 'Am' : index < 19 ? 'Dm' : null,
+      sampleType: 'Loop' as const,
+      features,
+      durationSeconds: (index + 1) * 60 / 140
+    }))
+
+    const calibrated = calibrateConfirmedUniformBatch(results)
+
+    expect(calibrated.calibration).toMatchObject({ bpm: 140, musicalKey: 'Am' })
+    expect(calibrated.results.every((result) => result.bpm === 140)).toBe(true)
+    expect(calibrated.results.every((result) => result.musicalKey === 'Am')).toBe(true)
+  })
+
+  it('does not flatten a mixed-tempo, mixed-key collection', () => {
+    const results = Array.from({ length: 24 }, (_, index) => {
+      const bpm = [100, 120, 140][index % 3]
+      return {
+        bpm,
+        musicalKey: ['Am', 'C', 'Em'][index % 3],
+        sampleType: 'Loop' as const,
+        features,
+        durationSeconds: (index + 1) * 60 / bpm
+      }
+    })
+
+    const calibrated = calibrateConfirmedUniformBatch(results)
+
+    expect(calibrated.calibration).toEqual({ bpm: null, musicalKey: null })
+    expect(calibrated.results).toEqual(results)
+  })
+
+  it('rejects a mixed 80 and 90 BPM duration grid that aliases to 180 BPM', () => {
+    const results = Array.from({ length: 16 }, (_, index) => {
+      const bpm = index < 8 ? 80 : 90
+      const bars = index % 8 + 1
+      return {
+        bpm,
+        musicalKey: 'Am',
+        sampleType: 'Loop' as const,
+        features,
+        durationSeconds: bars * 4 * 60 / bpm
+      }
+    })
+
+    const calibrated = calibrateConfirmedUniformBatch(results)
+
+    expect(calibrated.calibration).toEqual({ bpm: null, musicalKey: null })
+    expect(calibrated.results).toEqual(results)
+  })
+
+  it('requires at least 16 acoustic BPM detections before trusting the duration grid', () => {
+    const results = Array.from({ length: 24 }, (_, index) => ({
+      bpm: index < 15 ? 140 : null,
+      musicalKey: 'Am',
+      sampleType: 'Loop' as const,
+      features,
+      durationSeconds: (index + 1) * 60 / 140
+    }))
+
+    const calibrated = calibrateConfirmedUniformBatch(results)
+
+    expect(calibrated.calibration).toEqual({ bpm: null, musicalKey: null })
+    expect(calibrated.results).toEqual(results)
+  })
+
+  it('keeps per-file keys when a uniform-tempo collection has no dominant key', () => {
+    const results = Array.from({ length: 24 }, (_, index) => ({
+      bpm: 140,
+      musicalKey: ['Am', 'C', 'Em'][index % 3],
+      sampleType: 'Loop' as const,
+      features,
+      durationSeconds: (index + 1) * 60 / 140
+    }))
+
+    const calibrated = calibrateConfirmedUniformBatch(results)
+
+    expect(calibrated.calibration).toEqual({ bpm: 140, musicalKey: null })
+    expect(calibrated.results.map(({ musicalKey }) => musicalKey))
+      .toEqual(results.map(({ musicalKey }) => musicalKey))
   })
 })
 
