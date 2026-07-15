@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
+import { TRACKER_TOTAL_TICKS } from '../../src/renderer/src/lib/arrangement'
 
 declare global {
   interface Window {
@@ -75,7 +76,7 @@ test('project tempo changes resample the source at the placement playback rate',
   await bpmInput.press('Enter')
 
   const lane = page.locator('.tracker-lane-canvas').first()
-  await lane.evaluate((element, durationSeconds) => {
+  await lane.evaluate((element, { durationSeconds, totalTicks }) => {
     const rect = element.getBoundingClientRect()
     for (const tick of [0, 128]) {
       const transfer = new DataTransfer()
@@ -90,11 +91,11 @@ test('project tempo changes resample the source at the placement playback rate',
       element.dispatchEvent(new DragEvent('drop', {
         bubbles: true,
         cancelable: true,
-        clientX: rect.left + rect.width * tick / 4096,
+        clientX: rect.left + rect.width * tick / totalTicks,
         dataTransfer: transfer
       }))
     }
-  }, SOURCE_DURATION_SECONDS)
+  }, { durationSeconds: SOURCE_DURATION_SECONDS, totalTicks: TRACKER_TOTAL_TICKS })
   await expect(page.locator('.lane-sample-bubble-canvas-container').first())
     .toHaveAttribute('data-placement-count', '2')
 

@@ -114,6 +114,7 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
 
 const DEFAULT_TRANSPORT: PlayerTransportProps = {
   transportState: 'stopped',
+  songEndTick: 0,
   bpm: 120,
   masterGain: 0.8,
   masterMeter: emptyMasterMeterSnapshot(),
@@ -128,6 +129,7 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   onTransportPause: noop,
   onTransportStop: noop,
   onTransportSkipBack: noop,
+  onTransportJumpToEnd: noop,
   onTransportSeek: noop
 }
 

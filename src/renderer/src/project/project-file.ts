@@ -2,6 +2,7 @@ import type { EffectSlot } from '../engine/effects'
 import { isEffectSlot } from '../engine/effects'
 import {
   DEFAULT_LANE_COUNT,
+  TRACKER_TOTAL_TICKS,
   type ClipPlacement,
   type LaneState
 } from '../lib/arrangement'
@@ -373,7 +374,14 @@ function parsePlacement(
   placementIds.add(id)
 
   const samplePath = readSampleRef(value, path)
-  const durationTicks = readInteger(value, 'durationTicks', path, 1, Number.MAX_SAFE_INTEGER)
+  const startTick = readInteger(value, 'startTick', path, 0, TRACKER_TOTAL_TICKS - 1)
+  const durationTicks = readInteger(value, 'durationTicks', path, 1, TRACKER_TOTAL_TICKS)
+  if (startTick + durationTicks > TRACKER_TOTAL_TICKS) {
+    fail(
+      `${path}.durationTicks`,
+      `must produce an exclusive end tick (startTick + durationTicks) no greater than ${TRACKER_TOTAL_TICKS}`
+    )
+  }
   const existingDurationTicks = sampleDurationTicks.get(samplePath)
   if (existingDurationTicks !== undefined && existingDurationTicks !== durationTicks) {
     fail(`${path}.durationTicks`, `must match the other placements for ${samplePath}`)
@@ -396,7 +404,7 @@ function parsePlacement(
     samplePath,
     sampleName: readString(value, 'sampleName', path),
     nativeBPM,
-    startTick: readInteger(value, 'startTick', path, 0, Number.MAX_SAFE_INTEGER),
+    startTick,
     durationTicks,
     durationSeconds,
     ...(slot === undefined ? {} : { slot })

@@ -10,11 +10,12 @@ import type {
 import {
   LANE_HEAD_WIDTH_PX,
   LEFT_COL_MIN_PX,
+  TRACKER_BAR_COUNT,
   TRACKER_TIMELINE_MIN_WIDTH_PX,
   TRACKER_TOTAL_TICKS,
   timelinePixelsPerSecond
 } from '../lib/arrangement'
-import { BEATS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
+import { TICKS_PER_BEAT } from '../engine/transport'
 import { isEditableTarget, useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
 import { useDragCleanups } from '../hooks/useDragCleanups'
 import { usePlacementDrag } from '../hooks/usePlacementDrag'
@@ -142,7 +143,6 @@ export default function PlayerView({
   const hasPlacedSamples = lanes.some((lane) => lane.placements.length > 0)
 
   const totalTicks = TRACKER_TOTAL_TICKS
-  const rulerBeatCount = totalTicks / TICKS_PER_BEAT
 
   // Lane content width measurement for consistent bubble widths
   const lanesRef = useRef<HTMLDivElement>(null)
@@ -193,6 +193,8 @@ export default function PlayerView({
   } = usePlacementDrag({
     lanes,
     totalTicks,
+    bpm: transport.bpm,
+    sampleDurationTicksByPath,
     selectedPlacementIds,
     pixelsPerTick,
     onClearSelection: clearSelection,
@@ -202,6 +204,55 @@ export default function PlayerView({
     onMovePlacementGroup: arrangement.onMovePlacementGroup,
     onDuplicatePlacementGroup: arrangement.onDuplicatePlacementGroup
   })
+
+  const scrollTrackerToTick = useCallback((tick: number) => {
+    const scrollport = lanesRef.current
+    if (!scrollport) return
+    const maximumScroll = Math.max(0, scrollport.scrollWidth - scrollport.clientWidth)
+    const timelineWidth = Math.max(0, scrollport.scrollWidth - LANE_HEAD_WIDTH_PX)
+    const boundedTick = Math.max(0, Math.min(totalTicks, tick))
+    const targetX = LANE_HEAD_WIDTH_PX + (boundedTick / totalTicks) * timelineWidth
+    const nextScrollLeft = boundedTick === 0
+      ? 0
+      : Math.max(0, Math.min(maximumScroll, targetX - scrollport.clientWidth + 8))
+    scrollport.scrollLeft = nextScrollLeft
+  }, [totalTicks])
+
+  const handleTransportStop = useCallback(() => {
+    transport.onTransportStop()
+    scrollTrackerToTick(0)
+  }, [scrollTrackerToTick, transport])
+
+  const handleTransportSkipBack = useCallback(() => {
+    transport.onTransportSkipBack()
+    scrollTrackerToTick(0)
+  }, [scrollTrackerToTick, transport])
+
+  const handleTransportJumpToEnd = useCallback(() => {
+    transport.onTransportJumpToEnd()
+    scrollTrackerToTick(transport.songEndTick)
+  }, [scrollTrackerToTick, transport])
+
+  const previousTransportStateRef = useRef(transportState)
+  useEffect(() => {
+    const previousState = previousTransportStateRef.current
+    if ((previousState === 'playing' || previousState === 'preparing') &&
+        transportState === 'stopped' && currentTick === 0) {
+      scrollTrackerToTick(0)
+    }
+    previousTransportStateRef.current = transportState
+  }, [currentTick, scrollTrackerToTick, transportState])
+
+  const previousSongEndTickRef = useRef(transport.songEndTick)
+  useEffect(() => {
+    const previousEndTick = previousSongEndTickRef.current
+    if (transport.songEndTick < previousEndTick &&
+        currentTick > transport.songEndTick &&
+        transportState !== 'playing' && transportState !== 'preparing') {
+      scrollTrackerToTick(transport.songEndTick)
+    }
+    previousSongEndTickRef.current = transport.songEndTick
+  }, [currentTick, scrollTrackerToTick, transport.songEndTick, transportState])
 
   const handleLanesMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const container = lanesRef.current
@@ -340,7 +391,7 @@ export default function PlayerView({
     onRedo: transport.onRedo,
     onTransportPlay: transport.onTransportPlay,
     onTransportPause: transport.onTransportPause,
-    onTransportStop: transport.onTransportStop,
+    onTransportStop: handleTransportStop,
     onOpenShortcuts: () => setShortcutsOpen(true)
   })
 
@@ -491,12 +542,11 @@ export default function PlayerView({
               onValueChange={([tick]) => onTransportSeek(Math.min(tick, lastGridTick))}
             >
               <SliderTrack className="tracker-ruler-track">
-                {Array.from({ length: rulerBeatCount }, (_, i) => {
-                  const isBar = i % BEATS_PER_BAR === 0
-                  const barNumber = i / BEATS_PER_BAR + 1
+                {Array.from({ length: TRACKER_BAR_COUNT }, (_, i) => {
+                  const barNumber = i + 1
                   return (
-                    <div key={i} className={`tracker-ruler-tick${isBar ? ' tracker-ruler-tick-bar' : ''}`}>
-                      {isBar && barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
+                    <div key={i} className="tracker-ruler-tick tracker-ruler-tick-bar">
+                      {barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
                     </div>
                   )
                 })}
@@ -558,8 +608,10 @@ export default function PlayerView({
         onRedo={transport.onRedo}
         onTransportPlay={transport.onTransportPlay}
         onTransportPause={transport.onTransportPause}
-        onTransportStop={transport.onTransportStop}
-        onTransportSkipBack={transport.onTransportSkipBack}
+        onTransportStop={handleTransportStop}
+        onTransportSkipBack={handleTransportSkipBack}
+        onTransportJumpToEnd={handleTransportJumpToEnd}
+        jumpToEndDisabled={transport.songEndTick === 0}
         searchQuery={browser.searchQuery}
         onSearchChange={browser.onSearchChange}
         scanProgress={browser.scanProgress}

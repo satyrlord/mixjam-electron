@@ -21,6 +21,7 @@ import {
   removePlacementFromLane,
   resolvePendingPlacementBpms,
   setLanePan,
+  songEndTick,
   toEngineLanes,
   toggleLaneMute,
   toggleLaneSolo
@@ -67,11 +68,11 @@ describe('arrangement lane constants', () => {
     expect(DEFAULT_PLACEMENT_DURATION_TICKS).toBe(32)
   })
 
-  it('defines the fixed MVP song span and minimum timeline density', () => {
-    expect(TRACKER_BAR_COUNT).toBe(128)
-    expect(TRACKER_TOTAL_TICKS).toBe(4096)
+  it('defines the 999-bar arrangement capacity and minimum timeline density', () => {
+    expect(TRACKER_BAR_COUNT).toBe(999)
+    expect(TRACKER_TOTAL_TICKS).toBe(31968)
     expect(TRACKER_BEAT_WIDTH_PX).toBe(42)
-    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(21724)
+    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(168052)
   })
 })
 
@@ -170,6 +171,38 @@ describe('placeSampleOnLane', () => {
     const placements = next[0]?.placements
     expect(placements).toHaveLength(3)
     expect(placements?.map((c) => c.startTick)).toEqual([0, 64, 128])
+  })
+
+  it('clamps a complete placement to the capacity boundary', () => {
+    const lanes = createDefaultLanes()
+    const next = placeSampleOnLane(lanes, 0, 'tail.wav', 'tail.wav', TRACKER_TOTAL_TICKS - 1, 32)
+
+    expect(next[0]!.placements[0]!.startTick).toBe(TRACKER_TOTAL_TICKS - 32)
+    expect(next[0]!.placements[0]!.startTick + next[0]!.placements[0]!.durationTicks)
+      .toBe(TRACKER_TOTAL_TICKS)
+  })
+
+  it('silently rejects a sample longer than the whole arrangement', () => {
+    const lanes = createDefaultLanes()
+    const next = placeSampleOnLane(lanes, 0, 'too-long.wav', 'too-long.wav', 0, TRACKER_TOTAL_TICKS + 1)
+
+    expect(next).toBe(lanes)
+    expect(next[0]!.placements).toEqual([])
+  })
+})
+
+describe('songEndTick', () => {
+  it('uses the latest exact placement end across silent gaps and all lanes', () => {
+    let lanes = createDefaultLanes()
+    lanes = placeSampleOnLane(lanes, 0, 'first.wav', 'first.wav', 0, 10)
+    lanes = placeSampleOnLane(lanes, 5, 'last.wav', 'last.wav', 20, 7)
+    lanes[5] = { ...lanes[5]!, muted: true }
+
+    expect(songEndTick(lanes)).toBe(27)
+  })
+
+  it('returns zero for an empty arrangement', () => {
+    expect(songEndTick(createDefaultLanes())).toBe(0)
   })
 })
 
@@ -388,6 +421,21 @@ describe('movePlacementGroup', () => {
     expect(state[4]!.placements[0]!.startTick).toBe(64)
     expect(state[5]!.placements).toHaveLength(1)
     expect(state[5]!.placements[0]!.startTick).toBe(128)
+  })
+
+  it('clamps the group as one unit while preserving tick offsets', () => {
+    let state = placeSampleOnLane(createDefaultLanes(), 0, 'first.wav', 'first.wav', 0, 32)
+    state = placeSampleOnLane(state, 1, 'second.wav', 'second.wav', 64, 32)
+    const firstId = state[0]!.placements[0]!.id
+    const secondId = state[1]!.placements[0]!.id
+
+    state = movePlacementGroup(state, [
+      { placementId: firstId, toLaneIndex: 2, newStartTick: TRACKER_TOTAL_TICKS - 16 },
+      { placementId: secondId, toLaneIndex: 3, newStartTick: TRACKER_TOTAL_TICKS + 48 }
+    ])
+
+    expect(state[2]!.placements[0]!.startTick).toBe(TRACKER_TOTAL_TICKS - 96)
+    expect(state[3]!.placements[0]!.startTick).toBe(TRACKER_TOTAL_TICKS - 32)
   })
 })
 

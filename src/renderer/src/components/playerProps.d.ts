@@ -80,6 +80,7 @@ export interface TrackerArrangementProps {
 
 export interface PlayerTransportProps {
   transportState: RuntimeTransportState
+  songEndTick: number
   bpm: number
   masterGain: number
   masterMeter: MasterMeterSnapshot
@@ -94,6 +95,7 @@ export interface PlayerTransportProps {
   onTransportPause: () => void
   onTransportStop: () => void
   onTransportSkipBack: () => void
+  onTransportJumpToEnd: () => void
   onTransportSeek: (tick: number) => void
 }
 

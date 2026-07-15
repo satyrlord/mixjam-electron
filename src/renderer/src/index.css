@@ -1158,6 +1158,7 @@ select option:disabled {
 .tracker-region {
   grid-column: 2;
   grid-row: 1;
+  height: 100%;
   background: var(--bg-base);
   display: flex;
   flex-direction: column;
@@ -1221,6 +1222,13 @@ select option:disabled {
   flex: 1;
   position: relative;
   border-left: 1px solid color-mix(in srgb, var(--border) 25%, transparent);
+  background: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(25% - 1px),
+    color-mix(in srgb, var(--border) 25%, transparent) calc(25% - 1px),
+    color-mix(in srgb, var(--border) 25%, transparent) 25%
+  );
   min-width: 0;
 }
 
@@ -1541,7 +1549,8 @@ select option:disabled {
 
 .lane-sample-bubble-canvas {
   display: block;
-  width: 100%;
+  position: absolute;
+  top: 0;
   height: 100%;
   pointer-events: none;
 }

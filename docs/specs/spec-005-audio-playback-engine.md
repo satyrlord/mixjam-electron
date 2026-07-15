@@ -70,6 +70,13 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   `songEndTick`; it is not treated as natural playback reaching the boundary.
   Pressing Play from that parked end synchronizes the engine and visual
   playhead to tick 0 before preparation, then starts from the beginning.
+- Transport completion uses the **Ring Out** contract. Natural song end,
+  explicit Stop, and Jump to End stop all source voices and prevent new
+  scheduling, but do not reset or rebuild channel effect processors. Delay and
+  reverb energy already inside those processors may therefore remain audible
+  while transport state is `stopped`. Pause and discontinuous seek use the
+  same source-stop behavior. Project replacement and engine close terminate
+  the AudioContext and cut any remaining tail.
 - If an edit shortens the song below the current playhead, a stopped or paused
   playhead and its view clamp to the new `songEndTick`. During playback, the
   same edit applies the natural-end rule and resets to tick 0.
@@ -232,6 +239,11 @@ the engine never knows who is listening.
   change `songEndTick`. If an edit shortens the song behind the playhead,
   stopped or paused navigation clamps to the new end, while active playback
   stops and resets to tick 0.
+- [x] **AC-017:** Natural song end, explicit Stop, and Jump to End reduce active
+  source voices to zero without resetting channel processors, so existing FX
+  energy rings out after transport stops. Natural end and Stop reset to tick 0;
+  Jump to End parks at `songEndTick`. Replaying after the tail decays uses the
+  existing graph without duplicate connections.
 
 ## Song-Boundary Implementation Evidence
 
@@ -244,6 +256,10 @@ the engine never knows who is listening.
   stop/reset, and edit-time playhead clamping.
 - `src/renderer/src/project/project-file.test.ts` rejects persisted placements
   beyond capacity and proves sparse project serialization.
+- `tests/e2e/audio-effects-rendering.spec.ts` exercises the real transport
+  runtime and audio engine in Chromium for natural end, replay, explicit Stop,
+  and Jump to End. Raw post-boundary output samples are under
+  `tmp/verify-fx-song-end/`.
 
 ## Non-Goals
 

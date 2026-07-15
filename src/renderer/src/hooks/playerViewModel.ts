@@ -81,6 +81,7 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
     },
     transport: {
       transportState: app.transportState,
+      songEndTick: app.songEndTick,
       bpm: app.bpm,
       masterGain: app.masterGain,
       masterMeter: app.masterMeter,
@@ -95,6 +96,7 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       onTransportPause: app.transportPause,
       onTransportStop: app.transportStop,
       onTransportSkipBack: app.transportSkipBack,
+      onTransportJumpToEnd: app.transportJumpToEnd,
       onTransportSeek: app.transportSeek
     },
     mixer: {

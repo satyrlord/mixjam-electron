@@ -132,6 +132,15 @@ can chain effects in order and adjust parameters per channel.
 - A channel keeps stable input and output nodes while its internal ordered
   effect route is rebuilt. Existing voices therefore remain connected when a
   slot changes, and every replaced processor disconnects all nodes it owns.
+- Effect tails follow the **Ring Out** lifecycle. Natural song end, explicit
+  Stop, Jump to End, Pause, and discontinuous seek stop source voices without
+  resetting or rebuilding the current processors, so delay and reverb energy
+  already in the graph decays naturally. Starting again before that decay
+  completes may intentionally overlap the remaining tail; starting after
+  decay reuses the same graph without replaying stale energy or adding graph
+  connections. Channel removal or effect-chain replacement disposes the owned
+  processors, while project replacement and engine close terminate the
+  AudioContext; those graph-owning operations cut remaining tails.
 - Effect chains are project-owned. Spec-011 writes each channel's complete
   ordered FX chain into the active `.mixjam` file and restores it only when
   that project is loaded. FX values are not persisted as app-level state.
@@ -180,6 +189,10 @@ can chain effects in order and adjust parameters per channel.
 - [x] **AC-018:** Every FX parameter is a label-first vertical module with its
   dial or switch, editable value, and explanatory copy on separate aligned
   rows; help text never continues inline from a value or adjacent control.
+- [x] **AC-019:** Natural end, explicit Stop, and Jump to End leave the active
+  effect graph connected after all source voices stop, producing measurable
+  post-boundary output. Replay after decay reuses that graph without duplicate
+  connections; project replacement and engine close cut remaining tails.
 
 ## Validation Evidence
 
@@ -204,6 +217,10 @@ can chain effects in order and adjust parameters per channel.
 - `tests/e2e/audio-effects-rendering.spec.ts` bundles the real DSP module into
   Chromium and uses `OfflineAudioContext` to verify a rendered delay echo,
   reverb tail, compressor gain reduction and bypass, and order-dependent output.
+  It also mounts the real transport runtime and engine stack to prove Ring Out
+  after natural end, explicit Stop, and Jump to End, plus clean replay through
+  the existing graph. The raw 10ms post-boundary measurements are under
+  `tmp/verify-fx-song-end/`.
 - `tmp/verify-audio-effects/evidence.md` records the built Chromium layout
   assertions and screenshot.
 - `tmp/verify-fx-workspace-redesign/evidence.md` verifies the project-owned SVG

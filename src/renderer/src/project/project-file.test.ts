@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultLanes } from '../lib/arrangement'
+import { createDefaultLanes, TRACKER_TOTAL_TICKS } from '../lib/arrangement'
 import { createDefaultChannels } from '../hooks/useMixer'
 import {
   NEWER_PROJECT_VERSION_MESSAGE,
@@ -105,6 +105,29 @@ describe('project file format', () => {
     delete first.modifiedAt
     delete second.modifiedAt
     expect(second).toEqual(first)
+  })
+
+  it('serializes only project content, without capacity padding or a stored song end', () => {
+    const raw = JSON.parse(serialize()) as Record<string, unknown> & {
+      lanes: Array<{ placements: unknown[] }>
+    }
+
+    expect(raw).not.toHaveProperty('barCount')
+    expect(raw).not.toHaveProperty('songEndTick')
+    expect(raw.lanes.flatMap((lane) => lane.placements)).toHaveLength(1)
+  })
+
+  it('rejects persisted placements that extend beyond the 999-bar capacity', () => {
+    const raw = JSON.parse(serialize()) as {
+      lanes: Array<{ placements: Array<{ startTick: number; durationTicks: number }> }>
+    }
+    raw.lanes[0]!.placements[0]!.startTick = TRACKER_TOTAL_TICKS - 8
+    raw.lanes[0]!.placements[0]!.durationTicks = 24
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(
+      `project.lanes[0].placements[0].durationTicks must produce an exclusive end tick ` +
+      `(startTick + durationTicks) no greater than ${TRACKER_TOTAL_TICKS}`
+    )
   })
 
   it('rejects newer versions without changing the error wording', () => {

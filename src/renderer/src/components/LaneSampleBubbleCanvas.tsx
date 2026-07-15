@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import {
+  LANE_HEAD_WIDTH_PX,
   SAMPLE_BUBBLE_HEIGHT_PX,
   sampleBubbleScreenRect,
   type ClipPlacement
@@ -283,11 +284,21 @@ function LaneSampleBubbleCanvas({
 
     const dpr = window.devicePixelRatio || 1
     const rect = container.getBoundingClientRect()
-    const canvasWidth = rect.width
+    const scrollport = container.closest<HTMLElement>('.tracker-lanes')
+    const fullWidth = rect.width
+    const availableWidth = scrollport
+      ? Math.max(1, scrollport.clientWidth - LANE_HEAD_WIDTH_PX)
+      : fullWidth
+    const canvasWidth = Math.min(fullWidth, availableWidth)
     const canvasHeight = rect.height
+    const maximumViewportLeft = Math.max(0, fullWidth - canvasWidth)
+    const viewportLeft = scrollport
+      ? Math.min(Math.max(0, scrollport.scrollLeft), maximumViewportLeft)
+      : 0
 
-    canvas.width = canvasWidth * dpr
-    canvas.height = canvasHeight * dpr
+    canvas.width = Math.max(1, Math.round(canvasWidth * dpr))
+    canvas.height = Math.max(1, Math.round(canvasHeight * dpr))
+    canvas.style.left = `${viewportLeft}px`
     canvas.style.width = `${canvasWidth}px`
     canvas.style.height = `${canvasHeight}px`
 
@@ -297,13 +308,21 @@ function LaneSampleBubbleCanvas({
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
 
-    const pixelsPerTick = canvasWidth / totalTicks
+    const pixelsPerTick = fullWidth / totalTicks
+    const firstVisibleTick = Math.max(
+      TICKS_PER_BEAT,
+      Math.floor(viewportLeft / pixelsPerTick / TICKS_PER_BEAT) * TICKS_PER_BEAT
+    )
+    const lastVisibleTick = Math.min(
+      totalTicks,
+      Math.ceil((viewportLeft + canvasWidth) / pixelsPerTick / TICKS_PER_BEAT) * TICKS_PER_BEAT
+    )
 
     ctx.strokeStyle = themeTokenCache.bgGrid
     ctx.lineWidth = 1
-    for (let tick = TICKS_PER_BEAT; tick < totalTicks; tick += TICKS_PER_BEAT) {
+    for (let tick = firstVisibleTick; tick < lastVisibleTick; tick += TICKS_PER_BEAT) {
       if (tick % TICKS_PER_BAR === 0) continue
-      const x = Math.round(tick * pixelsPerTick) + 0.5
+      const x = Math.round(tick * pixelsPerTick - viewportLeft) + 0.5
       ctx.beginPath()
       ctx.moveTo(x, 0)
       ctx.lineTo(x, canvasHeight)
@@ -312,8 +331,12 @@ function LaneSampleBubbleCanvas({
 
     ctx.strokeStyle = themeTokenCache.borderColor
     ctx.lineWidth = 1
-    for (let tick = TICKS_PER_BAR; tick < totalTicks; tick += TICKS_PER_BAR) {
-      const x = Math.round(tick * pixelsPerTick) + 0.5
+    const firstVisibleBarTick = Math.max(
+      TICKS_PER_BAR,
+      Math.floor(firstVisibleTick / TICKS_PER_BAR) * TICKS_PER_BAR
+    )
+    for (let tick = firstVisibleBarTick; tick < lastVisibleTick; tick += TICKS_PER_BAR) {
+      const x = Math.round(tick * pixelsPerTick - viewportLeft) + 0.5
       ctx.beginPath()
       ctx.moveTo(x, 0)
       ctx.lineTo(x, canvasHeight)
@@ -328,21 +351,21 @@ function LaneSampleBubbleCanvas({
 
     for (const placement of placements) {
       const { x, width: w } = sampleBubbleScreenRect(placement, pixelsPerTick)
+      hitRects.push({ placement, x, width: w })
+      if (x + w < viewportLeft || x > viewportLeft + canvasWidth) continue
 
       drawSampleBubble(
-        ctx, placement, x, CLIP_TOP, w, accent,
+        ctx, placement, x - viewportLeft, CLIP_TOP, w, accent,
         flashSamplePath === placement.samplePath,
         missingSamplePaths?.has(placement.samplePath) ?? false
       )
-
-      hitRects.push({ placement, x, width: w })
 
       if (selectedPlacementIds.has(placement.id)) {
         const inset = SELECTION_BORDER_WIDTH / 2
         ctx.globalAlpha = 0.8
         roundRect(
           ctx,
-          x + inset,
+          x - viewportLeft + inset,
           CLIP_TOP + inset,
           w - SELECTION_BORDER_WIDTH,
           SAMPLE_BUBBLE_HEIGHT_PX - SELECTION_BORDER_WIDTH,
@@ -365,9 +388,26 @@ function LaneSampleBubbleCanvas({
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+    const scrollport = container.closest<HTMLElement>('.tracker-lanes')
+    let scrollFrame: number | null = null
+    const scheduleScrollDraw = () => {
+      if (scrollFrame !== null) return
+      scrollFrame = window.requestAnimationFrame(() => {
+        scrollFrame = null
+        draw()
+      })
+    }
     const observer = new ResizeObserver(() => draw())
     observer.observe(container)
-    return () => observer.disconnect()
+    if (scrollport) {
+      observer.observe(scrollport)
+      scrollport.addEventListener('scroll', scheduleScrollDraw, { passive: true })
+    }
+    return () => {
+      observer.disconnect()
+      scrollport?.removeEventListener('scroll', scheduleScrollDraw)
+      if (scrollFrame !== null) window.cancelAnimationFrame(scrollFrame)
+    }
   }, [draw])
 
   // Repaint on theme switch: the token cache refreshes via MutationObserver,
@@ -376,10 +416,10 @@ function LaneSampleBubbleCanvas({
   useEffect(() => onSampleBubbleThemeTokensRefreshed(draw), [draw])
 
   const hitTest = useCallback((clientX: number): ClipPlacement | null => {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    // In test environments (jsdom) the canvas has 0 dimensions; fall back to
+    const container = containerRef.current
+    if (!container) return null
+    const rect = container.getBoundingClientRect()
+    // In test environments (jsdom) the lane has 0 dimensions; fall back to
     // checking placement pixel-position based on totalTicks and container width.
     if (rect.width === 0) {
       return placements.length > 0 ? placements[0] : null
@@ -420,9 +460,9 @@ function LaneSampleBubbleCanvas({
     if (!placement) return
     if (container) {
       container.dataset.dragPlacementId = placement.id
-      const canvasRect = canvasRef.current?.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
       const hr = hitRectsRef.current.find((h) => h.placement.id === placement.id)
-      const grabX = canvasRect && hr ? e.clientX - canvasRect.left - hr.x : 0
+      const grabX = hr ? e.clientX - containerRect.left - hr.x : 0
       container.dataset.dragGrabX = String(Math.max(0, grabX))
     }
     // Preserve multi-selection drag by preventing parent mousedown clear.

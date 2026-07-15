@@ -1,7 +1,12 @@
-import { fireEvent, render } from '@testing-library/react'
+import { act, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LaneSampleBubbleCanvas from './LaneSampleBubbleCanvas'
-import type { ClipPlacement } from '../lib/arrangement'
+import {
+  LANE_HEAD_WIDTH_PX,
+  TRACKER_TIMELINE_MIN_WIDTH_PX,
+  TRACKER_TOTAL_TICKS,
+  type ClipPlacement
+} from '../lib/arrangement'
 
 const PLACEMENTS: ClipPlacement[] = [
   {
@@ -103,6 +108,56 @@ describe('LaneSampleBubbleCanvas', () => {
     expect(mockCtx.stroke).toHaveBeenCalled()
     expect(mockCtx.fillText).toHaveBeenCalledWith('kick.wav', expect.any(Number), expect.any(Number))
     expect(mockCtx.fillText).toHaveBeenCalledWith('snare.wav', expect.any(Number), expect.any(Number))
+  })
+
+  it('bounds the 999-bar backing canvas to the visible lane viewport', () => {
+    const pendingFrames: FrameRequestCallback[] = []
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      pendingFrames.push(callback)
+      return pendingFrames.length
+    })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const width = this.classList.contains('lane-sample-bubble-canvas-container')
+        ? TRACKER_TIMELINE_MIN_WIDTH_PX - LANE_HEAD_WIDTH_PX
+        : 1_200
+      return {
+        x: 0, y: 0, width, height: 52, top: 0, right: width, bottom: 52, left: 0,
+        toJSON: () => ({})
+      }
+    })
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('tracker-lanes') ? 1_200 : 0
+    })
+
+    const { container } = render(
+      <div className="tracker-lanes">
+        <LaneSampleBubbleCanvas
+          placements={PLACEMENTS}
+          totalTicks={TRACKER_TOTAL_TICKS}
+          laneIndex={0}
+          flashSamplePath={null}
+          selectedPlacementIds={new Set()}
+          onPlacementDragStart={vi.fn()}
+          onPlacementContextMenu={vi.fn()}
+        />
+      </div>
+    )
+
+    const scrollport = container.querySelector('.tracker-lanes') as HTMLElement
+    const canvas = container.querySelector('.lane-sample-bubble-canvas') as HTMLCanvasElement
+    expect(canvas.width).toBe(1_200 - LANE_HEAD_WIDTH_PX)
+    expect(canvas.width).toBeLessThan(TRACKER_TIMELINE_MIN_WIDTH_PX - LANE_HEAD_WIDTH_PX)
+
+    scrollport.scrollLeft = 50_000
+    fireEvent.scroll(scrollport)
+    scrollport.scrollLeft = 51_000
+    fireEvent.scroll(scrollport)
+
+    expect(requestFrame).toHaveBeenCalledTimes(1)
+    expect(canvas.style.left).toBe('0px')
+    act(() => pendingFrames.shift()?.(0))
+    expect(canvas.style.left).toBe('51000px')
+    expect(canvas.width).toBe(1_200 - LANE_HEAD_WIDTH_PX)
   })
 
   it('draws placement duration at the shared timeline scale', () => {
@@ -395,7 +450,7 @@ describe('LaneSampleBubbleCanvas', () => {
     expect(onDrag).not.toHaveBeenCalled()
   })
 
-  it('uses spatial hit-test when canvas has non-zero width', () => {
+  it('uses spatial hit-test when the lane container has non-zero width', () => {
     const onCtx = vi.fn()
     const { container } = render(
       <LaneSampleBubbleCanvas
@@ -410,9 +465,7 @@ describe('LaneSampleBubbleCanvas', () => {
     )
 
     const el = container.querySelector('.lane-sample-bubble-canvas-container')! as HTMLElement
-    const canvas = container.querySelector('canvas')!
-    // Mock canvas getBoundingClientRect to return non-zero width
-    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
       left: 0, top: 0, right: 200, bottom: 40, width: 200, height: 40, x: 0, y: 0,
       toJSON: () => ({})
     } as DOMRect)
@@ -440,8 +493,7 @@ describe('LaneSampleBubbleCanvas', () => {
     )
 
     const el = container.querySelector('.lane-sample-bubble-canvas-container')! as HTMLElement
-    const canvas = container.querySelector('canvas')!
-    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
       left: 0, top: 0, right: 200, bottom: 40, width: 200, height: 40, x: 0, y: 0,
       toJSON: () => ({})
     } as DOMRect)
@@ -597,8 +649,7 @@ describe('LaneSampleBubbleCanvas', () => {
     )
 
     const el = container.querySelector('.lane-sample-bubble-canvas-container')! as HTMLElement
-    const canvas = container.querySelector('canvas')!
-    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
       left: 100, top: 0, right: 300, bottom: 40, width: 200, height: 40, x: 100, y: 0,
       toJSON: () => ({})
     } as DOMRect)

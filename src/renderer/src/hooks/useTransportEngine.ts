@@ -17,6 +17,7 @@ import {
   resolvePendingPlacementBpms,
   placementDurationTicks,
   setLanePan,
+  songEndTick as deriveSongEndTick,
   toEngineLanes,
   toggleLaneMute,
   toggleLaneSolo
@@ -56,6 +57,7 @@ export interface TransportEngineState {
   lanes: LaneState[]
   transportState: RuntimeTransportState
   currentTick: number
+  songEndTick: number
   bpm: number
   masterGain: number
   masterMeter: MasterMeterSnapshot
@@ -92,6 +94,7 @@ export interface TransportEngineActions {
   transportPause: () => void
   transportStop: () => void
   transportSkipBack: () => void
+  transportJumpToEnd: () => void
   transportSeek: (tick: number) => void
   setBpm: (bpm: number) => void
   setMasterGain: (value: number) => void
@@ -107,6 +110,8 @@ export function useTransportEngine(
 ): TransportEngine {
   const [view, setView] = useState<View>(initialView)
   const lanesHistory = useUndoHistory<LaneState[]>(createDefaultLanes(), UNDO_HISTORY_LIMIT)
+  const lanes = lanesHistory.current
+  const songEndTick = useMemo(() => deriveSongEndTick(lanes), [lanes])
   const getEngineLanes = useCallback(
     () => toEngineLanes(lanesHistory.currentRef.current),
     [lanesHistory.currentRef]
@@ -116,6 +121,7 @@ export function useTransportEngine(
     sampleFolder,
     active: view === 'player',
     getLanes: getEngineLanes,
+    songEndTick,
     initialBpm: DEFAULT_BPM,
     initialMasterGain: DEFAULT_MASTER_GAIN
   })
@@ -133,6 +139,7 @@ export function useTransportEngine(
     transportPause,
     transportStop,
     transportSkipBack,
+    transportJumpToEnd,
     transportSeek,
     setBpm,
     setMasterGain,
@@ -251,7 +258,6 @@ export function useTransportEngine(
   )
 
   const timerText = useMemo(() => formatTimer(elapsedMs), [elapsedMs])
-  const lanes = lanesHistory.current
   const anySoloed = useMemo(() => anyLaneSoloed(lanes), [lanes])
   const dimLane = useCallback(
     (lane: LaneState) => laneShouldDim(lane, anySoloed),
@@ -264,6 +270,7 @@ export function useTransportEngine(
     lanes,
     transportState,
     currentTick,
+    songEndTick,
     bpm,
     masterGain,
     masterMeter,
@@ -293,6 +300,7 @@ export function useTransportEngine(
     transportPause,
     transportStop,
     transportSkipBack,
+    transportJumpToEnd,
     transportSeek,
     setBpm,
     setMasterGain,

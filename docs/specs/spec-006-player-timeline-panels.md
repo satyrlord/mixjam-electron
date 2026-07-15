@@ -461,6 +461,9 @@ visible across themes and viewport sizes.
   (31,968 ticks) at a minimum density of 42px per beat. Ruler ticks, placement
   bounds, seeking, and playhead limits use that capacity, independently of the
   content-derived `songEndTick`.
+- [x] **AC-011d:** The Tracker region is constrained to its upper-panel height,
+  so the always-rendered Song Progress Bar remains visible and pointer-operable
+  above the Middle Strip and Bottom Workspace at the 1920x1080 Player size.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
@@ -558,6 +561,16 @@ visible across themes and viewport sizes.
 - `tmp/verify-song-capacity/evidence.json` and its screenshots record a
   168,052px built timeline, grid maximum tick 31,960, exact Jump to End tick
   5,032 with scroll position 25,556, and Skip Back restoring both values to 0.
+- `npm run measure:song-progress-performance` reproduces the full-capacity
+  built-Chromium characterization under
+  `tmp/verify-song-progress-performance/`. Six raw CDP traces cover a real
+  pointer drag from start to end and back across 999 bars, 16 lanes, and 15,984
+  placements. Native-speed p95 frame intervals were 16.7-16.8ms and p95
+  input-to-scroll latency was 0.5ms; at 4x CPU slowdown those ranges were
+  50.1ms and 2.4-2.9ms. Every run reached capacity, kept canvas backing stores
+  viewport-bounded, and coalesced lane redraws to one per animation frame.
+  These values are characterization only because no numeric performance budget
+  has been approved.
 
 ## Non-Goals (deferred to later specs)
 

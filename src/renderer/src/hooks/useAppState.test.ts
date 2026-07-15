@@ -66,6 +66,9 @@ describe('useAppState', () => {
     expect(result.current.timerText).toBe('00:00.0')
 
     // Start playback
+    act(() => result.current.placeSampleDetailOnLane({
+      name: 'test.wav', relpath: 'test.wav', tags: [], bpm: 120, duration: 10
+    }, 0, 0))
     await act(async () => {
       result.current.transportPlay()
       await Promise.resolve()
@@ -374,6 +377,9 @@ describe('useAppState', () => {
     await act(async () => {
       await result.current.goToPlayer()
     })
+    act(() => result.current.placeSampleDetailOnLane({
+      name: 'test.wav', relpath: 'test.wav', tags: [], bpm: 120, duration: 10
+    }, 0, 0))
 
     await act(async () => {
       result.current.transportPlay()
@@ -392,6 +398,9 @@ describe('useAppState', () => {
     await act(async () => {
       await result.current.goToPlayer()
     })
+    act(() => result.current.placeSampleDetailOnLane({
+      name: 'test.wav', relpath: 'test.wav', tags: [], bpm: 120, duration: 10
+    }, 0, 0))
 
     await act(async () => {
       result.current.transportPlay()

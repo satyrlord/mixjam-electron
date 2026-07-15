@@ -163,6 +163,13 @@ The `masterBypass` node sits outside the channel strip chain — it feeds the
 master bus directly, before the master gain. Orphan lanes are audible at unity
 gain with lane pan applied but no channel gain/pan/mute/solo processing.
 
+Stopping transport does not disconnect either route. Under the Ring Out
+contract in specs 005 and 010, natural song end, explicit Stop, Jump to End,
+Pause, and discontinuous seek stop source voices while existing delay/reverb
+energy continues through the stable channel output, analyser, and master bus.
+Removing a channel, replacing the project, or closing the engine disconnects
+or closes that graph and cuts its remaining tail.
+
 The lane-head pan knob controls `LaneState.pan`. The mixer strip pan knob
 controls `ChannelState.pan`. Both are applied when a lane is routed through a
 channel. Mute/Solo gates are independent and ANDed: a lane is audible only when
@@ -278,6 +285,10 @@ interaction. Do NOT implement one without the other.
   meters remain RMS dBFS with their existing peak-hold behavior.
 - [x] **AC-025:** The shared Mixer/FX visual-telemetry frame loop is cancelled
   while Song or Samples is active and restarts when Mixer or FX becomes active.
+- [x] **AC-026:** Channel processors and their route to the master bus remain
+  connected when transport stops, allowing existing FX energy to ring out;
+  graph-owning operations such as channel removal, project replacement, and
+  engine close still disconnect or close the route.
 
 ## Control-System Validation Evidence
 
@@ -292,6 +303,10 @@ interaction. Do NOT implement one without the other.
 - `tmp/verify-complete-system/evidence.md` records the earlier fixed-width
   baseline across every bundled theme at both wide and narrow viewport sizes, including
   keyboard focus scrolling to the final channel.
+- `tests/e2e/audio-effects-rendering.spec.ts` and
+  `tmp/verify-fx-song-end/evidence.json` prove in Chromium that active source
+  voices reach zero while routed reverb energy remains audible after natural
+  end, explicit Stop, and Jump to End.
 
 ## Non-Goals
 

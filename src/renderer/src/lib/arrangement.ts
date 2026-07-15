@@ -17,7 +17,7 @@ export const DEFAULT_LANE_COUNT = 16
 export const LANE_HEIGHT_PX = 52
 export const LANE_HEAD_WIDTH_PX = 220
 export const RULER_HEIGHT_PX = 44
-export const TRACKER_BAR_COUNT = 128
+export const TRACKER_BAR_COUNT = 999
 export const TRACKER_BEAT_WIDTH_PX = 42
 export const TRACKER_TOTAL_TICKS = TRACKER_BAR_COUNT * TICKS_PER_BAR
 export const TRACKER_TIMELINE_MIN_WIDTH_PX =
@@ -157,6 +157,15 @@ export function placementDurationTicks(durationSeconds: number | null, bpm: numb
   return Math.max(1, Math.round(durationSeconds / tickSec))
 }
 
+/** Keep a complete placement inside the 999-bar arrangement. A sample that is
+ * longer than the whole arrangement cannot be represented and is rejected. */
+function clampPlacementStartTick(startTick: number, durationTicks: number): number | null {
+  if (!Number.isFinite(startTick) || !Number.isFinite(durationTicks)) return null
+  const duration = Math.floor(durationTicks)
+  if (duration < 1 || duration > TRACKER_TOTAL_TICKS) return null
+  return clamp(Math.floor(startTick), 0, TRACKER_TOTAL_TICKS - duration)
+}
+
 export function placeSampleOnLane(
   lanes: LaneState[],
   laneIndex: number,
@@ -168,17 +177,21 @@ export function placeSampleOnLane(
   slot?: number,
   sampleBpm?: number | null
 ): LaneState[] {
+  const boundedStartTick = clampPlacementStartTick(startTick, durationTicks)
+  if (boundedStartTick === null) return lanes
+  const boundedDurationTicks = Math.floor(durationTicks)
+
   return lanes.map((lane) => {
     if (lane.index !== laneIndex) return lane
 
     placementIdSequence += 1
-    const placementId = `placement-${samplePath}-${startTick}-${Date.now()}-${placementIdSequence}`
+    const placementId = `placement-${samplePath}-${boundedStartTick}-${Date.now()}-${placementIdSequence}`
     const newPlacement: ClipPlacement = {
       id: placementId,
       samplePath,
       sampleName,
-      startTick,
-      durationTicks,
+      startTick: boundedStartTick,
+      durationTicks: boundedDurationTicks,
       durationSeconds: durationSeconds ?? null,
       nativeBPM: sampleBpm !== null && sampleBpm !== undefined && Number.isFinite(sampleBpm) && sampleBpm > 0
         ? sampleBpm
@@ -196,6 +209,18 @@ export function placeSampleOnLane(
       placements: sortPlacements([...lane.placements, newPlacement])
     }
   })
+}
+
+/** Exact musical end of the arrangement. Silent gaps and lane audibility do
+ * not affect the result: every persisted placement contributes its end tick. */
+export function songEndTick(lanes: readonly LaneState[]): number {
+  let endTick = 0
+  for (const lane of lanes) {
+    for (const placement of lane.placements) {
+      endTick = Math.max(endTick, placement.startTick + placement.durationTicks)
+    }
+  }
+  return Math.min(TRACKER_TOTAL_TICKS, endTick)
 }
 
 /** Fills only placements that were created before analysis finished. Positive
@@ -283,11 +308,13 @@ export function movePlacement(
 ): LaneState[] {
   const found = findPlacementById(lanes, placementId)
   if (!found) return lanes
+  const boundedStartTick = clampPlacementStartTick(newStartTick, found.placement.durationTicks)
+  if (boundedStartTick === null) return lanes
 
   // Preserve placement identity (same id) so undo/redo and multi-select tracking
   // stay consistent. Remove from the source lane, place on the target lane
   // with the original id intact.
-  const movedPlacement: ClipPlacement = { ...found.placement, startTick: newStartTick }
+  const movedPlacement: ClipPlacement = { ...found.placement, startTick: boundedStartTick }
 
   return lanes.map((lane) => {
     if (lane.index === found.laneIndex && lane.index === toLaneIndex) {
@@ -327,19 +354,47 @@ export interface PlacementGroupEntry {
   newStartTick: number
 }
 
+interface ResolvedPlacementGroupEntry extends PlacementGroupEntry {
+  placement: ClipPlacement
+}
+
+function clampPlacementGroup(entries: ResolvedPlacementGroupEntry[]): ResolvedPlacementGroupEntry[] | null {
+  const starts = entries.map((entry) => Math.floor(entry.newStartTick))
+  if (starts.some((startTick) => !Number.isFinite(startTick))) return null
+  if (entries.some((entry) => entry.placement.durationTicks < 1 || entry.placement.durationTicks > TRACKER_TOTAL_TICKS)) {
+    return null
+  }
+
+  const minimumStart = Math.min(...starts)
+  const maximumEnd = Math.max(...entries.map((entry, index) =>
+    starts[index]! + entry.placement.durationTicks
+  ))
+  if (maximumEnd - minimumStart > TRACKER_TOTAL_TICKS) return null
+
+  const shift = minimumStart < 0
+    ? -minimumStart
+    : maximumEnd > TRACKER_TOTAL_TICKS
+      ? TRACKER_TOTAL_TICKS - maximumEnd
+      : 0
+  return entries.map((entry, index) => ({
+    ...entry,
+    newStartTick: starts[index]! + shift
+  }))
+}
+
 /** Batch-moves a selection of placements in a single pass over `lanes`, instead of
  *  rebuilding the full lane array once per placement. Source placements are looked up
  *  before any mutation so offsets are resolved against the pre-drag layout.
  *  Lanes that neither lose nor gain a placement keep their identity so memoized
  *  consumers skip re-rendering them. */
 export function movePlacementGroup(lanes: LaneState[], moves: PlacementGroupEntry[]): LaneState[] {
-  const resolved = moves
+  const resolved = clampPlacementGroup(moves
     .map(({ placementId, toLaneIndex, newStartTick }) => {
       const found = findPlacementById(lanes, placementId)
       return found ? { placementId, toLaneIndex, newStartTick, placement: found.placement } : null
     })
-    .filter((entry): entry is { placementId: string; toLaneIndex: number; newStartTick: number; placement: ClipPlacement } => entry !== null)
-  if (resolved.length === 0) return lanes
+    .filter((entry): entry is ResolvedPlacementGroupEntry => entry !== null))
+  if (!resolved || resolved.length === 0) return lanes
 
   const movingIds = new Set(resolved.map((entry) => entry.placementId))
   const gainsByLane = new Map<number, ClipPlacement[]>()
@@ -360,13 +415,13 @@ export function movePlacementGroup(lanes: LaneState[], moves: PlacementGroupEntr
 /** Batch-duplicates a selection of placements in a single pass over `lanes`.
  *  Untouched lanes keep their identity. */
 export function duplicatePlacementGroup(lanes: LaneState[], sources: PlacementGroupEntry[]): LaneState[] {
-  const resolved = sources
+  const resolved = clampPlacementGroup(sources
     .map(({ placementId, toLaneIndex, newStartTick }) => {
       const found = findPlacementById(lanes, placementId)
-      return found ? { toLaneIndex, newStartTick, placement: found.placement } : null
+      return found ? { placementId, toLaneIndex, newStartTick, placement: found.placement } : null
     })
-    .filter((entry): entry is { toLaneIndex: number; newStartTick: number; placement: ClipPlacement } => entry !== null)
-  if (resolved.length === 0) return lanes
+    .filter((entry): entry is ResolvedPlacementGroupEntry => entry !== null))
+  if (!resolved || resolved.length === 0) return lanes
 
   const gainsByLane = new Map<number, ClipPlacement[]>()
   for (const entry of resolved) {

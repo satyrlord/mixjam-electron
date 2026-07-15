@@ -131,6 +131,7 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
 
 const DEFAULT_TRANSPORT: PlayerTransportProps = {
   transportState: 'stopped',
+  songEndTick: 0,
   bpm: 120,
   masterGain: 0.8,
   masterMeter: emptyMasterMeterSnapshot(),
@@ -145,6 +146,7 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   onTransportPause: noop,
   onTransportStop: noop,
   onTransportSkipBack: noop,
+  onTransportJumpToEnd: noop,
   onTransportSeek: noop
 }
 
@@ -438,13 +440,16 @@ describe('PlayerView', () => {
     const onTransportPause = vi.fn()
     const onTransportStop = vi.fn()
     const onTransportSkipBack = vi.fn()
+    const onTransportJumpToEnd = vi.fn()
 
     renderPlayer({
       transport: {
         onTransportPlay,
         onTransportPause,
         onTransportStop,
-        onTransportSkipBack
+        onTransportSkipBack,
+        onTransportJumpToEnd,
+        songEndTick: 32
       }
     })
 
@@ -456,6 +461,15 @@ describe('PlayerView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Skip Back' }))
     expect(onTransportSkipBack).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to End' }))
+    expect(onTransportJumpToEnd).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables Jump to End for an empty arrangement', () => {
+    renderPlayer({ transport: { songEndTick: 0 } })
+
+    expect(screen.getByRole('button', { name: 'Jump to End' })).toBeDisabled()
   })
 
   it('shows Pause button when transport is playing', () => {
@@ -861,8 +875,8 @@ describe('PlayerView', () => {
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
-    // currentTick=64 out of the 4,096-tick MVP span.
-    expect(playhead!.getAttribute('style')).toContain('0.015625')
+    // currentTick=64 out of the 31,968-tick capacity.
+    expect(playhead!.getAttribute('style')).toContain('0.002002')
   })
 
   it('AC-010: playhead remains visible at its position when transport is stopped', () => {
@@ -870,7 +884,7 @@ describe('PlayerView', () => {
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
-    expect(playhead!.getAttribute('style')).toContain('0.00976563')
+    expect(playhead!.getAttribute('style')).toContain('0.00125125')
   })
 
   // --- AC-011: Ruler tick marks and bar numbers ---
@@ -888,12 +902,12 @@ describe('PlayerView', () => {
     expect(barLabels[1].textContent).toBe('5')
   })
 
-  it('AC-011: ruler renders one tick per beat so header lines align with the canvas grid', () => {
+  it('AC-011: ruler renders one CSS-subdivided cell per bar so header lines align with the canvas grid', () => {
     renderPlayer({})
 
     const ticks = document.querySelectorAll('.tracker-ruler-tick')
-    expect(ticks).toHaveLength(512)
-    expect(document.querySelectorAll('.tracker-ruler-tick-bar')).toHaveLength(128)
+    expect(ticks).toHaveLength(999)
+    expect(document.querySelectorAll('.tracker-ruler-tick-bar')).toHaveLength(999)
   })
 
   it('AC-011: keeps the lane head box at the same rendered width as the ruler spacer', () => {
@@ -904,7 +918,103 @@ describe('PlayerView', () => {
     )
   })
 
-  it('AC-011b/c: uses the fixed 128-bar timeline with a dedicated progress control', () => {
+  it('shows an unavailable drop effect for an oversized browser sample when dragover data is protected', () => {
+    const onPlaceSampleDetailOnLane = vi.fn()
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn(() => { throw new DOMException('Drag data is protected') }),
+      types: ['application/mixjam-sample'],
+      dropEffect: 'copy',
+      effectAllowed: ''
+    }
+    renderPlayer({
+      arrangement: { onPlaceSampleDetailOnLane },
+      browser: {
+        samples: [{
+          id: 'too-long.wav',
+          dbId: 1,
+          name: 'too-long.wav',
+          relpath: 'too-long.wav',
+          category: 'Loops',
+          durationSeconds: 3_000,
+          bpm: 120,
+          bpmSource: 'analysis',
+          musicalKey: null,
+          musicalKeySource: null,
+          sampleType: null,
+          sampleTypeSource: null,
+          tags: [],
+          categoryId: null,
+          tagIds: []
+        }],
+        totalCount: 1
+      }
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
+    const sample = screen.getByText(/too-long/).closest('button')!
+    const laneCanvas = screen.getByRole('region', { name: 'Lane 1 placement area' })
+    fireEvent.dragStart(sample, { dataTransfer })
+    fireEvent.dragOver(laneCanvas, { dataTransfer })
+    expect(dataTransfer.dropEffect).toBe('none')
+    fireEvent.drop(laneCanvas, { dataTransfer })
+    expect(dataTransfer.getData).not.toHaveBeenCalled()
+    expect(onPlaceSampleDetailOnLane).not.toHaveBeenCalled()
+
+    fireEvent.dragStart(sample, { dataTransfer })
+    fireEvent.dragEnd(sample, { dataTransfer })
+    const followingTransfer = {
+      getData: vi.fn(() => ''),
+      types: ['application/mixjam-sample'],
+      dropEffect: 'none'
+    }
+    fireEvent.dragOver(laneCanvas, { dataTransfer: followingTransfer })
+    expect(followingTransfer.getData).toHaveBeenCalledOnce()
+    expect(followingTransfer.dropEffect).toBe('copy')
+  })
+
+  it('caches a valid sample payload across repeated dragover events and drop', () => {
+    const onPlaceSampleDetailOnLane = vi.fn()
+    const detail = {
+      name: 'kick.wav',
+      relpath: 'kick.wav',
+      tags: [],
+      bpm: 120,
+      duration: 1
+    }
+    const getData = vi.fn(() => JSON.stringify(detail))
+    const dataTransfer = {
+      getData,
+      types: ['application/mixjam-sample'],
+      dropEffect: 'copy'
+    }
+    renderPlayer({ arrangement: { onPlaceSampleDetailOnLane } })
+
+    const laneCanvas = screen.getByRole('region', { name: 'Lane 1 placement area' })
+    fireEvent.dragOver(laneCanvas, { dataTransfer })
+    fireEvent.dragOver(laneCanvas, { dataTransfer })
+    fireEvent.drop(laneCanvas, { dataTransfer })
+
+    expect(getData).toHaveBeenCalledTimes(1)
+    expect(onPlaceSampleDetailOnLane).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats inaccessible drag data as an empty payload', () => {
+    const onPlaceSampleDetailOnLane = vi.fn()
+    const dataTransfer = {
+      getData: vi.fn(() => { throw new DOMException('Drag data is unavailable') }),
+      types: ['application/mixjam-sample'],
+      dropEffect: 'copy'
+    }
+    renderPlayer({ arrangement: { onPlaceSampleDetailOnLane } })
+
+    const laneCanvas = screen.getByRole('region', { name: 'Lane 1 placement area' })
+    expect(() => fireEvent.dragOver(laneCanvas, { dataTransfer })).not.toThrow()
+    expect(() => fireEvent.drop(laneCanvas, { dataTransfer })).not.toThrow()
+    expect(onPlaceSampleDetailOnLane).not.toHaveBeenCalled()
+  })
+
+  it('AC-011b/c: uses the fixed 999-bar capacity with a dedicated progress control', () => {
     const { container } = renderPlayer({})
     const scrollport = container.querySelector('.tracker-lanes')
     const timeline = scrollport?.querySelector(':scope > .tracker-timeline')
@@ -914,7 +1024,7 @@ describe('PlayerView', () => {
     expect(timeline?.querySelector('.tracker-ruler')).not.toBeNull()
     expect(timeline?.querySelector('.tracker-playhead')).not.toBeNull()
     expect(timeline?.querySelectorAll('.tracker-lane')).toHaveLength(16)
-    expect(timeline).toHaveStyle({ minWidth: '21724px' })
+    expect(timeline).toHaveStyle({ minWidth: '168052px' })
     expect(screen.getByRole('scrollbar', { name: 'Song Progress Bar' })).toHaveAttribute(
       'aria-controls',
       'tracker-song-scrollport'
@@ -992,7 +1102,7 @@ describe('PlayerView', () => {
     fireEvent.keyDown(ruler, { key: 'End' })
     fireEvent.keyDown(ruler, { key: 'PageDown' })
 
-    expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 4088, 16])
+    expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 31960, 16])
   })
 
   // --- AC-015: BPM slider updates transport immediately ---
@@ -1615,7 +1725,7 @@ describe('PlayerView', () => {
     // The fixed MVP span ends at tick 4,096.
     renderPlayer({
       transport: { transportState: 'playing' },
-      arrangement: { currentTick: 4096 }
+      arrangement: { currentTick: 31968 }
     })
 
     const playhead = document.querySelector('.tracker-playhead')

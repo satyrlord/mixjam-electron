@@ -6,8 +6,9 @@ import { Tooltip } from './ui/Tooltip'
 
 // Transport and edit glyphs as inline SVGs: emoji codepoints render through a
 // color emoji font on Windows and ignore the theme's currentColor.
-const TRANSPORT_ICON_PATHS: Record<'skip-back' | 'play' | 'pause' | 'stop' | 'undo', string> = {
+const TRANSPORT_ICON_PATHS: Record<'skip-back' | 'jump-end' | 'play' | 'pause' | 'stop' | 'undo', string> = {
   'skip-back': 'M3 2.5h2v11H3zM13.5 2.5v11L6 8z',
+  'jump-end': 'M11 2.5h2v11h-2zM2.5 2.5v11L10 8z',
   play: 'M4.5 2.5v11L13 8z',
   pause: 'M4 2.5h3v11H4zM9 2.5h3v11H9z',
   stop: 'M3.5 3.5h9v9h-9z',
@@ -44,6 +45,8 @@ interface MiddleStripProps {
   onTransportPause: () => void
   onTransportStop: () => void
   onTransportSkipBack: () => void
+  onTransportJumpToEnd: () => void
+  jumpToEndDisabled: boolean
   searchQuery: string
   onSearchChange: (query: string) => void
   scanProgress: ScanProgress
@@ -69,6 +72,8 @@ export default function MiddleStrip({
   onTransportPause,
   onTransportStop,
   onTransportSkipBack,
+  onTransportJumpToEnd,
+  jumpToEndDisabled,
   searchQuery,
   onSearchChange,
   scanProgress,
@@ -102,6 +107,15 @@ export default function MiddleStrip({
         <Tooltip content="Skip back to start"><button type="button" className="transport-button" aria-label="Skip Back" onClick={onTransportSkipBack}>
           <TransportIcon shape="skip-back" />
         </button></Tooltip>
+        <Tooltip content="Jump to song end"><span className="mixjam-tooltip-anchor"><button
+          type="button"
+          className="transport-button"
+          aria-label="Jump to End"
+          onClick={onTransportJumpToEnd}
+          disabled={jumpToEndDisabled}
+        >
+          <TransportIcon shape="jump-end" />
+        </button></span></Tooltip>
         <Tooltip content={isPreparing ? 'Preparing audio; Stop cancels' : isPlaying ? 'Pause (Space)' : 'Play (Space)'}><span className="mixjam-tooltip-anchor"><button
           type="button"
           className={`transport-button${isPlaying || isPreparing ? ' transport-button-play' : ''}`}

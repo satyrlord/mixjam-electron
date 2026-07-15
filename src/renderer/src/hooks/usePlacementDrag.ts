@@ -1,6 +1,12 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FooterSampleDetail, LaneState, PlacementGroupEntry } from '../lib/arrangement'
-import { LANE_HEAD_WIDTH_PX, LANE_HEIGHT_PX, RULER_HEIGHT_PX, sampleBubbleScreenRect } from '../lib/arrangement'
+import {
+  LANE_HEAD_WIDTH_PX,
+  LANE_HEIGHT_PX,
+  RULER_HEIGHT_PX,
+  placementDurationTicks,
+  sampleBubbleScreenRect
+} from '../lib/arrangement'
 import { clamp, nearestTick } from '../lib/sample-utils'
 import { TICKS_PER_BEAT } from '../engine/transport'
 import { safeJsonParse } from '../lib/safeJsonParse'
@@ -38,6 +44,15 @@ function isPlacementDragPayload(value: unknown): value is PlacementDragPayload {
   )
 }
 
+function readDragData(dataTransfer: DataTransfer, type: string): string {
+  try {
+    const value = dataTransfer.getData(type)
+    return typeof value === 'string' ? value : ''
+  } catch {
+    return ''
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Hook parameters
 // ---------------------------------------------------------------------------
@@ -45,6 +60,8 @@ function isPlacementDragPayload(value: unknown): value is PlacementDragPayload {
 export interface UsePlacementDragParams {
   lanes: LaneState[]
   totalTicks: number
+  bpm: number
+  sampleDurationTicksByPath: ReadonlyMap<string, number>
   selectedPlacementIds: ReadonlySet<string>
   pixelsPerTick: number
   /** Called to clear the current placement selection. */
@@ -62,7 +79,7 @@ export interface UsePlacementDragParams {
 
 export function usePlacementDrag(params: UsePlacementDragParams) {
   const {
-    lanes, totalTicks, selectedPlacementIds,
+    lanes, totalTicks, bpm, sampleDurationTicksByPath, selectedPlacementIds,
     pixelsPerTick,
     onClearSelection, onPlacementDragStart,
     onPlaceSampleDetailOnLane, onMovePlacement, onDuplicatePlacement,
@@ -72,6 +89,34 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
   const [selectionRect, setSelectionRect] = useState<{
     startX: number; startY: number; currentX: number; currentY: number
   } | null>(null)
+  const sampleDragCacheRef = useRef<{ detail: FooterSampleDetail | null } | null>(null)
+
+  useEffect(() => {
+    const clearSampleDragCache = () => { sampleDragCacheRef.current = null }
+    window.addEventListener('dragend', clearSampleDragCache)
+    return () => window.removeEventListener('dragend', clearSampleDragCache)
+  }, [])
+
+  const readSampleDragDetail = useCallback((dataTransfer: DataTransfer): FooterSampleDetail | null => {
+    const cached = sampleDragCacheRef.current
+    if (cached) return cached.detail
+
+    const raw = readDragData(dataTransfer, 'application/mixjam-sample')
+    if (!raw) return null
+
+    const detail = safeJsonParse(raw, null, isFooterSampleDetail)
+    sampleDragCacheRef.current = { detail }
+    return detail
+  }, [])
+
+  const sampleFitsArrangement = useCallback((detail: FooterSampleDetail): boolean => {
+    const referenceBpm = detail.bpm !== null && Number.isFinite(detail.bpm) && detail.bpm > 0
+      ? detail.bpm
+      : bpm
+    const durationTicks = sampleDurationTicksByPath.get(detail.relpath) ??
+      placementDurationTicks(detail.duration, referenceBpm)
+    return durationTicks <= totalTicks
+  }, [bpm, sampleDurationTicksByPath, totalTicks])
 
   // ──────────────── Rectangle select ────────────────
 
@@ -145,6 +190,7 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
   // ──────────────── Sample drag start ────────────────
 
   const handleSampleDragStart = useCallback((event: React.DragEvent, detail: FooterSampleDetail) => {
+    sampleDragCacheRef.current = { detail }
     event.dataTransfer.setData('application/mixjam-sample', JSON.stringify(detail))
     event.dataTransfer.effectAllowed = 'copy'
   }, [])
@@ -188,20 +234,27 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
     if (!event.dataTransfer.types.includes('application/mixjam-sample') &&
         !event.dataTransfer.types.includes('application/mixjam-clip-placement')) return
     event.preventDefault()
+    if (event.dataTransfer.types.includes('application/mixjam-sample')) {
+      const detail = readSampleDragDetail(event.dataTransfer)
+      if (detail && !sampleFitsArrangement(detail)) {
+        event.dataTransfer.dropEffect = 'none'
+        return
+      }
+    }
     if (event.dataTransfer.types.includes('application/mixjam-clip-placement')) {
       event.dataTransfer.dropEffect = event.shiftKey ? 'copy' : 'move'
     } else {
       event.dataTransfer.dropEffect = 'copy'
     }
-  }, [])
+  }, [readSampleDragDetail, sampleFitsArrangement])
 
   const handleLaneCanvasDrop = useCallback((laneIndex: number, event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     const snap = event.altKey ? 1 : TICKS_PER_BEAT
-    const raw = event.dataTransfer.getData('application/mixjam-sample')
-    if (raw) {
-      const detail = safeJsonParse(raw, null, isFooterSampleDetail)
-      if (detail) {
+    if (event.dataTransfer.types.includes('application/mixjam-sample')) {
+      const detail = readSampleDragDetail(event.dataTransfer)
+      sampleDragCacheRef.current = null
+      if (detail && sampleFitsArrangement(detail)) {
         const rect = event.currentTarget.getBoundingClientRect()
         const clickX = event.clientX - rect.left
         const tick = nearestTick(clickX, rect.width, totalTicks, snap)
@@ -210,7 +263,7 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
       return
     }
     // Intra-player placement move or duplicate
-    const placementRaw = event.dataTransfer.getData('application/mixjam-clip-placement')
+    const placementRaw = readDragData(event.dataTransfer, 'application/mixjam-clip-placement')
     if (placementRaw) {
       const parsed = safeJsonParse(placementRaw, null, isPlacementDragPayload)
       if (parsed) {
@@ -222,7 +275,7 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
           const entries: PlacementGroupEntry[] = parsed.group.map((g) => ({
             placementId: g.placementId,
             toLaneIndex: clamp(laneIndex + g.laneOffset, 0, lanes.length - 1),
-            newStartTick: clamp(anchorTick + g.tickOffset, 0, totalTicks - 1)
+            newStartTick: anchorTick + g.tickOffset
           }))
           const applyGroup = event.shiftKey
             ? onDuplicatePlacementGroup
@@ -238,7 +291,7 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
         }
       }
     }
-  }, [lanes.length, totalTicks, onPlaceSampleDetailOnLane, onMovePlacement, onDuplicatePlacement,
+  }, [lanes.length, totalTicks, readSampleDragDetail, sampleFitsArrangement, onPlaceSampleDetailOnLane, onMovePlacement, onDuplicatePlacement,
     onMovePlacementGroup, onDuplicatePlacementGroup, onClearSelection])
 
   return {

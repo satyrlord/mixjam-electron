@@ -17,6 +17,7 @@ interface UseTransportRuntimeParams {
   sampleFolder: FolderRef | null
   active: boolean
   getLanes: () => EngineLane[]
+  songEndTick: number
   initialBpm: number
   initialMasterGain: number
 }
@@ -33,6 +34,7 @@ export interface TransportRuntime {
   transportPause: () => void
   transportStop: () => void
   transportSkipBack: () => void
+  transportJumpToEnd: () => void
   transportSeek: (tick: number) => void
   previewSample: (samplePath: string, nativeBPM?: number | null) => void
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
@@ -46,6 +48,7 @@ export function useTransportRuntime({
   sampleFolder,
   active,
   getLanes,
+  songEndTick,
   initialBpm,
   initialMasterGain
 }: UseTransportRuntimeParams): TransportRuntime {
@@ -60,6 +63,7 @@ export function useTransportRuntime({
     emptyMasterMeterSnapshot()
   )
   const currentTickRef = useSyncedRef(currentTick)
+  const songEndTickRef = useSyncedRef(songEndTick)
   const activeRef = useSyncedRef(active)
   const bpmRef = useRef(initialBpm)
   const masterGainRef = useRef(initialMasterGain)
@@ -150,6 +154,16 @@ export function useTransportRuntime({
     prepareAndStart(fromTick)
   }, [cancelPendingStart, pauseElapsedTimer, prepareAndStart])
 
+  const stopAndReset = useCallback(() => {
+    cancelPendingStart()
+    transportRef.current?.stop()
+    playbackEngineRef.current?.stop()
+    currentTickRef.current = 0
+    resetElapsedTimer()
+    commitTransportState('stopped')
+    setCurrentTick(0)
+  }, [cancelPendingStart, commitTransportState, currentTickRef, resetElapsedTimer])
+
   useEffect(() => {
     if (!active) return
     const transport = createTransport(bpmRef.current)
@@ -170,6 +184,11 @@ export function useTransportRuntime({
       const nextMeter = playbackEngine.getMasterMeterSnapshot()
       setMasterMeter((current) => masterMeterSnapshotsEqual(current, nextMeter) ? current : nextMeter)
       const nextTick = playbackEngine.currentTick
+      if ((runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') &&
+          nextTick >= songEndTickRef.current) {
+        stopAndReset()
+        return
+      }
       currentTickRef.current = nextTick
       setCurrentTick(nextTick)
     }, 100)
@@ -187,14 +206,24 @@ export function useTransportRuntime({
       setCurrentTick(0)
       setMasterMeter(emptyMasterMeterSnapshot())
     }
-  }, [active, backendAPI, sampleFolder, getLanes, currentTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState])
+  }, [active, backendAPI, sampleFolder, getLanes, currentTickRef, songEndTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState, stopAndReset])
 
   const transportPlay = useCallback(() => {
     if (!activeRef.current) return
     if (runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') return
-    const fromTick = playbackEngineRef.current?.currentTick ?? currentTickRef.current
+    const endTick = songEndTickRef.current
+    if (endTick <= 0) return
+    const playbackEngine = playbackEngineRef.current
+    const requestedTick = playbackEngine?.currentTick ?? currentTickRef.current
+    const replayFromStart = requestedTick >= endTick
+    const fromTick = replayFromStart ? 0 : requestedTick
+    if (replayFromStart) {
+      playbackEngine?.seek(0)
+      currentTickRef.current = 0
+      setCurrentTick(0)
+    }
     prepareAndStart(fromTick)
-  }, [activeRef, currentTickRef, prepareAndStart])
+  }, [activeRef, currentTickRef, prepareAndStart, songEndTickRef])
 
   const transportPause = useCallback(() => {
     cancelPendingStart()
@@ -204,15 +233,7 @@ export function useTransportRuntime({
     commitTransportState(transportRef.current?.state ?? 'stopped')
   }, [cancelPendingStart, commitTransportState, pauseElapsedTimer])
 
-  const transportStop = useCallback(() => {
-    cancelPendingStart()
-    transportRef.current?.stop()
-    playbackEngineRef.current?.stop()
-    currentTickRef.current = 0
-    resetElapsedTimer()
-    commitTransportState('stopped')
-    setCurrentTick(0)
-  }, [cancelPendingStart, commitTransportState, currentTickRef, resetElapsedTimer])
+  const transportStop = stopAndReset
 
   const transportSkipBack = useCallback(() => {
     if (!activeRef.current) return
@@ -228,6 +249,21 @@ export function useTransportRuntime({
     setCurrentTick(0)
   }, [activeRef, currentTickRef, restartAfterPreparation])
 
+  const transportJumpToEnd = useCallback(() => {
+    if (!activeRef.current) return
+    const endTick = songEndTickRef.current
+    if (endTick <= 0) return
+    cancelPendingStart()
+    transportRef.current?.stop()
+    const playbackEngine = playbackEngineRef.current
+    playbackEngine?.stop()
+    playbackEngine?.seek(endTick)
+    currentTickRef.current = endTick
+    resetElapsedTimer()
+    commitTransportState('stopped')
+    setCurrentTick(endTick)
+  }, [activeRef, cancelPendingStart, commitTransportState, currentTickRef, resetElapsedTimer, songEndTickRef])
+
   const transportSeek = useCallback((tick: number) => {
     if (!activeRef.current) return
     const nextTick = Math.max(0, Math.floor(tick))
@@ -240,6 +276,20 @@ export function useTransportRuntime({
     currentTickRef.current = nextTick
     setCurrentTick(nextTick)
   }, [activeRef, currentTickRef, restartAfterPreparation])
+
+  useEffect(() => {
+    const tick = currentTickRef.current
+    const isRunning = runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing'
+    if (isRunning && tick >= songEndTick) {
+      stopAndReset()
+      return
+    }
+    if (!isRunning && tick > songEndTick) {
+      playbackEngineRef.current?.seek(songEndTick)
+      currentTickRef.current = songEndTick
+      setCurrentTick(songEndTick)
+    }
+  }, [currentTickRef, songEndTick, stopAndReset])
 
   const previewSample = useCallback((samplePath: string, nativeBPM: number | null = null) => {
     const playbackEngine = playbackEngineRef.current
@@ -297,6 +347,7 @@ export function useTransportRuntime({
     transportPause,
     transportStop,
     transportSkipBack,
+    transportJumpToEnd,
     transportSeek,
     previewSample,
     getSampleBuffer,

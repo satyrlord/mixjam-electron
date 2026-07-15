@@ -14,6 +14,7 @@ describe('useTransportRuntime', () => {
       sampleFolder: null,
       active: false,
       getLanes: () => [],
+      songEndTick: 0,
       initialBpm: 120,
       initialMasterGain: 0.8
     }))
@@ -46,6 +47,7 @@ describe('useTransportRuntime', () => {
         sampleFolder: null,
         active: true,
         getLanes,
+        songEndTick: 0,
         initialBpm: 120,
         initialMasterGain: 0.8
       })
@@ -77,6 +79,7 @@ describe('useTransportRuntime', () => {
       sampleFolder,
       active: true,
       getLanes,
+      songEndTick: 8,
       initialBpm: 120,
       initialMasterGain: 0.8
     }))

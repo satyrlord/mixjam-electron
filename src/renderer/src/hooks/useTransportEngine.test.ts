@@ -1,11 +1,23 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
-import { useTransportEngine } from './useTransportEngine'
+import { useTransportEngine, type TransportEngine } from './useTransportEngine'
 import { PlaybackEngine } from '../engine/playback-engine'
 import { createDefaultLanes } from '../lib/arrangement'
 
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
+const PLAYABLE_SAMPLE = {
+  name: 'test.wav',
+  relpath: 'test.wav',
+  tags: [],
+  bpm: 120,
+  duration: 10,
+  slot: 0
+}
+
+function placePlayableSample(result: { current: TransportEngine }): void {
+  act(() => result.current.placeSampleDetailOnLane(PLAYABLE_SAMPLE, 0, 0))
+}
 
 describe('useTransportEngine', () => {
   beforeEach(() => {
@@ -38,6 +50,7 @@ describe('useTransportEngine', () => {
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
 
     await waitFor(() => expect(result.current.playbackEngineRef.current).not.toBeNull())
+    placePlayableSample(result)
 
     // Start transport so state is 'playing'
     await act(async () => {
@@ -88,6 +101,7 @@ describe('useTransportEngine', () => {
     const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
     await waitFor(() => expect(result.current.playbackEngineRef.current).not.toBeNull())
+    placePlayableSample(result)
 
     act(() => result.current.transportSeek(40))
 
@@ -96,9 +110,83 @@ describe('useTransportEngine', () => {
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(40)
   })
 
+  it('keeps Play and Jump to End stopped at tick zero for an empty song', () => {
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+
+    act(() => {
+      result.current.transportPlay()
+      result.current.transportJumpToEnd()
+    })
+
+    expect(result.current.songEndTick).toBe(0)
+    expect(result.current.currentTick).toBe(0)
+    expect(result.current.transportState).toBe('stopped')
+  })
+
+  it('Jump to End stops playback and parks at the exact latest placement end', async () => {
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    placePlayableSample(result)
+
+    act(() => result.current.transportPlay())
+    await waitFor(() => expect(result.current.transportState).toBe('playing'))
+    act(() => result.current.transportJumpToEnd())
+
+    expect(result.current.songEndTick).toBe(160)
+    expect(result.current.currentTick).toBe(160)
+    expect(result.current.transportState).toBe('stopped')
+    expect(result.current.playbackEngineRef.current?.currentTick).toBe(160)
+  })
+
+  it('restarts from tick zero when Play follows Jump to End during slow preparation', async () => {
+    vi.useFakeTimers()
+    let finishStart!: (started: boolean) => void
+    vi.spyOn(PlaybackEngine.prototype, 'start').mockReturnValue(
+      new Promise<boolean>((resolve) => { finishStart = resolve })
+    )
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    placePlayableSample(result)
+
+    act(() => result.current.transportJumpToEnd())
+    expect(result.current.currentTick).toBe(160)
+    expect(result.current.playbackEngineRef.current?.currentTick).toBe(160)
+
+    act(() => result.current.transportPlay())
+    expect(result.current.transportState).toBe('preparing')
+    expect(result.current.currentTick).toBe(0)
+    expect(result.current.playbackEngineRef.current?.currentTick).toBe(0)
+
+    act(() => vi.advanceTimersByTime(200))
+    expect(result.current.transportState).toBe('preparing')
+
+    await act(async () => {
+      finishStart(true)
+      await Promise.resolve()
+    })
+    expect(result.current.transportState).toBe('playing')
+    act(() => result.current.transportStop())
+  })
+
+  it('clamps a stopped playhead when an edit shortens the song behind it', async () => {
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    placePlayableSample(result)
+    const placementId = result.current.lanes[0]!.placements[0]!.id
+
+    act(() => result.current.transportSeek(120))
+    act(() => result.current.removePlacementFromLane(0, placementId))
+
+    await waitFor(() => expect(result.current.currentTick).toBe(0))
+    expect(result.current.songEndTick).toBe(0)
+    expect(result.current.transportState).toBe('stopped')
+  })
+
   it('continues playing from the requested tick when seeking during playback', async () => {
     const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    placePlayableSample(result)
     await waitFor(() => expect(result.current.playbackEngineRef.current).not.toBeNull())
 
     act(() => result.current.transportPlay())
@@ -112,6 +200,26 @@ describe('useTransportEngine', () => {
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(72)
   })
 
+  it('automatically stops and resets after the exact placement end', async () => {
+    vi.useRealTimers()
+    let engineTick = 0
+    vi.spyOn(PlaybackEngine.prototype, 'currentTick', 'get').mockImplementation(() => engineTick)
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    act(() => result.current.placeSampleDetailOnLane({
+      ...PLAYABLE_SAMPLE,
+      duration: 0.0625
+    }, 0, 0))
+
+    act(() => result.current.transportPlay())
+    await waitFor(() => expect(result.current.transportState).toBe('playing'))
+    engineTick = 1
+    await waitFor(() => {
+      expect(result.current.transportState).toBe('stopped')
+      expect(result.current.currentTick).toBe(0)
+    }, { timeout: 1_000 })
+  })
+
   it('does not enter playing or advance elapsed time until preparation completes', async () => {
     vi.useFakeTimers()
     let finishStart!: (started: boolean) => void
@@ -120,6 +228,7 @@ describe('useTransportEngine', () => {
     )
     const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    placePlayableSample(result)
 
     act(() => result.current.transportPlay())
     expect(result.current.transportState).toBe('preparing')
@@ -141,6 +250,7 @@ describe('useTransportEngine', () => {
     )
     const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    placePlayableSample(result)
 
     act(() => result.current.transportPlay())
     expect(result.current.transportState).toBe('preparing')
@@ -481,6 +591,7 @@ describe('useTransportEngine', () => {
     const api = createBackendAPI()
     vi.mocked(api.readSampleBytes).mockResolvedValue(new ArrayBuffer(8))
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
+    placePlayableSample(result)
 
     await act(async () => {
       result.current.transportPlay()
@@ -528,6 +639,7 @@ describe('useTransportEngine', () => {
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
 
     await waitFor(() => expect(result.current.playbackEngineRef.current).not.toBeNull())
+    placePlayableSample(result)
 
     // Start playing so the timer is running
     await act(async () => { result.current.transportPlay() })

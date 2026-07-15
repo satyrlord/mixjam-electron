@@ -32,57 +32,149 @@ import { TICKS_PER_BAR, tickDurationSeconds } from '../src/renderer/src/engine/t
 import type { ChannelState } from '../src/renderer/src/hooks/useMixer'
 
 export const SONG_BPM = 140
-export const TOTAL_BARS = 48
+export const TOTAL_BARS = 70
 export const TOTAL_TICKS = TOTAL_BARS * TICKS_PER_BAR
 export const SONG_DURATION_SECONDS = TOTAL_TICKS * tickDurationSeconds(SONG_BPM)
 
-export const TRANCE_SECTIONS = [
-  { name: 'DJ-style intro', startBar: 0, endBar: 8 },
-  { name: 'theme build', startBar: 8, endBar: 16 },
-  { name: 'percussion-free breakdown', startBar: 16, endBar: 24 },
-  { name: 'buildup', startBar: 24, endBar: 32 },
-  { name: 'full anthem', startBar: 32, endBar: 40 },
-  { name: 'mix-out', startBar: 40, endBar: 48 }
+export const SONG_SECTIONS = [
+  { name: 'sunset DJ intro', startBar: 0, endBar: 8 },
+  { name: 'tropical groove', startBar: 8, endBar: 20 },
+  { name: 'melodic ascent', startBar: 20, endBar: 30 },
+  { name: 'ocean-air breakdown', startBar: 30, endBar: 40 },
+  { name: 'terrace buildup', startBar: 40, endBar: 50 },
+  { name: 'Ibiza peak', startBar: 50, endBar: 62 },
+  { name: 'sunrise mix-out', startBar: 62, endBar: 70 }
 ] as const
 
 export const REQUIRED_CATEGORIES = [
   'Bass',
-  'Beats',
   'Drum',
-  'FX',
+  'Effect',
   'Keys',
+  'Layer',
   'Loop',
+  'Rap',
+  'Seq',
   'Sphere',
-  'Vocals',
-  'Xtra',
-  'Unsorted'
+  'Voice',
+  'Xtra'
 ] as const
 
-const OUTPUT_BASENAME = 'Classic-Trance-Mixer-Test'
+const OUTPUT_BASENAME = 'Ibiza-Melodic-Techno-Mixer-Test'
 const DEFAULT_SAMPLES_DIR = 'tmp/test-samples'
 const DEFAULT_OUTPUT_DIR = 'tmp/generated-songs'
+const MIN_SAMPLE_BPM = 20
+const MAX_SAMPLE_BPM = 400
 
-const LANE_ROLE_DEFINITIONS = [
-  { key: 'kick', name: 'Kick', category: 'Drum', pattern: /^Drum\/KICK(\d{3})_TRNCE_140_X_SC4\.wav$/i },
-  { key: 'clap', name: 'Clap / Build', category: 'Drum', pattern: /^Drum\/CLAP(\d{3})_TRNCE_140_X_SC4\.wav$/i },
-  { key: 'percussion', name: 'Percussion', category: 'Drum', pattern: /^Drum\/PERCUSSN(\d{3})_TRNCE_140_X_SC4\.wav$/i },
-  { key: 'beatLoop', name: 'Beat Loop', category: 'Beats', pattern: /^Beats\/TRANCE_BEATS(\d{3})_140_X_SL1\.wav$/i },
-  { key: 'drumLoopLeft', name: 'Drum Loop L', category: 'Loop', pattern: /^Loop\/DRUMLOOP(\d{3})_TRNCE_140_X_SC4\(L\)\.wav$/i },
-  { key: 'drumLoopRight', name: 'Drum Loop R', category: 'Loop', pattern: /^Loop\/DRUMLOOP(\d{3})_TRNCE_140_X_SC4\(R\)\.wav$/i },
-  { key: 'bass', name: 'Offbeat Bass', category: 'Bass', pattern: /^Bass\/SNTHBASS(\d{3})_TRNCE_140_A_SC4\.wav$/i },
-  { key: 'atmosphereLeft', name: 'Atmosphere L', category: 'Sphere', pattern: /^Sphere\/SPHERE(\d{3})_TRNCE_140_A_SC4\(L\)\.wav$/i },
-  { key: 'atmosphereRight', name: 'Atmosphere R', category: 'Sphere', pattern: /^Sphere\/SPHERE(\d{3})_TRNCE_140_A_SC4\(R\)\.wav$/i },
-  { key: 'anthemLeadLeft', name: 'Anthem Lead L', category: 'Keys', pattern: /^Keys\/SYNTH(\d{3})_TRNCE_140_A_SC4\(L\)\.wav$/i },
-  { key: 'anthemLeadRight', name: 'Anthem Lead R', category: 'Keys', pattern: /^Keys\/SYNTH(\d{3})_TRNCE_140_A_SC4\(R\)\.wav$/i },
-  { key: 'pianoHarmony', name: 'Piano Harmony', category: 'Unsorted', pattern: /^honey piano A\.wav$/i },
-  { key: 'vocalMotif', name: 'Vocal Motif', category: 'Vocals', pattern: /^Vocals\/TRANCE_VOCALS(\d{3})_140_X_SL1\.wav$/i },
-  { key: 'extraTexture', name: 'Extra Texture', category: 'Xtra', pattern: /^Xtra\/TRANCE_EXTRA(\d{3})_140_A_SL1\.wav$/i },
-  { key: 'transitionFxLeft', name: 'Transition FX L', category: 'FX', pattern: /^FX\/FX(\d{3})_TRNCE_140_X_SC4\(L\)\.wav$/i },
-  { key: 'transitionFxRight', name: 'Transition FX R', category: 'FX', pattern: /^FX\/FX(\d{3})_TRNCE_140_X_SC4\(R\)\.wav$/i }
+const LANE_NAMES = [
+  'Kick Phrases',
+  'Clap / Snare',
+  'Hi-Hat / Percussion',
+  'Groove Loops',
+  'Bass',
+  'Sequences',
+  'Keys',
+  'Layer L',
+  'Layer R',
+  'Sphere L',
+  'Sphere R',
+  'Voice',
+  'Rap',
+  'Extra Texture',
+  'Transition FX L',
+  'Transition FX R'
 ] as const
 
-type LaneRole = typeof LANE_ROLE_DEFINITIONS[number]
-export type LaneRoleKey = LaneRole['key']
+const SINGLE_SAMPLE_ROLE_DEFINITIONS = [
+  { key: 'kickPrimary', name: 'primary kick phrase', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
+  { key: 'kickAlternate', name: 'alternate kick phrase', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
+  { key: 'clap', name: 'clap phrase', category: 'Drum', pattern: /clap/i, maxDurationBars: 2 },
+  { key: 'snare', name: 'snare phrase', category: 'Drum', pattern: /snare/i, maxDurationBars: 2 },
+  { key: 'percussionPrimary', name: 'primary percussion phrase', category: 'Drum', pattern: /hihat|perc|shak|conga|bongo|tamb|cow|stick|rim/i, maxDurationBars: 2 },
+  { key: 'percussionAlternate', name: 'alternate percussion phrase', category: 'Drum', pattern: /hihat|perc|shak|conga|bongo|tamb|cow|stick|rim/i, maxDurationBars: 2 },
+  { key: 'groovePrimary', name: 'primary groove loop', category: 'Loop', pattern: /.*/, stylePattern: /beach|afrika|africa|tribal|latin|tropic|island|samba|bongo|conga/i, maxDurationBars: 4 },
+  { key: 'grooveAlternate', name: 'alternate groove loop', category: 'Loop', pattern: /.*/, stylePattern: /beach|afrika|africa|tribal|latin|tropic|island|samba|bongo|conga/i, maxDurationBars: 4 },
+  { key: 'bassPrimary', name: 'primary bass phrase', category: 'Bass', pattern: /.*/, stylePattern: /warm|deep|sub|swing|sun|summer|tropic|island|beach/i, maxDurationBars: 4 },
+  { key: 'bassAlternate', name: 'alternate bass phrase', category: 'Bass', pattern: /.*/, stylePattern: /warm|deep|sub|swing|sun|summer|tropic|island|beach/i, maxDurationBars: 4 },
+  { key: 'sequencePrimary', name: 'primary sequence', category: 'Seq', pattern: /.*/, stylePattern: /sun|summer|beach|tequila|thai|andorra|island|tropic|bali|sea|ocean|water|(?:^|[-_])air(?:[-_.]|$)/i, maxDurationBars: 4 },
+  { key: 'sequenceAlternate', name: 'alternate sequence', category: 'Seq', pattern: /.*/, stylePattern: /sun|summer|beach|tequila|thai|andorra|island|tropic|bali|sea|ocean|water|(?:^|[-_])air(?:[-_.]|$)/i, maxDurationBars: 4 },
+  { key: 'keysPrimary', name: 'primary keys phrase', category: 'Keys', pattern: /.*/, stylePattern: /sun|water|cielo|chiquita|chico|chica|casa|gracias|fuego|iglesias|madre|santiago|tango|toro|verde|tribal|orient|melodica/i, maxDurationBars: 4 },
+  { key: 'keysAlternate', name: 'alternate keys phrase', category: 'Keys', pattern: /.*/, stylePattern: /sun|water|cielo|chiquita|chico|chica|casa|gracias|fuego|iglesias|madre|santiago|tango|toro|verde|tribal|orient|melodica/i, maxDurationBars: 4 },
+  { key: 'voicePrimary', name: 'primary voice motif', category: 'Voice', pattern: /.*/, stylePattern: /a-ha|yeyea|a-ouh|batida|clear-space|alright|feel|love|summer|sun|beach/i, maxDurationBars: 4 },
+  { key: 'voiceAlternate', name: 'alternate voice motif', category: 'Voice', pattern: /.*/, stylePattern: /a-ha|yeyea|a-ouh|batida|clear-space|alright|feel|love|summer|sun|beach/i, maxDurationBars: 4 },
+  { key: 'rapPrimary', name: 'primary rap motif', category: 'Rap', pattern: /.*/, stylePattern: /feel|dance|body|free|love|nice|sky|spark|sun|summer|beach|sea/i, maxDurationBars: 4 },
+  { key: 'rapAlternate', name: 'alternate rap motif', category: 'Rap', pattern: /.*/, stylePattern: /feel|dance|body|free|love|nice|sky|spark|sun|summer|beach|sea/i, maxDurationBars: 4 },
+  { key: 'extraPrimary', name: 'primary extra texture', category: 'Xtra', pattern: /.*/, stylePattern: /air|sun|summer|sea|ocean|beach|tropic|island|warm|wind|water/i, maxDurationBars: 4 },
+  { key: 'extraAlternate', name: 'alternate extra texture', category: 'Xtra', pattern: /.*/, stylePattern: /air|sun|summer|sea|ocean|beach|tropic|island|warm|wind|water/i, maxDurationBars: 4 }
+] as const
+
+const STEREO_SAMPLE_ROLE_DEFINITIONS = [
+  {
+    leftKey: 'layerLeft',
+    rightKey: 'layerRight',
+    name: 'stereo layer',
+    category: 'Layer',
+    pattern: /.*/,
+    stylePattern: /sun|summer|sea|ocean|water|beach|air|dream/i,
+    maxDurationBars: 4
+  },
+  {
+    leftKey: 'sphereLeft',
+    rightKey: 'sphereRight',
+    name: 'stereo sphere',
+    category: 'Sphere',
+    pattern: /.*/,
+    stylePattern: /dream|amor|warm|sun|sea|ocean|water|air/i,
+    maxDurationBars: 10
+  },
+  {
+    leftKey: 'transitionLeft',
+    rightKey: 'transitionRight',
+    name: 'stereo transition effect',
+    category: 'Effect',
+    pattern: /rise|sweep|swish|crash|uplift|transition|impact|noise|wind|reverse|roll/i,
+    stylePattern: /wind|wave|sea|ocean|air|sweep|swish/i,
+    maxDurationBars: 4
+  }
+] as const
+
+const ARRANGEMENT_VARIATIONS = [
+  {
+    name: 'sunset call and response',
+    grooveReturnBar: 42,
+    voiceBars: [14, 24, 34, 52, 64],
+    rapBars: [18, 28, 44, 58, 68],
+    textureRegions: [[4, 8], [16, 20], [30, 34], [40, 44], [54, 58], [64, 70]]
+  },
+  {
+    name: 'late terrace lift',
+    grooveReturnBar: 46,
+    voiceBars: [12, 26, 36, 54, 66],
+    rapBars: [18, 28, 46, 60, 68],
+    textureRegions: [[6, 12], [20, 24], [34, 40], [44, 50], [58, 62], [66, 70]]
+  },
+  {
+    name: 'ocean-air dialogue',
+    grooveReturnBar: 42,
+    voiceBars: [16, 32, 38, 56, 66],
+    rapBars: [12, 28, 46, 60, 68],
+    textureRegions: [[6, 10], [22, 30], [32, 38], [42, 46], [56, 62], [66, 70]]
+  },
+  {
+    name: 'Ibiza peak answers',
+    grooveReturnBar: 46,
+    voiceBars: [10, 26, 36, 58, 64],
+    rapBars: [18, 28, 44, 54, 68],
+    textureRegions: [[4, 12], [24, 30], [34, 40], [46, 50], [56, 62], [64, 70]]
+  }
+] as const
+
+type SingleSampleRole = typeof SINGLE_SAMPLE_ROLE_DEFINITIONS[number]
+type StereoSampleRole = typeof STEREO_SAMPLE_ROLE_DEFINITIONS[number]
+export type SampleRoleKey =
+  | SingleSampleRole['key']
+  | StereoSampleRole['leftKey']
+  | StereoSampleRole['rightKey']
 
 interface DiscoveredSample {
   absolutePath: string
@@ -91,13 +183,19 @@ interface DiscoveredSample {
   category: string
 }
 
+interface StereoPair {
+  baseName: string
+  left: DiscoveredSample
+  right: DiscoveredSample
+}
+
 export interface SelectedSample extends DiscoveredSample {
   durationSeconds: number
   durationTicks: number
   nativeBPM: number | null
 }
 
-export type SelectedSamples = Record<LaneRoleKey, SelectedSample>
+export type SelectedSamples = Record<SampleRoleKey, SelectedSample>
 
 export interface GeneratorOptions {
   samplesDir?: string
@@ -110,6 +208,7 @@ export interface GeneratorResult {
   fileName: string
   seed: string
   variation: number
+  variationName: string
   durationSeconds: number
   selectedSamples: SelectedSamples
   project: ProjectDocument
@@ -119,7 +218,7 @@ interface CliOptions extends GeneratorOptions {
   help: boolean
 }
 
-const HELP_TEXT = `Generate a durable classic-trance project for Mixer and FX testing.
+const HELP_TEXT = `Generate a two-minute Ibiza-inspired melodic-techno project for Mixer and FX testing.
 
 Usage:
   npm run generate:mixer-test-song -- [options]
@@ -141,7 +240,7 @@ function hashSeed(seed: string): number {
 }
 
 export function variationForSeed(seed: string): number {
-  return (hashSeed(seed) % 5) + 1
+  return (hashSeed(seed) % ARRANGEMENT_VARIATIONS.length) + 1
 }
 
 function normalizedRelativePath(root: string, absolutePath: string): string {
@@ -176,29 +275,56 @@ async function discoverWavFiles(samplesDir: string): Promise<DiscoveredSample[]>
   return discovered
 }
 
-function chooseRoleSample(
-  inventory: readonly DiscoveredSample[],
-  role: LaneRole,
-  variation: number
-): DiscoveredSample {
-  const candidates = inventory.filter((sample) => role.pattern.test(sample.sampleRef))
-  if (candidates.length === 0) {
-    throw new Error(`No WAV candidate found for the ${role.name} lane in category ${role.category}.`)
+function stereoSide(sampleName: string): { baseName: string; side: 'left' | 'right' } | null {
+  const match = /^(.*?)(?:-|\()?([lr])\)?\.wav$/i.exec(sampleName)
+  if (!match?.[1] || !match[2]) return null
+  return {
+    baseName: match[1].replace(/[-_(]+$/, ''),
+    side: match[2].toLowerCase() === 'l' ? 'left' : 'right'
   }
-  candidates.sort((left, right) => left.sampleRef.localeCompare(right.sampleRef))
-  const exactVariation = candidates.find((sample) => {
-    const match = role.pattern.exec(sample.sampleRef)
-    return match?.[1] !== undefined && Number(match[1]) === variation
-  })
-  return exactVariation ?? candidates[(variation - 1) % candidates.length]!
 }
 
-function bpmFromMetadataOrName(metadataBpm: number | undefined, sampleName: string): number | null {
-  if (metadataBpm !== undefined && Number.isFinite(metadataBpm) && metadataBpm > 0) {
+function discoverStereoPairs(inventory: readonly DiscoveredSample[]): StereoPair[] {
+  const partialPairs = new Map<string, Partial<StereoPair>>()
+  for (const sample of inventory) {
+    const descriptor = stereoSide(sample.sampleName)
+    if (!descriptor) continue
+    const pairKey = `${sample.category}/${descriptor.baseName.toLowerCase()}`
+    const pair = partialPairs.get(pairKey) ?? { baseName: descriptor.baseName }
+    pair[descriptor.side] = sample
+    partialPairs.set(pairKey, pair)
+  }
+  return [...partialPairs.values()].filter((pair): pair is StereoPair =>
+    pair.baseName !== undefined && pair.left !== undefined && pair.right !== undefined
+  )
+}
+
+function seededOrder<T>(
+  candidates: readonly T[],
+  seed: string,
+  roleKey: string,
+  identity: (candidate: T) => string
+): T[] {
+  return [...candidates].sort((left, right) => {
+    const leftIdentity = identity(left)
+    const rightIdentity = identity(right)
+    const scoreDifference = hashSeed(`${seed}:${roleKey}:${leftIdentity}`) -
+      hashSeed(`${seed}:${roleKey}:${rightIdentity}`)
+    return scoreDifference || leftIdentity.localeCompare(rightIdentity)
+  })
+}
+
+function isPlausibleSampleBpm(value: number | undefined): value is number {
+  return value !== undefined && Number.isFinite(value) && value >= MIN_SAMPLE_BPM && value <= MAX_SAMPLE_BPM
+}
+
+export function bpmFromMetadataOrName(metadataBpm: number | undefined, sampleName: string): number | null {
+  if (isPlausibleSampleBpm(metadataBpm)) {
     return metadataBpm
   }
-  const match = sampleName.match(/(?:_|\b)(\d{2,3})(?:_|\s+BPM\b)/i)
-  return match ? Number(match[1]) : null
+  const match = sampleName.match(/(?:\b(\d{1,3})\s*BPM\b|\bBPM\s*(\d{1,3})\b)/i)
+  const filenameBpm = match ? Number(match[1] ?? match[2]) : undefined
+  return isPlausibleSampleBpm(filenameBpm) ? filenameBpm : null
 }
 
 async function selectSamples(
@@ -207,21 +333,100 @@ async function selectSamples(
 ): Promise<{ variation: number; samples: SelectedSamples }> {
   const inventory = await discoverWavFiles(samplesDir)
   const variation = variationForSeed(seed)
-  const entries = await Promise.all(LANE_ROLE_DEFINITIONS.map(async (role) => {
-    const candidate = chooseRoleSample(inventory, role, variation)
+  const stereoPairs = discoverStereoPairs(inventory)
+  const pairedSampleRefs = new Set(stereoPairs.flatMap((pair) => [pair.left.sampleRef, pair.right.sampleRef]))
+  const usedSampleRefs = new Set<string>()
+  const entries: Array<readonly [SampleRoleKey, SelectedSample]> = []
+
+  const readSelectedSample = async (candidate: DiscoveredSample): Promise<SelectedSample> => {
     const metadata = await parseFile(candidate.absolutePath)
     const durationSeconds = metadata.format.duration
     if (durationSeconds === undefined || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
       throw new Error(`Could not read a positive WAV duration for ${candidate.sampleRef}.`)
     }
-    const selected: SelectedSample = {
+    const nativeBPM = bpmFromMetadataOrName(metadata.common.bpm, candidate.sampleName)
+    return {
       ...candidate,
       durationSeconds,
-      durationTicks: placementDurationTicks(durationSeconds, SONG_BPM),
-      nativeBPM: bpmFromMetadataOrName(metadata.common.bpm, candidate.sampleName)
+      durationTicks: placementDurationTicks(durationSeconds, nativeBPM ?? SONG_BPM),
+      nativeBPM
     }
-    return [role.key, selected] as const
-  }))
+  }
+
+  for (const role of SINGLE_SAMPLE_ROLE_DEFINITIONS) {
+    const eligibleCandidates = inventory.filter((sample) =>
+      sample.category === role.category &&
+      role.pattern.test(sample.sampleName) &&
+      !pairedSampleRefs.has(sample.sampleRef) &&
+      !usedSampleRefs.has(sample.sampleRef)
+    )
+    const preferredCandidates = 'stylePattern' in role
+      ? eligibleCandidates.filter((sample) => role.stylePattern.test(sample.sampleName))
+      : []
+    const candidates = preferredCandidates.length > 0 ? preferredCandidates : eligibleCandidates
+    const orderedCandidates = seededOrder(candidates, seed, role.key, (sample) => sample.sampleRef)
+    let selected: SelectedSample | undefined
+    for (const candidate of orderedCandidates) {
+      try {
+        const inspected = await readSelectedSample(candidate)
+        if (inspected.durationTicks <= role.maxDurationBars * TICKS_PER_BAR) {
+          selected = inspected
+          break
+        }
+      } catch {
+        // Keep trying the seeded candidate order so one unreadable fixture does not block generation.
+      }
+    }
+    if (!selected) {
+      throw new Error(
+        `No readable ${role.name} WAV of at most ${role.maxDurationBars} bars found in ${role.category}.`
+      )
+    }
+    usedSampleRefs.add(selected.sampleRef)
+    entries.push([role.key, selected])
+  }
+
+  for (const role of STEREO_SAMPLE_ROLE_DEFINITIONS) {
+    const eligibleCandidates = stereoPairs.filter((pair) =>
+      pair.left.category === role.category &&
+      role.pattern.test(pair.baseName) &&
+      !usedSampleRefs.has(pair.left.sampleRef) &&
+      !usedSampleRefs.has(pair.right.sampleRef)
+    )
+    const preferredCandidates = eligibleCandidates.filter((pair) => role.stylePattern.test(pair.baseName))
+    const candidates = preferredCandidates.length > 0 ? preferredCandidates : eligibleCandidates
+    const orderedCandidates = seededOrder(candidates, seed, role.leftKey, (pair) => pair.baseName)
+    let selectedPair: readonly [SelectedSample, SelectedSample] | undefined
+    for (const pair of orderedCandidates) {
+      try {
+        const [left, right] = await Promise.all([
+          readSelectedSample(pair.left),
+          readSelectedSample(pair.right)
+        ])
+        const maxDurationTicks = role.maxDurationBars * TICKS_PER_BAR
+        if (
+          left.durationTicks <= maxDurationTicks &&
+          right.durationTicks <= maxDurationTicks &&
+          left.durationTicks === right.durationTicks
+        ) {
+          selectedPair = [left, right]
+          break
+        }
+      } catch {
+        // A later complete pair may still be suitable.
+      }
+    }
+    if (!selectedPair) {
+      throw new Error(
+        `No readable, duration-matched ${role.name} WAV pair of at most ` +
+        `${role.maxDurationBars} bars found in ${role.category}.`
+      )
+    }
+    const [left, right] = selectedPair
+    usedSampleRefs.add(left.sampleRef)
+    usedSampleRefs.add(right.sampleRef)
+    entries.push([role.leftKey, left], [role.rightKey, right])
+  }
 
   return {
     variation,
@@ -238,20 +443,22 @@ function createEffect(
 }
 
 function createMixerChannels(): ChannelState[] {
-  const gains = [0.9, 0.72, 0.66, 0.62, 0.58, 0.58, 0.74, 0.5, 0.5, 0.64, 0.64, 0.56, 0.62, 0.48, 0.55, 0.55]
-  const pans = [0, 0.05, -0.18, 0.12, -0.7, 0.7, 0, -0.78, 0.78, -0.62, 0.62, -0.08, 0.18, -0.3, -0.82, 0.82]
+  const gains = [0.78, 0.58, 0.46, 0.52, 0.68, 0.44, 0.5, 0.36, 0.36, 0.34, 0.34, 0.52, 0.48, 0.34, 0.5, 0.5]
+  const pans = [0, 0.04, -0.16, 0.1, 0, -0.2, 0.18, -0.72, 0.72, -0.58, 0.58, -0.08, 0.14, -0.28, -0.82, 0.82]
   const effects = new Map<number, EffectSlot[]>([
     [0, [createEffect('fx-mixer-test-01-compressor', 'compressor', 'Gentle Glue')]],
     [3, [createEffect('fx-mixer-test-04-compressor', 'compressor', 'Classic Control')]],
-    [6, [createEffect('fx-mixer-test-07-compressor', 'compressor', 'Leveler')]],
+    [4, [createEffect('fx-mixer-test-05-compressor', 'compressor', 'Leveler')]],
+    [5, [createEffect('fx-mixer-test-06-delay', 'delay', 'Classic Echo')]],
+    [6, [createEffect('fx-mixer-test-07-delay', 'delay', 'Ping-Pong Eighths'), createEffect('fx-mixer-test-07-reverb', 'reverb', 'Studio Room')]],
     [7, [createEffect('fx-mixer-test-08-reverb', 'reverb', 'Long Hall')]],
     [8, [createEffect('fx-mixer-test-09-reverb', 'reverb', 'Long Hall')]],
-    [9, [createEffect('fx-mixer-test-10-delay', 'delay', 'Ping-Pong Eighths'), createEffect('fx-mixer-test-10-reverb', 'reverb', 'Studio Room')]],
-    [10, [createEffect('fx-mixer-test-11-delay', 'delay', 'Ping-Pong Eighths'), createEffect('fx-mixer-test-11-reverb', 'reverb', 'Studio Room')]],
-    [11, [createEffect('fx-mixer-test-12-reverb', 'reverb', 'Long Hall')]],
-    [12, [createEffect('fx-mixer-test-13-delay', 'delay', 'Classic Echo'), createEffect('fx-mixer-test-13-compressor', 'compressor', 'Gentle Glue')]],
-    [14, [createEffect('fx-mixer-test-15-delay', 'delay', 'Slapback'), createEffect('fx-mixer-test-15-reverb', 'reverb', 'Long Hall')]],
-    [15, [createEffect('fx-mixer-test-16-delay', 'delay', 'Slapback'), createEffect('fx-mixer-test-16-reverb', 'reverb', 'Long Hall')]]
+    [9, [createEffect('fx-mixer-test-10-reverb', 'reverb', 'Long Hall')]],
+    [10, [createEffect('fx-mixer-test-11-reverb', 'reverb', 'Long Hall')]],
+    [11, [createEffect('fx-mixer-test-12-delay', 'delay', 'Classic Echo'), createEffect('fx-mixer-test-12-compressor', 'compressor', 'Gentle Glue')]],
+    [12, [createEffect('fx-mixer-test-13-delay', 'delay', 'Slapback')]],
+    [14, [createEffect('fx-mixer-test-15-reverb', 'reverb', 'Long Hall')]],
+    [15, [createEffect('fx-mixer-test-16-reverb', 'reverb', 'Long Hall')]]
   ])
 
   return gains.map((gain, channelIndex) => ({
@@ -264,11 +471,12 @@ function createMixerChannels(): ChannelState[] {
   }))
 }
 
-function buildArrangement(samples: SelectedSamples): LaneState[] {
-  const lanePans = [0, 0, -0.12, 0.1, -0.5, 0.5, 0, -0.55, 0.55, -0.45, 0.45, -0.08, 0.12, -0.25, -0.6, 0.6]
+function buildArrangement(samples: SelectedSamples, variationNumber: number): LaneState[] {
+  const variation = ARRANGEMENT_VARIATIONS[variationNumber - 1]!
+  const lanePans = [0, 0.04, -0.12, 0.08, 0, -0.16, 0.14, -0.62, 0.62, -0.5, 0.5, -0.06, 0.12, -0.22, -0.7, 0.7]
   let lanes: LaneState[] = createDefaultLanes().map((lane, index) => ({
     ...lane,
-    name: LANE_ROLE_DEFINITIONS[index]!.name,
+    name: LANE_NAMES[index]!,
     pan: lanePans[index]!
   }))
 
@@ -303,59 +511,72 @@ function buildArrangement(samples: SelectedSamples): LaneState[] {
     }
   }
 
-  const beatPattern = (
+  const tileAlternatingRegions = (
     laneIndex: number,
-    sample: SelectedSample,
-    startBar: number,
-    endBar: number,
-    beatOffsets: readonly number[]
+    primary: SelectedSample,
+    alternate: SelectedSample,
+    regions: readonly (readonly [number, number])[]
   ): void => {
-    const rangeEnd = endBar * TICKS_PER_BAR
-    for (let bar = startBar; bar < endBar; bar += 1) {
-      for (const beatOffset of beatOffsets) {
-        const tick = bar * TICKS_PER_BAR + beatOffset
-        if (tick + sample.durationTicks <= rangeEnd) place(laneIndex, sample, tick)
-      }
-    }
+    const phase = variationNumber % 2
+    regions.forEach(([startBar, endBar], index) => {
+      tileBars(laneIndex, (index + phase) % 2 === 0 ? primary : alternate, startBar, endBar)
+    })
   }
 
-  beatPattern(0, samples.kick, 0, 16, [0, 8, 16, 24])
-  beatPattern(0, samples.kick, 28, 48, [0, 8, 16, 24])
-  beatPattern(1, samples.clap, 4, 16, [8, 24])
-  beatPattern(1, samples.clap, 30, 46, [8, 24])
-  beatPattern(2, samples.percussion, 6, 16, [4, 12, 20, 28])
-  beatPattern(2, samples.percussion, 28, 44, [4, 12, 20, 28])
+  const placeAlternatingBars = (
+    laneIndex: number,
+    primary: SelectedSample,
+    alternate: SelectedSample,
+    bars: readonly number[]
+  ): void => {
+    const phase = variationNumber % 2
+    bars.forEach((bar, index) => {
+      place(laneIndex, (index + phase) % 2 === 0 ? primary : alternate, bar * TICKS_PER_BAR)
+    })
+  }
 
-  for (const [startBar, endBar] of [[4, 16], [24, 32], [32, 48]] as const) {
-    tileBars(3, samples.beatLoop, startBar, endBar)
+  tileAlternatingRegions(0, samples.kickPrimary, samples.kickAlternate, [
+    [0, 8], [8, 20], [20, 30], [46, 50], [50, 62], [62, 70]
+  ])
+  tileAlternatingRegions(1, samples.clap, samples.snare, [
+    [4, 20], [20, 30], [46, 50], [50, 62], [62, 68]
+  ])
+  tileAlternatingRegions(2, samples.percussionPrimary, samples.percussionAlternate, [
+    [6, 20], [20, 30], [44, 50], [50, 62], [62, 66]
+  ])
+  tileAlternatingRegions(3, samples.groovePrimary, samples.grooveAlternate, [
+    [4, 20],
+    [20, 30],
+    [variation.grooveReturnBar, 50],
+    [50, 62],
+    [62, 70]
+  ])
+  tileAlternatingRegions(4, samples.bassPrimary, samples.bassAlternate, [
+    [8, 20], [20, 30], [46, 50], [50, 62], [62, 70]
+  ])
+  tileAlternatingRegions(5, samples.sequencePrimary, samples.sequenceAlternate, [
+    [12, 20], [20, 30], [30, 40], [40, 50], [50, 62], [62, 66]
+  ])
+  tileAlternatingRegions(6, samples.keysPrimary, samples.keysAlternate, [
+    [16, 20], [20, 30], [30, 40], [44, 50], [50, 62]
+  ])
+
+  for (const [startBar, endBar] of [[0, 8], [20, 40], [50, 62], [62, 70]] as const) {
+    tileBars(7, samples.layerLeft, startBar, endBar)
+    tileBars(8, samples.layerRight, startBar, endBar)
   }
-  for (const [startBar, endBar] of [[8, 16], [28, 44]] as const) {
-    tileBars(4, samples.drumLoopLeft, startBar, endBar)
-    tileBars(5, samples.drumLoopRight, startBar, endBar)
+  for (const startBar of [8, 30, 50]) {
+    place(9, samples.sphereLeft, startBar * TICKS_PER_BAR)
+    place(10, samples.sphereRight, startBar * TICKS_PER_BAR)
   }
-  for (const [startBar, endBar] of [[4, 16], [28, 48]] as const) {
-    tileBars(6, samples.bass, startBar, endBar)
-  }
-  for (const [startBar, endBar] of [[0, 8], [16, 28], [40, 48]] as const) {
-    tileBars(7, samples.atmosphereLeft, startBar, endBar)
-    tileBars(8, samples.atmosphereRight, startBar, endBar)
-  }
-  for (const [startBar, endBar] of [[8, 16], [20, 24], [32, 40]] as const) {
-    tileBars(9, samples.anthemLeadLeft, startBar, endBar)
-    tileBars(10, samples.anthemLeadRight, startBar, endBar)
-  }
-  for (const [startBar, endBar] of [[16, 28], [32, 40]] as const) {
-    tileBars(11, samples.pianoHarmony, startBar, endBar)
-  }
-  for (const bar of [12, 20, 30, 36, 44]) {
-    place(12, samples.vocalMotif, bar * TICKS_PER_BAR)
-  }
-  for (const [startBar, endBar] of [[6, 16], [24, 32], [32, 40]] as const) {
-    tileBars(13, samples.extraTexture, startBar, endBar)
-  }
-  for (const endBar of [8, 16, 24, 32, 40, 48]) {
-    place(14, samples.transitionFxLeft, endBar * TICKS_PER_BAR - samples.transitionFxLeft.durationTicks)
-    place(15, samples.transitionFxRight, endBar * TICKS_PER_BAR - samples.transitionFxRight.durationTicks)
+
+  placeAlternatingBars(11, samples.voicePrimary, samples.voiceAlternate, variation.voiceBars)
+  placeAlternatingBars(12, samples.rapPrimary, samples.rapAlternate, variation.rapBars)
+  tileAlternatingRegions(13, samples.extraPrimary, samples.extraAlternate, variation.textureRegions)
+
+  for (const endBar of SONG_SECTIONS.map((section) => section.endBar)) {
+    place(14, samples.transitionLeft, endBar * TICKS_PER_BAR - samples.transitionLeft.durationTicks)
+    place(15, samples.transitionRight, endBar * TICKS_PER_BAR - samples.transitionRight.durationTicks)
   }
 
   const emptyLane = lanes.find((lane) => lane.placements.length === 0)
@@ -423,9 +644,10 @@ export async function generateMixerTestSong(options: GeneratorOptions = {}): Pro
   if (seed.length === 0) throw new Error('The seed must not be empty.')
 
   const { variation, samples } = await selectSamples(samplesDir, seed)
+  const variationName = ARRANGEMENT_VARIATIONS[variation - 1]!.name
   const project: ProjectData = {
     song: { bpm: SONG_BPM, masterGain: 0.82 },
-    lanes: buildArrangement(samples),
+    lanes: buildArrangement(samples, variation),
     channels: createMixerChannels()
   }
   const timestamp = new Date().toISOString()
@@ -442,6 +664,7 @@ export async function generateMixerTestSong(options: GeneratorOptions = {}): Pro
     fileName: filePath.split(/[\\/]/).pop()!,
     seed,
     variation,
+    variationName,
     durationSeconds: SONG_DURATION_SECONDS,
     selectedSamples: samples,
     project: parsedProject
@@ -483,10 +706,16 @@ function printSummary(result: GeneratorResult): void {
     channel.effects.map((effect) => effect.type)
   ))
   console.log(`Created ${result.filePath}`)
-  console.log(`Seed: ${result.seed} (shared variation ${String(result.variation).padStart(3, '0')})`)
+  console.log(
+    `Seed: ${result.seed} (arrangement variation ${result.variation}/${ARRANGEMENT_VARIATIONS.length}: ` +
+    `${result.variationName})`
+  )
   console.log(`Song: ${SONG_BPM} BPM, ${TOTAL_BARS} bars, ${result.durationSeconds.toFixed(3)} seconds`)
-  console.log(`Arrangement: ${TRANCE_SECTIONS.map((section) => section.name).join(' -> ')}`)
-  console.log(`Lanes: ${result.project.lanes.length} non-empty; categories: ${REQUIRED_CATEGORIES.join(', ')}`)
+  console.log(`Arrangement: ${SONG_SECTIONS.map((section) => section.name).join(' -> ')}`)
+  console.log(
+    `Lanes: ${result.project.lanes.length} non-empty; selected clips: ` +
+    `${Object.keys(result.selectedSamples).length}; categories: ${REQUIRED_CATEGORIES.join(', ')}`
+  )
   console.log(`Mixer FX: ${[...effectTypes].sort().join(', ')}`)
 }
 
