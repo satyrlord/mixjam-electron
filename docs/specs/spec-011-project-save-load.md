@@ -102,6 +102,12 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - All placements with the same `sampleRef` use one project-owned
   `durationTicks` value. Conflicting spans are invalid project data rather than
   an implicit choice based on lane or array order.
+- The 999-bar arrangement capacity from specs 005 and 006 is implicit and is
+  never materialized as empty bar, beat, or tick records. A `.mixjam` file saves
+  only actual project state and placement records.
+- `songEndTick` is derived on load as the latest placement end and is not stored
+  as redundant timeline padding or metadata. Internal and trailing empty bars
+  therefore add no project-file size.
 - `song` contains every saved Song-panel control. For v1 this is project BPM
   and Master Volume (`masterGain`). Live meter readings and transport position
   are runtime telemetry, not saved Song settings.
@@ -284,6 +290,9 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-022:** A project loaded from outside the User Folder has no writable
   current path; Save routes through Save As, and no write begins unless the
   selected destination is inside the User Folder.
+- [x] **AC-023:** Saving a project serializes placement records without a
+  preallocated 999-bar timeline, empty bar/beat/tick entries, or a redundant
+  `songEndTick`; loading derives the exact end from the saved placements.
 
 ## Implementation Evidence
 

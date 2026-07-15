@@ -6,8 +6,10 @@ This project is distinct from MixJam Native (WinUI) and MixJam Web (React/Vite, 
 
 ## Status
 
-- Specs 001-010 are implemented; check individual spec files for current AC
-  wording and evidence.
+- Specs 001-004 and 007-010 are implemented. Specs 005-006 are partially
+  implemented: the validated 999-bar capacity, content-derived song end, and
+  Jump to End revision remain pending. Check individual spec files for current
+  AC wording and evidence.
 - Spec 011 is implemented. Spec 012 is validated but not implemented.
 - Specs 013-016 are unvalidated stubs.
 - Spec 017 is an unvalidated draft.

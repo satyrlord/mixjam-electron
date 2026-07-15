@@ -1,7 +1,8 @@
 # Spec 005 — Audio Playback Engine
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIALLY IMPLEMENTED — 999-bar capacity and
+content-derived song-end behavior are pending
 **Depends on:** spec-003 (Folder & App State Management)
 
 ## Objective
@@ -44,9 +45,38 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   time, returns the absolute time when that tick should fire.
 - Step resolution: 1/32 note (8 ticks per beat at 4/4). Every lane shares the
   same global grid.
-- The playhead can advance indefinitely — there is no fixed song length.
-  Lanes can hold patterns of any number of bars.
+- The transport distinguishes the arrangement's fixed capacity from the
+  content-derived song end defined below.
 - Transport is a standalone module — no DOM, no React, no UI imports.
+
+### Song Boundary and Arrangement Capacity
+
+- The arrangement has a theoretical capacity of 999 bars, matching the legacy
+  eJay products. In 4/4 at 8 ticks per beat, this is 32 ticks per bar and an
+  exclusive capacity boundary of 31,968 ticks.
+- Capacity is not song length. `songEndTick` is derived as the maximum
+  `startTick + durationTicks` across every placement on every lane. A song with
+  content in bars 1-10, silence in bar 10-11, and later content through bar 30
+  ends at the exact placement boundary at bar 31; the internal silence does not
+  truncate it.
+- A final placement that ends partway through a bar makes that exact tick the
+  song end. The value is not rounded to the next beat or bar.
+- Every placement record contributes to `songEndTick`, including placements on
+  muted or currently unsoloed lanes and placements whose sample file is
+  missing. Mixer state and temporary file availability never change song
+  length. A project with no placements has `songEndTick = 0`.
+- Natural playback reaching `songEndTick` automatically stops playback and
+  resets the playhead to tick 0. Play on an empty project remains stopped at
+  tick 0. Explicit navigation to the end may park the stopped playhead at
+  `songEndTick`; it is not treated as natural playback reaching the boundary.
+- If an edit shortens the song below the current playhead, a stopped or paused
+  playhead and its view clamp to the new `songEndTick`. During playback, the
+  same edit applies the natural-end rule and resets to tick 0.
+- Placements retain their complete duration. Drops and moves clamp their start
+  tick so `startTick + durationTicks` does not exceed 31,968. A placement whose
+  duration alone exceeds the entire capacity is rejected without a dialog;
+  the interaction surface provides unavailable-cursor or equivalent inline
+  feedback instead of interrupting the user.
 
 ### Lookahead Scheduler
 
@@ -139,8 +169,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Each lane holds a set of clip placements (each with a sample reference,
   start tick, and duration in ticks), mute state, solo state, and
   a channel assignment.
-- Lanes have unlimited length — the user can add clip placements at any tick position,
-  extending the arrangement as needed.
+- Lanes share the 999-bar arrangement capacity. Placement duration is never
+  trimmed at the boundary; placement operations follow the clamping and silent
+  rejection contract above.
 - **Default routing:** each lane is pre-routed to its own mixer channel (lane 1
   → channel 1, lane 2 → channel 2, etc.). This is why the default channel count
   equals the default lane count (16).
@@ -189,6 +220,16 @@ the engine never knows who is listening.
 - [x] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
 - [x] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.
 - [x] **AC-013:** A soloed lane plays; all non-soloed lanes are silent. Un-soloing restores normal playback.
+- [ ] **AC-014:** The engine exposes the 999-bar capacity boundary of 31,968
+  ticks separately from `songEndTick`, which equals the exact maximum
+  `startTick + durationTicks` across all placements and is 0 for an empty song.
+- [ ] **AC-015:** Playback continues across internal silent gaps before
+  `songEndTick`; naturally reaching the end stops playback and resets the
+  playhead to tick 0, while Play on an empty song remains stopped at tick 0.
+- [ ] **AC-016:** Muting, soloing, or losing a referenced sample file does not
+  change `songEndTick`. If an edit shortens the song behind the playhead,
+  stopped or paused navigation clamps to the new end, while active playback
+  stops and resets to tick 0.
 
 ## Non-Goals
 

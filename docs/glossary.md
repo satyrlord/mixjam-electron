@@ -166,16 +166,19 @@ settings are [app state](#app-state), not session data.
 
 An exact synonym for [project](#project): the loaded or newly created document
 currently being edited in the Player. It is represented on disk by the
-`.mixjam` format.
+`.mixjam` format. Its scrollable arrangement capacity is 999 bars, but its
+length is the exact latest placement-end tick across all lanes. Internal silence
+does not end a song while any later placement remains. Empty capacity is not
+serialized into the project file.
 
 ## Song Progress Bar
 
 The always-rendered, skinnable horizontal control below the [Tracker](#tracker)
-lanes. It shows and changes which part of the song timeline is visible without
-seeking the playhead or changing transport state. Its thumb represents the
-visible fraction and follows the Tracker's horizontal scroll position. The
-control remains visible but disabled when the entire song fits in the Tracker
-viewport.
+lanes. It shows and changes which part of the 999-bar arrangement capacity is
+visible without seeking the playhead or changing transport state. Its thumb
+represents the visible fraction of that capacity and follows the Tracker's
+horizontal scroll position. The control remains visible but disabled when the
+entire arrangement capacity fits in the Tracker viewport.
 
 Use *Song Progress Bar*, not *horizontal scrollbar*, *timeline slider*, or
 *transport progress bar*, for this Player control.

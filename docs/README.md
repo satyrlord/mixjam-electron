@@ -113,9 +113,11 @@ renderer stays sandboxed with no `nodeIntegration`.
 
 ## Specs
 
-Feature specifications live in `docs/specs/`. Specs 001-010 are implemented,
-011-012 are validated but not implemented, 013-016 are unvalidated stubs, and
-017 is an unvalidated draft. Check individual spec files for AC status and test
+Feature specifications live in `docs/specs/`. Specs 001-004 and 007-011 are
+implemented. Specs 005-006 are partially implemented pending their validated
+999-bar capacity, content-derived song-end, and Jump to End revision. Spec 012
+is validated but not implemented, specs 013-016 are unvalidated stubs, and 017
+is an unvalidated draft. Check individual spec files for AC status and test
 evidence; test files live alongside the relevant source domain under `src/`.
 
 ## Skinning

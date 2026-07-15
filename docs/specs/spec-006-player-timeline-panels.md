@@ -1,7 +1,8 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIALLY IMPLEMENTED — 999-bar capacity,
+content-derived song end, and Jump to End are pending
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -39,9 +40,11 @@ browser adjacencies.
 - **US-007a:** As a user, I can click the ruler to move the playhead to the
   nearest beat so I can start or resume playback from a precise grid position.
 - **US-007b:** As a user, I can use an always-visible Song Progress Bar to
-  navigate across at least 128 bars without changing playback position.
+  navigate across the full 999-bar capacity without changing playback
+  position.
 - **US-008:** As a user, I can use the Middle Strip transport buttons (Skip
-  Back, Play/Pause, Stop) to control playback.
+  Back, Jump to End, Play/Pause, Stop) to control playback and navigate to the
+  last content tick.
 - **US-009:** As a user, I can drag the browser's internal vertical resize
   handle to adjust the split between the category tree and the sample list.
 - **US-010:** As a user, I can resize the upper work area against the Bottom
@@ -158,10 +161,15 @@ browser adjacencies.
 - Tick marks use the same beat/bar model as the lane canvas: a transparent
   tick every beat and a stronger tick every bar.
 - Bar numbers: 1, 5, 9, 13… (every 4 bars), monospace font, muted color.
-- The MVP song span is 128 bars in 4/4: 4,096 ticks at 8 ticks per beat and
-  32 ticks per bar. The timeline keeps a 42px-per-beat minimum density, so the
-  128-bar canvas is 21,504px wide plus the 220px lane head. A wider viewport
-  may expand that surface but never compresses the 128 bars below this density.
+- The arrangement capacity is 999 bars in 4/4: 31,968 ticks at 8 ticks per beat
+  and 32 ticks per bar. The timeline keeps a 42px-per-beat minimum density, so
+  the 999-bar canvas is 167,832px wide plus the 220px lane head. A wider
+  viewport may expand that surface but never compresses the capacity below
+  this density.
+- The scrollable capacity is not song length. The exact `songEndTick` comes
+  from the latest placement end across all lanes as defined by spec-005. The
+  Tracker and Song Progress Bar always expose all 999 bars even when the song
+  ends earlier.
 - The ruler, playhead, selection overlay, and all lane canvases share one
   horizontal scroll position. Lane heads and the ruler's lane-head spacer stay
   pinned while the rest of the song moves beneath them.
@@ -171,10 +179,11 @@ browser adjacencies.
   disabled when the song is no wider than the Tracker viewport. Native
   horizontal scrollbar chrome is hidden so operating-system auto-hide behavior
   cannot remove the control.
-- The Song Progress Bar thumb size reflects the visible fraction of the song;
-  its position mirrors the shared horizontal scroll offset. Pointer dragging,
-  track clicks, Arrow keys, Page Up/Down, Home, and End update the visible song
-  range without seeking the playhead or changing transport state.
+- The Song Progress Bar thumb size reflects the visible fraction of the full
+  arrangement capacity; its position mirrors the shared horizontal scroll
+  offset. Pointer dragging, track clicks, Arrow keys, Page Up/Down, Home, and
+  End update the visible timeline range without seeking the playhead or
+  changing transport state.
 - Clicking the timeline portion of the ruler moves the engine and visual
   playhead to the nearest beat boundary (every 8 ticks). The lane-head spacer
   is not a seek target.
@@ -242,9 +251,13 @@ browser adjacencies.
   browser.
 - Left segment: project name (the opened project's display name, "Untitled"
   when none).
-- Center **Transport Ribbon**: three transport buttons plus the edit-history pair:
+- Center **Transport Ribbon**: four transport buttons plus the edit-history pair:
   - Skip Back (returns to tick 0). Resets the engine scheduler's playhead, not
     just the UI mirror; while playing it restarts playback from the top.
+  - Jump to End (moves the playhead and Tracker view to the exact
+    `songEndTick`). It is disabled when the song has no placements. When used
+    during playback, it stops playback but parks the playhead and view at the
+    end instead of applying the natural-playback reset-to-zero rule.
   - Play / Pause (toggles; Play is accent-colored when stopped, Pause when
     playing). Space toggles the same action.
   - Stop (returns to tick 0 and stops).
@@ -410,6 +423,11 @@ visible across themes and viewport sizes.
   Changing BPM never changes its position or width, and the corresponding
   Sample Browser bubble has the identical pixel width.
 - [x] **AC-008a:** Holding Alt while dropping a sample or moving a placement bypasses beat-snap and places it at per-tick precision (freeform).
+- [ ] **AC-008b:** A drop or move near the arrangement boundary preserves the
+  placement's complete duration and clamps its start so its end does not exceed
+  tick 31,968. A placement longer than the whole capacity is rejected without
+  a dialog, and illegal targets show an unavailable cursor or equivalent
+  inline pointer feedback.
 - [x] **AC-009:** Placing a sample that overlaps an existing placement on the same lane keeps both sample bubbles visually intact; only the audio
   is monophonic. Overlap never deletes or trims the earlier placement's data.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
@@ -425,15 +443,21 @@ visible across themes and viewport sizes.
   shared horizontal position of the ruler, playhead, selections, and every lane
   canvas while lane heads remain pinned. It is keyboard- and pointer-operable,
   exposes its current and maximum positions accessibly, and stays visible but
-  disabled when the song fits the viewport. Its `aria-controls` target is the
-  actual Tracker scrollport ID supplied by the parent. Native horizontal
-  scrollbar chrome is not the visible navigation control.
-- [x] **AC-011c:** The MVP Tracker exposes 128 bars in 4/4 (4,096 ticks) at a
-  minimum density of 42px per beat. Ruler ticks, placement bounds, seeking, and
-  playhead limits all use that same span.
+  disabled when the full arrangement capacity fits the viewport. Its
+  `aria-controls` target is the actual Tracker scrollport ID supplied by the
+  parent. Native horizontal scrollbar chrome is not the visible navigation
+  control.
+- [ ] **AC-011c:** The Tracker and Song Progress Bar expose all 999 bars in 4/4
+  (31,968 ticks) at a minimum density of 42px per beat. Ruler ticks, placement
+  bounds, seeking, and playhead limits use that capacity, independently of the
+  content-derived `songEndTick`.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
+- [ ] **AC-014a:** Jump to End moves both the playhead and Tracker viewport to
+  the exact `songEndTick` and is disabled for an empty song. If activated while
+  playing, it stops playback and parks at the end; natural playback reaching
+  the same tick still stops and resets to tick 0 per spec-005.
 - [x] **AC-015:** The BPM slider shows the current BPM and changing it updates the engine's BPM immediately.
 - [x] **AC-015a:** The Song panel's slider and numeric field are two editing
   surfaces for one BPM value and always reflect the transport's current BPM.
@@ -505,11 +529,13 @@ visible across themes and viewport sizes.
 - `tmp/verify-ui-primitives/evidence.md` records production Chromium checks for
   pointer and keyboard resizing, menus, popovers, tabs, tooltips, dialog focus,
   touch rotary input, and timeline keyboard stepping.
-- `tmp/verify-tracker-horizontal-scroll/` records production Chromium evidence
+- `tmp/verify-tracker-horizontal-scroll/` records the historical 128-bar
+  production Chromium baseline
   for the Song Progress Bar at 1280x800, a 5120x1440 ultrawide viewport, and
   DPR 2. The checks cover all 128 bars, shared ruler/lane scrolling, pinned lane
   heads, keyboard and pointer navigation, theme changes, the visible disabled
   state, unchanged transport position, and canonical sample-bubble geometry.
+  It does not verify the pending 999-bar capacity or Jump to End revision.
 - `tests/e2e/timeline-seek.spec.ts` and `tmp/verify-timeline-seek/evidence.md`
   verify in production Chromium that an exact beat click seeks to that beat and
   leaves the playhead centered on the clicked pixel at zero and nonzero scroll.
