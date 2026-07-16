@@ -36,7 +36,7 @@ CREATE TABLE samples (
   sample_type  TEXT,                   -- acoustic class; separate from category_id
   sample_type_source TEXT,             -- 'analysis', 'manual', or NULL
   date_added   INTEGER NOT NULL,       -- epoch ms, first-indexed time
-  scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-extracted, 2=missing
+  scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-ready, 2=missing, 3=metadata-unavailable
   category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,  -- one primary category per sample
   UNIQUE (root_id, relpath)               -- the dedup key
 );
@@ -91,6 +91,41 @@ CREATE TABLE library_rules (
 app state's `sampleFolder`), but every folder ever scanned keeps its rows, scoped
 by `root_id`, so switching folders switches the visible library instead of
 mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
+
+## Library-sync bookkeeping
+
+Schema version 3 persists three facts needed by automatic library sync:
+
+- `scan_roots.last_completed_at INTEGER` is NULL until a complete filesystem
+  pass finishes. A non-NULL value means the root has a valid index even when it
+  contains zero audio files. Cancellation and fatal failure do not advance it.
+- `samples.metadata_revision INTEGER NOT NULL DEFAULT 0` records the metadata
+  parser revision attempted for the current file bytes. A terminal parse failure
+  sets `scan_state = 3` (metadata unavailable) and stamps the revision, so an
+  unchanged damaged or unsupported file is not retried on every automatic sync.
+  A manual Re-scan retries unavailable metadata, and new bytes or a newer parser
+  revision reset the row to pending.
+- `samples.analysis_revision INTEGER NOT NULL DEFAULT 0` records the analysis
+  algorithm revision attempted for the current file bytes. New or changed files
+  reset it to 0. Automatic analysis stamps the current revision even when a
+  valid result is NULL, so later app launches do not repeatedly decode unchanged
+  unsupported or low-confidence samples.
+
+The forward-only migration preserves uncertainty while avoiding a surprise
+full-library re-analysis after upgrade:
+
+- legacy roots keep `last_completed_at = NULL` because the old schema cannot
+  prove that enumeration and metadata work completed; existing rows remain
+  browseable while the required first post-upgrade sync reconciles them;
+- existing `scan_state = 1` rows are stamped with the current metadata and
+  analysis revisions;
+- existing `scan_state = 0` rows remain pending with revision 0, so interrupted
+  work resumes and previously failed metadata receives one classified attempt;
+- missing rows remain missing and keep revision 0 until restored.
+
+These fields let automatic sync distinguish an empty completed folder from an
+unscanned folder and select only new, changed, parser-stale, or analysis-stale
+candidates. They are app/index state, not project data.
 
 Analysis provenance is stored per field so a manual BPM does not prevent a
 missing key or sample type from being analyzed. Clearing a manual value clears

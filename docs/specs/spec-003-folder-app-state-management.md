@@ -42,6 +42,9 @@ modified setup column:
   └── "Load MixJam" link        — unchanged from spec-001
 ```
 
+The full-width Recent Projects rail is a sibling of this setup panel and is
+owned by spec-001.
+
 ### Folder Cards
 
 Each card shows:
@@ -52,6 +55,10 @@ Each card shows:
 - **Status text** — shows the selected folder's name, or a prompt if none
   selected. (Browsers have no absolute paths; a folder is a `FolderRef` whose
   handle is persisted in IndexedDB.)
+- **Library status** on the Sample Folder card — Unindexed, Syncing, Ready,
+  Cancelled, or Error. Syncing shows the current phase plus native progress
+  semantics and a visible text equivalent. Cancelled or failed first sync shows
+  a contextual Retry action. Detailed behavior belongs to spec-004.
 - **"Restore access" button** — shown instead of the plain status when a
   restored handle needs a user-gesture permission re-grant (browser host only;
   the Electron shell auto-grants file system access).
@@ -148,10 +155,18 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-013a:** If a restored handle needs a permission re-grant (browser host), the card offers "Restore access to `folder`"; granting it validates the folder and opens the gate.
 - [x] **AC-014:** A `mixjam.json` app config file is written to the User Folder after both folders are selected.
 - [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
+- [x] **AC-016:** Selecting or restoring an accessible Sample Folder schedules
+  exactly one automatic library sync for that folder during the app session.
+  Re-renders and Home/Player transitions do not start duplicate jobs.
+- [x] **AC-017:** While Home is visible, the Sample Folder card shows sync
+  phase and progress. Folder availability remains the launch gate, and an
+  existing index remains usable during background sync. A cancelled or failed
+  first sync remains visibly unindexed and offers Retry without a modal overlay.
 
 ## Non-Goals (deferred to later specs)
 
-- No sample library scanning or manifest generation — that's spec-004.
+- The indexing pipeline and sync scheduling rules belong to spec-004; this spec
+  only supplies the accessible Sample Folder trigger and status host.
 - Project save/load behavior belongs to spec-011.
 - No sample analysis or metadata extraction. Sample analysis is spec-008.
 - No folder size calculation, free space check, or disk health validation.
@@ -159,6 +174,7 @@ Folder's directory handle). It is not user-editable.
 - No drag-and-drop folder selection — the directory picker only.
 - No cloud folder support (OneDrive, Google Drive, etc.) — local filesystem
   only.
-- No folder watching for live changes — out of scope for v1 across all specs.
-  Unindexed folders scan on first entry; indexed folders require manual Re-scan
-  (see [indexing.md](../indexing.md#live-watching-optional-later)).
+- Continuous folder watching is optional follow-up work. The approved baseline
+  performs automatic incremental sync after folder selection/restoration and
+  once per app session; see
+  [indexing.md](../indexing.md#sync-trigger-policy).

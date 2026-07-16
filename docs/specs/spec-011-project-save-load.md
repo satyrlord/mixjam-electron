@@ -197,6 +197,9 @@ generator, its tests, and this contract are the durable repository assets.
 
 ### Save Flow
 
+- "New" in the Middle Strip project menu starts a default project through the
+  same reset path as the Home Screen's new-project action. Spec-006 owns the
+  compact menu presentation.
 - "Save" (Ctrl+S) writes to the current project file path.
 - "Save As…" (Ctrl+Shift+S) opens a native file picker to choose a new
   location (defaults to User Folder). The chosen file must remain inside the
@@ -314,6 +317,8 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-025:** Generated placements calculate `durationTicks` from a
   selected sample's positive native BPM when available, otherwise from the
   140 BPM project tempo, and persist that same native BPM provenance.
+- [x] **AC-026:** New in the Middle Strip project menu starts a default project
+  through the same complete project-state reset used by the Home Screen.
 
 ## Implementation Evidence
 

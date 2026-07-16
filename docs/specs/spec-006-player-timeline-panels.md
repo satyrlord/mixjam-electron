@@ -61,12 +61,12 @@ browser adjacencies.
   │       ├── .ruler            — horizontal bar with tick marks + bar numbers
   │       ├── .lane-scroll      — scrollable lane container
   │           ├── .playhead     — absolute, full-height, 2px wide
-  │           └── .lane × 16    — 52px height each
-  │               ├── .lane-head — 220px: name, M/S buttons, pan knob
+  │           └── .lane × 16    — 39px height each
+  │               ├── .lane-head — 168px: name, M/S buttons, pan knob
   │               └── .lane-canvas — clip placement area
-  ├── .middle-strip     — 100px, fixed full-width global-control band
-  │   ├── .song-progress-bar — 44px persistent timeline navigation row
-  │   └── .middle-strip-main — remaining transport + global status row
+  ├── .middle-strip     — 80px border-box, fixed full-width command band
+  │   ├── .song-progress-bar — 28px persistent timeline navigation row
+  │   └── .middle-strip-main — 48px project + edit + transport + utility row
   └── .bottom-workspace — full-width tabbed work band
       ├── .bottom-workspace-tabs — Song | Mixer | FX | Samples + song status
       └── .bottom-workspace-panel — active peer panel
@@ -88,9 +88,10 @@ browser adjacencies.
   tablist instead of adding another reveal system.
 - The **Middle Strip** is a fixed, full-width band between the upper and lower
   work areas. The Song Progress Bar is its first row and cannot scroll or resize
-  with the Tracker. Its center Transport Ribbon contains transport controls
-  only; project name, search, Re-scan, Uniform Re-scan, and Help remain outside
-  that subregion.
+  with the Tracker. Its main row contains project identity, a separate
+  edit-history group, the centered Transport Ribbon, sample search, transient
+  library status, and compact menus for infrequent actions. The Transport Ribbon
+  contains transport controls only.
 - The **Sample Browser** lives in the Samples panel and owns its internal
   category-tree/sample-list split.
 
@@ -114,13 +115,18 @@ browser adjacencies.
 - The tab row shows compact read-only BPM and Master Volume status. The status
   is an accessible button that activates Song; it does not create a second
   editable BPM or volume control.
+- A fresh layout gives the Bottom Workspace 24% of the Player height. The
+  current layout persists under `mixjam:bottom-workspace-layout-v2`. The v2 key
+  intentionally ignores the previous unversioned layout once so existing users
+  receive the compact default; every later manual resize updates v2 and
+  survives remounts.
 - An explicit workflow transition may activate a tab. In particular, a mixer
   channel's FX action selects that channel and activates FX.
 - Samples exposes an explicit expand/restore action. Expansion grows the Bottom
   Workspace to 60%; restoration returns to the previous user-controlled size.
   Expansion intent and the restore size persist separately from the panel
   layout, so manually resizing the workspace to 60% never turns Restore into a
-  hidden 36% jump.
+  hidden 24% jump.
 - On narrow windows, the tab row scrolls horizontally or uses a labeled
   overflow control; tab targets do not shrink below 44 by 44 CSS pixels.
 - The Bottom Workspace has no Song Controls/Mixer reveal seam. Resizing or
@@ -157,15 +163,15 @@ browser adjacencies.
 
 ### Ruler
 
-- Height: 44px, padded left 220px (lane-head width).
-- The lane-head rendered border box must remain exactly 220px wide so ruler
+- Height: 33px, padded left 168px (lane-head width).
+- The lane-head rendered border box must remain exactly 168px wide so ruler
   marks, tracker grid lines, placements, and playhead share the same x-origin.
 - Tick marks use the same beat/bar model as the lane canvas: a transparent
   tick every beat and a stronger tick every bar.
 - Bar numbers: 1, 5, 9, 13… (every 4 bars), monospace font, muted color.
 - The arrangement capacity is 999 bars in 4/4: 31,968 ticks at 8 ticks per beat
-  and 32 ticks per bar. The timeline keeps a 42px-per-beat minimum density, so
-  the 999-bar canvas is 167,832px wide plus the 220px lane head. A wider
+  and 32 ticks per bar. The timeline keeps a 32px-per-beat minimum density, so
+  the 999-bar lane canvas is 127,872px wide plus the 168px lane head. A wider
   viewport may expand that surface but never compresses the capacity below
   this density.
 - The scrollable capacity is not song length. The exact `songEndTick` comes
@@ -195,13 +201,13 @@ browser adjacencies.
 
 ### Lanes (16)
 
-- Height: 52px fixed per lane.
-- **Lane head** (220px wide):
-  - Lane name (e.g. "Lane 1"), 12px, truncated with ellipsis.
-  - Mute button (M) — 44×44px, toggle style. Muted lanes are visually dimmed.
-  - Solo button (S) — 44×44px, toggle style. When any lane is soloed,
+- Height: 39px fixed per lane.
+- **Lane head** (168px wide):
+  - Lane name (e.g. "Lane 1"), 11px, truncated with ellipsis.
+  - Mute button (M) — 32×32px, toggle style. Muted lanes are visually dimmed.
+  - Solo button (S) — 32×32px, toggle style. When any lane is soloed,
     non-soloed lanes are dimmed.
-  - Pan knob — 44×44px drag-to-pan dial with a highlight-token pointer.
+  - Pan knob — 32×32px drag-to-pan dial with a highlight-token pointer.
 - **Lane canvas:** flex:1, position:relative — hosts sample bubbles.
 - **Focused lane:** subtle accent-color left border on the lane head.
 
@@ -217,8 +223,8 @@ browser adjacencies.
   sample. Before first placement, it estimates the span from source duration
   and detected BPM, or the current project BPM when detection is unavailable,
   so the first drop preserves the same dimensions across views.
-- Height: 32px, vertically centered in the 52px lane. Sample Browser buttons
-  wrap the same 32px visual in a separate 44px interaction target.
+- Height: 24px, vertically centered in the 39px lane. Sample Browser buttons
+  wrap the same 24px visual in a separate 44px interaction target.
 - Label: sample filename, truncated.
 - Bubble color: driven by a per-sample hue derived from category or a hash of
   the filename.
@@ -237,7 +243,7 @@ browser adjacencies.
 - The logical lane spans the full 999-bar surface, but each lane's canvas backing
   store is bounded to the visible Tracker viewport and redraws in full-timeline
   coordinates while scrolling. Scroll events coalesce into at most one redraw
-  per animation frame. No canvas bitmap may use the full 167,832px lane width
+  per animation frame. No canvas bitmap may use the full 127,872px lane width
   because it exceeds Chromium's reliable canvas dimensions.
 - Sample drag payload access is defensive: the complete internal sample detail
   is cached synchronously at drag start, before the browser protects payload
@@ -246,7 +252,7 @@ browser adjacencies.
   read during dragover. External or malformed drag data is treated as absent.
 - A placement drag image may use a larger transparent canvas for shadow padding,
   pointer offset, or a multi-selection badge. The sample bubble drawn inside
-  that canvas keeps the canonical musical-span width and 32px height.
+  that canvas keeps the canonical musical-span width and 24px height.
 
 ### Playhead
 
@@ -259,12 +265,51 @@ browser adjacencies.
 
 ### Middle Strip
 
-- Height: 56px, spans the full player width including both left rails.
-- Owns the global transport and song state seam between the tracker and the
-  browser.
-- Left segment: project name (the opened project's display name, "Untitled"
-  when none).
-- Center **Transport Ribbon**: four transport buttons plus the edit-history pair:
+#### Context and goals
+
+The Middle Strip is a sleek, low-clutter command surface. It keeps transport
+visually stable, makes current project and library state easy to scan, and moves
+infrequent commands out of the permanent button row.
+
+- Height: 80px border-box, spanning the full Player width including both left
+  rails. The Song Progress Bar uses 28px, the main row uses 48px, and the strip
+  owns its borders inside that total. Child padding must not increase either
+  row beyond the strip.
+- The main row has three semantic zones:
+  - **Project zone (left):** one project-identity/menu trigger showing the
+    project name and unsaved-state dot. Its menu contains New, Open, Save, and
+    Save As with shortcut hints where defined.
+  - **Command dock (center):** a separate Undo/Redo group followed by the
+    centered Transport Ribbon.
+  - **Utility zone (right):** sample search, one transient library-status
+    region, and one More menu.
+- The More menu contains Keyboard Shortcuts and the single manual **Re-scan
+  Sample Folder** recovery action. Re-scan helper text states that it is for
+  files changed while MixJam is already open. Uniform Folder Calibration is
+  not present in the Middle Strip.
+
+#### Design tokens and foundations
+
+- Use only existing semantic theme tokens for surfaces, text, borders, focus,
+  accent, success, warning, and danger. The redesign must work across every
+  shipped theme without raw color values in feature selectors.
+- Use an 8px spacing rhythm with 4px only for icon/group micro-spacing.
+- The strip is one continuous surface. Related controls may share one subtle
+  rounded group background; individual idle buttons do not each render as
+  raised bordered slabs.
+- Play/Pause is the sole filled accent action. Other commands use quiet/ghost
+  styling and gain an accent-tinted surface on hover, focus-visible, or active.
+- Icons use one consistent 16-18px stroke/fill weight. Action labels use at
+  least 13px; status/helper text uses at least 12px.
+
+#### Component rules
+
+- The project trigger uses the available left-zone width up to 320px, truncates
+  the name with an ellipsis, and keeps the unsaved-state indicator visible.
+- Undo and Redo remain visible because they are frequent editing commands, but
+  they are outside the Transport Ribbon and separated from it by spacing, not a
+  heavy divider.
+- The center **Transport Ribbon** contains exactly four transport buttons:
   - Skip Back (returns to tick 0). Resets the engine scheduler's playhead, not
     just the UI mirror; while playing it restarts playback from the top.
   - Jump to End (moves the playhead and Tracker view to the exact
@@ -275,17 +320,49 @@ browser adjacencies.
   - Play / Pause (toggles; Play is accent-colored when stopped, Pause when
     playing). Space toggles the same action.
   - Stop (returns to tick 0 and stops).
-  - Undo / Redo — separated by a seam, disabled when the respective history
-    stack is empty (see Undo/Redo below).
-- Right segment: search, Re-scan, the confirmed Uniform Re-scan action, and a
-  "?" help button that opens the keyboard-shortcuts overlay.
-- Transport commands use at least 44px targets, Play is a 48px dominant action,
-  and search is a full-height 44px field. Actionable labels are at least 13px;
-  secondary labels are at least 12px.
+- Transport and edit commands use 44px interaction targets inside the 48px row.
+  Group padding must not increase the rendered group beyond 48px.
+- Search uses a leading search icon, a quiet filled surface, and a flexible
+  width between 200px and 320px at supported desktop sizes.
+- Library status occupies a bounded slot and appears only for syncing,
+  analyzing, completion feedback, or error. It may compact long text to phase
+  plus percentage, but its accessible name retains full detail. Active status
+  provides Cancel without adding another permanent button to the row.
+- The command dock remains anchored to the horizontal midpoint. As space
+  tightens, the project name truncates, status text compacts, and search changes
+  to an icon-triggered expandable field before any command overlaps, clips,
+  scrolls horizontally, or displaces transport.
+- Required control states are default, hover, focus-visible, active/pressed,
+  disabled, and busy where relevant. Dynamic status never changes the geometry
+  of the center command dock.
 - Transport buttons call the engine via the bridge layer (spec-005).
 - Transport, BPM, mute/solo, and pan controls use the shared accessible tooltip
   primitive, including shortcut hints where one exists. Native `title`
   attributes are not used as the tooltip system.
+
+#### Accessibility requirements
+
+- Every icon-only control has an accessible name and a visible focus indicator.
+  Menus use the shared Radix-backed menu primitive and return focus to their
+  trigger when closed.
+- The project and More menus use concise verb labels, logical separators, and
+  visible shortcut hints. Disabled commands remain discoverable where the
+  standard application-menu model benefits from them.
+- The Middle Strip has no overlapping interactive rectangles. At each supported
+  Player size, every target's center hit-tests to that target or one of its
+  descendants.
+
+#### Content standards and prohibited implementations
+
+- Use "Re-scan Sample Folder", not "Uniform Re-scan", "Refresh everything", or
+  another ambiguous scan label.
+- Do not render four equal New/Open/Save/Save As buttons.
+- Do not render multiple scan buttons or insert unbounded progress/error text
+  into the same grid track as search.
+- Do not use a fixed three-column layout whose side content can overlap the
+  centered command dock while root overflow remains hidden.
+- Do not add per-button gradients, strong bevels, or decorative borders that
+  compete with the Play action.
 
 ### Undo/Redo
 
@@ -301,11 +378,16 @@ browser adjacencies.
 
 ### Keyboard shortcuts overlay
 
-- The "?" Middle Strip button and the "?" key open a modal overlay listing all
-  keyboard and mouse shortcuts (transport, placement editing, browser).
+- The Keyboard Shortcuts item in the Middle Strip More menu and the "?" key
+  open a modal overlay listing all keyboard and mouse shortcuts (transport,
+  placement editing, browser).
 - Esc, the close button, or a backdrop click dismisses it.
 - The overlay uses modal dialog semantics, traps focus while open, and restores
   focus to the opener when dismissed.
+- The dialog surface paints above its backdrop. The backdrop dims the
+  application without `backdrop-filter`; dialog text and controls remain sharp,
+  visible, and hit-testable. Any tooltip opened from the trigger closes before
+  the dialog appears.
 - Global shortcuts (Space, Delete, Ctrl+Z/Y, ?) are suppressed while a text
   input, textarea, select, or contenteditable element has focus.
 
@@ -314,11 +396,12 @@ browser adjacencies.
 #### MixJam Browser
 
 - Occupies the upper-left region of the active Player layout.
-- Defaults to 24% of the upper work band (320px at the common desktop size)
+- Defaults to 18% of the upper work band (240px at the common desktop size)
   instead of competing with the Tracker for one third of the viewport.
-- Its right edge resizes only the upper MixJam Browser/Tracker split. The width
-  persists in localStorage as `mixjam-left-col-w` and never constrains the
-  Bottom Workspace.
+- Its right edge resizes only the upper MixJam Browser/Tracker split. The
+  current split persists in localStorage as `mixjam:upper-work-layout`; the
+  older `mixjam-left-col-w` value is read only as a one-time fallback. Neither
+  value constrains the Bottom Workspace.
 - Includes a collapse/expand toggle (state persisted to localStorage as
   `mixjam:recents-rail-collapsed`). When collapsed, only the toggle button is
   visible, and the browser stays visually flush so it does not leave a stray
@@ -388,7 +471,7 @@ browser adjacencies.
   between the upper work area and the full-width Bottom Workspace.
 - Supports pointer, touch, and keyboard resizing, exposes separator value/min/max
   semantics, and persists the resulting layout as
-  `mixjam:bottom-workspace-layout`.
+  `mixjam:bottom-workspace-layout-v2`.
 
 All three split handles use the shared resizable-panel primitive rather than
 window-level mouse listeners. Their focus indicator and hit target remain
@@ -408,7 +491,9 @@ visible across themes and viewport sizes.
 - [x] **AC-002c:** When the MixJam Browser has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank region or browser-specific action buttons.
 - [x] **AC-002d:** Resizing the MixJam Browser/Tracker seam changes and persists
   only the upper split; it does not resize or divide the Bottom Workspace.
-- [x] **AC-003:** The Middle Strip spans the full player width between the upper and lower work bands.
+- [x] **AC-003:** The 80px border-box Middle Strip spans the full Player width
+  between the upper and lower work bands. Its 28px Song Progress Bar and 48px
+  main row remain fully contained, including borders and group padding.
 - [x] **AC-004:** The Bottom Workspace presents Song, Mixer, FX, and Samples as
   ordered peer tabs; the lower reveal seam no longer exists.
 - [x] **AC-004a:** With no valid persisted selection, Song is active. A valid
@@ -429,11 +514,12 @@ visible across themes and viewport sizes.
 - [x] **AC-004e:** Mixer/FX visual telemetry runs only while Mixer or FX is the
   active Bottom Workspace tab. Song, Samples, and leaving Player cancel its
   animation-frame loop without changing audio state.
-- [x] **AC-005:** 16 lanes render at 52px each in the Tracker region with 220px lane heads showing a name plus 44px M, S, and pan targets.
+- [x] **AC-005:** 16 lanes render at 39px each in the Tracker region with 168px
+  lane heads showing a name plus keyboard-operable 32px M, S, and pan targets.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample bubble from the Sample Browser and dropping it onto a lane creates a clip placement snapped to the nearest beat boundary.
-  Its bubble is 32px high and uses the placement's project-owned musical span.
+  Its bubble is 24px high and uses the placement's project-owned musical span.
   Changing BPM never changes its position or width, and the corresponding
   Sample Browser bubble has the identical pixel width.
 - [x] **AC-008a:** Holding Alt while dropping a sample or moving a placement bypasses beat-snap and places it at per-tick precision (freeform).
@@ -463,7 +549,7 @@ visible across themes and viewport sizes.
   control. The progress control is a DOM child of the fixed Middle Strip and is
   fully bounded by that strip at supported Player sizes.
 - [x] **AC-011c:** The Tracker and Song Progress Bar expose all 999 bars in 4/4
-  (31,968 ticks) at a minimum density of 42px per beat. Ruler ticks, placement
+  (31,968 ticks) at a minimum density of 32px per beat. Ruler ticks, placement
   bounds, seeking, and playhead limits use that capacity, independently of the
   content-derived `songEndTick`.
 - [x] **AC-011d:** The Tracker region is constrained to its upper-panel height,
@@ -486,6 +572,9 @@ visible across themes and viewport sizes.
 - [x] **AC-016a:** Dragging the Bottom Workspace separator changes its rendered
   height at wide and narrow resolutions. Pointer, touch, and keyboard input all
   work, separator ARIA reports the current value, and the layout persists.
+- [x] **AC-016c:** A legacy unversioned vertical layout is ignored once in
+  favor of the fresh 24% Bottom Workspace default. The resulting v2 layout is
+  stored, and later manual resizing persists across reloads.
 - [x] **AC-016b:** Root sample categories use a two-column grid. Expandable
   hierarchy branches may span the grid so their nested children remain
   readable, while leaf categories do not reserve an empty toggle gutter.
@@ -496,16 +585,18 @@ visible across themes and viewport sizes.
 - [x] **AC-021:** Dragging a sample bubble that is part of a multi-selection moves the entire placement group, maintaining relative offsets. Shift-dragging the group duplicates all members.
 - [x] **AC-022:** Ctrl+Z undoes the last placement edit (place, move, duplicate, delete, group operations); Ctrl+Y or Ctrl+Shift+Z redoes it.
   The Middle Strip Undo/Redo buttons mirror the shortcuts and disable when their history stack is empty. A multi-placement delete undoes as a single step.
-- [x] **AC-023:** The "?" Middle Strip button and the "?" key open a modal
-  keyboard-shortcuts dialog; Esc, the close button, or a backdrop click
-  dismisses it, background interaction is blocked, and focus returns to the
-  opener. Transport, BPM, mute/solo, and pan controls have accessible tooltip
-  hints without native `title` attributes.
+- [x] **AC-023:** The More-menu Keyboard Shortcuts item and the "?" key open a
+  modal dialog; Esc, the close button, or a backdrop click dismisses it,
+  background interaction is blocked, and focus returns to the opener. The
+  dialog paints above its non-blurring backdrop, its center hit-tests to dialog
+  content, and a trigger tooltip is closed before the dialog appears.
+  Transport, BPM, mute/solo, and pan controls retain accessible tooltip hints
+  without native `title` attributes.
 - [x] **AC-024:** Clicking a MixJam Browser entry records it as most-recently opened, re-sorts the browser, and shows its name in the
   Middle Strip. Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
   Full project deserialization restores lanes and placements from the `.mixjam`
   file through spec-011.
-- [x] **AC-025:** A sample bubble keeps its canonical width and 32px height in
+- [x] **AC-025:** A sample bubble keeps its canonical width and 24px height in
   the drag image; any minimum drag surface, theme-shadow clearance, or group
   badge uses transparent space outside that rectangle.
 - [x] **AC-026:** Space toggles Play/Pause when focus is not in a text control.
@@ -513,10 +604,25 @@ visible across themes and viewport sizes.
   cue in the Tracker; its Open Samples action activates Samples and grows the
   Bottom Workspace to at least 50% when needed. The cue disappears after the
   first placement.
-- [x] **AC-028:** Transport, lane, Mixer, category, sample, theme, header, and
-  footer actions expose 44px interaction targets without changing the 32px
-  sample-bubble visual. Actionable labels are at least 13px and secondary
-  labels are at least 12px on the captured desktop surfaces.
+- [x] **AC-028:** Transport, Mixer, category, sample, theme, header, and footer
+  actions expose 44px interaction targets without changing the 24px
+  sample-bubble visual. The dense Tracker lane controls are the explicit 32px
+  exception and remain keyboard-operable with visible focus. Actionable labels
+  are at least 13px outside the dense Tracker; Tracker secondary labels remain
+  readable at 11px on the captured desktop surfaces.
+- [x] **AC-029:** One project identity/menu trigger exposes New, Open, Save, and
+  Save As without rendering four equal Middle Strip buttons. New uses the Home
+  Screen reset path, and project names can use up to 320px before truncation.
+- [x] **AC-030:** At 1280×720 and 1920×1080 across every shipped theme and
+  idle, syncing, analyzing, and error states, Middle Strip controls remain
+  inside the strip, actionable rectangles do not intersect, target centers
+  hit-test correctly, and the command dock stays visually centered.
+- [x] **AC-031:** The Middle Strip exposes no more than one manual Re-scan
+  action and no Uniform Re-scan action. Sync and analysis progress share one
+  bounded library-status region that cannot push into search or transport.
+- [x] **AC-032:** Play/Pause is the only filled accent command. Related quiet
+  controls share restrained group surfaces, and the strip uses semantic theme
+  tokens consistently across all shipped themes.
 
 ## Bottom Workspace Validation Evidence
 
@@ -530,9 +636,9 @@ visible across themes and viewport sizes.
 - `tmp/verify-bottom-workspace/evidence.md` records production Chromium
   geometry, narrow-window targets, tab-state retention, Sample Browser
   remeasurement, and cross-tab Mixer-to-FX behavior.
-- `tmp/verify-samples-fx-layout/evidence.md` records the restored two-column
-  root category grid, 44px targets, and unchanged 32px category bubbles in
-  production Chromium.
+- `tmp/verify-samples-fx-layout/evidence.md` records the historical
+  pre-compact two-column root category grid, 44px targets, and 32px category
+  bubbles in production Chromium.
 - `tests/e2e/lane-head-overlap.spec.ts` verifies that collapsing or expanding
   the MixJam Browser updates the parent grid in the same interaction and keeps
   the Tracker ruler, lane names, and lane heads clear of the browser rail.
@@ -564,13 +670,21 @@ visible across themes and viewport sizes.
   brings it into view. It also delays sample preparation to prove that Play
   from the parked end restarts at tick 0 without being cancelled by end
   detection.
-- `tmp/verify-song-capacity/evidence.json` and its screenshots record a
-  168,052px built timeline, grid maximum tick 31,960, exact Jump to End tick
+- `tmp/verify-song-capacity/evidence.json` and its screenshots record the
+  historical pre-compact 168,052px timeline, grid maximum tick 31,960, exact Jump to End tick
   5,032 with scroll position 25,556, and Skip Back restoring both values to 0.
-- `tmp/verify-middle-strip-progress/` records built-Chromium geometry,
+- `tmp/verify-middle-strip-progress/` records the historical pre-compact built-Chromium geometry,
   center-point hit testing, and screenshots at 1280x720 and 1920x1080. At both
   sizes the Song Progress Bar is a visible DOM child fully bounded by the
   100px Middle Strip.
+- `tests/e2e/compact-layout.spec.ts` verifies the 75% shared Tracker geometry,
+  all-lane visibility, the 80px Middle Strip, fresh 24% Bottom Workspace,
+  v1-to-v2 one-time reset, later manual persistence, and root overflow across
+  representative stress themes. Its Middle Strip matrix covers all 16 shipped
+  themes at 1280×720 and 1920×1080 in idle, syncing, analyzing, and error
+  states.
+- `tmp/verify-compact-layout/evidence.md` records the matching computed
+  geometry and screenshots.
 - `npm run measure:song-progress-performance` reproduces the full-capacity
   built-Chromium characterization under
   `tmp/verify-song-progress-performance/`. Six raw CDP traces cover a real

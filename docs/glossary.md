@@ -18,6 +18,7 @@
 - [FX chain](#fx-chain)
 - [Lane](#lane)
 - [Library](#library)
+- [Library sync](#library-sync)
 - [Middle Strip](#middle-strip)
 - [MixJam](#mixjam)
 - [MixJam Browser](#mixjam-browser)
@@ -157,16 +158,29 @@ A named saved query over the indexed samples, stored as `rule_json`. A library
 is not a folder, copied collection, playlist, or set of duplicated files. See
 [data-model.md](data-model.md) and [query-schema.md](query-schema.md).
 
+## Library sync
+
+The automatic incremental reconciliation of the active
+[Sample Folder](#sample-folder) with its indexed [samples](#sample). It starts
+after an accessible Sample Folder is selected or restored and runs at most once
+for that folder during an app session. Existing indexed data remains usable
+while sync runs. A manual Re-scan invokes the same pipeline only as a recovery
+action for files changed while MixJam is already open. Uniform folder
+calibration is an analysis workflow, not a second library sync.
+
 ## Middle Strip
 
 The complete full-width composite band in the [Player](#player). It includes
 the [Song Progress Bar](#song-progress-bar) as its first row, followed by the
-project name, [Transport Ribbon](#transport-ribbon), sample search, Re-scan,
-Uniform Re-scan, and Help. Uniform Re-scan is the explicit opt-in for a Sample
-Folder whose samples all share one tempo and key. The Middle Strip is fixed
-between the Tracker and Bottom Workspace, so Bottom Workspace resizing does not
-move the progress bar out of this band. It is not a synonym for the Transport
-Ribbon. See
+project identity and project menu, edit-history controls,
+[Transport Ribbon](#transport-ribbon), sample search, transient
+[library sync](#library-sync) status, and a compact utility menu. The utility
+menu contains Keyboard Shortcuts and the single low-prominence manual Re-scan
+recovery action. The Middle Strip never exposes Uniform Folder Calibration. It
+is fixed
+between the Tracker and Bottom Workspace, so Bottom Workspace resizing does
+not move the progress bar out of this band. It is not a synonym for the
+Transport Ribbon. See
 [spec 006](specs/spec-006-player-timeline-panels.md).
 
 ## Bottom Workspace
@@ -255,7 +269,7 @@ browse `.mixjam` files or define saved [libraries](#library).
 ## Sample bubble
 
 The visual snapshot of a sample or WAV file, regardless of context. Every
-sample bubble is 32px high. In a project, its width represents the sample's
+sample bubble is 24px high. In a project, its width represents the sample's
 [musical span](#musical-span) in ticks at the Player's shared pixels-per-tick
 scale, with a 12px minimum. [Project BPM](#project-bpm) changes never move or
 resize placed bubbles: they change how quickly the source audio is rendered
@@ -397,9 +411,10 @@ and playhead progression. It is distinct from the visual
 ## Transport Ribbon
 
 The subregion of the [Middle Strip](#middle-strip) that contains transport
-controls and nothing else. The project name, sample search, Re-scan,
-Uniform Re-scan, and Help belong to the Middle Strip but are outside the
-Transport Ribbon.
+controls and nothing else: Skip Back, Jump to End, Play/Pause, and Stop.
+Project identity, project actions, edit history, sample search, library status,
+Re-scan, and Keyboard Shortcuts belong to the Middle Strip but remain outside
+the Transport Ribbon.
 
 ## User Folder
 

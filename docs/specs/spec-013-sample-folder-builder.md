@@ -24,7 +24,7 @@ into a five-minute fix instead of a dead end.
   audio from inside MixJam without leaving the app.
 - **US-002:** As a user, I can preview a result before deciding to download it.
 - **US-003:** As a user, I can download selected files into my Sample Folder
-  and see them appear in the sample browser after a rescan.
+  and see them appear after automatic library sync.
 - **US-004:** As a user, I can see the license of every item before I download
   it, so I know what I'm allowed to do with it.
 - **US-005:** As a user, I see download progress and can cancel pending
@@ -45,7 +45,13 @@ into a five-minute fix instead of a dead end.
   `FileSystemDirectoryHandle` (`createWritable()`), under a dedicated
   top-level subfolder (e.g. `archive.org/<item>/…`) so the existing
   folder-to-category mapping (spec-004) files them automatically.
-- A completed download batch triggers (or prompts for) a library rescan.
+- A completed download batch schedules the same incremental library sync owned
+  by spec-004 through its app-mutation trigger. This trigger is not suppressed
+  when the root already completed its once-per-session automatic sync. It
+  schedules immediately when idle or sets a same-root dirty bit that guarantees
+  one follow-up reconciliation after an active job. Repeated download events
+  collapse into that one follow-up and do not prompt for a second manual scan
+  action.
 - License/attribution metadata is preserved (e.g. a sidecar `.json` or
   `ATTRIBUTION.txt` per item).
 
@@ -67,7 +73,9 @@ into a five-minute fix instead of a dead end.
 
 - [ ] **AC-001:** Searching a known term returns archive.org audio results with license shown per item.
 - [ ] **AC-002:** Downloading a result produces a real audio file inside the Sample Folder under the `archive.org/` subtree.
-- [ ] **AC-003:** After download + rescan, the new samples appear in the browser with a category derived from their subfolder.
+- [ ] **AC-003:** After download completes, automatic incremental sync makes the
+  new samples appear in the browser with a category derived from their
+  subfolder, even when session-start sync already ran.
 - [ ] **AC-004:** Cancelling an in-flight download leaves no partial file in the Sample Folder.
 - [ ] **AC-005:** The feature is unreachable without a writable Sample Folder handle.
 

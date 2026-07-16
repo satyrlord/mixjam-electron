@@ -34,8 +34,11 @@ categories. Libraries are saved queries, not file copies.
 
 ### First-Run Indexing
 
-- On first launch after the Sample Folder is selected, the app scans the folder
-  for audio files (`.wav`, `.mp3`, `.flac`, `.ogg`, `.aiff`).
+- After an accessible Sample Folder is selected or restored, the app
+  automatically schedules one incremental library sync for that root during
+  the app session. Sync starts from Home and does not wait for Player entry.
+- On the first sync, the app scans the folder for audio files (`.wav`, `.mp3`,
+  `.flac`, `.ogg`, `.aiff`).
 - Each file is registered in the SQLite database with: scan root + relpath
   (path relative to the Sample Folder), filename, extension, file size,
   modification time, and import date.
@@ -44,31 +47,62 @@ categories. Libraries are saved queries, not file copies.
 - **Phase 2:** audio headers are parsed to fill duration, sample rate, and
   channels. Metadata parsing uses four concurrent readers; database updates
   stay serialized in the backend worker.
-- A full-screen progress overlay is shown through both phases of a folder's
-  first scan. Samples are queried and displayed after `scan-done`; they do not
+- The first sync is non-modal. Home shows phase and progress inside the Sample
+  Folder card. If the user enters Player before `scan-done`, the Samples panel
+  shows an empty syncing state and the Middle Strip carries the same job status.
+  Navigation and project actions remain available.
+- Samples are queried and displayed after `scan-done`; first-sync rows do not
   appear incrementally during phase 1 or phase 2.
 - Scan status uses a native progress element with a visible text equivalent and
   an accessible label; indeterminate phases omit a fabricated numeric value.
 - Indexing runs on a background thread/worker — the UI stays responsive.
 
-### Incremental Re-Scan
+### Automatic Incremental Sync and Manual Recovery
 
-- An already indexed folder is not scanned automatically on subsequent
-  launches. The user triggers change detection with Re-scan.
+- A worker-owned scheduler keyed by the string `FolderRef.id` reconciles an
+  indexed folder automatically once per app session after its handle is
+  restored. Existing indexed samples stay browsable during this background
+  sync.
+- View changes, component remounts, and React development remount behavior do
+  not schedule duplicate syncs. The backend worker runs one library job at a
+  time. Duplicate requests for the same root return the existing job identity.
+  Selecting a different root cancels the old root at its next checkpoint,
+  discards its queued automatic request, and prioritizes the newly selected
+  root.
+- An app-owned filesystem mutation, such as a completed spec-013 download,
+  schedules a sync even when the root already used its once-per-session
+  automatic trigger. If the same root is active, the worker marks it dirty and
+  guarantees one follow-up reconciliation after the current job; repeated
+  mutation events collapse into that one follow-up.
 - New files: added as stubs, queued for metadata extraction.
 - Changed files: metadata is re-extracted; tags, bpm/key fields, and original
   import date are preserved, while filesystem-derived categories are recomputed.
 - Missing files: marked as missing (not deleted) so tags survive a temporarily
   disconnected drive. Hidden from normal browsing.
-- A manual "Re-scan" action triggers a full check of the Sample Folder. The
-  existing browser remains visible and progress is shown in the Middle Strip
-  rather than the first-scan full-screen overlay.
-- A "Cancel scan" action is available during an active scan. Cancelling bumps a
-  generation counter; the in-flight scan stops at its next cancellation check.
+- Unchanged files with a completed metadata attempt are not metadata-parsed or
+  automatically analyzed again. Persisted root-completion, metadata-revision,
+  and analysis-revision state make a completed empty folder valid and keep
+  terminal metadata failures and valid NULL analysis results from being retried
+  on every launch. The manual Re-scan action retries unchanged rows whose
+  metadata is marked unavailable.
+- One manual **Re-scan Sample Folder** action invokes the same incremental
+  pipeline only for the rare case where files change after the session's
+  automatic sync. It lives in the Middle Strip utility menu rather than as
+  permanent primary chrome.
+- A single "Cancel library sync" action is available while a job is active.
+  Cancelling bumps a generation counter; the in-flight work stops at its next
+  cancellation check.
   Already committed rows remain in the database, and the progress indicator
-  resets to idle immediately.
-- Manual Re-scan is disabled while automatic sample analysis is active so the
-  two database workflows cannot be restarted over one another.
+  enters a cancelled state immediately. A cancelled or failed first sync shows
+  one contextual **Retry library sync** action in the current status surface.
+  This recovery action is not permanent Middle Strip chrome and does not create
+  a second scan variant.
+- Progress and completion events include root and job identity, so switching
+  Sample Folder during a scan cannot update the new root with stale events.
+- Uniform Folder Calibration has its own state and commands. It is serialized
+  by the backend worker but remains outside the library-sync lifecycle.
+- Uniform Folder Calibration belongs to spec-008. It is not a second Re-scan
+  action and is never exposed in the Middle Strip.
 
 ### Sample Browser Container
 
@@ -95,7 +129,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ### Sample Browser Grid
 
-- Samples render as the same 32px-high bubble used by the Tracker. Bubbles show
+- Samples render as the same 24px-high bubble used by the Tracker. Bubbles show
   the filename and source duration and retain identical geometry across views.
   Their shared width uses the Tracker's pixels-per-tick scale and the sample's
   project-owned musical span. Before first placement, the browser estimates the
@@ -126,12 +160,17 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ### Library Controls
 
-- The Middle Strip owns sample search, manual Re-scan, Cancel while scanning,
-  and scan progress.
+- The Middle Strip owns sample search plus one compact library-status region
+  for sync and analysis progress. Its utility menu contains the single manual
+  Re-scan recovery action. Cancel is exposed only while a job is active.
+- The Home Sample Folder card shows the same sync lifecycle while Home is
+  visible. Progress follows the job across view changes without restarting it.
 - The Samples panel's filter/sort row owns category and tag filters, the result
   count summary, and filename/duration/date-added sorting.
+- Advanced Uniform Folder Calibration lives in Samples analysis management
+  under spec-008, not beside Re-scan.
 - These controls never bypass the SQLite-backed query/filter flow; they only
-  change the current browser query state or trigger the indexed re-scan path.
+  change the current browser query state or trigger the indexed sync path.
 
 ### Dynamic Tagging
 
@@ -206,15 +245,21 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** On a folder's first scan, the app shows a full-screen loader ("Scanning sample folder...") with phase and progress through both indexing phases.
+- [x] **AC-001:** A folder's first sync starts automatically from Home and
+  shows accessible phase and progress without a full-screen overlay. Entering
+  Player keeps the job running and shows a non-modal syncing state.
 - [x] **AC-002:** After `scan-done`, the browser queries the active folder and displays its indexed samples; first-scan results are not exposed before completion.
-- [x] **AC-003:** Phase 2 persists duration, sample rate, and channel metadata; files whose metadata cannot be parsed remain stubs without aborting the scan.
+- [x] **AC-003:** Phase 2 persists duration, sample rate, and channel metadata.
+  Terminal unsupported or damaged files become metadata-unavailable without
+  aborting the sync; transient I/O failure keeps the job incomplete for Retry.
 - [x] **AC-004:** The sample bubble grid is virtualized — scrolling through
   indexed samples keeps a bounded DOM row count, and an inactive Samples tab
   mounts no sample rows or additional query pages while hidden.
-- [x] **AC-004a:** The Middle Strip shows sample search, manual "Re-scan," scan
-  progress, and a "Cancel scan" action only while scanning; the Samples panel
-  shows the current result count and filter/sort controls.
+- [x] **AC-004a:** The UI exposes one manual "Re-scan Sample Folder" recovery
+  action, one compact library-status region, and Cancel only while active. It
+  exposes no second scan variant. The Samples panel retains result count and
+  filter/sort controls. A cancelled or failed first sync may expose one
+  contextual "Retry library sync" action in that status region.
 - [x] **AC-005:** Typing in the search field filters the sample grid in real-time, matching token prefixes in filename and relpath.
 - [x] **AC-006:** Clearing the search field restores the full sample list.
 - [x] **AC-006b:** Clearing or unselecting a category restores all matching samples across every SQLite result window, not only the first page.
@@ -233,10 +278,26 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-012:** User can save the current filter/search state as a named library.
 - [x] **AC-013:** Opening a saved library restores its filters and shows the matching samples.
 - [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
-- [x] **AC-015:** Re-scanning detects new, changed, and missing files; changed files preserve their tags.
-  The existing browser remains visible with Middle Strip progress, and
-  cancellation retains already committed batches.
-- [x] **AC-015a:** Re-scan is disabled while automatic sample analysis is active.
+- [x] **AC-015:** Automatic and manual incremental sync detect new, changed,
+  missing, and restored files; changed files preserve their tags. Existing
+  indexed samples remain usable, and cancellation retains committed batches.
+- [x] **AC-015a:** Folder selection/restoration schedules at most one sync for
+  that root during the app session. The worker-owned scheduler uses
+  `FolderRef.id`, duplicate requests return the active job identity, and view
+  changes never start another job.
+- [x] **AC-015b:** A second automatic sync over an unchanged corpus performs
+  zero metadata parses and zero sample analyses, including for persisted
+  terminal metadata failures. Manual Re-scan may explicitly retry unavailable
+  metadata.
+- [x] **AC-015c:** A completed empty folder is a ready indexed root, while a
+  cancelled or failed first sync remains incomplete and offers contextual
+  Retry.
+- [x] **AC-015d:** Root/job identity prevents progress or completion from an
+  old folder being applied after the active Sample Folder changes.
+- [x] **AC-015e:** A completed app-owned filesystem mutation schedules or queues
+  reconciliation even after the root's session-start sync. Mutation during an
+  active same-root job guarantees one dirty-bit follow-up, while cross-root
+  selection prioritizes the newly active root.
 - [x] **AC-016:** The sample grid can be sorted by filename, duration, and date added (ascending/descending).
 - [x] **AC-017:** Clicking a sample bubble previews its audio and renders its decoded waveform in the Player footer.
 - [x] **AC-017a:** A Sample Browser bubble uses the same project-owned musical
@@ -254,8 +315,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - No 100k+ scale validation has been recorded. Functional development uses the
   changing real fixture corpus under `tmp/test-samples`.
 - No content-hashing for dedup or move/rename detection.
-- No live folder watching (file system events) — out of scope for v1 across
-  all specs; manual re-scan only (see [indexing.md](../indexing.md#live-watching-optional-later)).
+- Continuous live watching is optional follow-up work. The baseline is
+  once-per-session automatic sync plus one manual in-session recovery action
+  (see [indexing.md](../indexing.md#live-watching-optional-later)).
 - No drag-and-drop within the browser itself (reordering tiles). Drag to tracker lane is the primary placement mechanism (see spec-006).
 - No dedicated detail pane inside the browser region; selected-sample details
   are footer-hosted.

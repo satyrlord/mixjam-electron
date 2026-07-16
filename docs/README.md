@@ -121,9 +121,9 @@ renderer stays sandboxed with no `nodeIntegration`.
 
 Feature specifications live in `docs/specs/`. Specs 001-011 are implemented.
 Spec 012 is validated but not implemented, specs 013-016 are unvalidated stubs,
-and 017 is an unvalidated draft. Check individual spec files for AC status and
-test evidence; test files live alongside the relevant source domain under
-`src/`.
+and 017 is an unvalidated draft. Check individual spec files for acceptance
+wording and test evidence; tests live alongside the relevant source domain
+under `src/`.
 
 ## Theming and skinning
 

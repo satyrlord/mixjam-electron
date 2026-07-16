@@ -6,7 +6,8 @@ Use simple English: short sentences, common words, plain structure. No idioms or
 
 ## Spec status
 
-See [docs/README.md#specs](docs/README.md#specs). Specs 001-011 are implemented; check individual spec files for AC wording and evidence.
+See [docs/README.md#specs](docs/README.md#specs). Specs 001-011 are implemented;
+check individual spec files for acceptance wording and evidence.
 
 ## Always consult these docs
 
@@ -63,9 +64,15 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 - **Parallel subagents first.** Prefer dispatching independent work (search, file reads, research, audits)
   to parallel `Explore` subagents. The main agent is the orchestrator — keep it free and interactive
   for the user to interrupt without blocking background work.
-- **Working tree is shared.** Re-read files before editing if any time has passed since your last read. Check `git log`/`git status` before summarizing changes. Avoid overlapping edits unless ownership and merge order are explicit. Assume concurrent workers may share the same workspace.
+- **Working tree is shared.** Re-read files before editing if any time has
+  passed since your last read. Check `git log`/`git status` before summarizing
+  changes. Avoid overlapping edits unless ownership and merge order are
+  explicit. Assume concurrent workers may share the same workspace.
 - **Newer, more specific doc wins** in conflicts with this file. Follow the newer doc, then update both.
-- **Skip scaffolding** that only exists to keep intermediate states shippable across sessions when all phases land in one session. Retain temporary compatibility or migration work only when it serves a real deployment, review, rollback, or risk-control need.
+- **Skip scaffolding** that only exists to keep intermediate states shippable
+  across sessions when all phases land in one session. Retain temporary
+  compatibility or migration work only when it serves a real deployment,
+  review, rollback, or risk-control need.
 - **Performance claims need real data.** Use `tmp/test-samples` fixtures, not synthetic files. Flag missing measurements explicitly.
 - **Deploy-origin checks:** verify browser build on a local static server (no COOP/COEP headers). Do not push branches just to test an origin.
 - **Close-out before finishing:** run a self-critique pass. List: (1) least confident items with concrete verification commands, (2) skipped or deferred work, (3) unstated assumptions,

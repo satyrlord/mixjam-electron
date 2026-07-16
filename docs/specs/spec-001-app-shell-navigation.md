@@ -28,15 +28,19 @@ Implement view switching, the header bar, and the footer.
 - Full-viewport layout with header, centered content area, and footer.
 - **Header** (48px): brand "MixJam Electron" anchored to the left margin,
   theme selector dropdown on the right (behavior owned by spec-002).
-- **Content area:** two-column layout, vertically and horizontally centered.
+- **Content area:** two primary columns, vertically and horizontally centered,
+  with an optional full-width project rail below both columns.
   - Hero column (left): SVG brandmark (accent-gradient tile with a waveform
     pulse, painted with theme tokens only), "MixJam" wordmark, tagline, three
     quick-start steps, and a labeled 8-by-2 theme-preview grid that switches
     the active theme. The selected theme name appears only in the header selector.
   - Setup column (right): a raised panel holding the two folder cards
-    (spec-003), the launch gate, the Load MixJam link, and — when any exist —
-    up to four recent projects that are selectable on click and load the full
-    project through spec-011.
+    (spec-003), the launch gate, and the Load MixJam link.
+  - Recent Projects rail: when projects exist, a sibling region below the hero
+    and setup columns spans the full content width. It shows up to four projects
+    that are selectable on click and load through spec-011. At desktop width
+    the entries form one four-column row; at 900px and below they form two
+    columns beneath the stacked hero and setup regions.
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
   - "Load MixJam" link — secondary action. Once both folders are available,
     it opens a file picker filtered to `.mixjam` (the File System Access
@@ -134,6 +138,9 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" button and "Load MixJam" link.
+- [x] **AC-002a:** Recent Projects is outside the raised setup panel, spans the
+  full Home content width, and responds from four desktop columns to two
+  columns at 900px and below.
 - [x] **AC-003:** Footer is 48px height (same as header), shows "Select User Folder" left and clickable version string right on both views.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
@@ -149,11 +156,17 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-010:** The Player content area provides structural regions for the
   upper work band, full-width Middle Strip, and lower work band; spec-006 owns
   their detailed current layout and controls.
-- [x] **AC-011:** The app occupies the full viewport height with no overflow scrollbar on the root.
+- [x] **AC-011:** The app occupies the full viewport height with no overflow
+  scrollbar on the root. Home owns any required narrow-window vertical
+  scrolling internally with both content limits reachable; the 1280×720 Home
+  state has no avoidable internal overflow.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 - [x] **AC-013:** In a browser-only host where `window.shellAPI` is missing, the renderer runs the
   full real app (browser backend, folder gating, theming) with no mock or demo data; window-resize
   calls are no-ops.
+- [x] **AC-014:** Automatic library sync is non-modal and survives Home/Player
+  view changes without restarting. Scan and analysis work never applies an
+  app-wide blur or blocks navigation.
 
 ## Native Window Evidence
 
@@ -171,6 +184,13 @@ absolute channel difference of 6.53 and 98.69 percent foreground overlap,
 confirming the live MixJam skull rather than only the source asset's existence.
 Raw bounds, display work area, frame states, icon metrics, and screenshots are
 stored under `tmp/verify-electron-window-state/`.
+
+`tests/e2e/compact-layout.spec.ts` verifies the full-width Recent Projects rail,
+responsive four/two-column geometry, and root-versus-Home overflow ownership
+with reachable scroll limits across representative themes in the production
+Chromium bundle.
+`tmp/verify-compact-layout/evidence.md` records the matching computed geometry
+and screenshots.
 
 ## Non-Goals (deferred to later specs)
 

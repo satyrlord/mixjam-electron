@@ -28,10 +28,10 @@ category tree or tags.
 
 - Runs in a background worker/thread — never blocks the UI.
 - Triggered after indexing (spec-004 phase 2 completes).
-- Re-scan refreshes every automatic BPM, key, and sample-type value for the
-  active Sample Folder using per-file analysis. Per-field manual overrides are
-  never replaced. Readable unsupported or damaged bytes clear stale automatic
-  values; a transient file-read failure preserves them for a later retry.
+- Automatic library sync analyzes only new, changed, interrupted, or
+  stale-revision samples. Per-field manual overrides are never replaced.
+  Readable unsupported or damaged bytes clear stale automatic values; a
+  transient file-read failure preserves them for a later retry.
 - Reports progress: `{ analyzed: N, total: M }`.
 - `scan-done` exposes the indexed library before analysis begins. Analysis then
   reports its own progress and emits `analysis-done`, which refreshes the
@@ -52,12 +52,20 @@ category tree or tags.
 - Returns key as string (e.g. "Am", "C#", "Fm") or NULL.
 - User can manually set/override key per sample.
 
-### Uniform-Batch Calibration
+### Uniform Folder Calibration
 
-- Per-file BPM and key detection remains the first pass. Ordinary Re-scan never
-  applies whole-batch calibration. **Uniform Re-scan** asks the user to confirm
+- Per-file BPM and key detection remains the first pass. Ordinary library sync
+  never applies whole-batch calibration. **Uniform Folder Calibration** is an
+  advanced action in Samples analysis management. It asks the user to confirm
   that every sample in the folder shares one tempo and key before the batch
   runner may reconcile one-shots, partial phrases, and subdivision aliases.
+- Calibration uses a distinct BackendAPI operation and progress lifecycle. It
+  is not a filesystem scan variant, does not appear in the Middle Strip, and is
+  not named Re-scan.
+- Calibration state remains outside `LibrarySyncState`. The backend worker
+  serializes calibration with library sync: starting calibration while a sync
+  is active is disabled, and a new selected-root sync cancels calibration at its
+  next safe checkpoint before it begins work on the new root.
 - Confirmation is the uniform-library contract. The duration and acoustic
   guards below are additional error protection; they cannot distinguish every
   genuine mixed-tempo pair from a subdivision-alias pair.
@@ -71,7 +79,7 @@ category tree or tags.
 - Key calibration is allowed only after uniform tempo is established. The
   leading per-file key must have at least 16 detections, at least 55 percent of
   detected-key votes, and at least twice the runner-up support.
-- In a confirmed Uniform Re-scan, inferred BPM and key replace all automatic
+- In a confirmed Uniform Folder Calibration, inferred BPM and key replace all automatic
   results when their guards pass. This whole-batch relabeling is deliberate:
   the user's uniform-folder contract is stronger than known one-shot and
   subdivision aliases in the per-file heuristics. Manual overrides remain
@@ -79,8 +87,8 @@ category tree or tags.
   that fails a guard, keeps its per-file result for that field.
 - Per-file results are persisted before analysis progress advances. The final
   calibration rewrite is one SQLite transaction, so cancellation cannot leave
-  only a calibrated prefix. A later Re-scan replaces prior `analysis` values
-  and naturally resumes after an interrupted pass.
+  only a calibrated prefix. Later automatic sync reprocesses only pending or
+  stale-revision files and naturally resumes after an interrupted pass.
 - Individual re-analysis has no batch context and therefore keeps the per-file
   acoustic result.
 
@@ -144,10 +152,14 @@ field "Type" to keep the two concepts distinct.
   140 and at least 90 percent are exactly `Am`; NULL results count as misses.
   The uniform-batch guards must still leave controlled mixed-tempo, mixed-key
   batches unchanged, including a duration-alias batch split evenly between 80
-  and 90 BPM. Ordinary Re-scan must also preserve a controlled 100/150 BPM
-  alias-family mix, while confirmed Uniform Re-scan may calibrate the known
-  uniform corpus. Re-scan must replace stale `analysis` values, clear confirmed
-  unsupported automatic results, and preserve every manual field.
+  and 90 BPM. Ordinary automatic sync must preserve a controlled 100/150 BPM
+  alias-family mix, while confirmed Uniform Folder Calibration may calibrate
+  the known uniform corpus. Pending-file analysis must replace stale
+  `analysis` values, clear confirmed unsupported automatic results, and
+  preserve every manual field.
+- [x] **AC-011:** Uniform Folder Calibration is exposed only as an advanced
+  Samples analysis-management action with explicit confirmation, its own API
+  and progress lifecycle, and no Middle Strip or Re-scan label.
 
 ## Implementation Evidence
 
@@ -225,7 +237,7 @@ one-shots, and instruments and therefore do not establish classifier accuracy.
   waveform remains a playback/browser feature, not analysis output.
 - No ML-based classification — purely heuristic.
 - No cross-library analysis accuracy guarantees.
-- No inferred or automatic whole-batch relabeling. Uniform Re-scan is an
-  explicit user-confirmed folder-wide action; the context-menu action remains
+- No inferred or automatic whole-batch relabeling. Uniform Folder Calibration
+  is an explicit advanced folder-wide action; the context-menu action remains
   individual.
 - No automatic decoding for MP3, FLAC, OGG, or AIFF in v1.
