@@ -2,12 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SampleBrowser from './SampleBrowser'
 import type { PlayerBrowserProps } from './playerProps'
-import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
+import type { CategoryItem, LibraryItem, SampleListItem, TagItem } from '../../../shared/backend-api'
 
 const noop = () => undefined
 const asyncNoop = async () => { /* empty */ }
 
-const IDLE_PROGRESS: ScanProgress = { status: 'idle', phase: null, found: 0, processed: 0, total: 0 }
 const CATEGORIES: CategoryItem[] = [
   { id: 1, name: 'Drums', parentId: null },
   { id: 2, name: 'Kicks', parentId: 1 },
@@ -53,8 +52,13 @@ function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowser
     tags: TAGS,
     categories: CATEGORIES,
     libraries: LIBRARIES,
-    scanProgress: IDLE_PROGRESS,
-    analysisProgress: { status: 'idle', analyzed: 0, total: 0 },
+    librarySyncState: { status: 'ready', rootKey: 'samples', lastCompletedAt: 1 },
+    calibrationProgress: {
+      identity: null,
+      status: 'idle',
+      analyzed: 0,
+      total: 0
+    },
     onSearchChange: noop,
     onLoadMoreSamples: noop,
     onSelectSampleDetail: noop,
@@ -62,8 +66,11 @@ function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowser
     onSelectCategory: noop,
     onToggleTagFilter: noop,
     onSortChange: noop,
-    onStartScan: asyncNoop,
-    onCancelScan: asyncNoop,
+    onRescanLibrary: asyncNoop,
+    onRetryLibrarySync: asyncNoop,
+    onCancelLibrarySync: asyncNoop,
+    onStartUniformFolderCalibration: asyncNoop,
+    onCancelUniformFolderCalibration: asyncNoop,
     onCreateTag: asyncNoop as never,
     onRenameTag: asyncNoop as never,
     onSetTagColor: asyncNoop as never,

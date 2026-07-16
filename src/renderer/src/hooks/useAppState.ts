@@ -45,7 +45,7 @@ export function useAppState(
   })
 
   const { resolvePendingPlacementBpms, setView } = engine
-  const { setSelectedSampleDetail, startLibraryScan, scanProgress, dbIndexed } = lib
+  const { setSelectedSampleDetail } = lib
   const {
     beginNewProject,
     openProjectPicker: openProjectFromPicker,
@@ -65,14 +65,7 @@ export function useAppState(
   const goToPlayer = useCallback(async () => {
     await backendAPI.resizeToPlayer()
     setView('player')
-    // Auto-scan on FIRST entry only: the sample folder is set, no scan is
-    // running, and this folder has never been indexed. Re-entering the Player
-    // with an indexed library must not re-walk the whole folder — the user
-    // triggers that explicitly with Re-scan.
-    if (sampleFolder && scanProgress.status === 'idle' && !dbIndexed) {
-      void startLibraryScan()
-    }
-  }, [backendAPI, setView, sampleFolder, scanProgress.status, dbIndexed, startLibraryScan])
+  }, [backendAPI, setView])
 
   const startNewProject = useCallback(async () => {
     beginNewProject()

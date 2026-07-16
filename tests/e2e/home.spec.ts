@@ -8,6 +8,14 @@ test.describe('Home screen', () => {
     await expect(seededPage.locator('footer')).toBeVisible()
   })
 
+  test('uses the bundled app icon as the Home logo', async ({ seededPage }) => {
+    const logo = seededPage.getByRole('img', { name: 'MixJam logo' })
+
+    await expect(logo).toBeVisible()
+    await expect(logo).toHaveAttribute('src', /app-icon-128-.*\.png$/)
+    await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(128)
+  })
+
   test('shows User Folder and Sample Folder cards', async ({ seededPage }) => {
     await expect(seededPage.getByText('User Folder', { exact: true })).toBeVisible()
     await expect(seededPage.getByText('Sample Folder', { exact: true })).toBeVisible()

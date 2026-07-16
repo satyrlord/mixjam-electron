@@ -10,7 +10,7 @@ import type {
   PlayerProjectProps,
   PlayerTransportProps
 } from './playerProps'
-import type { MixJamFileItem, SampleListItem } from '../../../shared/backend-api'
+import type { LibrarySyncState, MixJamFileItem, SampleListItem } from '../../../shared/backend-api'
 import type { LaneState } from '../lib/arrangement'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 
@@ -69,7 +69,11 @@ const DEFAULT_CATEGORIES = [
   { id: 8, name: 'Atmosphere', parentId: null }
 ]
 
-const IDLE_PROGRESS = { status: 'idle' as const, phase: null, found: 0, processed: 0, total: 0 }
+const READY_LIBRARY_STATE: LibrarySyncState = {
+  status: 'ready',
+  rootKey: 'samples',
+  lastCompletedAt: 1
+}
 
 const DEFAULT_BROWSER: PlayerBrowserProps = {
   samples: [],
@@ -86,8 +90,13 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   tags: [],
   categories: DEFAULT_CATEGORIES,
   libraries: [],
-  scanProgress: IDLE_PROGRESS,
-  analysisProgress: { status: 'idle', analyzed: 0, total: 0 },
+  librarySyncState: READY_LIBRARY_STATE,
+  calibrationProgress: {
+    identity: null,
+    status: 'idle',
+    analyzed: 0,
+    total: 0
+  },
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
@@ -95,8 +104,11 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   onSelectCategory: noop,
   onToggleTagFilter: noop,
   onSortChange: noop,
-  onStartScan: asyncNoop,
-  onCancelScan: asyncNoop,
+  onRescanLibrary: asyncNoop,
+  onRetryLibrarySync: asyncNoop,
+  onCancelLibrarySync: asyncNoop,
+  onStartUniformFolderCalibration: asyncNoop,
+  onCancelUniformFolderCalibration: asyncNoop,
       onCreateTag: asyncNoop as never,
       onRenameTag: asyncNoop as never,
       onSetTagColor: asyncNoop as never,
@@ -175,6 +187,7 @@ const DEFAULT_PROJECT: PlayerProjectProps = {
   name: 'Untitled',
   dirty: false,
   busy: false,
+  onNew: async () => undefined,
   onOpen: asyncFalse,
   onOpenPath: asyncFalse,
   onSave: asyncFalse,
@@ -212,8 +225,8 @@ describe('PlayerView', () => {
     localStorage.removeItem('mixjam:bottom-workspace-tab')
     localStorage.removeItem('mixjam-bottom-workspace-size')
     localStorage.removeItem('mixjam:upper-work-layout')
-    localStorage.removeItem('mixjam:bottom-workspace-layout')
-    localStorage.removeItem('mixjam:bottom-workspace-expansion')
+    localStorage.removeItem('mixjam:bottom-workspace-layout-v2')
+    localStorage.removeItem('mixjam:bottom-workspace-expansion-v2')
   })
 
   it('renders the Player regions and MixJam Browser', () => {
@@ -242,6 +255,7 @@ describe('PlayerView', () => {
   })
 
   it('shows project identity and routes project buttons and save shortcuts', () => {
+    const onNew = vi.fn().mockResolvedValue(undefined)
     const onOpen = vi.fn().mockResolvedValue(true)
     const onSave = vi.fn().mockResolvedValue(true)
     const onSaveAs = vi.fn().mockResolvedValue(true)
@@ -249,16 +263,22 @@ describe('PlayerView', () => {
       project: {
         name: 'club-night',
         dirty: true,
+        onNew,
         onOpen,
         onSave,
         onSaveAs
       }
     })
 
-    expect(screen.getByLabelText('club-night, unsaved changes')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save As…' }))
+    const projectMenu = screen.getByRole('button', {
+      name: 'club-night, unsaved changes, project menu'
+    })
+    expect(projectMenu).toBeInTheDocument()
+    for (const action of ['New', 'Open', 'Save', 'Save As']) {
+      fireEvent.keyDown(projectMenu, { key: 'Enter' })
+      fireEvent.click(screen.getByRole('menuitem', { name: action }))
+    }
+    expect(onNew).toHaveBeenCalledTimes(1)
     expect(onOpen).toHaveBeenCalledTimes(1)
     expect(onSave).toHaveBeenCalledTimes(1)
     expect(onSaveAs).toHaveBeenCalledTimes(1)
@@ -273,6 +293,10 @@ describe('PlayerView', () => {
     expect(onSave).toHaveBeenCalledTimes(2)
     expect(onSaveAs).toHaveBeenCalledTimes(2)
     expect(saveEvent.defaultPrevented).toBe(true)
+
+    const css = readFileSync(INDEX_CSS_PATH, 'utf8')
+    expect(css).toMatch(/\.middle-strip\s*\{[\s\S]*height:\s*80px;/m)
+    expect(css).toMatch(/\.strip-project-trigger\s*\{[\s\S]*width:\s*min\(100%, 320px\);/m)
   })
 
   it('leaves Save shortcuts alone while editing or repeating', () => {
@@ -608,16 +632,18 @@ describe('PlayerView', () => {
     expect(onSetLanePan).toHaveBeenCalledWith(0, 0)
   })
 
-  it('transport-button-play class only appears when playing', () => {
+  it('keeps Play as the sole filled accent command while stopped', () => {
     renderPlayer({ transport: { transportState: 'stopped' } })
     const btn = screen.getByRole('button', { name: 'Play' })
-    expect(btn.className).not.toContain('transport-button-play')
+    expect(btn).toHaveClass('strip-command-primary')
+    expect(document.querySelectorAll('.strip-command-primary')).toHaveLength(1)
   })
 
-  it('transport-button-play class present when playing', () => {
+  it('keeps Pause as the sole filled accent command while playing', () => {
     renderPlayer({ transport: { transportState: 'playing' } })
     const btn = screen.getByRole('button', { name: 'Pause' })
-    expect(btn.className).toContain('transport-button-play')
+    expect(btn).toHaveClass('strip-command-primary')
+    expect(document.querySelectorAll('.strip-command-primary')).toHaveLength(1)
   })
 
   // --- AC-002c: Empty state for MixJam Browser ---
@@ -734,7 +760,7 @@ describe('PlayerView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Samples' }))
     expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true')
     await waitFor(() => {
-      const layout = JSON.parse(localStorage.getItem('mixjam:bottom-workspace-layout') ?? '{}') as { bottom?: number }
+      const layout = JSON.parse(localStorage.getItem('mixjam:bottom-workspace-layout-v2') ?? '{}') as { bottom?: number }
       expect(layout.bottom).toBeGreaterThanOrEqual(50)
     })
 
@@ -758,7 +784,7 @@ describe('PlayerView', () => {
     const expand = screen.getByRole('button', { name: 'Expand Samples' })
     fireEvent.click(expand)
     expect(screen.getByRole('button', { name: 'Restore workspace' })).toHaveAttribute('aria-pressed', 'true')
-    expect(JSON.parse(localStorage.getItem('mixjam:bottom-workspace-expansion') ?? '{}')).toMatchObject({
+    expect(JSON.parse(localStorage.getItem('mixjam:bottom-workspace-expansion-v2') ?? '{}')).toMatchObject({
       expanded: true,
       previousBottomSize: expect.any(Number)
     })
@@ -766,8 +792,8 @@ describe('PlayerView', () => {
 
   it('restores an explicitly expanded Samples control from saved state', () => {
     localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
-    localStorage.setItem('mixjam:bottom-workspace-layout', JSON.stringify({ upper: 40, bottom: 60 }))
-    localStorage.setItem('mixjam:bottom-workspace-expansion', JSON.stringify({
+    localStorage.setItem('mixjam:bottom-workspace-layout-v2', JSON.stringify({ upper: 40, bottom: 60 }))
+    localStorage.setItem('mixjam:bottom-workspace-expansion-v2', JSON.stringify({
       expanded: true,
       previousBottomSize: 42
     }))
@@ -776,15 +802,26 @@ describe('PlayerView', () => {
     expect(screen.getByRole('button', { name: 'Restore workspace' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Restore workspace' }))
     expect(screen.getByRole('button', { name: 'Expand Samples' })).toHaveAttribute('aria-pressed', 'false')
-    expect(JSON.parse(localStorage.getItem('mixjam:bottom-workspace-expansion') ?? '{}')).toEqual({
+    expect(JSON.parse(localStorage.getItem('mixjam:bottom-workspace-expansion-v2') ?? '{}')).toEqual({
       expanded: false,
       previousBottomSize: 42
     })
   })
 
+  it('ignores expansion state saved for the previous workspace layout', () => {
+    localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
+    localStorage.setItem('mixjam:bottom-workspace-expansion', JSON.stringify({
+      expanded: true,
+      previousBottomSize: 36
+    }))
+    renderPlayer({})
+
+    expect(screen.getByRole('button', { name: 'Expand Samples' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('does not treat a manually saved 60 percent workspace as expanded', () => {
     localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
-    localStorage.setItem('mixjam:bottom-workspace-layout', JSON.stringify({ upper: 40, bottom: 60 }))
+    localStorage.setItem('mixjam:bottom-workspace-layout-v2', JSON.stringify({ upper: 40, bottom: 60 }))
     renderPlayer({})
 
     expect(screen.getByRole('button', { name: 'Expand Samples' })).toHaveAttribute('aria-pressed', 'false')
@@ -1024,7 +1061,7 @@ describe('PlayerView', () => {
     expect(timeline?.querySelector('.tracker-ruler')).not.toBeNull()
     expect(timeline?.querySelector('.tracker-playhead')).not.toBeNull()
     expect(timeline?.querySelectorAll('.tracker-lane')).toHaveLength(16)
-    expect(timeline).toHaveStyle({ minWidth: '168052px' })
+    expect(timeline).toHaveStyle({ minWidth: '128040px' })
     expect(screen.getByRole('scrollbar', { name: 'Song Progress Bar' })).toHaveAttribute(
       'aria-controls',
       'tracker-song-scrollport'
@@ -1586,9 +1623,9 @@ describe('PlayerView', () => {
     Object.defineProperty(lanesEl, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
     })
-    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 230, clientY: 50 })
+    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 170, clientY: 40 })
     act(() => {
-      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 240, clientY: 150, bubbles: true }))
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 190, clientY: 110, bubbles: true }))
     })
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
@@ -1651,9 +1688,9 @@ describe('PlayerView', () => {
       value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
     })
     // Rectangle-select only placement-1 (lane 0).
-    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 230, clientY: 50 })
+    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 170, clientY: 40 })
     act(() => {
-      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 240, clientY: 90, bubbles: true }))
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 190, clientY: 70, bubbles: true }))
     })
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))

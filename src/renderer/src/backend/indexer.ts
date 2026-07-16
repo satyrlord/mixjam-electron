@@ -7,8 +7,11 @@ import type { ScanProgress } from '../../../shared/backend-api'
 import type { DB } from './sql'
 import {
   assignCategoryFromPath,
+  completeScanRoot,
   ensureScanRoot,
+  listMetadataCandidates,
   markMissing,
+  markMetadataUnavailable,
   syncCategoriesFromNames,
   updateMetadata,
   upsertStub
@@ -27,7 +30,8 @@ const DEFAULT_BATCH_SIZE = 500
  *  writes stay serialized — sqlite-wasm calls are synchronous on this thread. */
 const DEFAULT_PHASE2_CONCURRENCY = 4
 
-export type ScanEmit = (progress: ScanProgress) => void
+export type ScanPhaseProgress = Omit<ScanProgress, 'identity'>
+export type ScanEmit = (progress: ScanPhaseProgress) => void
 
 /** Returns true while the scan should continue. The caller bumps a generation
  *  counter on cancel; when this returns false the scan aborts at the next
@@ -37,6 +41,7 @@ export type ScanIsCurrent = () => boolean
 export interface ScanResult {
   rootId: number
   files: ReadonlyMap<string, File>
+  lastCompletedAt: number | null
 }
 
 interface FoundFile {
@@ -55,24 +60,36 @@ function extOf(name: string): string {
   return dot >= 0 ? name.slice(dot).toLowerCase() : ''
 }
 
-async function walkAudio(root: FileSystemDirectoryHandle): Promise<WalkResult> {
+const TERMINAL_METADATA_ERROR_NAMES = new Set([
+  'CouldNotDetermineFileTypeError',
+  'UnsupportedFileTypeError',
+  'UnexpectedFileContentError',
+  'FieldDecodingError',
+  'EndOfStreamError'
+])
+
+function isTerminalMetadataError(error: unknown): boolean {
+  return error instanceof Error && TERMINAL_METADATA_ERROR_NAMES.has(error.name)
+}
+
+async function walkAudio(
+  root: FileSystemDirectoryHandle,
+  isCurrent: ScanIsCurrent
+): Promise<WalkResult> {
   const files: FoundFile[] = []
   const topLevelDirs: string[] = []
 
   async function walk(dir: FileSystemDirectoryHandle, prefix: string, depth: number): Promise<void> {
-    try {
-      for await (const [name, entry] of dir.entries()) {
-        if (entry.kind === 'directory') {
-          if (depth === 0) topLevelDirs.push(name)
-          await walk(entry, `${prefix}${name}/`, depth + 1)
-          continue
-        }
-        if (AUDIO_EXTENSIONS.has(extOf(name))) {
-          files.push({ relpath: `${prefix}${name}`, handle: entry })
-        }
+    for await (const [name, entry] of dir.entries()) {
+      if (!isCurrent()) return
+      if (entry.kind === 'directory') {
+        if (depth === 0) topLevelDirs.push(name)
+        await walk(entry, `${prefix}${name}/`, depth + 1)
+        continue
       }
-    } catch {
-      // Unreadable directory — skip its subtree, same as the fs walk did.
+      if (AUDIO_EXTENSIONS.has(extOf(name))) {
+        files.push({ relpath: `${prefix}${name}`, handle: entry })
+      }
     }
   }
 
@@ -94,6 +111,7 @@ async function phase1(
   isCurrent: ScanIsCurrent,
   batchSize: number = DEFAULT_BATCH_SIZE
 ): Promise<void> {
+  if (!isCurrent()) return
   const { files, topLevelDirs } = walked
   const total = files.length
   let processed = 0
@@ -106,13 +124,16 @@ async function phase1(
     // File snapshots (size, lastModified) are async FSA calls, so gather them
     // outside the synchronous DB transaction.
     const snapshots: Array<{ relpath: string; file: File }> = []
+    let firstReadFailure: { relpath: string; error: unknown } | null = null
     for (const { relpath, handle } of batch) {
+      if (!isCurrent()) return
       try {
         const file = await handle.getFile()
+        if (!isCurrent()) return
         snapshots.push({ relpath, file })
         fileByRelpath.set(relpath, file)
-      } catch {
-        continue
+      } catch (error) {
+        firstReadFailure ??= { relpath, error }
       }
     }
 
@@ -128,6 +149,12 @@ async function phase1(
     emit({ status: 'scanning', phase: 1, found: total, processed, total })
     await yieldToEvents()
     if (!isCurrent()) return
+    if (firstReadFailure) {
+      const detail = firstReadFailure.error instanceof Error
+        ? firstReadFailure.error.message
+        : String(firstReadFailure.error)
+      throw new Error(`Unable to read ${firstReadFailure.relpath}: ${detail}`)
+    }
   }
 
   if (!isCurrent()) return
@@ -172,19 +199,20 @@ async function phase2(
   fileByRelpath: Map<string, File>,
   emit: ScanEmit,
   isCurrent: ScanIsCurrent,
-  concurrency: number = DEFAULT_PHASE2_CONCURRENCY
+  concurrency: number = DEFAULT_PHASE2_CONCURRENCY,
+  retryUnavailable = false,
+  parseMetadata?: MetadataParser
 ): Promise<void> {
-  const stubs = db
-    .prepare('SELECT relpath FROM samples WHERE scan_state = 0 AND root_id = ?')
-    .all<{ relpath: string }>(rootId)
+  const stubs = listMetadataCandidates(db, rootId, retryUnavailable)
 
   const total = stubs.length
+  if (total === 0) return
   let processed = 0
   let cursor = 0
 
   // Lazy-load music-metadata: its browser bundle is chunky, and it is only
   // needed while a scan runs.
-  const { parseBlob } = await import('music-metadata')
+  const parseBlob = parseMetadata ?? (await import('music-metadata')).parseBlob
 
   // Metadata updates are batched in transactions so a large library does not
   // pay one fsync per file. Concurrent parsers feed results into a shared
@@ -192,14 +220,19 @@ async function phase2(
   const BATCH_SIZE_PHASE2 = 200
   const pendingUpdates: Array<{
     relpath: string
+    unavailable: boolean
     duration: number | null
     sampleRate: number | null
     channels: number | null
   }> = []
 
   const flushPending = db.transaction((updates: typeof pendingUpdates) => {
-    for (const { relpath, duration, sampleRate, channels } of updates) {
-      updateMetadata(db, rootId, relpath, duration, sampleRate, channels)
+    for (const { relpath, unavailable, duration, sampleRate, channels } of updates) {
+      if (unavailable) {
+        markMetadataUnavailable(db, rootId, relpath)
+      } else {
+        updateMetadata(db, rootId, relpath, duration, sampleRate, channels)
+      }
     }
   })
 
@@ -209,17 +242,33 @@ async function phase2(
       const { relpath } = stubs[cursor++]
       try {
         const file = fileByRelpath.get(relpath)
-        if (file) {
-          const meta = await parseBlob(file, { duration: true })
-          pendingUpdates.push({
-            relpath,
-            duration: meta.format.duration ?? null,
-            sampleRate: meta.format.sampleRate ?? null,
-            channels: meta.format.numberOfChannels ?? null
-          })
-        }
-      } catch {
-        // Leave as stub if metadata extraction fails — not a fatal error
+        if (!file) throw new Error(`No readable file snapshot for ${relpath}`)
+        const meta = await parseBlob(file, { duration: true })
+        if (!isCurrent()) return
+        const duration = meta.format.duration ?? null
+        const sampleRate = meta.format.sampleRate ?? null
+        const channels = meta.format.numberOfChannels ?? null
+        pendingUpdates.push({
+          relpath,
+          unavailable: duration === null && sampleRate === null && channels === null,
+          duration,
+          sampleRate,
+          channels
+        })
+      } catch (error) {
+        if (!isCurrent()) return
+        if (!fileByRelpath.has(relpath)) throw error
+        if (!isTerminalMetadataError(error)) throw error
+        // Known parser errors prove that the readable current bytes are
+        // unsupported or damaged. I/O, abort, and internal parser failures stay
+        // pending and fail the job so a later automatic sync can retry them.
+        pendingUpdates.push({
+          relpath,
+          unavailable: true,
+          duration: null,
+          sampleRate: null,
+          channels: null
+        })
       }
       processed++
 
@@ -247,7 +296,22 @@ export interface ScanOptions {
   batchSize?: number
   /** Concurrent metadata parsers in phase 2 (default 4). */
   phase2Concurrency?: number
+  /** Manual recovery retries unchanged terminal metadata failures. */
+  retryUnavailable?: boolean
+  /** Focused-test seam; production lazily imports music-metadata. */
+  parseMetadata?: MetadataParser
 }
+
+type MetadataParser = (
+  file: Blob,
+  options: { duration: boolean }
+) => Promise<{
+  format: {
+    duration?: number
+    sampleRate?: number
+    numberOfChannels?: number
+  }
+}>
 
 /**
  * Runs a full two-phase scan of the given root handle. Progress is reported
@@ -264,9 +328,23 @@ export async function runScan(
   opts: ScanOptions = {}
 ): Promise<ScanResult> {
   const rootId = ensureScanRoot(db, rootKey)
-  const walked = await walkAudio(root)
+  const walked = await walkAudio(root, isCurrent)
   const fileByRelpath = new Map<string, File>()
+  if (!isCurrent()) return { rootId, files: fileByRelpath, lastCompletedAt: null }
   await phase1(db, rootId, walked, fileByRelpath, emit, isCurrent, opts.batchSize)
-  if (isCurrent()) await phase2(db, rootId, fileByRelpath, emit, isCurrent, opts.phase2Concurrency)
-  return { rootId, files: fileByRelpath }
+  if (isCurrent()) {
+    await phase2(
+      db,
+      rootId,
+      fileByRelpath,
+      emit,
+      isCurrent,
+      opts.phase2Concurrency,
+      opts.retryUnavailable,
+      opts.parseMetadata
+    )
+  }
+  if (!isCurrent()) return { rootId, files: fileByRelpath, lastCompletedAt: null }
+  const lastCompletedAt = completeScanRoot(db, rootId)
+  return { rootId, files: fileByRelpath, lastCompletedAt }
 }

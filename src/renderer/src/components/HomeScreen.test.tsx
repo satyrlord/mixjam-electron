@@ -32,6 +32,11 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
     <HomeScreen
       userFolder={SET_FOLDER}
       sampleFolder={SET_FOLDER}
+      librarySyncState={{
+        status: 'ready',
+        rootKey: 'test-user-folder',
+        lastCompletedAt: 1
+      }}
       canStart={true}
       mixJamFiles={[]}
       projectBusy={false}
@@ -41,6 +46,8 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
       onPickSample={vi.fn()}
       onRestoreUser={vi.fn()}
       onRestoreSample={vi.fn()}
+      onRetryLibrarySync={vi.fn()}
+      onCancelLibrarySync={vi.fn()}
       onStart={vi.fn()}
       onLoad={vi.fn()}
       onOpenProject={vi.fn()}
@@ -50,12 +57,25 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
 }
 
 describe('HomeScreen', () => {
+  it('uses the app icon as the Home logo', () => {
+    renderHome()
+
+    const logo = screen.getByRole('img', { name: 'MixJam logo' })
+    expect(logo.getAttribute('src')).toContain('app-icon-128.png')
+    expect(document.querySelector('.brand-mark')).toBeNull()
+  })
+
   it('renders start button disabled when canStart is false', () => {
-    renderHome({ sampleFolder: UNSET_FOLDER, canStart: false })
+    const { container } = renderHome({
+      sampleFolder: UNSET_FOLDER,
+      librarySyncState: { status: 'unavailable' },
+      canStart: false
+    })
 
     const btn = screen.getByRole('button', { name: 'Start New MixJam' })
     expect(btn).toBeTruthy()
     expect((btn as HTMLButtonElement).disabled).toBe(true)
+    expect(container.querySelector('.folder-card-detail')).toBeNull()
   })
 
   it('calls onStart when Start New MixJam is clicked and canStart is true', () => {
@@ -90,6 +110,10 @@ describe('HomeScreen', () => {
 
     expect(screen.getByText('club-night')).toBeTruthy()
     expect(screen.getByText('ambient-set')).toBeTruthy()
+    const rail = document.querySelector('.home-recent')
+    expect(rail).not.toBeNull()
+    expect(rail?.closest('.home-setup')).toBeNull()
+    expect(rail?.parentElement).toHaveClass('home-content')
   })
 
   it('opens the native project picker and recent project entries', () => {
@@ -114,6 +138,32 @@ describe('HomeScreen', () => {
     expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Opening…' })).toBeDisabled()
     expect(screen.getByText('club-night').closest('button')).toBeDisabled()
+  })
+
+  it('shows inline library progress without a blocking overlay', () => {
+    const onCancelLibrarySync = vi.fn()
+    const { container } = renderHome({
+      librarySyncState: {
+        status: 'syncing',
+        rootKey: 'test-user-folder',
+        jobId: 'job-1',
+        hasUsableIndex: false,
+        phase: 1,
+        found: 4,
+        processed: 0,
+        total: 0
+      },
+      onCancelLibrarySync
+    })
+
+    const status = screen.getByText('Finding samples')
+    expect(status).toBeInTheDocument()
+    expect(status.closest('.folder-card')).toHaveTextContent('Sample Folder')
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(container.querySelector('.scan-overlay')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onCancelLibrarySync).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeEnabled()
   })
 
   it('shows only up to 4 recent projects', () => {

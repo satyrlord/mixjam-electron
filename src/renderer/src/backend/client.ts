@@ -94,13 +94,19 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     validateFolder,
     requestFolderAccess,
 
-    startScan: async (sampleFolder, uniformBatchConfirmed = false) => {
+    startLibrarySync: async (sampleFolder, trigger) => {
       requestStoragePersistence()
-      return call('startScan', sampleFolder.id, uniformBatchConfirmed)
+      return call('startLibrarySync', sampleFolder.id, trigger)
     },
-    cancelScan: () => call('cancelScan'),
+    cancelLibrarySync: (jobId) => call('cancelLibrarySync', jobId),
+    getLibraryRootState: (sampleFolder) => call('getLibraryRootState', sampleFolder.id),
     getScanProgress: () => call('getScanProgress'),
     getAnalysisProgress: () => call('getAnalysisProgress'),
+    startUniformFolderCalibration: (sampleFolder) =>
+      call('startUniformFolderCalibration', sampleFolder.id),
+    cancelUniformFolderCalibration: (jobId) =>
+      call('cancelUniformFolderCalibration', jobId),
+    getCalibrationProgress: () => call('getCalibrationProgress'),
     querySamples: (req) => call('querySamples', req),
     listTags: () => call('listTags'),
     createTag: (name, color) => call('createTag', name, color),
@@ -118,7 +124,6 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     listLibraries: () => call('listLibraries'),
     saveLibrary: (name, ruleJson) => call('saveLibrary', name, ruleJson),
     deleteLibrary: (id) => call('deleteLibrary', id),
-    hasSamples: (sampleFolder) => call('hasSamples', sampleFolder.id),
     listMissingRelpaths: (sampleFolder) => call('listMissingRelpaths', sampleFolder.id),
 
     readSampleBytes,
@@ -134,6 +139,12 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     },
     onAnalysisDone: (cb) => {
       return workerProxy.onAnalysisDone(cb)
+    },
+    onCalibrationProgress: (cb) => {
+      return workerProxy.onCalibrationProgress(cb)
+    },
+    onCalibrationDone: (cb) => {
+      return workerProxy.onCalibrationDone(cb)
     }
   }
 }

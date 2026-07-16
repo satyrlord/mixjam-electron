@@ -39,10 +39,10 @@ const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
 
 const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
 const UPPER_LAYOUT_STORAGE_KEY = 'mixjam:upper-work-layout'
-const BOTTOM_LAYOUT_STORAGE_KEY = 'mixjam:bottom-workspace-layout'
-const BOTTOM_EXPANSION_STORAGE_KEY = 'mixjam:bottom-workspace-expansion'
+const BOTTOM_LAYOUT_STORAGE_KEY = 'mixjam:bottom-workspace-layout-v2'
+const BOTTOM_EXPANSION_STORAGE_KEY = 'mixjam:bottom-workspace-expansion-v2'
 const BOTTOM_WORKSPACE_STORAGE_KEY = 'mixjam:bottom-workspace-tab'
-const DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT = 36
+const DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT = 24
 const BOTTOM_WORKSPACE_EXPANDED_PERCENT = 60
 const BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT = 50
 
@@ -275,7 +275,7 @@ export default function PlayerView({
       } catch {
         // Use the regular default below.
       }
-      return 24
+      return 18
     })()
     return loadPanelLayout(UPPER_LAYOUT_STORAGE_KEY, {
       browser: fallbackBrowserPercent,
@@ -469,7 +469,7 @@ export default function PlayerView({
             <Panel
               id="browser"
               panelRef={browserPanelRef}
-              defaultSize="320px"
+              defaultSize="240px"
               minSize={`${LEFT_COL_MIN_PX}px`}
               maxSize="45vw"
               groupResizeBehavior="preserve-pixel-size"
@@ -598,6 +598,7 @@ export default function PlayerView({
         projectName={project.name}
         projectDirty={project.dirty}
         projectBusy={project.busy}
+        onNewProject={() => void project.onNew()}
         onOpenProject={() => void project.onOpen()}
         onSaveProject={() => void project.onSave()}
         onSaveProjectAs={() => void project.onSaveAs()}
@@ -614,10 +615,10 @@ export default function PlayerView({
         jumpToEndDisabled={transport.songEndTick === 0}
         searchQuery={browser.searchQuery}
         onSearchChange={browser.onSearchChange}
-        scanProgress={browser.scanProgress}
-        analysisProgress={browser.analysisProgress}
-        onStartScan={browser.onStartScan}
-        onCancelScan={browser.onCancelScan}
+        librarySyncState={browser.librarySyncState}
+        onRescanLibrary={browser.onRescanLibrary}
+        onRetryLibrarySync={browser.onRetryLibrarySync}
+        onCancelLibrarySync={browser.onCancelLibrarySync}
         onOpenShortcuts={() => setShortcutsOpen(true)}
           />
         </div>

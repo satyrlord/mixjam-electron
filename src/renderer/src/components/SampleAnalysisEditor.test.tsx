@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { SampleListItem } from '../../../shared/backend-api'
 import SampleAnalysisEditor from './SampleAnalysisEditor'
@@ -36,5 +36,22 @@ describe('SampleAnalysisEditor', () => {
     expect(screen.getByRole('textbox', { name: 'Sample musical key' })).toHaveValue('')
     expect(screen.getByRole('combobox', { name: 'Sample type' })).toHaveValue('')
     expect(screen.getAllByText('unset')).toHaveLength(3)
+  })
+
+  it('keeps the editor open and shows an individual analysis failure', async () => {
+    const onClose = vi.fn()
+    render(
+      <SampleAnalysisEditor
+        sample={SAMPLE_WITHOUT_ANALYSIS}
+        onClose={onClose}
+        onUpdate={vi.fn()}
+        onReanalyze={vi.fn().mockRejectedValue(new Error('Sample decode failed'))}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze blank fields' }))
+
+    expect(await screen.findByText('Sample decode failed')).toBeVisible()
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

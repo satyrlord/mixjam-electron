@@ -37,7 +37,18 @@ export const test = base.extend<E2EFixtures>({
     const mockScript = readFileSync(MOCK_BACKEND_PATH, 'utf-8')
     await page.addInitScript(mockScript)
 
-    await page.goto('/')
+    // The local production server reads the build output directly. On Windows,
+    // an index request can briefly observe the output directory between file
+    // replacement operations and return its plain 404 response. Retry only
+    // that transport-level failure; a persistent bad build still fails here.
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const response = await page.goto('/')
+      if (response?.status() !== 404) break
+      if (attempt === 3) {
+        throw new Error('Production index remained unavailable after three requests')
+      }
+      await page.waitForTimeout(100)
+    }
     // Wait for the React root to render children.
     await page.waitForSelector('#root > *', { timeout: 15_000 })
     await use(page)

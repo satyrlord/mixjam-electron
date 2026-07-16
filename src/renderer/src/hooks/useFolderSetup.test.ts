@@ -18,11 +18,47 @@ function makeBackendAPI(overrides: Partial<BackendAPI> = {}): BackendAPI {
     saveFolderSelections: vi.fn(async () => undefined),
     loadMixJamFiles: vi.fn(async () => []),
     querySamples: vi.fn(async () => ({ rows: [], total: 0 })),
-    hasSamples: vi.fn(async () => false),
-    startScan: vi.fn(async () => undefined),
-    getScanProgress: vi.fn(async () => ({ status: 'idle', phase: null, found: 0, processed: 0, total: 0 })),
+    getLibraryRootState: vi.fn(async (folder: FolderRef) => ({
+      rootKey: folder.id,
+      lastCompletedAt: null,
+      hasUsableIndex: false
+    })),
+    startLibrarySync: vi.fn(async (folder: FolderRef) => ({
+      identity: { rootKey: folder.id, jobId: 'test-job', trigger: 'automatic' as const },
+      disposition: 'started' as const
+    })),
+    cancelLibrarySync: vi.fn(async () => undefined),
+    getScanProgress: vi.fn(async () => ({
+      identity: null,
+      status: 'idle' as const,
+      phase: null,
+      found: 0,
+      processed: 0,
+      total: 0
+    })),
+    getAnalysisProgress: vi.fn(async () => ({
+      identity: null,
+      status: 'idle' as const,
+      analyzed: 0,
+      total: 0
+    })),
+    startUniformFolderCalibration: vi.fn(async (folder: FolderRef) => ({
+      rootKey: folder.id,
+      jobId: 'test-calibration'
+    })),
+    cancelUniformFolderCalibration: vi.fn(async () => undefined),
+    getCalibrationProgress: vi.fn(async () => ({
+      identity: null,
+      status: 'idle' as const,
+      analyzed: 0,
+      total: 0
+    })),
     onScanProgress: vi.fn(() => () => undefined),
     onScanDone: vi.fn(() => () => undefined),
+    onAnalysisProgress: vi.fn(() => () => undefined),
+    onAnalysisDone: vi.fn(() => () => undefined),
+    onCalibrationProgress: vi.fn(() => () => undefined),
+    onCalibrationDone: vi.fn(() => () => undefined),
     listTags: vi.fn(async () => []),
     createTag: vi.fn(),
     renameTag: vi.fn(),

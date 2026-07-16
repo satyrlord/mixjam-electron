@@ -13,8 +13,10 @@ backend worker. The central design property:
 -- One row per Sample Folder that has ever been scanned. key is the FolderRef
 -- id (the folder handle's IndexedDB key) — browsers have no absolute paths.
 CREATE TABLE scan_roots (
-  id  INTEGER PRIMARY KEY,
-  key TEXT NOT NULL UNIQUE
+  id                     INTEGER PRIMARY KEY,
+  key                    TEXT NOT NULL UNIQUE,
+  last_completed_at      INTEGER,
+  legacy_index_available INTEGER NOT NULL DEFAULT 0
 );
 
 -- The master index. One row per file on disk.
@@ -37,6 +39,8 @@ CREATE TABLE samples (
   sample_type_source TEXT,             -- 'analysis', 'manual', or NULL
   date_added   INTEGER NOT NULL,       -- epoch ms, first-indexed time
   scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-ready, 2=missing, 3=metadata-unavailable
+  metadata_revision INTEGER NOT NULL DEFAULT 0,
+  analysis_revision INTEGER NOT NULL DEFAULT 0,
   category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,  -- one primary category per sample
   UNIQUE (root_id, relpath)               -- the dedup key
 );
@@ -94,11 +98,15 @@ mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-man
 
 ## Library-sync bookkeeping
 
-Schema version 3 persists three facts needed by automatic library sync:
+Schema version 3 persists four facts needed by automatic library sync:
 
 - `scan_roots.last_completed_at INTEGER` is NULL until a complete filesystem
   pass finishes. A non-NULL value means the root has a valid index even when it
   contains zero audio files. Cancellation and fatal failure do not advance it.
+- `scan_roots.legacy_index_available INTEGER` is set only by the v2-to-v3
+  migration when a root already has non-missing rows. It keeps those rows
+  browseable during the first reconciliation without treating partial rows from
+  a new v3 first scan as a usable index.
 - `samples.metadata_revision INTEGER NOT NULL DEFAULT 0` records the metadata
   parser revision attempted for the current file bytes. A terminal parse failure
   sets `scan_state = 3` (metadata unavailable) and stamps the revision, so an
@@ -116,9 +124,14 @@ full-library re-analysis after upgrade:
 
 - legacy roots keep `last_completed_at = NULL` because the old schema cannot
   prove that enumeration and metadata work completed; existing rows remain
-  browseable while the required first post-upgrade sync reconciles them;
-- existing `scan_state = 1` rows are stamped with the current metadata and
-  analysis revisions;
+  browseable while the required first post-upgrade sync reconciles them.
+  Root usability is based on the presence of existing non-missing rows, not on
+  whether any legacy row already has a current analysis revision;
+- existing `scan_state = 1` rows are stamped with the current metadata revision;
+  the analysis revision is stamped only when a legacy `analysis` source proves
+  the per-file analysis write completed. Entirely NULL legacy results are
+  retried once because the old schema cannot distinguish them from interrupted
+  work;
 - existing `scan_state = 0` rows remain pending with revision 0, so interrupted
   work resumes and previously failed metadata receives one classified attempt;
 - missing rows remain missing and keep revision 0 until restored.
@@ -139,7 +152,7 @@ spec-004 organizational folder/user category and analysis never overwrites it.
 There is no WAL under opfs-sahpool — queries and the indexer share the single
 worker connection. Phase-1 stub upserts and category assignments are batched in
 transactions and yield to the worker event loop between batches. Phase-2
-metadata updates currently autocommit one row at a time.
+metadata updates use serialized transactions of up to 200 rows.
 
 ## Indexes for 100k-row performance
 

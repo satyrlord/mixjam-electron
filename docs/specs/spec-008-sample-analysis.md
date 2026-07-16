@@ -36,6 +36,10 @@ category tree or tags.
 - `scan-done` exposes the indexed library before analysis begins. Analysis then
   reports its own progress and emits `analysis-done`, which refreshes the
   current windowed query without blocking the browser.
+- Individual re-analysis has a typed sample/job identity, is serialized with
+  library sync and calibration, and resolves only after its database write
+  succeeds. Its completion refreshes the affected sample and its failure stays
+  visible in the editor.
 - Automatic decoding currently supports PCM and IEEE-float WAV, including
   WAVE_FORMAT_EXTENSIBLE variants. Other indexed formats remain available for
   manual overrides but retain NULL automatic fields.
@@ -66,6 +70,11 @@ category tree or tags.
   serializes calibration with library sync: starting calibration while a sync
   is active is disabled, and a new selected-root sync cancels calibration at its
   next safe checkpoint before it begins work on the new root.
+- Calibration requires every indexed candidate to remain readable and supported
+  by the analysis decoder, including metadata-unavailable candidates that remain
+  visible in the library. If any current non-missing candidate cannot be
+  inspected, the operation reports an error and does not apply a subset-based
+  folder calibration.
 - Confirmation is the uniform-library contract. The duration and acoustic
   guards below are additional error protection; they cannot distinguish every
   genuine mixed-tempo pair from a subdivision-alias pair.
@@ -160,6 +169,10 @@ field "Type" to keep the two concepts distinct.
 - [x] **AC-011:** Uniform Folder Calibration is exposed only as an advanced
   Samples analysis-management action with explicit confirmation, its own API
   and progress lifecycle, and no Middle Strip or Re-scan label.
+- [x] **AC-012:** Individual re-analysis exposes a typed job identity, cannot
+  overlap library sync or calibration in either start order, refreshes the
+  affected sample after its committed result, and keeps worker errors visible
+  in the editor.
 
 ## Implementation Evidence
 
@@ -173,13 +186,18 @@ field "Type" to keep the two concepts distinct.
   of stale automatic values, regular versus confirmed-uniform behavior,
   clearing confirmed unsupported results, transient read-failure isolation,
   and manual-field preservation.
-- `schema.test.ts` verifies the v1-to-v2 provenance migration is restart-safe.
+- `schema.test.ts` verifies the provenance migration, v3 revision bookkeeping,
+  legacy-root browseability marker, and early-v3 repair are restart-safe.
 - `SampleBrowser.test.tsx` verifies the per-sample editor, clearing, and the
   individual re-analysis action, including that numerically equivalent BPM
   input does not replace analysis provenance with a manual override.
 - `SampleAnalysisEditor.test.tsx` and `useLibraryData.test.ts` verify blank
   metadata defaults plus non-null, cleared, and absent manual patch fields.
 - `worker-proxy.test.ts` verifies analysis progress/done event fan-out.
+- `worker-scheduler.test.ts` verifies mutual exclusion among library sync,
+  calibration, and individual re-analysis, queued automatic sync after
+  individual analysis, and the individual operation's committed success and
+  error lifecycle.
 - Validation commands: `npm run typecheck`, `npm test`, `npm run lint`, and
   `npm run build`; the production bundle also passes
   `npx playwright test --project=browser-e2e`.

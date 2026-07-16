@@ -4,6 +4,7 @@ import type {
   CategoryItem,
   FolderRef,
   LibraryItem,
+  LibraryJobIdentity,
   MixJamFileItem,
   SampleItem,
   SampleQueryRequest,
@@ -75,11 +76,18 @@ export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
 ]
 
 const IDLE_PROGRESS: ScanProgress = {
+  identity: null,
   status: 'idle',
   phase: null,
   found: 0,
   processed: 0,
   total: 0
+}
+
+const DEFAULT_LIBRARY_JOB: LibraryJobIdentity = {
+  rootKey: TEST_SAMPLE_FOLDER.id,
+  jobId: 'test-library-job',
+  trigger: 'automatic'
 }
 
 const DEFAULT_TAGS: TagItem[] = []
@@ -135,12 +143,35 @@ export function createBackendAPI(): BackendAPI {
     pickFolder: vi.fn().mockResolvedValue(null),
     validateFolder: vi.fn().mockResolvedValue('ok'),
     requestFolderAccess: vi.fn().mockResolvedValue(true),
-    hasSamples: vi.fn().mockResolvedValue(true),
+    getLibraryRootState: vi.fn().mockResolvedValue({
+      rootKey: TEST_SAMPLE_FOLDER.id,
+      lastCompletedAt: 1,
+      hasUsableIndex: true
+    }),
     listMissingRelpaths: vi.fn().mockResolvedValue([]),
-    startScan: vi.fn().mockResolvedValue(undefined),
-    cancelScan: vi.fn().mockResolvedValue(undefined),
+    startLibrarySync: vi.fn().mockResolvedValue({
+      identity: DEFAULT_LIBRARY_JOB,
+      disposition: 'suppressed'
+    }),
+    cancelLibrarySync: vi.fn().mockResolvedValue(undefined),
     getScanProgress: vi.fn().mockResolvedValue(IDLE_PROGRESS),
-    getAnalysisProgress: vi.fn().mockResolvedValue({ status: 'idle', analyzed: 0, total: 0 }),
+    getAnalysisProgress: vi.fn().mockResolvedValue({
+      identity: null,
+      status: 'idle',
+      analyzed: 0,
+      total: 0
+    }),
+    startUniformFolderCalibration: vi.fn().mockResolvedValue({
+      rootKey: TEST_SAMPLE_FOLDER.id,
+      jobId: 'test-calibration-job'
+    }),
+    cancelUniformFolderCalibration: vi.fn().mockResolvedValue(undefined),
+    getCalibrationProgress: vi.fn().mockResolvedValue({
+      identity: null,
+      status: 'idle',
+      analyzed: 0,
+      total: 0
+    }),
     querySamples: vi
       .fn()
       .mockImplementation(async (request: SampleQueryRequest) => queryDefaultRows(request)),
@@ -156,7 +187,16 @@ export function createBackendAPI(): BackendAPI {
     assignTag: vi.fn().mockResolvedValue(undefined),
     unassignTag: vi.fn().mockResolvedValue(undefined),
     updateSampleAnalysis: vi.fn().mockResolvedValue(undefined),
-    reanalyzeSample: vi.fn().mockResolvedValue(undefined),
+    reanalyzeSample: vi.fn().mockImplementation(async (
+      sampleFolder: FolderRef,
+      sampleId: number
+    ) => ({
+      identity: {
+        rootKey: sampleFolder.id,
+        sampleId,
+        jobId: `test-sample-analysis-${sampleId}`
+      }
+    })),
     listCategories: vi.fn().mockResolvedValue(DEFAULT_CATEGORIES),
     createCategory: vi.fn().mockImplementation(async (name: string, parentId?: number) => ({
       id: Date.now(),
@@ -176,6 +216,8 @@ export function createBackendAPI(): BackendAPI {
     onScanProgress: vi.fn().mockReturnValue(() => {}),
     onScanDone: vi.fn().mockReturnValue(() => {}),
     onAnalysisProgress: vi.fn().mockReturnValue(() => {}),
-    onAnalysisDone: vi.fn().mockReturnValue(() => {})
+    onAnalysisDone: vi.fn().mockReturnValue(() => {}),
+    onCalibrationProgress: vi.fn().mockReturnValue(() => {}),
+    onCalibrationDone: vi.fn().mockReturnValue(() => {})
   }
 }

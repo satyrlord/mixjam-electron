@@ -1,4 +1,11 @@
-import type { AnalysisProgress, ScanProgress } from '../../../shared/backend-api'
+import type {
+  AnalysisDone,
+  AnalysisProgress,
+  CalibrationDone,
+  CalibrationProgress,
+  LibraryScanDone,
+  ScanProgress
+} from '../../../shared/backend-api'
 import type { BackendCalls, BackendOp, WorkerMessage, WorkerRequest } from './protocol'
 
 interface WorkerLike {
@@ -17,11 +24,13 @@ export interface WorkerProxy {
   call<Op extends BackendOp>(
     op: Op,
     ...args: Parameters<BackendCalls[Op]>
-  ): Promise<ReturnType<BackendCalls[Op]>>
+  ): Promise<Awaited<ReturnType<BackendCalls[Op]>>>
   onScanProgress(listener: (progress: ScanProgress) => void): () => void
-  onScanDone(listener: () => void): () => void
+  onScanDone(listener: (done: LibraryScanDone) => void): () => void
   onAnalysisProgress(listener: (progress: AnalysisProgress) => void): () => void
-  onAnalysisDone(listener: () => void): () => void
+  onAnalysisDone(listener: (done: AnalysisDone) => void): () => void
+  onCalibrationProgress(listener: (progress: CalibrationProgress) => void): () => void
+  onCalibrationDone(listener: (done: CalibrationDone) => void): () => void
   dispose(): void
 }
 
@@ -30,9 +39,11 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
   let stoppedError: Error | null = null
   const pending = new Map<number, Pending>()
   const progressListeners = new Set<(progress: ScanProgress) => void>()
-  const doneListeners = new Set<() => void>()
+  const doneListeners = new Set<(done: LibraryScanDone) => void>()
   const analysisProgressListeners = new Set<(progress: AnalysisProgress) => void>()
-  const analysisDoneListeners = new Set<() => void>()
+  const analysisDoneListeners = new Set<(done: AnalysisDone) => void>()
+  const calibrationProgressListeners = new Set<(progress: CalibrationProgress) => void>()
+  const calibrationDoneListeners = new Set<(done: CalibrationDone) => void>()
 
   function stop(error: Error): void {
     if (stoppedError) return
@@ -46,6 +57,8 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     doneListeners.clear()
     analysisProgressListeners.clear()
     analysisDoneListeners.clear()
+    calibrationProgressListeners.clear()
+    calibrationDoneListeners.clear()
   }
 
   worker.onmessage = (event) => {
@@ -63,14 +76,22 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
       return
     }
     if (message.type === 'scan-done') {
-      for (const listener of doneListeners) listener()
+      for (const listener of doneListeners) listener(message.done)
       return
     }
     if (message.type === 'analysis-progress') {
       for (const listener of analysisProgressListeners) listener(message.progress)
       return
     }
-    for (const listener of analysisDoneListeners) listener()
+    if (message.type === 'analysis-done') {
+      for (const listener of analysisDoneListeners) listener(message.done)
+      return
+    }
+    if (message.type === 'calibration-progress') {
+      for (const listener of calibrationProgressListeners) listener(message.progress)
+      return
+    }
+    for (const listener of calibrationDoneListeners) listener(message.done)
   }
 
   worker.onerror = (event) => {
@@ -103,6 +124,14 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     onAnalysisDone(listener) {
       if (!stoppedError) analysisDoneListeners.add(listener)
       return () => analysisDoneListeners.delete(listener)
+    },
+    onCalibrationProgress(listener) {
+      if (!stoppedError) calibrationProgressListeners.add(listener)
+      return () => calibrationProgressListeners.delete(listener)
+    },
+    onCalibrationDone(listener) {
+      if (!stoppedError) calibrationDoneListeners.add(listener)
+      return () => calibrationDoneListeners.delete(listener)
     },
     dispose() {
       stop(new Error('Backend worker disposed'))

@@ -18,9 +18,8 @@ import { beforeAll, beforeEach, afterEach, describe, expect, it } from 'vitest'
 import { performance } from 'node:perf_hooks'
 import { DB } from './sql'
 import { initSchema } from './schema'
-import { runScan } from './indexer'
+import { runScan, type ScanPhaseProgress } from './indexer'
 import { querySamples } from './library'
-import type { ScanProgress } from '../../../shared/backend-api'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -132,7 +131,7 @@ afterEach(() => {
 describe('large-library scan performance', () => {
   it(`scans ${SAMPLE_COUNT} synthetic samples within ${MAX_SCAN_MS}ms`, async () => {
     const tree = generateLargeTree(SAMPLE_COUNT)
-    const events: ScanProgress[] = []
+    const events: ScanPhaseProgress[] = []
 
     const start = performance.now()
     await runScan(

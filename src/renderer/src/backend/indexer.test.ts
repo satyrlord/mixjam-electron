@@ -5,9 +5,13 @@ import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { beforeAll, beforeEach, afterEach, describe, expect, it } from 'vitest'
 import { DB } from './sql'
 import { initSchema } from './schema'
-import { runScan } from './indexer'
-import { listCategories, querySamples, UNSORTED_CATEGORY } from './library'
-import type { ScanProgress } from '../../../shared/backend-api'
+import { runScan, type ScanPhaseProgress } from './indexer'
+import {
+  getLibraryRootState,
+  listCategories,
+  querySamples,
+  UNSORTED_CATEGORY
+} from './library'
 
 // ---------------------------------------------------------------------------
 // Map-backed FileSystemDirectoryHandle fake
@@ -108,8 +112,8 @@ afterEach(() => {
   db.close()
 })
 
-async function scan(tree: FakeTree): Promise<ScanProgress[]> {
-  const events: ScanProgress[] = []
+async function scan(tree: FakeTree): Promise<ScanPhaseProgress[]> {
+  const events: ScanPhaseProgress[] = []
   await runScan(db, ROOT_KEY, fakeDirHandle('Samples', tree), (p) => events.push(p), () => true)
   return events
 }
@@ -135,7 +139,7 @@ describe('runScan', () => {
   })
 
   it('aborts between phases when isCurrent returns false after phase 1', async () => {
-    const events: ScanProgress[] = []
+    const events: ScanPhaseProgress[] = []
     await runScan(
       db,
       ROOT_KEY,
@@ -159,11 +163,10 @@ describe('runScan', () => {
     })
     await scan({ 'broken.wav': corruptedWav })
 
-    // Phase 2 should complete without throwing; the sample remains as a stub
-    // with scan_state = 0 (metadata extraction failed silently)
+    // Readable but unsupported bytes are a terminal metadata outcome.
     const { rows } = querySamples(db, { rootId: ROOT_KEY })
     expect(rows).toHaveLength(1)
-    // Duration stays null when parse fails
+    expect(rows[0].scanState).toBe(3)
     expect(rows[0].duration).toBeNull()
   })
 
@@ -232,9 +235,100 @@ describe('runScan', () => {
     expect(second.dateAdded).toBe(first.dateAdded)
   })
 
-  it('skips files that disappear before their snapshot can be read', async () => {
-    const events: ScanProgress[] = []
-    await runScan(
+  it('performs zero metadata parses on a second unchanged automatic sync', async () => {
+    const wav = makeWav(0.05)
+    const root = fakeDirHandle('Samples', { 'same.wav': wav })
+    let parseCount = 0
+    const parseMetadata = async (): Promise<{
+      format: { duration: number; sampleRate: number; numberOfChannels: number }
+    }> => {
+      parseCount++
+      return { format: { duration: 0.05, sampleRate: 8000, numberOfChannels: 1 } }
+    }
+
+    await runScan(db, ROOT_KEY, root, () => undefined, () => true, { parseMetadata })
+    await runScan(db, ROOT_KEY, root, () => undefined, () => true, { parseMetadata })
+
+    expect(parseCount).toBe(1)
+  })
+
+  it('retries unchanged unavailable metadata only for manual recovery', async () => {
+    const broken = new File([new ArrayBuffer(10)], 'broken.wav', { lastModified: 1000 })
+    const root = fakeDirHandle('Samples', { 'broken.wav': broken })
+    let parseCount = 0
+    const parseMetadata = async (): Promise<never> => {
+      parseCount++
+      const error = new Error('unsupported bytes')
+      error.name = 'UnsupportedFileTypeError'
+      throw error
+    }
+
+    await runScan(db, ROOT_KEY, root, () => undefined, () => true, { parseMetadata })
+    await runScan(db, ROOT_KEY, root, () => undefined, () => true, { parseMetadata })
+    expect(parseCount).toBe(1)
+    expect(querySamples(db, { rootId: ROOT_KEY }).rows[0].scanState).toBe(3)
+
+    await runScan(db, ROOT_KEY, root, () => undefined, () => true, {
+      parseMetadata,
+      retryUnavailable: true
+    })
+    expect(parseCount).toBe(2)
+  })
+
+  it('keeps parse-time I/O failures pending for a later automatic retry', async () => {
+    const wav = makeWav(0.05)
+    const root = fakeDirHandle('Samples', { 'temporarily-locked.wav': wav })
+    let parseCount = 0
+    const transientParser = async (): Promise<never> => {
+      parseCount++
+      throw new DOMException('The file became unreadable', 'NotReadableError')
+    }
+
+    await expect(runScan(
+      db,
+      ROOT_KEY,
+      root,
+      () => undefined,
+      () => true,
+      { parseMetadata: transientParser }
+    )).rejects.toThrow('The file became unreadable')
+
+    expect(parseCount).toBe(1)
+    expect(getLibraryRootState(db, ROOT_KEY).lastCompletedAt).toBeNull()
+    expect(db.prepare(
+      `SELECT scan_state, metadata_revision
+       FROM samples WHERE relpath = 'temporarily-locked.wav'`
+    ).get()).toEqual({ scan_state: 0, metadata_revision: 0 })
+
+    await runScan(db, ROOT_KEY, root, () => undefined, () => true, {
+      parseMetadata: async () => ({
+        format: { duration: 0.05, sampleRate: 8000, numberOfChannels: 1 }
+      })
+    })
+    expect(getLibraryRootState(db, ROOT_KEY).lastCompletedAt).not.toBeNull()
+    expect(querySamples(db, { rootId: ROOT_KEY }).rows[0].scanState).toBe(1)
+  })
+
+  it('marks an empty completed root ready', async () => {
+    const result = await runScan(
+      db,
+      ROOT_KEY,
+      fakeDirHandle('Samples', {}),
+      () => undefined,
+      () => true
+    )
+
+    expect(result.lastCompletedAt).toBeGreaterThan(0)
+    expect(getLibraryRootState(db, ROOT_KEY)).toEqual({
+      rootKey: ROOT_KEY,
+      lastCompletedAt: result.lastCompletedAt,
+      hasUsableIndex: true
+    })
+  })
+
+  it('keeps the root incomplete when a file snapshot fails transiently', async () => {
+    const events: ScanPhaseProgress[] = []
+    await expect(runScan(
       db,
       ROOT_KEY,
       fakeEntriesDir('Samples', [
@@ -243,12 +337,56 @@ describe('runScan', () => {
       ]),
       (progress) => events.push(progress),
       () => true
-    )
+    )).rejects.toThrow('Unable to read bad.wav: file disappeared')
 
     const { rows, total } = querySamples(db, { rootId: ROOT_KEY })
     expect(total).toBe(1)
     expect(rows[0].relpath).toBe('good.wav')
     expect(events.find((event) => event.phase === 1)?.found).toBe(2)
+    expect(getLibraryRootState(db, ROOT_KEY).lastCompletedAt).toBeNull()
+  })
+
+  it('stops a cancelled traversal before stale rows are written', async () => {
+    let current = true
+    const root = {
+      kind: 'directory',
+      name: 'Samples',
+      entries: async function* () {
+        yield ['first.wav', fakeFileHandle('first.wav', makeWav(0.05))]
+        current = false
+        yield ['second.wav', fakeFileHandle('second.wav', makeWav(0.05))]
+      }
+    } as unknown as FileSystemDirectoryHandle
+
+    const result = await runScan(db, ROOT_KEY, root, () => undefined, () => current)
+
+    expect(result.lastCompletedAt).toBeNull()
+    expect(querySamples(db, { rootId: ROOT_KEY }).total).toBe(0)
+  })
+
+  it('does not persist metadata that finishes after cancellation', async () => {
+    let current = true
+    const result = await runScan(
+      db,
+      ROOT_KEY,
+      fakeDirHandle('Samples', { 'late.wav': makeWav(0.05) }),
+      () => undefined,
+      () => current,
+      {
+        parseMetadata: async () => {
+          current = false
+          return {
+            format: { duration: 0.05, sampleRate: 8000, numberOfChannels: 1 }
+          }
+        }
+      }
+    )
+
+    expect(result.lastCompletedAt).toBeNull()
+    expect(db.prepare(
+      `SELECT scan_state, metadata_revision
+       FROM samples WHERE relpath = 'late.wav'`
+    ).get()).toEqual({ scan_state: 0, metadata_revision: 0 })
   })
 
   it('reports phase 1 and phase 2 progress and never regresses processed counts', async () => {

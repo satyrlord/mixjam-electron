@@ -1,5 +1,13 @@
 import { bubbleTextColor } from '../lib/sample-utils'
-import { SAMPLE_BUBBLE_HEIGHT_PX } from '../lib/arrangement'
+import {
+  LANE_HEAD_WIDTH_PX,
+  LANE_HEIGHT_PX,
+  RULER_HEIGHT_PX,
+  SAMPLE_BUBBLE_HEIGHT_PX,
+  TRACKER_BEAT_WIDTH_PX,
+  TRACKER_GEOMETRY_SCALE,
+  TRACKER_LANE_CONTROL_SIZE_PX
+} from '../lib/arrangement'
 import { parseSampleBubbleBorder, refreshSampleBubbleThemeTokens } from './sample-bubble-style'
 import emeraldThemeJson from '../../../../public/themes/emerald.json'
 import enterpriseThemeJson from '../../../../public/themes/enterprise.json'
@@ -261,8 +269,24 @@ export function selectTheme(themeKey: string, root: HTMLElement = document.docum
   return nextTheme.key
 }
 
-export function bootstrapTheme(root: HTMLElement = document.documentElement): Theme {
+/** Publish the shared compact Tracker geometry as CSS custom properties.
+ *  These are arrangement constants (never theme-specific), so they live
+ *  outside the theme bootstrap. Call once before the first paint so CSS
+ *  `var()` fallbacks never render stale values. */
+export function applyTrackerGeometry(root: HTMLElement = document.documentElement): void {
+  // --tracker-geometry-scale is an exposure token for tests; no CSS rule
+  // reads it. All layout properties below are its computed children.
+  root.style.setProperty('--tracker-geometry-scale', String(TRACKER_GEOMETRY_SCALE))
+  root.style.setProperty('--tracker-lane-height', `${LANE_HEIGHT_PX}px`)
+  root.style.setProperty('--tracker-lane-head-width', `${LANE_HEAD_WIDTH_PX}px`)
+  root.style.setProperty('--tracker-ruler-height', `${RULER_HEIGHT_PX}px`)
+  root.style.setProperty('--tracker-lane-control-size', `${TRACKER_LANE_CONTROL_SIZE_PX}px`)
+  root.style.setProperty('--tracker-beat-width', `${TRACKER_BEAT_WIDTH_PX}px`)
   root.style.setProperty('--sample-bubble-height', `${SAMPLE_BUBBLE_HEIGHT_PX}px`)
+}
+
+export function bootstrapTheme(root: HTMLElement = document.documentElement): Theme {
+  applyTrackerGeometry(root)
   selectTheme(DEFAULT_THEME_KEY, root)
   root.setAttribute('data-theme-ready', 'true')
   refreshSampleBubbleThemeTokens()

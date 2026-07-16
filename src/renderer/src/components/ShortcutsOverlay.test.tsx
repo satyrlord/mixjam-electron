@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import ShortcutsOverlay from './ShortcutsOverlay'
+
+const INDEX_CSS_PATH = resolve(process.cwd(), 'src/renderer/src/index.css')
 
 describe('ShortcutsOverlay', () => {
   it('renders all shortcut sections', () => {
@@ -50,7 +54,7 @@ describe('ShortcutsOverlay', () => {
 
     const backdrop = document.querySelector('.mixjam-dialog-overlay')
     expect(backdrop).toBeTruthy()
-    fireEvent.click(backdrop!)
+    fireEvent.pointerDown(backdrop!)
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -89,5 +93,22 @@ describe('ShortcutsOverlay', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('portals the dialog after its backdrop and gives the panel the higher layer', () => {
+    render(<ShortcutsOverlay onClose={vi.fn()} />)
+
+    const backdrop = document.querySelector('.mixjam-dialog-overlay')
+    const panel = screen.getByRole('dialog')
+    expect(backdrop?.parentElement).toBe(panel.parentElement)
+    expect([...panel.parentElement!.children].indexOf(backdrop!)).toBeLessThan(
+      [...panel.parentElement!.children].indexOf(panel)
+    )
+
+    const css = readFileSync(INDEX_CSS_PATH, 'utf8')
+    const overlayRule = css.match(/\.mixjam-dialog-overlay\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(overlayRule).toMatch(/z-index:\s*200;/)
+    expect(overlayRule).not.toMatch(/backdrop-filter/)
+    expect(css).toMatch(/\.mixjam-dialog-content\s*\{[^}]*z-index:\s*201;/m)
   })
 })

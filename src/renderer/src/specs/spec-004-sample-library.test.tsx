@@ -8,7 +8,13 @@ import type {
   PlayerProjectProps,
   PlayerTransportProps
 } from '../components/playerProps'
-import type { CategoryItem, LibraryItem, SampleListItem, ScanProgress, TagItem } from '../../../shared/backend-api'
+import type {
+  CategoryItem,
+  LibraryItem,
+  LibrarySyncState,
+  SampleListItem,
+  TagItem
+} from '../../../shared/backend-api'
 import type { LaneState } from '../lib/arrangement'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 
@@ -31,8 +37,21 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
   { id: 4, name: 'Drums', parentId: null },
 ]
 
-const IDLE_PROGRESS: ScanProgress = { status: 'idle', phase: null, found: 0, processed: 0, total: 0 }
-const SCANNING_PROGRESS: ScanProgress = { status: 'scanning', phase: 1, found: 50, processed: 20, total: 50 }
+const READY_LIBRARY_STATE: LibrarySyncState = {
+  status: 'ready',
+  rootKey: 'samples',
+  lastCompletedAt: 1
+}
+const SYNCING_LIBRARY_STATE: LibrarySyncState = {
+  status: 'syncing',
+  rootKey: 'samples',
+  jobId: 'job-1',
+  hasUsableIndex: true,
+  phase: 1,
+  found: 50,
+  processed: 20,
+  total: 50
+}
 
 function makeDbSamples(count: number): SampleListItem[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -69,8 +88,13 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   tags: [],
   categories: DEFAULT_CATEGORIES,
   libraries: [],
-  scanProgress: IDLE_PROGRESS,
-  analysisProgress: { status: 'idle', analyzed: 0, total: 0 },
+  librarySyncState: READY_LIBRARY_STATE,
+  calibrationProgress: {
+    identity: null,
+    status: 'idle',
+    analyzed: 0,
+    total: 0
+  },
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
@@ -78,8 +102,11 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   onSelectCategory: noop,
   onToggleTagFilter: noop,
   onSortChange: noop,
-  onStartScan: asyncNoop,
-  onCancelScan: asyncNoop,
+  onRescanLibrary: asyncNoop,
+  onRetryLibrarySync: asyncNoop,
+  onCancelLibrarySync: asyncNoop,
+  onStartUniformFolderCalibration: asyncNoop,
+  onCancelUniformFolderCalibration: asyncNoop,
   onCreateTag: asyncNoop as never,
   onRenameTag: asyncNoop as never,
   onSetTagColor: asyncNoop as never,
@@ -158,6 +185,7 @@ const DEFAULT_PROJECT: PlayerProjectProps = {
   name: 'Untitled',
   dirty: false,
   busy: false,
+  onNew: async () => undefined,
   onOpen: async () => false,
   onOpenPath: async () => false,
   onSave: async () => false,
@@ -192,11 +220,12 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // AC-004a: global library controls
   // -------------------------------------------------------------------------
 
-  it('AC-004a: Middle Strip shows search and Re-scan controls', () => {
+  it('AC-004a: Middle Strip shows search and one rare Re-scan command', () => {
     renderPlayer({ samples: [], totalCount: 0 })
     expect(screen.getByRole('searchbox', { name: /search samples/i })).toBeInTheDocument()
-    // Result count renders in subcats-count when there are results; strip has scan controls
-    expect(screen.getByRole('button', { name: 'Re-scan' })).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
+    expect(screen.getAllByRole('menuitem', { name: 'Re-scan Sample Folder' })).toHaveLength(1)
+    expect(screen.queryByText('Uniform Re-scan')).not.toBeInTheDocument()
   })
 
   // -------------------------------------------------------------------------
@@ -396,57 +425,56 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
   // AC-001 / AC-004a: indexing progress controls
   // -------------------------------------------------------------------------
 
-  it('AC-001 / AC-004a: scan progress indicator is visible when scanning', () => {
-    renderPlayer({ scanProgress: SCANNING_PROGRESS })
-    expect(screen.getByLabelText(/scanning phase/i)).toBeInTheDocument()
+  it('AC-001 / AC-004a: sync progress is visible in the bounded activity slot', () => {
+    renderPlayer({ librarySyncState: SYNCING_LIBRARY_STATE })
+    expect(screen.getByRole('status', { name: /finding changes, 40% complete/i })).toBeInTheDocument()
   })
 
-  it('scan progress is hidden when idle', () => {
-    renderPlayer({ scanProgress: IDLE_PROGRESS })
-    expect(screen.queryByLabelText(/scanning phase/i)).not.toBeInTheDocument()
+  it('sync progress is hidden when the library is ready', () => {
+    renderPlayer({ librarySyncState: READY_LIBRARY_STATE })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('Re-scan button is disabled while scanning', () => {
-    renderPlayer({ scanProgress: SCANNING_PROGRESS })
-    expect(screen.getByRole('button', { name: /scanning/i })).toBeDisabled()
+  it('Re-scan is disabled while syncing', () => {
+    renderPlayer({ librarySyncState: SYNCING_LIBRARY_STATE })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
+    expect(screen.getByRole('menuitem', { name: 'Re-scan Sample Folder' })).toHaveAttribute(
+      'data-disabled'
+    )
   })
 
-  it('Re-scan button is disabled while automatic analysis is running', () => {
+  it('Re-scan is disabled while automatic analysis is running', () => {
     renderPlayer({
-      analysisProgress: { status: 'analyzing', analyzed: 10, total: 100 }
+      librarySyncState: {
+        status: 'analyzing',
+        rootKey: 'samples',
+        jobId: 'job-1',
+        lastCompletedAt: 1,
+        analyzed: 10,
+        total: 100
+      }
     })
-    expect(screen.getByRole('button', { name: /analyzing samples/i })).toBeDisabled()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
+    expect(screen.getByRole('menuitem', { name: 'Re-scan Sample Folder' })).toHaveAttribute(
+      'data-disabled'
+    )
   })
 
   it('AC-004a: Re-scan triggers the library scan', async () => {
-    const onStartScan = vi.fn().mockResolvedValue(undefined)
-    renderPlayer({ scanProgress: IDLE_PROGRESS, onStartScan })
+    const onRescanLibrary = vi.fn().mockResolvedValue(undefined)
+    renderPlayer({ librarySyncState: READY_LIBRARY_STATE, onRescanLibrary })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Re-scan' }))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Re-scan Sample Folder' }))
 
-    await waitFor(() => expect(onStartScan).toHaveBeenCalledTimes(1))
-    expect(onStartScan).toHaveBeenCalledWith()
+    await waitFor(() => expect(onRescanLibrary).toHaveBeenCalledTimes(1))
+    expect(onRescanLibrary).toHaveBeenCalledWith()
   })
 
-  it('Uniform Re-scan requires confirmation and opts into batch calibration', async () => {
-    const onStartScan = vi.fn().mockResolvedValue(undefined)
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    renderPlayer({ scanProgress: IDLE_PROGRESS, onStartScan })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Uniform Re-scan' }))
-
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('every sample shares one tempo and key'))
-    await waitFor(() => expect(onStartScan).toHaveBeenCalledWith(true))
-  })
-
-  it('Uniform Re-scan does not start when confirmation is declined', () => {
-    const onStartScan = vi.fn().mockResolvedValue(undefined)
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
-    renderPlayer({ scanProgress: IDLE_PROGRESS, onStartScan })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Uniform Re-scan' }))
-
-    expect(onStartScan).not.toHaveBeenCalled()
+  it('Middle Strip never exposes Uniform Re-scan', () => {
+    renderPlayer()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
+    expect(screen.queryByText('Uniform Re-scan')).not.toBeInTheDocument()
   })
 
   // -------------------------------------------------------------------------

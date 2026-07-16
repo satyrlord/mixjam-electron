@@ -28,19 +28,19 @@ Implement view switching, the header bar, and the footer.
 - Full-viewport layout with header, centered content area, and footer.
 - **Header** (48px): brand "MixJam Electron" anchored to the left margin,
   theme selector dropdown on the right (behavior owned by spec-002).
-- **Content area:** two primary columns, vertically and horizontally centered,
-  with an optional full-width project rail below both columns.
-  - Hero column (left): SVG brandmark (accent-gradient tile with a waveform
-    pulse, painted with theme tokens only), "MixJam" wordmark, tagline, three
-    quick-start steps, and a labeled 8-by-2 theme-preview grid that switches
-    the active theme. The selected theme name appears only in the header selector.
+- **Content area:** two primary columns, vertically and horizontally centered.
+  - Hero column (left): the app logo from `public/app-icon-128.png`, "MixJam"
+    wordmark, tagline, three quick-start steps, and a labeled 8-by-2
+    theme-preview grid that switches the active theme. The selected theme name
+    appears only in the header selector.
   - Setup column (right): a raised panel holding the two folder cards
     (spec-003), the launch gate, and the Load MixJam link.
-  - Recent Projects rail: when projects exist, a sibling region below the hero
-    and setup columns spans the full content width. It shows up to four projects
-    that are selectable on click and load through spec-011. At desktop width
-    the entries form one four-column row; at 900px and below they form two
-    columns beneath the stacked hero and setup regions.
+  - Recent Projects rail: when projects exist, a sibling region sits below the
+    hero while the setup panel spans both desktop rows. It shows up to four
+    projects that are selectable on click and load through spec-011. The
+    four-item cap keeps Home geometry independent of the total project history.
+    At desktop width the entries form one four-column row; at 900px and below
+    they form two columns beneath the stacked hero and setup regions.
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
   - "Load MixJam" link — secondary action. Once both folders are available,
     it opens a file picker filtered to `.mixjam` (the File System Access
@@ -138,9 +138,15 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" button and "Load MixJam" link.
-- [x] **AC-002a:** Recent Projects is outside the raised setup panel, spans the
-  full Home content width, and responds from four desktop columns to two
-  columns at 900px and below.
+- [x] **AC-002a:** Recent Projects is outside the raised setup panel, aligns
+  below the hero while setup spans both desktop rows, and responds from four
+  desktop columns to two columns at 900px and below.
+- [x] **AC-002b:** The Home hero uses `public/app-icon-128.png` as the visible
+  MixJam logo instead of a generated waveform mark.
+- [x] **AC-002c:** At the default 1280×720 window size, including its shorter
+  Electron renderer viewport, Home has no vertical overflow or scrollbar. Any
+  number of available recent projects keeps the same layout because only the
+  first four are rendered.
 - [x] **AC-003:** Footer is 48px height (same as header), shows "Select User Folder" left and clickable version string right on both views.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
@@ -158,8 +164,8 @@ Implementation validation should be tracked in implementation PR/test evidence.
   their detailed current layout and controls.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow
   scrollbar on the root. Home owns any required narrow-window vertical
-  scrolling internally with both content limits reachable; the 1280×720 Home
-  state has no avoidable internal overflow.
+  scrolling internally with both content limits reachable; the default
+  1280×720 Electron window has no Home overflow.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 - [x] **AC-013:** In a browser-only host where `window.shellAPI` is missing, the renderer runs the
   full real app (browser backend, folder gating, theming) with no mock or demo data; window-resize

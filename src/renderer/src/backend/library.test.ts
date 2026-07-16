@@ -4,9 +4,10 @@
 import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { DB } from './sql'
-import { initSchema } from './schema'
+import { ANALYSIS_REVISION, initSchema, METADATA_REVISION } from './schema'
 import {
   assignCategoryFromPath,
+  completeScanRoot,
   createCategory,
   createTag,
   deleteCategory,
@@ -14,13 +15,18 @@ import {
   deleteTag,
   ensureScanRoot,
   ensureUnsortedCategory,
+  getLibraryRootState,
   hasSamples,
+  listAnalysisCandidates,
+  listCalibrationCandidates,
+  listMetadataCandidates,
   scanRootId,
   listCategories,
   listLibraries,
   listMissingRelpaths,
   listTags,
   markMissing,
+  markMetadataUnavailable,
   querySamples,
   renameTag,
   saveLibrary,
@@ -242,6 +248,27 @@ describe('upsertStub', () => {
     expect(row.duration).toBeNull()
   })
 
+  it('resets metadata and analysis revisions only when file bytes change', () => {
+    upsertStub(db, rootId, 'samples/loop.wav', 'loop.wav', 'wav', 2048, 1000)
+    updateMetadata(db, rootId, 'samples/loop.wav', 3.0, 44100, 2)
+    const sampleId = sampleIdFor('samples/loop.wav')
+    db.prepare('UPDATE samples SET analysis_revision = ? WHERE id = ?')
+      .run(ANALYSIS_REVISION, sampleId)
+
+    upsertStub(db, rootId, 'samples/loop.wav', 'loop.wav', 'wav', 2048, 1000)
+    expect(db.prepare(
+      'SELECT metadata_revision, analysis_revision FROM samples WHERE id = ?'
+    ).get(sampleId)).toEqual({
+      metadata_revision: METADATA_REVISION,
+      analysis_revision: ANALYSIS_REVISION
+    })
+
+    upsertStub(db, rootId, 'samples/loop.wav', 'loop.wav', 'wav', 4096, 2000)
+    expect(db.prepare(
+      'SELECT metadata_revision, analysis_revision FROM samples WHERE id = ?'
+    ).get(sampleId)).toEqual({ metadata_revision: 0, analysis_revision: 0 })
+  })
+
   it('keeps identical relpaths in different roots as distinct rows', () => {
     const otherRoot = ensureScanRoot(db, 'root-other')
     upsertStub(db, rootId, 'kick.wav', 'kick.wav', 'wav', 1000, 1000)
@@ -264,6 +291,96 @@ describe('updateMetadata', () => {
     expect(row.sample_rate).toBe(44100)
     expect(row.channels).toBe(2)
     expect(row.scan_state).toBe(1)
+  })
+
+  it('stamps terminal metadata attempts and selects retries by trigger/revision', () => {
+    upsertStub(db, rootId, 'samples/broken.wav', 'broken.wav', 'wav', 10, 1000)
+    markMetadataUnavailable(db, rootId, 'samples/broken.wav')
+    const sampleId = sampleIdFor('samples/broken.wav')
+
+    expect(listMetadataCandidates(db, rootId, false)).toEqual([])
+    expect(listMetadataCandidates(db, rootId, true)).toEqual([
+      { relpath: 'samples/broken.wav' }
+    ])
+    expect(listMetadataCandidates(db, rootId, false, METADATA_REVISION + 1)).toEqual([
+      { relpath: 'samples/broken.wav' }
+    ])
+
+    updateMetadata(db, rootId, 'samples/broken.wav', 1, 44100, 1)
+    expect(listAnalysisCandidates(db, rootId)).toEqual([
+      { id: sampleId, relpath: 'samples/broken.wav' }
+    ])
+  })
+
+  it('clears stale automatic analysis but preserves manual values when metadata is unavailable', () => {
+    upsertStub(db, rootId, 'samples/changed.wav', 'changed.wav', 'wav', 100, 1000)
+    updateMetadata(db, rootId, 'samples/changed.wav', 2, 44100, 2)
+    const sampleId = sampleIdFor('samples/changed.wav')
+    db.prepare(
+      `UPDATE samples
+       SET bpm = 128, bpm_source = 'analysis',
+           musical_key = 'Am', musical_key_source = 'manual',
+           sample_type = 'Loop', sample_type_source = 'analysis',
+           analysis_revision = ?
+       WHERE id = ?`
+    ).run(ANALYSIS_REVISION, sampleId)
+
+    upsertStub(db, rootId, 'samples/changed.wav', 'changed.wav', 'wav', 200, 2000)
+    markMetadataUnavailable(db, rootId, 'samples/changed.wav')
+
+    expect(db.prepare(
+      `SELECT bpm, bpm_source, musical_key, musical_key_source,
+              sample_type, sample_type_source, scan_state,
+              metadata_revision, analysis_revision
+       FROM samples WHERE id = ?`
+    ).get(sampleId)).toEqual({
+      bpm: null,
+      bpm_source: null,
+      musical_key: 'Am',
+      musical_key_source: 'manual',
+      sample_type: null,
+      sample_type_source: null,
+      scan_state: 3,
+      metadata_revision: METADATA_REVISION,
+      analysis_revision: ANALYSIS_REVISION
+    })
+    expect(listAnalysisCandidates(db, rootId)).toEqual([])
+  })
+})
+
+describe('analysis revision selection', () => {
+  it('selects only stale rows and stamps valid NULL attempts current', () => {
+    upsertStub(db, rootId, 'samples/pending.wav', 'pending.wav', 'wav', 100, 1000)
+    updateMetadata(db, rootId, 'samples/pending.wav', 1, 44100, 1)
+    const sampleId = sampleIdFor('samples/pending.wav')
+
+    expect(listAnalysisCandidates(db, rootId)).toEqual([
+      { id: sampleId, relpath: 'samples/pending.wav' }
+    ])
+    db.prepare('UPDATE samples SET analysis_revision = ? WHERE id = ?')
+      .run(ANALYSIS_REVISION, sampleId)
+    expect(listAnalysisCandidates(db, rootId)).toEqual([])
+  })
+})
+
+describe('calibration candidate selection', () => {
+  it('includes every non-missing row so unavailable and pending files cannot be skipped', () => {
+    for (const [relpath, state] of [
+      ['pending.wav', 0],
+      ['ready.wav', 1],
+      ['missing.wav', 2],
+      ['unavailable.wav', 3]
+    ] as const) {
+      upsertStub(db, rootId, relpath, relpath, 'wav', 100, 1000)
+      db.prepare('UPDATE samples SET scan_state = ? WHERE root_id = ? AND relpath = ?')
+        .run(state, rootId, relpath)
+    }
+
+    expect(listCalibrationCandidates(db, rootId).map(({ relpath }) => relpath)).toEqual([
+      'pending.wav',
+      'ready.wav',
+      'unavailable.wav'
+    ])
   })
 })
 
@@ -563,14 +680,30 @@ describe('per-root scoping', () => {
     expect(result.total).toBe(0)
   })
 
-  it('hasSamples with rootId reflects only that root', () => {
+  it('readiness is root-scoped and treats a completed empty root as ready', () => {
     expect(hasSamples(db, 'root-drums')).toBe(false)
     const drumsRoot = ensureScanRoot(db, 'root-drums')
-    // Scanned but empty folder still reads as un-indexed.
     expect(hasSamples(db, 'root-drums')).toBe(false)
-    upsertStub(db, drumsRoot, 'kick.wav', 'kick.wav', 'wav', 1000, 1000)
+    completeScanRoot(db, drumsRoot, 1234)
     expect(hasSamples(db, 'root-drums')).toBe(true)
+    expect(getLibraryRootState(db, 'root-drums')).toEqual({
+      rootKey: 'root-drums',
+      lastCompletedAt: 1234,
+      hasUsableIndex: true
+    })
     expect(hasSamples(db, 'root-synths')).toBe(false)
+  })
+
+  it('keeps current partial first-sync rows unusable but preserves migrated roots', () => {
+    const partialRoot = ensureScanRoot(db, 'root-partial')
+    upsertStub(db, partialRoot, 'partial.wav', 'partial.wav', 'wav', 100, 100)
+    updateMetadata(db, partialRoot, 'partial.wav', 1, 44100, 1)
+    expect(getLibraryRootState(db, 'root-partial').hasUsableIndex).toBe(false)
+
+    db.prepare(
+      'UPDATE scan_roots SET legacy_index_available = 1 WHERE id = ?'
+    ).run(partialRoot)
+    expect(getLibraryRootState(db, 'root-partial').hasUsableIndex).toBe(true)
   })
 })
 
@@ -597,7 +730,7 @@ describe('syncCategoriesFromNames', () => {
 describe('initSchema', () => {
   it('stamps a fresh database once and leaves existing schema version rows unchanged', () => {
     const initial = db.prepare('SELECT version FROM schema_version').all<{ version: number }>()
-    expect(initial).toEqual([{ version: 2 }])
+    expect(initial).toEqual([{ version: 3 }])
 
     initSchema(db)
 

@@ -1,9 +1,9 @@
 import type {
-  AnalysisProgress,
+  CalibrationProgress,
   CategoryItem,
   LibraryItem,
+  LibrarySyncState,
   SampleListItem,
-  ScanProgress,
   SampleAnalysisPatch,
   TagItem
 } from '../../../shared/backend-api'
@@ -29,8 +29,8 @@ export interface PlayerBrowserProps {
   tags: TagItem[]
   categories: CategoryItem[]
   libraries: LibraryItem[]
-  scanProgress: ScanProgress
-  analysisProgress: AnalysisProgress
+  librarySyncState: LibrarySyncState
+  calibrationProgress: CalibrationProgress
   onSearchChange: (query: string) => void
   onLoadMoreSamples: () => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
@@ -38,8 +38,11 @@ export interface PlayerBrowserProps {
   onSelectCategory: (id: number | undefined) => void
   onToggleTagFilter: (id: number) => void
   onSortChange: (col: SampleSortColumn) => void
-  onStartScan: (uniformBatchConfirmed?: boolean) => void
-  onCancelScan: () => void
+  onRescanLibrary: () => Promise<void>
+  onRetryLibrarySync: () => Promise<void>
+  onCancelLibrarySync: () => Promise<void>
+  onStartUniformFolderCalibration: () => Promise<void>
+  onCancelUniformFolderCalibration: () => Promise<void>
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
   onSetTagColor: (id: number, color: string | null) => Promise<void>
@@ -124,6 +127,7 @@ export interface PlayerProjectProps {
   name: string
   dirty: boolean
   busy: boolean
+  onNew: () => Promise<void>
   onOpen: () => Promise<boolean>
   onOpenPath: (projectRelpath: string) => Promise<boolean>
   onSave: () => Promise<boolean>

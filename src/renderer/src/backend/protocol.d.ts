@@ -3,26 +3,38 @@
 // progress fans out as unsolicited events.
 
 import type {
+  AnalysisDone,
   AnalysisProgress,
+  CalibrationDone,
+  CalibrationJobIdentity,
+  CalibrationProgress,
   CategoryItem,
   LibraryItem,
+  LibraryRootState,
+  LibraryScanDone,
+  LibrarySyncStartResult,
+  LibrarySyncTrigger,
   SampleQueryRequest,
   SampleQueryResponse,
   ScanProgress,
   SampleAnalysisPatch,
+  SampleAnalysisDone,
   TagItem
 } from '../../../shared/backend-api'
 
-/** The calls the worker services. Synchronous return types — the client facade
- *  adds the promise boundary. */
+/** Calls serviced by the worker. Most are synchronous; long-running operations
+ * may return a promise. The client facade always exposes a promise boundary. */
 export interface BackendCalls {
   querySamples: (req: SampleQueryRequest) => SampleQueryResponse
-  hasSamples: (rootKey: string) => boolean
+  getLibraryRootState: (rootKey: string) => LibraryRootState
   listMissingRelpaths: (rootKey: string) => string[]
-  startScan: (rootKey: string, uniformBatchConfirmed?: boolean) => void
-  cancelScan: () => void
+  startLibrarySync: (rootKey: string, trigger: LibrarySyncTrigger) => LibrarySyncStartResult
+  cancelLibrarySync: (jobId: string) => void
   getScanProgress: () => ScanProgress
   getAnalysisProgress: () => AnalysisProgress
+  startUniformFolderCalibration: (rootKey: string) => CalibrationJobIdentity
+  cancelUniformFolderCalibration: (jobId: string) => void
+  getCalibrationProgress: () => CalibrationProgress
   listTags: () => TagItem[]
   createTag: (name: string, color?: string) => TagItem
   renameTag: (id: number, name: string) => void
@@ -31,7 +43,11 @@ export interface BackendCalls {
   assignTag: (sampleId: number, tagId: number) => void
   unassignTag: (sampleId: number, tagId: number) => void
   updateSampleAnalysis: (sampleId: number, patch: SampleAnalysisPatch) => void
-  reanalyzeSample: (rootKey: string, sampleId: number, relpath: string) => void
+  reanalyzeSample: (
+    rootKey: string,
+    sampleId: number,
+    relpath: string
+  ) => Promise<SampleAnalysisDone>
   listCategories: () => CategoryItem[]
   createCategory: (name: string, parentId?: number) => CategoryItem
   deleteCategory: (id: number) => void
@@ -54,8 +70,10 @@ export type WorkerResponse =
 
 export type WorkerEvent =
   | { type: 'scan-progress'; progress: ScanProgress }
-  | { type: 'scan-done' }
+  | { type: 'scan-done'; done: LibraryScanDone }
   | { type: 'analysis-progress'; progress: AnalysisProgress }
-  | { type: 'analysis-done' }
+  | { type: 'analysis-done'; done: AnalysisDone }
+  | { type: 'calibration-progress'; progress: CalibrationProgress }
+  | { type: 'calibration-done'; done: CalibrationDone }
 
 export type WorkerMessage = WorkerResponse | WorkerEvent

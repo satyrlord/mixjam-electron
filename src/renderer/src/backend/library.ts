@@ -4,11 +4,13 @@
 
 import type {
   AnalysisSource,
+  LibraryRootState,
   SampleAnalysisPatch,
   SampleQueryRequest,
   SampleType
 } from '../../../shared/backend-api'
 import { isSampleType } from './analysis'
+import { ANALYSIS_REVISION, METADATA_REVISION } from './schema'
 import type { BindValue, DB } from './sql'
 
 export interface TagRow {
@@ -58,25 +60,59 @@ export type AnalysisCandidate = {
   relpath: string
 }
 
+export type MetadataCandidate = {
+  relpath: string
+}
+
 function analysisSource(value: string | null): AnalysisSource {
   return value === 'analysis' || value === 'manual' ? value : null
 }
 
-export function listAnalysisCandidates(db: DB, rootId: number): AnalysisCandidate[] {
+export function listAnalysisCandidates(
+  db: DB,
+  rootId: number,
+  analysisRevision: number = ANALYSIS_REVISION
+): AnalysisCandidate[] {
   return db.prepare(
     `SELECT id, relpath FROM samples
-     WHERE root_id = ? AND scan_state = 1 AND (
+     WHERE root_id = ? AND scan_state = 1 AND analysis_revision < ? AND (
        COALESCE(bpm_source, '') != 'manual' OR
        COALESCE(musical_key_source, '') != 'manual' OR
        COALESCE(sample_type_source, '') != 'manual'
      ) ORDER BY id`
+  ).all<AnalysisCandidate>(rootId, analysisRevision)
+}
+
+export function listCalibrationCandidates(db: DB, rootId: number): AnalysisCandidate[] {
+  return db.prepare(
+    `SELECT id, relpath FROM samples
+     WHERE root_id = ? AND scan_state != 2
+     ORDER BY id`
   ).all<AnalysisCandidate>(rootId)
+}
+
+export function listMetadataCandidates(
+  db: DB,
+  rootId: number,
+  retryUnavailable: boolean,
+  metadataRevision: number = METADATA_REVISION
+): MetadataCandidate[] {
+  return db.prepare(
+    `SELECT relpath FROM samples
+     WHERE root_id = ? AND scan_state != 2 AND (
+       scan_state = 0 OR
+       metadata_revision < ? OR
+       (? = 1 AND scan_state = 3)
+     )
+     ORDER BY id`
+  ).all<MetadataCandidate>(rootId, metadataRevision, retryUnavailable ? 1 : 0)
 }
 
 export function applyAnalysisResult(
   db: DB,
   sampleId: number,
-  result: { bpm: number | null; musicalKey: string | null; sampleType: SampleType | null }
+  result: { bpm: number | null; musicalKey: string | null; sampleType: SampleType | null },
+  analysisRevision: number = ANALYSIS_REVISION
 ): void {
   db.prepare(
     `UPDATE samples SET
@@ -90,7 +126,8 @@ export function applyAnalysisResult(
        sample_type = CASE WHEN COALESCE(sample_type_source, '') != 'manual'
          THEN ? ELSE sample_type END,
        sample_type_source = CASE WHEN COALESCE(sample_type_source, '') != 'manual'
-         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE sample_type_source END
+         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE sample_type_source END,
+       analysis_revision = ?
      WHERE id = ?`
   ).run(
     result.bpm,
@@ -99,6 +136,7 @@ export function applyAnalysisResult(
     result.musicalKey,
     result.sampleType,
     result.sampleType,
+    analysisRevision,
     sampleId
   )
 }
@@ -248,6 +286,37 @@ export function ensureScanRoot(db: DB, rootKey: string): number {
     : db.prepare('SELECT id FROM scan_roots WHERE key = ?').get<{ id: number }>(rootKey)!.id
 }
 
+export function getLibraryRootState(db: DB, rootKey: string): LibraryRootState {
+  const root = db.prepare(
+    `SELECT id, last_completed_at, legacy_index_available
+     FROM scan_roots
+     WHERE key = ?`
+  ).get<{
+    id: number
+    last_completed_at: number | null
+    legacy_index_available: number
+  }>(rootKey)
+
+  if (!root) {
+    return { rootKey, lastCompletedAt: null, hasUsableIndex: false }
+  }
+
+  return {
+    rootKey,
+    lastCompletedAt: root.last_completed_at,
+    hasUsableIndex: root.last_completed_at !== null || root.legacy_index_available === 1
+  }
+}
+
+export function completeScanRoot(
+  db: DB,
+  rootId: number,
+  completedAt: number = Date.now()
+): number {
+  db.prepare('UPDATE scan_roots SET last_completed_at = ? WHERE id = ?').run(completedAt, rootId)
+  return completedAt
+}
+
 export const UNSORTED_CATEGORY = 'Unsorted'
 
 function unsortedCategoryId(db: DB): number {
@@ -327,17 +396,21 @@ export function deleteLibrary(db: DB, id: number): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true when the given Sample Folder has been populated by at least one
- * completed scan. Without a rootKey the check spans every root (used by
- * tooling/tests, not the browser).
+ * Compatibility query for lower-level callers. Readiness is completion-based
+ * so an empty completed root is ready. Legacy roots with browseable rows also
+ * remain usable while their first post-migration sync reconciles them.
  */
 export function hasSamples(db: DB, rootKey?: string): boolean {
   if (rootKey !== undefined) {
-    const rootId = scanRootId(db, rootKey)
-    if (rootId === undefined) return false
-    return db.prepare('SELECT 1 FROM samples WHERE root_id = ? LIMIT 1').get(rootId) !== undefined
+    return getLibraryRootState(db, rootKey).hasUsableIndex
   }
-  return db.prepare('SELECT 1 FROM samples LIMIT 1').get() !== undefined
+  return db.prepare(
+    `SELECT 1
+     FROM scan_roots
+     WHERE last_completed_at IS NOT NULL
+        OR legacy_index_available = 1
+     LIMIT 1`
+  ).get() !== undefined
 }
 
 /**
@@ -559,7 +632,11 @@ export function upsertStub(
   // unchanged is left as-is so phase2 does not needlessly re-extract metadata
   // (see AGENTS.md "(size, mtime) change detection"). A previously-missing row
   // (scan_state=2) is treated as changed so it is re-scanned.
-  if (existing.scan_state === 1 && existing.size_bytes === sizeBytes && existing.mtime === mtime) {
+  if (
+    (existing.scan_state === 1 || existing.scan_state === 3) &&
+    existing.size_bytes === sizeBytes &&
+    existing.mtime === mtime
+  ) {
     return
   }
 
@@ -567,7 +644,9 @@ export function upsertStub(
   // extracted audio metadata is reset for phase 2 to re-extract.
   db.prepare(
     `UPDATE samples SET filename=?, ext=?, size_bytes=?, mtime=?, scan_state=0,
-     duration=NULL, sample_rate=NULL, channels=NULL WHERE id=?`
+     duration=NULL, sample_rate=NULL, channels=NULL,
+     metadata_revision=0, analysis_revision=0
+     WHERE id=?`
   ).run(filename, ext, sizeBytes, mtime, existing.id)
 }
 
@@ -584,11 +663,45 @@ export function updateMetadata(
   relpath: string,
   duration: number | null,
   sampleRate: number | null,
-  channels: number | null
+  channels: number | null,
+  metadataRevision: number = METADATA_REVISION
 ): void {
   db.prepare(
-    'UPDATE samples SET duration=?, sample_rate=?, channels=?, scan_state=1 WHERE root_id=? AND relpath=?'
-  ).run(duration, sampleRate, channels, rootId, relpath)
+    `UPDATE samples
+     SET duration=?, sample_rate=?, channels=?,
+         analysis_revision = CASE WHEN scan_state = 3 THEN 0 ELSE analysis_revision END,
+         scan_state=1, metadata_revision=?
+     WHERE root_id=? AND relpath=?`
+  ).run(duration, sampleRate, channels, metadataRevision, rootId, relpath)
+}
+
+export function markMetadataUnavailable(
+  db: DB,
+  rootId: number,
+  relpath: string,
+  metadataRevision: number = METADATA_REVISION,
+  analysisRevision: number = ANALYSIS_REVISION
+): void {
+  db.prepare(
+    `UPDATE samples
+     SET duration=NULL, sample_rate=NULL, channels=NULL,
+         bpm = CASE WHEN bpm_source = 'manual' THEN bpm ELSE NULL END,
+         bpm_source = CASE WHEN bpm_source = 'manual' THEN bpm_source ELSE NULL END,
+         musical_key = CASE
+           WHEN musical_key_source = 'manual' THEN musical_key ELSE NULL
+         END,
+         musical_key_source = CASE
+           WHEN musical_key_source = 'manual' THEN musical_key_source ELSE NULL
+         END,
+         sample_type = CASE
+           WHEN sample_type_source = 'manual' THEN sample_type ELSE NULL
+         END,
+         sample_type_source = CASE
+           WHEN sample_type_source = 'manual' THEN sample_type_source ELSE NULL
+         END,
+         scan_state=3, metadata_revision=?, analysis_revision=?
+     WHERE root_id=? AND relpath=?`
+  ).run(metadataRevision, analysisRevision, rootId, relpath)
 }
 
 /**

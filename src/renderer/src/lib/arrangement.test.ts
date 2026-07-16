@@ -4,6 +4,8 @@ import {
   DEFAULT_LANE_COUNT,
   TRACKER_BAR_COUNT,
   TRACKER_BEAT_WIDTH_PX,
+  TRACKER_GEOMETRY_SCALE,
+  TRACKER_LANE_CONTROL_SIZE_PX,
   TRACKER_TIMELINE_MIN_WIDTH_PX,
   TRACKER_TOTAL_TICKS,
   LANE_HEIGHT_PX,
@@ -60,8 +62,10 @@ describe('arrangement lane constants', () => {
   })
 
   it('has expected lane dimensions', () => {
-    expect(LANE_HEIGHT_PX).toBe(52)
-    expect(LANE_HEAD_WIDTH_PX).toBe(220)
+    expect(TRACKER_GEOMETRY_SCALE).toBe(0.75)
+    expect(LANE_HEIGHT_PX).toBe(39)
+    expect(LANE_HEAD_WIDTH_PX).toBe(168)
+    expect(TRACKER_LANE_CONTROL_SIZE_PX).toBe(32)
   })
 
   it('defaults placements to 32 ticks', () => {
@@ -71,8 +75,8 @@ describe('arrangement lane constants', () => {
   it('defines the 999-bar arrangement capacity and minimum timeline density', () => {
     expect(TRACKER_BAR_COUNT).toBe(999)
     expect(TRACKER_TOTAL_TICKS).toBe(31968)
-    expect(TRACKER_BEAT_WIDTH_PX).toBe(42)
-    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(168052)
+    expect(TRACKER_BEAT_WIDTH_PX).toBe(32)
+    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(128040)
   })
 })
 

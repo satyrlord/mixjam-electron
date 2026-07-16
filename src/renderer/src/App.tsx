@@ -3,7 +3,6 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import PlayerView from './components/PlayerView'
-import ScanOverlay from './components/ScanOverlay'
 import { TooltipProvider } from './components/ui/Tooltip'
 import { useAppState } from './hooks/useAppState'
 import { useFolderSetup } from './hooks/useFolderSetup'
@@ -56,6 +55,7 @@ export default function App() {
           <HomeScreen
             userFolder={userFolder}
             sampleFolder={sampleFolder}
+            librarySyncState={app.librarySyncState}
             canStart={canStart}
             mixJamFiles={app.mixJamFiles}
             projectBusy={app.projectBusy}
@@ -65,6 +65,8 @@ export default function App() {
             onPickSample={pickSample}
             onRestoreUser={restoreUser}
             onRestoreSample={restoreSample}
+            onRetryLibrarySync={() => void app.retryLibrarySync()}
+            onCancelLibrarySync={() => void app.cancelLibrarySync()}
             onStart={app.startNewProject}
             onLoad={app.openProjectPicker}
             onOpenProject={app.openProjectPath}
@@ -88,7 +90,6 @@ export default function App() {
         onOpenRepo={app.openRepo}
         getSampleBuffer={app.getSampleBuffer}
       />
-      {!app.dbIndexed && <ScanOverlay progress={app.scanProgress} />}
       </div>
     </TooltipProvider>
   )

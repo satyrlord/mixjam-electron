@@ -73,11 +73,15 @@ Walk rows where `scan_state = 0` or the persisted metadata revision is stale,
 read audio headers to fill `duration`, `sample_rate`, and `channels`, then set
 `scan_state = 1` and stamp the current metadata revision. A terminal unsupported
 or damaged-file result sets `scan_state = 3` (metadata unavailable) and also
-stamps the revision. Automatic sync skips unchanged current-revision rows in
-both states; manual Re-scan explicitly retries state 3. Four metadata parses run
-concurrently; SQLite updates remain serialized on the worker and currently
-autocommit one row at a time. `music-metadata.parseBlob` reads headers without
-decoding whole files. Progress is emitted every 50 rows and at completion.
+stamps the revision. It also clears stale non-manual BPM, key, and type values
+and stamps the analysis revision for those bytes; manual overrides remain
+unchanged. Automatic sync skips unchanged current-revision rows in both states;
+manual Re-scan explicitly retries state 3. Four metadata parses run
+concurrently; SQLite updates remain serialized on the worker in transactions of
+up to 200 rows. `music-metadata.parseBlob` reads headers without decoding whole
+files. Progress is emitted every 50 rows and at completion.
+If a state-3 retry later extracts metadata successfully, its analysis revision
+returns to pending so the recovered sample is analyzed again.
 
 The scan can be cancelled but not paused. Cancellation increments a generation
 counter and is observed at phase boundaries and phase-1 batch boundaries; phase
@@ -105,6 +109,12 @@ is not a scan variant and is not exposed beside the manual Re-scan action.
 Calibration has a separate UI lifecycle. The backend worker serializes it with
 library sync; it cannot start while sync is active, and a newly selected-root
 sync cancels calibration at its next safe checkpoint.
+Individual re-analysis uses its own typed job identity and is serialized with
+both library sync and calibration. Its request completes only after the worker
+has committed the result or reported the operation error.
+An automatic sync requested for a newly selected root during individual
+analysis is queued and starts when that analysis finishes; the folder-selection
+request is not discarded.
 
 Readable unsupported or damaged bytes clear stale non-manual analysis. A
 transient failure to read the file preserves prior metadata for a later retry.
@@ -184,9 +194,10 @@ the approved update because its cost against a 100k-file root is unmeasured.
   completed empty folder is ready; cancellation or fatal failure does not
   advance it.
 - Terminal unsupported or damaged metadata sets `scan_state = 3` and stamps the
-  metadata revision. Transient permission or I/O failure fails the job without
-  stamping the row, so contextual Retry can resume it. Manual Re-scan also
-  retries unchanged state-3 rows.
+  metadata and analysis revisions. It clears stale automatic analysis fields
+  while preserving manual overrides. Transient permission or I/O failure fails
+  the job without stamping the row, so contextual Retry can resume it. Manual
+  Re-scan also retries unchanged state-3 rows.
 - A cancelled or failed first sync has no usable index and shows contextual
   **Retry library sync** in the active Home or Player status surface. Failure
   during refresh preserves the prior usable index and shows a warning plus the

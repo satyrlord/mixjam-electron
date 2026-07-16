@@ -1,7 +1,7 @@
 import './index.css'
 import { mountApp } from './bootstrapApp'
 import { createBackendAPI } from './backend/client'
-import { bootstrapTheme } from './theme/themes'
+import { applyTrackerGeometry, bootstrapTheme } from './theme/themes'
 
 const rootElement = document.getElementById('root') as HTMLElement
 
@@ -22,7 +22,8 @@ function acquireSingleTabLock(): Promise<boolean> {
 
 function renderAlreadyOpen(element: HTMLElement): void {
   // The body stays hidden until the theme is bootstrapped (anti-flash guard in
-  // index.css), so the notice path must bootstrap it too.
+  // index.css), so the notice path must apply geometry and bootstrap too.
+  applyTrackerGeometry()
   bootstrapTheme()
   const message = document.createElement('div')
   message.className = 'app-single-tab-notice'

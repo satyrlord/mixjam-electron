@@ -12,7 +12,7 @@ import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 import { Tooltip } from './ui/Tooltip'
 import { ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 
-// The visible bubble stays 32px tall everywhere. The browser gives that visual
+// The visible bubble stays 24px tall everywhere. The browser gives that visual
 // a separate 44px interaction target without changing the shared geometry.
 const SAMPLE_BUBBLE_TARGET_PX = 44
 const TILE_GAP_PX = 6

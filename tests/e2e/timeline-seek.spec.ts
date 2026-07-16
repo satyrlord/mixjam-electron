@@ -16,7 +16,7 @@ for (const viewport of [
     const progress = page.getByRole('scrollbar', { name: 'Song Progress Bar' })
     const resizeHandle = page.getByRole('separator', { name: 'Resize bottom workspace' })
     await expect(progress).toBeVisible()
-    await expect(middleStrip).toContainText('Open')
+    await expect(page.getByRole('button', { name: 'Untitled, project menu' })).toBeVisible()
 
     const assertProgressGeometry = async () => {
       const geometry = await middleStrip.evaluate((strip, control) => {
@@ -68,8 +68,8 @@ test('ruler clicks and the playhead share the musical origin at zero and nonzero
   await expect(slider).toHaveAttribute('aria-valuemax', String(TRACKER_LAST_GRID_TICK))
   for (const { scrollLeft, targetTick } of [
     { scrollLeft: 0, targetTick: 32 },
-    { scrollLeft: 1100, targetTick: 256 },
-    { scrollLeft: 15_800, targetTick: 3072 }
+    { scrollLeft: 1100, targetTick: 320 },
+    { scrollLeft: 15_800, targetTick: 4000 }
   ]) {
     await scrollport.evaluate((element, left) => {
       element.scrollLeft = left

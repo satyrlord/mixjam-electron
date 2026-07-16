@@ -51,8 +51,8 @@ interface ShortcutsOverlayProps {
   onClose: () => void
 }
 
-/** Modal listing every keyboard and mouse shortcut. Opened from the "?" button
- *  in the middle strip or the "?" key; closed by Esc, the close button, or a
+/** Modal listing every keyboard and mouse shortcut. Opened from the Middle
+ *  Strip More menu or the "?" key; closed by Esc, the close button, or a
  *  click on the backdrop. */
 export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
   const returnFocusRef = useRef<HTMLElement | null>(

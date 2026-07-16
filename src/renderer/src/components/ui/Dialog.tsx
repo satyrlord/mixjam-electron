@@ -15,7 +15,12 @@ export const DialogContent = forwardRef<
 >(function DialogContent({ className = '', onOverlayClick, ...props }, ref) {
   return (
     <Primitive.Portal>
-      <Primitive.Overlay className="mixjam-dialog-overlay" onClick={onOverlayClick} />
+      <Primitive.Overlay
+        className="mixjam-dialog-overlay"
+        onPointerDown={(event) => {
+          if (event.target === event.currentTarget) onOverlayClick?.(event)
+        }}
+      />
       <Primitive.Content
         ref={ref}
         className={`mixjam-dialog-content ${className}`.trim()}

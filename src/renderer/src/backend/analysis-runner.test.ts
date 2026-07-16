@@ -1,8 +1,13 @@
 // @vitest-environment node
 import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import type { AnalysisProgress } from '../../../shared/backend-api'
-import { runPendingAnalysis, runSingleAnalysis } from './analysis-runner'
+import {
+  runPendingAnalysis,
+  runSingleAnalysis,
+  runUniformFolderCalibration,
+  type AnalysisPhaseProgress,
+  type CalibrationPhaseProgress
+} from './analysis-runner'
 import { ensureScanRoot, querySamples, updateMetadata, upsertStub } from './library'
 import { initSchema } from './schema'
 import { DB } from './sql'
@@ -91,7 +96,7 @@ describe('analysis runner', () => {
     const unreadable = {
       arrayBuffer: async () => { throw new Error('file disappeared') }
     } as unknown as File
-    const events: AnalysisProgress[] = []
+    const events: AnalysisPhaseProgress[] = []
 
     await runPendingAnalysis(
       db,
@@ -135,9 +140,27 @@ describe('analysis runner', () => {
     expect(observedSources).toEqual(['analysis'])
   })
 
+  it('performs zero decodes on a second unchanged automatic analysis pass', async () => {
+    addCandidate('unchanged.wav')
+    const bytes = await makeWav('unchanged.wav').arrayBuffer()
+    let decodeReads = 0
+    const countedFile = {
+      arrayBuffer: async () => {
+        decodeReads++
+        return bytes
+      }
+    } as unknown as File
+    const files = new Map([['unchanged.wav', countedFile]])
+
+    await runPendingAnalysis(db, rootId, files, () => undefined, () => true)
+    await runPendingAnalysis(db, rootId, files, () => undefined, () => true)
+
+    expect(decodeReads).toBe(1)
+  })
+
   it('stops a stale batch before reading or updating candidates', async () => {
     addCandidate('cancelled.wav')
-    const events: AnalysisProgress[] = []
+    const events: AnalysisPhaseProgress[] = []
 
     await runPendingAnalysis(
       db,
@@ -176,7 +199,7 @@ describe('analysis runner', () => {
          sample_type = 'Bass', sample_type_source = 'analysis' WHERE id = ?`
       ).run(sampleId)
     }
-    const events: AnalysisProgress[] = []
+    const events: AnalysisPhaseProgress[] = []
 
     await runPendingAnalysis(
       db,
@@ -255,11 +278,34 @@ describe('analysis runner', () => {
       files.set(relpath, makePulseWav(relpath, 140, (index + 8) * 60 / 140))
     }
 
-    await runPendingAnalysis(db, rootId, files, () => undefined, () => true, true)
+    await runUniformFolderCalibration(db, rootId, files, () => undefined, () => true)
 
     const rows = querySamples(db, { rootId: 'analysis-runner-root', limit: 20 }).rows
     expect(rows).toHaveLength(16)
     expect(rows.every((sample) => sample.bpm === 140 && sample.bpmSource === 'analysis')).toBe(true)
+  })
+
+  it('refuses calibration when any indexed candidate cannot be inspected', async () => {
+    addCandidate('missing.wav')
+    const files = new Map<string, File>()
+    for (let index = 0; index < 16; index++) {
+      const relpath = `uniform-readable-${index}.wav`
+      addCandidate(relpath)
+      files.set(relpath, makePulseWav(relpath, 140, (index + 8) * 60 / 140))
+    }
+    const events: CalibrationPhaseProgress[] = []
+
+    await expect(runUniformFolderCalibration(
+      db,
+      rootId,
+      files,
+      (progress) => events.push(progress),
+      () => true
+    )).rejects.toThrow('Calibration requires a readable file: missing.wav')
+
+    expect(events).toEqual([{ status: 'calibrating', analyzed: 0, total: 17 }])
+    expect(querySamples(db, { rootId: 'analysis-runner-root', limit: 20 }).rows
+      .every((sample) => sample.sampleTypeSource === null)).toBe(true)
   })
 
   it('refreshes automatic values on re-scan while preserving manual fields', async () => {
@@ -302,27 +348,26 @@ describe('analysis runner', () => {
       addCandidate(relpath)
       files.set(relpath, makeWav(relpath, (index + 1) * 60 / 140, 8000, 0))
     }
-    const events: AnalysisProgress[] = []
+    const events: CalibrationPhaseProgress[] = []
     let currentChecks = 0
 
-    await runPendingAnalysis(
+    await runUniformFolderCalibration(
       db,
       rootId,
       files,
       (progress) => events.push(progress),
-      () => ++currentChecks <= 32,
-      true
+      () => ++currentChecks <= 32
     )
 
     const rows = querySamples(db, { rootId: 'analysis-runner-root', limit: 20 }).rows
     expect(rows.every((sample) => sample.sampleTypeSource === 'analysis')).toBe(true)
     expect(rows.some((sample) => sample.bpm !== 140)).toBe(true)
-    expect(events.at(-1)).toEqual({ status: 'analyzing', analyzed: 15, total: 16 })
+    expect(events.at(-1)).toEqual({ status: 'calibrating', analyzed: 15, total: 16 })
   })
 
   it('reports and persists a single-sample analysis', async () => {
     const sampleId = addCandidate('single.wav')
-    const events: AnalysisProgress[] = []
+    const events: AnalysisPhaseProgress[] = []
 
     await runSingleAnalysis(db, sampleId, makeWav('single.wav'), (progress) => events.push(progress))
 
@@ -335,7 +380,7 @@ describe('analysis runner', () => {
 
   it('completes single-sample progress when decoding is unsupported', async () => {
     const sampleId = addCandidate('unsupported-single.wav')
-    const events: AnalysisProgress[] = []
+    const events: AnalysisPhaseProgress[] = []
 
     await runSingleAnalysis(
       db,

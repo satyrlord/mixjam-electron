@@ -6,6 +6,11 @@ import { useAppState } from './useAppState'
 
 const USER_FOLDER = TEST_USER_FOLDER
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
+const LIBRARY_JOB = {
+  rootKey: SAMPLE_FOLDER.id,
+  jobId: 'library-job',
+  trigger: 'automatic' as const
+}
 
 describe('useAppState', () => {
   beforeEach(() => {
@@ -96,6 +101,23 @@ describe('useAppState', () => {
     expect(backendAPI.resizeToHome).toHaveBeenCalledTimes(1)
   })
 
+  it('does not start or restart library sync during view navigation', async () => {
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => {
+      expect(backendAPI.startLibrarySync).toHaveBeenCalledWith(SAMPLE_FOLDER, 'automatic')
+    })
+    vi.mocked(backendAPI.startLibrarySync).mockClear()
+
+    await act(async () => {
+      await result.current.goToPlayer()
+      await result.current.goToHome()
+      await result.current.goToPlayer()
+    })
+
+    expect(backendAPI.startLibrarySync).not.toHaveBeenCalled()
+  })
+
   it('routes footer actions through the injected backendAPI', async () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
@@ -148,10 +170,10 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.startLibraryScan()
+      await result.current.rescanLibrary()
     })
 
-    expect(backendAPI.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER, false)
+    expect(backendAPI.startLibrarySync).toHaveBeenCalledWith(SAMPLE_FOLDER, 'manual')
   })
 
   it('places a sample on a lane via drag-and-drop', async () => {
@@ -180,6 +202,10 @@ describe('useAppState', () => {
   it('hydrates a placement dropped before background BPM analysis completes', async () => {
     vi.useRealTimers()
     const backendAPI = createBackendAPI()
+    vi.mocked(backendAPI.startLibrarySync).mockResolvedValue({
+      identity: LIBRARY_JOB,
+      disposition: 'started'
+    })
     const source = {
       ...DEFAULT_SAMPLE_ROWS[0]!,
       relpath: 'unplugged loop 1.wav',
@@ -206,7 +232,7 @@ describe('useAppState', () => {
       total: 1
     })
     const analysisDone = vi.mocked(backendAPI.onAnalysisDone).mock.calls[0]![0]
-    act(() => { analysisDone() })
+    act(() => { analysisDone({ identity: LIBRARY_JOB }) })
 
     await waitFor(() => expect(result.current.samples[0]?.bpm).toBe(95.8))
     await waitFor(() => expect(result.current.lanes[0]?.placements[0]?.nativeBPM).toBe(95.8))
@@ -235,10 +261,10 @@ describe('useAppState', () => {
 
     // Even a scan request must safely no-op when folder is null.
     await act(async () => {
-      await result.current.startLibraryScan()
+      await result.current.rescanLibrary()
     })
 
-    expect(backendAPI.startScan).not.toHaveBeenCalled()
+    expect(backendAPI.startLibrarySync).not.toHaveBeenCalled()
     expect(result.current.samples).toEqual([])
     expect(result.current.loading).toBe(false)
     expect(result.current.error).toBeNull()

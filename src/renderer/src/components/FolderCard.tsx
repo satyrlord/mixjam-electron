@@ -12,6 +12,7 @@ interface FolderCardProps {
   status: FolderCardStatus
   disabled: boolean
   emptyPrompt: string
+  children?: ReactNode
   onPick: () => void
   /** Re-requests permission on the stored handle (browser host; the Electron
    *  shell auto-grants so this affordance never shows there). */
@@ -44,6 +45,7 @@ export default function FolderCard({
   status,
   disabled,
   emptyPrompt,
+  children,
   onPick,
   onRestore
 }: FolderCardProps) {
@@ -66,6 +68,7 @@ export default function FolderCard({
         </button>
       </div>
       <p className={`folder-card-status folder-card-status-${tone}`}>{text}</p>
+      {children && <div className="folder-card-detail">{children}</div>}
     </div>
   )
 }

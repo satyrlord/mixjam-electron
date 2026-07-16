@@ -46,8 +46,8 @@ test.describe('Project save and load', () => {
     await seededPage.getByRole('button', { name: /club-night/ }).click()
     await expect(seededPage.getByRole('button', { name: '138 BPM, Master 70%' })).toBeVisible()
 
-    await seededPage.getByRole('button', { name: /Return to Main Menu/ }).click()
-    await seededPage.getByRole('button', { name: 'Start New MixJam' }).click()
+    await seededPage.getByRole('button', { name: /club-night, project menu/ }).click()
+    await seededPage.getByRole('menuitem', { name: 'New' }).click()
 
     await expect(seededPage.getByLabel('Untitled')).toBeVisible()
     await expect(seededPage.getByRole('button', { name: '120 BPM, Master 80%' })).toBeVisible()

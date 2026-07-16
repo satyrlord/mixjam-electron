@@ -6,6 +6,32 @@ import { useLibraryData } from './useLibraryData'
 
 const USER_FOLDER = TEST_USER_FOLDER
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
+const AUTO_JOB = {
+  rootKey: SAMPLE_FOLDER.id,
+  jobId: 'auto-job',
+  trigger: 'automatic' as const
+}
+const MANUAL_JOB = {
+  rootKey: SAMPLE_FOLDER.id,
+  jobId: 'manual-job',
+  trigger: 'manual' as const
+}
+const SCAN_DONE = {
+  identity: AUTO_JOB,
+  lastCompletedAt: 123
+}
+
+function setRootState(
+  api: ReturnType<typeof createBackendAPI>,
+  hasUsableIndex: boolean,
+  lastCompletedAt: number | null = hasUsableIndex ? 1 : null
+) {
+  vi.mocked(api.getLibraryRootState).mockResolvedValue({
+    rootKey: SAMPLE_FOLDER.id,
+    lastCompletedAt,
+    hasUsableIndex
+  })
+}
 
 function makeApi() {
   return createBackendAPI()
@@ -61,10 +87,10 @@ describe('useLibraryData', () => {
   it('shows an empty browser and queries nothing before the active folder is indexed', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
+    setRootState(api, false)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    await waitFor(() => expect(api.hasSamples).toHaveBeenCalledWith(SAMPLE_FOLDER))
+    await waitFor(() => expect(api.getLibraryRootState).toHaveBeenCalledWith(SAMPLE_FOLDER))
     expect(result.current.dbIndexed).toBe(false)
     expect(result.current.samples).toHaveLength(0)
     expect(result.current.loading).toBe(false)
@@ -382,32 +408,179 @@ describe('useLibraryData', () => {
     expect(result.current.sortDir).toBe('asc')
   })
 
-  it('startLibraryScan calls backendAPI.startScan and sets progress', async () => {
+  it('requests automatic sync on folder availability and manual sync on re-scan', async () => {
     vi.useRealTimers()
     const api = makeApi()
+    vi.mocked(api.startLibrarySync)
+      .mockResolvedValueOnce({ identity: AUTO_JOB, disposition: 'started' })
+      .mockResolvedValueOnce({ identity: MANUAL_JOB, disposition: 'started' })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
-    await waitFor(() => expect(result.current.samples).toHaveLength(2))
-
-    await act(async () => {
-      await result.current.startLibraryScan()
+    await waitFor(() => {
+      expect(api.startLibrarySync).toHaveBeenCalledWith(SAMPLE_FOLDER, 'automatic')
+      expect(result.current.librarySyncState).toEqual({
+        status: 'checking',
+        rootKey: SAMPLE_FOLDER.id,
+        jobId: AUTO_JOB.jobId
+      })
     })
 
-    expect(api.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER, false)
-    expect(result.current.scanProgress.status).toBe('scanning')
+    act(() => {
+      const analysisDone = vi.mocked(api.onAnalysisDone).mock.calls[0]![0]
+      analysisDone({ identity: AUTO_JOB })
+    })
+    await waitFor(() => expect(result.current.librarySyncState.status).toBe('ready'))
+    await act(async () => {
+      await result.current.rescanLibrary()
+    })
+
+    expect(api.startLibrarySync).toHaveBeenCalledWith(SAMPLE_FOLDER, 'manual')
+    expect(result.current.librarySyncState).toEqual({
+      status: 'checking',
+      rootKey: SAMPLE_FOLDER.id,
+      jobId: MANUAL_JOB.jobId
+    })
+
+    const progress = vi.mocked(api.onScanProgress).mock.calls[0]![0]
+    act(() => progress({
+      identity: AUTO_JOB,
+      status: 'scanning',
+      phase: 2,
+      found: 100,
+      processed: 100,
+      total: 100
+    }))
+    expect(result.current.librarySyncState).toEqual({
+      status: 'checking',
+      rootKey: SAMPLE_FOLDER.id,
+      jobId: MANUAL_JOB.jobId
+    })
   })
 
-  it('passes confirmed uniform-batch calibration to the backend', async () => {
+  it('treats a completed empty folder as ready', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    setRootState(api, true, 42)
+    vi.mocked(api.querySamples).mockResolvedValue({ rows: [], total: 0 })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => {
+      expect(result.current.librarySyncState).toEqual({
+        status: 'ready',
+        rootKey: SAMPLE_FOLDER.id,
+        lastCompletedAt: 42
+      })
+    })
+    expect(result.current.dbIndexed).toBe(true)
+    expect(result.current.samples).toEqual([])
+  })
+
+  it('requests automatic sync when a validated Sample Folder becomes available', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: null as FolderRef | null } }
+    )
+
+    expect(api.startLibrarySync).not.toHaveBeenCalled()
+    rerender({ folder: SAMPLE_FOLDER })
+
+    await waitFor(() => {
+      expect(api.startLibrarySync).toHaveBeenCalledWith(SAMPLE_FOLDER, 'automatic')
+    })
+  })
+
+  it('hydrates a coalesced backend job after a development remount', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.startLibrarySync)
+      .mockResolvedValueOnce({ identity: AUTO_JOB, disposition: 'started' })
+      .mockResolvedValueOnce({ identity: AUTO_JOB, disposition: 'coalesced' })
+    vi.mocked(api.getScanProgress).mockResolvedValue({
+      identity: AUTO_JOB,
+      status: 'scanning',
+      phase: 1,
+      found: 8,
+      processed: 2,
+      total: 8
+    })
+    const first = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(api.startLibrarySync).toHaveBeenCalledTimes(1))
+    first.unmount()
+    const second = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(api.startLibrarySync).toHaveBeenCalledTimes(2))
+    expect(api.startLibrarySync).toHaveBeenNthCalledWith(1, SAMPLE_FOLDER, 'automatic')
+    expect(api.startLibrarySync).toHaveBeenNthCalledWith(2, SAMPLE_FOLDER, 'automatic')
+    await waitFor(() => {
+      expect(second.result.current.librarySyncState).toMatchObject({
+        status: 'syncing',
+        rootKey: SAMPLE_FOLDER.id,
+        jobId: AUTO_JOB.jobId
+      })
+    })
+  })
+
+  it('starts Uniform Folder Calibration through its separate API', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.samples).toHaveLength(2))
     await act(async () => {
-      await result.current.startLibraryScan(true)
+      await result.current.startUniformFolderCalibration()
     })
 
-    expect(api.startScan).toHaveBeenCalledWith(SAMPLE_FOLDER, true)
+    expect(api.startUniformFolderCalibration).toHaveBeenCalledWith(SAMPLE_FOLDER)
+    expect(api.startLibrarySync).not.toHaveBeenCalledWith(SAMPLE_FOLDER, 'manual')
+  })
+
+  it('hydrates an active calibration without starting an automatic sync', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const identity = {
+      rootKey: SAMPLE_FOLDER.id,
+      jobId: 'calibration-job'
+    }
+    vi.mocked(api.getCalibrationProgress).mockResolvedValue({
+      identity,
+      status: 'calibrating',
+      analyzed: 12,
+      total: 40
+    })
+
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => {
+      expect(result.current.calibrationProgress).toEqual({
+        identity,
+        status: 'calibrating',
+        analyzed: 12,
+        total: 40
+      })
+    })
+    expect(api.startLibrarySync).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the active query after individual re-analysis commits', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+    vi.mocked(api.querySamples).mockClear()
+
+    await act(async () => {
+      await result.current.reanalyzeSample(result.current.samples[0]!)
+    })
+
+    expect(api.reanalyzeSample).toHaveBeenCalledWith(
+      SAMPLE_FOLDER,
+      result.current.samples[0]!.dbId,
+      result.current.samples[0]!.relpath
+    )
+    expect(api.querySamples).toHaveBeenCalled()
   })
 
   it('reloadMixJamFiles refreshes from backendAPI', async () => {
@@ -427,7 +600,7 @@ describe('useLibraryData', () => {
     expect(result.current.mixJamFiles).toEqual(newProjects)
   })
 
-  it('onScanDone callback resets progress, marks indexed, and refreshes data', async () => {
+  it('onScanDone marks the index usable and enters the separate analysis phase', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
@@ -440,16 +613,135 @@ describe('useLibraryData', () => {
     // Trigger the onScanDone callback that was registered during mount
     const scanDoneCallback = vi.mocked(api.onScanDone).mock.calls[0]![0]
     await act(async () => {
-      scanDoneCallback()
+      scanDoneCallback(SCAN_DONE)
     })
 
     await waitFor(() => {
-      expect(result.current.scanProgress.status).toBe('idle')
+      expect(result.current.librarySyncState.status).toBe('analyzing')
     })
 
     // Categories and tags were refreshed
     expect(vi.mocked(api.listCategories).mock.calls.length).toBeGreaterThan(initialCatCalls)
     expect(vi.mocked(api.listTags).mock.calls.length).toBeGreaterThan(initialTagCalls)
+  })
+
+  it('keeps an existing index usable while automatic sync runs', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.startLibrarySync).mockResolvedValue({
+      identity: AUTO_JOB,
+      disposition: 'started'
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(2))
+    const progress = vi.mocked(api.onScanProgress).mock.calls[0]![0]
+    act(() => progress({
+      identity: AUTO_JOB,
+      status: 'scanning',
+      phase: 1,
+      found: 10,
+      processed: 2,
+      total: 10
+    }))
+
+    expect(result.current.librarySyncState).toMatchObject({
+      status: 'syncing',
+      hasUsableIndex: true
+    })
+    expect(result.current.samples).toHaveLength(2)
+  })
+
+  it('offers a manual Retry after a cancelled first sync', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    setRootState(api, false)
+    vi.mocked(api.startLibrarySync)
+      .mockResolvedValueOnce({ identity: AUTO_JOB, disposition: 'started' })
+      .mockResolvedValueOnce({ identity: MANUAL_JOB, disposition: 'started' })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.librarySyncState.status).toBe('checking'))
+    const progress = vi.mocked(api.onScanProgress).mock.calls[0]![0]
+    act(() => progress({
+      identity: AUTO_JOB,
+      status: 'cancelled',
+      phase: 1,
+      found: 4,
+      processed: 2,
+      total: 4
+    }))
+    expect(result.current.librarySyncState).toEqual({
+      status: 'cancelled',
+      rootKey: SAMPLE_FOLDER.id,
+      hasUsableIndex: false
+    })
+
+    await act(async () => {
+      await result.current.retryLibrarySync()
+    })
+    expect(api.startLibrarySync).toHaveBeenCalledWith(SAMPLE_FOLDER, 'manual')
+    expect(result.current.librarySyncState).toEqual({
+      status: 'checking',
+      rootKey: SAMPLE_FOLDER.id,
+      jobId: MANUAL_JOB.jobId
+    })
+  })
+
+  it('ignores stale progress and completion after the active root changes', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const otherFolder: FolderRef = { id: 'other-root', name: 'Other samples' }
+    vi.mocked(api.getLibraryRootState).mockImplementation(async (folder) => ({
+      rootKey: folder.id,
+      lastCompletedAt: 1,
+      hasUsableIndex: true
+    }))
+    vi.mocked(api.startLibrarySync).mockImplementation(async (folder) => ({
+      identity: {
+        rootKey: folder.id,
+        jobId: `${folder.id}-job`,
+        trigger: 'automatic'
+      },
+      disposition: 'suppressed'
+    }))
+    const { result, rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: SAMPLE_FOLDER } }
+    )
+
+    await waitFor(() => expect(result.current.librarySyncState.status).toBe('ready'))
+    rerender({ folder: otherFolder })
+    await waitFor(() => {
+      expect(result.current.librarySyncState).toMatchObject({
+        status: 'ready',
+        rootKey: otherFolder.id
+      })
+    })
+
+    const staleIdentity = {
+      rootKey: SAMPLE_FOLDER.id,
+      jobId: 'stale-job',
+      trigger: 'automatic' as const
+    }
+    const progress = vi.mocked(api.onScanProgress).mock.calls[0]![0]
+    const done = vi.mocked(api.onScanDone).mock.calls[0]![0]
+    act(() => {
+      progress({
+        identity: staleIdentity,
+        status: 'scanning',
+        phase: 2,
+        found: 100,
+        processed: 50,
+        total: 100
+      })
+      done({ identity: staleIdentity, lastCompletedAt: 999 })
+    })
+
+    expect(result.current.librarySyncState).toMatchObject({
+      status: 'ready',
+      rootKey: otherFolder.id
+    })
   })
 
   it('sorts tags alphabetically when creating a tag with multiple existing tags', async () => {
@@ -526,7 +818,7 @@ describe('useLibraryData', () => {
     expect(parsed.root.children).toHaveLength(0)
   })
 
-  it('startLibraryScan returns early when sampleFolder is null', async () => {
+  it('manual library sync returns early when sampleFolder is null', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, null))
@@ -534,10 +826,10 @@ describe('useLibraryData', () => {
     await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
 
     await act(async () => {
-      await result.current.startLibraryScan()
+      await result.current.rescanLibrary()
     })
 
-    expect(api.startScan).not.toHaveBeenCalled()
+    expect(api.startLibrarySync).not.toHaveBeenCalled()
   })
 
   it('applyLibrary restores the saved filter state (AC-013)', async () => {
@@ -593,7 +885,7 @@ describe('useLibraryData', () => {
     vi.useRealTimers()
     const api = makeApi()
     vi.mocked(api.listTags).mockResolvedValue([{ id: 7, name: 'Punchy', color: null }])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [makeDbRow()], total: 1 })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -619,7 +911,7 @@ describe('useLibraryData', () => {
   it('maps DB sample category name when categoryId matches', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [makeDbRow()], total: 1 })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
@@ -630,7 +922,7 @@ describe('useLibraryData', () => {
   it('assignTagToSample returns early when tag is already assigned', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [7], tags: ['Punchy'] })],
       total: 1
@@ -649,7 +941,7 @@ describe('useLibraryData', () => {
   it('unassignTagFromSample returns early when tag is not assigned', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [], tags: [] })],
       total: 1
@@ -668,7 +960,7 @@ describe('useLibraryData', () => {
   it('loadMoreSamples does nothing when the active folder is not indexed', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(false)
+    setRootState(api, false)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
@@ -685,7 +977,7 @@ describe('useLibraryData', () => {
   it('loadMoreSamples handles errors without crashing', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples)
       .mockResolvedValueOnce({ rows: [makeDbRow()], total: 2 })
       .mockRejectedValueOnce(new Error('network error'))
@@ -732,7 +1024,7 @@ describe('useLibraryData', () => {
       { id: 5, name: 'Alpha', color: null },
       { id: 7, name: 'Punchy', color: null }
     ])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [5, 7], tags: ['Alpha', 'Punchy'] })],
       total: 1
@@ -757,7 +1049,7 @@ describe('useLibraryData', () => {
       { id: 5, name: 'Alpha', color: null },
       { id: 7, name: 'Punchy', color: null }
     ])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [5, 7], tags: ['Alpha', 'Punchy'] })],
       total: 1
@@ -792,7 +1084,7 @@ describe('useLibraryData', () => {
   it('loadMoreSamples ignores stale responses from a superseded query', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     let callCount = 0
     vi.mocked(api.querySamples).mockImplementation(async () => {
       callCount++
@@ -822,7 +1114,7 @@ describe('useLibraryData', () => {
       { id: 5, name: 'Alpha', color: null },
       { id: 7, name: 'Punchy', color: null }
     ])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [7], tags: ['Punchy'] })],
       total: 1
@@ -869,7 +1161,7 @@ describe('useLibraryData', () => {
     vi.useRealTimers()
     const api = makeApi()
     vi.mocked(api.listTags).mockResolvedValue([])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [], tags: [] })],
       total: 1
@@ -893,7 +1185,7 @@ describe('useLibraryData', () => {
     vi.useRealTimers()
     const api = makeApi()
     vi.mocked(api.listTags).mockResolvedValue([])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [99], tags: ['Unknown'] })],
       total: 1
@@ -919,7 +1211,7 @@ describe('useLibraryData', () => {
       { id: 7, name: 'Beta', color: null },
       { id: 9, name: 'Gamma', color: null }
     ])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [5, 7, 9], tags: ['Alpha', 'Beta', 'Gamma'] })],
       total: 1
@@ -945,7 +1237,7 @@ describe('useLibraryData', () => {
       { id: 5, name: 'Zebra', color: null },
       { id: 7, name: 'Apple', color: null }
     ])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ tagIds: [5], tags: ['Zebra'] })],
       total: 1
@@ -990,7 +1282,7 @@ describe('useLibraryData', () => {
   it('refreshDbIndexed keeps dbIndexed false on error', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockRejectedValue(new Error('db locked'))
+    vi.mocked(api.getLibraryRootState).mockRejectedValue(new Error('db locked'))
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
@@ -1002,7 +1294,7 @@ describe('useLibraryData', () => {
     const api = makeApi()
     // Categories initially empty, will populate later via scan-done
     vi.mocked(api.listCategories).mockResolvedValue([])
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ categoryId: 1 })],
       total: 1
@@ -1017,7 +1309,7 @@ describe('useLibraryData', () => {
     vi.mocked(api.listTags).mockResolvedValue([])
     const scanDoneCallback = vi.mocked(api.onScanDone).mock.calls[0]![0]
     await act(async () => {
-      scanDoneCallback()
+      scanDoneCallback(SCAN_DONE)
       await new Promise((r) => setTimeout(r, 200))
     })
 
@@ -1028,7 +1320,7 @@ describe('useLibraryData', () => {
   it('category name remapping does not mutate array when names already match', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.hasSamples).mockResolvedValue(true)
+    setRootState(api, true)
     vi.mocked(api.querySamples).mockResolvedValue({
       rows: [makeDbRow({ categoryId: 1 })],
       total: 1
@@ -1077,11 +1369,16 @@ describe('useLibraryData', () => {
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
     await waitFor(() => expect(api.onAnalysisProgress).toHaveBeenCalled())
     const listener = vi.mocked(api.onAnalysisProgress).mock.calls[0][0]
-    act(() => listener({ status: 'analyzing', analyzed: 1, total: 10 }))
+    act(() => listener({
+      identity: AUTO_JOB,
+      status: 'analyzing',
+      analyzed: 1,
+      total: 10
+    }))
 
-    await act(async () => { await result.current.startLibraryScan() })
+    await act(async () => { await result.current.rescanLibrary() })
 
-    expect(api.startScan).not.toHaveBeenCalled()
+    expect(api.startLibrarySync).not.toHaveBeenCalledWith(SAMPLE_FOLDER, 'manual')
   })
 
   it('refreshes changed missing-path sets and clears them after an error', async () => {
@@ -1101,10 +1398,10 @@ describe('useLibraryData', () => {
     await waitFor(() => expect(result.current.samples[0]?.category).toBe('Unsorted'))
 
     const onScanDone = vi.mocked(api.onScanDone).mock.calls[0]![0]
-    act(() => { onScanDone() })
+    act(() => { onScanDone(SCAN_DONE) })
     await waitFor(() => expect(result.current.missingSamplePaths.has('c.wav')).toBe(true))
 
-    act(() => { onScanDone() })
+    act(() => { onScanDone(SCAN_DONE) })
     await waitFor(() => expect(result.current.missingSamplePaths.size).toBe(0))
   })
 

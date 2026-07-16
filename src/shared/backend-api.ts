@@ -176,8 +176,85 @@ export interface SampleListItem {
   tagIds: number[]
 }
 
+export type LibrarySyncTrigger = 'automatic' | 'manual' | 'mutation'
+
+export interface LibraryJobIdentity {
+  rootKey: FolderRef['id']
+  jobId: string
+  trigger: LibrarySyncTrigger
+}
+
+export interface SampleAnalysisJobIdentity {
+  rootKey: FolderRef['id']
+  sampleId: number
+  jobId: string
+}
+
+export type AnalysisJobIdentity = LibraryJobIdentity | SampleAnalysisJobIdentity
+
+export type LibrarySyncStartDisposition =
+  | 'started'
+  | 'coalesced'
+  | 'queued'
+  | 'suppressed'
+
+export interface LibrarySyncStartResult {
+  identity: LibraryJobIdentity
+  disposition: LibrarySyncStartDisposition
+}
+
+export interface LibraryRootState {
+  rootKey: FolderRef['id']
+  lastCompletedAt: number | null
+  /**
+   * True when the root has either completed a current-schema sync or retains
+   * browseable legacy rows while its first post-migration sync reconciles.
+   */
+  hasUsableIndex: boolean
+}
+
+export type LibrarySyncState =
+  | { status: 'unavailable' }
+  | { status: 'unindexed'; rootKey: FolderRef['id'] }
+  | { status: 'checking'; rootKey: FolderRef['id']; jobId: string }
+  | {
+      status: 'syncing'
+      rootKey: FolderRef['id']
+      jobId: string
+      hasUsableIndex: boolean
+      phase: 1 | 2 | null
+      found: number
+      processed: number
+      total: number
+    }
+  | {
+      status: 'analyzing'
+      rootKey: FolderRef['id']
+      jobId: string
+      lastCompletedAt: number
+      analyzed: number
+      total: number
+    }
+  | {
+      status: 'ready'
+      rootKey: FolderRef['id']
+      lastCompletedAt: number
+    }
+  | {
+      status: 'cancelled'
+      rootKey: FolderRef['id']
+      hasUsableIndex: boolean
+    }
+  | {
+      status: 'error'
+      rootKey: FolderRef['id']
+      message: string
+      hasUsableIndex: boolean
+    }
+
 export interface ScanProgress {
-  status: 'idle' | 'scanning' | 'error'
+  identity: LibraryJobIdentity | null
+  status: 'idle' | 'scanning' | 'cancelled' | 'error'
   phase: 1 | 2 | null
   found: number
   processed: number
@@ -187,11 +264,43 @@ export interface ScanProgress {
 }
 
 export interface AnalysisProgress {
+  identity: AnalysisJobIdentity | null
   status: 'idle' | 'analyzing' | 'error'
   analyzed: number
   total: number
   /** Present for a fatal analysis failure; safe to show in renderer diagnostics. */
   error?: string
+}
+
+export interface AnalysisDone {
+  identity: AnalysisJobIdentity
+}
+
+export interface SampleAnalysisDone {
+  identity: SampleAnalysisJobIdentity
+}
+
+export interface LibraryScanDone {
+  identity: LibraryJobIdentity
+  lastCompletedAt: number
+}
+
+export interface CalibrationJobIdentity {
+  rootKey: FolderRef['id']
+  jobId: string
+}
+
+export interface CalibrationProgress {
+  identity: CalibrationJobIdentity | null
+  status: 'idle' | 'calibrating' | 'cancelled' | 'error'
+  analyzed: number
+  total: number
+  /** Present for a fatal calibration failure; safe to show in renderer diagnostics. */
+  error?: string
+}
+
+export interface CalibrationDone {
+  identity: CalibrationJobIdentity
 }
 
 export interface BackendAPI {
@@ -225,10 +334,19 @@ export interface BackendAPI {
   /** Re-requests permission for a stored handle (must run in a user gesture).
    *  Returns true when access was (re-)granted. */
   requestFolderAccess: (ref: FolderRef, role: FolderRole) => Promise<boolean>
-  startScan: (sampleFolder: FolderRef, uniformBatchConfirmed?: boolean) => Promise<void>
-  cancelScan: () => Promise<void>
+  startLibrarySync: (
+    sampleFolder: FolderRef,
+    trigger: LibrarySyncTrigger
+  ) => Promise<LibrarySyncStartResult>
+  cancelLibrarySync: (jobId: string) => Promise<void>
+  getLibraryRootState: (sampleFolder: FolderRef) => Promise<LibraryRootState>
   getScanProgress: () => Promise<ScanProgress>
   getAnalysisProgress: () => Promise<AnalysisProgress>
+  startUniformFolderCalibration: (
+    sampleFolder: FolderRef
+  ) => Promise<CalibrationJobIdentity>
+  cancelUniformFolderCalibration: (jobId: string) => Promise<void>
+  getCalibrationProgress: () => Promise<CalibrationProgress>
   querySamples: (req: SampleQueryRequest) => Promise<SampleQueryResponse>
   listTags: () => Promise<TagItem[]>
   createTag: (name: string, color?: string) => Promise<TagItem>
@@ -238,17 +356,17 @@ export interface BackendAPI {
   assignTag: (sampleId: number, tagId: number) => Promise<void>
   unassignTag: (sampleId: number, tagId: number) => Promise<void>
   updateSampleAnalysis: (sampleId: number, patch: SampleAnalysisPatch) => Promise<void>
-  reanalyzeSample: (sampleFolder: FolderRef, sampleId: number, relpath: string) => Promise<void>
+  reanalyzeSample: (
+    sampleFolder: FolderRef,
+    sampleId: number,
+    relpath: string
+  ) => Promise<SampleAnalysisDone>
   listCategories: () => Promise<CategoryItem[]>
   createCategory: (name: string, parentId?: number) => Promise<CategoryItem>
   deleteCategory: (id: number) => Promise<void>
   listLibraries: () => Promise<LibraryItem[]>
   saveLibrary: (name: string, ruleJson: string) => Promise<LibraryItem>
   deleteLibrary: (id: number) => Promise<void>
-  // Returns true when the given Sample Folder has at least one indexed sample
-  // row (i.e. a scan of that folder has completed at least once). Gates the
-  // browser's empty pre-index state and the first-entry auto-scan.
-  hasSamples: (sampleFolder: FolderRef) => Promise<boolean>
   // Relpaths of samples marked missing (scan_state = 2) under the folder's
   // scan root. The tracker stripes placements whose sample vanished between scans.
   listMissingRelpaths: (sampleFolder: FolderRef) => Promise<string[]>
@@ -257,7 +375,9 @@ export interface BackendAPI {
   // Returns null if the file is unreadable.
   readSampleBytes: (rootId: string, relpath: string) => Promise<ArrayBuffer | null>
   onScanProgress: (cb: (progress: ScanProgress) => void) => () => void
-  onScanDone: (cb: () => void) => () => void
+  onScanDone: (cb: (done: LibraryScanDone) => void) => () => void
   onAnalysisProgress: (cb: (progress: AnalysisProgress) => void) => () => void
-  onAnalysisDone: (cb: () => void) => () => void
+  onAnalysisDone: (cb: (done: AnalysisDone) => void) => () => void
+  onCalibrationProgress: (cb: (progress: CalibrationProgress) => void) => () => void
+  onCalibrationDone: (cb: (done: CalibrationDone) => void) => () => void
 }

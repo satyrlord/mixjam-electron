@@ -1,15 +1,17 @@
 import FolderCard from './FolderCard'
-import BrandMark from './BrandMark'
 import type { FolderView } from '../hooks/useFolderSetup'
-import type { MixJamFileItem } from '../../../shared/backend-api'
+import type { LibrarySyncState, MixJamFileItem } from '../../../shared/backend-api'
 import { THEME_OPTIONS, resolveTheme } from '../theme/themes'
+import LibrarySyncStatus from './LibrarySyncStatus'
 import { Tooltip } from './ui/Tooltip'
+import appIconUrl from '../../../../public/app-icon-128.png'
 
 const HOME_RECENT_LIMIT = 4
 
 interface HomeScreenProps {
   userFolder: FolderView
   sampleFolder: FolderView
+  librarySyncState: LibrarySyncState
   canStart: boolean
   mixJamFiles: MixJamFileItem[]
   projectBusy: boolean
@@ -19,6 +21,8 @@ interface HomeScreenProps {
   onPickSample: () => void
   onRestoreUser: () => void
   onRestoreSample: () => void
+  onRetryLibrarySync: () => void
+  onCancelLibrarySync: () => void
   onStart: () => Promise<void>
   onLoad: () => Promise<boolean>
   onOpenProject: (projectRelpath: string) => Promise<boolean>
@@ -42,13 +46,14 @@ const sampleIcon = (
 
 const QUICK_START_STEPS = [
   'Pick a User Folder for your projects and a Sample Folder to jam with.',
-  'Start a new MixJam — the first run scans your library into the browser.',
+  'MixJam keeps your sample library synced in the background.',
   'Drag samples onto lanes, click tiles to preview, press Space to play.'
 ]
 
 export default function HomeScreen({
   userFolder,
   sampleFolder,
+  librarySyncState,
   canStart,
   mixJamFiles,
   projectBusy,
@@ -58,6 +63,8 @@ export default function HomeScreen({
   onPickSample,
   onRestoreUser,
   onRestoreSample,
+  onRetryLibrarySync,
+  onCancelLibrarySync,
   onStart,
   onLoad,
   onOpenProject
@@ -70,7 +77,13 @@ export default function HomeScreen({
       <div className="home-content">
         <section className="home-hero" aria-label="About MixJam">
           <div className="home-brand">
-            <BrandMark size={72} />
+            <img
+              className="home-logo"
+              src={appIconUrl}
+              alt="MixJam logo"
+              width={72}
+              height={72}
+            />
             <div className="home-brand-text">
               <h1 className="home-wordmark">MixJam</h1>
               <p className="home-tagline">Sketch beats straight from your sample library.</p>
@@ -133,7 +146,15 @@ export default function HomeScreen({
             emptyPrompt="Choose the folder that holds your sample library."
             onPick={onPickSample}
             onRestore={onRestoreSample}
-          />
+          >
+            {librarySyncState.status !== 'unavailable' && (
+              <LibrarySyncStatus
+                state={librarySyncState}
+                onRetry={onRetryLibrarySync}
+                onCancel={onCancelLibrarySync}
+              />
+            )}
+          </FolderCard>
 
           <div className="home-launch">
             <button className="btn-primary" onClick={() => void onStart()} disabled={!canStart || projectBusy}>
@@ -151,27 +172,28 @@ export default function HomeScreen({
             {projectBusy ? 'Opening…' : 'Load MixJam'}
           </button>
 
-          {homeRecent.length > 0 && (
-            <div className="home-recent">
-              <h2 className="home-recent-title">Recent Projects</h2>
-              <ul className="home-recent-list">
-                {homeRecent.map((project) => (
-                  <li key={project.path}>
-                    <button
-                      type="button"
-                      className="home-recent-item"
-                      disabled={!canStart || projectBusy}
-                      onClick={() => void onOpenProject(project.path)}
-                    >
-                        <span className="home-recent-name">{project.displayName}</span>
-                        <span className="home-recent-path">{project.path}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </section>
+
+        {homeRecent.length > 0 && (
+          <section className="home-recent" aria-labelledby="home-recent-title">
+            <h2 className="home-recent-title" id="home-recent-title">Recent Projects</h2>
+            <ul className="home-recent-list">
+              {homeRecent.map((project) => (
+                <li key={project.path}>
+                  <button
+                    type="button"
+                    className="home-recent-item"
+                    disabled={!canStart || projectBusy}
+                    onClick={() => void onOpenProject(project.path)}
+                  >
+                    <span className="home-recent-name">{project.displayName}</span>
+                    <span className="home-recent-path">{project.path}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   )

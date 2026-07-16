@@ -3,6 +3,7 @@ import * as Primitive from '@radix-ui/react-dropdown-menu'
 
 export const DropdownMenuRoot = Primitive.Root
 export const DropdownMenuTrigger = Primitive.Trigger
+export const DropdownMenuSeparator = Primitive.Separator
 
 export const DropdownMenuContent = forwardRef<
   React.ElementRef<typeof Primitive.Content>,

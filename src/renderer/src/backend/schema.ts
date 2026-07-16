@@ -5,7 +5,13 @@ import type { DB } from './sql'
 // abandoned and the index rebuilt by the first scan (scans are the recovery
 // path for everything). Bump SCHEMA_VERSION and add version-gated migrations
 // here only from v1 onward.
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
+
+/** Bump when metadata parsing semantics change for unchanged file bytes. */
+export const METADATA_REVISION = 1
+
+/** Bump when automatic BPM, key, or sample-type analysis semantics change. */
+export const ANALYSIS_REVISION = 1
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -17,8 +23,10 @@ CREATE TABLE IF NOT EXISTS schema_version (
 -- to the root it was found under, so switching the active Sample Folder
 -- switches the visible library instead of mixing rows across folders.
 CREATE TABLE IF NOT EXISTS scan_roots (
-  id  INTEGER PRIMARY KEY,
-  key TEXT NOT NULL UNIQUE
+  id                INTEGER PRIMARY KEY,
+  key               TEXT NOT NULL UNIQUE,
+  last_completed_at INTEGER,
+  legacy_index_available INTEGER NOT NULL DEFAULT 0
 );
 
 -- relpath is the file's path relative to its scan root, '/'-separated.
@@ -43,6 +51,8 @@ CREATE TABLE IF NOT EXISTS samples (
   sample_type_source TEXT,
   date_added  INTEGER NOT NULL,
   scan_state  INTEGER NOT NULL DEFAULT 0,
+  metadata_revision INTEGER NOT NULL DEFAULT 0,
+  analysis_revision INTEGER NOT NULL DEFAULT 0,
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
   UNIQUE (root_id, relpath)
 );
@@ -125,7 +135,23 @@ export function initSchema(db: DB): void {
     return
   }
 
-  if (row.version < 2) {
+  let version = row.version
+
+  // v3 was exercised during development before the legacy marker was added.
+  // Repair those local databases in place so the unchanged version number does
+  // not leave getLibraryRootState querying a missing column.
+  if (version >= 3) {
+    const rootColumns = new Set(
+      db.prepare('PRAGMA table_info(scan_roots)').all<{ name: string }>().map((column) => column.name)
+    )
+    if (!rootColumns.has('legacy_index_available')) {
+      db.exec(
+        'ALTER TABLE scan_roots ADD COLUMN legacy_index_available INTEGER NOT NULL DEFAULT 0'
+      )
+    }
+  }
+
+  if (version < 2) {
     const columns = new Set(
       db.prepare('PRAGMA table_info(samples)').all<{ name: string }>().map((column) => column.name)
     )
@@ -138,5 +164,66 @@ export function initSchema(db: DB): void {
       db.exec('ALTER TABLE samples ADD COLUMN sample_type_source TEXT')
     }
     db.prepare('UPDATE schema_version SET version = ?').run(2)
+    version = 2
+  }
+
+  if (version < 3) {
+    const sampleColumns = new Set(
+      db.prepare('PRAGMA table_info(samples)').all<{ name: string }>().map((column) => column.name)
+    )
+    const rootColumns = new Set(
+      db.prepare('PRAGMA table_info(scan_roots)').all<{ name: string }>().map((column) => column.name)
+    )
+
+    if (!rootColumns.has('last_completed_at')) {
+      db.exec('ALTER TABLE scan_roots ADD COLUMN last_completed_at INTEGER')
+    }
+    if (!rootColumns.has('legacy_index_available')) {
+      db.exec(
+        'ALTER TABLE scan_roots ADD COLUMN legacy_index_available INTEGER NOT NULL DEFAULT 0'
+      )
+    }
+    if (!sampleColumns.has('metadata_revision')) {
+      db.exec('ALTER TABLE samples ADD COLUMN metadata_revision INTEGER NOT NULL DEFAULT 0')
+    }
+    if (!sampleColumns.has('analysis_revision')) {
+      db.exec('ALTER TABLE samples ADD COLUMN analysis_revision INTEGER NOT NULL DEFAULT 0')
+    }
+
+    // The old schema did not persist root completion, so keep its timestamp
+    // unknown while explicitly preserving browseability for roots that already
+    // contain current, non-missing rows. New v3 roots keep the default false
+    // marker until their first scan completes.
+    db.prepare(
+      `UPDATE scan_roots
+       SET legacy_index_available = 1
+       WHERE EXISTS (
+         SELECT 1
+         FROM samples
+         WHERE samples.root_id = scan_roots.id
+           AND samples.scan_state != 2
+       )`
+    ).run()
+
+    // Metadata-ready rows can be stamped current because scan_state proves that
+    // phase completed. Analysis ran after scan-done and could be interrupted,
+    // so stamp only rows with evidence that applyAnalysisResult ran. Rows whose
+    // legacy result was entirely NULL are deliberately retried once because
+    // the old schema cannot distinguish "attempted" from "never reached".
+    db.prepare(
+      `UPDATE samples
+       SET metadata_revision = ?
+       WHERE scan_state = 1`
+    ).run(METADATA_REVISION)
+    db.prepare(
+      `UPDATE samples
+       SET analysis_revision = ?
+       WHERE scan_state = 1 AND (
+         bpm_source = 'analysis' OR
+         musical_key_source = 'analysis' OR
+         sample_type_source = 'analysis'
+       )`
+    ).run(ANALYSIS_REVISION)
+    db.prepare('UPDATE schema_version SET version = ?').run(3)
   }
 }

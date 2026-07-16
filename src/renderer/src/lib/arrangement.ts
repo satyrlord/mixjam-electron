@@ -14,17 +14,31 @@ export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags
 }
 
 export const DEFAULT_LANE_COUNT = 16
-export const LANE_HEIGHT_PX = 52
-export const LANE_HEAD_WIDTH_PX = 220
-export const RULER_HEIGHT_PX = 44
+export const TRACKER_GEOMETRY_SCALE = 0.75
+
+function compactTrackerPixels(basePixels: number, gridPixels = 1): number {
+  return Math.round(basePixels * TRACKER_GEOMETRY_SCALE / gridPixels) * gridPixels
+}
+
+// The 75% compact geometry keeps every value on a whole-pixel or small-grid
+// boundary so lane heads, ruler marks, and bubble edges render without
+// sub-pixel blur at default zoom.
+export const LANE_HEIGHT_PX = compactTrackerPixels(52)
+// Align to 8px grid so the lane-head left edge and the ruler's left padding
+// share the same x-origin after the 75% scale, keeping grid lines crisp.
+export const LANE_HEAD_WIDTH_PX = compactTrackerPixels(220, 8)
+export const RULER_HEIGHT_PX = compactTrackerPixels(44)
+// Snap mute/solo/pan controls to a 4px grid so they stay evenly sized and
+// centered inside the lane head without fractional overflow.
+export const TRACKER_LANE_CONTROL_SIZE_PX = compactTrackerPixels(44, 4)
 export const TRACKER_BAR_COUNT = 999
-export const TRACKER_BEAT_WIDTH_PX = 42
+export const TRACKER_BEAT_WIDTH_PX = compactTrackerPixels(42)
 export const TRACKER_TOTAL_TICKS = TRACKER_BAR_COUNT * TICKS_PER_BAR
 export const TRACKER_TIMELINE_MIN_WIDTH_PX =
   LANE_HEAD_WIDTH_PX + TRACKER_BAR_COUNT * BEATS_PER_BAR * TRACKER_BEAT_WIDTH_PX
 export const DEFAULT_PLACEMENT_DURATION_TICKS = 32
-export const SAMPLE_BUBBLE_HEIGHT_PX = 32
-export const DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND = 84
+export const SAMPLE_BUBBLE_HEIGHT_PX = compactTrackerPixels(32)
+export const DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND = compactTrackerPixels(84)
 const SAMPLE_BUBBLE_MIN_WIDTH_PX = 12
 const SAMPLE_BUBBLE_UNKNOWN_DURATION_SECONDS = 2
 

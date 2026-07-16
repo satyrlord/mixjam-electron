@@ -15,7 +15,13 @@
 
   var MOCK_MIXJAM_FILES = [
     { path: 'club-night.mixjam', displayName: 'club-night', lastOpened: '2026-06-28T12:00:00.000Z' },
-    { path: 'archive/sunrise.mixjam', displayName: 'sunrise', lastOpened: null }
+    { path: 'archive/sunrise.mixjam', displayName: 'sunrise', lastOpened: null },
+    { path: 'ideas/after-hours.mixjam', displayName: 'after-hours', lastOpened: null },
+    { path: 'sketches/deep-water.mixjam', displayName: 'deep-water', lastOpened: null },
+    { path: 'archive/warehouse.mixjam', displayName: 'warehouse', lastOpened: null },
+    { path: 'ideas/low-tide.mixjam', displayName: 'low-tide', lastOpened: null },
+    { path: 'sketches/blue-hour.mixjam', displayName: 'blue-hour', lastOpened: null },
+    { path: 'archive/slow-motion.mixjam', displayName: 'slow-motion', lastOpened: null }
   ]
 
   var MOCK_SAMPLES = [
@@ -41,6 +47,35 @@
   var MOCK_TAGS = [
     { id: 1, name: 'fav', color: '#ffcc00' }
   ]
+
+  var MOCK_LIBRARY_JOB = {
+    rootKey: MOCK_FOLDER_SELECTIONS.sampleFolder.id,
+    jobId: 'e2e-library-job',
+    trigger: 'automatic'
+  }
+  var scanProgressListeners = []
+  var scanDoneListeners = []
+  var analysisProgressListeners = []
+  var analysisDoneListeners = []
+
+  function subscribe(listeners, listener) {
+    listeners.push(listener)
+    return function () {
+      var index = listeners.indexOf(listener)
+      if (index !== -1) listeners.splice(index, 1)
+    }
+  }
+
+  function emit(listeners, payload) {
+    listeners.slice().forEach(function (listener) { listener(payload) })
+  }
+
+  window.__mixjamE2EBackend = {
+    emitScanProgress: function (progress) { emit(scanProgressListeners, progress) },
+    emitScanDone: function (done) { emit(scanDoneListeners, done) },
+    emitAnalysisProgress: function (progress) { emit(analysisProgressListeners, progress) },
+    emitAnalysisDone: function (identity) { emit(analysisDoneListeners, { identity: identity }) }
+  }
 
   function querySamples(req) {
     var rows = MOCK_SAMPLES.slice()
@@ -157,12 +192,48 @@
     pickFolder: function () { return Promise.resolve(null) },
     validateFolder: function () { return Promise.resolve('ok') },
     requestFolderAccess: function () { return Promise.resolve(true) },
-    hasSamples: function () { return Promise.resolve(true) },
+    getLibraryRootState: function (folder) {
+      return Promise.resolve({
+        rootKey: folder.id,
+        lastCompletedAt: 1,
+        hasUsableIndex: true
+      })
+    },
     listMissingRelpaths: function () { return Promise.resolve([]) },
-    startScan: function () { return Promise.resolve() },
-    cancelScan: function () { return Promise.resolve() },
-    getScanProgress: function () { return Promise.resolve({ status: 'idle', phase: null, found: 0, processed: 0, total: 0 }) },
-    getAnalysisProgress: function () { return Promise.resolve({ status: 'idle', analyzed: 0, total: 0 }) },
+    startLibrarySync: function () {
+      return Promise.resolve({ identity: MOCK_LIBRARY_JOB, disposition: 'suppressed' })
+    },
+    cancelLibrarySync: function () { return Promise.resolve() },
+    getScanProgress: function () {
+      return Promise.resolve({
+        identity: null,
+        status: 'idle',
+        phase: null,
+        found: 0,
+        processed: 0,
+        total: 0
+      })
+    },
+    getAnalysisProgress: function () {
+      return Promise.resolve({
+        identity: null,
+        status: 'idle',
+        analyzed: 0,
+        total: 0
+      })
+    },
+    startUniformFolderCalibration: function (folder) {
+      return Promise.resolve({ rootKey: folder.id, jobId: 'e2e-calibration-job' })
+    },
+    cancelUniformFolderCalibration: function () { return Promise.resolve() },
+    getCalibrationProgress: function () {
+      return Promise.resolve({
+        identity: null,
+        status: 'idle',
+        analyzed: 0,
+        total: 0
+      })
+    },
     querySamples: function (req) { return Promise.resolve(querySamples(req)) },
     listTags: function () { return Promise.resolve(MOCK_TAGS) },
     createTag: function (name, color) { return Promise.resolve({ id: 99, name: name, color: color || null }) },
@@ -192,9 +263,11 @@
     saveLibrary: function (name, ruleJson) { return Promise.resolve({ id: 1, name: name, createdAt: Date.now(), ruleJson: ruleJson }) },
     deleteLibrary: function () { return Promise.resolve() },
     readSampleBytes: function () { return Promise.resolve(null) },
-    onScanProgress: function () { return function () {} },
-    onScanDone: function () { return function () {} },
-    onAnalysisProgress: function () { return function () {} },
-    onAnalysisDone: function () { return function () {} }
+    onScanProgress: function (listener) { return subscribe(scanProgressListeners, listener) },
+    onScanDone: function (listener) { return subscribe(scanDoneListeners, listener) },
+    onAnalysisProgress: function (listener) { return subscribe(analysisProgressListeners, listener) },
+    onAnalysisDone: function (listener) { return subscribe(analysisDoneListeners, listener) },
+    onCalibrationProgress: function () { return function () {} },
+    onCalibrationDone: function () { return function () {} }
   }
 })()

@@ -9,6 +9,7 @@ import type { PlayerBrowserProps } from './playerProps'
 import ManagePanel from './ManagePanel'
 import SampleTileGrid from './SampleTileGrid'
 import SampleAnalysisEditor from './SampleAnalysisEditor'
+import SampleAnalysisManagement from './SampleAnalysisManagement'
 import { Panel, PanelGroup, PanelResizeHandle } from './ui/ResizablePanels'
 import {
   ContextMenuCheckboxItem,
@@ -134,8 +135,12 @@ export default function SampleBrowser({
     tags,
     categories,
     libraries,
+    librarySyncState,
+    calibrationProgress,
     onAssignTagToSample,
-    onUnassignTagFromSample
+    onUnassignTagFromSample,
+    onStartUniformFolderCalibration,
+    onCancelUniformFolderCalibration
   } = browser
 
   const [managePanelOpen, setManagePanelOpen] = useState(false)
@@ -239,16 +244,24 @@ export default function SampleBrowser({
           groupResizeBehavior="preserve-pixel-size"
         >
           <div className="cats">
-            <Tooltip content={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}>
-              <button
-                type="button"
-                className="cat-manage-btn"
-                aria-label={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
-                onClick={() => setManagePanelOpen((v) => !v)}
-              >
-                {managePanelOpen ? '× Close' : '+ Manage'}
-              </button>
-            </Tooltip>
+            <div className="cats-actions">
+              <Tooltip content={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}>
+                <button
+                  type="button"
+                  className="cat-manage-btn"
+                  aria-label={managePanelOpen ? 'Close manage panel' : 'Manage tags, libraries, and categories'}
+                  onClick={() => setManagePanelOpen((v) => !v)}
+                >
+                  {managePanelOpen ? '× Close' : '+ Manage'}
+                </button>
+              </Tooltip>
+              <SampleAnalysisManagement
+                librarySyncState={librarySyncState}
+                progress={calibrationProgress}
+                onStart={() => void onStartUniformFolderCalibration()}
+                onCancel={() => void onCancelUniformFolderCalibration()}
+              />
+            </div>
             <div className="category-tree" role="tree" aria-label="Sample categories">
               {rootCategories.map((category) => (
                 <CategoryTreeNode
