@@ -1,12 +1,10 @@
 ---
 name: design-critique
 description: >
-  Structured design critique across usability, hierarchy, consistency, and
-  accessibility. Captures screenshots of the running MixJam app automatically
-  via Playwright, then applies five critique lenses to the captured surfaces.
-  Use when the user asks for design feedback ("review this design", "critique
-  this screen", "what do you think of this UI?"). Use after design-router when
-  a theme has been selected and applied.
+  Structured design critique of the running MixJam app across usability,
+  hierarchy, consistency, and accessibility. Use when the user asks for design
+  feedback, a screen review, or a UI critique. Use after design-router when a
+  theme has been selected and applied.
 ---
 
 # Design Critique

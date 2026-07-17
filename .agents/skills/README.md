@@ -4,6 +4,11 @@ Each skill's `SKILL.md` frontmatter is the source of truth for invocation and
 triggering. Use [`create-skill`](./create-skill/SKILL.md) as the authoring and
 review standard.
 
+## Find a skill
+
+- [`skills-router`](./skills-router/SKILL.md) — when you know a skill exists
+  but cannot remember its name
+
 ## Development Workflow
 
 - [`ablation-test`](./ablation-test/SKILL.md)
@@ -29,5 +34,4 @@ review standard.
 
 - [`grill-me`](./grill-me/SKILL.md)
 - [`handoff`](./handoff/SKILL.md)
-- [`teach`](./teach/SKILL.md)
 - [`create-skill`](./create-skill/SKILL.md)

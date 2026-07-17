@@ -1,11 +1,8 @@
 ---
 name: dead-code-audit
 description: >
-  Audits the MixJam Electron (MJE) codebase for dead TypeScript code,
-  orphan files, and unused symbols across main and renderer processes,
-  triages findings into live dead code or false positives, and optionally
-  removes provably dead code with focused validation. Use for a dead-code
-  audit, or for cleanup explicitly requested from analyzer findings.
+  Audits the MixJam Electron (MJE) codebase for dead TypeScript code, orphan
+  files, and unused symbols across main and renderer processes.
 ---
 
 # Dead Code Audit
