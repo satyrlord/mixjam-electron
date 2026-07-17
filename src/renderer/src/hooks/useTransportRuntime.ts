@@ -209,7 +209,6 @@ export function useTransportRuntime({
     return () => {
       window.clearInterval(meterTimer)
       resetElapsedTimer()
-      transport.destroy()
       cancelPendingStart()
       void playbackEngine.close()
       transportRef.current = null
@@ -250,10 +249,8 @@ export function useTransportRuntime({
 
   const transportSkipBack = useCallback(() => {
     if (!activeRef.current) return
-    const transport = transportRef.current
     const playbackEngine = playbackEngineRef.current
     const shouldResume = runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing'
-    transport?.skipBack()
     if (playbackEngine) {
       if (shouldResume) restartAfterPreparation(0)
       else playbackEngine.seek(0)

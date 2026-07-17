@@ -239,8 +239,9 @@ browser adjacencies.
 - Height: 26px, vertically centered in the 39px lane. Dense Sample Browser and
   category rows wrap the same visual in a separate 30px interaction target.
 - Label: sample filename, truncated.
-- Bubble color: driven by a per-sample hue derived from category or a hash of
-  the filename.
+- Bubble color: resolved from the active theme's palette using the placement's
+  stable category slot. Known categories have fixed slots; unknown category
+  names map to a slot through the shared deterministic hash.
 - **Snap-to-beat (default):** Dropping a sample from the browser or moving a
   sample bubble within the Tracker snaps the placement's start position to the nearest beat
   boundary (every 8 ticks). Holding **Alt** while dropping/moving places the
@@ -468,8 +469,8 @@ infrequent commands out of the permanent button row.
 
 - 5px width, `ew-resize` cursor, on the upper work band's browser/tracker seam.
 - Resizes only the MixJam Browser/Tracker split and persists the expanded width
-  as `mixjam-left-col-w`; the existing collapse state remains authoritative
-  while collapsed.
+  as `mixjam:upper-work-layout`; `mixjam-left-col-w` is only a legacy fallback.
+  The existing collapse state remains authoritative while collapsed.
 - Does not cross the Middle Strip or change the Bottom Workspace width.
 
 **Browser vertical handle** (`.browser-resize-v`):

@@ -21,8 +21,8 @@ export function useSampleTags(
   setSelectedTagIds: React.Dispatch<React.SetStateAction<number[]>>,
   /** Called to patch one loaded row's tags after assign/unassign. */
   patchSampleTags: (relpath: string, tagIds: number[], tagNames: string[]) => void,
-  /** Called to bulk-patch all loaded rows after a tag rename or delete. */
-  patchAllSamples: (updater: (prev: SampleListItem[]) => SampleListItem[]) => void
+  /** Receives the full sample-list setter from the owning hook. */
+  setSamples: (updater: (prev: SampleListItem[]) => SampleListItem[]) => void
 ): SampleTagActions {
   const tagsRef = useSyncedRef(tags)
 
@@ -43,7 +43,7 @@ export function useSampleTags(
     )
     // Patch denormalized tag names across all loaded sample rows.
     const renamed = new Map(tagsRef.current.map((t) => [t.id, t.id === id ? name : t.name]))
-    patchAllSamples((prev) =>
+    setSamples((prev) =>
       prev.map((s) =>
         s.tagIds.includes(id)
           ? {
@@ -56,7 +56,7 @@ export function useSampleTags(
           : s
       )
     )
-  }, [backendAPI, setTags, tagsRef, patchAllSamples])
+  }, [backendAPI, setTags, tagsRef, setSamples])
 
   const setTagColor = useCallback(async (id: number, color: string | null) => {
     await backendAPI.setTagColor(id, color)
@@ -71,7 +71,7 @@ export function useSampleTags(
     await backendAPI.deleteTag(id)
     setTags((prev) => prev.filter((t) => t.id !== id))
     setSelectedTagIds((prev) => prev.filter((tid) => tid !== id))
-    patchAllSamples((prev) =>
+    setSamples((prev) =>
       prev.map((s) => {
         if (!s.tagIds.includes(id)) return s
         return {
@@ -81,7 +81,7 @@ export function useSampleTags(
         }
       })
     )
-  }, [backendAPI, setTags, setSelectedTagIds, tagsRef, patchAllSamples])
+  }, [backendAPI, setTags, setSelectedTagIds, tagsRef, setSamples])
 
   const assignTagToSample = useCallback(async (sample: SampleListItem, tagId: number) => {
     if (sample.tagIds.includes(tagId)) return

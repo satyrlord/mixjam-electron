@@ -1,21 +1,17 @@
 // @vitest-environment node
 
 /**
- * Large-library performance test skeleton.
+ * Large-library functional stress test.
  *
  * This test generates a synthetic library with many samples (default: 10,000)
- * and runs a full two-phase scan, measuring throughput and memory behavior.
+ * and runs a full two-phase scan. It does not provide performance evidence.
  * Run with: npx vitest run --project=backend src/renderer/src/backend/indexer.perf.test.ts
  *
- * The DEFAULT_COUNT is deliberately moderate (10k) so CI stays fast.
- * Bump it to 100k+ for representative measurements.
- *
- * See AGENTS.md: "Performance claims need real data. Use the real fixtures in
- * tmp/test-samples instead of synthetic files."
+ * Performance measurements must use the real fixtures in tmp/test-samples and
+ * record the environment, workload, method, and result.
  */
 import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { beforeAll, beforeEach, afterEach, describe, expect, it } from 'vitest'
-import { performance } from 'node:perf_hooks'
 import { DB } from './sql'
 import { initSchema } from './schema'
 import { runScan, type ScanPhaseProgress } from './indexer'
@@ -25,13 +21,8 @@ import { querySamples } from './library'
 // Config
 // ---------------------------------------------------------------------------
 
-/** Number of synthetic WAV files to generate for the performance run.
- *  Set to 100_000+ for representative measurements. */
+/** Number of synthetic WAV files to generate for the stress run. */
 const SAMPLE_COUNT = parseInt(process.env['PERF_SAMPLE_COUNT'] ?? '10000', 10)
-
-/** Maximum allowed scan time in milliseconds. Fails the test if exceeded.
- *  Tunable per environment via PERF_MAX_SCAN_MS. */
-const MAX_SCAN_MS = parseInt(process.env['PERF_MAX_SCAN_MS'] ?? '60000', 10)
 
 // ---------------------------------------------------------------------------
 // Map-backed FileSystemDirectoryHandle fake
@@ -128,12 +119,11 @@ afterEach(() => {
   db.close()
 })
 
-describe('large-library scan performance', () => {
-  it(`scans ${SAMPLE_COUNT} synthetic samples within ${MAX_SCAN_MS}ms`, async () => {
+describe('large-library scan stress', () => {
+  it(`indexes ${SAMPLE_COUNT} synthetic samples`, async () => {
     const tree = generateLargeTree(SAMPLE_COUNT)
     const events: ScanPhaseProgress[] = []
 
-    const start = performance.now()
     await runScan(
       db,
       ROOT_KEY,
@@ -141,8 +131,6 @@ describe('large-library scan performance', () => {
       (progress) => events.push(progress),
       () => true
     )
-    const elapsedMs = performance.now() - start
-
     // Verify the full scan completed.
     const lastEvent = events[events.length - 1]
     expect(lastEvent).toBeDefined()
@@ -153,37 +141,12 @@ describe('large-library scan performance', () => {
     // Verify all samples are queryable.
     const { total, rows } = querySamples(db, { rootId: ROOT_KEY, limit: 1 })
     expect(total).toBe(SAMPLE_COUNT)
-    expect(rows.length).toBeGreaterThanOrEqual(0)
+    expect(rows).toHaveLength(1)
 
     // Verify all samples have metadata extracted (phase 2 complete).
     const { rows: allRows } = querySamples(db, { rootId: ROOT_KEY, limit: SAMPLE_COUNT })
     const scanned = allRows.filter((r) => r.scanState === 1).length
     expect(scanned).toBe(SAMPLE_COUNT)
 
-    // Performance assertion.
-    console.log(
-      `Scan: ${SAMPLE_COUNT} files in ${elapsedMs.toFixed(0)}ms ` +
-      `(${(SAMPLE_COUNT / (elapsedMs / 1000)).toFixed(0)} files/sec)`
-    )
-    expect(elapsedMs).toBeLessThanOrEqual(MAX_SCAN_MS)
-  }, MAX_SCAN_MS + 30_000)
-
-  it('query performance is sub-millisecond for indexed columns', () => {
-    // Quick sanity check: queries against an in-memory DB at relevant scale
-    // should complete fast. A real 100k+ test would use the real fixtures in
-    // tmp/test-samples.
-    const rootId = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('perf-query').lastInsertRowid
-    db.prepare('INSERT INTO samples (root_id, relpath, filename, ext, size_bytes, date_added, scan_state) VALUES (?, ?, ?, ?, ?, ?, 1)').run(
-      rootId, 'test/file.wav', 'file.wav', 'wav', 1024, Date.now()
-    )
-
-    const start = performance.now()
-    for (let i = 0; i < 1000; i++) {
-      querySamples(db, { rootId: 'perf-test-root', limit: 20 })
-    }
-    const avgUs = ((performance.now() - start) / 1000) * 1000
-
-    console.log(`Query avg: ${avgUs.toFixed(0)}us over 1000 iterations`)
-    expect(avgUs).toBeLessThan(5000) // 5ms average ceiling
-  })
+  }, 90_000)
 })

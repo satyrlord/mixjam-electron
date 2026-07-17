@@ -15,8 +15,8 @@ Let a user who has no samples build a real Sample Folder from inside MixJam by
 searching archive.org's public-domain and Creative Commons audio collections
 and downloading selected items directly into their Sample Folder. This is the
 onboarding path for new users: MixJam has no demo mode, and without a Sample
-Folder the tracker is inaccessible — this feature turns "I have no samples"
-into a five-minute fix instead of a dead end.
+Folder the tracker is inaccessible. This feature provides a path forward for
+users who do not already have samples.
 
 ## User Stories
 
@@ -77,7 +77,9 @@ into a five-minute fix instead of a dead end.
   new samples appear in the browser with a category derived from their
   subfolder, even when session-start sync already ran.
 - [ ] **AC-004:** Cancelling an in-flight download leaves no partial file in the Sample Folder.
-- [ ] **AC-005:** The feature is unreachable without a writable Sample Folder handle.
+- [ ] **AC-005:** The builder may be opened with the normal read-only Sample
+  Folder handle, but a download cannot begin until read-write permission is
+  granted for that handle.
 
 ## Non-Goals
 

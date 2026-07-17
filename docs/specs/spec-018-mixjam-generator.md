@@ -61,7 +61,7 @@ The wizard opens as a modal dialog over the Home view. It has three steps:
 
 1. **Parameters** — choose genre, BPM, arrangement intensity, and seed.
 2. **Preview summary** — review the selected profile, estimated duration, and the
-   sample categories that will be used.
+   acoustic sample types that will be used.
 3. **Generate** — show progress, then reveal the saved `.mixjam` file with an
    **Open in Player** action.
 
@@ -71,15 +71,15 @@ The first implementation exposes four user-editable parameters:
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `genre` | enum | derived from the most common category | e.g., `house`, `techno`, `drum-and-bass`, `hip-hop`, `ambient`, `pop` |
+| `genre` | enum | `techno` | available values: `house`, `techno`, `drum-and-bass`, `hip-hop`, `ambient`, `pop` |
 | `bpm` | integer | derived from detected BPM distribution | clamped to 60–180, with a "follow detected" option |
 | `intensity` | enum | `medium` | `low`, `medium`, `high` — drives density, layering, and FX usage |
 | `seed` | string | random hex | user can regenerate or type a value; stored in the generated project |
 
 The wizard derives the defaults from the analyzed Sample Folder:
 
-- `genre` is guessed from the top-level category with the most samples, mapped to
-  a known genre profile. If no match is found, the default is `techno`.
+- `genre` defaults to `techno`. Organizational folder categories do not provide
+  reliable acoustic or genre metadata.
 - `bpm` defaults to the rounded median of detected sample BPM values. If fewer
   than 10 samples have detected BPM, the default is 128.
 - `intensity` defaults to `medium`.
@@ -91,9 +91,9 @@ A genre profile is a parametrizable recipe that the generator uses to pick
 samples, assign lanes, and build an arrangement. The first slice defines six
 profiles. Each profile declares:
 
-- required sample categories (e.g., `Drum`, `Bass`, `Loop`, `Keys`, `Voice`,
-  `Effect`)
-- optional sample categories that improve the result but are not required
+- required acoustic sample types (e.g., `Kick`, `Snare`, `Hi-hat`, `Bass`,
+  `Synth`, `FX`, `Vocal`, `Loop`)
+- optional acoustic sample types that improve the result but are not required
 - lane template (names, default channel assignments, pan positions)
 - arrangement rules (section count, section lengths, build/breakdown placement,
   density per intensity)
@@ -106,10 +106,12 @@ consumes a profile object and the selected sample set, then produces a
 ### Sample selection
 
 The generator queries the backend for samples that match the active genre
-profile and the selected BPM. Matching uses the existing `SampleQueryRequest`
-filter surface plus the analysis fields already in the database:
+profile and the selected BPM. Matching uses the analysis fields already in the
+database. The current `SampleQueryRequest` does not expose an acoustic type
+filter, so the first implementation must add a validated `sampleType` filter to
+that request before the generator uses it:
 
-- category filter for required and optional roles
+- acoustic sample-type filter for required and optional roles
 - BPM compatibility around the target BPM (tolerance derived from the profile)
 - duration limits per role (e.g., one-shots vs. loops)
 

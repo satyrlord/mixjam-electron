@@ -146,7 +146,7 @@ export default function EffectsWorkspace(props: EffectsWorkspaceProps) {
       <span className="effects-slot-count">{channel.effects.length} of 4 used</span>
     </header>
 
-    {channel.effects.length > 0 && <div ref={chainRef} className="effects-chain" aria-label="Ordered effect chain">
+    {channel.effects.length > 0 && <div ref={chainRef} className="effects-chain" aria-label="Ordered FX chain">
         {channel.effects.map((effect, index) => <Fragment key={effect.id}>
           <EffectCard
             effect={effect}

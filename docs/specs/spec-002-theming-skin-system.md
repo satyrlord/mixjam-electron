@@ -112,8 +112,7 @@ Placements store the slot, not the color: `ClipPlacement` and drag payloads carr
 so switching themes recolors every placed sample bubble live. Slot storage keeps the
 original stability goal — renaming a category never recolors existing placements —
 while making color a theme concern. No persisted migration was needed:
-project save/load (spec-011) persists placements in `.mixjam` files
-state.
+project save/load (spec-011) persists placements in `.mixjam` files.
 
 `applyTheme` derives per-slot custom properties so DOM bubbles restyle
 without a React re-render: `--palette-0..8` (8 = unsorted), `--palette-ink-N`

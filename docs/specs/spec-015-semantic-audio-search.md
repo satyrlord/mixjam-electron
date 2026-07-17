@@ -7,8 +7,9 @@ engine), web-first architecture (backend worker owns the database)
 
 This spec owns the `similarTo` query predicate, zero-shot tag suggestions, and
 all CLAP-model-dependent behavior. Deterministic key/BPM compatibility is
-[spec-014](spec-014-musical-compatibility.md), and the heuristic analyzer that
-owns primary categories is [spec-008](spec-008-sample-analysis.md).
+[spec-014](spec-014-musical-compatibility.md). Organizational categories are
+owned by [spec-004](spec-004-sample-library.md), while the heuristic analyzer
+in [spec-008](spec-008-sample-analysis.md) owns acoustic sample type.
 
 ## Objective
 
@@ -16,10 +17,8 @@ Find samples by how they sound, not by filename. An embedding model runs
 entirely locally (WebGPU-accelerated, CPU-WASM fallback) so users can type
 "warm analog bass", click "Find similar" on any sample, save a
 similarity-based library, or accept suggested tags — with no audio or
-embeddings ever leaving the machine. Competing sample managers (Splice,
-Loopcloud) require cloud upload for audio similarity; running it in a stock
-browser tab is the differentiator, and it is exactly what the accepted
-Chromium-only, backend-worker architecture makes possible.
+embeddings ever leaving the machine. The accepted Chromium-only,
+backend-worker architecture keeps this processing local.
 
 Because a library is a saved query, similarity is not just a search mode: a
 `similarTo` predicate in `rule_json` makes "everything within distance X of
@@ -65,10 +64,10 @@ this reference" a living library that updates as new samples are indexed.
   and model execution never serializes against Phase 2 metadata parsing and
   indexer transactions on one thread. Spec-016 shares this worker and the
   ONNX runtime instance.
-- Embedding computation is a third indexing phase: after Phase 2 completes
-  for a batch, samples with `scan_state = 1` and NULL embedding are queued.
-  Progress is reported like scan progress; interruption resumes on next
-  index (NULL embedding is the work queue).
+- Embedding computation is a separate future phase after the existing metadata
+  and sample-analysis work. Its exact ordering must be validated before
+  implementation. Samples with `scan_state = 1` and NULL embedding form its
+  resumable work queue, and it reports its own progress.
 
 ### Semantic text search
 
@@ -115,9 +114,9 @@ this reference" a living library that updates as new samples are indexed.
   accept/reject; accepted suggestions become ordinary rows in `tags` /
   `sample_tags`. Nothing is auto-assigned without confirmation in v1.
 - This spec never writes `samples.category_id` — the primary category
-  belongs to spec-008's heuristic classifier and the folder-derived mapping.
-  Spec-008's "no ML classification" non-goal stands for categories;
-  suggestions here are tags only.
+  belongs to spec-004's folder-derived and user-managed category model.
+  Spec-008's heuristic classifier writes `sample_type`, not categories;
+  suggestions here remain tags only.
 
 ### Degradation and gating
 
@@ -158,7 +157,7 @@ this reference" a living library that updates as new samples are indexed.
 ## Non-Goals
 
 - No cloud inference, telemetry, or upload of any audio-derived data.
-- No automatic primary-category assignment (spec-008 owns categories).
+- No automatic primary-category assignment (spec-004 owns categories).
 - No hybrid FTS+semantic scoring in v1 (separate modes only).
 - No duplicate detection / near-duplicate clustering (a future use of the
   same embeddings).

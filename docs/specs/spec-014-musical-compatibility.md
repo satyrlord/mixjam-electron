@@ -47,8 +47,9 @@ library building; the embedding-based half ("sounds like") is
 ### `rule_json` leaf kinds (additive, version stays 1)
 
 Per the versioning policy in [query-schema.md](../query-schema.md), new leaf
-kinds are additive and do not bump the format version. Old builds encountering
-the new kinds fail with the existing clear unknown-kind error.
+kinds are additive and do not bump the format version. The current decoder
+silently ignores unknown leaves, so the validator and full compiler defined in
+`query-schema.md` must land before these leaves become executable.
 
 ```jsonc
 // Camelot-wheel adjacency around a reference key.

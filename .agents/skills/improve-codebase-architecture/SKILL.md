@@ -31,20 +31,18 @@ Principles:
 - **One adapter = hypothetical seam, two = real** — the first adapter on a
   seam is scaffolding; the second proves the seam is right
 
-The domain language in `docs/architecture.md` and `docs/data-model.md`
-names good seams. Create `docs/glossary.md` lazily when shared terminology
-is needed across docs.
+The domain language in `docs/architecture.md`, `docs/data-model.md`, and
+`docs/glossary.md` names good seams.
 
 ## Process
 
 ### 1. Explore
 
 Read the project's architecture docs (`docs/architecture.md`,
-`docs/data-model.md`) first. If a `CONTEXT.md` domain glossary exists,
-read that too.
+`docs/data-model.md`) and `docs/glossary.md` first.
 
-Then use the Agent tool with `subagent_type=Explore` to walk the **entire
-codebase** — not just recently changed files or the current branch diff.
+Then delegate independent, read-heavy areas to exploration subagents and walk
+the **entire codebase** — not just recently changed files or the current branch diff.
 Don't follow rigid heuristics — explore organically and note where you
 experience friction:
 
@@ -83,8 +81,8 @@ Do NOT propose interfaces yet. After presenting the candidates, ask the user: "W
 Once the user picks a candidate, use `add-feature` to record durable decisions as you work through the design with them:
 
 - **Naming a deepened module after a concept not yet documented?** Add the
-  term to the relevant doc under `docs/`. Create `docs/glossary.md` lazily
-  if a cross-cutting glossary is needed.
+  term to the relevant doc under `docs/`; use `docs/glossary.md` for
+  cross-cutting terminology.
 - **Sharpening a fuzzy term during the conversation?** Update the relevant
   doc right there.
 - **User rejects the candidate with a load-bearing reason?** Offer to record

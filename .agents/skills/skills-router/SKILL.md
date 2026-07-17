@@ -34,7 +34,7 @@ the skill:
 - `run-quality-gate` — run or repair the repository quality gate
 - `verify` — verify renderer changes against real Chromium
 
-See [README.md](README.md) for the categorized skill list.
+See [README.md](../README.md) for the categorized skill list.
 
 ## Completion Criterion
 

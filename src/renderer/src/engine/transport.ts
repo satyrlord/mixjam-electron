@@ -15,11 +15,9 @@ export interface Transport {
   play(): void
   pause(): void
   stop(): void
-  skipBack(): void
   setBpm(bpm: number): void
   tickDurationSeconds(): number
   tickToTime(tick: number, referenceTick: number, referenceTime: number): number
-  destroy(): void
 }
 
 // Step resolution: 1/32 note. 8 ticks per beat at 4/4 — every lane shares this
@@ -60,10 +58,6 @@ export function createTransport(bpm = 120): Transport {
       state = 'stopped'
     },
 
-    // Playhead position is owned by the Scheduler; skipBack only affects state,
-    // which is currently a no-op (kept for API symmetry with play/pause/stop).
-    skipBack(): void {},
-
     setBpm(newBpm: number): void {
       currentBpm = newBpm
     },
@@ -74,8 +68,6 @@ export function createTransport(bpm = 120): Transport {
 
     tickToTime(tick: number, referenceTick: number, referenceTime: number): number {
       return referenceTime + (tick - referenceTick) * tickDurationSeconds(currentBpm)
-    },
-
-    destroy(): void {}
+    }
   }
 }

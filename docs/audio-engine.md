@@ -123,9 +123,10 @@ input. Replaced and removed processors disconnect every node they own.
 - Bypass constructs a direct input-to-output route for that slot, so disabling
   DSP also removes its feedback or convolution nodes from the live graph.
 
-Effect definitions live in the renderer mixer state and persist in the same
-`mixjam-mixer-channels` local-storage entry as gain, pan, mute, and solo.
-Older entries without an effects field load with an empty chain.
+Effect definitions live in project-owned mixer state and persist with gain,
+pan, mute, and solo in the active `.mixjam` file. The legacy
+`mixjam-mixer-channels` local-storage entry is removed without importing it
+into a new or loaded project.
 
 ## Master loudness metering
 

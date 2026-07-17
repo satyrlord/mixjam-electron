@@ -302,6 +302,7 @@ describe('decodeWav edge cases', () => {
     }
     ascii(0, 'RIFF'); view.setUint32(4, 36, true); ascii(8, 'WAVE')
     ascii(12, 'fmt '); view.setUint32(16, 4, true)
+    expect(decodeWav(buffer)).toBeNull()
   })
 })
 

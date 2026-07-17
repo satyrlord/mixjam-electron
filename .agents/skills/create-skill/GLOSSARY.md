@@ -1,6 +1,6 @@
-# Glossary — Building Great Skills
+# Glossary — Creating Skills
 
-The domain model for what makes a skill great. A skill exists to wrangle determinism out of a stochastic system; every term below is a lever on that goal. This is the disclosed reference for [`writing-great-skills`](SKILL.md).
+The domain model for what makes a skill effective. A skill exists to make a stochastic system follow a predictable process; every term below supports that goal. This is the disclosed reference for [`create-skill`](SKILL.md).
 
 **Bold terms** in any definition are themselves defined in this glossary; find them by their heading.
 

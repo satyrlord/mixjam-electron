@@ -11,13 +11,8 @@ infrastructure and inference worker)
 Let a user split any sample in their library into isolated stems (drums, bass,
 vocals, other) entirely on-device, then use those stems as independent placements on
 separate tracker lanes. No audio leaves the machine; no cloud service, no
-subscription, no API key. Combined with time-stretching (spec-009) and semantic
-search (spec-015), this turns MixJam into a full remix workstation: drop any
-mixed sample, separate it, stretch the stems to project BPM, and layer your own
-samples on top.
-
-No competing offline-first sample manager or lightweight tracker ships local
-stem separation today. This is the differentiator.
+subscription, no API key. Separated stems follow the same placement,
+tempo-following, and mixing contracts as other samples.
 
 ## User Stories
 
@@ -157,8 +152,9 @@ CREATE TABLE stem_cache (
 
 ## Non-Goals
 
-- No real-time separation during playback (offline/pre-computed only — same
-  design as time-stretching in spec-009).
+- No real-time separation during playback; separation is offline/precomputed.
+  Playback of the resulting stems still uses spec-009's real-time
+  tempo-following resampling.
 - No user-selectable stem count or custom model upload (four fixed stems in v1).
 - No fine-grained stem editing (trim, fade) beyond what the Tracker already
   provides for any clip placement.

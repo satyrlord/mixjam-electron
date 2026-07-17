@@ -187,7 +187,7 @@ channel's mute/solo.
 | Mixer uses a full-width peer tab | All strips receive the lower workspace without competing with Song or Samples |
 | Routing is 1:1 and channel count is capped at 16 | Add/reorder needs the routing UI in spec-017 |
 | dB meters render in CSS | Fill height and peak hold do not need a canvas |
-| Stereo width waits for spec-010 | The control needs DSP before it has a product effect |
+| Stereo width waits for spec-017 | The control needs routing and DSP behavior that spec must validate first |
 | Channel state is project-owned | Project save/load restores the mix without leaking it into other sessions |
 | Lane and channel pan are independent | Two panners keep arrangement and mix controls distinct |
 | One rAF loop reads all meters | React receives one batched state update per frame |
@@ -220,27 +220,14 @@ affect already-sounding voices. `pan` travels through `EngineLane` /
 `toEngineLanes`, and the lane panner sits before `channel.input` in the audio
 chain (see Lane / Channel Pan Independence).
 
-The lane-head pan knob (`LaneRow.tsx`) and the mixer-strip pan knob
-(`ChannelStrip.tsx`) share the same interaction contract (decision 27-28):
-
-- **Left-click drag** horizontally scrubs pan in [-1, 1] (sensitivity
-  differs: lane 0.01/px, mixer 0.008/px). Right/middle press is ignored.
-- **Right-click** (onContextMenu) suppresses the browser menu and steps a
-  three-position cycle: any position → C (0) → 100% R (1) → 100% L (−1) → C.
-  Uses a PAN_EPSILON tolerance (1e-6) so key-step residue near 0/±1 still
-  cycles correctly.
-- **Double-click** resets to center (0). Present on the lane-head knob only;
-  the mixer strip relies on the right-click cycle for reset.
-- **Keyboard:** ArrowLeft/ArrowDown and ArrowRight/ArrowUp adjust by 0.05
-  clamped; Home centers; End goes hard right (mixer only). Both knobs are
-  focusable (`tabIndex={0}`, `role="slider"`).
-- **Mouse wheel:** wheel up increases and wheel down decreases by 0.05;
-  Shift uses the shared fine-adjustment step. Handled wheel events suppress
-  surrounding page scroll.
-
-When adding or modifying pan knob behavior, ensure both `LaneRow.tsx` and
-`ChannelStrip.tsx` stay in sync for the right-click cycle and keyboard
-interaction. Do NOT implement one without the other.
+The lane-head pan knob (`LaneRow.tsx`) and mixer-strip pan knob
+(`ChannelStrip.tsx`) both use `RotaryControl` from `RotaryField.tsx`. The shared
+control owns horizontal pointer drag, mouse-wheel changes, Shift fine control,
+arrow-key steps, Home/End limits, double-click reset, slider semantics, and
+clamping to [-1, 1]. Both callers use the shared right-click cycle: any
+position -> C (0) -> 100% R (1) -> 100% L (-1) -> C. Pan interaction changes
+belong in the shared control unless the difference is an explicit product
+requirement.
 
 ## Acceptance Criteria (testable)
 

@@ -162,14 +162,14 @@ describe('EffectsWorkspace', () => {
   })
 
   it('reorders an effect via Alt+ArrowRight keyboard shortcut', () => {
-    render(<Harness initial={[createDefaultEffect('delay'), createDefaultEffect('reverb')]} />)
-    const cards = screen.getAllByRole('button', { pressed: false })
-    const delayCard = cards[0]!
-    // Select the first delay card
+    const delay = createDefaultEffect('delay')
+    const reverb = createDefaultEffect('reverb')
+    render(<Harness initial={[delay, reverb]} />)
+    const delayCard = document.querySelector<HTMLElement>(`[data-effect-id="${delay.id}"] .effect-card-main`)!
     fireEvent.click(delayCard)
-    // Use Alt+ArrowRight to move it right
     fireEvent.keyDown(delayCard, { key: 'ArrowRight', altKey: true })
-    // No crash — reorder fired
+    expect([...document.querySelectorAll('.effect-card-name')].map((node) => node.textContent))
+      .toEqual(['Reverb', 'Delay'])
   })
 
   it('reorders an effect via Move left/right menu', () => {
@@ -179,12 +179,17 @@ describe('EffectsWorkspace', () => {
     fireEvent.keyDown(orderButtons[1]!, { key: 'Enter' })
     const moveLefts = screen.getAllByRole('menuitem', { name: 'Move left' })
     fireEvent.click(moveLefts[moveLefts.length - 1]!)
+    expect([...document.querySelectorAll('.effect-card-name')].map((node) => node.textContent))
+      .toEqual(['Reverb', 'Delay'])
   })
 
   it('resets selected effect to factory defaults', () => {
     render(<Harness initial={[createDefaultEffect('delay')]} />)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: 'ArrowUp' })
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute('aria-valuenow', '376')
     fireEvent.keyDown(screen.getByText('Actions'), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Reset to factory settings' }))
+    expect(screen.getByRole('slider', { name: 'Time' })).toHaveAttribute('aria-valuenow', '375')
   })
 
   it('displays compressor reduction meter', () => {
@@ -349,25 +354,14 @@ describe('EffectsWorkspace', () => {
     expect(screen.getByRole('slider', { name: 'Threshold' })).toHaveAttribute('aria-valuenow', '-18')
   })
 
-  it('toggles tempo sync on delay effect', () => {
-    const delay = createDefaultEffect('delay')
-    const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [delay] }
-    const onUpdate = vi.fn()
-    render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={delay.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={onUpdate} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
-
-    // Use Harness instead which has proper state management
-  })
-
-  it('toggles tempo sync via Harness', () => {
+  it('toggles tempo sync on a delay effect', () => {
     const onUpdate = vi.fn()
     const delay = createDefaultEffect('delay')
     const channel: ChannelState = { channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [delay] }
     render(<EffectsWorkspace channels={[channel]} selectedChannelIndex={0} selectedEffectId={delay.id} effectReductions={new Map()} onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={onUpdate} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
 
-    // Clicks the label text which should toggle the checkbox inside
     const label = screen.getByText('Tempo sync')
     fireEvent.click(label)
-    // onUpdate should have been called (state change propagates through ToggleField -> EffectEditor -> onUpdate)
     expect(onUpdate).toHaveBeenCalled()
   })
 

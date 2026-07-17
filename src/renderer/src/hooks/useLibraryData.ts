@@ -768,16 +768,11 @@ export function useLibraryData(
     )
   }, [])
 
-  const patchAllSamples = useCallback(
-    (updater: (prev: SampleListItem[]) => SampleListItem[]) => setSamples(updater),
-    []
-  )
-
   // --- Composed sub-hooks ---
 
   const tagActions = useSampleTags(
     backendAPI, tags, setTags, setSelectedTagIds,
-    patchSampleTags, patchAllSamples
+    patchSampleTags, setSamples
   )
 
   const categoryActions = useSampleCategories(

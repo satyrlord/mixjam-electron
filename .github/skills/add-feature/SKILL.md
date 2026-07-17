@@ -49,7 +49,7 @@ For **canonical docs** (durable reference documents):
 - query format and compilation -> `docs/query-schema.md`
 - indexing and scanning -> `docs/indexing.md`
 - audio engine decisions -> `docs/audio-engine.md`
-- cross-cutting terminology -> `docs/glossary.md` (create lazily, only when needed)
+- cross-cutting terminology -> `docs/glossary.md`
 - durable trade-off decisions -> the owning spec or canonical domain doc
 
 Create a new numbered file under `docs/specs/` only when no existing spec owns

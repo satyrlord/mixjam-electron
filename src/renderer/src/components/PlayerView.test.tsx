@@ -1769,17 +1769,14 @@ describe('PlayerView', () => {
   it('opens shortcuts overlay when ? key is pressed', () => {
     renderPlayer({})
 
-    // Press ? key to open shortcuts overlay
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
     })
 
-    // The ShortcutsOverlay should now be visible
     expect(screen.getByText(/shortcuts/i)).toBeInTheDocument()
   })
 
   it('hides playhead when currentTick exceeds totalTicks', () => {
-    // The fixed MVP span ends at tick 4,096.
     renderPlayer({
       transport: { transportState: 'playing' },
       arrangement: { currentTick: 31968 }

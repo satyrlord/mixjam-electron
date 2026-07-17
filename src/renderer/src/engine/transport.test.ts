@@ -52,15 +52,6 @@ describe('createTransport', () => {
     expect(transport.state).toBe('stopped')
   })
 
-  it('skipBack does not change playback state', () => {
-    const transport = createTransport(120)
-
-    transport.play()
-    transport.skipBack()
-
-    expect(transport.state).toBe('playing')
-  })
-
   it('setBpm updates the tempo', () => {
     const transport = createTransport(120)
 

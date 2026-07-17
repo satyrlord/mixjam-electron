@@ -81,7 +81,8 @@ at the project BPM with spec-009 tempo-following resampling applied.
 - [ ] **AC-006:** Export progress is reported and the UI remains responsive during export.
 - [ ] **AC-007:** Cancelling an export mid-way produces no output file.
 - [ ] **AC-008:** A 16-bit WAV export has valid 16-bit samples (no clipping above 0 dBFS unless intentional).
-- [ ] **AC-009:** The export duration equals the arrangement duration (last placement end minus first placement start) plus the silence tail.
+- [ ] **AC-009:** The export duration runs from tick 0 through the last
+  placement end, plus the configured silence tail.
 - [ ] **AC-010:** Export applies the same placement-owned playback rates as live
   playback instead of exporting placed samples at native rate.
 
