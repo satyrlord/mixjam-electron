@@ -107,6 +107,12 @@ the ordered effects, then the channel analyser and master bus. Rebuilding a
 chain does not reconnect active voices because they target the stable channel
 input. Replaced and removed processors disconnect every node they own.
 
+The renderer supplies the playback module with one complete project-owned
+channel snapshot after a Mixer edit or project replacement. Playback owns the
+atomic reconciliation order: remove missing channels, restore present channels,
+apply gain, pan, and FX, then calculate final mute/solo gating. React state
+updaters never mutate the Web Audio graph or replay individual fields in order.
+
 - Delay uses dry/wet gain paths, `DelayNode` feedback whose 1.0 control value
   maps to stable near-unity feedback, optional
   quarter/eighth/sixteenth-note tempo sync, and a dual-delay stereo feedback

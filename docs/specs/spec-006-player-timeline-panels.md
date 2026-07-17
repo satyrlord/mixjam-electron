@@ -122,6 +122,10 @@ browser adjacencies.
   intentionally ignores the previous unversioned layout once so existing users
   receive the compact default; every later manual resize updates v2 and
   survives remounts.
+- One Player workspace-preference module owns validation, defaults, legacy
+  browser-width migration, and storage for both panel layouts, the active tab,
+  Samples expansion/restore state, and MixJam Browser collapse. Rendering code
+  coordinates live panel refs but does not parse or write storage formats.
 - An explicit workflow transition may activate a tab. In particular, a mixer
   channel's FX action selects that channel and activates FX.
 - Samples exposes an explicit expand/restore action. Expansion grows the Bottom
@@ -385,7 +389,8 @@ infrequent commands out of the permanent button row.
   delete. Mixer state (mute/solo/pan, volume, BPM) is not tracked.
 - Each entry is an immutable lanes snapshot (structurally shared), capped at
   100 entries. A new edit clears the redo stack.
-- Bindings: Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes; the Middle Strip
+- Bindings: Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes; the platform primary
+  modifier is accepted for these commands. The Middle Strip
   buttons mirror the same actions and disable when their stack is empty.
 - A multi-placement Delete is one history entry (batch remove), so one Ctrl+Z
   restores the whole selection.
@@ -393,8 +398,8 @@ infrequent commands out of the permanent button row.
 ### Keyboard shortcuts overlay
 
 - The Keyboard Shortcuts item in the Middle Strip More menu and the "?" key
-  open a modal overlay listing all keyboard and mouse shortcuts (transport,
-  placement editing, browser).
+  open a modal overlay listing all keyboard and mouse shortcuts (project,
+  transport, placement editing, browser).
 - Esc, the close button, or a backdrop click dismisses it.
 - The overlay uses modal dialog semantics, traps focus while open, and restores
   focus to the opener when dismissed.
@@ -402,8 +407,11 @@ infrequent commands out of the permanent button row.
   application without `backdrop-filter`; dialog text and controls remain sharp,
   visible, and hit-testable. Any tooltip opened from the trigger closes before
   the dialog appears.
-- Global shortcuts (Space, Delete, Ctrl+Z/Y, ?) are suppressed while a text
-  input, textarea, select, or contenteditable element has focus.
+- One global Player shortcut policy owns matching, editable-target guards,
+  dispatch, and the descriptions used by menus, tooltips, and this overlay.
+  It includes Save, Save As, Space, Delete, Undo, Redo, and Help. Global
+  shortcuts are suppressed while a text input, textarea, select, or
+  contenteditable element has focus.
 
 ### Player Subregions
 

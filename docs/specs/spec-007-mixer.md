@@ -181,7 +181,9 @@ channel's mute/solo.
 | Decision | Rationale |
 | --- | --- |
 | Channel and lane state coexist | Lane M/S controls arrangement; channel M/S/gain/pan controls the mix |
-| `useMixer(playbackEngineRef)` owns channel state | Mixer state stays separate from the transport engine |
+| The project model owns channel state and defaults | Save, load, New, and generation share one complete project snapshot |
+| `useMixer(playbackEngineRef)` owns live channel edits | Mixer behavior stays separate from transport while persistence types stay in the project module |
+| Playback reconciles complete channel snapshots | Graph ordering and mute/solo gating do not leak into React state updaters |
 | Lane and channel mute/solo gates are ANDed | Both arrangement and mix filters apply |
 | One `AnalyserNode` per channel | All 16 meters update without graph switching |
 | Mixer uses a full-width peer tab | All strips receive the lower workspace without competing with Song or Samples |
@@ -208,6 +210,9 @@ channel's mute/solo.
 adding `useMixer(playbackEngineRef)` after them keeps hook order stable. `playbackEngineRef`
 must be added to `useTransportEngine`'s return value — refs are stable across
 renders so this does not break memoization. `useMixer` keys its apply-to-player
+effect on the complete channel snapshot. `PlaybackEngine` owns channel removal,
+restoration, gain, pan, FX, and final mute/solo gating order; individual Mixer
+callbacks only update project-owned channel state.
 effect on `view` (returned by the engine) since `playbackEngineRef.current` mutating
 does not trigger renders. On teardown, cleanup runs in call order; the mixer
 cleanup runs before `playbackEngine.close()` and must null-check the ref.

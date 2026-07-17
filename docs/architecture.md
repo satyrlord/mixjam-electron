@@ -51,6 +51,12 @@ Rules of the process model:
   connection, so queries, indexing, and generator planning interleave on the
   same connection. The UI calls the async `BackendAPI` facade and receives plain
   JSON, such as a page of sample rows or a bounded neutral generator plan.
+- **Backend job policy has one owner.** The worker entry module initializes the
+  database and dispatches typed requests. A deep job-coordination module owns
+  admission, queueing, replacement, cancellation, identity, and progress for
+  library sync, calibration, individual analysis, and generator planning.
+  Workflow-owned persistence modules group indexed-sample lifecycle, analysis
+  provenance, and browser/saved-library SQL without opening another connection.
 - **Renderer requests are windowed.** The virtual list asks for the visible
   slice + buffer (`LIMIT`/`OFFSET` or keyset pagination), never the full result set.
 - **No absolute paths anywhere.** Folders are `FolderRef`s (an id keying a
@@ -69,6 +75,22 @@ Rules of the process model:
   planning. The renderer adapts the plan, serializes it through the production
   project format, writes it inside the User Folder, and updates recent projects
   only after the write succeeds.
+- **The project model owns the complete saved snapshot.** Song settings, lanes,
+  placements, Mixer channels, routing, and FX defaults/cloning live together in
+  the project module. Renderer hooks own live editing behavior but do not define
+  persistence types or reconstruct project defaults.
+- **Graph reconciliation belongs to playback.** Renderer Mixer state supplies a
+  complete channel snapshot. The playback module owns removal, restoration,
+  gain/pan/FX application, and final mute/solo gating order before mutating the
+  Web Audio graph.
+- **Player preferences and global commands have policy owners.** One app-state
+  module validates and persists panel layouts, the active Bottom Workspace tab,
+  expansion state, and MixJam Browser collapse. One shortcut module owns global
+  matching, editable-target suppression, dispatch, and displayed command text.
+- **Host-local persistence follows its workflow.** Folder selection plus the
+  best-effort `mixjam.json` mirror belong to app state. User Folder discovery,
+  recent-project validation, merging, and ordering belong to the project
+  catalog beside project file access.
 
 ## Non-goals for this phase
 

@@ -31,15 +31,16 @@ worker owns this scheduling and keys roots by the string `FolderRef.id`; React
 hooks only request work and render the returned job state. Sync does not wait
 for Player entry, and Home/Player navigation never starts or restarts a job.
 
-The worker runs one library job at a time. A duplicate request for the active or
-queued root returns the existing job identity. Picking a different Sample Folder
-cancels the prior root at its next checkpoint, removes its queued automatic
-request, prioritizes the new root, and invalidates UI events from the previous
-root. A completed app-owned mutation, including a spec-013 download, bypasses
-the once-per-session suppression. If the same root is active, the worker sets a
-dirty bit and guarantees one follow-up reconciliation after the active job;
-multiple mutation events collapse into that one follow-up. If the root is idle,
-the mutation schedules work immediately.
+The backend job coordinator runs one library job at a time and serializes it
+with calibration, individual analysis, and generator planning. A duplicate
+request for the active or queued root returns the existing job identity. Picking
+a different Sample Folder cancels the prior root at its next checkpoint, removes
+its queued automatic request, prioritizes the new root, and invalidates UI events
+from the previous root. A completed app-owned mutation, including a spec-013
+download, bypasses the once-per-session suppression. If the same root is active,
+the coordinator sets a dirty bit and guarantees one follow-up reconciliation
+after the active job; multiple mutation events collapse into that one follow-up.
+If the root is idle, the mutation schedules work immediately.
 
 The first sync and later refreshes use the same incremental pipeline. Existing
 indexed rows remain queryable while a refresh runs. A first-time folder shows
@@ -145,8 +146,9 @@ For example, `Drums/Kicks/kick_808.wav` → primary category `Drums`, subcategor
 assigned to **"Unsorted"**.
 
 See `syncCategoriesFromNames()` and `assignCategoryFromPath()` in
-`src/renderer/src/backend/library.ts`. A sample belongs to exactly one primary category but may
-have multiple subcategory assignments (via the `sample_categories` join table).
+`src/renderer/src/backend/indexed-sample-persistence.ts`. A sample belongs to
+exactly one primary category but may have multiple subcategory assignments
+(via the `sample_categories` join table).
 
 ## Per-root scoping (one DB, many Sample Folders)
 

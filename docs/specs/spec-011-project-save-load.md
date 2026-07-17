@@ -131,6 +131,10 @@ is:
   gain, pan, mute, solo, routing, and the ordered `fx` chain. Each FX entry saves
   its effect identity, type, bypass state, and every editable parameter defined
   by spec-010. Loading must not merge channel or FX values from another project.
+- The canonical in-memory project model owns Song, lanes, placements, channels,
+  defaults, and deep-cloning rules. Project serialization, New, load, and the
+  MixJam Generator consume that model rather than importing persistence types
+  or defaults from renderer hooks.
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
 
@@ -300,6 +304,10 @@ generator, its tests, and this contract are the durable repository assets.
 
 - The app persists a recent-project registry separate from the project files
   themselves.
+- The project-catalog module owns registry validation, User Folder discovery,
+  dead-entry removal, merging, ordering, and the bounded MixJam Browser result.
+  Folder-selection state and the `mixjam.json` configuration mirror remain in
+  the separate app-state module.
 - Each entry stores at minimum:
   - project file path relative to the User Folder ('/'-separated)
   - display name derived from the filename

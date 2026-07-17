@@ -70,7 +70,7 @@ canvas beat-line color (bar lines stay `--border` for structural hierarchy);
 `--sample-bubble-missing` fills the 45-degree hazard stripes on placements whose sample row
 is missing (`scan_state = 2`); `--shadow-sample-bubble-text` applies to canvas bubble
 labels and DOM bubbles (both drop the shadow when the
-per-slot ink resolves dark, matching `bubbleStyle`).
+per-slot ink resolves dark, matching `sampleBubbleDomStyle`).
 
 Sample bubbles use the shared `SAMPLE_BUBBLE_HEIGHT_PX` geometry constant for
 tracker canvas drawing, browser virtualization, and the DOM height token.
@@ -123,6 +123,12 @@ the same custom properties into its token cache, so canvas placements and DOM
 bubbles can never disagree (AGENTS.md hard rule: a sample bubble renders
 identically everywhere). Palette entries MUST be 6-digit hex — the ink
 derivation needs a parseable luminance.
+
+The sample-bubble visual module owns DOM palette styles and one resolved canvas
+visual model covering color, ink, label case, radius, shadow, border, gloss,
+missing state, and paint geometry. The Tracker canvas and drag image are two
+adapters over the same painter; browser bubbles consume the DOM adapter. Theme
+or geometry rules do not live independently in those rendering modules.
 
 Contrast policy: slot colors are surfaces, not signals — the 3:1 signal gate
 does not apply to them. Label contrast is guaranteed per slot by the derived
