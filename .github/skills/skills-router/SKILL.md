@@ -23,7 +23,6 @@ remember which one to type. This skill is the index.
 If the task matches one of these triggers, just describe it; the agent will fire
 the skill:
 
-- `ablation-test` — prove which changed files are required for a fix
 - `add-feature` — spec, decisions, and durable docs for new work
 - `dead-code-audit` — find and optionally remove dead code
 - `design-critique` — structured design feedback with screenshots

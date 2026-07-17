@@ -11,7 +11,6 @@ review standard.
 
 ## Development Workflow
 
-- [`ablation-test`](./ablation-test/SKILL.md)
 - [`add-feature`](./add-feature/SKILL.md)
 - [`dead-code-audit`](./dead-code-audit/SKILL.md)
 - [`diagnose`](./diagnose/SKILL.md)
