@@ -138,6 +138,10 @@ export function createBackendAPI(): BackendAPI {
     openMixJamFile: vi.fn().mockResolvedValue(null),
     readMixJamFile: vi.fn().mockRejectedValue(new Error('Project fixture not configured')),
     saveMixJamFileAs: vi.fn().mockResolvedValue(null),
+    createGeneratedMixJamFile: vi.fn().mockResolvedValue({
+      path: 'generated-001.mixjam',
+      contents: '{}'
+    }),
     writeMixJamFile: vi.fn().mockResolvedValue(undefined),
     findMissingSampleFiles: vi.fn().mockResolvedValue([]),
     pickFolder: vi.fn().mockResolvedValue(null),
@@ -175,6 +179,20 @@ export function createBackendAPI(): BackendAPI {
     querySamples: vi
       .fn()
       .mockImplementation(async (request: SampleQueryRequest) => queryDefaultRows(request)),
+    getGeneratorReadiness: vi.fn().mockResolvedValue({
+      status: 'ready',
+      detectedBpm: 140,
+      eligibleSamples: DEFAULT_SAMPLE_ROWS.length
+    }),
+    planMixJam: vi.fn().mockRejectedValue(new Error('Generator fixture not configured')),
+    cancelMixJamPlanning: vi.fn().mockResolvedValue(undefined),
+    getGeneratorProgress: vi.fn().mockResolvedValue({
+      identity: null,
+      status: 'idle',
+      phase: null,
+      completed: 0,
+      total: 0
+    }),
     listTags: vi.fn().mockResolvedValue(DEFAULT_TAGS),
     createTag: vi.fn().mockImplementation(async (name: string, color?: string) => ({
       id: Date.now(),
@@ -218,6 +236,7 @@ export function createBackendAPI(): BackendAPI {
     onAnalysisProgress: vi.fn().mockReturnValue(() => {}),
     onAnalysisDone: vi.fn().mockReturnValue(() => {}),
     onCalibrationProgress: vi.fn().mockReturnValue(() => {}),
-    onCalibrationDone: vi.fn().mockReturnValue(() => {})
+    onCalibrationDone: vi.fn().mockReturnValue(() => {}),
+    onGeneratorProgress: vi.fn().mockReturnValue(() => {})
   }
 }

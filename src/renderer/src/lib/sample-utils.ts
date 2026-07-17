@@ -16,53 +16,12 @@ export function nextPanCycle(pan: number): number {
   return 0
 }
 
-// Sample palette slots. The COLORS are theme-scoped (each theme JSON authors
-// its own 8-slot `palette` + `palette-unsorted`; applyTheme publishes them as
-// --palette-0..8 custom properties) — only the NAME -> SLOT mapping is fixed,
-// so a category keeps its slot across scans, renames, and theme switches
-// (spec-002 "Sample Palette").
-export const PALETTE_SLOT_COUNT = 8
-/** Slot index of the Unsorted category (the 9th palette entry). */
-export const SLOT_UNSORTED = 8
-
-const WELL_KNOWN: Record<string, number> = {
-  drums: 0,
-  percussion: 0,
-  loop: 1,
-  bass: 2,
-  keys: 3,
-  guitar: 3,
-  chords: 3,
-  piano: 3,
-  synth: 4,
-  lead: 4,
-  voice: 5,
-  vocal: 5,
-  fx: 5,
-  vox: 5,
-  arp: 6,
-  pad: 7,
-  atmosphere: 7,
-  xtra: 7,
-  texture: 7,
-}
-
-export const ROOT_CATEGORY_NAMES = ['Unsorted']
-
-function hashCode(s: string): number {
-  let hash = 0
-  for (let i = 0; i < s.length; i++) {
-    hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0
-  }
-  return Math.abs(hash)
-}
-
-/** Well-known category names get a fixed slot; unknown names get a
- *  deterministic slot via hash. Unsorted maps to SLOT_UNSORTED. */
-export function categorySlot(name: string): number {
-  if (name === 'Unsorted') return SLOT_UNSORTED
-  return WELL_KNOWN[name.toLowerCase()] ?? (hashCode(name) % PALETTE_SLOT_COUNT)
-}
+export {
+  PALETTE_SLOT_COUNT,
+  ROOT_CATEGORY_NAMES,
+  SLOT_UNSORTED,
+  categorySlot
+} from '../../../shared/sample-palette'
 
 // Ink colors for text rendered on top of a palette-slot color. Light slots
 // leave white text below the 4.5:1 WCAG minimum, so text on them switches to

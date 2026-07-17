@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import HomeScreen from './HomeScreen'
 import type { FolderView } from '../hooks/useFolderSetup'
-import type { MixJamFileItem } from '../../../shared/backend-api'
+import type { MixJamFileItem, MixJamGeneratorReadiness } from '../../../shared/backend-api'
 
 const SET_FOLDER: FolderView = {
   status: 'set',
@@ -12,6 +12,11 @@ const SET_FOLDER: FolderView = {
 const UNSET_FOLDER: FolderView = {
   status: 'empty',
   ref: null
+}
+
+const SAMPLE_FOLDER_NEEDS_PERMISSION: FolderView = {
+  status: 'needs-permission',
+  ref: { id: 'test-sample-folder', name: 'Samples' }
 }
 
 const RECENT_PROJECTS: MixJamFileItem[] = [
@@ -37,6 +42,7 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
         rootKey: 'test-user-folder',
         lastCompletedAt: 1
       }}
+      generatorReadiness={{ status: 'ready', detectedBpm: 140, eligibleSamples: 2 }}
       canStart={true}
       mixJamFiles={[]}
       projectBusy={false}
@@ -93,6 +99,77 @@ describe('HomeScreen', () => {
     const swatch = screen.getByLabelText('Switch to Rust Industrial theme')
     fireEvent.click(swatch)
     expect(onThemeChange).toHaveBeenCalledWith('rust')
+  })
+
+  it('shows the generator when the sample folder is set and gates it on readiness', () => {
+    const onOpenGenerator = vi.fn()
+    const { rerender } = renderHome({ onOpenGenerator })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate MixJam' }))
+    expect(onOpenGenerator).toHaveBeenCalledOnce()
+
+    const busy: MixJamGeneratorReadiness = { status: 'preparing', message: 'Scanning library' }
+    rerender(<HomeScreen
+      userFolder={SET_FOLDER}
+      sampleFolder={SET_FOLDER}
+      librarySyncState={{ status: 'ready', rootKey: 'test-user-folder', lastCompletedAt: 1 }}
+      generatorReadiness={busy}
+      canStart mixJamFiles={[]} projectBusy={false} activeTheme="emerald"
+      onThemeChange={vi.fn()} onPickUser={vi.fn()} onPickSample={vi.fn()}
+      onRestoreUser={vi.fn()} onRestoreSample={vi.fn()} onRetryLibrarySync={vi.fn()}
+      onCancelLibrarySync={vi.fn()} onStart={vi.fn()} onLoad={vi.fn()}
+      onOpenProject={vi.fn()} onOpenGenerator={onOpenGenerator}
+    />)
+    expect(screen.getByRole('button', { name: 'Preparing library…' })).toBeDisabled()
+    expect(screen.getByText('Scanning library')).toBeInTheDocument()
+    expect(screen.queryByText('Wait for library preparation to finish.')).toBeNull()
+  })
+
+  it('offers Prepare library when the generator reports needs-preparation', () => {
+    const onRetryLibrarySync = vi.fn()
+    renderHome({
+      generatorReadiness: { status: 'needs-preparation', message: 'Library needs analysis' },
+      onRetryLibrarySync
+    })
+    expect(screen.getByText('Library needs analysis')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare library' }))
+    expect(onRetryLibrarySync).toHaveBeenCalledOnce()
+  })
+
+  it('explains when the User Folder blocks generation', () => {
+    renderHome({
+      userFolder: UNSET_FOLDER,
+      canStart: false
+    })
+
+    expect(screen.getByRole('button', { name: 'Generate MixJam' })).toBeDisabled()
+    expect(screen.getByText('Select an accessible User Folder before generating.')).toBeInTheDocument()
+  })
+
+  it.each([
+    'No analyzed samples are available for generation.',
+    'The Sample Folder is unavailable. Restore access before generating.'
+  ])('shows the specific generator prerequisite: %s', (message) => {
+    renderHome({
+      generatorReadiness: { status: 'needs-preparation', message }
+    })
+
+    expect(screen.getByText(message)).toBeInTheDocument()
+    expect(screen.queryByText('Wait for library preparation to finish.')).toBeNull()
+  })
+
+  it('keeps the generator recovery visible when the Sample Folder needs permission', () => {
+    const onRestoreSample = vi.fn()
+    renderHome({
+      sampleFolder: SAMPLE_FOLDER_NEEDS_PERMISSION,
+      generatorReadiness: null,
+      canStart: false,
+      onRestoreSample
+    })
+
+    expect(screen.getByText('Restore access to the Sample Folder before generating.'))
+      .toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Sample Folder' }))
+    expect(onRestoreSample).toHaveBeenCalledOnce()
   })
 
   it('keeps Home theme previews without repeating the selected theme name', () => {

@@ -131,9 +131,12 @@ export interface PlayerProjectProps {
   name: string
   dirty: boolean
   busy: boolean
+  canRegenerate?: boolean
   onNew: () => Promise<void>
   onOpen: () => Promise<boolean>
   onOpenPath: (projectRelpath: string) => Promise<boolean>
   onSave: () => Promise<boolean>
   onSaveAs: () => Promise<boolean>
+  onRegenerateExact?: () => void
+  onRegenerateCurrent?: () => void
 }

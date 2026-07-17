@@ -1,6 +1,6 @@
 import FolderCard from './FolderCard'
 import type { FolderView } from '../hooks/useFolderSetup'
-import type { LibrarySyncState, MixJamFileItem } from '../../../shared/backend-api'
+import type { LibrarySyncState, MixJamFileItem, MixJamGeneratorReadiness } from '../../../shared/backend-api'
 import { THEME_OPTIONS, resolveTheme } from '../theme/themes'
 import LibrarySyncStatus from './LibrarySyncStatus'
 import { Tooltip } from './ui/Tooltip'
@@ -26,6 +26,8 @@ interface HomeScreenProps {
   onStart: () => Promise<void>
   onLoad: () => Promise<boolean>
   onOpenProject: (projectRelpath: string) => Promise<boolean>
+  onOpenGenerator?: () => void
+  generatorReadiness?: MixJamGeneratorReadiness | null
 }
 
 const userIcon = (
@@ -67,10 +69,40 @@ export default function HomeScreen({
   onCancelLibrarySync,
   onStart,
   onLoad,
-  onOpenProject
+  onOpenProject,
+  onOpenGenerator,
+  generatorReadiness
 }: HomeScreenProps) {
   const sampleDisabled = userFolder.status !== 'set'
   const homeRecent = mixJamFiles.slice(0, HOME_RECENT_LIMIT)
+  const generatorReady = generatorReadiness?.status === 'ready'
+  const generatorNeedsPreparation = generatorReadiness?.status === 'needs-preparation'
+  const userFolderUnavailable = userFolder.status !== 'set'
+  const sampleFolderUnavailable = sampleFolder.status !== 'set'
+  const generatorLabel = sampleFolderUnavailable
+    ? sampleFolder.status === 'needs-permission' ? 'Restore Sample Folder' : 'Pick Sample Folder'
+    : generatorReady
+      ? 'Generate MixJam'
+      : generatorNeedsPreparation
+        ? 'Prepare library'
+        : 'Preparing library…'
+  const generatorAction = sampleFolderUnavailable
+    ? sampleFolder.status === 'needs-permission' ? onRestoreSample : onPickSample
+    : generatorReady ? onOpenGenerator : onRetryLibrarySync
+  let generatorMessage: string | null
+  if (userFolderUnavailable) {
+    generatorMessage = userFolder.status === 'needs-permission'
+      ? 'Restore access to the User Folder before generating.'
+      : 'Select an accessible User Folder before generating.'
+  } else if (sampleFolderUnavailable) {
+    generatorMessage = sampleFolder.status === 'needs-permission'
+      ? 'Restore access to the Sample Folder before generating.'
+      : 'Select an accessible Sample Folder before generating.'
+  } else if (!generatorReadiness) {
+    generatorMessage = 'Checking library readiness…'
+  } else {
+    generatorMessage = generatorReadiness.status === 'ready' ? null : generatorReadiness.message
+  }
 
   return (
     <div className="home-screen">
@@ -171,6 +203,26 @@ export default function HomeScreen({
           >
             {projectBusy ? 'Opening…' : 'Load MixJam'}
           </button>
+
+          {sampleFolder.ref && (
+            <section className="home-generator-card" aria-labelledby="home-generator-title">
+              <div>
+                <h2 id="home-generator-title">Generate a MixJam</h2>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={userFolderUnavailable || projectBusy || (!sampleFolderUnavailable &&
+                  (!canStart || (!generatorReady && !generatorNeedsPreparation)))}
+                onClick={generatorAction}
+              >
+                {generatorLabel}
+              </button>
+              {generatorMessage && (
+                <p className="home-launch-hint">{generatorMessage}</p>
+              )}
+            </section>
+          )}
 
         </section>
 

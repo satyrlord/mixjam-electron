@@ -13,7 +13,8 @@ import {
   projectFingerprint,
   serializeProject,
   type ProjectData,
-  type ProjectDocument
+  type ProjectDocument,
+  type ProjectGeneratorMetadata
 } from '../project/project-file'
 import { useSyncedRef } from './useSyncedRef'
 import {
@@ -37,6 +38,7 @@ export interface ProjectPersistenceState {
   projectError: string | null
   projectWarning: string | null
   projectMissingSamplePaths: ReadonlySet<string>
+  projectGenerator: ProjectGeneratorMetadata | null
 }
 
 export interface ProjectPersistenceActions {
@@ -45,6 +47,7 @@ export interface ProjectPersistenceActions {
   openProjectPath: (projectRelpath: string) => Promise<boolean>
   saveProject: () => Promise<boolean>
   saveProjectAs: () => Promise<boolean>
+  saveGeneratedProject: (project: ProjectData, basename: string) => Promise<string | null>
   clearProjectNotice: () => void
 }
 
@@ -88,11 +91,13 @@ export function useProjectPersistence({
   replaceChannels,
   reloadMixJamFiles
 }: UseProjectPersistenceParams): ProjectPersistence {
+  const [projectGenerator, setProjectGenerator] = useState<ProjectGeneratorMetadata | null>(null)
   const currentProject = useMemo<ProjectData>(() => ({
     song,
     lanes,
-    channels
-  }), [channels, lanes, song])
+    channels,
+    ...(projectGenerator === null ? {} : { generator: projectGenerator })
+  }), [channels, lanes, projectGenerator, song])
   const currentFingerprint = useMemo(
     () => projectFingerprint(currentProject),
     [currentProject]
@@ -144,6 +149,7 @@ export function useProjectPersistence({
       createdAt: document.createdAt,
       modifiedAt: document.modifiedAt
     })
+    setProjectGenerator(document.generator ?? null)
   }, [replaceChannels, replaceTransportProject])
 
   const finishOpen = useCallback(async (
@@ -285,6 +291,54 @@ export function useProjectPersistence({
     }
   }, [backendAPI, commitSavedProject, currentProjectRef, metadataRef, saveProjectAs, userFolder])
 
+  const saveGeneratedProject = useCallback(async (
+    project: ProjectData,
+    basename: string
+  ): Promise<string | null> => {
+    if (!userFolder || !sampleFolder) {
+      setProjectError('Select both folders before generating a MixJam.')
+      return null
+    }
+    setOperation('saving')
+    setProjectError(null)
+    setProjectWarning(null)
+    try {
+      const missing = await backendAPI.findMissingSampleFiles(sampleFolder, allSampleRefs(project))
+      if (missing.length > 0) {
+        throw new Error(`${missing.length} selected sample${missing.length === 1 ? '' : 's'} changed or disappeared. Prepare the library and generate again.`)
+      }
+      const now = new Date().toISOString()
+      const contents = serializeProject(project, {
+        appVersion: await backendAPI.getVersion(),
+        createdAt: now,
+        modifiedAt: now
+      })
+      const saved = await backendAPI.createGeneratedMixJamFile(userFolder, basename, contents)
+      const failedUpdates: string[] = []
+      try {
+        await backendAPI.recordRecentProject(saved.path)
+      } catch {
+        failedUpdates.push('add it to recent projects')
+      }
+      try {
+        await reloadMixJamFiles()
+      } catch {
+        failedUpdates.push('refresh the project list')
+      }
+      if (failedUpdates.length > 0) {
+        setProjectWarning(
+          `MixJam was saved as "${saved.path}", but MixJam could not ${failedUpdates.join(' or ')}. You can still open the file from the User Folder.`
+        )
+      }
+      return saved.path
+    } catch (error) {
+      setProjectError(errorMessage(error))
+      return null
+    } finally {
+      setOperation('idle')
+    }
+  }, [backendAPI, reloadMixJamFiles, sampleFolder, userFolder])
+
   const beginNewProject = useCallback(() => {
     const project: ProjectData = {
       song: createDefaultProjectSongState(),
@@ -305,6 +359,7 @@ export function useProjectPersistence({
       createdAt: null,
       modifiedAt: null
     })
+    setProjectGenerator(null)
     setProjectMissingSamplePaths(new Set())
     setProjectError(null)
     setProjectWarning(null)
@@ -318,11 +373,13 @@ export function useProjectPersistence({
     projectError,
     projectWarning,
     projectMissingSamplePaths,
+    projectGenerator,
     beginNewProject,
     openProjectPicker,
     openProjectPath,
     saveProject,
     saveProjectAs,
+    saveGeneratedProject,
     clearProjectNotice
   }
 }

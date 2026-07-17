@@ -485,8 +485,8 @@ describe('duplicatePlacementGroup', () => {
 
   it('gives every duplicated placement a unique id when sources share samplePath and destination', () => {
     // Regression test: two placements of the same sample, clamped to the same
-    // target lane+tick (e.g. a group drag near the grid edge), used to be
-    // able to collide on id because ids were derived only from
+    // target lane+tick (e.g. a group drag near the grid edge), previously
+    // collided on id because ids were derived only from
     // samplePath+startTick+Date.now(). A collision meant deleting one
     // duplicated placement silently deleted both.
     const lanes = createDefaultLanes()

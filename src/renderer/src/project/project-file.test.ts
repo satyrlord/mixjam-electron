@@ -8,11 +8,27 @@ import {
   parseProject,
   projectFingerprint,
   serializeProject,
-  type ProjectData
+  supportsExactGeneratorRegeneration,
+  type ProjectData,
+  type ProjectGeneratorMetadata
 } from './project-file'
 
 const CREATED_AT = '2026-07-13T10:00:00.000Z'
 const MODIFIED_AT = '2026-07-13T11:00:00.000Z'
+const GENERATOR: ProjectGeneratorMetadata = {
+  generatorVersion: 1,
+  profileId: 'techno',
+  profileVersion: 2,
+  seed: 'safe-seed_42',
+  parameters: {
+    bpmMode: 'follow-detected',
+    resolvedBpm: 140,
+    intensity: 'medium',
+    durationSeconds: 180
+  },
+  corpusFingerprint: 'sha256_abc123',
+  sampleFolderKey: 'sample-folder-1'
+}
 
 function makeProject(): ProjectData {
   const lanes = createDefaultLanes()
@@ -70,6 +86,16 @@ function serialize(project = makeProject(), modifiedAt = MODIFIED_AT): string {
 }
 
 describe('project file format', () => {
+  it('supports regeneration only for the current generator and profile versions', () => {
+    expect(supportsExactGeneratorRegeneration({ ...GENERATOR, profileVersion: 1 })).toBe(true)
+    expect(supportsExactGeneratorRegeneration(GENERATOR)).toBe(false)
+    expect(supportsExactGeneratorRegeneration({
+      ...GENERATOR,
+      generatorVersion: 2,
+      profileVersion: 1
+    })).toBe(false)
+  })
+
   it('round-trips arrangement, Song, Mixer, routing, and FX state', () => {
     const parsed = parseProject(serialize())
 
@@ -115,6 +141,69 @@ describe('project file format', () => {
     delete first.modifiedAt
     delete second.modifiedAt
     expect(second).toEqual(first)
+  })
+
+  it('round-trips format-3 generator metadata', () => {
+    const project = { ...makeProject(), generator: GENERATOR }
+    const parsed = parseProject(serialize(project))
+
+    expect(parsed.formatVersion).toBe(3)
+    expect(parsed.generator).toEqual(GENERATOR)
+
+    const serialized = JSON.parse(serializeProject(parsed, {
+      appVersion: parsed.appVersion,
+      createdAt: parsed.createdAt,
+      modifiedAt: parsed.modifiedAt
+    })) as { generator: ProjectGeneratorMetadata }
+    expect(serialized.generator).toEqual(GENERATOR)
+  })
+
+  it('migrates version 2 without inventing generator metadata or changing project state', () => {
+    const versionTwo = JSON.parse(serialize()) as Record<string, unknown>
+    versionTwo.formatVersion = 2
+    delete versionTwo.generator
+
+    const migrated = parseProject(JSON.stringify(versionTwo))
+    const reparsed = parseProject(serializeProject(migrated, {
+      appVersion: migrated.appVersion,
+      createdAt: migrated.createdAt,
+      modifiedAt: migrated.modifiedAt
+    }))
+
+    expect(migrated.formatVersion).toBe(3)
+    expect(migrated).not.toHaveProperty('generator')
+    expect(reparsed).toEqual(migrated)
+  })
+
+  it.each([
+    ['generatorVersion', 0, 'project.generator.generatorVersion'],
+    ['profileId', 'ambient', 'project.generator.profileId'],
+    ['profileVersion', 0, 'project.generator.profileVersion'],
+    ['seed', 'not safe', 'project.generator.seed'],
+    ['seed', 'a'.repeat(65), 'project.generator.seed'],
+    ['corpusFingerprint', '', 'project.generator.corpusFingerprint'],
+    ['sampleFolderKey', '', 'project.generator.sampleFolderKey']
+  ])('rejects invalid generator %s', (field, value, expectedPath) => {
+    const raw = JSON.parse(serialize({ ...makeProject(), generator: GENERATOR })) as {
+      generator: Record<string, unknown>
+    }
+    raw.generator[field] = value
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(expectedPath)
+  })
+
+  it.each([
+    ['bpmMode', 'automatic', 'project.generator.parameters.bpmMode'],
+    ['resolvedBpm', 59, 'project.generator.parameters.resolvedBpm'],
+    ['intensity', 'extreme', 'project.generator.parameters.intensity'],
+    ['durationSeconds', 601, 'project.generator.parameters.durationSeconds']
+  ])('rejects invalid generator parameter %s', (field, value, expectedPath) => {
+    const raw = JSON.parse(serialize({ ...makeProject(), generator: GENERATOR })) as {
+      generator: { parameters: Record<string, unknown> }
+    }
+    raw.generator.parameters[field] = value
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(expectedPath)
   })
 
   it('serializes only project content, without capacity padding or a stored song end', () => {
@@ -217,7 +306,7 @@ describe('project file format', () => {
       modifiedAt: migrated.modifiedAt
     }))
 
-    expect(migrated.formatVersion).toBe(2)
+    expect(migrated.formatVersion).toBe(3)
     expect(migrated.song).toEqual({
       bpm: 126,
       masterGain: 0.8,
@@ -294,5 +383,6 @@ describe('project file format', () => {
       ...project,
       channels: project.channels.slice(1)
     })).not.toBe(baseline)
+    expect(projectFingerprint({ ...project, generator: GENERATOR })).not.toBe(baseline)
   })
 })

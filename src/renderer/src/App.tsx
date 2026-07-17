@@ -8,6 +8,8 @@ import { useAppState } from './hooks/useAppState'
 import { useFolderSetup } from './hooks/useFolderSetup'
 import { createPlayerViewModel } from './hooks/playerViewModel'
 import { selectTheme } from './theme/themes'
+import MixJamGeneratorDialog from './components/MixJamGeneratorDialog'
+import { useMixJamGenerator } from './hooks/useMixJamGenerator'
 
 export default function App() {
   const { userFolder, sampleFolder, canStart, pickUser, pickSample, restoreUser, restoreSample } =
@@ -18,6 +20,7 @@ export default function App() {
 
   const app = useAppState(window.backendAPI, resolvedUserFolder, resolvedSampleFolder)
   const player = createPlayerViewModel(app)
+  const generator = useMixJamGenerator(app, window.backendAPI, resolvedSampleFolder)
 
   const [activeTheme, setActiveTheme] = useState('emerald')
 
@@ -70,6 +73,8 @@ export default function App() {
             onStart={app.startNewProject}
             onLoad={app.openProjectPicker}
             onOpenProject={app.openProjectPath}
+            onOpenGenerator={generator.openNew}
+            generatorReadiness={generator.readiness}
           />
         ) : (
           <PlayerView
@@ -78,7 +83,11 @@ export default function App() {
             arrangement={player.arrangement}
             transport={player.transport}
             mixer={player.mixer}
-            project={player.project}
+            project={{
+              ...player.project,
+              onRegenerateExact: generator.openRegenerateExact,
+              onRegenerateCurrent: generator.openRegenerateCurrent
+            }}
           />
         )}
       </main>
@@ -89,6 +98,19 @@ export default function App() {
         onSelectFolder={pickUser}
         onOpenRepo={app.openRepo}
         getSampleBuffer={app.getSampleBuffer}
+      />
+      <MixJamGeneratorDialog
+        open={generator.open}
+        readiness={generator.readiness}
+        initialParameters={generator.initialParameters}
+        generating={generator.generating}
+        saving={generator.saving}
+        progress={generator.progress}
+        result={generator.result}
+        error={generator.error}
+        onClose={generator.close}
+        onGenerate={generator.onGenerate}
+        onOpenResult={generator.onOpenResult}
       />
       </div>
     </TooltipProvider>

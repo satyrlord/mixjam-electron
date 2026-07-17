@@ -14,6 +14,10 @@ import type {
   LibraryScanDone,
   LibrarySyncStartResult,
   LibrarySyncTrigger,
+  MixJamGeneratorParameters,
+  MixJamGeneratorPlan,
+  MixJamGeneratorProgress,
+  MixJamGeneratorReadiness,
   SampleQueryRequest,
   SampleQueryResponse,
   ScanProgress,
@@ -26,6 +30,15 @@ import type {
  * may return a promise. The client facade always exposes a promise boundary. */
 export interface BackendCalls {
   querySamples: (req: SampleQueryRequest) => SampleQueryResponse
+  getGeneratorReadiness: (rootKey: string) => MixJamGeneratorReadiness
+  planMixJam: (
+    rootKey: string,
+    jobId: string,
+    parameters: MixJamGeneratorParameters,
+    expectedFingerprint?: string
+  ) => Promise<MixJamGeneratorPlan>
+  cancelMixJamPlanning: (jobId: string) => void
+  getGeneratorProgress: () => MixJamGeneratorProgress
   getLibraryRootState: (rootKey: string) => LibraryRootState
   listMissingRelpaths: (rootKey: string) => string[]
   startLibrarySync: (rootKey: string, trigger: LibrarySyncTrigger) => LibrarySyncStartResult
@@ -75,5 +88,6 @@ export type WorkerEvent =
   | { type: 'analysis-done'; done: AnalysisDone }
   | { type: 'calibration-progress'; progress: CalibrationProgress }
   | { type: 'calibration-done'; done: CalibrationDone }
+  | { type: 'generator-progress'; progress: MixJamGeneratorProgress }
 
 export type WorkerMessage = WorkerResponse | WorkerEvent

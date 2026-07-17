@@ -103,8 +103,8 @@ export function useMixer(
   // Per-channel reusable Float32Array buffers for analyser reads.
   const meterBuffersRef = useRef(new Map<number, Float32Array>())
 
-  // Spec 011 moved audible project state into .mixjam files. Remove the legacy
-  // app-level snapshot without importing it into the new or loaded project.
+  // Project-owned mixer state lives in .mixjam files. Clean up the
+  // app-level storage key without importing it into the current project.
   useEffect(() => {
     try {
       localStorage.removeItem(LEGACY_STORAGE_KEY)

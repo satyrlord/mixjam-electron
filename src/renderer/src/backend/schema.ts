@@ -1,10 +1,7 @@
 import type { DB } from './sql'
 
-// Schema v1 of the OPFS-backed database. This is a fresh start relative to the
-// old Electron userData library.db (v4): no migration chain — the old file is
-// abandoned and the index rebuilt by the first scan (scans are the recovery
-// path for everything). Bump SCHEMA_VERSION and add version-gated migrations
-// here only from v1 onward.
+// Schema of the OPFS-backed database. Bump SCHEMA_VERSION and add
+// version-gated migrations below.
 const SCHEMA_VERSION = 3
 
 /** Bump when metadata parsing semantics change for unchanged file bytes. */
@@ -137,9 +134,9 @@ export function initSchema(db: DB): void {
 
   let version = row.version
 
-  // v3 was exercised during development before the legacy marker was added.
-  // Repair those local databases in place so the unchanged version number does
-  // not leave getLibraryRootState querying a missing column.
+  // Early v3 databases may lack the legacy_index_available column. Repair
+  // them in place so the unchanged version number does not cause
+  // getLibraryRootState to query a missing column.
   if (version >= 3) {
     const rootColumns = new Set(
       db.prepare('PRAGMA table_info(scan_roots)').all<{ name: string }>().map((column) => column.name)
@@ -190,10 +187,10 @@ export function initSchema(db: DB): void {
       db.exec('ALTER TABLE samples ADD COLUMN analysis_revision INTEGER NOT NULL DEFAULT 0')
     }
 
-    // The old schema did not persist root completion, so keep its timestamp
-    // unknown while explicitly preserving browseability for roots that already
-    // contain current, non-missing rows. New v3 roots keep the default false
-    // marker until their first scan completes.
+    // Pre-v3 databases did not persist root completion. Keep the timestamp
+    // unknown while preserving browseability for roots that already contain
+    // current, non-missing rows. New roots keep the default false marker
+    // until their first scan completes.
     db.prepare(
       `UPDATE scan_roots
        SET legacy_index_available = 1
@@ -205,11 +202,11 @@ export function initSchema(db: DB): void {
        )`
     ).run()
 
-    // Metadata-ready rows can be stamped current because scan_state proves that
+    // Metadata-ready rows are stamped current because scan_state proves that
     // phase completed. Analysis ran after scan-done and could be interrupted,
     // so stamp only rows with evidence that applyAnalysisResult ran. Rows whose
-    // legacy result was entirely NULL are deliberately retried once because
-    // the old schema cannot distinguish "attempted" from "never reached".
+    // prior result was entirely NULL are retried once because NULL alone cannot
+    // distinguish "attempted" from "never reached".
     db.prepare(
       `UPDATE samples
        SET metadata_revision = ?

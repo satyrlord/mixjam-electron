@@ -14,9 +14,20 @@ import type {
   SampleAnalysisDone,
   SampleAnalysisJobIdentity,
   SampleQueryRequest,
+  MixJamGeneratorParameters,
+  MixJamGeneratorProgress,
   ScanProgress
 } from '../../../shared/backend-api'
-import { normalizeSampleQueryRequest } from '../../../shared/backend-api'
+import { normalizeSampleQueryRequest, SAFE_GENERATOR_TOKEN } from '../../../shared/backend-api'
+import { createMixJamGeneratorPlan } from './generator-engine'
+import { analyzeGeneratorCandidates } from './generator-analysis'
+import { validateMixJamGeneratorParameters } from './generator-parameters'
+import {
+  detectedGeneratorBpm,
+  fingerprintGeneratorSnapshot,
+  getStoredGeneratorReadiness,
+  loadGeneratorSnapshot
+} from './generator-library'
 import type { BackendCalls, WorkerMessage, WorkerRequest } from './protocol'
 import { DB } from './sql'
 import { initSchema } from './schema'
@@ -55,12 +66,21 @@ const CALIBRATION_IDLE: CalibrationProgress = {
   analyzed: 0,
   total: 0
 }
+const GENERATOR_IDLE: MixJamGeneratorProgress = {
+  identity: null,
+  status: 'idle',
+  phase: null,
+  completed: 0,
+  total: 0
+}
 
 let progress: ScanProgress = { ...IDLE }
 let analysisProgress: AnalysisProgress = { ...ANALYSIS_IDLE }
 let calibrationProgress: CalibrationProgress = { ...CALIBRATION_IDLE }
+let generatorProgress: MixJamGeneratorProgress = { ...GENERATOR_IDLE }
 let syncGeneration = 0
 let calibrationGeneration = 0
+let generatorGeneration = 0
 let jobSequence = 0
 let selectedRootKey: string | null = null
 
@@ -78,15 +98,36 @@ interface ActiveSampleAnalysisJob {
   identity: SampleAnalysisJobIdentity
 }
 
+interface ActiveGeneratorJob {
+  identity: { rootKey: string; jobId: string }
+  generation: number
+}
+
 let activeSync: ActiveSyncJob | null = null
 let activeCalibration: ActiveCalibrationJob | null = null
 let activeSingleAnalysis: ActiveSampleAnalysisJob | null = null
+let activeGenerator: ActiveGeneratorJob | null = null
 const completedAutomaticJobs = new Map<string, LibraryJobIdentity>()
 const automaticAttemptJobIds = new Set<string>()
 const queuedSyncs = new Map<string, LibraryJobIdentity>()
 
 function emitEvent(message: WorkerMessage): void {
   ctx.postMessage(message)
+}
+
+function cancelActiveGenerator(): void {
+  if (!activeGenerator) return
+  const { identity } = activeGenerator
+  generatorGeneration++
+  activeGenerator = null
+  generatorProgress = {
+    identity,
+    status: 'cancelled',
+    phase: generatorProgress.phase,
+    completed: generatorProgress.completed,
+    total: generatorProgress.total
+  }
+  emitEvent({ type: 'generator-progress', progress: generatorProgress })
 }
 
 interface ReadyState {
@@ -279,6 +320,7 @@ function startLibrarySync(
   rootKey: string,
   trigger: LibrarySyncTrigger
 ): LibrarySyncStartResult {
+  if (activeGenerator) cancelActiveGenerator()
   if (activeSingleAnalysis) {
     if (trigger === 'manual') {
       throw new Error('Wait for the current sample analysis to finish')
@@ -535,13 +577,104 @@ function buildCalls(db: DB): BackendCalls {
   return {
     querySamples: (req: SampleQueryRequest) =>
       library.querySamples(db, normalizeSampleQueryRequest(req)),
+    getGeneratorReadiness: (rootKey) => {
+      if (
+        activeSync?.identity.rootKey === rootKey ||
+        activeSingleAnalysis?.identity.rootKey === rootKey ||
+        activeCalibration?.identity.rootKey === rootKey ||
+        activeGenerator?.identity.rootKey === rootKey
+      ) {
+        return { status: 'preparing', message: 'Library preparation is still running.' }
+      }
+      return getStoredGeneratorReadiness(db, rootKey)
+    },
+    planMixJam: async (
+      rootKey: string,
+      jobId: string,
+      parameters: MixJamGeneratorParameters,
+      expectedFingerprint?: string
+    ) => {
+      if (!SAFE_GENERATOR_TOKEN.test(jobId)) throw new Error('The generator job ID is invalid.')
+      validateMixJamGeneratorParameters(parameters)
+      if (
+        activeSync || activeSingleAnalysis || activeCalibration || activeGenerator
+      ) {
+        throw new Error('Wait for library preparation to finish before generating.')
+      }
+      const generation = ++generatorGeneration
+      const identity = { rootKey, jobId }
+      activeGenerator = { identity, generation }
+      const isCurrent = (): boolean =>
+        activeGenerator?.identity.jobId === jobId &&
+        activeGenerator.generation === generation &&
+        generatorGeneration === generation
+      try {
+        generatorProgress = { identity, status: 'running', phase: 'shortlisting', completed: 0, total: 0 }
+        emitEvent({ type: 'generator-progress', progress: generatorProgress })
+        const snapshot = loadGeneratorSnapshot(db, rootKey)
+        const detectedBpm = detectedGeneratorBpm(snapshot.candidates)
+        const fingerprint = await fingerprintGeneratorSnapshot(snapshot)
+        if (expectedFingerprint !== undefined && fingerprint !== expectedFingerprint) {
+          throw new Error('The Sample Folder has changed since this project was generated.')
+        }
+        const rootHandle = await loadFolderHandle(rootKey)
+        if (!rootHandle) throw new Error('The Sample Folder is no longer available.')
+        let attemptedFiles = 0
+        const analyzed = await analyzeGeneratorCandidates(
+          rootHandle,
+          snapshot.candidates,
+          parameters,
+          (next) => {
+            if (!isCurrent()) return
+            attemptedFiles = next.phase === 'analyzing' ? Math.max(attemptedFiles, next.completed) : attemptedFiles
+            generatorProgress = { identity, status: 'running', ...next }
+            emitEvent({ type: 'generator-progress', progress: generatorProgress })
+          },
+          isCurrent
+        )
+        if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
+        generatorProgress = { identity, status: 'running', phase: 'arranging', completed: analyzed.length, total: analyzed.length }
+        emitEvent({ type: 'generator-progress', progress: generatorProgress })
+        const plan = createMixJamGeneratorPlan(rootKey, fingerprint, analyzed, parameters, {
+          attemptedFiles,
+          analyzedFiles: analyzed.length,
+          uniqueReads: attemptedFiles
+        }, detectedBpm)
+        if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
+        activeGenerator = null
+        generatorProgress = { ...GENERATOR_IDLE }
+        return plan
+      } catch (error) {
+        if (isCurrent()) {
+          const message = error instanceof Error ? error.message : String(error)
+          activeGenerator = null
+          generatorProgress = {
+            identity,
+            status: message.includes('cancelled') ? 'cancelled' : 'error',
+            phase: generatorProgress.phase,
+            completed: generatorProgress.completed,
+            total: generatorProgress.total,
+            ...(message.includes('cancelled') ? {} : { error: message })
+          }
+          emitEvent({ type: 'generator-progress', progress: generatorProgress })
+        }
+        throw error
+      }
+    },
+    cancelMixJamPlanning: (jobId) => {
+      if (activeGenerator?.identity.jobId === jobId) cancelActiveGenerator()
+    },
+    getGeneratorProgress: () => ({ ...generatorProgress }),
     getLibraryRootState: (rootKey) => library.getLibraryRootState(db, rootKey),
     listMissingRelpaths: (rootKey) => library.listMissingRelpaths(db, rootKey),
     startLibrarySync: (rootKey, trigger) => startLibrarySync(db, rootKey, trigger),
     cancelLibrarySync: (jobId) => cancelLibrarySync(db, jobId),
     getScanProgress: () => ({ ...progress }),
     getAnalysisProgress: () => ({ ...analysisProgress }),
-    startUniformFolderCalibration: (rootKey) => startUniformFolderCalibration(db, rootKey),
+    startUniformFolderCalibration: (rootKey) => {
+      if (activeGenerator) throw new Error('Wait for MixJam generation to finish.')
+      return startUniformFolderCalibration(db, rootKey)
+    },
     cancelUniformFolderCalibration: (jobId) => cancelUniformFolderCalibration(db, jobId),
     getCalibrationProgress: () => ({ ...calibrationProgress }),
     listTags: () => library.listTags(db),
@@ -552,7 +685,10 @@ function buildCalls(db: DB): BackendCalls {
     assignTag: (sampleId, tagId) => library.assignTag(db, sampleId, tagId),
     unassignTag: (sampleId, tagId) => library.unassignTag(db, sampleId, tagId),
     updateSampleAnalysis: (sampleId, patch) => library.updateSampleAnalysis(db, sampleId, patch),
-    reanalyzeSample: (rootKey, sampleId, relpath) => reanalyzeSample(db, rootKey, sampleId, relpath),
+    reanalyzeSample: (rootKey, sampleId, relpath) => {
+      if (activeGenerator) throw new Error('Wait for MixJam generation to finish.')
+      return reanalyzeSample(db, rootKey, sampleId, relpath)
+    },
     listCategories: () => library.listCategories(db),
     createCategory: (name, parentId) => library.createCategory(db, name, parentId),
     deleteCategory: (id) => library.deleteCategory(db, id),

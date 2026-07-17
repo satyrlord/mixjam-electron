@@ -3,6 +3,7 @@ import type { FolderRef } from '../../../shared/backend-api'
 import { resolveFileHandle } from './folder-access'
 import { loadFolderHandle } from './handle-store'
 import {
+  createGeneratedMixJamFile,
   findMissingSampleFiles,
   openMixJamFile,
   readMixJamFile,
@@ -39,7 +40,8 @@ function fakeRoot(
     name: 'MixJam',
     queryPermission: vi.fn(async () => permission),
     requestPermission: vi.fn(async () => requestedPermission),
-    resolve: vi.fn(async () => resolvedPath)
+    resolve: vi.fn(async () => resolvedPath),
+    keys: async function* () {}
   } as unknown as FileSystemDirectoryHandle
 }
 
@@ -132,6 +134,84 @@ describe('project file access', () => {
     expect(file.abort).not.toHaveBeenCalled()
   })
 
+  it('creates generated projects with the first free monotonic suffix', async () => {
+    const created = fakeFile('techno-140bpm-medium-seed-003.mixjam')
+    const getFileHandle = vi.fn(async (name: string, options?: { create?: boolean }) => {
+      if (options?.create) return created.handle
+      if (name.endsWith('-001.mixjam') || name.endsWith('-002.mixjam')) return fakeFile(name).handle
+      throw new DOMException('missing', 'NotFoundError')
+    })
+    const root = {
+      ...fakeRoot(),
+      getFileHandle,
+      keys: async function* () {
+        yield 'techno-140bpm-medium-seed-001.mixjam'
+        yield 'techno-140bpm-medium-seed-002.mixjam'
+      }
+    } as unknown as FileSystemDirectoryHandle
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+
+    await expect(createGeneratedMixJamFile(
+      USER_FOLDER,
+      'techno-140bpm-medium-seed',
+      '{"generated":true}\n'
+    )).resolves.toEqual({
+      path: 'techno-140bpm-medium-seed-003.mixjam',
+      contents: '{"generated":true}\n'
+    })
+    expect(getFileHandle).toHaveBeenLastCalledWith(
+      'techno-140bpm-medium-seed-003.mixjam',
+      { create: true }
+    )
+    expect(created.write).toHaveBeenCalledWith('{"generated":true}\n')
+    expect(created.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps generated suffixes monotonic instead of filling deleted gaps', async () => {
+    const created = fakeFile('house-seed-004.mixjam')
+    const root = {
+      ...fakeRoot(),
+      keys: async function* () {
+        yield 'house-seed-001.mixjam'
+        yield 'house-seed-003.mixjam'
+      },
+      getFileHandle: vi.fn(async (name: string, options?: { create?: boolean }) => {
+        if (options?.create && name === 'house-seed-004.mixjam') return created.handle
+        throw new DOMException('missing', 'NotFoundError')
+      })
+    } as unknown as FileSystemDirectoryHandle
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+
+    await expect(createGeneratedMixJamFile(USER_FOLDER, 'house-seed', '{}')).resolves.toMatchObject({
+      path: 'house-seed-004.mixjam'
+    })
+  })
+
+  it('rejects unsafe generated project basenames before touching the folder', async () => {
+    await expect(createGeneratedMixJamFile(USER_FOLDER, '../bad', '{}')).rejects.toThrow(
+      'Generated MixJam basenames may contain only'
+    )
+    expect(loadFolderHandle).not.toHaveBeenCalled()
+  })
+
+  it('removes a newly allocated generated file when its transactional write fails', async () => {
+    const created = fakeFile('house-seed-001.mixjam')
+    created.write.mockRejectedValueOnce(new Error('disk full'))
+    const removeEntry = vi.fn(async () => undefined)
+    const root = {
+      ...fakeRoot(),
+      getFileHandle: vi.fn(async (_name: string, options?: { create?: boolean }) => {
+        if (options?.create) return created.handle
+        throw new DOMException('missing', 'NotFoundError')
+      }),
+      removeEntry
+    } as unknown as FileSystemDirectoryHandle
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+
+    await expect(createGeneratedMixJamFile(USER_FOLDER, 'house-seed', '{}')).rejects.toThrow('disk full')
+    expect(removeEntry).toHaveBeenCalledWith('house-seed-001.mixjam')
+  })
+
   it('rejects Save As selections outside the User Folder before writing', async () => {
     const root = fakeRoot(null)
     const file = fakeFile('outside.mixjam')
@@ -186,5 +266,37 @@ describe('project file access', () => {
       'Loops/missing.wav'
     ])).resolves.toEqual(['Loops/missing.wav'])
     expect(resolveFileHandle).toHaveBeenCalledTimes(2)
+  })
+
+  it('serializes two concurrent generated file calls so each gets a distinct suffix', async () => {
+    const created = new Map<string, ReturnType<typeof fakeFile>>()
+    const getFileHandle = vi.fn(async (name: string, options?: { create?: boolean }) => {
+      const entry = created.get(name) ?? fakeFile(name)
+      if (options?.create) {
+        created.set(name, entry)
+        return entry.handle
+      }
+      if (created.has(name)) return entry.handle
+      throw new DOMException('missing', 'NotFoundError')
+    })
+    const root = {
+      ...fakeRoot(),
+      getFileHandle,
+      keys: async function* () {
+        for (const name of created.keys()) yield name
+      }
+    } as unknown as FileSystemDirectoryHandle
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+
+    const firstPromise = createGeneratedMixJamFile(USER_FOLDER, 'house-seed', '{}')
+    const secondPromise = createGeneratedMixJamFile(USER_FOLDER, 'house-seed', '{}')
+    const first = await firstPromise
+    const second = await secondPromise
+
+    expect(first.path).not.toEqual(second.path)
+    expect([first.path, second.path].sort()).toEqual([
+      'house-seed-001.mixjam',
+      'house-seed-002.mixjam'
+    ])
   })
 })

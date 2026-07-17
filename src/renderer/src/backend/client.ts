@@ -21,6 +21,7 @@ import {
   writeAppConfig
 } from './app-state'
 import {
+  createGeneratedMixJamFile,
   findMissingSampleFiles,
   openMixJamFile,
   readMixJamFile,
@@ -87,6 +88,7 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     openMixJamFile,
     readMixJamFile,
     saveMixJamFileAs,
+    createGeneratedMixJamFile,
     writeMixJamFile,
     findMissingSampleFiles,
 
@@ -108,6 +110,11 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
       call('cancelUniformFolderCalibration', jobId),
     getCalibrationProgress: () => call('getCalibrationProgress'),
     querySamples: (req) => call('querySamples', req),
+    getGeneratorReadiness: (sampleFolder) => call('getGeneratorReadiness', sampleFolder.id),
+    planMixJam: (sampleFolder, jobId, parameters, expectedFingerprint) =>
+      call('planMixJam', sampleFolder.id, jobId, parameters, expectedFingerprint),
+    cancelMixJamPlanning: (jobId) => call('cancelMixJamPlanning', jobId),
+    getGeneratorProgress: () => call('getGeneratorProgress'),
     listTags: () => call('listTags'),
     createTag: (name, color) => call('createTag', name, color),
     renameTag: (id, name) => call('renameTag', id, name),
@@ -145,6 +152,9 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     },
     onCalibrationDone: (cb) => {
       return workerProxy.onCalibrationDone(cb)
+    },
+    onGeneratorProgress: (cb) => {
+      return workerProxy.onGeneratorProgress(cb)
     }
   }
 }

@@ -63,7 +63,10 @@ function projectText(project: ProjectData): string {
   })
 }
 
-function useHarness(api: ReturnType<typeof createBackendAPI>) {
+function useHarness(
+  api: ReturnType<typeof createBackendAPI>,
+  reloadMixJamFiles: () => Promise<void> = async () => undefined
+) {
   const [lanes, setLanes] = useState<LaneState[]>(createDefaultLanes)
   const [bpm, setBpm] = useState(120)
   const [masterGain, setMasterGain] = useState(0.8)
@@ -81,8 +84,6 @@ function useHarness(api: ReturnType<typeof createBackendAPI>) {
     setClipEdgeMicroFades(state.song.clipEdgeMicroFades)
   }, [])
   const replaceChannels = useCallback((next: ChannelState[]) => setChannels(next), [])
-  const reloadMixJamFiles = useCallback(async () => undefined, [])
-
   const project = useProjectPersistence({
     backendAPI: api,
     userFolder: USER_FOLDER,
@@ -115,6 +116,74 @@ describe('useProjectPersistence', () => {
 
   beforeEach(() => {
     api = createBackendAPI()
+  })
+
+  it('saves a generated project as a new artifact without replacing the loaded project', async () => {
+    const generated = makeProject(140)
+    generated.generator = {
+      generatorVersion: 1,
+      profileId: 'techno',
+      profileVersion: 1,
+      seed: 'stable',
+      parameters: { bpmMode: 'fixed', resolvedBpm: 140, intensity: 'medium', durationSeconds: 180 },
+      corpusFingerprint: 'abc123',
+      sampleFolderKey: SAMPLE_FOLDER.id
+    }
+    vi.mocked(api.createGeneratedMixJamFile).mockImplementation(async (_folder, _basename, contents) => ({ path: 'techno-stable-001.mixjam', contents }))
+    const { result } = renderHook(() => useHarness(api))
+
+    let path: string | null = null
+    await act(async () => { path = await result.current.project.saveGeneratedProject(generated, 'techno-stable') })
+
+    expect(path).toBe('techno-stable-001.mixjam')
+    expect(result.current.project.projectName).toBe('Untitled')
+    const contents = vi.mocked(api.createGeneratedMixJamFile).mock.calls[0]![2]
+    expect(parseProject(contents).generator).toEqual(generated.generator)
+    expect(api.findMissingSampleFiles).toHaveBeenCalledWith(SAMPLE_FOLDER, ['Loops/beat.wav'])
+  })
+
+  it('returns the committed generated path when recent-project registration fails', async () => {
+    vi.mocked(api.createGeneratedMixJamFile).mockResolvedValue({ path: 'techno-seed-001.mixjam', contents: '{}' })
+    vi.mocked(api.recordRecentProject).mockRejectedValueOnce(new Error('storage full'))
+    const { result } = renderHook(() => useHarness(api))
+
+    let path: string | null = 'not-run'
+    await act(async () => { path = await result.current.project.saveGeneratedProject(makeProject(), 'techno-seed') })
+
+    expect(path).toBe('techno-seed-001.mixjam')
+    expect(result.current.project.projectError).toBeNull()
+    expect(result.current.project.projectWarning).toContain('could not add it to recent projects')
+    expect(result.current.project.projectWarning).toContain('You can still open the file from the User Folder.')
+  })
+
+  it('returns the committed generated path when the project-list refresh fails', async () => {
+    vi.mocked(api.createGeneratedMixJamFile).mockResolvedValue({ path: 'techno-seed-001.mixjam', contents: '{}' })
+    const reloadMixJamFiles = vi.fn().mockRejectedValueOnce(new Error('refresh failed'))
+    const { result } = renderHook(() => useHarness(api, reloadMixJamFiles))
+
+    let path: string | null = 'not-run'
+    await act(async () => { path = await result.current.project.saveGeneratedProject(makeProject(), 'techno-seed') })
+
+    expect(path).toBe('techno-seed-001.mixjam')
+    expect(api.recordRecentProject).toHaveBeenCalledWith('techno-seed-001.mixjam')
+    expect(reloadMixJamFiles).toHaveBeenCalledOnce()
+    expect(result.current.project.projectError).toBeNull()
+    expect(result.current.project.projectWarning).toContain('could not refresh the project list')
+  })
+
+  it('reports a pre-commit generated-file failure and does not run post-commit updates', async () => {
+    vi.mocked(api.createGeneratedMixJamFile).mockRejectedValueOnce(new Error('write failed'))
+    const reloadMixJamFiles = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() => useHarness(api, reloadMixJamFiles))
+
+    let path: string | null = 'not-run'
+    await act(async () => { path = await result.current.project.saveGeneratedProject(makeProject(), 'techno-seed') })
+
+    expect(path).toBeNull()
+    expect(api.recordRecentProject).not.toHaveBeenCalled()
+    expect(reloadMixJamFiles).not.toHaveBeenCalled()
+    expect(result.current.project.projectError).toBe('write failed')
+    expect(result.current.project.projectWarning).toBeNull()
   })
 
   it('marks every project-owned edit dirty and clears dirty state after Save As', async () => {

@@ -35,7 +35,7 @@ describe('schema migrations', () => {
     db.close()
   })
 
-  it('repairs an early v3 database created before the legacy root marker', () => {
+  it('repairs an early v3 database created before the root index-availability marker', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     db.exec(`
       CREATE TABLE schema_version (version INTEGER NOT NULL);
@@ -198,7 +198,7 @@ describe('schema migrations', () => {
     db.close()
   })
 
-  it('preserves legacy browseability and analysis uncertainty during v3 migration', () => {
+  it('preserves browseability and analysis uncertainty during v3 migration', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     initSchema(db)
     const rootId = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('legacy').lastInsertRowid

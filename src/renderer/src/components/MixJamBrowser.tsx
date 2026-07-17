@@ -8,7 +8,8 @@ import {
 } from './ui/ContextMenu'
 import { Tooltip } from './ui/Tooltip'
 
-// Retain the legacy value so an existing collapsed preference survives rename.
+// Keep the existing storage key so a collapsed preference set before the
+// component rename is preserved.
 const STORAGE_KEY = 'mixjam:recents-rail-collapsed'
 
 function loadCollapsed(): boolean {

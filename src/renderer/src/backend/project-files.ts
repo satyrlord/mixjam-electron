@@ -8,6 +8,8 @@ import { resolveFileHandle } from './folder-access'
 import { loadFolderHandle } from './handle-store'
 
 const MIXJAM_EXTENSION = '.mixjam'
+const GENERATED_BASENAME_PATTERN = /^[A-Za-z0-9_-]+$/
+const MAX_GENERATED_SUFFIX = 999_999
 const PICKER_TYPES = [{
   description: 'MixJam project',
   accept: { 'application/json': [MIXJAM_EXTENSION] }
@@ -93,6 +95,73 @@ async function writeFile(fileHandle: FileSystemFileHandle, contents: string): Pr
     }
     throw error
   }
+}
+
+let serialQueueHead: Promise<unknown> = Promise.resolve(null)
+
+function serialQueue<T>(run: () => Promise<T>): Promise<T> {
+  const next = serialQueueHead.then(run, run)
+  serialQueueHead = next.then(
+    (value) => value,
+    () => null
+  )
+  return next
+}
+
+async function createGeneratedMixJamFileUnlocked(
+  userFolder: FolderRef,
+  basename: string,
+  contents: string
+): Promise<MixJamFileContents> {
+  if (!GENERATED_BASENAME_PATTERN.test(basename)) {
+    throw new Error('Generated MixJam basenames may contain only letters, numbers, underscores, and hyphens.')
+  }
+  const root = await loadAccessibleFolder(userFolder, 'readwrite')
+  let maximumExistingSuffix = 0
+  const prefix = `${basename}-`
+  for await (const name of root.keys()) {
+    if (!name.startsWith(prefix) || !name.endsWith(MIXJAM_EXTENSION)) continue
+    const rawSuffix = name.slice(prefix.length, -MIXJAM_EXTENSION.length)
+    if (/^[0-9]{3,6}$/.test(rawSuffix)) {
+      maximumExistingSuffix = Math.max(maximumExistingSuffix, Number(rawSuffix))
+    }
+  }
+  for (let suffix = maximumExistingSuffix + 1; suffix <= MAX_GENERATED_SUFFIX; suffix++) {
+    const filename = `${basename}-${String(suffix).padStart(3, '0')}${MIXJAM_EXTENSION}`
+    try {
+      await root.getFileHandle(filename)
+      continue
+    } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== 'NotFoundError') throw error
+    }
+    const handle = await root.getFileHandle(filename, { create: true })
+    try {
+      await writeFile(handle, contents)
+    } catch (error) {
+      try {
+        await root.removeEntry(filename)
+      } catch {
+        // Preserve the write failure; cleanup is best effort.
+      }
+      throw error
+    }
+    return { path: filename, contents }
+  }
+  throw new Error('MixJam could not allocate a generated project filename.')
+}
+
+/**
+ * Creates the first free monotonically suffixed project name. Calls are queued
+ * inside this app instance so two generator actions cannot claim the same name.
+ * File System Access has no cross-process exclusive-create primitive; the
+ * check-before-create behavior therefore follows the single-tab app contract.
+ */
+export function createGeneratedMixJamFile(
+  userFolder: FolderRef,
+  basename: string,
+  contents: string
+): Promise<MixJamFileContents> {
+  return serialQueue(() => createGeneratedMixJamFileUnlocked(userFolder, basename, contents))
 }
 
 export async function openMixJamFile(

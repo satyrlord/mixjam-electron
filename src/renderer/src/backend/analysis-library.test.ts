@@ -96,6 +96,15 @@ describe('analysis persistence', () => {
       .toThrow('Musical key must look like C, C#, Am, or Bbm')
   })
 
+  it('preserves the accepted spelling of manual flat keys', () => {
+    updateSampleAnalysis(db, sampleId, { musicalKey: 'Bbm' })
+
+    expect(querySamples(db, { rootId: 'analysis-root' }).rows[0]).toMatchObject({
+      musicalKey: 'Bbm',
+      musicalKeySource: 'manual'
+    })
+  })
+
   it('rejects invalid sample type values', () => {
     expect(() => updateSampleAnalysis(db, sampleId, { sampleType: 'Guitar' as never }))
       .toThrow('Invalid sample type')

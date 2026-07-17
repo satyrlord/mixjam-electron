@@ -4,6 +4,7 @@ import type {
   CalibrationDone,
   CalibrationProgress,
   LibraryScanDone,
+  MixJamGeneratorProgress,
   ScanProgress
 } from '../../../shared/backend-api'
 import type { BackendCalls, BackendOp, WorkerMessage, WorkerRequest } from './protocol'
@@ -31,6 +32,7 @@ export interface WorkerProxy {
   onAnalysisDone(listener: (done: AnalysisDone) => void): () => void
   onCalibrationProgress(listener: (progress: CalibrationProgress) => void): () => void
   onCalibrationDone(listener: (done: CalibrationDone) => void): () => void
+  onGeneratorProgress(listener: (progress: MixJamGeneratorProgress) => void): () => void
   dispose(): void
 }
 
@@ -44,6 +46,7 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
   const analysisDoneListeners = new Set<(done: AnalysisDone) => void>()
   const calibrationProgressListeners = new Set<(progress: CalibrationProgress) => void>()
   const calibrationDoneListeners = new Set<(done: CalibrationDone) => void>()
+  const generatorProgressListeners = new Set<(progress: MixJamGeneratorProgress) => void>()
 
   function stop(error: Error): void {
     if (stoppedError) return
@@ -59,6 +62,7 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     analysisDoneListeners.clear()
     calibrationProgressListeners.clear()
     calibrationDoneListeners.clear()
+    generatorProgressListeners.clear()
   }
 
   worker.onmessage = (event) => {
@@ -89,6 +93,10 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     }
     if (message.type === 'calibration-progress') {
       for (const listener of calibrationProgressListeners) listener(message.progress)
+      return
+    }
+    if (message.type === 'generator-progress') {
+      for (const listener of generatorProgressListeners) listener(message.progress)
       return
     }
     for (const listener of calibrationDoneListeners) listener(message.done)
@@ -132,6 +140,10 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     onCalibrationDone(listener) {
       if (!stoppedError) calibrationDoneListeners.add(listener)
       return () => calibrationDoneListeners.delete(listener)
+    },
+    onGeneratorProgress(listener) {
+      if (!stoppedError) generatorProgressListeners.add(listener)
+      return () => generatorProgressListeners.delete(listener)
     },
     dispose() {
       stop(new Error('Backend worker disposed'))

@@ -73,6 +73,23 @@ describe('MiddleStrip', () => {
     expect(onSaveProject).toHaveBeenCalledTimes(1)
   })
 
+  it('offers both regeneration paths only for generated projects', () => {
+    const onRegenerateExact = vi.fn()
+    const onRegenerateCurrent = vi.fn()
+    const { unmount } = renderMiddleStrip()
+    openMenu('club-night, project menu')
+    expect(screen.queryByRole('menuitem', { name: 'Regenerate exact' })).not.toBeInTheDocument()
+    unmount()
+
+    renderMiddleStrip({ canRegenerate: true, onRegenerateExact, onRegenerateCurrent })
+    openMenu('club-night, project menu')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Regenerate exact' }))
+    expect(onRegenerateExact).toHaveBeenCalledOnce()
+    openMenu('club-night, project menu')
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Regenerate with current library' }))
+    expect(onRegenerateCurrent).toHaveBeenCalledOnce()
+  })
+
   it('keeps edit history separate from exactly four transport actions', () => {
     renderMiddleStrip()
 

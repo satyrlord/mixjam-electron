@@ -146,10 +146,13 @@ interface MiddleStripProps {
   projectName: string
   projectDirty: boolean
   projectBusy: boolean
+  canRegenerate?: boolean
   onNewProject: () => void
   onOpenProject: () => void
   onSaveProject: () => void
   onSaveProjectAs: () => void
+  onRegenerateExact?: () => void
+  onRegenerateCurrent?: () => void
   transportState: RuntimeTransportState
   canUndo: boolean
   canRedo: boolean
@@ -176,10 +179,13 @@ export default function MiddleStrip({
   projectName,
   projectDirty,
   projectBusy,
+  canRegenerate = false,
   onNewProject,
   onOpenProject,
   onSaveProject,
   onSaveProjectAs,
+  onRegenerateExact = () => {},
+  onRegenerateCurrent = () => {},
   transportState,
   canUndo,
   canRedo,
@@ -243,6 +249,17 @@ export default function MiddleStrip({
                 <span>Save As</span>
                 <span className="strip-menu-hint">Ctrl+Shift+S</span>
               </DropdownMenuItem>
+              {canRegenerate && (
+                <>
+                  <DropdownMenuSeparator className="strip-menu-separator" />
+                  <DropdownMenuItem disabled={projectBusy} onSelect={onRegenerateExact} aria-label="Regenerate exact">
+                    <span>Regenerate exact</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={projectBusy} onSelect={onRegenerateCurrent} aria-label="Regenerate with current library">
+                    <span>Regenerate with current library</span>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenuRoot>
         </div>

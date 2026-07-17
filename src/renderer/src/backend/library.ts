@@ -10,6 +10,7 @@ import type {
   SampleType
 } from '../../../shared/backend-api'
 import { isSampleType } from './analysis'
+import { parseMusicalKey } from './musical-key'
 import { ANALYSIS_REVISION, METADATA_REVISION } from './schema'
 import type { BindValue, DB } from './sql'
 
@@ -153,11 +154,11 @@ export function updateSampleAnalysis(db: DB, sampleId: number, patch: SampleAnal
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'musicalKey')) {
     const key = patch.musicalKey
-    if (key !== null && (typeof key !== 'string' || !/^[A-G](?:#|b)?m?$/.test(key))) {
+    if (key !== null && (typeof key !== 'string' || parseMusicalKey(key) === null)) {
       throw new Error('Musical key must look like C, C#, Am, or Bbm')
     }
     db.prepare('UPDATE samples SET musical_key = ?, musical_key_source = ? WHERE id = ?').run(
-      key ?? null, key === null ? null : 'manual', sampleId
+      key, key === null ? null : 'manual', sampleId
     )
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'sampleType')) {
@@ -397,8 +398,8 @@ export function deleteLibrary(db: DB, id: number): void {
 
 /**
  * Compatibility query for lower-level callers. Readiness is completion-based
- * so an empty completed root is ready. Legacy roots with browseable rows also
- * remain usable while their first post-migration sync reconciles them.
+ * so an empty completed root is ready. Roots with browseable rows from a prior
+ * schema version remain usable while their first post-migration sync reconciles.
  */
 export function hasSamples(db: DB, rootKey?: string): boolean {
   if (rootKey !== undefined) {

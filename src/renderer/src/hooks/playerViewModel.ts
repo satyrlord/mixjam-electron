@@ -6,6 +6,7 @@ import type {
   PlayerTransportProps
 } from '../components/playerProps'
 import type { AppState } from './useAppState'
+import { supportsExactGeneratorRegeneration } from '../project/project-file'
 
 export interface PlayerViewModel {
   browser: PlayerBrowserProps
@@ -129,11 +130,15 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       name: app.projectName,
       dirty: app.projectDirty,
       busy: app.projectBusy,
+      canRegenerate: app.projectGenerator !== null &&
+        supportsExactGeneratorRegeneration(app.projectGenerator),
       onNew: app.startNewProject,
       onOpen: app.openProjectPicker,
       onOpenPath: app.openProjectPath,
       onSave: app.saveProject,
-      onSaveAs: app.saveProjectAs
+      onSaveAs: app.saveProjectAs,
+      onRegenerateExact: () => {},
+      onRegenerateCurrent: () => {}
     }
   }
 }

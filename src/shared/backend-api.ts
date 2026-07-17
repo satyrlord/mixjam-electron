@@ -157,6 +157,157 @@ export interface SampleQueryResponse {
   total: number
 }
 
+export type MixJamGeneratorProfileId = 'techno' | 'trance' | 'house'
+export type MixJamGeneratorIntensity = 'low' | 'medium' | 'high'
+export type MixJamGeneratorBpmMode = 'follow-detected' | 'fixed'
+
+export const MIXJAM_GENERATOR_VERSION = 1 as const
+export const MIXJAM_GENERATOR_PROFILE_VERSIONS: Record<MixJamGeneratorProfileId, 1> = {
+  techno: 1,
+  trance: 1,
+  house: 1
+}
+export const SAFE_GENERATOR_TOKEN = /^[A-Za-z0-9_-]+$/
+export const SAFE_SEED = /^[A-Za-z0-9_-]{1,64}$/
+export const MIXJAM_GENERATOR_PROFILE_IDS: readonly MixJamGeneratorProfileId[] = ['techno', 'trance', 'house']
+export const MIXJAM_GENERATOR_INTENSITIES: readonly MixJamGeneratorIntensity[] = ['low', 'medium', 'high']
+export const MIXJAM_GENERATOR_BPM_MODES: readonly MixJamGeneratorBpmMode[] = ['follow-detected', 'fixed']
+export const MIXJAM_GENERATOR_PROFILE_LABELS: Record<MixJamGeneratorProfileId, string> = {
+  techno: 'Techno',
+  trance: 'Trance',
+  house: 'House'
+}
+
+export const MIXJAM_GENERATOR_INTENSITY_LABELS: Record<MixJamGeneratorIntensity, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High'
+}
+
+export const MIXJAM_GENERATOR_BPM_MODE_LABELS: Record<MixJamGeneratorBpmMode, string> = {
+  'follow-detected': 'Follow detected',
+  fixed: 'Fixed'
+}
+
+export interface MixJamGeneratorParameters {
+  profileId: MixJamGeneratorProfileId
+  bpmMode: MixJamGeneratorBpmMode
+  /** Required in fixed mode and ignored in follow-detected mode. */
+  bpm?: number
+  intensity: MixJamGeneratorIntensity
+  durationSeconds: number
+  seed: string
+}
+
+export type MixJamGeneratorReadiness =
+  | { status: 'ready'; detectedBpm: number; eligibleSamples: number }
+  | { status: 'preparing'; message: string }
+  | { status: 'needs-preparation'; message: string }
+
+export type MixJamGeneratorPhase = 'shortlisting' | 'analyzing' | 'arranging'
+
+export interface MixJamGeneratorJobIdentity {
+  rootKey: string
+  jobId: string
+}
+
+export interface MixJamGeneratorProgress {
+  identity: MixJamGeneratorJobIdentity | null
+  status: 'idle' | 'running' | 'cancelled' | 'error'
+  phase: MixJamGeneratorPhase | null
+  completed: number
+  total: number
+  error?: string
+}
+
+export interface MixJamGeneratorEffectPlan {
+  id: string
+  type: 'delay' | 'reverb' | 'compressor'
+  presetName: string
+  values: Record<string, number | boolean | string>
+}
+
+export interface MixJamGeneratorPlacementPlan {
+  id: string
+  sampleRef: string
+  sampleName: string
+  startTick: number
+  durationTicks: number
+  durationSeconds: number
+  nativeBpm: number | null
+  slot: number
+}
+
+export interface MixJamGeneratorLanePlan {
+  index: number
+  name: string
+  pan: number
+  muted: boolean
+  solo: boolean
+  placements: MixJamGeneratorPlacementPlan[]
+}
+
+export interface MixJamGeneratorChannelPlan {
+  channelIndex: number
+  gain: number
+  pan: number
+  muted: boolean
+  solo: boolean
+  effects: MixJamGeneratorEffectPlan[]
+}
+
+export interface MixJamGeneratorSectionPlan {
+  name: string
+  startBar: number
+  endBar: number
+  activeLanes: number[]
+}
+
+export interface MixJamGeneratorPhrasePlan {
+  sectionIndex: number
+  startBar: number
+  endBar: number
+  activeLanes: number[]
+  motif: 'A' | 'B' | 'rest' | 'transition'
+}
+
+export interface MixJamGeneratorSelectionPlan {
+  laneIndex: number
+  requestedType: SampleType
+  selectedType: SampleType
+  sampleRefs: string[]
+}
+
+export interface MixJamGeneratorPlan {
+  generatorVersion: 1
+  profileId: MixJamGeneratorProfileId
+  profileVersion: 1
+  seed: string
+  parameters: {
+    bpmMode: MixJamGeneratorBpmMode
+    resolvedBpm: number
+    intensity: MixJamGeneratorIntensity
+    durationSeconds: number
+  }
+  corpusFingerprint: string
+  sampleFolderKey: string
+  targetBars: number
+  targetTicks: number
+  quantizedDurationSeconds: number
+  dominantKey: string | null
+  analysis: {
+    attemptedFiles: number
+    analyzedFiles: number
+    uniqueReads: number
+  }
+  selections: MixJamGeneratorSelectionPlan[]
+  substitutions: Array<{ laneIndex: number; requestedType: SampleType; selectedType: SampleType }>
+  sections: MixJamGeneratorSectionPlan[]
+  phrases: MixJamGeneratorPhrasePlan[]
+  lanes: MixJamGeneratorLanePlan[]
+  channels: MixJamGeneratorChannelPlan[]
+}
+
 /** Browser list item -- the renderer-facing projection of a DB sample row. */
 export interface SampleListItem {
   id: string
@@ -208,7 +359,8 @@ export interface LibraryRootState {
   lastCompletedAt: number | null
   /**
    * True when the root has either completed a current-schema sync or retains
-   * browseable legacy rows while its first post-migration sync reconciles.
+   * browseable rows from a prior schema version while the first post-migration
+   * sync reconciles.
    */
   hasUsableIndex: boolean
 }
@@ -321,6 +473,11 @@ export interface BackendAPI {
     suggestedName: string,
     contents: string
   ) => Promise<MixJamFileContents | null>
+  createGeneratedMixJamFile: (
+    userFolder: FolderRef,
+    basename: string,
+    contents: string
+  ) => Promise<MixJamFileContents>
   writeMixJamFile: (
     userFolder: FolderRef,
     projectRelpath: string,
@@ -348,6 +505,15 @@ export interface BackendAPI {
   cancelUniformFolderCalibration: (jobId: string) => Promise<void>
   getCalibrationProgress: () => Promise<CalibrationProgress>
   querySamples: (req: SampleQueryRequest) => Promise<SampleQueryResponse>
+  getGeneratorReadiness: (sampleFolder: FolderRef) => Promise<MixJamGeneratorReadiness>
+  planMixJam: (
+    sampleFolder: FolderRef,
+    jobId: string,
+    parameters: MixJamGeneratorParameters,
+    expectedFingerprint?: string
+  ) => Promise<MixJamGeneratorPlan>
+  cancelMixJamPlanning: (jobId: string) => Promise<void>
+  getGeneratorProgress: () => Promise<MixJamGeneratorProgress>
   listTags: () => Promise<TagItem[]>
   createTag: (name: string, color?: string) => Promise<TagItem>
   renameTag: (id: number, name: string) => Promise<void>
@@ -380,4 +546,5 @@ export interface BackendAPI {
   onAnalysisDone: (cb: (done: AnalysisDone) => void) => () => void
   onCalibrationProgress: (cb: (progress: CalibrationProgress) => void) => () => void
   onCalibrationDone: (cb: (done: CalibrationDone) => void) => () => void
+  onGeneratorProgress: (cb: (progress: MixJamGeneratorProgress) => void) => () => void
 }

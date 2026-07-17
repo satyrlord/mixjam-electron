@@ -640,10 +640,13 @@ export default function PlayerView({
         projectName={project.name}
         projectDirty={project.dirty}
         projectBusy={project.busy}
+        canRegenerate={project.canRegenerate ?? false}
         onNewProject={() => void project.onNew()}
         onOpenProject={() => void project.onOpen()}
         onSaveProject={() => void project.onSave()}
         onSaveProjectAs={() => void project.onSaveAs()}
+        onRegenerateExact={project.onRegenerateExact ?? (() => {})}
+        onRegenerateCurrent={project.onRegenerateCurrent ?? (() => {})}
         transportState={transportState}
         canUndo={transport.canUndo}
         canRedo={transport.canRedo}

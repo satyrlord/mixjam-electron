@@ -17,16 +17,54 @@ import {
   type ProjectSongState,
   type ProjectTransportState
 } from './project-state'
+import {
+  MIXJAM_GENERATOR_BPM_MODES,
+  MIXJAM_GENERATOR_INTENSITIES,
+  MIXJAM_GENERATOR_PROFILE_VERSIONS,
+  MIXJAM_GENERATOR_PROFILE_IDS,
+  MIXJAM_GENERATOR_VERSION,
+  SAFE_GENERATOR_TOKEN,
+  type MixJamGeneratorBpmMode,
+  type MixJamGeneratorIntensity,
+  type MixJamGeneratorProfileId
+} from '../../../shared/backend-api'
 
-const PROJECT_FORMAT_VERSION = 2
+const PROJECT_FORMAT_VERSION = 3
 export const NEWER_PROJECT_VERSION_MESSAGE =
   'This project was created with a newer version of MixJam. Please update the app.'
 
 const MAX_CHANNEL_COUNT = 16
 const MAX_EFFECTS_PER_CHANNEL = 4
 
+export type GeneratorProfileId = MixJamGeneratorProfileId
+export type GeneratorBpmMode = MixJamGeneratorBpmMode
+export type GeneratorIntensity = MixJamGeneratorIntensity
+
+export interface GeneratorParameters {
+  bpmMode: GeneratorBpmMode
+  resolvedBpm: number
+  intensity: GeneratorIntensity
+  durationSeconds: number
+}
+
+export interface ProjectGeneratorMetadata {
+  generatorVersion: number
+  profileId: GeneratorProfileId
+  profileVersion: number
+  seed: string
+  parameters: GeneratorParameters
+  corpusFingerprint: string
+  sampleFolderKey: string
+}
+
+export function supportsExactGeneratorRegeneration(generator: ProjectGeneratorMetadata): boolean {
+  return generator.generatorVersion === MIXJAM_GENERATOR_VERSION &&
+    generator.profileVersion === MIXJAM_GENERATOR_PROFILE_VERSIONS[generator.profileId]
+}
+
 export interface ProjectData extends ProjectTransportState {
   channels: ChannelState[]
+  generator?: ProjectGeneratorMetadata
 }
 
 export interface ProjectDocument extends ProjectData {
@@ -83,6 +121,7 @@ interface ProjectDocumentRecord {
   song: ProjectSongState
   lanes: ProjectLaneRecord[]
   channels: ProjectChannelRecord[]
+  generator?: ProjectGeneratorMetadata
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -146,6 +185,61 @@ function readIsoTimestamp(record: Record<string, unknown>, key: string): string 
   const value = readString(record, key, 'project')
   if (Number.isNaN(Date.parse(value))) fail(`project.${key}`, 'must be an ISO timestamp')
   return value
+}
+
+function readEnum<T extends string>(
+  record: Record<string, unknown>,
+  key: string,
+  path: string,
+  values: readonly T[]
+): T {
+  const value = record[key]
+  if (typeof value !== 'string' || !values.includes(value as T)) {
+    fail(`${path}.${key}`, `must be one of ${values.join(', ')}`)
+  }
+  return value as T
+}
+
+function readSafeGeneratorToken(record: Record<string, unknown>, key: string, path: string): string {
+  const value = readString(record, key, path)
+  if (!SAFE_GENERATOR_TOKEN.test(value)) {
+    fail(`${path}.${key}`, 'must contain only ASCII letters, numbers, underscores, or hyphens')
+  }
+  return value
+}
+
+function readGeneratorSeed(record: Record<string, unknown>, path: string): string {
+  const seed = readSafeGeneratorToken(record, 'seed', path)
+  if (seed.length > 64) fail(`${path}.seed`, 'must contain at most 64 characters')
+  return seed
+}
+
+function parseGenerator(value: unknown): ProjectGeneratorMetadata {
+  const path = 'project.generator'
+  if (!isRecord(value)) fail(path, 'must be an object')
+  if (!isRecord(value.parameters)) fail(`${path}.parameters`, 'must be an object')
+
+  return {
+    generatorVersion: readInteger(value, 'generatorVersion', path, 1, Number.MAX_SAFE_INTEGER),
+    profileId: readEnum(value, 'profileId', path, MIXJAM_GENERATOR_PROFILE_IDS),
+    profileVersion: readInteger(value, 'profileVersion', path, 1, Number.MAX_SAFE_INTEGER),
+    seed: readGeneratorSeed(value, path),
+    parameters: {
+      bpmMode: readEnum(value.parameters, 'bpmMode', `${path}.parameters`, MIXJAM_GENERATOR_BPM_MODES),
+      resolvedBpm: readInteger(value.parameters, 'resolvedBpm', `${path}.parameters`, 60, 180),
+      intensity: readEnum(value.parameters, 'intensity', `${path}.parameters`, MIXJAM_GENERATOR_INTENSITIES),
+      durationSeconds: readInteger(value.parameters, 'durationSeconds', `${path}.parameters`, 30, 600)
+    },
+    corpusFingerprint: readSafeGeneratorToken(value, 'corpusFingerprint', path),
+    sampleFolderKey: readString(value, 'sampleFolderKey', path)
+  }
+}
+
+function cloneGenerator(generator: ProjectGeneratorMetadata): ProjectGeneratorMetadata {
+  return {
+    ...generator,
+    parameters: { ...generator.parameters }
+  }
 }
 
 export function isProjectRelativePath(value: string): boolean {
@@ -268,7 +362,8 @@ function toDocumentRecord(
           .sort((left, right) => left.startTick - right.startTick || left.id.localeCompare(right.id))
           .map(serializePlacement)
       })),
-    channels
+    channels,
+    ...(project.generator === undefined ? {} : { generator: cloneGenerator(project.generator) })
   }
 }
 
@@ -354,6 +449,13 @@ function migrateVersionOne(document: Record<string, unknown>): Record<string, un
   }
 }
 
+function migrateVersionTwo(document: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...document,
+    formatVersion: 3
+  }
+}
+
 function migrateToCurrent(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) fail('project', 'must be a JSON object')
   const rawVersion = value.formatVersion
@@ -369,6 +471,7 @@ function migrateToCurrent(value: unknown): Record<string, unknown> {
   while (version < PROJECT_FORMAT_VERSION) {
     if (version === 0) current = migrateVersionZero(current)
     else if (version === 1) current = migrateVersionOne(current)
+    else if (version === 2) current = migrateVersionTwo(current)
     else fail('project.formatVersion', `has no migration from version ${version}`)
     version += 1
   }
@@ -473,6 +576,7 @@ export function parseProject(text: string): ProjectDocument {
   const appVersion = readString(record, 'appVersion', 'project')
   const createdAt = readIsoTimestamp(record, 'createdAt')
   const modifiedAt = readIsoTimestamp(record, 'modifiedAt')
+  const generator = record.generator === undefined ? undefined : parseGenerator(record.generator)
 
   if (!isRecord(record.song)) fail('project.song', 'must be an object')
   if (!isRecord(record.song.clipEdgeMicroFades)) {
@@ -557,6 +661,7 @@ export function parseProject(text: string): ProjectDocument {
     modifiedAt,
     song,
     lanes,
-    channels
+    channels,
+    ...(generator === undefined ? {} : { generator })
   }
 }

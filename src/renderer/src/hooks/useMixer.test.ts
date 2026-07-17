@@ -149,7 +149,7 @@ describe('useMixer', () => {
     expect(mockPlaybackEngine.removeChannel).toHaveBeenCalledWith(0)
   })
 
-  it('does not persist project-owned channel state and removes the legacy snapshot', () => {
+  it('does not persist project-owned channel state and cleans up the app-level storage key', () => {
     localStorage.setItem('mixjam-mixer-channels', '[{"gain":0.1}]')
     const playbackEngineRef = createPlaybackEngineRef()
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
@@ -248,13 +248,13 @@ describe('useMixer', () => {
     expect(result.current.effectReductions.has(compressor.id)).toBe(false)
   })
 
-  it('ignores legacy pre-effects channel state instead of importing it into a project', () => {
+  it('does not import pre-011 effect state from the app-level storage key', () => {
     localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{ channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false }]))
     const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'home'))
     expect(result.current.channels[0]!.effects).toEqual([])
   })
 
-  it('ignores malformed legacy effect slots and removes the obsolete key', () => {
+  it('ignores malformed effect slots from the app-level storage key and removes it', () => {
     localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{
       channelIndex: 0,
       gain: 0.5,
@@ -270,7 +270,7 @@ describe('useMixer', () => {
     expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
   })
 
-  it('starts from defaults even when a complete legacy mixer snapshot exists', () => {
+  it('starts from defaults even when the app-level storage key has a saved snapshot', () => {
     const savedChannels = Array.from({ length: 16 }, (_, i) => ({
       channelIndex: i,
       gain: 0.5,
