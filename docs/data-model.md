@@ -103,10 +103,10 @@ Schema version 3 persists four facts needed by automatic library sync:
 - `scan_roots.last_completed_at INTEGER` is NULL until a complete filesystem
   pass finishes. A non-NULL value means the root has a valid index even when it
   contains zero audio files. Cancellation and fatal failure do not advance it.
-- `scan_roots.legacy_index_available INTEGER` is set only by the v2-to-v3
-  migration when a root already has non-missing rows. It keeps those rows
-  browseable during the first reconciliation without treating partial rows from
-  a new v3 first scan as a usable index.
+- `scan_roots.legacy_index_available INTEGER` is set when a root already has
+  non-missing rows from a prior schema version. It keeps those rows browseable
+  during the first reconciliation without treating partial rows from a new
+  first scan as a usable index.
 - `samples.metadata_revision INTEGER NOT NULL DEFAULT 0` records the metadata
   parser revision attempted for the current file bytes. A terminal parse failure
   sets `scan_state = 3` (metadata unavailable) and stamps the revision, so an
@@ -119,19 +119,18 @@ Schema version 3 persists four facts needed by automatic library sync:
   valid result is NULL, so later app launches do not repeatedly decode unchanged
   unsupported or low-confidence samples.
 
-The forward-only migration preserves uncertainty while avoiding a surprise
-full-library re-analysis after upgrade:
+Migration from prior schema versions preserves uncertainty without requiring a
+full-library re-analysis:
 
-- legacy roots keep `last_completed_at = NULL` because the old schema cannot
-  prove that enumeration and metadata work completed; existing rows remain
-  browseable while the required first post-upgrade sync reconciles them.
+- roots from prior versions keep `last_completed_at = NULL` because a prior
+  schema cannot prove enumeration and metadata work completed; existing rows
+  remain browseable while the required first post-upgrade sync reconciles them.
   Root usability is based on the presence of existing non-missing rows, not on
-  whether any legacy row already has a current analysis revision;
+  whether any row already has a current analysis revision;
 - existing `scan_state = 1` rows are stamped with the current metadata revision;
-  the analysis revision is stamped only when a legacy `analysis` source proves
-  the per-file analysis write completed. Entirely NULL legacy results are
-  retried once because the old schema cannot distinguish them from interrupted
-  work;
+  the analysis revision is stamped only when a prior `analysis` source proves
+  the per-file analysis write completed. Entirely NULL prior results are
+  retried once because NULL alone cannot distinguish them from interrupted work;
 - existing `scan_state = 0` rows remain pending with revision 0, so interrupted
   work resumes and previously failed metadata receives one classified attempt;
 - missing rows remain missing and keep revision 0 until restored.

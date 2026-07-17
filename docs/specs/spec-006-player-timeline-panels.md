@@ -469,8 +469,9 @@ infrequent commands out of the permanent button row.
 
 - 5px width, `ew-resize` cursor, on the upper work band's browser/tracker seam.
 - Resizes only the MixJam Browser/Tracker split and persists the expanded width
-  as `mixjam:upper-work-layout`; `mixjam-left-col-w` is only a legacy fallback.
-  The existing collapse state remains authoritative while collapsed.
+  as `mixjam:upper-work-layout`; `mixjam-left-col-w` is a compatibility fallback
+  for values saved before the rename. The existing collapse state remains
+  authoritative while collapsed.
 - Does not cross the Middle Strip or change the Bottom Workspace width.
 
 **Browser vertical handle** (`.browser-resize-v`):
@@ -596,8 +597,8 @@ visible across themes and viewport sizes.
 - [x] **AC-016a:** Dragging the Bottom Workspace separator changes its rendered
   height at wide and narrow resolutions. Pointer, touch, and keyboard input all
   work, separator ARIA reports the current value, and the layout persists.
-- [x] **AC-016c:** A legacy unversioned vertical layout is ignored once in
-  favor of the fresh 24% Bottom Workspace default. The resulting v2 layout is
+- [x] **AC-016c:** An unversioned vertical layout from a prior format is ignored
+  in favor of the fresh 24% Bottom Workspace default. The resulting v2 layout is
   stored, and later manual resizing persists across reloads.
 - [x] **AC-016b:** Root sample categories use a two-column grid. Expandable
   hierarchy branches may span the grid so their nested children remain

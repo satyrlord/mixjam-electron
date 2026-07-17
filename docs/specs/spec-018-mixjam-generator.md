@@ -442,11 +442,6 @@ The loaded project's Middle Strip menu exposes **Regenerate** only when the
 project has a valid generator block. It offers the exact and current-corpus paths
 explicitly; a regular hand-authored project has no regeneration command.
 
-The improved planner replaces the earlier continuous-tiling implementation in
-place. The product does not retain or expose an older planner, legacy generation
-mode, or compatibility choice. Generated arrangements from the earlier
-unreleased implementation are not a behavior contract.
-
 ## Acceptance Criteria
 
 - [x] **AC-001:** The Home view shows a visible Generate MixJam card after a
@@ -556,7 +551,7 @@ fresh `tmp/verify-generator-structure/` directory.
 - No user-selected target key in the first slice; key preference is derived.
 - No persistent generator-feature columns, waveform cache, full-library
   generator rescan, machine-learning classifier, or network analysis service.
-- No retained legacy planner or user-visible generator-version choice.
+- No user-visible generator-version choice.
 - No audio generation, stem separation, upload, cloud sharing, or project export.
 - No silent regeneration against a changed corpus and no destructive replacement
   of an existing generated project.

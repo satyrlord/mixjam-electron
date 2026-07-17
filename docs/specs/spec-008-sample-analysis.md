@@ -187,7 +187,7 @@ field "Type" to keep the two concepts distinct.
   clearing confirmed unsupported results, transient read-failure isolation,
   and manual-field preservation.
 - `schema.test.ts` verifies the provenance migration, v3 revision bookkeeping,
-  legacy-root browseability marker, and early-v3 repair are restart-safe.
+  root browseability marker, and early-v3 repair are restart-safe.
 - `SampleBrowser.test.tsx` verifies the per-sample editor, clearing, and the
   individual re-analysis action, including that numerically equivalent BPM
   input does not replace analysis provenance with a manual override.

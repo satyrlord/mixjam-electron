@@ -124,9 +124,7 @@ input. Replaced and removed processors disconnect every node they own.
   DSP also removes its feedback or convolution nodes from the live graph.
 
 Effect definitions live in project-owned mixer state and persist with gain,
-pan, mute, and solo in the active `.mixjam` file. The legacy
-`mixjam-mixer-channels` local-storage entry is removed without importing it
-into a new or loaded project.
+pan, mute, and solo in the active `.mixjam` file.
 
 ## Master loudness metering
 

@@ -53,9 +53,8 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 
 ### Song Boundary and Arrangement Capacity
 
-- The arrangement has a theoretical capacity of 999 bars, matching the legacy
-  eJay products. In 4/4 at 8 ticks per beat, this is 32 ticks per bar and an
-  exclusive capacity boundary of 31,968 ticks.
+- The arrangement has a capacity of 999 bars. In 4/4 at 8 ticks per beat,
+  this is 32 ticks per bar and an exclusive capacity boundary of 31,968 ticks.
 - Capacity is not song length. `songEndTick` is derived as the maximum
   `startTick + durationTicks` across every placement on every lane. A song with
   content in bars 1-10, silence in bar 10-11, and later content through bar 30

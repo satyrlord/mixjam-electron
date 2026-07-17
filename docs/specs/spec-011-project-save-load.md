@@ -316,9 +316,9 @@ generator, its tests, and this contract are the durable repository assets.
 - Migrations are ordered, cumulative, and idempotent.
 - The loaded data is migrated in memory; the file on disk is not overwritten
   until the user saves.
-- Legacy app-level Song, Mixer, or FX storage is not project data and must not
-  be imported into, merged with, or allowed to override a new or loaded project.
-  The spec-011 implementation may delete obsolete project-state storage keys.
+- App-level Song, Mixer, or FX storage from a prior format is not project data
+  and must not be imported into, merged with, or allowed to override a new or
+  loaded project. The spec-011 implementation may clean up those storage keys.
 
 ## Acceptance Criteria (testable)
 

@@ -101,8 +101,8 @@ a second visual object or for the source audio file.
 
 ## Clip bubble
 
-Use [sample bubble](#sample-bubble). *Clip bubble* is a legacy term and does
-not name a separate or variable-width visual representation.
+Use [sample bubble](#sample-bubble). *Clip bubble* does not name a separate or
+variable-width visual representation.
 
 ## Clip placement
 
@@ -251,8 +251,8 @@ Folder; after that save, it is an ordinary writable project. See
 
 ## Recent Projects rail
 
-Use [MixJam Browser](#mixjam-browser). The legacy name incorrectly suggests
-that the region is limited to a recency list rather than `.mixjam` browsing.
+Use [MixJam Browser](#mixjam-browser). *Recent Projects rail* does not name
+the full `.mixjam` file browser.
 
 ## Sample
 
