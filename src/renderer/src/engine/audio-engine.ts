@@ -141,7 +141,6 @@ export class AudioEngine {
     void this.masterMeter.initialize(context, masterGain, context.destination)
   }
 
-  // Creates (or returns) the mixer channel for the given index.
   createChannel(channelIndex?: number): Channel {
     const { context, masterGain } = this.ctx
     const index = channelIndex ?? this.channelCount

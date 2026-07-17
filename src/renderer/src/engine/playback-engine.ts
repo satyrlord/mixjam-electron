@@ -151,9 +151,7 @@ export class PlaybackEngine {
 
   setChannelGain(channelIndex: number, gain: number): void {
     this.channelGains.set(channelIndex, gain)
-    if (!this.isChannelGated(channelIndex)) {
-      this.engine.setChannelGain(channelIndex, gain)
-    }
+    this.engine.setChannelGain(channelIndex, this.isChannelGated(channelIndex) ? 0 : gain)
   }
 
   setChannelEffects(channelIndex: number, effects: readonly EffectSlot[]): void {

@@ -394,13 +394,11 @@ describe('useLibraryData', () => {
     expect(result.current.sortBy).toBe('duration')
     expect(result.current.sortDir).toBe('asc')
 
-    // Toggle direction on the new column
     await act(async () => {
       result.current.handleSortChange('duration')
     })
     expect(result.current.sortDir).toBe('desc')
 
-    // Switch to another column — should reset to asc
     await act(async () => {
       result.current.handleSortChange('dateAdded')
     })
@@ -1038,7 +1036,6 @@ describe('useLibraryData', () => {
       await result.current.renameTag(5, 'Zeta')
     })
 
-    // Tag names on the sample should be updated and sorted
     expect(result.current.samples[0]!.tags).toEqual(['Punchy', 'Zeta'])
   })
 

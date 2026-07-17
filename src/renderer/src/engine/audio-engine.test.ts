@@ -256,7 +256,6 @@ describe('AudioEngine', () => {
     expect(previewGain.gain.value).toBe(0.8)
     expect(previewGain.connectedTo).toContain(masterGain)
 
-    // Verify source is connected to preview gain
     const source = context.created.sources[0]
     expect(source.connectedTo).toContain(previewGain)
   })
@@ -284,14 +283,12 @@ describe('AudioEngine', () => {
     const { engine, context } = makeEngine()
     const channel = engine.createChannel()
 
-    // Voice via channel
     engine.triggerVoice({ buffer: makeBuffer(), channel, when: 0, laneIndex: 0 })
 
     channel.disconnect()
     const masterGain = context.created.gains[0]
     // Gains: [masterGain, bypassGain, channelGain]. Channel gain is at index 2.
     expect(context.created.gains[2].disconnected).toBe(true)
-    // Pan node should be disconnected
     expect(context.created.panners[0].disconnected).toBe(true)
     // Master gain should NOT be disconnected (it's the bus, not the channel)
     expect(masterGain.disconnected).toBe(false)
@@ -305,7 +302,6 @@ describe('AudioEngine', () => {
     context.created.sources[0].endNow()
     expect(voice.state).toBe('ended')
 
-    // Stopping an already ended voice should not throw
     expect(() => voice.stop()).not.toThrow()
   })
 })

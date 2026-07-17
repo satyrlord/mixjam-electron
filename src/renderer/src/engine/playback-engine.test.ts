@@ -357,11 +357,18 @@ describe('PlaybackEngine.removeChannel', () => {
     const lanes: EngineLane[] = [
       { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
     ]
-    const { playbackEngine } = makePlaybackEngine({ lanes })
+    const { playbackEngine, context } = makePlaybackEngine({ lanes })
     await playbackEngine.start(0)
     await flushAsync()
 
     playbackEngine.removeChannel(0)
+    const internals = playbackEngine as unknown as {
+      engine: { getChannel: (index: number) => { gain: number } | undefined }
+      removedChannels: Set<number>
+    }
+    expect(internals.engine.getChannel(0)).toBeUndefined()
+    expect(internals.removedChannels.has(0)).toBe(true)
+    expect(context.created.panners[0]!.connectedTo).toContain(context.created.gains[1])
     await playbackEngine.close()
   })
 
@@ -806,17 +813,26 @@ describe('PlaybackEngine.channelGating', () => {
     await playbackEngine.start(0)
     await flushAsync()
 
-    // Set gain on both channels
+    const engine = (playbackEngine as unknown as {
+      engine: { getChannel: (index: number) => { gain: number } | undefined }
+    }).engine
     playbackEngine.setChannelGain(0, 0.8)
     playbackEngine.setChannelGain(1, 0.8)
-    // Solo channel 1 — channel 0 should be gated (gain 0)
+    expect(engine.getChannel(0)?.gain).toBe(0.8)
+    expect(engine.getChannel(1)?.gain).toBe(0.8)
+
     playbackEngine.setChannelSolo(1, true)
-    // Un-solo
+    expect(engine.getChannel(0)?.gain).toBe(0)
+    expect(engine.getChannel(1)?.gain).toBe(0.8)
+
     playbackEngine.setChannelSolo(1, false)
-    // Mute channel 0
+    expect(engine.getChannel(0)?.gain).toBe(0.8)
+
     playbackEngine.setChannelMute(0, true)
-    // Unmute
+    expect(engine.getChannel(0)?.gain).toBe(0)
+
     playbackEngine.setChannelMute(0, false)
+    expect(engine.getChannel(0)?.gain).toBe(0.8)
     await playbackEngine.close()
   })
 
@@ -829,9 +845,12 @@ describe('PlaybackEngine.channelGating', () => {
     await playbackEngine.start(0)
     await flushAsync()
 
-    // Solo channel 1, then set gain on channel 0 — should remain gated
+    const engine = (playbackEngine as unknown as {
+      engine: { getChannel: (index: number) => { gain: number } | undefined }
+    }).engine
     playbackEngine.setChannelSolo(1, true)
     playbackEngine.setChannelGain(0, 0.9)
+    expect(engine.getChannel(0)?.gain).toBe(0)
     await playbackEngine.close()
   })
 })
