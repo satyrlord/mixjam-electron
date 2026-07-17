@@ -54,7 +54,9 @@ transitions, motif returns, and mix balance are part of the generator contract.
 The Home view gains a **Generate MixJam** card beside the Sample Folder and
 recent-project cards. The card is visible when a Sample Folder is selected, but
 its action is gated until both folders are accessible and the User Folder is
-writable. The card explains the missing prerequisite when gated.
+writable. The card explains the concrete missing prerequisite when gated. It
+preserves the backend readiness message for preparation, empty, and unavailable
+states instead of replacing those states with a generic wait message.
 
 Its states are:
 
@@ -219,11 +221,15 @@ changing section boundaries or the exact song end.
 ### Bounded audio scoring
 
 Indexed metadata creates deterministic per-lane candidate queues. Core lanes are
-queued first, followed by optional lanes in lane order. The worker reads and
-decodes each relative path at most once. One planning job attempts at most 96
-unique files and retains at most 64 successful analyses. A decode or read failure
-advances to the next deterministic candidate. Failure to fill a core role after
-the bounded search aborts before save.
+queued first, followed by optional lanes in lane order. Metadata-cheap type and
+musical-span eligibility runs before the 96-read shortlist is fixed. The worker
+reads and decodes each relative path at most once. One planning job attempts at
+most 96 unique files and retains at most 64 successful, role-compatible
+analyses. Retention reserves capacity for every core lane that has not yet
+received a compatible decoded candidate, so successful candidates for other
+roles cannot starve a required role after earlier read, decode, or planner-kind
+failures. A failure advances to the next deterministic candidate. Failure to
+fill a core role after the bounded search aborts before save.
 
 The transient analysis records no database state. It derives only the neutral
 values needed by the planner:
@@ -276,9 +282,12 @@ Profile character is normative:
 The seed selects compatible samples, A/B ordering, fills, and allowed dropouts.
 It does not change section boundaries or remove the profile's required musical
 arc. Low intensity uses fewer optional phrases and no B motif when one motif is
-sufficient. Medium uses A/B variation when compatible material exists. High
-adds optional rhythmic detail and fills but does not add incompatible tonal
-material.
+sufficient; its phrase DTOs therefore contain only A and rest motifs. Medium
+uses A/B variation when compatible material exists. High adds optional rhythmic
+detail and fills but does not add incompatible tonal material. If the normal
+phrase schedule does not reach the exact song end, the final anchor must still
+obey the selected lane's beat-grid, bar-alignment, or transition-boundary rule.
+Generation fails rather than inserting an off-grid repair placement.
 
 Mixer state uses the following role defaults. Every channel starts unmuted and
 unsoloed. Unlisted FX chains are empty. Preset names and values are those owned
@@ -350,7 +359,9 @@ Candidates within the profile BPM tolerance are preferred. Unknown BPM is a
 deterministic fallback, not an automatic rejection. The planner selects one song
 key from current, keyed tonal candidates. The schema has no separate
 key-confidence field; current manual and analysis key values form the reliable
-set. Missing or mixed keys fall back according to the tonal rules above. Profile roles use acoustic sample types
+set. Sharp and flat spellings are compared by canonical pitch and major/minor
+mode, so enharmonic exact and relative-key matches behave identically. Missing
+or mixed keys fall back according to the tonal rules above. Profile roles use acoustic sample types
 (`Kick`, `Snare`, `Hi-hat`, `Percussion`, `Bass`, `Synth`, `FX`, `Vocal`,
 `Loop`, `Atmosphere`, `Other`), never the organizational category field.
 
@@ -389,12 +400,19 @@ request. Progress events use that root and job identity and report
 counts where applicable. The wizard shows the active phase instead of one
 indefinite Generating label.
 
+The renderer owns one explicit planning or saving state per job ID. Cancelling
+planning immediately releases that UI state, and progress, success, failure, or
+cleanup from an older job cannot update a reopened or newer run. Close, Escape,
+backdrop, and Cancel all cancel during planning. Every dismissal path is blocked
+only after the renderer enters the saving state.
+
 The worker serializes generator planning with sync, individual analysis, and
 uniform calibration. User cancellation, Sample Folder replacement, or worker
 shutdown marks the job cancelled. The worker checks cancellation between file
 reads and before returning a plan. Cancellation before commit creates no file.
 Once the renderer begins its short transactional save, cancellation is disabled;
-a save failure uses the existing rollback path and leaves no recent-project row.
+a write failure before file creation completes removes the incomplete allocation
+and leaves no recent-project row.
 
 ### Output, naming, and transaction
 
@@ -413,8 +431,11 @@ monotonic. The allocator never overwrites a project found by that check. Browser
 File System Access has no cross-process exclusive-create primitive, so races
 with external filesystem writers are outside this contract. The recent-project
 registry is updated only after the final write succeeds. Writes use the existing
-atomic File System Access behavior; cancellation or failure removes temporary
-state and leaves no project or registry entry.
+atomic File System Access behavior. Successful file creation is the durable
+commit. A later recent-project registration or list-refresh failure preserves
+and returns the saved relative path and shows a recoverable warning; it does not
+delete the project or report generation failure. A later project-list refresh
+discovers the committed file from the User Folder.
 
 After a successful save the wizard remains on its completion state. The user must
 click **Open in Player** explicitly.
@@ -502,8 +523,9 @@ command.
   channels, relative sample references, and the complete nested project state.
 - [x] **AC-013:** Output allocation is app-serialized, transactional, monotonic,
   and check-before-create non-overwriting. The renderer rechecks every selected
-  sample reference before save; failed or cancelled runs leave no file or recent
-  entry.
+  sample reference before save. Failed or cancelled pre-commit runs leave no
+  file or recent entry. Once creation completes, post-commit registry or refresh
+  failures preserve and return the saved path with a recoverable warning.
 - [x] **AC-014:** A successful save updates the MixJam Browser, remains on the
   completion state without replacing the loaded project, and opens only after an
   explicit Open in Player action.
@@ -516,17 +538,21 @@ command.
   production-parser roundtrip, built-Chromium open/playback proof, and manual
   listening sign-off for techno, trance, and house.
 - [x] **AC-017:** One planning job attempts no more than 96 unique files, retains
-  no more than 64 successful transient analyses, reads each relative path at most
+  no more than 64 successful role-compatible transient analyses, reserves
+  retention capacity for unfilled core roles, reads each relative path at most
   once, reports typed progress, and can be cancelled before save without leaving
-  a file or recent-project entry.
+  a file or recent-project entry. Generator parameters are validated at the
+  worker boundary before snapshot, fingerprint, or audio-file work begins.
 - [x] **AC-018:** Techno, trance, and house plans satisfy their phrase contracts:
   beat-grid percussion, bar-aligned loops, bounded unchanged repetition,
   profile-specific A/B motifs, rests, fills, a lower-density breakdown, a motif
-  return, boundary-only transitions, and a restored peak.
+  return, boundary-only transitions, and a restored peak. Low intensity emits
+  only A/rest phrase metadata, and exact-end anchoring never bypasses role-grid
+  rules.
 - [x] **AC-019:** Tonal lanes contain no incompatible known-key selections;
-  percussive roles fit inside one beat; loop roles resolve to exact whole-bar
-  spans; transient RMS compensation stays within plus or minus 6 dB and final
-  gain stays within 0–1.
+  enharmonic sharp/flat spellings compare consistently; percussive roles fit
+  inside one beat; loop roles resolve to exact whole-bar spans; transient RMS
+  compensation stays within plus or minus 6 dB and final gain stays within 0–1.
 - [x] **AC-020:** Every generator candidate retains its primary organizational
   category for appearance only. Every generated placement stores a valid palette
   slot from 0 through 8, the slot participates in the corpus fingerprint, and
@@ -545,14 +571,17 @@ command.
   canonical corpus fingerprint. `generator-library.test.ts` covers those
   boundaries and every fingerprint field.
 - `backend/generator-analysis.ts` owns deterministic shortlisting, the 96-read
-  and 64-analysis bounds, decode failure fallback, transient metrics, progress,
-  and cancellation. `generator-analysis.test.ts` contains focused coverage for
-  those contracts.
+  and 64-analysis bounds, core-role retention reservations, decode failure
+  fallback, transient metrics, progress, and cancellation.
+  `generator-analysis.test.ts` contains focused coverage for those contracts.
 - `backend/generator-engine.ts` owns pure deterministic section, phrase,
   placement, Mixer, FX, compatibility, and gain planning.
   `generator-engine.test.ts` contains focused coverage for all three profiles,
   seed behavior, phrase structure, key rejection, span limits, exact song end,
   and gain bounds.
+- `backend/generator-parameters.ts` validates the complete request before worker
+  I/O. `backend/musical-key.ts` owns enharmonic parsing shared by manual analysis
+  validation and generator compatibility.
 - `project/generated-project.ts`, `hooks/useMixJamGenerator.ts`, and
   `components/MixJamGeneratorDialog.tsx` adapt and commit the neutral plan,
   expose cancellation and progress, and keep Open in Player explicit. Their
@@ -573,6 +602,8 @@ Run the focused behavior and persistence checks:
 npm test -- src/renderer/src/backend/generator-engine.test.ts
 npm test -- src/renderer/src/backend/generator-analysis.test.ts
 npm test -- src/renderer/src/backend/generator-library.test.ts
+npm test -- src/renderer/src/backend/generator-parameters.test.ts
+npm test -- src/renderer/src/backend/analysis-library.test.ts
 npm test -- src/renderer/src/project/generated-project.test.ts
 npm test -- src/renderer/src/project/project-file.test.ts
 npm test -- src/renderer/src/components/LaneSampleBubbleCanvas.test.tsx
