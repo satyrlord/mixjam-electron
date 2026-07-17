@@ -153,7 +153,11 @@ describe('generateMixerTestSong', () => {
     const result = await generateMixerTestSong({ samplesDir, outputDir, seed: 'fixture-seed' })
     const project = parseProject(await readFile(result.filePath, 'utf8'))
 
-    expect(project.song.bpm).toBe(SONG_BPM)
+    expect(project.song).toEqual({
+      bpm: SONG_BPM,
+      masterGain: 0.82,
+      clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+    })
     expect(result.durationSeconds).toBeCloseTo(SONG_DURATION_SECONDS, 6)
     expect(result.durationSeconds).toBeCloseTo(120, 6)
     expect(project.lanes).toHaveLength(16)

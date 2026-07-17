@@ -49,11 +49,11 @@ describe('theme validation boundary', () => {
 
     expect(root.style.getPropertyValue('--tracker-geometry-scale')).toBe('0.75')
     expect(root.style.getPropertyValue('--tracker-lane-height')).toBe('39px')
-    expect(root.style.getPropertyValue('--tracker-lane-head-width')).toBe('168px')
+    expect(root.style.getPropertyValue('--tracker-lane-head-width')).toBe('240px')
     expect(root.style.getPropertyValue('--tracker-ruler-height')).toBe('33px')
     expect(root.style.getPropertyValue('--tracker-lane-control-size')).toBe('32px')
     expect(root.style.getPropertyValue('--tracker-beat-width')).toBe('32px')
-    expect(root.style.getPropertyValue('--sample-bubble-height')).toBe('24px')
+    expect(root.style.getPropertyValue('--sample-bubble-height')).toBe('26px')
     // Geometry tokens are independent of theme; no color token should be set.
     expect(root.style.getPropertyValue('--accent')).toBe('')
   })

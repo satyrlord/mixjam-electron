@@ -9,15 +9,29 @@
 import { AudioEngine, type AudioEngineOptions } from './audio-engine'
 import { type Channel } from './channel'
 import { createScheduler, type Scheduler, type SchedulerClock } from './scheduler'
-import { type EngineLane, triggersForTick } from './lane-evaluation'
+import {
+  type EngineLane,
+  type LaneTrigger,
+  triggersForPlaybackStart,
+  triggersForTick
+} from './lane-evaluation'
 import { type Voice } from './voice'
 import { stretchRatio, stretchRatioForDuration } from './time-stretch'
 import type { EffectSlot } from './effects'
 import type { MasterMeterSnapshot } from './master-meter'
+import { tickDurationSeconds } from './transport'
+import {
+  createClipEdgeFadePlan,
+  DEFAULT_CLIP_EDGE_MICRO_FADES,
+  normalizeClipEdgeMicroFades,
+  type ClipEdgeMicroFadeSettings
+} from './clip-edge-fades'
+import { ClipEdgeBoundaryPolicy } from './clip-edge-boundary-policy'
 
 // Default per-channel gain (matches the mixer's createDefaultChannel).
 const DEFAULT_CHANNEL_GAIN = 0.8
 const PRELOAD_CONCURRENCY = 4
+type SamplePreparation = 'ready' | 'failed'
 
 // Returns the raw bytes for a sample path, or null if unreadable.
 export type LoadSampleBytes = (samplePath: string) => Promise<ArrayBuffer | null>
@@ -31,6 +45,7 @@ export interface PlaybackEngineOptions extends AudioEngineOptions {
   clock?: SchedulerClock
   // Audio clock override for tests (defaults to engine.currentTime).
   now?: () => number
+  clipEdgeMicroFades?: ClipEdgeMicroFadeSettings
 }
 
 export class PlaybackEngine {
@@ -59,9 +74,16 @@ export class PlaybackEngine {
   private meterFrozen = false
   private frozenMeterSnapshot: MasterMeterSnapshot | null = null
   private preloadQueue: Promise<void> = Promise.resolve()
+  private clipEdgeMicroFades: ClipEdgeMicroFadeSettings = DEFAULT_CLIP_EDGE_MICRO_FADES
+  private readonly clipEdgeBoundaryPolicy = new ClipEdgeBoundaryPolicy()
+  private readonly laneTriggerQueues = new Map<number, Promise<void>>()
+  private readonly samplePreparation = new Map<string, SamplePreparation>()
 
   constructor(private readonly options: PlaybackEngineOptions) {
     this.currentBpm = options.bpm ?? 120
+    this.setClipEdgeMicroFades(
+      options.clipEdgeMicroFades ?? DEFAULT_CLIP_EDGE_MICRO_FADES
+    )
     this.engine = new AudioEngine(options)
     const now = options.now ?? (() => this.engine.currentTime)
     // The scheduler reads BPM live through this adapter so tempo changes during
@@ -100,6 +122,10 @@ export class PlaybackEngine {
 
   setMasterGain(value: number): void {
     this.engine.setMasterGain(value)
+  }
+
+  setClipEdgeMicroFades(settings: ClipEdgeMicroFadeSettings): void {
+    this.clipEdgeMicroFades = normalizeClipEdgeMicroFades(settings)
   }
 
   getMasterMeterSnapshot(): MasterMeterSnapshot {
@@ -300,6 +326,8 @@ export class PlaybackEngine {
   // browser autoplay policy is satisfied by the originating user gesture.
   async start(fromTick = 0): Promise<boolean> {
     const generation = this.playGeneration
+    this.clipEdgeBoundaryPolicy.reset()
+    this.samplePreparation.clear()
     if (this.meterFrozen && fromTick === 0) {
       this.engine.resetMasterMeter()
     }
@@ -308,9 +336,20 @@ export class PlaybackEngine {
     await this.engine.resume()
     // Decode a bounded upcoming working set before the scheduler starts so the
     // first trigger does not pay asynchronous file-read/decode cost.
-    await this.queueUpcomingPreload(fromTick)
+    await this.queueUpcomingPreload(fromTick, true)
     if (generation !== this.playGeneration) return false
     this.lastScheduledTick = fromTick - 1
+    const activeTriggers = triggersForPlaybackStart(this.options.getLanes(), fromTick)
+    await Promise.all(activeTriggers.map((trigger) =>
+      this.queueLaneTrigger(
+        trigger,
+        this.currentBpm,
+        this.engine.currentTime,
+        fromTick - trigger.placement.startTick
+      )
+    ))
+    if (generation !== this.playGeneration) return false
+    if (activeTriggers.length > 0) void this.queueUpcomingPreload(fromTick + 1)
     this.scheduler.start(fromTick)
     return true
   }
@@ -318,8 +357,10 @@ export class PlaybackEngine {
   pause(): void {
     this.playGeneration++
     this.scheduler.stop()
+    this.preloadQueue = Promise.resolve()
     this.engine.stopAllVoices()
     this.laneVoices.clear()
+    this.laneTriggerQueues.clear()
   }
 
   seek(tick: number): void {
@@ -327,29 +368,34 @@ export class PlaybackEngine {
     this.playGeneration++
     this.scheduler.stop()
     this.scheduler.reset(nextTick)
+    this.preloadQueue = Promise.resolve()
     this.engine.stopAllVoices()
     this.engine.resetMasterMeter()
     this.meterFrozen = false
     this.frozenMeterSnapshot = null
     this.laneVoices.clear()
+    this.laneTriggerQueues.clear()
     this.lastScheduledTick = nextTick - 1
   }
 
   stop(): void {
     this.playGeneration++
     this.scheduler.stop()
+    this.preloadQueue = Promise.resolve()
     // Stop returns the playhead to the start; pause() leaves it where it is.
     this.scheduler.reset(0)
     this.frozenMeterSnapshot = this.engine.getMasterMeterSnapshot()
     this.engine.stopAllVoices()
     this.meterFrozen = true
     this.laneVoices.clear()
+    this.laneTriggerQueues.clear()
     this.lastScheduledTick = -1
   }
 
   async close(): Promise<void> {
     this.playGeneration++
     this.scheduler.stop()
+    this.preloadQueue = Promise.resolve()
     for (const panner of this.lanePanners.values()) {
       panner.disconnect()
     }
@@ -361,6 +407,9 @@ export class PlaybackEngine {
     this.channelSolos.clear()
     this.removedChannels.clear()
     this.laneVoices.clear()
+    this.clipEdgeBoundaryPolicy.reset()
+    this.laneTriggerQueues.clear()
+    this.samplePreparation.clear()
   }
 
   private channelFor(channelIndex: number): Channel {
@@ -418,41 +467,56 @@ export class PlaybackEngine {
 
     const triggers = triggersForTick(this.options.getLanes(), tick)
     for (const trigger of triggers) {
-      void this.triggerLane(
-        trigger.laneIndex,
-        trigger.channelIndex,
-        trigger.samplePath,
-        trigger.pan,
-        trigger.placement.durationTicks,
-        this.currentBpm,
-        when
-      )
+      void this.queueLaneTrigger(trigger, this.currentBpm, when)
     }
     if (triggers.length > 0) void this.queueUpcomingPreload(tick + 1)
   }
 
   private async triggerLane(
-    laneIndex: number,
-    channelIndex: number,
-    samplePath: string,
-    lanePan: number,
-    durationTicks: number,
+    trigger: LaneTrigger,
     projectBpm: number,
-    when: number
+    when: number,
+    elapsedTicks = 0
   ): Promise<void> {
     const generation = this.playGeneration
-    let buffer: AudioBuffer | null
-    try {
-      buffer = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
-    } catch {
-      // Decode/read failure: skip this trigger rather than crashing the engine.
+    // Monophonic precedence is a timeline rule, not a sample-readiness rule.
+    // Schedule the prior voice's cutoff at the successor's exact boundary even
+    // when this trigger was prepared inside the lookahead window or cannot load.
+    this.laneVoices.get(trigger.laneIndex)?.stop(when)
+    let buffer = this.engine.samples.peek(trigger.samplePath) ?? null
+    if (!buffer && this.samplePreparation.get(trigger.samplePath) === 'failed') {
+      if (generation === this.playGeneration) this.propagateSilentPlacement(trigger)
       return
     }
-    if (!buffer) return
+    if (!buffer) {
+      try {
+        buffer = await this.loadBuffer(trigger.samplePath)
+      } catch {
+        // Decode/read failure: skip this trigger rather than crashing the engine.
+        if (generation === this.playGeneration) {
+          this.samplePreparation.set(trigger.samplePath, 'failed')
+          this.propagateSilentPlacement(trigger)
+        }
+        return
+      }
+    }
+    if (!buffer) {
+      if (generation === this.playGeneration) {
+        this.samplePreparation.set(trigger.samplePath, 'failed')
+        this.propagateSilentPlacement(trigger)
+      }
+      return
+    }
+    if (generation !== this.playGeneration) return
+    this.samplePreparation.set(trigger.samplePath, 'ready')
 
     let playbackRate = 1
     try {
-      playbackRate = stretchRatioForDuration(buffer.duration, durationTicks, projectBpm)
+      playbackRate = stretchRatioForDuration(
+        buffer.duration,
+        trigger.placement.durationTicks,
+        projectBpm
+      )
     } catch {
       // Invalid persisted timing falls back to native-rate playback instead of
       // preventing the remaining arrangement from playing.
@@ -460,21 +524,76 @@ export class PlaybackEngine {
 
     // Playback was stopped or paused while the buffer loaded: drop
     // this trigger so no stray voice starts after the user hit stop.
-    if (generation !== this.playGeneration) return
+    const targetOffsetSeconds = Math.max(0, elapsedTicks) * tickDurationSeconds(projectBpm)
+    const sourceOffsetSeconds = targetOffsetSeconds * playbackRate
+    if (!Number.isFinite(sourceOffsetSeconds) || sourceOffsetSeconds >= buffer.duration) {
+      this.propagateSilentPlacement(trigger)
+      return
+    }
+    const audibleDurationSeconds = trigger.effectiveDurationTicks *
+      tickDurationSeconds(projectBpm)
+    const fadeSettings = this.clipEdgeMicroFades
+    const previousVoice = this.laneVoices.get(trigger.laneIndex)
+    const { fadeInEnabled, fadeOutEnabled } = this.clipEdgeBoundaryPolicy.decide(
+      trigger,
+      {
+        previousVoicePlaying: previousVoice?.state === 'playing',
+        nextPlacementReady: Boolean(
+          trigger.nextPlacement && this.engine.samples.peek(trigger.nextPlacement.samplePath)
+        )
+      }
+    )
+    const edgeFadePlan = fadeSettings.enabled
+      ? createClipEdgeFadePlan({
+          sampleRate: this.engine.ensureContext().sampleRate,
+          clipDurationSeconds: audibleDurationSeconds,
+          fadeInMs: fadeSettings.fadeInMs,
+          fadeOutMs: fadeSettings.fadeOutMs,
+          fadeInEnabled,
+          fadeOutEnabled
+        })
+      : undefined
+    const edgeFadeStartSample = edgeFadePlan
+      ? Math.round(targetOffsetSeconds * edgeFadePlan.sampleRate)
+      : undefined
 
-    // Monophonic: cut off the voice currently sounding on this lane.
-    this.laneVoices.get(laneIndex)?.stop()
-
-    const destination = this.voiceDestination(laneIndex, channelIndex, lanePan)
+    const destination = this.voiceDestination(
+      trigger.laneIndex,
+      trigger.channelIndex,
+      trigger.pan
+    )
 
     const voice = this.engine.triggerVoiceTo({
       buffer,
       destination,
       when,
-      laneIndex: laneIndex,
-      playbackRate
+      laneIndex: trigger.laneIndex,
+      playbackRate,
+      sourceOffsetSeconds,
+      edgeFadePlan,
+      edgeFadeStartSample
     })
-    this.laneVoices.set(laneIndex, voice)
+    this.laneVoices.set(trigger.laneIndex, voice)
+  }
+
+  private queueLaneTrigger(
+    trigger: LaneTrigger,
+    projectBpm: number,
+    when: number,
+    elapsedTicks = 0
+  ): Promise<void> {
+    const scheduledGeneration = this.playGeneration
+    const previous = this.laneTriggerQueues.get(trigger.laneIndex) ?? Promise.resolve()
+    const queued = previous.then(() => {
+      if (scheduledGeneration !== this.playGeneration) return
+      return this.triggerLane(trigger, projectBpm, when, elapsedTicks)
+    })
+    this.laneTriggerQueues.set(trigger.laneIndex, queued.catch(() => undefined))
+    return queued
+  }
+
+  private propagateSilentPlacement(trigger: LaneTrigger): void {
+    this.clipEdgeBoundaryPolicy.markPlacementSilent(trigger)
   }
 
   private async loadBuffer(samplePath: string): Promise<AudioBuffer | null> {
@@ -483,17 +602,29 @@ export class PlaybackEngine {
     return this.engine.samples.load(samplePath, bytes)
   }
 
-  private queueUpcomingPreload(fromTick: number): Promise<void> {
-    const preload = this.preloadQueue.then(() => this.preloadUpcomingSamples(fromTick))
+  private queueUpcomingPreload(fromTick: number, includeActive = false): Promise<void> {
+    const generation = this.playGeneration
+    const preload = this.preloadQueue.then(() => {
+      if (generation !== this.playGeneration) return
+      return this.preloadUpcomingSamples(fromTick, includeActive, generation)
+    })
     this.preloadQueue = preload.catch(() => undefined)
     return preload
   }
 
-  private async preloadUpcomingSamples(fromTick: number): Promise<void> {
+  private async preloadUpcomingSamples(
+    fromTick: number,
+    includeActive: boolean,
+    generation: number
+  ): Promise<void> {
+    if (generation !== this.playGeneration) return
     const upcoming = [] as Array<{ samplePath: string, startTick: number }>
     for (const lane of this.options.getLanes()) {
       for (const placement of lane.placements) {
-        if (placement.startTick >= fromTick) {
+        if (
+          placement.startTick >= fromTick ||
+          (includeActive && placement.startTick + placement.durationTicks > fromTick)
+        ) {
           upcoming.push({ samplePath: placement.samplePath, startTick: placement.startTick })
         }
       }
@@ -514,17 +645,24 @@ export class PlaybackEngine {
 
     for (let offset = 0; offset < samplePaths.length; offset += PRELOAD_CONCURRENCY) {
       await Promise.all(samplePaths.slice(offset, offset + PRELOAD_CONCURRENCY).map(async (samplePath) => {
+        if (generation !== this.playGeneration) return
+        if (this.samplePreparation.get(samplePath) === 'failed') return
         try {
-          if (!this.engine.samples.peek(samplePath)) await this.loadBuffer(samplePath)
+          const buffer = this.engine.samples.peek(samplePath) ?? (await this.loadBuffer(samplePath))
+          if (generation !== this.playGeneration) return
+          this.samplePreparation.set(samplePath, buffer ? 'ready' : 'failed')
         } catch {
           // Loading failures are handled like trigger-time decode failures:
           // skip this sample without preventing the remaining arrangement.
+          if (generation !== this.playGeneration) return
+          this.samplePreparation.set(samplePath, 'failed')
         }
       }))
     }
 
     // Preserve the nearest samples as the most recently used entries even if
     // asynchronous decodes completed in a different order.
+    if (generation !== this.playGeneration) return
     for (let index = samplePaths.length - 1; index >= 0; index--) {
       this.engine.samples.peek(samplePaths[index]!)
     }

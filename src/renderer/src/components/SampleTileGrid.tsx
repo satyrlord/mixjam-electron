@@ -12,10 +12,10 @@ import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
 import { Tooltip } from './ui/Tooltip'
 import { ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 
-// The visible bubble stays 24px tall everywhere. The browser gives that visual
-// a separate 44px interaction target without changing the shared geometry.
-const SAMPLE_BUBBLE_TARGET_PX = 44
-const TILE_GAP_PX = 6
+// The visible bubble stays 26px tall everywhere. The browser uses a denser 30px
+// hit target for sample and category rows so they pack tightly.
+const SAMPLE_BUBBLE_TARGET_PX = 30
+const TILE_GAP_PX = 2
 const ROW_PITCH_PX = SAMPLE_BUBBLE_TARGET_PX + TILE_GAP_PX
 const TILES_H_PADDING_PX = 10
 

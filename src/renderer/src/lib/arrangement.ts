@@ -26,7 +26,7 @@ function compactTrackerPixels(basePixels: number, gridPixels = 1): number {
 export const LANE_HEIGHT_PX = compactTrackerPixels(52)
 // Align to 8px grid so the lane-head left edge and the ruler's left padding
 // share the same x-origin after the 75% scale, keeping grid lines crisp.
-export const LANE_HEAD_WIDTH_PX = compactTrackerPixels(220, 8)
+export const LANE_HEAD_WIDTH_PX = compactTrackerPixels(320, 8)
 export const RULER_HEIGHT_PX = compactTrackerPixels(44)
 // Snap mute/solo/pan controls to a 4px grid so they stay evenly sized and
 // centered inside the lane head without fractional overflow.
@@ -37,7 +37,7 @@ export const TRACKER_TOTAL_TICKS = TRACKER_BAR_COUNT * TICKS_PER_BAR
 export const TRACKER_TIMELINE_MIN_WIDTH_PX =
   LANE_HEAD_WIDTH_PX + TRACKER_BAR_COUNT * BEATS_PER_BAR * TRACKER_BEAT_WIDTH_PX
 export const DEFAULT_PLACEMENT_DURATION_TICKS = 32
-export const SAMPLE_BUBBLE_HEIGHT_PX = compactTrackerPixels(32)
+export const SAMPLE_BUBBLE_HEIGHT_PX = compactTrackerPixels(34)
 export const DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND = compactTrackerPixels(84)
 const SAMPLE_BUBBLE_MIN_WIDTH_PX = 12
 const SAMPLE_BUBBLE_UNKNOWN_DURATION_SECONDS = 2
@@ -481,5 +481,18 @@ export function setLanePan(lanes: LaneState[], laneIndex: number, pan: number): 
   return lanes.map((lane) =>
     lane.index === laneIndex ? { ...lane, pan: clamp(pan, -1, 1) } : lane
   )
+}
+
+export function renameLane(lanes: LaneState[], laneIndex: number, name: string): LaneState[] {
+  const nextName = name.trim()
+  if (!nextName) return lanes
+
+  let changed = false
+  const next = lanes.map((lane) => {
+    if (lane.index !== laneIndex || lane.name === nextName) return lane
+    changed = true
+    return { ...lane, name: nextName }
+  })
+  return changed ? next : lanes
 }
 

@@ -39,13 +39,18 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 
 ```json
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "appVersion": "v0.1.0",
   "createdAt": "2026-06-28T...",
   "modifiedAt": "2026-06-28T...",
   "song": {
     "bpm": 120,
-    "masterGain": 0.8
+    "masterGain": 0.8,
+    "clipEdgeMicroFades": {
+      "enabled": true,
+      "fadeInMs": 2,
+      "fadeOutMs": 4
+    }
   },
   "lanes": [
     {
@@ -112,9 +117,14 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 - `songEndTick` is derived on load as the latest placement end and is not stored
   as redundant timeline padding or metadata. Internal and trailing empty bars
   therefore add no project-file size.
-- `song` contains every saved Song-panel control. For v1 this is project BPM
-  and Master Volume (`masterGain`). Live meter readings and transport position
-  are runtime telemetry, not saved Song settings.
+- `song` contains every saved Song-panel control. This is project BPM,
+  Master Volume (`masterGain`), and automatic clip-edge micro-fade settings.
+  Version 2 adds `clipEdgeMicroFades`. Version-1 files migrate to the enabled
+  2 ms fade-in and 4 ms fade-out defaults. The version increment is required
+  because this field changes rendered sound; an older build must reject a
+  version-2 project instead of silently opening it without the saved envelope
+  behavior. Live meter readings and transport position are runtime telemetry,
+  not saved Song settings.
 - `channels` contains the complete Mixer state: channel identity and presence,
   gain, pan, mute, solo, routing, and the ordered `fx` chain. Each FX entry saves
   its effect identity, type, bypass state, and every editable parameter defined
@@ -124,6 +134,12 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 
 ### Persistence Ownership
 
+- `src/renderer/src/project/project-state.ts` owns the complete in-memory Song
+  settings contract, its defaults, cloning, and the nested transport-replacement
+  shape. Save, load, New, and generator paths pass that complete `song` object
+  instead of reconstructing flattened field lists. The project-file module owns
+  format validation and migration, but it reuses this neutral state contract so
+  adding a Song setting cannot silently omit a replacement or default path.
 - Song settings, Mixer settings, routing, and FX settings exist in memory while
   a project is active and persist only when written into that project's
   `.mixjam` file.
@@ -268,8 +284,12 @@ generator, its tests, and this contract are the durable repository assets.
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** "Save As…" writes a valid `.mixjam` JSON file to the chosen location.
-- [x] **AC-002:** Saving, closing the app, reopening, and loading the project restores all lanes, placements, Song settings (BPM and Master Volume), Mixer settings, routing, and complete ordered FX chains.
-- [x] **AC-003:** The unsaved changes indicator appears after any arrangement, Song, Mixer, routing, or FX modification and disappears after save.
+- [x] **AC-002:** Saving, closing the app, reopening, and loading the project
+  restores all lanes and their edited names, placements, Song settings, Mixer
+  settings, routing, and complete ordered FX chains.
+- [x] **AC-003:** The unsaved changes indicator appears after any arrangement
+  change, including a lane rename, or Song, Mixer, routing, or FX modification
+  and disappears after save.
 - [x] **AC-004:** Ctrl+S saves to the current path; Ctrl+Shift+S triggers "Save As…".
 - [x] **AC-005:** Loading a project with a missing sample file shows a warning badge on the affected lane(s) — other lanes load correctly.
 - [x] **AC-006:** Loading a project with a `formatVersion` higher than the app supports shows an error message and does not load.
@@ -319,22 +339,31 @@ generator, its tests, and this contract are the durable repository assets.
   140 BPM project tempo, and persist that same native BPM provenance.
 - [x] **AC-026:** New in the Middle Strip project menu starts a default project
   through the same complete project-state reset used by the Home Screen.
+- [x] **AC-027:** Saving and loading version 2 preserves the automatic clip-edge
+  micro-fade enabled state and fractional 0-20 ms fade durations. An older
+  version-1 project migrates to the enabled 2 ms/4 ms defaults.
+- [x] **AC-028:** New, load, save, transport replacement, and the generated test
+  project use one complete nested Song-state contract and canonical default
+  factory rather than independently listing Song fields.
 
 ## Implementation Evidence
 
 - `src/renderer/src/project/project-file.test.ts` covers strict schema
   validation, safe relative paths, version-zero migration, newer-version
-  rejection, roundtrips, dirty fingerprints, sparse capacity-free
+  rejection, version-1 micro-fade migration, roundtrips, dirty fingerprints,
+  sparse capacity-free
   serialization, and field-specific rejection of exclusive placement ends
   beyond tick 31,968.
+- `src/renderer/src/project/project-state.test.ts` covers canonical defaults,
+  nested overrides, and isolated clones for project-replacement boundaries.
 - `src/renderer/src/backend/project-files.test.ts` covers filtered open/save
   pickers, external read-only opens, User Folder write containment, writable
   close/abort behavior, direct reads/writes, cancellation, and missing-sample
   checks.
 - `src/renderer/src/hooks/useProjectPersistence.test.ts` covers complete state
   replacement, external-project Save As routing, recent-project updates,
-  unsaved reload behavior, defaults, missing samples, and project A to project
-  B isolation.
+  unsaved reload behavior, clip-edge micro-fade save/load/defaults, missing
+  samples, and project A to project B isolation.
 - `src/renderer/src/hooks/useMixer.test.ts` proves Mixer and FX no longer
   hydrate from or persist to app-level storage.
 - `src/renderer/src/components/PlayerView.test.tsx` covers the project controls,
@@ -366,7 +395,7 @@ generator, its tests, and this contract are the durable repository assets.
 - No project export as audio stems or multitrack.
 - No project templates or "New from template".
 - No embedded sample data — samples are always referenced by path.
-- No compression or binary format (plain JSON only for v1).
+- No compression or binary format; projects remain plain JSON.
 - No project password protection or encryption.
 - No app-level persistence of Song, Mixer, routing, or FX state outside a
   `.mixjam` project file.

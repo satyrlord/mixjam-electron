@@ -402,6 +402,11 @@ export default function PlayerView({
     samplePath: string
     sampleName: string
   } | null>(null)
+  const [laneContextMenu, setLaneContextMenu] = useState<{
+    laneIndex: number
+    laneName: string
+  } | null>(null)
+  const [renamingLaneIndex, setRenamingLaneIndex] = useState<number | null>(null)
 
   // Flash state for "locate in browser": the target path stays put for the
   // whole animation while a visibility flag blinks, so the effect below never
@@ -441,6 +446,26 @@ export default function PlayerView({
     setFlashSamplePath(contextMenu.samplePath)
     setContextMenu(null)
   }, [contextMenu, browser])
+
+  const handleLaneContextMenu = useCallback((laneIndex: number, laneName: string) => {
+    setLaneContextMenu({ laneIndex, laneName })
+  }, [])
+
+  const handleRenameLane = useCallback(() => {
+    if (!laneContextMenu) return
+    setRenamingLaneIndex(laneContextMenu.laneIndex)
+    setLaneContextMenu(null)
+  }, [laneContextMenu])
+
+  const onRenameLane = arrangement.onRenameLane
+  const handleCommitLaneName = useCallback((laneIndex: number, name: string) => {
+    onRenameLane(laneIndex, name)
+    setRenamingLaneIndex(null)
+  }, [onRenameLane])
+
+  const handleCancelLaneRename = useCallback(() => {
+    setRenamingLaneIndex(null)
+  }, [])
 
   return (
     <PanelGroup
@@ -500,14 +525,22 @@ export default function PlayerView({
             <button type="button" onClick={openSamplesFromCue}>Open Samples</button>
           </aside>
         )}
-        <ContextMenuRoot onOpenChange={(open) => { if (!open) setContextMenu(null) }}>
+        <ContextMenuRoot onOpenChange={(open) => {
+          if (!open) {
+            setContextMenu(null)
+            setLaneContextMenu(null)
+          }
+        }}>
           <ContextMenuTrigger asChild>
             <div
               id={TRACKER_SCROLLPORT_ID}
               className="tracker-lanes"
               ref={lanesRef}
               onMouseDown={handleLanesMouseDown}
-              onContextMenuCapture={() => setContextMenu(null)}
+              onContextMenuCapture={() => {
+                setContextMenu(null)
+                setLaneContextMenu(null)
+              }}
             >
           <div
             className="tracker-timeline"
@@ -571,6 +604,10 @@ export default function PlayerView({
                 onToggleLaneMute={arrangement.onToggleLaneMute}
                 onToggleLaneSolo={arrangement.onToggleLaneSolo}
                 onSetLanePan={arrangement.onSetLanePan}
+                renaming={renamingLaneIndex === lane.index}
+                onLaneContextMenu={handleLaneContextMenu}
+                onCommitLaneName={handleCommitLaneName}
+                onCancelLaneRename={handleCancelLaneRename}
                 onPlacementDragStart={handlePlacementDragStart}
                 onPlacementContextMenu={setContextMenu}
                 onDragOver={handleLaneCanvasDragOver}
@@ -585,6 +622,11 @@ export default function PlayerView({
             <ContextMenuContent aria-label={`Placement actions for ${contextMenu.sampleName}`}>
               <ContextMenuItem onSelect={handleContextDelete}>Delete</ContextMenuItem>
               <ContextMenuItem onSelect={handleContextLocate}>Locate in Browser</ContextMenuItem>
+            </ContextMenuContent>
+          )}
+          {laneContextMenu && (
+            <ContextMenuContent aria-label={`Lane actions for ${laneContextMenu.laneName}`}>
+              <ContextMenuItem onSelect={handleRenameLane}>Rename lane</ContextMenuItem>
             </ContextMenuContent>
           )}
         </ContextMenuRoot>
@@ -641,9 +683,11 @@ export default function PlayerView({
           <SongControlsMain
             bpm={transport.bpm}
             masterGain={transport.masterGain}
+            clipEdgeMicroFades={transport.clipEdgeMicroFades}
             masterMeter={transport.masterMeter}
             onSetBpm={transport.onSetBpm}
             onSetMasterGain={transport.onSetMasterGain}
+            onSetClipEdgeMicroFades={transport.onSetClipEdgeMicroFades}
             onResetMasterMeter={transport.onResetMasterMeter}
           />
         )}

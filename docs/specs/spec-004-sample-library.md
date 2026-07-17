@@ -129,7 +129,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ### Sample Browser Grid
 
-- Samples render as the same 24px-high bubble used by the Tracker. Bubbles show
+- Samples render as the same 26px-high bubble used by the Tracker. Bubbles show
   the filename and source duration and retain identical geometry across views.
   Their shared width uses the Tracker's pixels-per-tick scale and the sample's
   project-owned musical span. Before first placement, the browser estimates the

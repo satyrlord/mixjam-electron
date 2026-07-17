@@ -9,6 +9,11 @@ import {
   masterMeterSnapshotsEqual,
   type MasterMeterSnapshot
 } from '../engine/master-meter'
+import {
+  DEFAULT_CLIP_EDGE_MICRO_FADES,
+  normalizeClipEdgeMicroFades,
+  type ClipEdgeMicroFadeSettings
+} from '../engine/clip-edge-fades'
 
 export type RuntimeTransportState = TransportState | 'preparing'
 
@@ -20,6 +25,7 @@ interface UseTransportRuntimeParams {
   songEndTick: number
   initialBpm: number
   initialMasterGain: number
+  initialClipEdgeMicroFades?: ClipEdgeMicroFadeSettings
 }
 
 export interface TransportRuntime {
@@ -28,6 +34,7 @@ export interface TransportRuntime {
   currentTick: number
   bpm: number
   masterGain: number
+  clipEdgeMicroFades: ClipEdgeMicroFadeSettings
   elapsedMs: number
   masterMeter: MasterMeterSnapshot
   transportPlay: () => void
@@ -40,6 +47,7 @@ export interface TransportRuntime {
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
   setBpm: (nextBpm: number) => void
   setMasterGain: (value: number) => void
+  setClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   resetMasterMeter: () => void
 }
 
@@ -50,7 +58,8 @@ export function useTransportRuntime({
   getLanes,
   songEndTick,
   initialBpm,
-  initialMasterGain
+  initialMasterGain,
+  initialClipEdgeMicroFades
 }: UseTransportRuntimeParams): TransportRuntime {
   const transportRef = useRef<Transport | null>(null)
   const playbackEngineRef = useRef<PlaybackEngine | null>(null)
@@ -58,6 +67,8 @@ export function useTransportRuntime({
   const [currentTick, setCurrentTick] = useState(0)
   const [bpm, setBpmState] = useState(initialBpm)
   const [masterGain, setMasterGainState] = useState(initialMasterGain)
+  const initialFades = initialClipEdgeMicroFades ?? DEFAULT_CLIP_EDGE_MICRO_FADES
+  const [clipEdgeMicroFades, setClipEdgeMicroFadesState] = useState(initialFades)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [masterMeter, setMasterMeter] = useState<MasterMeterSnapshot>(
     emptyMasterMeterSnapshot()
@@ -67,6 +78,7 @@ export function useTransportRuntime({
   const activeRef = useSyncedRef(active)
   const bpmRef = useRef(initialBpm)
   const masterGainRef = useRef(initialMasterGain)
+  const clipEdgeMicroFadesRef = useRef(initialFades)
   const runtimeStateRef = useRef<RuntimeTransportState>('stopped')
   const startRequestRef = useRef<number | null>(null)
   const nextStartRequestRef = useRef(0)
@@ -173,7 +185,8 @@ export function useTransportRuntime({
       loadSampleBytes: (samplePath) => {
         if (!sampleFolder) return Promise.resolve(null)
         return backendAPI.readSampleBytes(sampleFolder.id, samplePath)
-      }
+      },
+      clipEdgeMicroFades: clipEdgeMicroFadesRef.current
     })
     playbackEngine.setMasterGain(masterGainRef.current)
     transportRef.current = transport
@@ -328,6 +341,13 @@ export function useTransportRuntime({
     playbackEngineRef.current?.setMasterGain(value)
   }, [])
 
+  const setClipEdgeMicroFades = useCallback((settings: ClipEdgeMicroFadeSettings) => {
+    const normalized = normalizeClipEdgeMicroFades(settings)
+    clipEdgeMicroFadesRef.current = normalized
+    setClipEdgeMicroFadesState(normalized)
+    playbackEngineRef.current?.setClipEdgeMicroFades(normalized)
+  }, [])
+
   const resetMasterMeter = useCallback(() => {
     const playbackEngine = playbackEngineRef.current
     if (!playbackEngine) return
@@ -341,6 +361,7 @@ export function useTransportRuntime({
     currentTick,
     bpm,
     masterGain,
+    clipEdgeMicroFades,
     elapsedMs,
     masterMeter,
     transportPlay,
@@ -353,6 +374,7 @@ export function useTransportRuntime({
     getSampleBuffer,
     setBpm,
     setMasterGain,
+    setClipEdgeMicroFades,
     resetMasterMeter
   }
 }

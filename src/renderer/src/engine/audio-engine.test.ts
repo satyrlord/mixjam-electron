@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AudioEngine } from './audio-engine'
 import { MockAudioContext, MockAudioWorkletNode, createMockContext } from '../test/mockAudioContext'
+import { createClipEdgeFadePlan } from './clip-edge-fades'
 
 function makeBuffer(): AudioBuffer {
   return { duration: 1, length: 44100, numberOfChannels: 2, sampleRate: 44100 } as AudioBuffer
@@ -96,6 +97,42 @@ describe('AudioEngine', () => {
     })
 
     expect(context.created.sources[0].playbackRate.value).toBe(0.75)
+  })
+
+  it('applies one shared linear edge envelope before lane and channel routing', () => {
+    const { engine, context } = makeEngine()
+    const channel = engine.createChannel()
+    const buffer = {
+      duration: 1,
+      length: 44_100,
+      numberOfChannels: 4,
+      sampleRate: 44_100
+    } as AudioBuffer
+    const plan = createClipEdgeFadePlan({
+      sampleRate: 44_100,
+      clipDurationSeconds: 1,
+      fadeInMs: 2,
+      fadeOutMs: 4
+    })
+
+    engine.triggerVoice({
+      buffer,
+      channel,
+      when: 3,
+      laneIndex: 0,
+      edgeFadePlan: plan
+    })
+
+    const edgeGain = context.created.gains.find((gain) => gain.gain.events.length > 0)
+    expect(edgeGain).toBeDefined()
+    expect(context.created.sources[0].connectedTo).toContain(edgeGain)
+    expect(edgeGain?.connectedTo).toContain(context.created.gains[2])
+    expect(edgeGain?.gain.events).toEqual([
+      { type: 'set', value: 0, time: 3 },
+      { type: 'linear', value: 1, time: 3 + 87 / 44_100 },
+      { type: 'set', value: 1, time: 3 + (44_100 - 176) / 44_100 },
+      { type: 'linear', value: 0, time: 3 + 44_099 / 44_100 }
+    ])
   })
 
   // AC-007

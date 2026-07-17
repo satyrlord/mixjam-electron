@@ -137,6 +137,7 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   onRemovePlacementFromLane: noop,
   onRemovePlacements: noop,
   onSetLanePan: noop,
+  onRenameLane: noop,
   onToggleLaneMute: noop,
   onToggleLaneSolo: noop
 }
@@ -146,11 +147,13 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   songEndTick: 0,
   bpm: 120,
   masterGain: 0.8,
+  clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 },
   masterMeter: emptyMasterMeterSnapshot(),
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
   onSetMasterGain: noop,
+  onSetClipEdgeMicroFades: noop,
   onResetMasterMeter: noop,
   onUndo: noop,
   onRedo: noop,
@@ -554,6 +557,19 @@ describe('PlayerView', () => {
     expect(onRemovePlacementFromLane).toHaveBeenCalledWith(0, 'placement-1')
   })
 
+  it('renames a lane from its right-click menu', () => {
+    const onRenameLane = vi.fn()
+    renderPlayer({ arrangement: { onRenameLane } })
+
+    fireEvent.contextMenu(screen.getByText('Lane 1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename lane' }))
+    const input = screen.getByRole('textbox', { name: 'Rename Lane 1' })
+    fireEvent.change(input, { target: { value: 'Kick Phrase' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onRenameLane).toHaveBeenCalledWith(0, 'Kick Phrase')
+  })
+
   it('calls onMovePlacement when a sample bubble is dragged to another lane', () => {
     const onMovePlacement = vi.fn()
     const lanesWithPlacement: LaneState[] = LANES.map((lane) =>
@@ -689,22 +705,24 @@ describe('PlayerView', () => {
     expect(localStorage.getItem('mixjam:recents-rail-collapsed')).toBeNull()
   })
 
-  // --- AC-004a: BPM and Master Volume share the Song Controls container ---
-  it('AC-004a: Song Controls renders BPM and Master Volume sliders with the dB meter', () => {
+  // --- AC-004a: Output Level shares the Master Volume module ---
+  it('AC-004a: Song Controls groups Master Volume with its Output Level meter', () => {
     renderPlayer({})
 
     const songControls = screen.getByText('Song Controls').closest('.song-controls-main')
     const bpmSlider = screen.getByRole('slider', { name: 'BPM' })
     const volumeSlider = screen.getByRole('slider', { name: 'Master Volume' })
+    const outputMeter = screen.getByRole('meter', { name: 'Output Level' })
+    const masterModule = volumeSlider.closest('.song-control-module')
 
     expect(songControls).toContainElement(bpmSlider)
     expect(songControls).toContainElement(volumeSlider)
-    expect(screen.getByRole('meter', { name: 'Output Level' })).toBeInTheDocument()
+    expect(masterModule).toContainElement(outputMeter)
     expect(bpmSlider).toHaveAttribute('aria-orientation', 'vertical')
     expect(volumeSlider).toHaveAttribute('aria-orientation', 'vertical')
     expect(bpmSlider.closest('.vertical-fader')).not.toBeNull()
     expect(volumeSlider.closest('.vertical-fader')).not.toBeNull()
-    expect(screen.getByRole('meter', { name: 'Output Level' })).toHaveClass('vertical-meter')
+    expect(outputMeter).toHaveClass('vertical-meter')
   })
 
   it('AC-004d: BPM supports precise valid numeric entry and rejects invalid values', () => {
@@ -1061,7 +1079,7 @@ describe('PlayerView', () => {
     expect(timeline?.querySelector('.tracker-ruler')).not.toBeNull()
     expect(timeline?.querySelector('.tracker-playhead')).not.toBeNull()
     expect(timeline?.querySelectorAll('.tracker-lane')).toHaveLength(16)
-    expect(timeline).toHaveStyle({ minWidth: '128040px' })
+    expect(timeline).toHaveStyle({ minWidth: '128112px' })
     expect(screen.getByRole('scrollbar', { name: 'Song Progress Bar' })).toHaveAttribute(
       'aria-controls',
       'tracker-song-scrollport'
@@ -1419,8 +1437,8 @@ describe('PlayerView', () => {
     Object.defineProperty(lanes, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
     })
-    fireEvent.mouseDown(lanes, { ctrlKey: true, clientX: 230, clientY: 100 })
-    fireEvent.mouseMove(window, { clientX: 300, clientY: 200 })
+    fireEvent.mouseDown(lanes, { ctrlKey: true, clientX: 250, clientY: 100 })
+    fireEvent.mouseMove(window, { clientX: 320, clientY: 200 })
     const selRect = container.querySelector('.selection-rect')
     expect(selRect).not.toBeNull()
     fireEvent.mouseUp(window)
@@ -1623,9 +1641,9 @@ describe('PlayerView', () => {
     Object.defineProperty(lanesEl, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, right: 1000, bottom: 600, width: 1000, height: 600 })
     })
-    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 170, clientY: 40 })
+    fireEvent.mouseDown(lanesEl, { ctrlKey: true, clientX: 250, clientY: 40 })
     act(() => {
-      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 190, clientY: 110, bubbles: true }))
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 270, clientY: 110, bubbles: true }))
     })
     act(() => {
       window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))

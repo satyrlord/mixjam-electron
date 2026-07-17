@@ -39,7 +39,10 @@ at the project BPM with spec-009 tempo-following resampling applied.
 - The entire arrangement (all lanes, mixer channels, effects, tempo resampling)
   is rendered to a single stereo buffer.
 - Rendering respects: lane routing, channel gain/pan, mute/solo states, BPM,
-  playback-rate ratios, and all active effects.
+  playback-rate ratios, automatic clip-edge micro-fades, and all active
+  effects. Export must reuse spec-005's sample-count rounding, proportional
+  short-placement handling, and same-lane boundary classification so live and
+  offline envelopes are sample-consistent.
 - The rendered buffer is then encoded to WAV or MP3.
 
 ### WAV Export

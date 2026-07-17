@@ -177,7 +177,7 @@ describe('LaneSampleBubbleCanvas', () => {
       />
     )
 
-    expect(mockCtx.rect).toHaveBeenCalledWith(8, expect.any(Number), 104, 24)
+    expect(mockCtx.rect).toHaveBeenCalledWith(8, expect.any(Number), 104, 26)
   })
 
   it('draws a flash overlay when flashSamplePath matches a placement', () => {
@@ -396,7 +396,7 @@ describe('LaneSampleBubbleCanvas', () => {
     // The drag-image canvas keeps a 48px usable surface, but the sample bubble
     // inside it retains the canonical 16 ticks * 2.625px/tick = 42px width.
     expect(ghost.style.width).toBe('48px')
-    expect(mockCtx.rect).toHaveBeenCalledWith(8, 0, 26, 24)
+    expect(mockCtx.rect).toHaveBeenCalledWith(8, 0, 26, 26)
     // The ghost renders only the grabbed bubble's label, not the lane's other placements
     expect(mockCtx.fillText).toHaveBeenCalledWith('kick.wav', expect.any(Number), expect.any(Number))
     expect(mockCtx.fillText).not.toHaveBeenCalledWith('snare.wav', expect.any(Number), expect.any(Number))

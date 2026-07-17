@@ -26,6 +26,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   the relative balance between channels.
 - **US-007:** As a user, the UI can display a master loudness meter driven by
   the engine's real output level.
+- **US-008:** As a user, playback suppresses clicks at placement edges next to
+  silence without changing my source files or creating a noticeable attack or
+  release.
 
 ## Scope
 
@@ -166,14 +169,60 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Provides `stop()` for early termination.
 - Reports lifecycle events: `voiceStarted`, `voiceEnded`.
 
+### Automatic Clip-Edge Micro-Fades
+
+- Automatic clip-edge micro-fades are project-owned Song settings:
+  `enabled`, `fadeInMs`, and `fadeOutMs`.
+- Defaults are enabled, 2 ms fade-in, and 4 ms fade-out. Both values accept
+  fractional milliseconds from 0 through 20.
+- Each Tracker voice uses one linear-amplitude per-voice gain envelope. The
+  envelope applies equally to all decoded source channels before lane pan,
+  channel processing, and the master bus.
+- Fade sample counts use
+  `round(audioContext.sampleRate * durationMs / 1000)`. Tempo-following
+  playback changes source rate but not the requested output-time duration.
+- An enabled fade-in begins at gain 0 and reaches gain 1 at its final sample.
+  An enabled fade-out begins at gain 1 and reaches gain 0 at the placement end.
+- If the audible placement is shorter than the combined requested fades, both
+  sample counts shrink proportionally so their sum does not exceed the audible
+  placement sample count. Zero-length and invalid durations do not schedule
+  ramps or produce non-finite gain values. A one-render-frame placement is
+  silent when either edge fade applies because one frame cannot represent both
+  endpoints.
+- A placement edge is automatically faded only when that edge touches silence
+  on the same lane. Touching or overlapping effective audible segments do not
+  both fade to zero. Effective segments use the monophonic trigger precedence
+  below, rather than the placements' nominal visual spans. MixJam has no
+  edit-boundary crossfade in this slice.
+- Fade suppression also requires the touching sample to be decoded and ready.
+  A missing, unreadable, corrupt, or not-yet-prepared neighbor is treated as a
+  possible silence edge, so the playable placement keeps its protective fade.
+  Silence classification propagates across consecutive failed placements until
+  the next playable placement.
+- Starting playback inside a placement starts its source at the corresponding
+  source offset and schedules the gain from the corresponding point in the
+  envelope.
+- The decoded `AudioBuffer` and source file remain unchanged.
+- Explicit placement fades, loop crossfades, reverse playback, and offline
+  export are not implemented. Future explicit fades must replace, not stack
+  with, the automatic envelope on the same edge. Spec-012 export must reuse
+  the same sample-count and boundary rules.
+
 ### Lane
 
 - Represents one of the 16 monophonic stereo lanes in the current MixJam
   Player. Lane add/remove is not implemented, and no supported maximum above
   16 is currently defined.
 - **Monophonic:** if a new sample bubble overlaps a currently playing one on the
-  same lane, the previous voice is cut off immediately (classic eJay/Acid
-  behavior).
+  same lane, the previous voice is cut off at the new placement's exact
+  scheduled start time (classic eJay/Acid behavior). Lookahead scheduling must
+  not cut it off early. The cutoff still applies if the later sample cannot be
+  prepared because placement precedence is independent of sample readiness.
+- A later placement start permanently ends the earlier placement's effective
+  audible segment. Seeking past that cut does not resume the earlier placement.
+  If several placements share one start tick, the last placement in stored
+  lane order wins. Automatic fade planning uses this effective audible segment,
+  not the earlier placement's nominal duration.
 - Each lane holds a set of clip placements (each with a sample reference,
   start tick, and duration in ticks), mute state, solo state, and
   a channel assignment.
@@ -244,6 +293,27 @@ the engine never knows who is listening.
   energy rings out after transport stops. Natural end and Stop reset to tick 0;
   Jump to End parks at `songEndTick`. Replaying after the tail decays uses the
   existing graph without duplicate connections.
+- [x] **AC-018:** A Tracker voice next to silence schedules a linear 2 ms
+  fade-in and 4 ms fade-out by default, with exact 0 and 1 endpoints and one
+  shared envelope across every source channel.
+- [x] **AC-019:** Fade sample counts use the active AudioContext sample rate,
+  remain constant in milliseconds across supported sample rates and
+  tempo-following playback rates, and shrink proportionally without overlap for
+  very short placements.
+- [x] **AC-020:** Zero-length, one-sample, and invalid envelope inputs never
+  crash and never schedule a non-finite gain value.
+- [x] **AC-021:** Touching or overlapping placements on one lane do not both
+  fade to silence at their shared boundary. Placements separated by a gap keep
+  the automatic fade-out and fade-in. If either neighbor cannot be prepared,
+  the playable placement keeps the fade at the boundary that is actually
+  silent.
+- [x] **AC-022:** Starting playback inside a sounding placement uses the
+  matching source offset and envelope gain. Disabling the project setting
+  restores direct source-to-lane playback without an automatic envelope.
+- [x] **AC-023:** An overlapping placement cuts the prior voice at the later
+  placement's exact audio-clock start, not when the lookahead schedules it.
+  The cutoff remains scheduled when the later sample is unavailable, and fade
+  planning uses the same overlap-truncated audible duration.
 
 ## Song-Boundary Implementation Evidence
 
@@ -260,6 +330,24 @@ the engine never knows who is listening.
   runtime and audio engine in Chromium for natural end, replay, explicit Stop,
   and Jump to End. Raw post-boundary output samples are under
   `tmp/verify-fx-song-end/`.
+- `src/renderer/src/engine/clip-edge-fades.test.ts`,
+  `clip-edge-boundary-policy.test.ts`, `lane-evaluation.test.ts`,
+  `audio-engine.test.ts`, and `playback-engine.test.ts` cover sample conversion,
+  proportional short-clip handling, exact linear endpoints, same-lane boundary
+  classification, decoded readiness, consecutive unavailable placements,
+  playback-restart cleanup, multichannel-source graph ownership, disable
+  behavior, tempo-following timing, playback starting inside a placement,
+  ready and failed overlap cutoffs, and overlap-truncated envelope timing.
+- `tmp/verify-micro-fades/` records the production Chromium UI and native
+  `AudioParam` automation proof for fractional 0.5 ms/3.5 ms settings.
+- `tests/e2e/clip-edge-micro-fades.spec.ts` keeps that production Chromium
+  control-to-engine automation check in the durable browser suite. It also
+  renders the real voice envelope through `OfflineAudioContext` and verifies
+  zero endpoints, bounded sample steps, negative samples, tempo-rate playback,
+  short clips, and preserved mono, stereo, and four-channel ratios. Its
+  `PlaybackEngine` overlap scenarios prove that a ready successor begins at the
+  exact scheduled cutoff without a silent gap, while an unavailable successor
+  still ends the prior voice with the overlap-truncated protective fade.
 
 ## Non-Goals
 
@@ -267,6 +355,9 @@ the engine never knows who is listening.
 - Tempo-following resampling is specified by spec-009.
 - Per-channel effects are specified by spec-010.
 - No offline rendering for export. Export is spec-012.
+- No loop-boundary crossfade or edit-boundary crossfade.
+- No explicit user-authored placement fade editor. A future explicit fade
+  takes precedence over the automatic fade on the same edge.
 - No multi-channel audio output (only stereo master).
 - No live input monitoring or recording.
 - No native audio addon — Web Audio API only for v1.

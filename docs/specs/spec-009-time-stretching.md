@@ -76,6 +76,10 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 - The scheduler triggers the source at `startTick`. The next
   consecutive placement may trigger at `startTick + durationTicks` without an
   intentional gap or overlap.
+- Spec-005 automatic micro-fades use output-time milliseconds after the
+  playback-rate ratio is applied. Exact same-lane adjacency is not faded to
+  silence on both sides, so tempo changes preserve gapless boundaries without
+  introducing an automatic level dip.
 - Example: a 140 BPM four-bar loop stored as 128 ticks targets 8.648649 seconds
   at 111 BPM. Its speed ratio is `111 / 140`, independent of whether analysis
   metadata is present.

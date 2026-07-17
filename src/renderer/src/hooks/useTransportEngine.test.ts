@@ -29,6 +29,24 @@ describe('useTransportEngine', () => {
     vi.restoreAllMocks()
   })
 
+  it('replaces lanes and canonical Song settings through one project-state boundary', () => {
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'home'))
+    const lanes = createDefaultLanes()
+    lanes[0] = { ...lanes[0]!, name: 'Replacement lane' }
+    const song = {
+      bpm: 137,
+      masterGain: 0.63,
+      clipEdgeMicroFades: { enabled: false, fadeInMs: 1.5, fadeOutMs: 7 }
+    }
+
+    act(() => result.current.replaceProjectState({ lanes, song }))
+
+    expect(result.current.song).toEqual(song)
+    expect(result.current.lanes[0]!.name).toBe('Replacement lane')
+    expect(result.current.lanes).not.toBe(lanes)
+  })
+
   it('setLanePan updates lane pan without affecting channel pan (independent, spec-007)', async () => {
     vi.useRealTimers()
     const api = createBackendAPI()
@@ -95,6 +113,16 @@ describe('useTransportEngine', () => {
     })
 
     expect(result.current.lanes[0]!.pan).toBe(0.5)
+  })
+
+  it('renameLane updates the target lane name', () => {
+    const api = createBackendAPI()
+    const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'home'))
+
+    act(() => result.current.renameLane(3, '  Bass Groove  '))
+
+    expect(result.current.lanes[3]!.name).toBe('Bass Groove')
+    expect(result.current.lanes[2]!.name).toBe('Lane 3')
   })
 
   it('seeks the stopped playhead without starting transport', async () => {
@@ -379,7 +407,14 @@ describe('useTransportEngine', () => {
     }
 
     await act(async () => {
-      result.current.replaceProjectState({ lanes, bpm: 120, masterGain: 0.8 })
+      result.current.replaceProjectState({
+        lanes,
+        song: {
+          bpm: 120,
+          masterGain: 0.8,
+          clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+        }
+      })
       result.current.placeSampleDetailOnLane(
         { name: 'loop.wav', relpath: '/s/loop.wav', tags: [], bpm: null, duration: 4 },
         2,

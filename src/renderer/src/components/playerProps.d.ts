@@ -13,6 +13,7 @@ import type { ChannelState } from '../hooks/useMixer'
 import type { EffectSlot, EffectType } from '../engine/effects'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
+import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 
 export interface PlayerBrowserProps {
   samples: SampleListItem[]
@@ -77,6 +78,7 @@ export interface TrackerArrangementProps {
   onRemovePlacementFromLane: (laneIndex: number, placementId: string) => void
   onRemovePlacements: (placementIds: string[]) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
+  onRenameLane: (laneIndex: number, name: string) => void
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
 }
@@ -86,11 +88,13 @@ export interface PlayerTransportProps {
   songEndTick: number
   bpm: number
   masterGain: number
+  clipEdgeMicroFades: ClipEdgeMicroFadeSettings
   masterMeter: MasterMeterSnapshot
   canUndo: boolean
   canRedo: boolean
   onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
+  onSetClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   onResetMasterMeter: () => void
   onUndo: () => void
   onRedo: () => void

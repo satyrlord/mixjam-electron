@@ -25,6 +25,10 @@ const DEFAULT_PROPS = {
   onToggleLaneMute: vi.fn(),
   onToggleLaneSolo: vi.fn(),
   onSetLanePan: vi.fn(),
+  renaming: false,
+  onLaneContextMenu: vi.fn(),
+  onCommitLaneName: vi.fn(),
+  onCancelLaneRename: vi.fn(),
   onPlacementDragStart: vi.fn(),
   onPlacementContextMenu: vi.fn(),
   onDragOver: vi.fn(),
@@ -148,6 +152,40 @@ describe('LaneRow', () => {
     fireEvent.keyDown(panSlider, { key: 'ArrowLeft' })
     const clampedCall = onSetLanePan.mock.calls[0]![1] as number
     expect(clampedCall).toBeGreaterThanOrEqual(-1)
+  })
+
+  it('opens lane actions from the lane head and commits an inline rename', () => {
+    const onLaneContextMenu = vi.fn()
+    const onCommitLaneName = vi.fn()
+    const { rerender } = render(
+      <LaneRow {...DEFAULT_PROPS} onLaneContextMenu={onLaneContextMenu} />
+    )
+
+    fireEvent.contextMenu(screen.getByText('Lane 1'))
+    expect(onLaneContextMenu).toHaveBeenCalledWith(0, 'Lane 1')
+
+    rerender(
+      <LaneRow
+        {...DEFAULT_PROPS}
+        renaming
+        onLaneContextMenu={onLaneContextMenu}
+        onCommitLaneName={onCommitLaneName}
+      />
+    )
+    const input = screen.getByRole('textbox', { name: 'Rename Lane 1' })
+    fireEvent.change(input, { target: { value: '  Lead Synth  ' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onCommitLaneName).toHaveBeenCalledWith(0, 'Lead Synth')
+  })
+
+  it('cancels an inline rename with Escape', () => {
+    const onCancelLaneRename = vi.fn()
+    render(<LaneRow {...DEFAULT_PROPS} renaming onCancelLaneRename={onCancelLaneRename} />)
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Rename Lane 1' }), { key: 'Escape' })
+
+    expect(onCancelLaneRename).toHaveBeenCalledOnce()
   })
 
   it('mouse wheel adjusts the lane pan knob by 0.05 (AC-021)', () => {

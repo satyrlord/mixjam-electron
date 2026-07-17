@@ -22,6 +22,7 @@ import {
   placeSampleOnLane,
   removePlacementFromLane,
   resolvePendingPlacementBpms,
+  renameLane,
   setLanePan,
   songEndTick,
   toEngineLanes,
@@ -64,7 +65,7 @@ describe('arrangement lane constants', () => {
   it('has expected lane dimensions', () => {
     expect(TRACKER_GEOMETRY_SCALE).toBe(0.75)
     expect(LANE_HEIGHT_PX).toBe(39)
-    expect(LANE_HEAD_WIDTH_PX).toBe(168)
+    expect(LANE_HEAD_WIDTH_PX).toBe(240)
     expect(TRACKER_LANE_CONTROL_SIZE_PX).toBe(32)
   })
 
@@ -76,7 +77,7 @@ describe('arrangement lane constants', () => {
     expect(TRACKER_BAR_COUNT).toBe(999)
     expect(TRACKER_TOTAL_TICKS).toBe(31968)
     expect(TRACKER_BEAT_WIDTH_PX).toBe(32)
-    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(128040)
+    expect(TRACKER_TIMELINE_MIN_WIDTH_PX).toBe(128112)
   })
 })
 
@@ -356,6 +357,24 @@ describe('setLanePan', () => {
     const state = setLanePan(lanes, 2, -0.75)
     expect(state[2]!.pan).toBe(-0.75)
     expect(state[3]!.pan).toBe(0)
+  })
+})
+
+describe('renameLane', () => {
+  it('trims and updates only the named lane', () => {
+    const lanes = createDefaultLanes()
+    const state = renameLane(lanes, 2, '  Hi-Hat Groove  ')
+
+    expect(state[2]!.name).toBe('Hi-Hat Groove')
+    expect(state[0]).toBe(lanes[0])
+  })
+
+  it('returns the same state for an empty, unchanged, or unknown rename', () => {
+    const lanes = createDefaultLanes()
+
+    expect(renameLane(lanes, 0, '   ')).toBe(lanes)
+    expect(renameLane(lanes, 0, ' Lane 1 ')).toBe(lanes)
+    expect(renameLane(lanes, 99, 'Unknown')).toBe(lanes)
   })
 })
 

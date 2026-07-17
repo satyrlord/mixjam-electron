@@ -4,6 +4,8 @@ import { PlaybackEngine } from './playback-engine'
 import { type SchedulerClock } from './scheduler'
 import { MockAudioContext, MockBufferSourceNode, createMockContext } from '../test/mockAudioContext'
 import { createDefaultEffect } from './effects'
+import type { ClipEdgeMicroFadeSettings } from './clip-edge-fades'
+import type { ClipEdgeBoundaryPolicy } from './clip-edge-boundary-policy'
 
 function mockClock(): SchedulerClock & { fire: () => void } {
   let pending: (() => void) | null = null
@@ -25,6 +27,7 @@ function makePlaybackEngine(opts: {
   loadSampleBytes?: (p: string) => Promise<ArrayBuffer | null>
   audioTime?: number
   sampleCache?: { maxEntries: number }
+  clipEdgeMicroFades?: ClipEdgeMicroFadeSettings
 }) {
   const context = opts.context ?? createMockContext()
   const clock = mockClock()
@@ -36,6 +39,7 @@ function makePlaybackEngine(opts: {
     getLanes: opts.getLanes ?? (() => opts.lanes ?? []),
     loadSampleBytes: opts.loadSampleBytes ?? (async () => new ArrayBuffer(8)),
     sampleCache: opts.sampleCache,
+    clipEdgeMicroFades: opts.clipEdgeMicroFades,
     bpm: 120
   })
   return { playbackEngine, context, clock }
@@ -196,6 +200,42 @@ describe('PlaybackEngine.triggerLane edge cases', () => {
     fail = false
     await expect(playbackEngine.start(0)).resolves.toBe(true)
     expect(getLanes.mock.calls.length).toBeGreaterThanOrEqual(2)
+    await playbackEngine.close()
+  })
+
+  it('does not let a canceled preload block or poison a newer start', async () => {
+    let resolveOldPreload!: (value: ArrayBuffer | null) => void
+    const oldPreload = new Promise<ArrayBuffer | null>((resolve) => {
+      resolveOldPreload = resolve
+    })
+    let loadCount = 0
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [{ startTick: 0, durationTicks: 8, samplePath: 'recover.wav' }]
+    }]
+    const { playbackEngine, context } = makePlaybackEngine({
+      lanes,
+      loadSampleBytes: async () => {
+        loadCount += 1
+        return loadCount === 1 ? oldPreload : new ArrayBuffer(8)
+      }
+    })
+
+    const oldStart = playbackEngine.start(0)
+    await flushAsync()
+    playbackEngine.pause()
+
+    await expect(playbackEngine.start(0)).resolves.toBe(true)
+    await flushAsync()
+    expect(context.created.sources).toHaveLength(1)
+
+    resolveOldPreload(null)
+    await expect(oldStart).resolves.toBe(false)
+    expect(loadCount).toBe(2)
     await playbackEngine.close()
   })
 
@@ -457,6 +497,303 @@ describe('PlaybackEngine tempo-following resampling', () => {
     expect(context.created.sources.map((source) => source.playbackRate.value)).toEqual([2, 4 / 3, 2])
     await playbackEngine.close()
   })
+})
+
+describe('PlaybackEngine automatic clip-edge micro-fades', () => {
+  const singlePlacement: EngineLane[] = [{
+    index: 0,
+    muted: false,
+    solo: false,
+    pan: 0,
+    channelIndex: 0,
+    placements: [{ startTick: 0, durationTicks: 8, samplePath: 'edge.wav' }]
+  }]
+
+  it('cuts off an overlapping voice at the future scheduled boundary', async () => {
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [
+        { startTick: 0, durationTicks: 8, samplePath: 'first.wav' },
+        { startTick: 1, durationTicks: 8, samplePath: 'second.wav' }
+      ]
+    }]
+    const { playbackEngine, context } = makePlaybackEngine({ lanes })
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    expect(context.created.sources).toHaveLength(2)
+    expect(context.created.sources[0]?.startWhen).toBe(0)
+    expect(context.created.sources[0]?.stopWhen).toBeCloseTo(60 / (120 * 8))
+    expect(context.created.sources[1]?.startWhen).toBeCloseTo(60 / (120 * 8))
+    await playbackEngine.close()
+  })
+
+  it('still cuts off an overlapping voice when the successor cannot load', async () => {
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [
+        { startTick: 0, durationTicks: 8, samplePath: 'first.wav' },
+        { startTick: 1, durationTicks: 8, samplePath: 'missing.wav' }
+      ]
+    }]
+    const { playbackEngine, context } = makePlaybackEngine({
+      lanes,
+      loadSampleBytes: async (samplePath) =>
+        samplePath === 'missing.wav' ? null : new ArrayBuffer(8)
+    })
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    expect(context.created.sources).toHaveLength(1)
+    expect(context.created.sources[0]?.stopWhen).toBeCloseTo(60 / (120 * 8))
+    await playbackEngine.close()
+  })
+
+  it('builds the envelope from the overlap-truncated audible duration', async () => {
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [
+        { startTick: 0, durationTicks: 100, samplePath: 'first.wav' },
+        { startTick: 1, durationTicks: 8, samplePath: 'second.wav' }
+      ]
+    }]
+    const { playbackEngine, context } = makePlaybackEngine({
+      lanes,
+      clipEdgeMicroFades: { enabled: true, fadeInMs: 20, fadeOutMs: 20 }
+    })
+    playbackEngine.setBpm(10_000)
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    const firstEnvelope = context.created.gains.find((gain) =>
+      gain.gain.events[0]?.value === 0 && gain.gain.events[1]?.value === 1
+    )
+    expect(firstEnvelope?.gain.events).toHaveLength(2)
+    expect(firstEnvelope?.gain.events[1]?.time).toBeCloseTo(32 / 44_100)
+    expect(context.created.sources[0]?.stopWhen).toBeCloseTo(60 / (10_000 * 8))
+    await playbackEngine.close()
+  })
+
+  it('schedules the default 2 ms and 4 ms envelope in output time', async () => {
+    const { playbackEngine, context } = makePlaybackEngine({ lanes: singlePlacement })
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    const edgeGain = context.created.gains.find((gain) => gain.gain.events.length > 0)
+    expect(edgeGain?.gain.events.map(({ type, value }) => ({ type, value }))).toEqual([
+      { type: 'set', value: 0 },
+      { type: 'linear', value: 1 },
+      { type: 'set', value: 1 },
+      { type: 'linear', value: 0 }
+    ])
+    const [start, fadeInEnd, fadeOutStart, fadeOutEnd] = edgeGain!.gain.events
+    expect(fadeInEnd!.time - start!.time).toBeCloseTo(87 / 44_100)
+    expect(fadeOutEnd!.time - fadeOutStart!.time).toBeCloseTo(175 / 44_100)
+    await playbackEngine.close()
+  })
+
+  it('restores direct playback when automatic fades are disabled', async () => {
+    const { playbackEngine, context } = makePlaybackEngine({
+      lanes: singlePlacement,
+      clipEdgeMicroFades: { enabled: false, fadeInMs: 2, fadeOutMs: 4 }
+    })
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    expect(context.created.gains.every((gain) => gain.gain.events.length === 0)).toBe(true)
+    await playbackEngine.close()
+  })
+
+  it('starts a resumed placement at the matching source offset and fade gain', async () => {
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [{ startTick: 0, durationTicks: 100, samplePath: 'long.wav' }]
+    }]
+    const { playbackEngine, context } = makePlaybackEngine({ lanes })
+    playbackEngine.setBpm(10_000)
+
+    await playbackEngine.start(1)
+    await flushAsync()
+
+    expect(context.created.sources).toHaveLength(1)
+    expect(context.created.sources[0].startOffset).toBeCloseTo(0.01)
+    const edgeGain = context.created.gains.find((gain) => gain.gain.events.length > 0)
+    expect(edgeGain?.gain.events[0]).toMatchObject({ type: 'set' })
+    expect(edgeGain?.gain.events[0]?.value).toBeCloseTo(33 / 87)
+    await playbackEngine.close()
+  })
+
+  it.each(['missing', 'unreadable'] as const)(
+    'keeps a fade-out before a touching %s placement',
+    async (failure) => {
+      const lanes: EngineLane[] = [{
+        index: 0,
+        muted: false,
+        solo: false,
+        pan: 0,
+        channelIndex: 0,
+        placements: [
+          { startTick: 0, durationTicks: 8, samplePath: 'valid.wav' },
+          { startTick: 8, durationTicks: 8, samplePath: 'broken.wav' }
+        ]
+      }]
+      const { playbackEngine, context } = makePlaybackEngine({
+        lanes,
+        loadSampleBytes: async (samplePath) => {
+          if (samplePath === 'valid.wav') return new ArrayBuffer(8)
+          if (failure === 'unreadable') throw new Error('read failed')
+          return null
+        }
+      })
+
+      await playbackEngine.start(0)
+      await flushAsync()
+
+      const edgeGain = context.created.gains.find((gain) => gain.gain.events.length >= 4)
+      expect(edgeGain?.gain.events.map(({ type, value }) => ({ type, value }))).toEqual([
+        { type: 'set', value: 0 },
+        { type: 'linear', value: 1 },
+        { type: 'set', value: 1 },
+        { type: 'linear', value: 0 }
+      ])
+      await playbackEngine.close()
+    }
+  )
+
+  it('keeps a fade-in after a touching missing placement', async () => {
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [
+        { startTick: 0, durationTicks: 8, samplePath: 'missing.wav' },
+        { startTick: 8, durationTicks: 8, samplePath: 'valid.wav' }
+      ]
+    }]
+    const { playbackEngine, context } = makePlaybackEngine({
+      lanes,
+      loadSampleBytes: async (samplePath) =>
+        samplePath === 'valid.wav' ? new ArrayBuffer(8) : null
+    })
+    playbackEngine.setBpm(10_000)
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    expect(context.created.sources).toHaveLength(1)
+    const edgeGain = context.created.gains.find((gain) => gain.gain.events.length > 0)
+    expect(edgeGain?.gain.events[0]).toMatchObject({ type: 'set', value: 0 })
+    await playbackEngine.close()
+  })
+
+  it('propagates silence across a missing placement in a touching chain', async () => {
+    const lanes: EngineLane[] = [{
+      index: 0,
+      muted: false,
+      solo: false,
+      pan: 0,
+      channelIndex: 0,
+      placements: [
+        { startTick: 0, durationTicks: 1, samplePath: 'a.wav' },
+        { startTick: 1, durationTicks: 1, samplePath: 'missing.wav' },
+        { startTick: 2, durationTicks: 1, samplePath: 'c.wav' }
+      ]
+    }]
+    const loadSampleBytes = vi.fn(async (samplePath: string) =>
+      samplePath === 'missing.wav' ? null : new ArrayBuffer(8)
+    )
+    const { playbackEngine, context } = makePlaybackEngine({
+      lanes,
+      loadSampleBytes
+    })
+    playbackEngine.setBpm(200)
+
+    await playbackEngine.start(0)
+    await flushAsync()
+
+    expect(context.created.sources).toHaveLength(2)
+    const edgeGains = context.created.gains.filter((gain) => gain.gain.events.length >= 4)
+    expect(edgeGains).toHaveLength(2)
+    expect(edgeGains[1]?.gain.events[0]).toMatchObject({ type: 'set', value: 0 })
+    expect(loadSampleBytes.mock.calls.filter(([path]) => path === 'missing.wav')).toHaveLength(1)
+    await playbackEngine.close()
+  })
+
+  it.each(['pause', 'stop', 'seek'] as const)(
+    'does not let a stale failed trigger mutate a newer playback generation after %s',
+    async (transition) => {
+      let resolveStaleRetry!: (value: ArrayBuffer | null) => void
+      const staleRetry = new Promise<ArrayBuffer | null>((resolve) => {
+        resolveStaleRetry = resolve
+      })
+      const { playbackEngine } = makePlaybackEngine({
+        loadSampleBytes: async () => staleRetry
+      })
+      const trigger = {
+        laneIndex: 0,
+        channelIndex: 0,
+        samplePath: 'pending.wav',
+        pan: 0,
+        nativeBPM: null,
+        placement: { startTick: 1, durationTicks: 1, samplePath: 'pending.wav' },
+        effectiveDurationTicks: 1,
+        nextPlacement: { startTick: 2, durationTicks: 1, samplePath: 'c.wav' },
+        fadeInAtStart: false,
+        fadeOutAtEnd: false
+      }
+      const triggering = (
+        playbackEngine as unknown as {
+          triggerLane(
+            laneTrigger: typeof trigger,
+            projectBpm: number,
+            when: number,
+            elapsedTicks?: number
+          ): Promise<void>
+        }
+      ).triggerLane(trigger, 120, 0)
+
+      const boundaryPolicy = (
+        playbackEngine as unknown as { clipEdgeBoundaryPolicy: ClipEdgeBoundaryPolicy }
+      ).clipEdgeBoundaryPolicy
+      const markPlacementSilent = vi.spyOn(boundaryPolicy, 'markPlacementSilent')
+
+      await flushAsync()
+      if (transition === 'pause') playbackEngine.pause()
+      else if (transition === 'stop') playbackEngine.stop()
+      else playbackEngine.seek(0)
+      await playbackEngine.start(0)
+
+      resolveStaleRetry(null)
+      await triggering
+      await flushAsync()
+
+      expect(markPlacementSilent).not.toHaveBeenCalled()
+      await playbackEngine.close()
+    }
+  )
 })
 
 describe('PlaybackEngine.channelGating', () => {

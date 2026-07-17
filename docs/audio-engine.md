@@ -34,6 +34,41 @@ than enough for an eJay/Acid-style tracker.
 - Each voice is a fresh `AudioBufferSourceNode` (they are one-shot) routed through a
   per-lane gain/pan node into the master bus.
 
+### Automatic clip-edge micro-fades
+
+- Tracker voices use a reversible per-voice gain envelope at boundaries that
+  touch silence. The project defaults are enabled, 2 ms fade-in, and 4 ms
+  fade-out. Both durations are configurable from 0 through 20 ms.
+- Fade lengths are converted with
+  `round(audioContext.sampleRate * durationMs / 1000)`. The output-context
+  sample rate is the timing authority because tempo-following playback must
+  keep the fade duration constant in rendered milliseconds.
+- The gain is linear in amplitude. It is exactly 0 at an enabled fade-in start,
+  reaches 1 at the fade-in end, remains at 1 between edges, and reaches exactly
+  0 at an enabled fade-out end.
+- If the audible placement is shorter than both requested fades, their sample
+  counts shrink proportionally and never overlap. Zero-length and invalid
+  durations produce no scheduled envelope and no non-finite values.
+- One gain node applies the same envelope to every source channel. This keeps
+  channel alignment and the source's existing stereo or multichannel
+  relationship before MixJam's normal lane pan and stereo output routing.
+- A touching or overlapping placement on the same monophonic lane means that
+  boundary is not adjacent to silence. MixJam does not fade both sides of that
+  boundary to zero. A later edit-boundary crossfade feature may replace this
+  rule without changing the stored automatic-fade settings.
+- A later placement cuts the prior voice at its exact scheduled start time,
+  including when lookahead prepares the later placement early or its sample is
+  unavailable. Fade planning uses the same overlap-truncated audible span.
+- Seeking into a sounding placement starts the source at the matching offset
+  and enters the envelope at the matching gain. The envelope is therefore
+  consistent whether playback starts before or inside a fade region.
+- Source audio and decoded cache entries are never changed. Envelope nodes and
+  automation are created when the voice is scheduled; the audio rendering
+  thread performs no file I/O, blocking work, or per-sample allocation.
+- Loop-boundary crossfades and explicit placement fades are separate features.
+  When explicit placement fades are added, they must replace the automatic
+  envelope on the same edge rather than stack with it.
+
 ### Real-time tempo resampling
 
 - Tracker audio is resampled to each placement's stored musical span. The

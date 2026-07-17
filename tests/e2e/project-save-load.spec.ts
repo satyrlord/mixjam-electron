@@ -35,11 +35,36 @@ test.describe('Project save and load', () => {
       return JSON.parse(harness.__mixjamProjectFiles['saved-project.mixjam'])
     })
 
-    expect(saved.formatVersion).toBe(1)
-    expect(saved.song).toEqual({ bpm: 126, masterGain: 0.8 })
+    expect(saved.formatVersion).toBe(2)
+    expect(saved.song).toEqual({
+      bpm: 126,
+      masterGain: 0.8,
+      clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+    })
     expect(saved.lanes).toHaveLength(16)
     expect(saved.channels).toHaveLength(16)
     expect(saved.channels[0].fx).toEqual([])
+  })
+
+  test('renames a lane from its context menu and saves the edited name', async ({ seededPage }) => {
+    await seededPage.getByRole('button', { name: 'Start New MixJam' }).click()
+
+    await seededPage.getByText('Lane 1', { exact: true }).click({ button: 'right' })
+    await seededPage.getByRole('menuitem', { name: 'Rename lane' }).click()
+    const renameInput = seededPage.getByRole('textbox', { name: 'Rename Lane 1' })
+    await renameInput.fill('Kick Phrase')
+    await renameInput.press('Enter')
+
+    await expect(seededPage.getByText('Kick Phrase', { exact: true })).toBeVisible()
+    await expect(seededPage.getByRole('button', { name: 'Mute Kick Phrase' })).toBeVisible()
+    await expect(seededPage.getByLabel('Untitled, unsaved changes')).toBeVisible()
+
+    await seededPage.keyboard.press('Control+Shift+S')
+    const savedName = await seededPage.evaluate(() => {
+      const harness = window as unknown as ProjectFileHarness
+      return JSON.parse(harness.__mixjamProjectFiles['saved-project.mixjam']).lanes[0].name
+    })
+    expect(savedName).toBe('Kick Phrase')
   })
 
   test('starting a new project does not reuse the previous project state', async ({ seededPage }) => {

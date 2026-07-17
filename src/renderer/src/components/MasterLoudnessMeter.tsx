@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
+import { Tooltip } from './ui/Tooltip'
 
 interface MasterLoudnessMeterProps {
   snapshot: MasterMeterSnapshot
@@ -71,9 +72,19 @@ export default function MasterLoudnessMeter({
             RMS fallback <output>{snapshot.rmsDbfs.toFixed(1)} dBFS</output>
           </p>
         )}
-        <button type="button" className="master-loudness-reset" onClick={onReset}>
-          Reset loudness measurement
-        </button>
+        <Tooltip content="Reset loudness measurement">
+          <button
+            type="button"
+            className="master-loudness-reset"
+            aria-label="Reset loudness measurement"
+            onClick={onReset}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M7 16V9a5 5 0 0 1 10 0c0 4.5-3 5.5-4 8.5-.3.9-.8 2.5-2.8 2.5A3.2 3.2 0 0 1 7 16Z" />
+              <path d="M10 9a2 2 0 1 1 4 0c0 1.5-.8 2.2-1.8 3M10 14c.7-.6 1-1.2 1-2" />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
     </div>
   )

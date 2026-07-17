@@ -135,6 +135,7 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   onRemovePlacementFromLane: noop,
   onRemovePlacements: noop,
   onSetLanePan: noop,
+  onRenameLane: noop,
   onToggleLaneMute: noop,
   onToggleLaneSolo: noop
 }
@@ -144,11 +145,13 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   songEndTick: 0,
   bpm: 120,
   masterGain: 0.8,
+  clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 },
   masterMeter: emptyMasterMeterSnapshot(),
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
   onSetMasterGain: noop,
+  onSetClipEdgeMicroFades: noop,
   onResetMasterMeter: noop,
   onUndo: noop,
   onRedo: noop,

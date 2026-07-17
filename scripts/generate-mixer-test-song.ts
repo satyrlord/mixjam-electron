@@ -30,6 +30,7 @@ import {
 } from '../src/renderer/src/engine/effects'
 import { TICKS_PER_BAR, tickDurationSeconds } from '../src/renderer/src/engine/transport'
 import type { ChannelState } from '../src/renderer/src/hooks/useMixer'
+import { createDefaultProjectSongState } from '../src/renderer/src/project/project-state'
 
 export const SONG_BPM = 140
 export const TOTAL_BARS = 70
@@ -646,7 +647,7 @@ export async function generateMixerTestSong(options: GeneratorOptions = {}): Pro
   const { variation, samples } = await selectSamples(samplesDir, seed)
   const variationName = ARRANGEMENT_VARIATIONS[variation - 1]!.name
   const project: ProjectData = {
-    song: { bpm: SONG_BPM, masterGain: 0.82 },
+    song: createDefaultProjectSongState({ bpm: SONG_BPM, masterGain: 0.82 }),
     lanes: buildArrangement(samples, variation),
     channels: createMixerChannels()
   }

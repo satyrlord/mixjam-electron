@@ -289,6 +289,9 @@ interaction. Do NOT implement one without the other.
   connected when transport stops, allowing existing FX energy to ring out;
   graph-owning operations such as channel removal, project replacement, and
   engine close still disconnect or close the route.
+- [x] **AC-027:** Switching from Song to Mixer preserves each channel fader's
+  value and rendered thumb position. Hidden Mixer controls retain measurable
+  geometry, so revealing the panel does not apply a delayed thumb correction.
 
 ## Control-System Validation Evidence
 
@@ -307,6 +310,9 @@ interaction. Do NOT implement one without the other.
   `tmp/verify-fx-song-end/evidence.json` prove in Chromium that active source
   voices reach zero while routed reverb energy remains audible after natural
   end, explicit Stop, and Jump to End.
+- `tests/e2e/bottom-workspace.spec.ts` verifies in production Chromium that an
+  inactive Mixer retains fader geometry and that repeated Song-to-Mixer reveals
+  keep each fader's value, thumb position, and Radix pixel correction stable.
 
 ## Non-Goals
 

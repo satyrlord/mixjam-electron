@@ -269,7 +269,7 @@ browse `.mixjam` files or define saved [libraries](#library).
 ## Sample bubble
 
 The visual snapshot of a sample or WAV file, regardless of context. Every
-sample bubble is 24px high. In a project, its width represents the sample's
+sample bubble is 26px high. In a project, its width represents the sample's
 [musical span](#musical-span) in ticks at the Player's shared pixels-per-tick
 scale, with a 12px minimum. [Project BPM](#project-bpm) changes never move or
 resize placed bubbles: they change how quickly the source audio is rendered
@@ -344,8 +344,9 @@ capacity.
 ## Song panel
 
 The peer panel selected by the Song tab in the
-[Bottom Workspace](#bottom-workspace). It contains Project BPM, Master Volume,
-and Output Level controls. Use *Song panel* for the region and
+[Bottom Workspace](#bottom-workspace). It contains Project BPM, a Master Volume
+module that also owns Output Level metering, and other project-wide sound
+controls. Use *Song panel* for the region and
 [Song Controls](#song-controls) only for its visible heading or implementation
 shorthand.
 

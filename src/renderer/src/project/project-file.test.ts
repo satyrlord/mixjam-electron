@@ -18,6 +18,7 @@ function makeProject(): ProjectData {
   const lanes = createDefaultLanes()
   lanes[0] = {
     ...lanes[0]!,
+    name: 'Kick Phrase',
     muted: true,
     pan: -0.25,
     placements: [{
@@ -50,7 +51,11 @@ function makeProject(): ProjectData {
     }]
   }
   return {
-    song: { bpm: 126, masterGain: 0.72 },
+    song: {
+      bpm: 126,
+      masterGain: 0.72,
+      clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+    },
     lanes,
     channels
   }
@@ -68,9 +73,14 @@ describe('project file format', () => {
   it('round-trips arrangement, Song, Mixer, routing, and FX state', () => {
     const parsed = parseProject(serialize())
 
-    expect(parsed.song).toEqual({ bpm: 126, masterGain: 0.72 })
+    expect(parsed.song).toEqual({
+      bpm: 126,
+      masterGain: 0.72,
+      clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+    })
     expect(parsed.lanes[0]).toMatchObject({
       index: 0,
+      name: 'Kick Phrase',
       muted: true,
       pan: -0.25,
       placements: [{
@@ -207,8 +217,12 @@ describe('project file format', () => {
       modifiedAt: migrated.modifiedAt
     }))
 
-    expect(migrated.formatVersion).toBe(1)
-    expect(migrated.song).toEqual({ bpm: 126, masterGain: 0.8 })
+    expect(migrated.formatVersion).toBe(2)
+    expect(migrated.song).toEqual({
+      bpm: 126,
+      masterGain: 0.8,
+      clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+    })
     expect(migrated.lanes[0]!.placements[0]).toMatchObject({
       id: 'placement-0-0',
       sampleName: 'kick.wav',
@@ -217,11 +231,44 @@ describe('project file format', () => {
     expect(reparsed).toEqual(migrated)
   })
 
+  it('migrates version 1 projects to the default clip-edge micro-fades', () => {
+    const raw = JSON.parse(serialize()) as {
+      formatVersion: number
+      song: Record<string, unknown>
+    }
+    raw.formatVersion = 1
+    delete raw.song.clipEdgeMicroFades
+
+    expect(parseProject(JSON.stringify(raw)).song.clipEdgeMicroFades).toEqual({
+      enabled: true,
+      fadeInMs: 2,
+      fadeOutMs: 4
+    })
+  })
+
+  it('rejects clip-edge micro-fade settings outside the project range', () => {
+    const raw = JSON.parse(serialize()) as {
+      song: { clipEdgeMicroFades: { fadeInMs: number } }
+    }
+    raw.song.clipEdgeMicroFades.fadeInMs = 20.1
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(
+      'project.song.clipEdgeMicroFades.fadeInMs must be a finite number from 0 to 20'
+    )
+  })
+
   it('fingerprints every project-owned state family but ignores file metadata', () => {
     const project = makeProject()
     const baseline = projectFingerprint(project)
 
     expect(projectFingerprint({ ...project, song: { ...project.song, bpm: 127 } })).not.toBe(baseline)
+    expect(projectFingerprint({
+      ...project,
+      song: {
+        ...project.song,
+        clipEdgeMicroFades: { enabled: false, fadeInMs: 1, fadeOutMs: 3.5 }
+      }
+    })).not.toBe(baseline)
     expect(projectFingerprint({
       ...project,
       lanes: project.lanes.map((lane, index) => index === 0 ? { ...lane, solo: true } : lane)

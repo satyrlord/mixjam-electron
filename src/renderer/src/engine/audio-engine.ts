@@ -16,6 +16,7 @@ import {
   type MasterMeterOptions,
   type MasterMeterSnapshot
 } from './master-meter'
+import type { ClipEdgeFadePlan } from './clip-edge-fades'
 
 // Factory injected so tests can supply a mock AudioContext. In production this
 // is `() => new AudioContext()`.
@@ -35,6 +36,9 @@ export interface TriggerVoiceParams {
   when: number
   laneIndex: number
   playbackRate?: number
+  sourceOffsetSeconds?: number
+  edgeFadePlan?: ClipEdgeFadePlan
+  edgeFadeStartSample?: number
 }
 
 const SILENCE_DB = -100
@@ -236,13 +240,25 @@ export class AudioEngine {
     return voice
   }
 
-  triggerVoice({ buffer, channel, when, laneIndex, playbackRate }: TriggerVoiceParams): Voice {
+  triggerVoice({
+    buffer,
+    channel,
+    when,
+    laneIndex,
+    playbackRate,
+    sourceOffsetSeconds,
+    edgeFadePlan,
+    edgeFadeStartSample
+  }: TriggerVoiceParams): Voice {
     return this.triggerVoiceTo({
       buffer,
       destination: channel.input,
       when,
       laneIndex,
-      playbackRate
+      playbackRate,
+      sourceOffsetSeconds,
+      edgeFadePlan,
+      edgeFadeStartSample
     })
   }
 
@@ -251,13 +267,19 @@ export class AudioEngine {
     destination,
     when,
     laneIndex,
-    playbackRate
+    playbackRate,
+    sourceOffsetSeconds,
+    edgeFadePlan,
+    edgeFadeStartSample
   }: {
     buffer: AudioBuffer
     destination: AudioNode
     when: number
     laneIndex: number
     playbackRate?: number
+    sourceOffsetSeconds?: number
+    edgeFadePlan?: ClipEdgeFadePlan
+    edgeFadeStartSample?: number
   }): Voice {
     const { context } = this.ctx
     const voice = createVoice({
@@ -267,6 +289,9 @@ export class AudioEngine {
       when,
       laneIndex,
       playbackRate,
+      sourceOffsetSeconds,
+      edgeFadePlan,
+      edgeFadeStartSample,
       events: {
         onStarted: (v) => this.activeVoices.add(v),
         onEnded: (v) => this.activeVoices.delete(v)

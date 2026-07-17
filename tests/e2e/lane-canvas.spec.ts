@@ -16,7 +16,7 @@ test('999-bar lanes use a viewport-bounded canvas while scrolling', async ({ see
     return {
       logicalWidth: laneContainer.getBoundingClientRect().width,
       backingWidth: element.width,
-      visibleLaneWidth: tracker.clientWidth - 168
+      visibleLaneWidth: tracker.clientWidth - 240
     }
   })
   expect(initial.logicalWidth).toBe(127_872)

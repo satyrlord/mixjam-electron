@@ -62,7 +62,7 @@ browser adjacencies.
   │       ├── .lane-scroll      — scrollable lane container
   │           ├── .playhead     — absolute, full-height, 2px wide
   │           └── .lane × 16    — 39px height each
-  │               ├── .lane-head — 168px: name, M/S buttons, pan knob
+  │               ├── .lane-head — 240px: name, M/S buttons, pan knob
   │               └── .lane-canvas — clip placement area
   ├── .middle-strip     — 80px border-box, fixed full-width command band
   │   ├── .song-progress-bar — 28px persistent timeline navigation row
@@ -70,7 +70,7 @@ browser adjacencies.
   └── .bottom-workspace — full-width tabbed work band
       ├── .bottom-workspace-tabs — Song | Mixer | FX | Samples + song status
       └── .bottom-workspace-panel — active peer panel
-          ├── Song      — BPM, Master Volume, Output Level
+          ├── Song      — BPM, combined Master Volume and Output Level, Clip Edge Fades
           ├── Mixer     — full-width channel strips (spec-007)
           ├── FX        — channel selector + effect editor (spec-010)
           └── Samples   — category tree + virtualized sample list (spec-004)
@@ -105,9 +105,11 @@ browser adjacencies.
   first/last tab. One tab has `tabIndex=0`; all others have `tabIndex=-1`.
   Tabs and panels are connected with `id`, `aria-controls`, and
   `aria-labelledby`.
-- All four panels remain mounted while inactive and are hidden from layout and
-  the accessibility tree. Tab changes therefore preserve Sample scroll/filter
-  state, Mixer state, FX selection, and unfinished control interactions. The
+- All four panels remain mounted in the same Bottom Workspace grid cell while
+  inactive. Inactive panels keep their layout geometry but are visually hidden,
+  removed from the accessibility and pointer interaction paths, and excluded
+  from sequential focus. Tab changes therefore preserve Sample scroll/filter
+  state, Mixer state, FX selection, and stable Radix control geometry. The
   inactive Samples panel mounts no virtual rows and cannot request result pages.
 - Mixer meters and FX compressor reduction share visual-only telemetry. Its
   animation-frame loop runs only while Mixer or FX is active; Song and Samples
@@ -134,22 +136,30 @@ browser adjacencies.
 
 ### Song Panel Controls
 
-- BPM, Master Volume, and Output Level form one leading-edge group of vertical
-  modules. Linear controls and meters increase from bottom to top.
+- BPM and the combined Master Volume/Output Level control form one leading-edge
+  group of vertical modules. Linear controls and meters increase from bottom to
+  top. The Output Level meter, readings, and reset action share the Master
+  Volume module because they all describe or control the master bus.
 - BPM is a vertical slider from 50 to 200 and has an editable numeric value for
   precise entry. Both surfaces reflect one transport BPM value; invalid or
   out-of-range input is not committed.
 - The BPM numeric field uses a compact 42-by-28px visible input inside its
   44px-high label target; it must not compete visually with the fader.
 - Master Volume uses the same vertical fader grammar as channel gain, including
-  value placement and unity indication. Output Level keeps the shared themed
-  meter chrome and color tokens, but its live fill is Momentary LUFS rather than
-  channel RMS dBFS.
+  value placement and unity indication. Output Level sits beside that fader in
+  the same bordered module. It keeps the shared themed meter chrome and color
+  tokens, but its live fill is Momentary LUFS rather than channel RMS dBFS.
+- The Song panel exposes project-owned automatic clip-edge micro-fade controls:
+  one enabled checkbox plus fractional fade-in and fade-out millisecond fields.
+  Both fields accept 0 through 20 ms and default to 2 ms and 4 ms. These
+  controls change project sound, mark the project dirty, and are not stored as
+  app-level UI preferences.
 - Output Level shows compact M, S, I, and TP values with explicit LUFS and dBTP
   units. When the standards-based processor is unavailable it identifies the
-  fallback value as dBFS. A keyboard-reachable `Reset loudness measurement`
-  button starts a new Integrated/LRA session without stopping Momentary or
-  Short-term updates.
+  fallback value as dBFS. A keyboard-reachable icon button starts a new
+  Integrated/LRA session without stopping Momentary or Short-term updates. Its
+  visible content is an SVG ear with no text; its accessible name and tooltip
+  both read `Reset loudness measurement`.
 - Vertical sliders expose `aria-orientation="vertical"`, unit-aware value text,
   Arrow Up/Right to increase, Arrow Down/Left to decrease, and Home/End for
   minimum/maximum. Their pointer target is at least 44 CSS pixels wide and the
@@ -163,15 +173,15 @@ browser adjacencies.
 
 ### Ruler
 
-- Height: 33px, padded left 168px (lane-head width).
-- The lane-head rendered border box must remain exactly 168px wide so ruler
+- Height: 33px, padded left 240px (lane-head width).
+- The lane-head rendered border box must remain exactly 240px wide so ruler
   marks, tracker grid lines, placements, and playhead share the same x-origin.
 - Tick marks use the same beat/bar model as the lane canvas: a transparent
   tick every beat and a stronger tick every bar.
 - Bar numbers: 1, 5, 9, 13… (every 4 bars), monospace font, muted color.
 - The arrangement capacity is 999 bars in 4/4: 31,968 ticks at 8 ticks per beat
   and 32 ticks per bar. The timeline keeps a 32px-per-beat minimum density, so
-  the 999-bar lane canvas is 127,872px wide plus the 168px lane head. A wider
+  the 999-bar lane canvas is 127,872px wide plus the 240px lane head. A wider
   viewport may expand that surface but never compresses the capacity below
   this density.
 - The scrollable capacity is not song length. The exact `songEndTick` comes
@@ -202,8 +212,11 @@ browser adjacencies.
 ### Lanes (16)
 
 - Height: 39px fixed per lane.
-- **Lane head** (168px wide):
+- **Lane head** (240px wide):
   - Lane name (e.g. "Lane 1"), 11px, truncated with ellipsis.
+  - Right-clicking the lane head opens a keyboard-operable context menu with
+    Rename lane. Rename replaces the label with a focused, prefilled inline
+    field. Enter or blur commits a trimmed, non-empty name; Escape cancels.
   - Mute button (M) — 32×32px, toggle style. Muted lanes are visually dimmed.
   - Solo button (S) — 32×32px, toggle style. When any lane is soloed,
     non-soloed lanes are dimmed.
@@ -223,8 +236,8 @@ browser adjacencies.
   sample. Before first placement, it estimates the span from source duration
   and detected BPM, or the current project BPM when detection is unavailable,
   so the first drop preserves the same dimensions across views.
-- Height: 24px, vertically centered in the 39px lane. Sample Browser buttons
-  wrap the same 24px visual in a separate 44px interaction target.
+- Height: 26px, vertically centered in the 39px lane. Dense Sample Browser and
+  category rows wrap the same visual in a separate 30px interaction target.
 - Label: sample filename, truncated.
 - Bubble color: driven by a per-sample hue derived from category or a hash of
   the filename.
@@ -252,7 +265,7 @@ browser adjacencies.
   read during dragover. External or malformed drag data is treated as absent.
 - A placement drag image may use a larger transparent canvas for shadow padding,
   pointer offset, or a multi-selection badge. The sample bubble drawn inside
-  that canvas keeps the canonical musical-span width and 24px height.
+  that canvas keeps the canonical musical-span width and 26px height.
 
 ### Playhead
 
@@ -442,9 +455,9 @@ infrequent commands out of the permanent button row.
   Bottom Workspace to at least 50%.
 - Controls:
   - **BPM slider** — project tempo control, from 50 BPM to 200 BPM.
-  - **Master Volume slider** — global output level control for the full mix.
-  - **LUFS loudness meter** — Momentary fill with M/S/I LUFS and true-peak dBTP
-    readouts for the master output, plus an explicitly labeled RMS dBFS fallback.
+  - **Master Volume module** — global output level slider plus the related LUFS
+    loudness meter, Momentary fill, M/S/I LUFS and true-peak dBTP readouts, and
+    an explicitly labeled RMS dBFS fallback.
 - Changing the BPM slider updates the engine's transport BPM immediately.
 - Owns song-level controls only. Mixer visibility is controlled by the Bottom
   Workspace tabs, not by resizing Song.
@@ -506,20 +519,30 @@ visible across themes and viewport sizes.
 - [x] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
   Song, and remains usable at narrow widths without targets below 44 by 44 CSS
   pixels.
-- [x] **AC-004d:** The Song panel shows vertical BPM and Master Volume sliders
-  beside a vertical Output Level meter whose live fill is Momentary LUFS. It
-  exposes M/S/I in LUFS, TP in dBTP, an explicit RMS dBFS fallback, and a
-  keyboard-reachable Reset action. BPM accepts 50 to 200, initializes to 120
-  for a new project, and supports precise numeric entry.
+- [x] **AC-004d:** The Song panel shows a vertical BPM slider beside one Master
+  Volume module that contains its vertical slider, the related vertical Output
+  Level meter, M/S/I in LUFS, TP in dBTP, and an explicit RMS dBFS fallback.
+  The meter's live fill is Momentary LUFS. Its keyboard-reachable reset action
+  is an SVG ear icon with the `Reset loudness measurement` accessible name and
+  tooltip. BPM accepts 50 to 200, initializes to 120 for a new project, and
+  supports precise numeric entry.
 - [x] **AC-004e:** Mixer/FX visual telemetry runs only while Mixer or FX is the
   active Bottom Workspace tab. Song, Samples, and leaving Player cancel its
   animation-frame loop without changing audio state.
-- [x] **AC-005:** 16 lanes render at 39px each in the Tracker region with 168px
+- [x] **AC-004f:** Inactive Bottom Workspace panels retain their layout geometry
+  while remaining visually hidden, absent from the accessibility tree, and
+  outside pointer and sequential-focus paths. A channel fader thumb keeps its
+  position and value through Mixer activation and subsequent animation frames.
+- [x] **AC-005:** 16 lanes render at 39px each in the Tracker region with 240px
   lane heads showing a name plus keyboard-operable 32px M, S, and pan targets.
+- [x] **AC-005a:** Right-clicking a lane head exposes Rename lane. The inline
+  rename field is prefilled and focused; Enter or blur commits a trimmed,
+  non-empty name, while Escape cancels. A committed name updates the lane label
+  and the accessible names of its controls.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
 - [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample bubble from the Sample Browser and dropping it onto a lane creates a clip placement snapped to the nearest beat boundary.
-  Its bubble is 24px high and uses the placement's project-owned musical span.
+  Its bubble is 26px high and uses the placement's project-owned musical span.
   Changing BPM never changes its position or width, and the corresponding
   Sample Browser bubble has the identical pixel width.
 - [x] **AC-008a:** Holding Alt while dropping a sample or moving a placement bypasses beat-snap and places it at per-tick precision (freeform).
@@ -596,7 +619,7 @@ visible across themes and viewport sizes.
   Middle Strip. Right-clicking shows an Open / Copy Path context menu. Entries show a hover state.
   Full project deserialization restores lanes and placements from the `.mixjam`
   file through spec-011.
-- [x] **AC-025:** A sample bubble keeps its canonical width and 24px height in
+- [x] **AC-025:** A sample bubble keeps its canonical width and 26px height in
   the drag image; any minimum drag surface, theme-shadow clearance, or group
   badge uses transparent space outside that rectangle.
 - [x] **AC-026:** Space toggles Play/Pause when focus is not in a text control.
@@ -604,12 +627,13 @@ visible across themes and viewport sizes.
   cue in the Tracker; its Open Samples action activates Samples and grows the
   Bottom Workspace to at least 50% when needed. The cue disappears after the
   first placement.
-- [x] **AC-028:** Transport, Mixer, category, sample, theme, header, and footer
-  actions expose 44px interaction targets without changing the 24px
-  sample-bubble visual. The dense Tracker lane controls are the explicit 32px
-  exception and remain keyboard-operable with visible focus. Actionable labels
-  are at least 13px outside the dense Tracker; Tracker secondary labels remain
-  readable at 11px on the captured desktop surfaces.
+- [x] **AC-028:** Transport, Mixer, theme, header, footer, and management actions
+  expose 44px interaction targets. Dense Sample Browser and category rows use
+  30px targets around the unchanged 26px sample-bubble visual. Dense Tracker
+  lane controls use 32px targets. All exceptions remain keyboard-operable with
+  visible focus. Actionable labels are at least 13px outside the dense Tracker;
+  Tracker secondary labels remain readable at 11px on the captured desktop
+  surfaces.
 - [x] **AC-029:** One project identity/menu trigger exposes New, Open, Save, and
   Save As without rendering four equal Middle Strip buttons. New uses the Home
   Screen reset path, and project names can use up to 320px before truncation.
@@ -631,6 +655,9 @@ visible across themes and viewport sizes.
   activation, song status, telemetry activation, the upper-only resize seam,
   and cached oversized-sample rejection while dragover payload access is
   protected.
+- `src/renderer/src/components/LaneRow.test.tsx` and
+  `src/renderer/src/components/PlayerView.test.tsx` verify lane-head context
+  actions, inline rename commit/cancel behavior, and the rename callback.
 - `src/renderer/src/components/MixJamBrowser.test.tsx` verifies the Open and
   Copy Path context-menu actions for discovered and recent project entries.
 - `tmp/verify-bottom-workspace/evidence.md` records production Chromium
@@ -645,9 +672,16 @@ visible across themes and viewport sizes.
 - `src/renderer/src/components/PlayerView.test.tsx` verifies the shared vertical
   Song controls, precise BPM entry and rejection, and orientation-aware BPM
   keyboard commands.
-- `tests/e2e/library.spec.ts` verifies that category, tag, sort, and management
+- `src/renderer/src/components/SongControlsMain.test.tsx` verifies that Output
+  Level and its icon-only reset action are contained by the Master Volume
+  module, keep their accessible names, and preserve reset behavior.
+- `tmp/verify-master-output-group/evidence.md` records production Chromium
+  containment, geometry, hit testing, keyboard focus, horizontal fit, and the
+  shared reset tooltip at 1280x720 and 1920x1080.
+- `tests/e2e/library.spec.ts` verifies that subcategory, sort, and management
   actions render with at least 44-by-44px interaction boxes in production
-  Chromium.
+  Chromium. Dense Sample Browser tiles and category-tree rows use the separate
+  30px contract above.
 - `tmp/verify-vertical-controls/evidence.md` records production Chromium
   geometry at desktop and narrow widths, vertical direction, 44px targets,
   keyboard behavior, and focus indicators across every bundled theme.

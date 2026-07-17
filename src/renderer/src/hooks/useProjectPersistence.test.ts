@@ -7,6 +7,7 @@ import { createDefaultLanes, type LaneState } from '../lib/arrangement'
 import { createDefaultChannels, type ChannelState } from './useMixer'
 import { useProjectPersistence } from './useProjectPersistence'
 import { parseProject, serializeProject, type ProjectData } from '../project/project-file'
+import type { ProjectTransportState } from '../project/project-state'
 
 const USER_FOLDER: FolderRef = { id: 'user-folder', name: 'MixJam' }
 const SAMPLE_FOLDER: FolderRef = { id: 'sample-folder', name: 'Samples' }
@@ -43,7 +44,15 @@ function makeProject(bpm = 128, masterGain = 0.67): ProjectData {
       mix: 0.25
     }]
   }
-  return { song: { bpm, masterGain }, lanes, channels }
+  return {
+    song: {
+      bpm,
+      masterGain,
+      clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+    },
+    lanes,
+    channels
+  }
 }
 
 function projectText(project: ProjectData): string {
@@ -58,16 +67,18 @@ function useHarness(api: ReturnType<typeof createBackendAPI>) {
   const [lanes, setLanes] = useState<LaneState[]>(createDefaultLanes)
   const [bpm, setBpm] = useState(120)
   const [masterGain, setMasterGain] = useState(0.8)
+  const [clipEdgeMicroFades, setClipEdgeMicroFades] = useState({
+    enabled: true,
+    fadeInMs: 2,
+    fadeOutMs: 4
+  })
   const [channels, setChannels] = useState<ChannelState[]>(createDefaultChannels)
 
-  const replaceTransportProject = useCallback((state: {
-    lanes: LaneState[]
-    bpm: number
-    masterGain: number
-  }) => {
+  const replaceTransportProject = useCallback((state: ProjectTransportState) => {
     setLanes(state.lanes)
-    setBpm(state.bpm)
-    setMasterGain(state.masterGain)
+    setBpm(state.song.bpm)
+    setMasterGain(state.song.masterGain)
+    setClipEdgeMicroFades(state.song.clipEdgeMicroFades)
   }, [])
   const replaceChannels = useCallback((next: ChannelState[]) => setChannels(next), [])
   const reloadMixJamFiles = useCallback(async () => undefined, [])
@@ -77,8 +88,7 @@ function useHarness(api: ReturnType<typeof createBackendAPI>) {
     userFolder: USER_FOLDER,
     sampleFolder: SAMPLE_FOLDER,
     lanes,
-    bpm,
-    masterGain,
+    song: { bpm, masterGain, clipEdgeMicroFades },
     channels,
     replaceTransportProject,
     replaceChannels,
@@ -90,10 +100,12 @@ function useHarness(api: ReturnType<typeof createBackendAPI>) {
     lanes,
     bpm,
     masterGain,
+    clipEdgeMicroFades,
     channels,
     setLanes,
     setBpm,
     setMasterGain,
+    setClipEdgeMicroFades,
     setChannels
   }
 }
@@ -114,6 +126,11 @@ describe('useProjectPersistence', () => {
 
     act(() => result.current.setBpm(132))
     await waitFor(() => expect(result.current.project.projectDirty).toBe(true))
+    act(() => result.current.setClipEdgeMicroFades({
+      enabled: true,
+      fadeInMs: 0.5,
+      fadeOutMs: 3.5
+    }))
 
     let saved = false
     await act(async () => {
@@ -125,11 +142,17 @@ describe('useProjectPersistence', () => {
     expect(result.current.project.projectDirty).toBe(false)
     const contents = vi.mocked(api.saveMixJamFileAs).mock.calls[0]![2]
     expect(parseProject(contents).song.bpm).toBe(132)
+    expect(parseProject(contents).song.clipEdgeMicroFades).toEqual({
+      enabled: true,
+      fadeInMs: 0.5,
+      fadeOutMs: 3.5
+    })
     expect(api.recordRecentProject).toHaveBeenCalledWith('sets/new-song.mixjam')
   })
 
   it('loads and fully replaces arrangement, Song, Mixer, routing, and FX state', async () => {
     const loaded = makeProject(140, 0.61)
+    loaded.song.clipEdgeMicroFades = { enabled: false, fadeInMs: 1, fadeOutMs: 6.5 }
     vi.mocked(api.readMixJamFile).mockResolvedValue({
       path: 'sets/loaded.mixjam',
       contents: projectText(loaded)
@@ -146,6 +169,11 @@ describe('useProjectPersistence', () => {
     await waitFor(() => expect(result.current.project.projectBusy).toBe(false))
     expect(result.current.bpm).toBe(140)
     expect(result.current.masterGain).toBe(0.61)
+    expect(result.current.clipEdgeMicroFades).toEqual({
+      enabled: false,
+      fadeInMs: 1,
+      fadeOutMs: 6.5
+    })
     expect(result.current.lanes[0]).toMatchObject({ muted: true, pan: -0.3 })
     expect(result.current.channels[0]).toMatchObject({
       gain: 0.55,
@@ -277,6 +305,11 @@ describe('useProjectPersistence', () => {
     act(() => {
       result.current.setBpm(150)
       result.current.setMasterGain(0.2)
+      result.current.setClipEdgeMicroFades({
+        enabled: false,
+        fadeInMs: 0.5,
+        fadeOutMs: 8
+      })
       result.current.setChannels([])
     })
 
@@ -285,6 +318,11 @@ describe('useProjectPersistence', () => {
     await waitFor(() => expect(result.current.project.projectBusy).toBe(false))
     expect(result.current.bpm).toBe(120)
     expect(result.current.masterGain).toBe(0.8)
+    expect(result.current.clipEdgeMicroFades).toEqual({
+      enabled: true,
+      fadeInMs: 2,
+      fadeOutMs: 4
+    })
     expect(result.current.channels).toHaveLength(16)
     expect(result.current.lanes.every((lane) => lane.placements.length === 0)).toBe(true)
     expect(result.current.project.projectName).toBe('Untitled')

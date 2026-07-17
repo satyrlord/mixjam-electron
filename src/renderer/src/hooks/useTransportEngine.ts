@@ -14,6 +14,7 @@ import {
   placeSampleOnLane,
   removePlacementFromLane,
   removePlacements,
+  renameLane,
   resolvePendingPlacementBpms,
   placementDurationTicks,
   setLanePan,
@@ -28,9 +29,12 @@ import { formatTimer } from '../lib/formatTimer'
 import { useTransportRuntime } from './useTransportRuntime'
 import { useUndoHistory } from './useUndoHistory'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
-
-export const DEFAULT_BPM = 120
-export const DEFAULT_MASTER_GAIN = 0.8
+import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
+import {
+  createDefaultProjectSongState,
+  type ProjectSongState,
+  type ProjectTransportState
+} from '../project/project-state'
 
 const UNDO_HISTORY_LIMIT = 100
 
@@ -60,6 +64,8 @@ export interface TransportEngineState {
   songEndTick: number
   bpm: number
   masterGain: number
+  clipEdgeMicroFades: ClipEdgeMicroFadeSettings
+  song: ProjectSongState
   masterMeter: MasterMeterSnapshot
   elapsedMs: number
   canUndo: boolean
@@ -69,11 +75,7 @@ export interface TransportEngineState {
 
 export interface TransportEngineActions {
   setView: (view: View) => void
-  replaceProjectState: (state: {
-    lanes: LaneState[]
-    bpm: number
-    masterGain: number
-  }) => void
+  replaceProjectState: (state: ProjectTransportState) => void
   placeSampleDetailOnLane: (detail: FooterSampleDetail, laneIndex: number, startTick: number) => void
   resolvePendingPlacementBpms: (sampleBpms: ReadonlyMap<string, number>) => void
   movePlacement: (placementId: string, toLaneIndex: number, newStartTick: number) => void
@@ -85,6 +87,7 @@ export interface TransportEngineActions {
   undo: () => void
   redo: () => void
   setLanePan: (laneIndex: number, pan: number) => void
+  renameLane: (laneIndex: number, name: string) => void
   previewSample: (samplePath: string, nativeBPM?: number | null) => void
   getSampleBuffer: (samplePath: string) => Promise<AudioBuffer | null>
   toggleLaneMute: (laneIndex: number) => void
@@ -98,6 +101,7 @@ export interface TransportEngineActions {
   transportSeek: (tick: number) => void
   setBpm: (bpm: number) => void
   setMasterGain: (value: number) => void
+  setClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   resetMasterMeter: () => void
 }
 
@@ -109,6 +113,7 @@ export function useTransportEngine(
   initialView: View = 'home'
 ): TransportEngine {
   const [view, setView] = useState<View>(initialView)
+  const defaultSong = useMemo(createDefaultProjectSongState, [])
   const lanesHistory = useUndoHistory<LaneState[]>(createDefaultLanes(), UNDO_HISTORY_LIMIT)
   const lanes = lanesHistory.current
   const songEndTick = useMemo(() => deriveSongEndTick(lanes), [lanes])
@@ -122,8 +127,9 @@ export function useTransportEngine(
     active: view === 'player',
     getLanes: getEngineLanes,
     songEndTick,
-    initialBpm: DEFAULT_BPM,
-    initialMasterGain: DEFAULT_MASTER_GAIN
+    initialBpm: defaultSong.bpm,
+    initialMasterGain: defaultSong.masterGain,
+    initialClipEdgeMicroFades: defaultSong.clipEdgeMicroFades
   })
   const {
     playbackEngineRef,
@@ -131,6 +137,7 @@ export function useTransportEngine(
     currentTick,
     bpm,
     masterGain,
+    clipEdgeMicroFades,
     elapsedMs,
     masterMeter,
     previewSample,
@@ -143,29 +150,33 @@ export function useTransportEngine(
     transportSeek,
     setBpm,
     setMasterGain,
+    setClipEdgeMicroFades,
     resetMasterMeter
   } = runtime
 
   const { pushEdit, undo, redo, setCurrent, reset } = lanesHistory
 
-  const replaceProjectState = useCallback((state: {
-    lanes: LaneState[]
-    bpm: number
-    masterGain: number
-  }) => {
+  const song = useMemo<ProjectSongState>(() => ({
+    bpm,
+    masterGain,
+    clipEdgeMicroFades
+  }), [bpm, clipEdgeMicroFades, masterGain])
+
+  const replaceProjectState = useCallback((state: ProjectTransportState) => {
     transportStop()
     const lanes = state.lanes.map((lane) => ({
       ...lane,
       placements: lane.placements.map((placement) => ({ ...placement }))
     }))
     reset(lanes)
-    setBpm(state.bpm)
-    setMasterGain(state.masterGain)
+    setBpm(state.song.bpm)
+    setMasterGain(state.song.masterGain)
+    setClipEdgeMicroFades(state.song.clipEdgeMicroFades)
     const playbackEngine = playbackEngineRef.current
     if (playbackEngine) {
       for (const lane of lanes) playbackEngine.setLanePan(lane.index, lane.pan)
     }
-  }, [playbackEngineRef, reset, setBpm, setMasterGain, transportStop])
+  }, [playbackEngineRef, reset, setBpm, setClipEdgeMicroFades, setMasterGain, transportStop])
 
   const placeSampleDetailOnLane = useCallback(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
@@ -257,6 +268,13 @@ export function useTransportEngine(
     [setCurrent, lanesHistory.currentRef, playbackEngineRef]
   )
 
+  const handleRenameLane = useCallback(
+    (laneIndex: number, name: string) => {
+      setCurrent(renameLane(lanesHistory.currentRef.current, laneIndex, name))
+    },
+    [lanesHistory.currentRef, setCurrent]
+  )
+
   const timerText = useMemo(() => formatTimer(elapsedMs), [elapsedMs])
   const anySoloed = useMemo(() => anyLaneSoloed(lanes), [lanes])
   const dimLane = useCallback(
@@ -273,6 +291,8 @@ export function useTransportEngine(
     songEndTick,
     bpm,
     masterGain,
+    clipEdgeMicroFades,
+    song,
     masterMeter,
     elapsedMs,
     canUndo: lanesHistory.canUndo,
@@ -291,6 +311,7 @@ export function useTransportEngine(
     undo,
     redo,
     setLanePan: handleSetLanePan,
+    renameLane: handleRenameLane,
     previewSample,
     getSampleBuffer,
     toggleLaneMute: handleToggleLaneMute,
@@ -304,6 +325,7 @@ export function useTransportEngine(
     transportSeek,
     setBpm,
     setMasterGain,
+    setClipEdgeMicroFades,
     resetMasterMeter
   }
 }

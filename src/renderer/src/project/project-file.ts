@@ -7,24 +7,25 @@ import {
   type LaneState
 } from '../lib/arrangement'
 import type { ChannelState } from '../hooks/useMixer'
+import {
+  MAX_CLIP_EDGE_FADE_MS,
+  MIN_CLIP_EDGE_FADE_MS
+} from '../engine/clip-edge-fades'
+import {
+  cloneProjectSongState,
+  createDefaultProjectSongState,
+  type ProjectSongState,
+  type ProjectTransportState
+} from './project-state'
 
-const PROJECT_FORMAT_VERSION = 1
+const PROJECT_FORMAT_VERSION = 2
 export const NEWER_PROJECT_VERSION_MESSAGE =
   'This project was created with a newer version of MixJam. Please update the app.'
 
-const DEFAULT_BPM = 120
-const DEFAULT_MASTER_GAIN = 0.8
 const MAX_CHANNEL_COUNT = 16
 const MAX_EFFECTS_PER_CHANNEL = 4
 
-export interface ProjectSongState {
-  bpm: number
-  masterGain: number
-}
-
-export interface ProjectData {
-  song: ProjectSongState
-  lanes: LaneState[]
+export interface ProjectData extends ProjectTransportState {
   channels: ChannelState[]
 }
 
@@ -253,10 +254,7 @@ function toDocumentRecord(
     appVersion: metadata.appVersion,
     createdAt: metadata.createdAt,
     modifiedAt: metadata.modifiedAt,
-    song: {
-      bpm: project.song.bpm,
-      masterGain: project.song.masterGain
-    },
+    song: cloneProjectSongState(project.song),
     lanes: [...project.lanes]
       .sort((left, right) => left.index - right.index)
       .map((lane): ProjectLaneRecord => ({
@@ -294,6 +292,7 @@ function baseName(relpath: string): string {
 }
 
 function migrateVersionZero(document: Record<string, unknown>): Record<string, unknown> {
+  const defaultSong = createDefaultProjectSongState()
   const rawChannels = Array.isArray(document.channels) ? document.channels : []
   const channelIds = new Set(
     rawChannels.flatMap((value, index) => isRecord(value)
@@ -307,7 +306,7 @@ function migrateVersionZero(document: Record<string, unknown>): Record<string, u
     formatVersion: 1,
     song: isRecord(document.song)
       ? document.song
-      : { bpm: document.bpm ?? DEFAULT_BPM, masterGain: DEFAULT_MASTER_GAIN },
+      : { ...defaultSong, bpm: document.bpm ?? defaultSong.bpm },
     lanes: rawLanes.map((value, laneIndex) => {
       if (!isRecord(value)) return value
       const placements = Array.isArray(value.placements) ? value.placements : []
@@ -342,6 +341,19 @@ function migrateVersionZero(document: Record<string, unknown>): Record<string, u
   }
 }
 
+function migrateVersionOne(document: Record<string, unknown>): Record<string, unknown> {
+  const song = isRecord(document.song) ? document.song : {}
+  return {
+    ...document,
+    formatVersion: 2,
+    song: {
+      ...song,
+      clipEdgeMicroFades: song.clipEdgeMicroFades ??
+        createDefaultProjectSongState().clipEdgeMicroFades
+    }
+  }
+}
+
 function migrateToCurrent(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) fail('project', 'must be a JSON object')
   const rawVersion = value.formatVersion
@@ -356,6 +368,7 @@ function migrateToCurrent(value: unknown): Record<string, unknown> {
   let version = rawVersion as number
   while (version < PROJECT_FORMAT_VERSION) {
     if (version === 0) current = migrateVersionZero(current)
+    else if (version === 1) current = migrateVersionOne(current)
     else fail('project.formatVersion', `has no migration from version ${version}`)
     version += 1
   }
@@ -462,9 +475,33 @@ export function parseProject(text: string): ProjectDocument {
   const modifiedAt = readIsoTimestamp(record, 'modifiedAt')
 
   if (!isRecord(record.song)) fail('project.song', 'must be an object')
+  if (!isRecord(record.song.clipEdgeMicroFades)) {
+    fail('project.song.clipEdgeMicroFades', 'must be an object')
+  }
   const song = {
     bpm: readNumber(record.song, 'bpm', 'project.song', 50, 200),
-    masterGain: readNumber(record.song, 'masterGain', 'project.song', 0, 1)
+    masterGain: readNumber(record.song, 'masterGain', 'project.song', 0, 1),
+    clipEdgeMicroFades: {
+      enabled: readBoolean(
+        record.song.clipEdgeMicroFades,
+        'enabled',
+        'project.song.clipEdgeMicroFades'
+      ),
+      fadeInMs: readNumber(
+        record.song.clipEdgeMicroFades,
+        'fadeInMs',
+        'project.song.clipEdgeMicroFades',
+        MIN_CLIP_EDGE_FADE_MS,
+        MAX_CLIP_EDGE_FADE_MS
+      ),
+      fadeOutMs: readNumber(
+        record.song.clipEdgeMicroFades,
+        'fadeOutMs',
+        'project.song.clipEdgeMicroFades',
+        MIN_CLIP_EDGE_FADE_MS,
+        MAX_CLIP_EDGE_FADE_MS
+      )
+    }
   }
 
   if (!Array.isArray(record.channels) || record.channels.length > MAX_CHANNEL_COUNT) {

@@ -7,18 +7,22 @@ describe('SongControlsMain', () => {
   const defaultProps = {
     bpm: 140,
     masterGain: 0.8,
+    clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 },
     masterMeter: emptyMasterMeterSnapshot(-3),
     onSetBpm: vi.fn(),
     onSetMasterGain: vi.fn(),
+    onSetClipEdgeMicroFades: vi.fn(),
     onResetMasterMeter: vi.fn()
   } as const
 
-  it('renders BPM, master volume, and output level sections', () => {
+  it('groups Master Volume and Output Level in one module', () => {
     render(<SongControlsMain {...defaultProps} />)
     expect(screen.getByText('Song Controls')).toBeInTheDocument()
     expect(screen.getAllByText('BPM').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('Master Volume')).toBeInTheDocument()
-    expect(screen.getByText('Output Level')).toBeInTheDocument()
+    const masterModule = screen.getByText('Master Volume').closest('.song-control-module')
+    expect(masterModule).toContainElement(screen.getByText('Output Level'))
+    expect(masterModule).toContainElement(screen.getByRole('slider', { name: 'Master Volume' }))
+    expect(masterModule).toContainElement(screen.getByRole('meter', { name: 'Output Level' }))
   })
 
   it('displays the current BPM value', () => {
@@ -60,7 +64,11 @@ describe('SongControlsMain', () => {
     expect(screen.getByText('-1.4 dBTP')).toBeInTheDocument()
     expect(screen.getByRole('meter', { name: 'Output Level' })).toHaveAttribute('aria-valuetext', '-18.2 LUFS')
     expect(screen.getByRole('meter', { name: 'Output Level' })).toHaveAttribute('aria-valuemin', '-60')
-    fireEvent.click(screen.getByRole('button', { name: 'Reset loudness measurement' }))
+    const resetButton = screen.getByRole('button', { name: 'Reset loudness measurement' })
+    expect(resetButton).toHaveTextContent('')
+    expect(resetButton.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    expect(resetButton.querySelector('svg')).toHaveAttribute('focusable', 'false')
+    fireEvent.click(resetButton)
     expect(onResetMasterMeter).toHaveBeenCalledOnce()
   })
 
@@ -148,5 +156,34 @@ describe('SongControlsMain', () => {
     fireEvent.blur(input)
     expect(onSetBpm).not.toHaveBeenCalled()
     expect(input).toHaveValue('140')
+  })
+
+  it('edits project-owned automatic clip-edge fade settings', () => {
+    const onSetClipEdgeMicroFades = vi.fn()
+    render(
+      <SongControlsMain
+        {...defaultProps}
+        onSetClipEdgeMicroFades={onSetClipEdgeMicroFades}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: 'Enable automatic clip-edge fades'
+    }))
+    expect(onSetClipEdgeMicroFades).toHaveBeenCalledWith({
+      enabled: false,
+      fadeInMs: 2,
+      fadeOutMs: 4
+    })
+
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: 'Automatic clip fade-in milliseconds' }),
+      { target: { value: '0.5' } }
+    )
+    expect(onSetClipEdgeMicroFades).toHaveBeenLastCalledWith({
+      enabled: true,
+      fadeInMs: 0.5,
+      fadeOutMs: 4
+    })
   })
 })

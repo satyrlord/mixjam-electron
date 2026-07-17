@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import {
   LANE_HEAD_WIDTH_PX,
   LANE_HEIGHT_PX,
@@ -19,6 +19,10 @@ interface LaneRowProps {
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
   onSetLanePan: (laneIndex: number, pan: number) => void
+  renaming: boolean
+  onLaneContextMenu: (laneIndex: number, laneName: string) => void
+  onCommitLaneName: (laneIndex: number, name: string) => void
+  onCancelLaneRename: () => void
   onPlacementDragStart: (placementId: string, event: React.DragEvent) => void
   onPlacementContextMenu: (info: {
     x: number; y: number; laneIndex: number; placementId: string; samplePath: string; sampleName: string
@@ -37,11 +41,31 @@ function LaneRow({
   onToggleLaneMute,
   onToggleLaneSolo,
   onSetLanePan,
+  renaming,
+  onLaneContextMenu,
+  onCommitLaneName,
+  onCancelLaneRename,
   onPlacementDragStart,
   onPlacementContextMenu,
   onDragOver,
   onDrop
 }: LaneRowProps) {
+  const [renameValue, setRenameValue] = useState(lane.name)
+  const renameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!renaming) return
+    setRenameValue(lane.name)
+    const frame = requestAnimationFrame(() => renameInputRef.current?.select())
+    return () => cancelAnimationFrame(frame)
+  }, [lane.name, renaming])
+
+  const commitRename = useCallback(() => {
+    const nextName = renameValue.trim()
+    if (nextName) onCommitLaneName(lane.index, nextName)
+    else onCancelLaneRename()
+  }, [lane.index, onCancelLaneRename, onCommitLaneName, renameValue])
+
   const hasMissingSample = lane.placements.some((placement) =>
     missingSamplePaths.has(placement.samplePath)
   )
@@ -55,8 +79,35 @@ function LaneRow({
       className={`tracker-lane${dimmed ? ' tracker-lane-dimmed' : ''}`}
       style={{ height: LANE_HEIGHT_PX }}
     >
-      <div className="tracker-lane-head" style={{ width: LANE_HEAD_WIDTH_PX }}>
-        <span className="tracker-lane-name">{lane.name}</span>
+      <div
+        className="tracker-lane-head"
+        style={{ width: LANE_HEAD_WIDTH_PX }}
+        onContextMenu={(event) => {
+          if (event.defaultPrevented) return
+          onLaneContextMenu(lane.index, lane.name)
+        }}
+      >
+        {renaming ? (
+          <input
+            ref={renameInputRef}
+            className="tracker-lane-name-input"
+            aria-label={`Rename ${lane.name}`}
+            value={renameValue}
+            onChange={(event) => setRenameValue(event.currentTarget.value)}
+            onBlur={commitRename}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                commitRename()
+              } else if (event.key === 'Escape') {
+                event.preventDefault()
+                onCancelLaneRename()
+              }
+            }}
+          />
+        ) : (
+          <span className="tracker-lane-name">{lane.name}</span>
+        )}
         {hasMissingSample && (
           <Tooltip content="This lane references a missing sample"><span
             className="tracker-lane-missing"

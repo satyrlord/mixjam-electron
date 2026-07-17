@@ -5,11 +5,9 @@ import type {
   MixJamFileContents,
   OpenedMixJamFileContents
 } from '../../../shared/backend-api'
-import type { LaneState } from '../lib/arrangement'
 import { createDefaultLanes } from '../lib/arrangement'
 import type { ChannelState } from './useMixer'
 import { createDefaultChannels } from './useMixer'
-import { DEFAULT_BPM, DEFAULT_MASTER_GAIN } from './useTransportEngine'
 import {
   parseProject,
   projectFingerprint,
@@ -18,6 +16,11 @@ import {
   type ProjectDocument
 } from '../project/project-file'
 import { useSyncedRef } from './useSyncedRef'
+import {
+  createDefaultProjectSongState,
+  type ProjectSongState,
+  type ProjectTransportState
+} from '../project/project-state'
 
 interface ProjectMetadata {
   path: string | null
@@ -51,15 +54,10 @@ interface UseProjectPersistenceParams {
   backendAPI: BackendAPI
   userFolder: FolderRef | null
   sampleFolder: FolderRef | null
-  lanes: LaneState[]
-  bpm: number
-  masterGain: number
+  song: ProjectSongState
+  lanes: ProjectTransportState['lanes']
   channels: ChannelState[]
-  replaceTransportProject: (state: {
-    lanes: LaneState[]
-    bpm: number
-    masterGain: number
-  }) => void
+  replaceTransportProject: (state: ProjectTransportState) => void
   replaceChannels: (channels: ChannelState[]) => void
   reloadMixJamFiles: () => Promise<void>
 }
@@ -84,18 +82,17 @@ export function useProjectPersistence({
   userFolder,
   sampleFolder,
   lanes,
-  bpm,
-  masterGain,
+  song,
   channels,
   replaceTransportProject,
   replaceChannels,
   reloadMixJamFiles
 }: UseProjectPersistenceParams): ProjectPersistence {
   const currentProject = useMemo<ProjectData>(() => ({
-    song: { bpm, masterGain },
+    song,
     lanes,
     channels
-  }), [bpm, channels, lanes, masterGain])
+  }), [channels, lanes, song])
   const currentFingerprint = useMemo(
     () => projectFingerprint(currentProject),
     [currentProject]
@@ -138,8 +135,7 @@ export function useProjectPersistence({
     setBaselineFingerprint(fingerprint)
     replaceTransportProject({
       lanes: document.lanes,
-      bpm: document.song.bpm,
-      masterGain: document.song.masterGain
+      song: document.song
     })
     replaceChannels(document.channels)
     setMetadata({
@@ -291,7 +287,7 @@ export function useProjectPersistence({
 
   const beginNewProject = useCallback(() => {
     const project: ProjectData = {
-      song: { bpm: DEFAULT_BPM, masterGain: DEFAULT_MASTER_GAIN },
+      song: createDefaultProjectSongState(),
       lanes: createDefaultLanes(),
       channels: createDefaultChannels()
     }
@@ -300,8 +296,7 @@ export function useProjectPersistence({
     setBaselineFingerprint(fingerprint)
     replaceTransportProject({
       lanes: project.lanes,
-      bpm: project.song.bpm,
-      masterGain: project.song.masterGain
+      song: project.song
     })
     replaceChannels(project.channels)
     setMetadata({

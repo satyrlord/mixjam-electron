@@ -2,22 +2,31 @@ import { useEffect, useState } from 'react'
 import { VerticalFader } from './VerticalControls'
 import MasterLoudnessMeter from './MasterLoudnessMeter'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
+import {
+  MAX_CLIP_EDGE_FADE_MS,
+  MIN_CLIP_EDGE_FADE_MS,
+  type ClipEdgeMicroFadeSettings
+} from '../engine/clip-edge-fades'
 
 interface SongControlsMainProps {
   bpm: number
   masterGain: number
+  clipEdgeMicroFades: ClipEdgeMicroFadeSettings
   masterMeter: MasterMeterSnapshot
   onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
+  onSetClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   onResetMasterMeter: () => void
 }
 
 export default function SongControlsMain({
   bpm,
   masterGain,
+  clipEdgeMicroFades,
   masterMeter,
   onSetBpm,
   onSetMasterGain,
+  onSetClipEdgeMicroFades,
   onResetMasterMeter
 }: SongControlsMainProps) {
   const [bpmDraft, setBpmDraft] = useState(String(bpm))
@@ -31,6 +40,14 @@ export default function SongControlsMain({
     } else {
       setBpmDraft(String(bpm))
     }
+  }
+
+  const setFadeDuration = (edge: 'fadeInMs' | 'fadeOutMs', value: number) => {
+    if (!Number.isFinite(value)) return
+    onSetClipEdgeMicroFades({
+      ...clipEdgeMicroFades,
+      [edge]: Math.max(MIN_CLIP_EDGE_FADE_MS, Math.min(MAX_CLIP_EDGE_FADE_MS, value))
+    })
   }
 
   return (
@@ -70,26 +87,10 @@ export default function SongControlsMain({
             onChange={onSetBpm}
           />
         </section>
-        <section className="song-control-module">
-          <header className="song-control-head">
+        <section className="song-control-module master-control-module">
+          <header className="song-control-head master-control-head">
             <span>Master Volume</span>
             <output className="song-control-value">{Math.round(masterGain * 100)}%</output>
-          </header>
-          <VerticalFader
-            ariaLabel="Master Volume"
-            value={Math.round(masterGain * 100)}
-            min={0}
-            max={100}
-            step={1}
-            valueText={`${Math.round(masterGain * 100)}%`}
-            unityValue={100}
-            maxLabel="100%"
-            minLabel="0%"
-            onChange={(value) => onSetMasterGain(value / 100)}
-          />
-        </section>
-        <section className="song-control-module song-meter-module master-loudness-module">
-          <header className="song-control-head">
             <span>Output Level</span>
             <output className="song-control-value">
               {masterMeter.available && masterMeter.momentaryLufs !== null
@@ -97,7 +98,73 @@ export default function SongControlsMain({
                 : `${masterMeter.rmsDbfs.toFixed(1)} dBFS`}
             </output>
           </header>
-          <MasterLoudnessMeter snapshot={masterMeter} onReset={onResetMasterMeter} />
+          <div className="master-control-body">
+            <VerticalFader
+              ariaLabel="Master Volume"
+              value={Math.round(masterGain * 100)}
+              min={0}
+              max={100}
+              step={1}
+              valueText={`${Math.round(masterGain * 100)}%`}
+              unityValue={100}
+              maxLabel="100%"
+              minLabel="0%"
+              onChange={(value) => onSetMasterGain(value / 100)}
+            />
+            <MasterLoudnessMeter snapshot={masterMeter} onReset={onResetMasterMeter} />
+          </div>
+        </section>
+        <section className="song-control-module song-micro-fade-module">
+          <header className="song-control-head">
+            <span>Clip Edge Fades</span>
+            <label className="song-micro-fade-toggle">
+              <input
+                type="checkbox"
+                aria-label="Enable automatic clip-edge fades"
+                checked={clipEdgeMicroFades.enabled}
+                onChange={(event) => onSetClipEdgeMicroFades({
+                  ...clipEdgeMicroFades,
+                  enabled: event.currentTarget.checked
+                })}
+              />
+              <span>{clipEdgeMicroFades.enabled ? 'On' : 'Off'}</span>
+            </label>
+          </header>
+          <div className="song-micro-fade-fields">
+            <label>
+              <span>Fade in</span>
+              <span className="song-micro-fade-input">
+                <input
+                  type="number"
+                  aria-label="Automatic clip fade-in milliseconds"
+                  min={MIN_CLIP_EDGE_FADE_MS}
+                  max={MAX_CLIP_EDGE_FADE_MS}
+                  step={0.1}
+                  value={clipEdgeMicroFades.fadeInMs}
+                  disabled={!clipEdgeMicroFades.enabled}
+                  onChange={(event) => setFadeDuration('fadeInMs', event.currentTarget.valueAsNumber)}
+                />
+                <span>ms</span>
+              </span>
+            </label>
+            <label>
+              <span>Fade out</span>
+              <span className="song-micro-fade-input">
+                <input
+                  type="number"
+                  aria-label="Automatic clip fade-out milliseconds"
+                  min={MIN_CLIP_EDGE_FADE_MS}
+                  max={MAX_CLIP_EDGE_FADE_MS}
+                  step={0.1}
+                  value={clipEdgeMicroFades.fadeOutMs}
+                  disabled={!clipEdgeMicroFades.enabled}
+                  onChange={(event) => setFadeDuration('fadeOutMs', event.currentTarget.valueAsNumber)}
+                />
+                <span>ms</span>
+              </span>
+            </label>
+          </div>
+          <p className="song-micro-fade-note">Applied only at boundaries next to silence.</p>
         </section>
       </div>
     </div>

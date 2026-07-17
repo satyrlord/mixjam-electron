@@ -5,7 +5,21 @@ import { vi } from 'vitest'
 // AudioContext. Nodes record their connections so tests can assert the graph.
 
 class MockAudioParam {
+  readonly events: Array<{ type: 'set' | 'linear', value: number, time: number }> = []
+
   constructor(public value: number) {}
+
+  setValueAtTime(value: number, time: number): MockAudioParam {
+    this.value = value
+    this.events.push({ type: 'set', value, time })
+    return this
+  }
+
+  linearRampToValueAtTime(value: number, time: number): MockAudioParam {
+    this.value = value
+    this.events.push({ type: 'linear', value, time })
+    return this
+  }
 }
 
 class MockAudioNode {
@@ -128,19 +142,23 @@ export class MockBufferSourceNode extends MockAudioNode {
   onended: (() => void) | null = null
   started = false
   stopped = false
+  stopWhen: number | null = null
   startWhen: number | null = null
+  startOffset: number | null = null
   // fallow-ignore-next-line unused-class-member
   playbackRate = new MockAudioParam(1)
 
   // fallow-ignore-next-line unused-class-member
-  start(when?: number): void {
+  start(when?: number, offset?: number): void {
     this.started = true
     this.startWhen = when ?? 0
+    this.startOffset = offset ?? 0
   }
 
-  stop(): void {
+  stop(when?: number): void {
     if (this.stopped) throw new Error('already stopped')
     this.stopped = true
+    this.stopWhen = when ?? 0
     // Fire onended asynchronously like the real API; tests trigger it manually
     // via `endNow()` when they need deterministic ordering.
   }
