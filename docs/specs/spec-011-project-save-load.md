@@ -36,11 +36,12 @@ path, never embedded.
 ### Project File Format
 
 A project is a JSON file with a `.mixjam` extension, saved to the User Folder
-(spec-003). Schema:
+(spec-003). The current version-3 schema without the optional generator object
+is:
 
 ```json
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "appVersion": "v0.1.0",
   "createdAt": "2026-06-28T...",
   "modifiedAt": "2026-06-28T...",
@@ -196,12 +197,16 @@ stored in the recent-project registry.
 - Closing with unsaved Song, Mixer, or FX changes may lose those changes because
   auto-save and crash recovery are out of scope.
 
-### Programmatic Mixer Test Song Generator
+### Repository Mixer Test-Song Generator
 
 The repository provides a Node/TypeScript generator for durable manual-test
 projects. It exercises the same `createDefaultLanes`, `placeSampleOnLane`,
 `serializeProject`, and `parseProject` APIs used by the application instead of
 driving the UI or hand-writing project JSON.
+
+This developer fixture tool is not the spec-018 MixJam Generator wizard. Its
+fixed 140 BPM, 70-bar, Ibiza-inspired contract exists for repeatable repository
+testing; it does not constrain the product wizard's profiles or parameters.
 
 - `npm run generate:mixer-test-song` reads WAV metadata from
   `tmp/test-samples` and writes an auto-incremented project such as
@@ -349,19 +354,21 @@ generator, its tests, and this contract are the durable repository assets.
   already busy.
 - [x] **AC-016:** Loading rejects projects that assign conflicting
   `durationTicks` values to placements with the same `sampleRef`.
-- [x] **AC-017:** The generator writes a project that roundtrips through the
-  production project parser, has 140 BPM, spans exactly 70 bars (120 seconds),
-  and contains 16 non-empty lanes.
-- [x] **AC-018:** The generated placements cover every current fixture
-  category while every saved `sampleRef` remains relative to the configured
-  Sample Folder. Duration-matched stereo pairs remain paired on adjacent lanes.
-- [x] **AC-019:** The generated project contains the documented seven-section
-  Ibiza-inspired melodic-techno arrangement, uses style-biased sample pools,
+- [x] **AC-017:** The repository test-song generator writes a project that
+  roundtrips through the production project parser, has 140 BPM, spans exactly
+  70 bars (120 seconds), and contains 16 non-empty lanes.
+- [x] **AC-018:** The repository test-song generator's placements cover every
+  current fixture category while every saved `sampleRef` remains relative to
+  the configured Sample Folder. Duration-matched stereo pairs remain paired on
+  adjacent lanes.
+- [x] **AC-019:** The repository test-song project contains the documented
+  seven-section Ibiza-inspired melodic-techno arrangement, uses style-biased
+  sample pools,
   alternates clips on ten lanes, varies cue timing by seed, and includes
   deliberate Mixer state with delay, reverb, and compressor effects.
-- [x] **AC-020:** Repeated generator runs never overwrite an existing project;
-  filenames increase monotonically. A supplied seed reproduces the same sample
-  selection and arrangement.
+- [x] **AC-020:** Repeated repository test-song generator runs never overwrite
+  an existing project; filenames increase monotonically. A supplied seed
+  reproduces the same sample selection and arrangement.
 - [x] **AC-021:** The open picker loads a valid `.mixjam` file selected from
   outside the User Folder without requesting write access to that location.
 - [x] **AC-022:** A project loaded from outside the User Folder has no writable
@@ -373,7 +380,7 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-024:** Loading rejects a placement whose exclusive end tick
   (`startTick + durationTicks`) exceeds 31,968, and the validation error points
   to that placement's `durationTicks` field.
-- [x] **AC-025:** Generated placements calculate `durationTicks` from a
+- [x] **AC-025:** Repository test-song placements calculate `durationTicks` from a
   selected sample's positive native BPM when available, otherwise from the
   140 BPM project tempo, and persist that same native BPM provenance.
 - [x] **AC-026:** New in the Middle Strip project menu starts a default project

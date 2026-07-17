@@ -22,6 +22,7 @@
 - [Middle Strip](#middle-strip)
 - [MixJam](#mixjam)
 - [MixJam Browser](#mixjam-browser)
+- [MixJam Generator](#mixjam-generator)
 - [Musical span](#musical-span)
 - [Native BPM](#native-bpm)
 - [Player](#player)
@@ -201,6 +202,15 @@ inside the project.
 The [Player](#player) region that lists and opens `.mixjam` files. It is
 distinct from the [Sample Browser](#sample-browser). The older name *Recent
 Projects rail* describes the same region too narrowly.
+
+## MixJam Generator
+
+The Home wizard that turns a prepared [Sample Folder](#sample-folder) into a
+saved, ready-to-play [project](#project) using a selected profile, BPM,
+intensity, duration, and seed. Its output is an ordinary `.mixjam` project with
+optional generator metadata for exact or current-corpus regeneration. The
+generator does not infer genre and is distinct from the repository's developer
+test-song generator described by [spec 011](specs/spec-011-project-save-load.md).
 
 ## Musical span
 

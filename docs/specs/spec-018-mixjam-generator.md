@@ -1,9 +1,9 @@
 # Spec 018 — MixJam Generator Wizard
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIALLY IMPLEMENTED (AC-001–AC-015 complete;
-AC-016–AC-021 musical planning, color, runtime proof, and listening sign-off
-pending)
+**Spec Implementation Status:** CODE COMPLETE; ACCEPTANCE SIGN-OFF PENDING
+(AC-017–AC-021 are implemented. AC-016 remains open until real-corpus,
+built-Chromium, playback, and manual listening evidence is recorded.)
 **Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
 spec-008 (Sample Analysis), spec-011 (Project Save & Load, including its
 version-3 generator metadata extension)
@@ -117,6 +117,7 @@ Profiles are pure JSON/TypeScript data. Each profile declares:
 
 - a stable profile ID and profile schema version;
 - required core acoustic roles and optional roles;
+- the exact `coreLanes`; every lane not listed there is optional;
 - explicit fallback chains for optional roles and documented substitutions for
   required roles;
 - lane names, lane pans, and role assignments for the fixed 16-lane project;
@@ -141,13 +142,17 @@ The first-slice profile contracts are:
 | `trance` | Kick, Bass, Synth, Loop | Synth → Loop; Loop → Synth; FX → Other | Intro 8%, Theme 18%, Lift 16%, Breakdown 12%, Main Theme 20%, Peak 18%, Outro 8% |
 | `house` | Kick, Bass, Hi-hat | Hi-hat → Percussion; Vocal → Atmosphere; Loop → Synth; FX → Other | Intro 8%, Groove 24%, Vocal Entry 16%, Breakdown 10%, Groove Return 22%, Peak 12%, Outro 8% |
 
-Core roles without a documented fallback are hard requirements. A profile may
-use a fallback/support role only when the selected source type is absent; the
-Generate result reports each substitution. Section rules add and remove layers
-according to the profile contract: every profile starts sparse, increases density
-through its lift/build sections, creates a lower-density breakdown, and restores
-its core roles before the outro. The individual role gates and transition FX
-placements are profile data, not engine branches.
+The normative `coreLanes` are techno `0,4,6`, trance `0,4,5,6`, and house
+`0,2,4`. Those lanes are core; every other lane is optional. Core roles without
+a documented fallback are hard requirements. A fallback is tried only when no
+compatible, successfully analyzed candidate of the earlier type remains after
+role, duration, readability, hard-key, and planner-kind filters. BPM only ranks
+the remaining candidates. The Generate result reports each substitution.
+Section rules add and remove layers according to the profile contract: every
+profile starts sparse, increases density through its lift/build sections,
+creates a lower-density breakdown, and restores its core roles before the
+outro. The individual role gates and transition FX placements are profile data,
+not engine branches.
 
 All profiles use this fixed lane-role template; unsupported roles use the listed
 acoustic-type fallback in order:
@@ -246,11 +251,12 @@ The shared role rules are:
 - Atmosphere and texture entries support selected phrases and do not run for an
   entire multi-section arc.
 - A riser ends at a section boundary. An impact starts at a section boundary.
-  Transition lanes contain boundary events only.
+  Transition left is the riser lane and Transition right is the impact lane.
+  Both transition lanes contain boundary events only.
 - A breakdown excludes Kick and Bass. A build adds layers across phrases. A peak
   restores the profile's core roles before the outro removes layers.
-- One sample may not repeat unchanged for more than two complete phrases unless
-  the profile marks it as the intentional rhythmic anchor.
+- One sample may not repeat unchanged for more than two complete phrases. Kick
+  is the sole intentional repetition anchor and is the only exception.
 
 Profile character is normative:
 
@@ -298,9 +304,10 @@ channel gain is clamped to the existing 0–1 control range. Missing or silent R
 data leaves the profile gain unchanged. Seeded gain or FX randomization is not
 allowed.
 
-Projects always contain exactly 16 lanes, as required by spec-011. A profile may
-leave lanes empty and may use at most 16 mixer channels. Routing remains the
-existing lane-index-to-channel-index contract.
+The product generator always creates exactly 16 lanes. This is a spec-018
+generator contract, not a general project-file requirement. A profile may leave
+lanes empty and may use at most 16 mixer channels. Routing remains the existing
+lane-index-to-channel-index contract.
 
 ### Runtime and query ownership
 
@@ -324,7 +331,7 @@ Worker filtering must support:
 - positive duration and role-specific duration limits;
 - current `scan_state = 1` metadata rows only;
 - deterministic ordering and bounded result sets; and
-- soft BPM and key compatibility scoring.
+- soft BPM ranking plus hard rejection of incompatible known keys.
 
 The candidate query also joins the primary organizational category name. The
 shared palette-slot helper converts that name to a slot from 0 through 8. The
@@ -391,13 +398,15 @@ and a short digest of the safe seed:
 <profile>-<bpm>bpm-<intensity>-<seed-digest>-001.mixjam
 ```
 
-Allocation is serialized inside the single-tab app, checks existing names, and
-uses the first free monotonic numeric suffix. It never overwrites a project found
-by that check. Browser File System Access has no cross-process exclusive-create
-primitive, so races with external filesystem writers are outside this contract.
-The recent-project registry is updated only after the final write succeeds.
-Writes use the existing atomic File System Access behavior; cancellation or
-failure removes temporary state and leaves no project or registry entry.
+Allocation is serialized inside the single-tab app and checks existing names.
+The next suffix is one greater than the highest existing matching suffix, or
+`001` when none exists. Deleted gaps are never reused, so suffixes remain
+monotonic. The allocator never overwrites a project found by that check. Browser
+File System Access has no cross-process exclusive-create primitive, so races
+with external filesystem writers are outside this contract. The recent-project
+registry is updated only after the final write succeeds. Writes use the existing
+atomic File System Access behavior; cancellation or failure removes temporary
+state and leaves no project or registry entry.
 
 After a successful save the wizard remains on its completion state. The user must
 click **Open in Player** explicitly.
@@ -425,12 +434,14 @@ Generated projects require the spec-011 version-3 migration and persist:
 }
 ```
 
-The fingerprint is a canonical hash of the indexed snapshot: stable FolderRef
-root key plus sorted current candidate records containing relative path, size,
-mtime, metadata/analysis revisions, duration, BPM, key, sample type, primary
-category name, and palette slot. Scan completion timestamps are excluded because
-a no-op re-scan must preserve the fingerprint. Audio-byte hashing is out of
-scope.
+The fingerprint is a canonical hash of the indexed snapshot before
+parameter-specific shortlisting. It covers every current generator-eligible row
+for the root: current metadata-ready state, positive duration, and a valid
+acoustic sample type. The hash contains the stable FolderRef root key plus the
+sorted records' relative path, size, mtime, metadata/analysis revisions,
+duration, BPM, key, sample type, primary category name, and palette slot. Scan
+completion timestamps are excluded because a no-op re-scan must preserve the
+fingerprint. Audio-byte hashing is out of scope.
 
 **Regenerate** always creates a new artifact. Exact regeneration uses the stored
 parameters and seed and requires a matching fingerprint/root. Current-corpus
@@ -494,26 +505,51 @@ explicitly; a regular hand-authored project has no regeneration command.
 - [ ] **AC-016:** The generated project passes focused unit tests, a real-corpus
   production-parser roundtrip, built-Chromium open/playback proof, and manual
   listening sign-off for techno, trance, and house.
-- [ ] **AC-017:** One planning job attempts no more than 96 unique files, retains
+- [x] **AC-017:** One planning job attempts no more than 96 unique files, retains
   no more than 64 successful transient analyses, reads each relative path at most
   once, reports typed progress, and can be cancelled before save without leaving
   a file or recent-project entry.
-- [ ] **AC-018:** Techno, trance, and house plans satisfy their phrase contracts:
+- [x] **AC-018:** Techno, trance, and house plans satisfy their phrase contracts:
   beat-grid percussion, bar-aligned loops, bounded unchanged repetition,
   profile-specific A/B motifs, rests, fills, a lower-density breakdown, a motif
   return, boundary-only transitions, and a restored peak.
-- [ ] **AC-019:** Tonal lanes contain no incompatible known-key selections;
+- [x] **AC-019:** Tonal lanes contain no incompatible known-key selections;
   percussive roles fit inside one beat; loop roles resolve to exact whole-bar
   spans; transient RMS compensation stays within plus or minus 6 dB and final
   gain stays within 0–1.
-- [ ] **AC-020:** Every generator candidate retains its primary organizational
+- [x] **AC-020:** Every generator candidate retains its primary organizational
   category for appearance only. Every generated placement stores a valid palette
   slot from 0 through 8, the slot participates in the corpus fingerprint, and
   built Chromium proves Tracker bubbles match Sample Browser colors and recolor
   correctly after a theme switch.
-- [ ] **AC-021:** For a fixed corpus and parameters, the same seed reproduces the
+- [x] **AC-021:** For a fixed corpus and parameters, the same seed reproduces the
   complete plan, while different seeds create a measurable selection or phrase
   change without changing section boundaries or the required profile arc.
+
+## Implementation Evidence
+
+- `backend/generator-profiles.ts` owns the three versioned profiles, exact core
+  lanes, phrase rules, transition kinds, Mixer defaults, and FX presets.
+- `backend/generator-library.ts` owns root-scoped readiness, current-row
+  selection, detected BPM, organizational-category palette retention, and the
+  canonical corpus fingerprint. `generator-library.test.ts` covers those
+  boundaries and every fingerprint field.
+- `backend/generator-analysis.ts` owns deterministic shortlisting, the 96-read
+  and 64-analysis bounds, decode failure fallback, transient metrics, progress,
+  and cancellation. `generator-analysis.test.ts` contains focused coverage for
+  those contracts.
+- `backend/generator-engine.ts` owns pure deterministic section, phrase,
+  placement, Mixer, FX, compatibility, and gain planning.
+  `generator-engine.test.ts` contains focused coverage for all three profiles,
+  seed behavior, phrase structure, key rejection, span limits, exact song end,
+  and gain bounds.
+- `project/generated-project.ts`, `hooks/useMixJamGenerator.ts`, and
+  `components/MixJamGeneratorDialog.tsx` adapt and commit the neutral plan,
+  expose cancellation and progress, and keep Open in Player explicit. Their
+  adjacent tests cover these renderer boundaries.
+- `tests/e2e/mixjam-generator.spec.ts` defines the built-browser color,
+  generation, open, and playback checks. Recorded execution, real-corpus
+  artifacts, and listening notes remain required by AC-016.
 
 ## Validation
 

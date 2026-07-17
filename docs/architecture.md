@@ -30,6 +30,8 @@
 │  │    connection, runs all queries                   │  │
 │  │  • indexer — directory-handle traversal +         │  │
 │  │    music-metadata parseBlob (see indexing.md)     │  │
+│  │  • generator — bounded transient analysis +       │  │
+│  │    deterministic project planning                 │  │
 │  └───────────────────────────────────────────────────┘  │
 │  Folder handles in IndexedDB · preferences in localStorage│
 │  Song, arrangement, Mixer, routing, and FX in .mixjam     │
@@ -46,9 +48,9 @@ Rules of the process model:
 
 - **All DB access lives in the backend worker.** opfs-sahpool requires the
   worker-only `FileSystemSyncAccessHandle` API and allows exactly one
-  connection, so queries and indexing interleave on the same connection. The UI
-  calls the async `BackendAPI` facade and receives plain JSON (e.g. a page of
-  sample rows for the virtual list).
+  connection, so queries, indexing, and generator planning interleave on the
+  same connection. The UI calls the async `BackendAPI` facade and receives plain
+  JSON, such as a page of sample rows or a bounded neutral generator plan.
 - **Renderer requests are windowed.** The virtual list asks for the visible
   slice + buffer (`LIMIT`/`OFFSET` or keyset pagination), never the full result set.
 - **No absolute paths anywhere.** Folders are `FolderRef`s (an id keying a
@@ -62,6 +64,11 @@ Rules of the process model:
   second tab shows a friendly notice instead of failing on DB open.
 - **Audio stays on the renderer main thread** (Web Audio API). The engine loads
   sample bytes through `BackendAPI.readSampleBytes(rootId, relpath)`.
+- **Generated-project commit stays in the renderer.** The backend worker owns
+  root-scoped shortlisting, transient sample analysis, and deterministic neutral
+  planning. The renderer adapts the plan, serializes it through the production
+  project format, writes it inside the User Folder, and updates recent projects
+  only after the write succeeds.
 
 ## Non-goals for this phase
 

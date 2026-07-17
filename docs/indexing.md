@@ -112,6 +112,11 @@ sync cancels calibration at its next safe checkpoint.
 Individual re-analysis uses its own typed job identity and is serialized with
 both library sync and calibration. Its request completes only after the worker
 has committed the result or reported the operation error.
+MixJam Generator planning is another typed, root-scoped worker job. It is
+serialized with library sync, calibration, and individual re-analysis. It reads
+and decodes only its bounded candidate set, stores no transient analysis in the
+database, and returns a neutral plan for renderer-owned project serialization
+and commit. Cancellation is checked between reads and before the plan returns.
 An automatic sync requested for a newly selected root during individual
 analysis is queued and starts when that analysis finishes; the folder-selection
 request is not discarded.
