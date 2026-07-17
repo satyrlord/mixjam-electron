@@ -123,9 +123,10 @@ Feature specifications live in `docs/specs/`. Specs 001-011 are implemented at
 their current baseline; spec-011's format-3 generator extension is implemented.
 Spec 012 is validated but not implemented, specs 013-016 are unvalidated stubs,
 spec 017 is an unvalidated draft, and spec 018 is validated and code complete.
-Its AC-016 real-corpus, built-Chromium, playback, and manual listening sign-off
-remains open. Check individual spec files for acceptance wording and test
-evidence; tests live alongside the relevant source domain under `src/`.
+Its AC-016 automated real-corpus, built-Chromium, playback, and palette evidence
+is recorded; manual listening sign-off remains open. Check individual spec files
+for acceptance wording and test evidence; tests live alongside the relevant
+source domain under `src/`.
 
 ## Theming and skinning
 

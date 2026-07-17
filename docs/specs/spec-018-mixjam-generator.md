@@ -2,8 +2,9 @@
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** CODE COMPLETE; ACCEPTANCE SIGN-OFF PENDING
-(AC-017–AC-021 are implemented. AC-016 remains open until real-corpus,
-built-Chromium, playback, and manual listening evidence is recorded.)
+(AC-017–AC-021 are implemented. AC-016 remains open only for manual listening
+sign-off; real-corpus, built-Chromium, playback, and palette evidence is
+recorded under `tmp/verify-generator-structure/`.)
 **Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
 spec-008 (Sample Analysis), spec-011 (Project Save & Load, including its
 version-3 generator metadata extension)
@@ -153,6 +154,12 @@ profile starts sparse, increases density through its lift/build sections,
 creates a lower-density breakdown, and restores its core roles before the
 outro. The individual role gates and transition FX placements are profile data,
 not engine branches.
+
+The three first-slice profiles explicitly declare no stereo-pair request.
+Transition left and Transition right are independent riser and impact roles,
+not two halves of one stereo file. The profile schema retains an explicit
+`stereoPairRules` list so a later profile must opt into pair discovery rather
+than receiving it from a lane-name heuristic.
 
 All profiles use this fixed lane-role template; unsupported roles use the listed
 acoustic-type fallback in order:
@@ -341,8 +348,9 @@ renderer persists it through the existing spec-011 placement field.
 
 Candidates within the profile BPM tolerance are preferred. Unknown BPM is a
 deterministic fallback, not an automatic rejection. The planner selects one song
-key from compatible high-confidence tonal candidates. Missing or mixed keys fall
-back according to the tonal rules above. Profile roles use acoustic sample types
+key from current, keyed tonal candidates. The schema has no separate
+key-confidence field; current manual and analysis key values form the reliable
+set. Missing or mixed keys fall back according to the tonal rules above. Profile roles use acoustic sample types
 (`Kick`, `Snare`, `Hi-hat`, `Percussion`, `Bass`, `Synth`, `FX`, `Vocal`,
 `Loop`, `Atmosphere`, `Other`), never the organizational category field.
 
@@ -450,8 +458,10 @@ confirmation, and may produce different selections. Both paths use the same
 transactional save and monotonic naming rules.
 
 The loaded project's Middle Strip menu exposes **Regenerate** only when the
-project has a valid generator block. It offers the exact and current-corpus paths
-explicitly; a regular hand-authored project has no regeneration command.
+project has a valid generator block whose generator and profile versions are
+supported by the running app. It offers the exact and current-corpus paths
+explicitly; a regular hand-authored or newer-version project has no regeneration
+command.
 
 ## Acceptance Criteria
 
@@ -548,8 +558,12 @@ explicitly; a regular hand-authored project has no regeneration command.
   expose cancellation and progress, and keep Open in Player explicit. Their
   adjacent tests cover these renderer boundaries.
 - `tests/e2e/mixjam-generator.spec.ts` defines the built-browser color,
-  generation, open, and playback checks. Recorded execution, real-corpus
-  artifacts, and listening notes remain required by AC-016.
+  generation, open, and playback checks. Its production-bundle run passed.
+- `tmp/verify-generator-structure/evidence.md` records the full 8,014-file
+  corpus fingerprint, bounded analysis counts, production-parser roundtrips,
+  exact 3,360-tick ends, zero missing references, browser screenshots, playback
+  proof, and cross-theme palette sampling for all automated parts of AC-016.
+  Human listening sign-off remains pending.
 
 ## Validation
 
@@ -557,10 +571,13 @@ Run the focused behavior and persistence checks:
 
 ```sh
 npm test -- src/renderer/src/backend/generator-engine.test.ts
+npm test -- src/renderer/src/backend/generator-analysis.test.ts
 npm test -- src/renderer/src/backend/generator-library.test.ts
 npm test -- src/renderer/src/project/generated-project.test.ts
 npm test -- src/renderer/src/project/project-file.test.ts
 npm test -- src/renderer/src/components/LaneSampleBubbleCanvas.test.tsx
+npm test -- src/renderer/src/hooks/useMixJamGenerator.test.ts
+npm test -- src/renderer/src/components/MixJamGeneratorDialog.test.tsx
 ```
 
 Run the repository checks and built-browser proof:
