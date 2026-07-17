@@ -1,7 +1,8 @@
 # Spec 011 — Project Save & Load
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED for format version 3, including the
+optional generator metadata extension and version-2 migration.
 **Depends on:** spec-006 (Player Timeline & Panel Layout), spec-007 (Mixer),
 spec-010 (Per-Channel Audio Effects)
 
@@ -131,6 +132,44 @@ A project is a JSON file with a `.mixjam` extension, saved to the User Folder
   by spec-010. Loading must not merge channel or FX values from another project.
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
+
+### Format version 3 generator metadata extension
+
+Spec 018 adds a format-3 migration for generated projects. Version 3 preserves
+the complete version-2 document and adds one optional project-owned `generator`
+object. Projects created or saved without the generator remain valid version-3
+projects with no `generator` object.
+
+The object contains the generator version, stable profile ID and profile schema
+version, safe seed, generation parameters, the indexed-corpus fingerprint, and
+the Sample Folder key used for exact regeneration:
+
+```json
+{
+  "formatVersion": 3,
+  "generator": {
+    "generatorVersion": 1,
+    "profileId": "techno",
+    "profileVersion": 1,
+    "seed": "safe-token",
+    "parameters": {
+      "bpmMode": "follow-detected",
+      "resolvedBpm": 140,
+      "intensity": "medium",
+      "durationSeconds": 180
+    },
+    "corpusFingerprint": "...",
+    "sampleFolderKey": "..."
+  }
+}
+```
+
+The v2-to-v3 migration is cumulative and idempotent. It leaves existing project
+state unchanged and adds no generator metadata when none was present. The
+production parser must validate the object when present, preserve it through
+load/save roundtrips, reject unsupported future format versions, and expose it
+to the regeneration workflow. The object is not app-level state and is never
+stored in the recent-project registry.
 
 ### Persistence Ownership
 
@@ -345,12 +384,21 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-028:** New, load, save, transport replacement, and the generated test
   project use one complete nested Song-state contract and canonical default
   factory rather than independently listing Song fields.
+- [x] **AC-029:** Loading a version-2 project migrates it idempotently to version
+  3 without changing project state and without inventing generator metadata.
+- [x] **AC-030:** A version-3 generator block validates, survives a load/save
+  roundtrip, and preserves the profile, profile version, generator version,
+  safe seed, parameters, corpus fingerprint, and Sample Folder key.
+- [x] **AC-031:** A generated version-3 project exposes its generator metadata to
+  exact and current-corpus regeneration without storing it in app state or the
+  recent-project registry.
 
 ## Implementation Evidence
 
 - `src/renderer/src/project/project-file.test.ts` covers strict schema
   validation, safe relative paths, version-zero migration, newer-version
-  rejection, version-1 micro-fade migration, roundtrips, dirty fingerprints,
+  rejection, version-1 and version-2 migration, generator roundtrips,
+  dirty fingerprints,
   sparse capacity-free
   serialization, and field-specific rejection of exclusive placement ends
   beyond tick 31,968.
