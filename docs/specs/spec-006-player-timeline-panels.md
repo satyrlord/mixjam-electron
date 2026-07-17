@@ -665,9 +665,6 @@ visible across themes and viewport sizes.
 - `tmp/verify-bottom-workspace/evidence.md` records production Chromium
   geometry, narrow-window targets, tab-state retention, Sample Browser
   remeasurement, and cross-tab Mixer-to-FX behavior.
-- `tmp/verify-samples-fx-layout/evidence.md` records the historical
-  pre-compact two-column root category grid, 44px targets, and 32px category
-  bubbles in production Chromium.
 - `tests/e2e/lane-head-overlap.spec.ts` verifies that collapsing or expanding
   the MixJam Browser updates the parent grid in the same interaction and keeps
   the Tracker ruler, lane names, and lane heads clear of the browser rail.
@@ -694,25 +691,12 @@ visible across themes and viewport sizes.
 - `tmp/verify-ui-primitives/evidence.md` records production Chromium checks for
   pointer and keyboard resizing, menus, popovers, tabs, tooltips, dialog focus,
   touch rotary input, and timeline keyboard stepping.
-- `tmp/verify-tracker-horizontal-scroll/` records the historical 128-bar
-  production Chromium baseline
-  for the Song Progress Bar at 1280x800, a 5120x1440 ultrawide viewport, and
-  DPR 2. The checks cover all 128 bars, shared ruler/lane scrolling, pinned lane
-  heads, keyboard and pointer navigation, theme changes, the visible disabled
-  state, unchanged transport position, and canonical sample-bubble geometry.
 - `tests/e2e/timeline-seek.spec.ts` verifies in production Chromium that exact
   beat clicks share playhead geometry, Skip Back resets the playhead and
   Tracker viewport, and Jump to End parks at the exact content-derived end and
   brings it into view. It also delays sample preparation to prove that Play
   from the parked end restarts at tick 0 without being cancelled by end
   detection.
-- `tmp/verify-song-capacity/evidence.json` and its screenshots record the
-  historical pre-compact 168,052px timeline, grid maximum tick 31,960, exact Jump to End tick
-  5,032 with scroll position 25,556, and Skip Back restoring both values to 0.
-- `tmp/verify-middle-strip-progress/` records the historical pre-compact built-Chromium geometry,
-  center-point hit testing, and screenshots at 1280x720 and 1920x1080. At both
-  sizes the Song Progress Bar is a visible DOM child fully bounded by the
-  100px Middle Strip.
 - `tests/e2e/compact-layout.spec.ts` verifies the 75% shared Tracker geometry,
   all-lane visibility, the 80px Middle Strip, fresh 24% Bottom Workspace,
   v1-to-v2 one-time reset, later manual persistence, and root overflow across

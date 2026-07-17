@@ -1,12 +1,10 @@
 {
-  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
     "src/renderer/src/main.tsx",
     "src/renderer/index.html"
   ],
   "ignorePatterns": [
-    "vite.config.js",
-    "vite.config.d.ts",
     ".fallow/**",
     "dist/**",
     "playwright-report/**",

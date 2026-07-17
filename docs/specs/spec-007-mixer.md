@@ -288,11 +288,11 @@ requirement.
   orientation.
 - `src/renderer/src/hooks/useMixer.test.ts` verifies that inactive workspaces
   schedule no visual-telemetry frame and that deactivation cancels a live loop.
+- `src/renderer/src/engine/playback-engine.test.ts` verifies live channel gain,
+  mute, and solo gating, including the first gain update while another channel
+  is soloed.
 - `tmp/verify-vertical-controls/evidence.md` records production Chromium
   geometry for all 16 fixed-width strips and the shared fader/meter grammar.
-- `tmp/verify-complete-system/evidence.md` records the earlier fixed-width
-  baseline across every bundled theme at both wide and narrow viewport sizes, including
-  keyboard focus scrolling to the final channel.
 - `tests/e2e/audio-effects-rendering.spec.ts` and
   `tmp/verify-fx-song-end/evidence.json` prove in Chromium that active source
   voices reach zero while routed reverb energy remains audible after natural

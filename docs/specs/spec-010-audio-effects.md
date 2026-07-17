@@ -178,7 +178,7 @@ can chain effects in order and adjust parameters per channel.
   keyboard operation, and reset through the shared control.
 - [x] **AC-015:** Rotary controls use the project-owned SVG range track, value
   arc, inset cap, and anchored pointer while preserving direct entry and the
-  complete interaction contract without adding a component library.
+  complete interaction contract without an external rotary-control dependency.
 - [x] **AC-016:** The FX chain exposes visible signal-direction connectors and
   explicit enabled/bypassed text; editable controls use one grouped surface,
   output metering is separate and scaled, explanatory copy is at least 12 px,
@@ -227,8 +227,6 @@ can chain effects in order and adjust parameters per channel.
   dial geometry, tooltip and edit interactions, 44 px hit targets, grouped
   editor hierarchy, scaled meter, signal connector, explicit bypass states,
   all-theme highlight tokens, and the 900 px layout in built Chromium.
-- `tmp/verify-vertical-controls/evidence.md` records the earlier fixed-width Mixer strip
-  geometry shared by the channel fader and FX entry point.
 - `tmp/verify-complete-system/evidence.md` verifies Mixer-to-FX channel
   selection, FX selector state, upper-work visibility, and FX panel geometry
   across every theme at wide and narrow viewport sizes.

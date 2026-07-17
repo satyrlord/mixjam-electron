@@ -230,24 +230,8 @@ uniform-batch calibration used by `analysis-runner.ts` found:
 These results establish the current-corpus target and guarded calibration
 behavior; they do not claim cross-library or 100k-file performance.
 `ANALYSIS_TIMED_RUNS=0 npm run measure:analysis-corpus` reproduces the
-correctness pass, and `tmp/measure-analysis-corpus/` contains raw and calibrated
-per-file evidence.
-
-The earlier historical baseline measured 684 WAV files (379,291,366 bytes) at
-corpus revision `37735a88cf9f9c5ca6186b24aafb03c61416eb11`:
-
-- all 684 files decoded;
-- BPM was non-NULL for 585 files and key was non-NULL for 482 files;
-- two of three filenames containing an explicit `N BPM` label were within the
-  AC-003 ±5 BPM window (`126 -> 126`, `140 -> 140`);
-- `splash saturation 126 BPM techno3.wav` resolved to 65.4 BPM and remains a
-  known half-tempo/subdivision limitation;
-- the sequential Node measurement took 12.9 seconds. This is a corpus result,
-  not a 100k-library throughput claim.
-
-Folder names were not accepted as type ground truth: exact agreement for the
-coarse Bass/Loop/Voice/Keys mapping was 101/379, but those folders mix loops,
-one-shots, and instruments and therefore do not establish classifier accuracy.
+correctness pass and writes raw and calibrated per-file evidence under
+`tmp/measure-analysis-corpus/`.
 
 ## Non-Goals
 

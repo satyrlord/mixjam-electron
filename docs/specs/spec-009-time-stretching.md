@@ -181,23 +181,15 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 - `arrangement.test.ts`, `useTransportEngine.test.ts`, and
   `SampleTileGrid.test.tsx` cover BPM-invariant geometry, first-drop span
   capture, same-sample span reuse, and cross-view width.
-- `tmp/repro-bpm-boundary-gap/` records the pre-fix production Chromium
-  reproduction with the real `SPHERE001_TRNCE_140_A_SC4(R).wav` fixture: null
-  BPM caused 1.791524 seconds of silence at each 111 BPM boundary, while the
-  140 BPM control was continuous within one frame.
 - `tests/e2e/time-stretch-content.spec.ts` proves the production browser uses
   a deterministic generated PCM WAV at a `111 / 140` playback rate and fills
   the expected 8.648649-second span without relying on a local fixture corpus.
-- `tmp/verify-bpm-boundary-fix/` records the post-fix production Chromium audio
-  node timing and canvas invariance checks. Both metadata cases have a measured
-  boundary error below one output sample frame.
 - Verification commands:
   - `npm run typecheck`
   - targeted `vitest` suites for stretching, playback, arrangement, transport,
     Sample Browser, and Player
   - `npm run lint -- --quiet`
   - `npm run build`
-  - `node tmp/repro-bpm-boundary-gap.mjs --expect-fixed`
 
 ## Non-Goals
 
