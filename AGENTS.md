@@ -7,7 +7,8 @@ Use simple English: short sentences, common words, plain structure. No idioms or
 ## Spec status
 
 See [docs/README.md#specs](docs/README.md#specs). Specs 001-011 are implemented;
-check individual spec files for acceptance wording and evidence.
+check individual spec files for acceptance wording and evidence. Specs 012-018
+status is documented in their individual files and in docs/README.md.
 
 ## Always consult these docs
 
