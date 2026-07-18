@@ -17,6 +17,7 @@ remember which one to type. This skill is the index.
 - `handoff` — Transfer session state to a fresh agent.
 - `improve-codebase-architecture` — Surface architectural friction and propose
   deepening opportunities.
+- `design-router` — pick a bundled design theme  
 
 ## Describe the task and let the agent pick (model-invoked)
 
@@ -26,7 +27,6 @@ the skill:
 - `add-feature` — spec, decisions, and durable docs for new work
 - `dead-code-audit` — find and optionally remove dead code
 - `design-critique` — structured design feedback with screenshots
-- `design-router` — pick a bundled design theme
 - `diagnose` — controlled bug or regression diagnosis
 - `grill-me` — decision-tree design grilling
 - `refactor` — behavior-preserving cleanup

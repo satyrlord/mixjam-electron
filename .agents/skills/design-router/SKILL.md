@@ -1,6 +1,5 @@
 ---
 name: design-router
-description: Routes a requested UI visual direction to one bundled design theme. Use when building or restyling an interface that needs an explicit aesthetic.
 license: MIT
 metadata:
   author: typeui.sh (catalog) / router by user
