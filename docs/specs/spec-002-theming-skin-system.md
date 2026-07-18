@@ -105,7 +105,7 @@ placement, or sample-bubble width. It is app state and is not written to a
 | 56 | 46px | 68px |
 
 The bubble rectangle keeps the same height in the Tracker, Sample Browser, and
-drag image. At 1280x720 with UI Size 56 and Mixer open, the full ruler and one
+drag image. At 1920x1080 with UI Size 56 and Mixer open, the full ruler and one
 complete lane remain visible without a vertical scrollbar.
 
 Depth tokens (`depth.*` in the JSON, applied as the same-named CSS custom
@@ -401,7 +401,7 @@ every completed scan. Missing-sample visual treatment follows the
 - [ ] **AC-022:** Sample bubbles and lanes use the documented 26/39, 36/54, and
   46/68 pixel height pairs. Tracker, browser, and drag-image bubble rectangles
   match at each size, while bubble width and musical placement do not change.
-- [ ] **AC-023:** Built Chromium proof at 1280x720, UI Size 56, and an open Mixer
+- [ ] **AC-023:** Built Chromium proof at 1920x1080, UI Size 56, and an open Mixer
   shows the full ruler and one complete lane with no vertical scrollbar,
   clipping, overlap, or shrunken interaction targets.
 

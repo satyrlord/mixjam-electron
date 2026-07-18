@@ -82,7 +82,7 @@ browser adjacencies.
 
 - Player layout, sizing, and region relationships follow the
   [Style Guide](../style-guide.md#layout-architecture).
-- The supported Player minimum is 1280 by 720 CSS pixels. At that size, with UI
+- The supported Player minimum is 1920x1080 CSS pixels. At that size, with UI
   Size 56 and Mixer open, the Tracker still shows the ruler and at least one
   complete lane. The root Player does not gain a vertical scrollbar.
 - UI Size is an app preference with values 32, 44, and 56 and a default of 32.
@@ -577,7 +577,7 @@ window-level mouse listeners.
 - [ ] **AC-005d:** The empty-lane macro reports the removable-empty count,
   removes those lanes without confirmation as one undo step, preserves the first
   lane when all are empty, and is disabled at zero removable lanes.
-- [ ] **AC-005e:** At the supported 1280x720 CSS minimum, UI Size 56 with Mixer
+- [ ] **AC-005e:** At the supported 1920x1080 CSS minimum, UI Size 56 with Mixer
   open leaves the ruler and one complete lane visible without a root vertical
   scrollbar.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
@@ -619,8 +619,7 @@ window-level mouse listeners.
   content-derived `songEndTick`.
 - [x] **AC-011d:** The Tracker region is constrained to its upper-panel height,
   while the always-rendered Song Progress Bar remains visible and
-  pointer-operable as the first row of the Middle Strip at the 1280x720 and
-  1920x1080 Player sizes.
+  pointer-operable as the first row of the Middle Strip at 1920x1080.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
@@ -681,7 +680,7 @@ window-level mouse listeners.
 - [x] **AC-029:** One project identity/menu trigger exposes New, Open, Save, and
   Save As without rendering four equal Middle Strip buttons. New uses the Home
   Screen reset path, and project names can use up to 320px before truncation.
-- [x] **AC-030:** At 1280×720 and 1920×1080 across every shipped theme and
+- [x] **AC-030:** At 1920x1080 across every shipped theme and
   idle, syncing, analyzing, and error states, Middle Strip controls remain
   inside the strip, actionable rectangles do not intersect, target centers
   hit-test correctly, and the command dock stays visually centered.
@@ -692,7 +691,7 @@ window-level mouse listeners.
   controls share restrained group surfaces, and the strip uses semantic theme
   tokens consistently across all shipped themes.
 - [ ] **AC-033:** Built Chromium verification exercises 1, 8, and 64 lanes at
-  every UI Size, including 1280×720 with Mixer open. It proves the full ruler
+  every UI Size, including 1920x1080 with Mixer open. It proves the full ruler
   plus one complete lane remain visible, the root and Mixer have no vertical
   scrollbar, every lane and fixed Mixer section remains reachable, and visual
   telemetry stays viewport-bounded.
@@ -723,7 +722,7 @@ the unchecked dynamic-lane, UI Size, three-tab, Mixer, or 64-lane criteria.
   module, keep their accessible names, and preserve reset behavior.
 - `tmp/verify-master-output-group/evidence.md` records production Chromium
   containment, geometry, hit testing, keyboard focus, horizontal fit, and the
-  shared reset tooltip at 1280x720 and 1920x1080.
+  shared reset tooltip at 1920x1080.
 - `tests/e2e/library.spec.ts` verifies that subcategory, sort, and management
   actions render with at least 44-by-44px interaction boxes in production
   Chromium. Dense Sample Browser tiles and category-tree rows use the separate

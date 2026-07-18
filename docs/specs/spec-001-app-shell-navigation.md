@@ -1,8 +1,7 @@
 # Spec 001 — App Shell & Navigation
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIAL — existing shell navigation implemented;
-Player minimum-size, maximize-on-entry, and Media Session overhaul not implemented
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** *(root — no dependencies)*
 
 ## Objective
@@ -73,13 +72,13 @@ Implement view switching, the header bar, and the footer.
 - Clicking the home link "&lt; Return to Main Menu" in the Player header
   returns to the Home Screen.
 - View switching must be instantaneous (no page reload, no navigation delay).
-- When switching from Home to Player, the Electron shell enables resizing and
-  sets a 1280×720 content minimum, then maximizes the window once on the display
-  that currently contains it. The app does not force a size or maximize state
-  again after entry, so the user may restore, resize above the minimum, or move
-  the Player window normally.
-- When switching from Player to Home, the window resizes from its current
-  size back to 1280×720 and the maximize button is removed.
+- When switching from Home to Player, the Electron shell ensures a 1920x1080
+  content minimum, then maximizes the window once on the display that currently
+  contains it. The app does not force a size or maximize state again after
+  entry, so the user may restore, resize above the minimum, or move the Player
+  window normally.
+- When switching from Player to Home, the window unmaximizes and resizes to
+  1920x1080. The window remains resizable and maximizable in all views.
 
 ### Electron host
 
@@ -149,7 +148,7 @@ as signed, notarized, or warning-free.
 Spec validation confirms these criteria are complete and testable as requirements.
 Implementation validation should be tracked in implementation PR/test evidence.
 
-- [x] **AC-001:** App launches at 1280×720 centered on screen (Home Screen), with no maximize button.
+- [x] **AC-001:** App launches at 1920x1080 centered on screen (Home Screen), with maximize and resize enabled.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" and "Load MixJam" buttons.
 - [x] **AC-002a:** The right workflow column contains three independent sibling
@@ -158,7 +157,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
   at 900px and below.
 - [x] **AC-002b:** The Home hero uses `public/app-icon-128.png` as the visible
   MixJam logo instead of a generated waveform mark.
-- [x] **AC-002c:** At the default 1280×720 window size, including its shorter
+- [x] **AC-002c:** At the default 1920x1080 window size, including its shorter
   Electron renderer viewport, Home has no vertical overflow or scrollbar in
   idle, sync, analysis, error, or ready states. The Library Setup scanner
   expands for active work and collapses when ready. Any number of available
@@ -168,17 +167,19 @@ Implementation validation should be tracked in implementation PR/test evidence.
   views. Spec-002 owns higher UI Size scaling and the footer size selector.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
-- [ ] **AC-004:** Clicking "Start New MixJam" enables window resizing,
-  applies a 1280×720 Player content minimum, maximizes the Electron window once
-  on its current display, and switches to Player. Restoring or resizing above
-  the minimum afterward is not overridden by the app.
+- [x] **AC-004:** Clicking "Start New MixJam" sets a 1920x1080 content minimum,
+  maximizes the Electron window once on its current display, and switches to
+  Player. Restoring or resizing above the minimum afterward is not overridden by
+  the app.
 - [x] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
 - [x] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
 - [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
 - [x] **AC-007:** Once both folders are available, clicking "Load MixJam"
   opens a filtered file picker and selecting a valid project navigates to the
   Player (with window resize in the Electron shell); cancelling stays on Home.
-- [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player header resizes the window back to 1280×720, removes the maximize button, and returns to the Home Screen.
+- [x] **AC-008:** Clicking the home link "&lt; Return to Main Menu" in the Player
+  header unmaximizes the window, resizes to 1920x1080, and returns to the Home
+  Screen. The window stays resizable and maximizable.
 - [x] **AC-009:** Roundtrip: Home → Player → Home → Player works without visual glitches or state leaks, and window dimensions are correct at each step.
 - [x] **AC-010:** The Player content area provides structural regions for the
   upper work band, full-width Middle Strip, and lower work band; spec-006 owns
@@ -186,7 +187,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-011:** The app occupies the full viewport height with no overflow
   scrollbar on the root. Home owns any required narrow-window vertical
   scrolling internally with both content limits reachable; the default
-  1280×720 Electron window has no Home overflow.
+  1920x1080 Electron window has no Home overflow.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 - [x] **AC-013:** The production renderer loads from `app://bundle`, requires
   the preload-provided `window.shellAPI`, and has no HTTP deployment or demo
@@ -209,10 +210,11 @@ Implementation validation should be tracked in implementation PR/test evidence.
 
 `tests/electron/smoke.spec.ts` must query the live Windows `BrowserWindow`
 through Playwright's Electron main-process bridge. It must verify the centered
-1280 by 720 non-resizable/non-maximizable Home state, the once-maximized Player
-state on the current display, manual restore without re-maximization, and the
-return to Home. The renderer unit suite separately verifies that the Home and
-Player navigation actions invoke those shell capabilities.
+1920x1080 resizable/maximizable Home state, the once-maximized Player state on
+the current display, manual restore without re-maximization, and the return to
+Home (unmaximized to 1920x1080, still resizable and maximizable). The renderer
+unit suite separately verifies that the Home and Player navigation actions invoke
+those shell capabilities.
 
 The Windows-only `scripts/inspect-window-icon.ps1` probe reads the icon from the
 live HWND and compares it with a 32 by 32 PNG rendered from `public/app-icon.ico`

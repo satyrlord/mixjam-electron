@@ -28,6 +28,7 @@ requirements that drive every architectural choice.
 ## Prerequisites
 
 - Node.js latest LTS
+- Display resolution of at least 1920x1080 (1080p)
 
 There are no native modules — SQLite runs as WebAssembly
 (`@sqlite.org/sqlite-wasm`), so no build toolchain or ABI rebuilds are needed.

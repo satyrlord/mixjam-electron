@@ -89,7 +89,7 @@ App (full viewport, no root overflow scrollbar)
 ### Home Screen Layout
 
 ```text
-Home (1280x720 default, no maximize button)
+Home (1920x1080 minimum, resizable, maximizable)
   ├── Content (centered two-column layout)
   │   ├── Hero column (left): logo, wordmark, tagline, steps, theme grid
   │   ├── Workflow column (right): three independent sibling cards
@@ -103,20 +103,20 @@ Home (1280x720 default, no maximize button)
 - The Home Screen has no timer and no home link.
 - The workflow cards have no enclosing outer panel. Headings, spacing, and
   surface contrast establish their grouping.
-- At 1280x720, Home has no vertical overflow or scrollbar. At narrow widths,
+- At 1920x1080, Home has no vertical overflow or scrollbar. At narrow widths,
   internal scrolling is owned by Home, not the root.
 
 ### Player Layout
 
-- The minimum Player viewport is 1280x720 CSS pixels. A smaller renderer
-  viewport cannot enter Player and shows a clear minimum-size message.
-- Electron enables resizing and maximizes on the current display once when the
-  user enters Player from Home. Later manual restore or resize is respected.
+- The minimum window size for all views is 1920x1080 (1080p). A smaller renderer
+  viewport cannot enter any view and shows a clear minimum-size message.
+- All views launch maximized on their current display. The user may restore,
+  resize above the minimum, or maximize again at any time.
 - The root Player never scrolls vertically. At minimum size every layout keeps
   the full ruler and at least one complete lane visible.
 
 ```text
-Player (minimum 1280x720 CSS pixels, resizable, starts maximized in Electron)
+Player (minimum 1920x1080, resizable, starts maximized in Electron)
   ├── Header: home link (left), brand (left-of-center), timer (absolute center),
   │           theme selector (right)
   ├── Upper Work Band (flex row)
