@@ -242,4 +242,4 @@ and screenshots.
 - No sample data, no sample-bubble rendering, no lane interaction. Tracker timeline is spec-006.
 - No settings persistence — the settings link in the footer is a placeholder.
 - No keyboard shortcuts.
-- No Player entry below the 1280×720 CSS viewport minimum.
+- No Player entry below the 1920x1080 CSS viewport minimum.

@@ -323,7 +323,7 @@ browse `.mixjam` files or define saved [libraries](#library).
 ## Sample bubble
 
 The visual snapshot of a sample or WAV file, regardless of context. Its height
-is 26px, 36px, or 46px at UI Size 32, 44, or 56 respectively. In a project,
+is 24px, 33px, or 41px at UI Size 30, 40, or 50 respectively. In a project,
 its width represents the sample's
 [musical span](#musical-span) in ticks at the Player's shared pixels-per-tick
 scale, with a 12px minimum. [Project BPM](#project-bpm) changes never move or
@@ -337,8 +337,9 @@ shared dimensions.
 
 ## UI Size
 
-The app-wide visual scale selected in the footer: 32, 44, or 56. It scales
-controls, interaction targets, lane and sample-bubble height, Mixer components,
+The app-wide visual scale selected in the footer: 30, 40, or 50, with 40 as
+the default. It scales controls, interaction targets, lane and sample-bubble
+height, Mixer components,
 spacing, and supporting type. It does not change musical time, pixels per tick,
 project data, audio, or sample-bubble width. UI Size is app state, not project
 state.

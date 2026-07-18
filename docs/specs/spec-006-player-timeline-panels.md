@@ -743,8 +743,7 @@ the unchecked dynamic-lane, UI Size, three-tab, Mixer, or 64-lane criteria.
   all-lane visibility, the 80px Middle Strip, fresh 24% Bottom Workspace,
   v1-to-v2 one-time reset, later manual persistence, and root overflow across
   representative stress themes. Its Middle Strip matrix covers all 16 shipped
-  themes at 1280×720 and 1920×1080 in idle, syncing, analyzing, and error
-  states.
+  themes at 1920×1080 in idle, syncing, analyzing, and error states.
 - `tmp/verify-compact-layout/evidence.md` records the matching computed
   geometry and screenshots.
 - `npm run measure:song-progress-performance` reproduces the full-capacity
