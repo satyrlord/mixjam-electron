@@ -155,7 +155,7 @@ the Sample Folder key used for exact regeneration:
   "generator": {
     "generatorVersion": 1,
     "profileId": "techno",
-    "profileVersion": 1,
+    "profileVersion": 2,
     "seed": "safe-token",
     "parameters": {
       "bpmMode": "follow-detected",

@@ -25,6 +25,11 @@ visual appearances; Emerald is the default.
 
 ## Scope
 
+Visual design intent (layout, spacing, typography, color philosophy, surface
+treatments, interaction patterns, and theme design rules) is centralized in
+the [Style Guide](../style-guide.md). This spec defines the token mechanics
+and runtime behavior that implement the style guide.
+
 ### Theme Token System
 
 A theme is a set of named design tokens. Every theme defines the same token
@@ -322,46 +327,16 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
 ```
 
 All 16 theme files exist in `public/themes/` with their own distinct token
-values (no placeholder copies). `gradient-header` must be a complete
-background value (it is not layered over another color); `gradient-ruler`
-and `gradient-lane` are layered over `--bg-panel`/`--bg-lane`, so `none`
-yields a flat surface.
-
-The meter triad
-(`--meter-green/-yellow/-red`), `--sample-bubble-select`, `--sample-bubble-missing`, and
-`depth.gradient-lane` are tuned per theme rather than shared across all
-themes. Every value must pass a 3:1 non-text contrast gate: meter colors
-against `--bg-base` (the meter track), `--meter-red` against `--pill-bg`
-(mute-active fill, spec-007 AC-022), and `--sample-bubble-select`/`--sample-bubble-missing`
-against `--bg-lane` (selection/focus outline and missing-bubble fill).
-Known waiver: Rust `meter-green` `#4A5A28` is a user-pinned faceplate
-color that trades gate headroom for LG Drive fidelity.
-
-Beton Brut, Mono, and Arcade
-set the brand, lane names, and mixer labels in uppercase via
-`[data-theme-key]` rules in `index.css`. Case is typography, not color, so
-this lives in CSS rather than the token JSON without violating AC-008.
-Riso uppercases the brand, Arcade uppercases its chrome controls (theme
-selector, Transport Ribbon text, manage/sort buttons) because the arcade
-mockup is uppercase throughout, and sample-bubble labels follow the `--sample-bubble-case`
-token (Beton, Mono, Arcade) on both the canvas and DOM bubbles.
-
-Treatments a
-single-value token cannot express live in `[data-theme-key]` blocks in
-`index.css`; semantic theme colors still come from tokens, while neutral
-black/white overlays may be fixed (AC-008 still holds): Enterprise's header
-gets `backdrop-filter: blur(4px)` over its translucent panels (its
-`bg-panel`/`pill-bg` are rgba glass values — the one sanctioned exception to
-"solid hex" since neither feeds a luminance derivation), and the Rust noise
-overlay is the other exception. Bevels, slabs, and extrusions stay in the JSON
-shadow tokens (Vintage's Win9x bevel is a 2px double-inset `shadow-pill`).
+values (no placeholder copies). Theme design rules (gradient layering,
+contrast policy, case transforms, depth-token use, sanctioned exceptions)
+are defined in the [Style Guide](../style-guide.md#theme-design-rules).
 
 The tracker learns which
 placements reference missing samples through a root-scoped backend query
 `listMissingRelpaths(sampleFolder)` (`SELECT relpath FROM samples WHERE
 root_id = ? AND scan_state = 2`), refreshed when the library loads and after
-every completed scan. The lane canvas fills those placements with 45-degree
-hazard stripes in `--sample-bubble-missing` over a darkened variant.
+every completed scan. Missing-sample visual treatment follows the
+[Style Guide](../style-guide.md#sample-bubbles).
 
 ## Acceptance Criteria (testable)
 

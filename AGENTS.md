@@ -4,6 +4,50 @@ Imperative rules for AI coding agents. For background and rationale, see [docs/R
 
 Use simple English: short sentences, common words, plain structure. No idioms or jargon unless defined in the glossary.
 
+## Roles and capability levels
+
+- Use a reasoning-focused configuration for planning and a delivery-focused configuration for implementation.
+- Keep planning, implementation, integration, and critical review distinct, even when one worker performs several roles.
+- The root coordinator owns the plan, integrates all work, resolves conflicts, and performs the final critical review.
+- Use the standard reasoning level by default.
+  - Use a higher level for complex implementation, debugging, and review.
+  - Use a very high level for architecture, security, concurrency, or major ambiguity.
+  - Use the highest available level only as an escalation.
+- Delegated workers should normally use a lower-cost capability level than the worker that delegated the task. Raise the level only when task complexity or risk requires it.
+
+### Worker types
+
+- Use exploration workers for read-heavy and context-heavy tasks. Examples:
+  - Mapping components and dependencies.
+  - Tracing execution and data flow.
+  - Inspecting large files, datasets, or logs.
+  - Finding relevant tests and documentation.
+  - Compressing evidence into a clear report for the coordinator.
+- Use the standard reasoning level for exploration. Raise it only for difficult but bounded analysis.
+- Use execution workers for narrow, high-volume, and automatically verifiable tasks. Examples:
+  - Inventories and searches.
+  - Classification and extraction.
+  - Test partitioning.
+  - Repetitive checks.
+  - Documentation updates.
+  - Mechanical edits.
+- Use a low reasoning level only for purely mechanical work. Use the standard level by default. Use a higher level only when batch work has a strong, objective verifier.
+
+## Before material work
+
+- Inspect all applicable project documentation that exists. This may include:
+  - Overview and setup documentation.
+  - Terminology or glossary documentation.
+  - Architecture and component documentation.
+  - Data models and schemas.
+  - Interfaces and contracts.
+  - Search or indexing behavior.
+  - Core processing or service behavior.
+  - User interface and user experience documentation.
+  - Testing, deployment, and operations documentation.
+- Do not assume every project uses these document names or has every document type.
+- Use the Microsoft Learn MCP server for the most up-to-date coding information and advice on Microsoft and Azure technologies.
+
 ## Spec status
 
 See [docs/README.md#specs](docs/README.md#specs). Specs 001-011 are implemented;
@@ -67,6 +111,8 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 - **Parallel subagents first.** Prefer dispatching independent work (search, file reads, research, audits)
   to parallel `Explore` subagents. The main agent is the orchestrator — keep it free and interactive
   for the user to interrupt without blocking background work.
+- **Delegation.** Give each delegated worker a clear scope, expected output, and verification method.
+  Delegate independent work concurrently when the environment supports it.
 - **Working tree is shared.** Re-read files before editing if any time has
   passed since your last read. Check `git log`/`git status` before summarizing
   changes. Avoid overlapping edits unless ownership and merge order are
@@ -81,7 +127,7 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 - **Close-out before finishing:** run a self-critique pass. List: (1) least confident items with concrete verification commands, (2) skipped or deferred work, (3) unstated assumptions,
   (4) biggest blind spot for the user. Log results in the handoff. Do not start fixing gaps — let the handoff carry them.
 - **Fresh-eyes audit** for large/risky changes: paste the handoff into a new agent context and ask
-  "Evaluate this. Anything missed?"
+  "Evaluate this work. Anything missed?" Include the review findings in the final handoff.
 - **Anti-pattern:** asking the agent to investigate its own doubts without a concrete check. Always pair uncertainty with a specific verification step.
 - **Anti-pattern:** repeated "are you sure?" — use the concrete verification step instead.
 

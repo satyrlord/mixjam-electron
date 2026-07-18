@@ -60,48 +60,23 @@ can chain effects in order and adjust parameters per channel.
   visible. The selector retains the current channel across tab changes. If the
   selected channel is removed, it selects the next channel, then the previous
   channel, then shows the existing empty-mixer state.
-- Each responsive mixer strip has one full-width, at-least-44px FX entry button with a
-  zero-to-four count and an all-bypassed state. Channel labels select a channel
-  without changing tabs; the FX button selects its channel and opens the FX tab.
+- Visual treatment (chain cards, connectors, bypass states, editors, meters)
+  follows the [Style Guide](../style-guide.md#effect-chain-fx-panel).
+  Control interaction follows the
+  [Style Guide](../style-guide.md#rotary-controls-pan-fx-parameters).
 - The selected channel displays an explicit left-to-right chain rail. Named
   cards expose order, selection, bypass, a drag handle, pointer drop targets,
-  `Alt+ArrowLeft/Right`, and named Move left/right menu actions. Visible
-  connectors reinforce the signal direction, and bypass uses explicit
-  `Enabled` and `Bypassed` state text rather than an ambiguous power label.
+  `Alt+ArrowLeft/Right`, and named Move left/right menu actions.
 - A described Add effect tile appends Delay, Reverb, or Compressor and becomes
   a `4 of 4 effects used` status at the slot cap.
 - An empty chain combines its explanation and Add action into one centered
   surface. A no-channel state offers both Restore a channel and Open Mixer.
-- Chain cards compact responsively before overflow, the selected card scrolls
-  within the chain without shifting the surrounding workspace, and a themed
-  edge fade plus visible scrollbar signals clipped content. Visibility and
-  scroll correction run after selection and ordered-chain changes and use the
-  live chain/card viewport rectangles, so reordering, padding, or nested
-  offset-parent changes do not break selection tracking. Enabled uses a
-  restrained outline; Bypassed remains explicit.
-- The selected effect opens a spacious editor below the chain. Rotary controls
-  support vertical pointer drag, mouse-wheel steps, Shift fine adjustment,
-  Arrow keys, Home/End, direct numeric entry, unit-aware accessible values,
-  and double-click reset. Wheel up increases and wheel down decreases by one
-  configured step; a handled wheel event does not scroll the surrounding page.
-  Discrete delay timing uses its existing note-division selector when tempo
-  sync is enabled.
-- Rotary faces are project-owned inline SVG, not an external component. Each
-  face uses a fixed 270-degree range track, a high-contrast value arc, an inset
-  cap, and a short pointer anchored inside that cap. The rendering is shared
-  without changing the established pointer, keyboard, reset, or direct-entry
-  contract.
+- The selected effect opens a spacious editor below the chain that is
+  label-first with dials or switches, editable values, and explanatory copy on
+  separate aligned rows. Output metering is grouped separately with scale
+  endpoints and enlarged live value.
 - Every parameter carries a plain-language explanation of its audible result.
-  Bypassed effects remain editable; text stays fully opaque while decorative
-  card graphics and surfaces carry the subdued state. Explanatory copy
-  is at least 12 px, and the interaction hint is available on hover, focus, and
-  through an accessible description.
-- Editable parameters share one visual surface instead of separate nested
-  cards. A centered responsive grid keeps short rows balanced. Output-only
-  metering is grouped separately, includes scale endpoints, uses an enlarged
-  live value and 120px meter, and remains visually distinct from inputs. Every FX button, selector,
-  editable value, and menu trigger has a hit target of at least 44 by 44 CSS
-  pixels.
+  Bypassed effects remain editable.
 - Factory starting points are Classic Echo, Slapback, and Ping-Pong Eighths;
   Studio Room, Tight Room, and Long Hall; and Classic Control, Gentle Glue, and
   Leveler. Choosing one writes ordinary effect parameter fields. Further edits
@@ -113,8 +88,6 @@ can chain effects in order and adjust parameters per channel.
   six-second Undo action that restores the same id, values, and bounded chain
   position when the channel still exists and has capacity.
 - Add, order, and actions menus use the shared accessible dropdown primitive.
-  Rotary parameters use the same project-owned pointer-capture control as pan,
-  including touch input, Shift fine adjustment, keyboard steps, and reset.
 - Delay booleans retain native checkbox semantics through visually hidden
   inputs while using the project-owned switch visual and the full label target.
 - Empty chains explain signal order and focus adding; an empty mixer explains

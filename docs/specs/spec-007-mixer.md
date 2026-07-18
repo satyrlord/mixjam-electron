@@ -43,47 +43,11 @@ Mixer panel width.
 
 ### Channel Strip (per channel)
 
-Each channel strip is a responsive 96-124px vertical stack. Strips share the
-available width before the row enables horizontal scrolling:
-
-- **Channel label** — channel number, 13px muted text in a 44px target. Its
-  selection button takes its accessible name from that visible label; related
-  control labels use the same stable `channelIndex + 1` so numbering reflects
-  the fixed lane N → channel N routing.
-- **Remove button (x)** — always visible as a 44px target and removes the
-  channel immediately. No confirmation is needed
-  because removal is reversible via restore (see Channel Management).
-  Remaining strips shift to fill the gap and keep their stable labels, so
-  numbering gaps mark removed channels.
-- **VOL slider** — vertical range input, 0–100% (maps to 0–1 gain). Shows its
-  value while dragging and marks unity (100%) with a tick.
-- **dB meter** — CSS-rendered vertical bar overlaid on the VOL slider
-  background. Fill height set via style prop as a percentage mapped from dB.
-  Color zones via CSS custom properties (--meter-green, --meter-yellow,
-  --meter-red): green (-60 to -12 dB), yellow (-12 to
-  -3 dB), red (-3 to 0 dB). Peak hold line is an absolute-positioned div with
-  CSS transition decay.
-- **Pan knob** — channel-level horizontal position, -1 (L) to 1 (R).
-  Independent from the lane-head pan knob (see Design Decisions).
-  - **Right-click cycle:** right-click steps a
-    three-position cycle and suppresses the context menu. From any
-    freely-dragged position the first right-click resets to C (0); from C it
-    sets 100% R (+1); from 100% R it sets 100% L (-1); from 100% L it returns
-    to C. Repeated right-clicks therefore cycle C → R → L → C.
-  - **Keyboard:** the knob is focusable (`tabIndex 0`);
-    ArrowLeft/ArrowRight adjust pan by 0.05 (clamped to [-1, 1]);
-    `aria-valuetext` announces the position ("Center", "40% left",
-    "100% right").
-  - **Mouse wheel:** wheel up increases pan and wheel down decreases pan by
-    0.05. Hold Shift for fine adjustment. A handled wheel event does not
-    scroll the surrounding page.
-- **M button** — mute toggle, at least 44×44px. The active fill must meet 3:1 non-text
-  contrast against the inactive pill, and a muted channel's strip dims as a
-  whole.
-- **S button** — solo toggle, at least 44×44px.
-  M and S buttons share the full responsive strip width.
-
-Stereo width is out of scope.
+Channel strip sizing, layout, and visual treatment follow the
+[Style Guide](../style-guide.md#channel-strip-mixer).
+Control interaction patterns follow the
+[Style Guide](../style-guide.md#vertical-faders) and
+[Style Guide](../style-guide.md#rotary-controls-pan-fx-parameters).
 
 ### Channel Management
 
@@ -117,6 +81,8 @@ Stereo width is out of scope.
 - Channel values and peak hold remain RMS dBFS. Standards-based LUFS and true
   peak processing belongs only to the post-master Output Level meter in the
   Song panel; no per-channel loudness worklets are created.
+- Visual treatment (zones, peak hold, fill rendering) follows the
+  [Style Guide](../style-guide.md#meter-bars).
 - **Audio source:** One `AnalyserNode` per channel, inserted after the channel's
   output `StereoPannerNode` and before the master bus. `fftSize` 256.
 - **Update loop:** Single `requestAnimationFrame` loop reads all 16 analysers,
@@ -125,9 +91,6 @@ Stereo width is out of scope.
   only while Mixer or FX is visible because its channel levels and compressor
   reduction values are visual telemetry; hiding both panels cancels it without
   changing the audio graph or mixer state.
-- **Peak hold:** Tracks the maximum recent RMS. Decays at ~30 dB/s when no new
-  peak exceeds it. Rendered as a 2px CSS-positioned line.
-- Color zones: green (-60 to -12 dB), yellow (-12 to -3 dB), red (-3 to 0 dB).
 
 ### Routing
 

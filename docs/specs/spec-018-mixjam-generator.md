@@ -119,10 +119,10 @@ quantized duration produced by the nearest whole-bar result.
 Profiles are pure JSON/TypeScript data. Each profile declares:
 
 - a stable profile ID and profile schema version;
-- required core acoustic roles and optional roles;
-- the exact `coreLanes`; every lane not listed there is optional;
-- explicit fallback chains for optional roles and documented substitutions for
-  required roles;
+- core acoustic anchors and the compatible role chain for every lane;
+- the exact `coreLanes`, which remain present whenever their section gate is
+  active, while every lane must receive material somewhere in the song;
+- explicit compatible-type chains and reported substitutions;
 - lane names, lane pans, and role assignments for the fixed 16-lane project;
 - a section table with section names, bar proportions, density rules, and
   transition behavior;
@@ -146,11 +146,12 @@ The first-slice profile contracts are:
 | `house` | Kick, Bass, Hi-hat | Hi-hat → Percussion; Vocal → Atmosphere; Loop → Synth; FX → Other | Intro 8%, Groove 24%, Vocal Entry 16%, Breakdown 10%, Groove Return 22%, Peak 12%, Outro 8% |
 
 The normative `coreLanes` are techno `0,4,6`, trance `0,4,5,6`, and house
-`0,2,4`. Those lanes are core; every other lane is optional. Core roles without
-a documented fallback are hard requirements. A fallback is tried only when no
-compatible, successfully analyzed candidate of the earlier type remains after
-role, duration, readability, hard-key, and planner-kind filters. BPM only ranks
-the remaining candidates. The Generate result reports each substitution.
+`0,2,4`. Those lanes are the continuous profile anchors. Every other lane is a
+support lane, but it is not disposable: successful generation populates all 16
+lanes. Compatible secondary types may add contrast even when the primary type
+exists. The Generate result reports each used secondary type as a substitution.
+If bounded analysis cannot fill any lane, generation fails before save and names
+that lane and its compatible types. BPM only ranks compatible candidates.
 Section rules add and remove layers according to the profile contract: every
 profile starts sparse, increases density through its lift/build sections,
 creates a lower-density breakdown, and restores its core roles before the
@@ -172,25 +173,28 @@ acoustic-type fallback in order:
 | 1 | Snare/Clap | Snare → Percussion | 1 beat |
 | 2 | Hi-hat | Hi-hat → Percussion | 1 beat |
 | 3 | Percussion | Percussion → Other | 1 beat |
-| 4 | Bass | Bass | 4 bars |
-| 5 | Loop | Loop → Synth | 4 bars |
-| 6 | Synth A | Synth → Loop | 4 bars |
-| 7 | Synth B | Synth → Loop | 4 bars |
-| 8 | Vocal | Vocal → Atmosphere | 4 bars |
-| 9 | Atmosphere | Atmosphere → Other | 8 bars |
-| 10 | FX | FX → Other | 4 bars |
-| 11 | Drum alternate | Percussion → Hi-hat → Snare | 1 beat |
-| 12 | Loop alternate | Loop → Synth | 4 bars |
-| 13 | Synth alternate | Synth → Loop | 4 bars |
-| 14 | Transition left | FX → Other | 4 bars |
-| 15 | Transition right | FX → Other | 4 bars |
+| 4 | Bass | Bass | 8 bars |
+| 5 | Loop | Loop → Synth | 8 bars |
+| 6 | Synth A | Synth → Loop | 8 bars |
+| 7 | Synth B | Synth → Loop | 8 bars |
+| 8 | Vocal | Vocal → Atmosphere | 8 bars |
+| 9 | Atmosphere | Atmosphere → Other | 16 bars |
+| 10 | FX | FX → Other | 16 bars |
+| 11 | Drum alternate | Percussion → Hi-hat → Snare | 4 bars |
+| 12 | Loop alternate | Loop → Synth | 8 bars |
+| 13 | Synth alternate | Synth → Loop | 8 bars |
+| 14 | Transition left | FX → Other | 8 bars |
+| 15 | Transition right | FX → Other | 8 bars |
 
 Source spans must be positive. Limits are evaluated at the resolved project BPM.
-Percussive one-shots must fit inside one beat so their profile pattern never
-overlaps on one lane. Rhythmic and tonal loops are eligible only when their
-standard placement-span calculation resolves to exactly 1, 2, 4, or 8 bars.
-The generator never trims or invents a source span. A source that does not meet
-the role rule is not eligible for that role.
+The four primary percussive lanes use one-shots that fit inside one beat so their
+profile patterns never overlap. Drum alternate is a phrase lane and accepts up
+to four bars. Rhythmic and tonal loops are eligible only when their standard
+placement-span calculation resolves to exactly 1, 2, 4, or 8 bars. Atmosphere
+and texture roles may cross one eight-bar phrase but must fit inside their
+section. The generator never trims or invents a source span. When compatible
+material longer than four bars exists, every successful plan places at least one
+such source at its complete span.
 
 Bass, Synth, Loop, Vocal, and Atmosphere roles use the selected song key.
 Exact-key matches rank above relative major/minor matches and unknown keys.
@@ -208,28 +212,34 @@ Profile BPM tolerances and section role gates are:
 
 Intensity applies one deterministic transformation after the section gate:
 
-| Intensity | Optional lanes | Distinct samples per active role | FX wet-value multiplier |
+| Intensity | Support-lane density per section | Base distinct samples per role | FX wet-value multiplier |
 | --- | ---: | ---: | ---: |
-| `low` | first 40% in lane order | 1 | 0.8 |
-| `medium` | first 70% in lane order | 2 when available | 1.0 |
-| `high` | all | 2 when available | 1.15, clamped to the effect's valid range |
+| `low` | rotating 40% | 2 when available | 0.8 |
+| `medium` | rotating 70% | 3 when available | 1.0 |
+| `high` | all | 4 when available | 1.15, clamped to the effect's valid range |
 
 Core lanes remain active whenever their section gate includes them. Optional
-lane percentages use half-up rounding. This rule changes density without
-changing section boundaries or the exact song end.
+lane percentages use half-up rounding. Selection rotates by section instead of
+always taking the lowest lane numbers, and a minimal coverage pass adds any lane
+not otherwise represented. Intensity therefore changes simultaneous density
+and cue frequency without leaving an unused lane, changing section boundaries,
+or changing the exact song end. Category coverage may add a distinct candidate
+beyond a role's base count.
 
 ### Bounded audio scoring
 
-Indexed metadata creates deterministic per-lane candidate queues. Core lanes are
-queued first, followed by optional lanes in lane order. Metadata-cheap type and
-musical-span eligibility runs before the 96-read shortlist is fixed. The worker
+Indexed metadata creates deterministic per-lane and per-category candidate
+queues. Core lanes receive the first reservation, then category and lane queues
+advance in balanced passes. Metadata-cheap type and musical-span eligibility
+runs before the 96-read shortlist is fixed. The worker
 reads and decodes each relative path at most once. One planning job attempts at
 most 96 unique files and retains at most 64 successful, role-compatible
-analyses. Retention reserves capacity for every core lane that has not yet
-received a compatible decoded candidate, so successful candidates for other
-roles cannot starve a required role after earlier read, decode, or planner-kind
-failures. A failure advances to the next deterministic candidate. Failure to
-fill a core role after the bounded search aborts before save.
+analyses. Retention reserves capacity for every feasible lane and primary
+category that has not yet received a compatible decoded candidate, so abundant
+core material cannot starve support lanes or smaller categories after earlier
+read, decode, or planner-kind failures. A failure advances to the next
+deterministic candidate. Failure to fill any lane after the bounded search
+aborts before save.
 
 The transient analysis records no database state. It derives only the neutral
 values needed by the planner:
@@ -246,6 +256,13 @@ The analysis algorithm is deterministic for the same bytes and parameters. It
 does not use machine learning, network services, wall-clock time, process-global
 state, or persisted waveform assets.
 
+Explicit transition words in a filename provide a deterministic semantic hint
+before audio-metric fallback. Riser vocabulary includes `rise`, `riser`, `swish`,
+`swishes`, `sweep`, `sweeper`, `whoosh`, `swoosh`, `uplifter`, and `reverse`;
+impact vocabulary includes `impact`, `hit`, `crash`, `slam`, `slammer`, `boom`,
+`boomer`, `drop`, and `downlift`. Matching uses filename-token boundaries, so a
+word such as `sunrise` is not treated as the token `rise`.
+
 ### Phrase grammar
 
 Section boundaries remain those in the profile tables. Each non-empty section
@@ -255,10 +272,12 @@ the engine contains no genre-name branches.
 
 The shared role rules are:
 
-- Kick, Snare/Clap, Hi-hat, Percussion, and Drum alternate use explicit
-  beat-grid patterns. They are never continuous section-length tiles.
-- Bass, Loop, and Synth roles use reusable A/B motifs. Motif changes happen only
-  at phrase boundaries, except for a documented final-bar fill.
+- Kick, Snare/Clap, Hi-hat, and Percussion use explicit beat-grid patterns with
+  lane-local sample rotation, alternating B-pattern bars, and a final-bar fill.
+  They are never continuous section-length tiles.
+- Drum alternate, Bass, Loop, and Synth roles use reusable A/B phrase material.
+  Compatible samples tile at their complete source span within an active phrase,
+  and different lanes do not share one lockstep candidate index.
 - A tonal motif introduced before a breakdown returns after the breakdown.
 - Vocal entries use call and response and cannot occupy consecutive phrases.
 - Atmosphere and texture entries support selected phrases and do not run for an
@@ -283,8 +302,10 @@ The seed selects compatible samples, A/B ordering, fills, and allowed dropouts.
 It does not change section boundaries or remove the profile's required musical
 arc. Low intensity uses fewer optional phrases and no B motif when one motif is
 sufficient; its phrase DTOs therefore contain only A and rest motifs. Medium
-uses A/B variation when compatible material exists. High adds optional rhythmic
-detail and fills but does not add incompatible tonal material. If the normal
+uses at least three distinct samples per role when compatible material exists.
+High uses at least four and adds optional rhythmic detail and fills but does not
+add incompatible tonal material. Selection prefers unique files across lanes
+before supply-constrained reuse. If the normal
 phrase schedule does not reach the exact song end, the final anchor must still
 obey the selected lane's beat-grid, bar-alignment, or transition-boundary rule.
 Generation fails rather than inserting an off-grid repair placement.
@@ -320,9 +341,10 @@ channel gain is clamped to the existing 0–1 control range. Missing or silent R
 data leaves the profile gain unchanged. Seeded gain or FX randomization is not
 allowed.
 
-The product generator always creates exactly 16 lanes. This is a spec-018
-generator contract, not a general project-file requirement. A profile may leave
-lanes empty and may use at most 16 mixer channels. Routing remains the existing
+The product generator always creates exactly 16 populated lanes. This is a
+spec-018 generator contract, not a general project-file requirement. A planning
+run that cannot place role-valid material on every lane fails before save. A
+profile may use at most 16 mixer channels. Routing remains the existing
 lane-index-to-channel-index contract.
 
 ### Runtime and query ownership
@@ -343,17 +365,21 @@ renderer persistence and File System Access contracts.
 Worker filtering must support:
 
 - `rootId` scoping;
-- acoustic `sampleType` role filters, distinct from organizational categories;
+- acoustic `sampleType` role filters plus organizational-category diversity;
 - positive duration and role-specific duration limits;
 - current `scan_state = 1` metadata rows only;
 - deterministic ordering and bounded result sets; and
 - soft BPM ranking plus hard rejection of incompatible known keys.
 
 The candidate query also joins the primary organizational category name. The
-shared palette-slot helper converts that name to a slot from 0 through 8. The
-slot is appearance data only: it never fills, replaces, or scores an acoustic
-role. Every generated placement DTO carries the selected sample's slot, and the
-renderer persists it through the existing spec-011 placement field.
+shared palette-slot helper converts that name to a slot from 0 through 8. A
+category never fills or replaces an acoustic role, but it is a diversity
+constraint after role compatibility: every primary category with a compatible
+candidate in the bounded analyzed set must appear in the arrangement. Category
+queues receive bounded-analysis reservations, and candidate assignment covers
+scarce categories before filling per-lane variety. Every generated placement
+DTO carries the selected sample's slot, and the renderer persists it through the
+existing spec-011 placement field.
 
 Candidates within the profile BPM tolerance are preferred. Unknown BPM is a
 deterministic fallback, not an automatic rejection. The planner selects one song
@@ -369,10 +395,13 @@ Selection hashes the safe seed with the profile version and role key, then sorts
 by hash and relative path. Stable relative-path tie-breaking is mandatory.
 Rows with current readable metadata are preferred. The renderer calls the
 existing missing-file check for every selected `sampleRef` immediately before
-save; any now-unreadable selection aborts the transaction. Missing core roles
-produce a clear error;
-documented fallback chains may substitute secondary roles, and all substitutions
-are reported in the Generate result. Stereo pairs use the existing naming
+save; any now-unreadable selection aborts the transaction. Missing material for
+any lane produces a clear error. Compatible secondary types may supplement
+primary types for variety, and every used secondary type is reported in the
+Generate result. Transition roles prefer a matching analyzed riser or impact; a
+typed FX candidate may provide the same boundary event when transient scoring
+does not label it confidently, while `Other` still requires the matching
+planner kind. Stereo pairs use the existing naming
 convention discovery and remain adjacent when a profile requests them.
 
 ### Arrangement and mixer generation
@@ -454,7 +483,7 @@ Generated projects require the spec-011 version-3 migration and persist:
   "generator": {
     "generatorVersion": 1,
     "profileId": "techno",
-    "profileVersion": 1,
+    "profileVersion": 2,
     "seed": "safe-token",
     "parameters": {
       "bpmMode": "follow-detected",
@@ -517,15 +546,16 @@ command.
 - [x] **AC-008:** Candidate selection uses worker-side validated type, duration,
   readability, BPM, key, and root filters; organizational categories are not
   treated as acoustic types.
-- [x] **AC-009:** Missing core roles fail clearly; documented fallback roles are
-  reported; no partial project is generated.
+- [x] **AC-009:** Missing compatible material for any lane fails clearly;
+  secondary role types are reported; no partial project is generated.
 - [x] **AC-010:** With the same seed, profile version, generator version, and
   indexed corpus fingerprint, repeated planning produces semantically equivalent
   sample references, placements, spans, lanes, mixer state, and FX state.
 - [x] **AC-011:** The project format-3 generator block roundtrips through the
   production parser and preserves all metadata needed for regeneration.
-- [x] **AC-012:** Generated projects contain exactly 16 lanes, at most 16
-  channels, relative sample references, and the complete nested project state.
+- [x] **AC-012:** Generated projects contain exactly 16 populated lanes, at most
+  16 channels, relative sample references, and the complete nested project
+  state.
 - [x] **AC-013:** Output allocation is app-serialized, transactional, monotonic,
   and check-before-create non-overwriting. The renderer rechecks every selected
   sample reference before save. Failed or cancelled pre-commit runs leave no
@@ -544,25 +574,31 @@ command.
   listening sign-off for techno, trance, and house.
 - [x] **AC-017:** One planning job attempts no more than 96 unique files, retains
   no more than 64 successful role-compatible transient analyses, reserves
-  retention capacity for unfilled core roles, reads each relative path at most
-  once, reports typed progress, and can be cancelled before save without leaving
-  a file or recent-project entry. Generator parameters are validated at the
-  worker boundary before snapshot, fingerprint, or audio-file work begins.
+  retention capacity for unfilled lanes and categories, reads each relative
+  path at most once, reports typed progress, and can be cancelled before save
+  without leaving a file or recent-project entry. Generator parameters are
+  validated at the worker boundary before snapshot, fingerprint, or audio-file
+  work begins.
 - [x] **AC-018:** Techno, trance, and house plans satisfy their phrase contracts:
-  beat-grid percussion, bar-aligned loops, bounded unchanged repetition,
-  profile-specific A/B motifs, rests, fills, a lower-density breakdown, a motif
-  return, boundary-only transitions, and a restored peak. Low intensity emits
-  only A/rest phrase metadata, and exact-end anchoring never bypasses role-grid
-  rules.
+  lane-local beat-grid percussion, phrase-tiled drum/bass/loop/synth material,
+  bounded unchanged repetition, profile-specific A/B motifs, rests, fills, a
+  lower-density breakdown, a motif return, two populated boundary-transition
+  lanes, and a restored peak. Low intensity emits only A/rest phrase metadata,
+  every intensity uses all lanes across the song, and exact-end anchoring never
+  bypasses role-grid rules.
 - [x] **AC-019:** Tonal lanes contain no incompatible known-key selections;
-  enharmonic sharp/flat spellings compare consistently; percussive roles fit
-  inside one beat; loop roles resolve to exact whole-bar spans; transient RMS
-  compensation stays within plus or minus 6 dB and final gain stays within 0–1.
+  enharmonic sharp/flat spellings compare consistently; primary percussive roles
+  fit inside one beat; loop roles resolve to exact whole-bar spans; available
+  compatible material longer than four bars is placed at its full span;
+  transient RMS compensation stays within plus or minus 6 dB and final gain
+  stays within 0–1.
 - [x] **AC-020:** Every generator candidate retains its primary organizational
-  category for appearance only. Every generated placement stores a valid palette
-  slot from 0 through 8, the slot participates in the corpus fingerprint, and
-  built Chromium proves Tracker bubbles match Sample Browser colors and recolor
-  correctly after a theme switch.
+  category. Every category with compatible material in the bounded analyzed set
+  appears in the arrangement without being treated as an acoustic type. Every
+  generated placement stores a valid palette slot from 0 through 8, the slot
+  participates in the corpus fingerprint, and built Chromium proves Tracker
+  bubbles match Sample Browser colors and recolor correctly after a theme
+  switch.
 - [x] **AC-021:** For a fixed corpus and parameters, the same seed reproduces the
   complete plan, while different seeds create a measurable selection or phrase
   change without changing section boundaries or the required profile arc.
@@ -575,15 +611,17 @@ command.
   selection, detected BPM, organizational-category palette retention, and the
   canonical corpus fingerprint. `generator-library.test.ts` covers those
   boundaries and every fingerprint field.
-- `backend/generator-analysis.ts` owns deterministic shortlisting, the 96-read
-  and 64-analysis bounds, core-role retention reservations, decode failure
-  fallback, transient metrics, progress, and cancellation.
+- `backend/generator-analysis.ts` owns deterministic lane/category shortlisting,
+  the 96-read and 64-analysis bounds, coverage reservations, transition filename
+  vocabulary, decode failure fallback, transient metrics, progress, and
+  cancellation.
   `generator-analysis.test.ts` contains focused coverage for those contracts.
 - `backend/generator-engine.ts` owns pure deterministic section, phrase,
   placement, Mixer, FX, compatibility, and gain planning.
   `generator-engine.test.ts` contains focused coverage for all three profiles,
-  seed behavior, phrase structure, key rejection, span limits, exact song end,
-  and gain bounds.
+  all-lane and all-category use, long-form placement, richer sample rotation,
+  seed behavior, phrase structure, key rejection, exact song end, and gain
+  bounds.
 - `backend/generator-parameters.ts` validates the complete request before worker
   I/O. `backend/musical-key.ts` owns enharmonic parsing shared by manual analysis
   validation and generator compatibility.
@@ -596,8 +634,10 @@ command.
 - `tmp/verify-generator-structure/evidence.md` records the full 8,014-file
   corpus fingerprint, bounded analysis counts, production-parser roundtrips,
   exact 3,360-tick ends, zero missing references, browser screenshots, playback
-  proof, and cross-theme palette sampling for all automated parts of AC-016.
-  Human listening sign-off remains pending.
+  proof, and cross-theme palette sampling. The profile-v2 structural rerun uses
+  all 16 lanes and all 11 current categories in each profile, reaches nine or
+  ten-bar source spans, and uses 38–42 distinct files. Human listening sign-off
+  and a fresh profile-v2 browser rerun remain pending.
 
 ## Validation
 

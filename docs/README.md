@@ -20,6 +20,7 @@ requirements that drive every architectural choice.
 | --- | -------- |
 | [glossary.md](glossary.md) | Canonical project terminology and disambiguation |
 | [architecture.md](architecture.md) | Decided stack, process model, and non-goals |
+| [style-guide.md](style-guide.md) | Centralized art direction: layout, typography, spacing, color, surfaces, interactions |
 | [data-model.md](data-model.md) | SQLite schema, the "libraries are saved queries" model |
 | [query-schema.md](query-schema.md) | Current `rule_json` subset and target predicate-tree compiler |
 | [indexing.md](indexing.md) | First-run scan, background metadata extraction, incremental re-scan |
@@ -133,3 +134,6 @@ source domain under `src/`.
 The UI is skinnable through named themes backed by CSS custom properties.
 Theme definitions live in `public/themes/` as JSON files, are statically
 imported into the renderer bundle at build time, and can be switched at runtime.
+Visual design intent and art direction are centralized in the
+[Style Guide](style-guide.md). Theme token mechanics and runtime behavior are
+defined in [spec-002](specs/spec-002-theming-skin-system.md).

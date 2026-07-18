@@ -129,14 +129,11 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ### Sample Browser Grid
 
-- Samples render as the same 26px-high bubble used by the Tracker. Bubbles show
-  the filename and source duration and retain identical geometry across views.
-  Their shared width uses the Tracker's pixels-per-tick scale and the sample's
-  project-owned musical span. Before first placement, the browser estimates the
-  span from source duration and detected BPM, or the current project BPM when
-  detection is unavailable, following spec-009.
-  Canvas rounded rectangles clamp the theme radius to the actual bubble width
-  and height, preserving the shared geometry at the minimum width.
+- Samples render as the same bubble used by the Tracker. Bubble geometry,
+  appearance, and behavior follow the [Style Guide](../style-guide.md#sample-bubbles).
+  Before first placement, the browser estimates the span from source duration
+  and detected BPM, or the current project BPM when detection is unavailable,
+  following spec-009.
 - Sort controls support filename, duration, and date added. Selecting the active
   sort again toggles ascending/descending.
 - Selecting a bubble highlights it, previews its audio, and populates the Player

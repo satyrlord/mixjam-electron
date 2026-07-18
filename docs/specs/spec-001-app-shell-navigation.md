@@ -24,41 +24,35 @@ Implement view switching, the header bar, and the footer.
 
 - **App icon:** the default Electron app icon is replaced with the app icon
   from the `public/` folder.
-- **Window:** 1280×720, centered on screen, not resizable, no maximize button.
-- Full-viewport layout with header, centered content area, and footer.
-- **Header** (48px): brand "MixJam Electron" anchored to the left margin,
-  theme selector dropdown on the right (behavior owned by spec-002).
+- Window, header, content-area, and footer layout, sizing, and positioning
+  follow the [Style Guide](../style-guide.md#layout-architecture).
 - **Content area:** two primary columns, vertically and horizontally centered.
   - Hero column (left): the app logo from `public/app-icon-128.png`, "MixJam"
-    wordmark, tagline, three quick-start steps, and a labeled 8-by-2
-    theme-preview grid that switches the active theme. The selected theme name
-    appears only in the header selector.
+    wordmark, tagline, three quick-start steps, and a theme-preview grid that
+    switches the active theme. The selected theme name appears only in the
+    header selector.
   - Setup column (right): a raised panel holding the two folder cards
     (spec-003), the launch gate, and the Load MixJam link.
   - Recent Projects rail: when projects exist, a sibling region sits below the
     hero while the setup panel spans both desktop rows. It shows up to four
     projects that are selectable on click and load through spec-011. The
     four-item cap keeps Home geometry independent of the total project history.
-    At desktop width the entries form one four-column row; at 900px and below
-    they form two columns beneath the stacked hero and setup regions.
+    Responsive breakpoints follow the [Style Guide](../style-guide.md#layout-architecture).
   - "Start New MixJam" button — primary action, navigates to the MixJam Player.
+    Visual treatment follows the [Style Guide](../style-guide.md#surface-treatments).
   - "Load MixJam" link — secondary action. Once both folders are available,
     it opens a file picker filtered to `.mixjam` (the File System Access
     `showOpenFilePicker`; the Electron shell surfaces it as a native dialog).
-- **Footer** (48px): "Select User Folder" link anchored to the left
-  margin, version string anchored to the right margin.
 - The Home Screen has no timer and no home link.
 
 ### MixJam Player
 
-- **Window:** 1920×1080, centered on screen, resizable, maximize button
-  enabled.
-- Header (48px): home link "&lt; Return to Main Menu" (left, only in
-  Player), brand "MixJam Electron" (right of home link), timer
-  absolutely centered, and theme selector dropdown on the right (behavior
-  owned by spec-002).
-- **Timer** displays `00:00.0` format, absolutely centered in the header
-  regardless of left/right content width.
+- Window, header, content-area, footer, and region sizing follow the
+  [Style Guide](../style-guide.md#layout-architecture).
+- Header: home link "&lt; Return to Main Menu" (left, only in Player),
+  brand "MixJam Electron" (right of home link), timer, and theme selector
+  dropdown on the right (behavior owned by spec-002).
+- **Timer** displays `00:00.0` format.
 - The tracker content area below the header shows the structural skeleton of
   the app using the approved player region map: MixJam Browser and Tracker in
   the upper work band, a full-width Middle Strip, and a full-width Bottom
@@ -105,19 +99,18 @@ Electron shell.
 
 ### Header Bar (both views)
 
-- Fixed 48px height, full width.
+- Sizing and positioning follow the [Style Guide](../style-guide.md#layout-architecture).
 - **Home Screen state:** brand "MixJam Electron" anchored to the left margin.
   Theme selector dropdown on the right (behavior owned by spec-002).
 - **Player state:** home link "&lt; Return to Main Menu" (left),
-  brand "MixJam Electron" (right of home link), timer (absolute center),
+  brand "MixJam Electron" (right of home link), timer (center),
   and theme selector dropdown on the right (behavior owned by spec-002). The
   home link is not present in the Home Screen state.
-- The timer is always rendered via `position:absolute; left:50%; transform:translateX(-50%)`
-  (or equivalent) — never a flex sibling.
+- The timer is never a flex sibling of the left/right header content.
 
 ### Footer (both views)
 
-- Fixed 48px height, full width (same fixed size as the header).
+- Sizing and positioning follow the [Style Guide](../style-guide.md#layout-architecture).
 - **Home Screen state:** left "Select User Folder" link (opens the User Folder
   picker and persists a valid selection to app state through the same flow
   as the Home Screen folder card), right version string.
