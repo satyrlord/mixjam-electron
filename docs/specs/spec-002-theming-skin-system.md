@@ -1,7 +1,8 @@
 # Spec 002 — Theming & Skin System
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — theme system implemented; global UI
+Size overhaul not implemented
 **Depends on:** spec-001 (App Shell & Navigation)
 
 ## Objective
@@ -77,10 +78,35 @@ is missing (`scan_state = 2`); `--shadow-sample-bubble-text` applies to canvas b
 labels and DOM bubbles (both drop the shadow when the
 per-slot ink resolves dark, matching `sampleBubbleDomStyle`).
 
-Sample bubbles use the shared `SAMPLE_BUBBLE_HEIGHT_PX` geometry constant for
-tracker canvas drawing, browser virtualization, and the DOM height token.
+Sample bubbles use one shared UI Size geometry source for tracker canvas
+drawing, browser virtualization, drag images, and DOM height tokens.
 Canvas rounded rectangles clamp the theme radius to the actual bubble width and
 height, including the minimum-width 12px browser bubble.
+
+### Global UI Size
+
+UI Size is an app-wide presentation preference with three discrete values: 32,
+44, and 56. The footer shows the segmented `[32][44][56]` control on Home and
+Player, immediately before the version. New app state defaults to 32.
+
+The value selects one coherent token set for controls, interaction targets,
+Mixer components, lane heads, tabs, menus, toolbars, footer and header chrome,
+spacing, supporting type, lanes, and sample bubbles. Components must not mix
+magic dimensions from different size sets.
+
+UI Size does not alter musical time, pixels per tick, project data, audio, clip
+placement, or sample-bubble width. It is app state and is not written to a
+`.mixjam` file. Bubble and lane heights are:
+
+| UI Size | Sample bubble | Lane |
+| --- | --- | --- |
+| 32 | 26px | 39px |
+| 44 | 36px | 54px |
+| 56 | 46px | 68px |
+
+The bubble rectangle keeps the same height in the Tracker, Sample Browser, and
+drag image. At 1280x720 with UI Size 56 and Mixer open, the full ruler and one
+complete lane remain visible without a vertical scrollbar.
 
 Depth tokens (`depth.*` in the JSON, applied as the same-named CSS custom
 properties) carry theme-dependent gradient/shadow value strings so the same
@@ -357,8 +383,8 @@ every completed scan. Missing-sample visual treatment follows the
 - [x] **AC-014:** Canvas sample-bubble labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
 - [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`; Beton Brut renders 2px structural rules and a 3px header rule.
 - [x] **AC-016:** The playhead renders a triangular cap colored from `--playhead`.
-- [x] **AC-017:** Home retains a labeled 8-by-2 grid of 44px theme-preview
-  swatches with explicit selected state, while the selected theme name appears
+- [ ] **AC-017:** Home retains a labeled 8-by-2 grid of UI-Size-scaled theme
+  preview swatches with explicit selected state, while the selected theme name appears
   only once on Home: in the header selector.
 - [x] **AC-018:** Every native select trigger, option popup, and custom dropdown
   menu maintains at least 4.5:1 text contrast in all 16 bundled themes. Native
@@ -367,6 +393,17 @@ every completed scan. Missing-sample visual treatment follows the
   use the required `#RRGGBB` form.
 - [x] **AC-019:** Soft theme `--text-muted` maintains at least 4.5:1 contrast
   against its normal text-bearing base, panel, lane, chrome, and pill surfaces.
+- [ ] **AC-020:** The footer exposes one global UI Size selector with values 32,
+  44, and 56 on both Home and Player. The app defaults to 32 and persists the
+  choice outside project files.
+- [ ] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
+  controls, targets, panels, Mixer components, spacing, and supporting type.
+- [ ] **AC-022:** Sample bubbles and lanes use the documented 26/39, 36/54, and
+  46/68 pixel height pairs. Tracker, browser, and drag-image bubble rectangles
+  match at each size, while bubble width and musical placement do not change.
+- [ ] **AC-023:** Built Chromium proof at 1280x720, UI Size 56, and an open Mixer
+  shows the full ruler and one complete lane with no vertical scrollbar,
+  clipping, overlap, or shrunken interaction targets.
 
 ## Non-Goals (deferred to later specs)
 

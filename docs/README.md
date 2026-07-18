@@ -120,14 +120,14 @@ renderer stays sandboxed with no `nodeIntegration`.
 
 ## Specs
 
-Feature specifications live in `docs/specs/`. Specs 001-011 are implemented at
-their current baseline; spec-011's format-3 generator extension is implemented.
-Spec 012 is validated but not implemented, specs 013-016 are unvalidated stubs,
-spec 017 is an unvalidated draft, and spec 018 is validated and code complete.
-Its AC-016 automated real-corpus, built-Chromium, playback, and palette evidence
-is recorded; manual listening sign-off remains open. Check individual spec files
-for acceptance wording and test evidence; tests live alongside the relevant
-source domain under `src/`.
+Feature specifications live in `docs/specs/`. They describe the target product
+contract; an acceptance criterion is implemented only when its own evidence or
+the linked test suite proves it. The lane-bound Mixer, four-bus send/return FX,
+format-4 project model, dynamic lane count, and global UI Size contracts are a
+coordinated overhaul. Mixer routing and a standalone FX tab are outside the
+product model and have no separate specification. Check each spec for its
+acceptance wording and evidence; tests live beside the relevant source domain
+under `src/`.
 
 ## Theming and skinning
 

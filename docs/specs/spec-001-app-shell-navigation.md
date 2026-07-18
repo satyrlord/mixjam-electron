@@ -1,7 +1,8 @@
 # Spec 001 — App Shell & Navigation
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — existing shell navigation implemented;
+Player minimum-size, maximize-on-entry, and Media Session overhaul not implemented
 **Depends on:** *(root — no dependencies)*
 
 ## Objective
@@ -59,7 +60,7 @@ Implement view switching, the header bar, and the footer.
 - The tracker content area below the header shows the structural skeleton of
   the app using the approved player region map: MixJam Browser and Tracker in
   the upper work band, a full-width Middle Strip, and a full-width Bottom
-  Workspace. The Bottom Workspace contains Song, Mixer, FX, and Samples tabs;
+  Workspace. The Bottom Workspace contains Song, Mixer, and Samples tabs;
   its detailed behavior belongs to spec-006.
 - **Footer** is unchanged from Home Screen.
 
@@ -72,8 +73,11 @@ Implement view switching, the header bar, and the footer.
 - Clicking the home link "&lt; Return to Main Menu" in the Player header
   returns to the Home Screen.
 - View switching must be instantaneous (no page reload, no navigation delay).
-- When switching from Home to Player, the window resizes from 1280×720 to
-  1920×1080 and the maximize button becomes available.
+- When switching from Home to Player, the Electron shell enables resizing and
+  sets a 1280×720 content minimum, then maximizes the window once on the display
+  that currently contains it. The app does not force a size or maximize state
+  again after entry, so the user may restore, resize above the minimum, or move
+  the Player window normally.
 - When switching from Player to Home, the window resizes from its current
   size back to 1280×720 and the maximize button is removed.
 
@@ -89,10 +93,12 @@ Electron shell.
 - There is **no demo mode**: with no granted Sample Folder the home screen
   gates the tracker exactly as on desktop. Onboarding for users without
   samples is spec-013 (Sample Folder Builder), not fake data.
-- Window-management behaviors (resize to 1280×720 / 1920×1080, maximize
-  button) are Electron-shell capabilities; in the browser the resize calls are
-  no-ops and the app simply fills the tab. The window-sizing acceptance
-  criteria below apply to the Electron host only.
+- Window-management behaviors are Electron-shell capabilities. In the browser,
+  the app uses the available viewport and does not attempt to resize the host
+  window. The Player has a 1280×720 CSS viewport minimum: below either minimum
+  dimension, Player entry is blocked and a clear minimum-size message remains
+  reachable. The native window-state acceptance criteria below apply only to
+  the Electron host.
 - Folder picking uses the File System Access directory picker in both hosts
   (spec-003).
 - The app runs in exactly one tab per origin (opfs-sahpool allows one DB
@@ -110,6 +116,18 @@ Electron shell.
   and theme selector dropdown on the right (behavior owned by spec-002). The
   home link is not present in the Home Screen state.
 - The timer is never a flex sibling of the left/right header content.
+
+### Operating-system media controls
+
+- The renderer registers Media Session actions for `previoustrack`,
+  `play`, `pause`, and `nexttrack`. Previous track seeks to tick 0, play and
+  pause toggle transport state, and next track seeks to the song end.
+- These operating-system actions remain allowed while a blocking modal is open
+  and while MixJam is in the background, when the operating system selects
+  MixJam as the active media session.
+- This exception applies only to Media Session actions. It does not authorize
+  application-wide `globalShortcut` registration or bypass ordinary in-app
+  modal input blocking.
 
 ### Footer (both views)
 
@@ -145,10 +163,15 @@ Implementation validation should be tracked in implementation PR/test evidence.
   idle, sync, analysis, error, or ready states. The Library Setup scanner
   expands for active work and collapses when ready. Any number of available
   recent projects keeps the same layout because only the first four are rendered.
-- [x] **AC-003:** Footer is 48px height (same as header), shows "Select User Folder" left and clickable version string right on both views.
+- [x] **AC-003:** At base UI Size 32, footer and header are 48px high. The footer
+  shows "Select User Folder" left and the clickable version string right on both
+  views. Spec-002 owns higher UI Size scaling and the footer size selector.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
-- [x] **AC-004:** Clicking "Start New MixJam" resizes the window to 1920×1080 centered, enables the maximize button, and switches the content area to the MixJam Player.
+- [ ] **AC-004:** Clicking "Start New MixJam" enables window resizing,
+  applies a 1280×720 Player content minimum, maximizes the Electron window once
+  on its current display, and switches to Player. Restoring or resizing above
+  the minimum afterward is not overridden by the app.
 - [x] **AC-005:** In the Player, the header shows home link "&lt; Return to Main Menu", brand "MixJam Electron", and timer (`00:00.0`).
 - [x] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
 - [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
@@ -171,15 +194,22 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-014:** Automatic library sync is non-modal and survives Home/Player
   view changes without restarting. Scan and analysis work never applies an
   app-wide blur or blocks navigation.
+- [ ] **AC-015:** The browser host uses its available viewport. When either CSS
+  viewport dimension is below 1280×720, Player entry is blocked with a clear,
+  reachable minimum-size message; at or above the minimum, Player entry works.
+- [ ] **AC-016:** Operating-system Media Session previous, play, pause, and next
+  actions seek to tick 0, toggle playback, and seek to song end respectively.
+  They work during blocking modals and while backgrounded when the operating
+  system selects MixJam, without registering a global shortcut.
 
 ## Native Window Evidence
 
-`tests/electron/smoke.spec.ts` queries the live Windows `BrowserWindow` through
-Playwright's Electron main-process bridge. It verifies the centered 1280 by
-720 non-resizable/non-maximizable Home state, the centered 1920 by 1080
-resizable/maximizable Player state, and the return to Home. The renderer unit
-suite separately verifies that the Home and Player navigation actions invoke
-those shell capabilities.
+`tests/electron/smoke.spec.ts` must query the live Windows `BrowserWindow`
+through Playwright's Electron main-process bridge. It must verify the centered
+1280 by 720 non-resizable/non-maximizable Home state, the once-maximized Player
+state on the current display, manual restore without re-maximization, and the
+return to Home. The renderer unit suite separately verifies that the Home and
+Player navigation actions invoke those shell capabilities.
 
 The Windows-only `scripts/inspect-window-icon.ps1` probe reads the icon from the
 live HWND and compares it with a 32 by 32 PNG rendered from `public/app-icon.ico`
@@ -207,4 +237,4 @@ and screenshots.
 - No sample data, no sample-bubble rendering, no lane interaction. Tracker timeline is spec-006.
 - No settings persistence — the settings link in the footer is a placeholder.
 - No keyboard shortcuts.
-- No window resize constraints beyond the full-viewport rule.
+- No Player entry below the 1280×720 CSS viewport minimum.

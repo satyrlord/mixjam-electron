@@ -1,286 +1,251 @@
-# Spec 007 — Mixer
+# Spec 007 — Lane-Bound Mixer
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+
+**Spec Implementation Status:** NOT IMPLEMENTED
+
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline & Panel Layout)
+
+**Related:** spec-010 (Return FX Modules), spec-011 (Project Save & Load)
 
 ## Objective
 
-Implement the N-channel mixer: per-channel gain, pan, mute/solo controls, and
-hardcoded 1:1 lane-to-channel routing. Default 16 channels, capped at 16 for
-this spec. The mixer UI occupies the full-width Mixer panel in the Bottom
-Workspace from spec-006 and remains reachable through its peer tab.
+Provide one compact Mixer strip for every Tracker lane. Lanes and Mixer strips
+are one project-owned system: adding or deleting a lane adds or deletes its
+strip, and users cannot add, delete, reorder, or route Mixer strips separately.
+The Mixer also hosts four fixed send/return buses and four fixed FX containers.
 
 ## User Stories
 
-- **US-001:** As a user, I can adjust each channel's volume with a vertical
-  slider (VOL).
-- **US-002:** As a user, I can adjust each channel's stereo pan position.
-- **US-003:** As a user, I can mute or solo individual channels from the mixer.
-- **US-004:** As a user, I see a dB meter per channel showing the current
-  output level.
-- **US-005:** As a user, I can remove unused channels (down to a minimum of 1).
+- **US-001:** I can control each lane's volume, pan, and four FX sends from one
+  compact strip.
+- **US-002:** I always see the same lane order in the Tracker and Mixer.
+- **US-003:** I can add and delete lanes between the hard limits of 1 and 64.
+- **US-004:** I can reach every lane strip, the Return section, and all four FX
+  containers with one horizontal scrollbar.
+- **US-005:** I can set the common wet return level for each of the four FX
+  buses without changing the Song tab's Master track.
 
-## Scope
+## Lane and Mixer Ownership
 
-### Mixer Panel Location
+### One lane, one strip
 
-The mixer occupies the full-width Mixer panel in the Bottom Workspace. It does
-not share space with Song and does not depend on the upper work band's column
-width:
+- A new project contains eight lanes and therefore eight Mixer strips.
+- A project contains between 1 and 64 lanes, inclusive. The project file must
+  store every Mixer value inside the corresponding lane record. It has no
+  separate channel or Mixer-record array.
+- A lane owns its stable identity, name, volume, pan, mute, solo, four send
+  levels, and placements. Mixer strip state is not a second object that may
+  drift from the lane.
+- Mixer strips use lane order. They cannot be added, deleted, reordered, or
+  routed independently.
+- Mute and Solo controls appear only in the lane header. They are not repeated
+  in the Mixer.
+- Renaming a lane updates the Mixer label immediately because both surfaces
+  display the same lane-owned name.
 
-```text
-BottomWorkspacePanel (Mixer active)
-└── MixerColumn
-    └── ChannelStrip × N — horizontal scroll only when the viewport is narrow
-```
+### Stable identity and visible numbering
 
-The strip row (`.mixer-strips`) uses the available panel width and scrolls
-horizontally (`overflow-x: auto`, thin themed scrollbar) only when every strip
-cannot fit. Mixer state remains mounted when another Bottom Workspace tab is
-active. The upper MixJam Browser's resize/collapse behavior does not change the
-Mixer panel width.
+Every lane has a project-owned stable ID that does not change when another lane
+is inserted or deleted. Visible lane numbers and Mixer positions are derived
+from current array order and remain contiguous from 1 through N. Deleting lane
+3 therefore makes the former lane 4 visible as lane 3 without changing its
+stable ID or its saved Mixer values.
 
-### Channel Strip (per channel)
+Adding a lane appends it after the final lane. It receives a new stable ID,
+the next visible default name, no placements, volume 80%, centered pan, mute
+off, solo off, and four sends at 0%.
 
-Channel strip sizing, layout, and visual treatment follow the
-[Style Guide](../style-guide.md#channel-strip-mixer).
-Control interaction patterns follow the
-[Style Guide](../style-guide.md#vertical-faders) and
-[Style Guide](../style-guide.md#rotary-controls-pan-fx-parameters).
+### Add, delete, and undo
 
-### Channel Management
+- Add is disabled at 64 lanes.
+- Delete is disabled when the project has one lane.
+- Deleting an empty lane takes effect immediately.
+- Deleting a lane with placements opens a blocking confirmation dialog. The
+  dialog identifies the lane and states the exact number of placements that
+  will be deleted. Cancel leaves the project unchanged.
+- Every lane add and deletion stops playback before changing the project. A
+  confirmed deletion removes the lane, placements, lane-owned Mixer state,
+  active voices, and future sends for that lane.
+- Lane add and lane delete are single, unified arrangement-and-Mixer history
+  entries. One Undo restores or removes the whole lane, including its stable
+  ID, placements, volume, pan, mute, solo, and sends. Redo repeats the complete
+  structural change.
 
-- Default: 16 channels, hardcoded 1:1 lane-to-channel routing.
-- Channel count is **capped at 16** for spec 007. Adding channels beyond 16 is
-  deferred to spec-017 (no routing UI exists to assign lanes to new channels).
-- The user can remove channels. Removing channel N unmaps lane N. Remaining
-  channel strips shift visually to fill the gap and keep their stable labels
-  (see Channel Strip).
-  Internal engine routing indices remain stable so the audio graph is not
-  rebuilt on removal.
-- **Restore removed channels:** a restore affordance in the mixer
-  column re-adds the lowest removed `channelIndex` with default state
-  (gain 0.8 — the createDefaultChannels default, pan 0, unmuted, unsoloed)
-  and re-routes lane N from the master bypass back
-  to channel N. Restore is add-back of a removed default channel, not
-  add-new — the 16-channel cap and the spec-017 deferral of add-channel are
-  unchanged.
-- **Orphan lane routing:** When a channel is removed and a lane becomes
-  unrouted, that lane's audio is routed to a **master bypass bus** — a direct
-  path to the master output that skips the mixer channel strip entirely. The
-  lane is audible at unity gain with no channel processing applied. This
-  prevents accidental data loss (removing a channel does not silence the
-  lane's placements).
-- Channel reordering is deferred to spec-017 (confusing without visible routing
-  indicators).
+## Mixer Layout
 
-### dB Meter
-
-- Displays real-time RMS output level per channel.
-- Channel values and peak hold remain RMS dBFS. Standards-based LUFS and true
-  peak processing belongs only to the post-master Output Level meter in the
-  Song panel; no per-channel loudness worklets are created.
-- Visual treatment (zones, peak hold, fill rendering) follows the
-  [Style Guide](../style-guide.md#meter-bars).
-- **Audio source:** One `AnalyserNode` per channel, inserted after the channel's
-  output `StereoPannerNode` and before the master bus. `fftSize` 256.
-- **Update loop:** Single `requestAnimationFrame` loop reads all 16 analysers,
-  computes RMS (`20 * log10(rms)`), clamps to [-60, 0] dB, updates peak hold,
-  and calls `setState` once per frame with batched values. The loop is active
-  only while Mixer or FX is visible because its channel levels and compressor
-  reduction values are visual telemetry; hiding both panels cancels it without
-  changing the audio graph or mixer state.
-
-### Routing
-
-- Hardcoded 1:1 for spec 007: lane N → channel N.
-- Lane-to-channel reassignment and multi-lane routing are deferred to spec-017.
-- AC-010 (multiple lanes sharing one channel) is deferred.
-
-### Lane / Channel Pan Independence
-
-Lane and channel pan use the shared project-owned rotary control. It captures
-pointer input (including touch), supports Shift fine adjustment and keyboard
-steps, and preserves pan's center reset and right-click cycle behavior.
-
-Lane-level pan and channel-level pan are independent values, both applied in
-the audio chain. Lane pan uses a **per-lane persistent `StereoPannerNode`**
-(one per lane, created lazily like `channelFor`, re-used across voices) so
-live knob updates affect already-sounding voices and the pattern mirrors the
-existing `channelPans` replay logic.
-
-Normal routing (lane routed to a channel):
+The Mixer uses one continuous horizontal row in this exact order:
 
 ```text
-Voice → lanePanner (lane pan) → channel.input (GainNode) → channel.output (StereoPannerNode, channel pan) → analyser → master
+Lane strip 1 ... Lane strip N | Return | FX 1 | FX 2 | FX 3 | FX 4
 ```
 
-Orphan lane routing (channel removed, lane routed to master bypass):
+- The row never wraps and has no pinned section.
+- The Mixer has one horizontal scrollbar for the complete row. The Return and
+  FX sections scroll with lane strips.
+- The horizontal scrollbar is always visible while the Mixer is active and is
+  disabled when the full row fits.
+- Horizontal trackpad movement and Shift+wheel scroll the row. Plain vertical
+  wheel movement is not captured. Left/Right scroll the focused Mixer canvas.
+- The Mixer row has no vertical scrollbar. Its content fits the available
+  Bottom Workspace height at the supported minimum size.
+- Keyboard focus scrolls a clipped control into view.
+- Geometry uses the 32 px base control size. A lane strip is 76 px wide, the
+  Return section is 120 px wide, and each FX container is 160 px wide. These
+  widths scale consistently at UI Size 44 and 56. At a selected UI Size each
+  width is fixed; strips do not grow merely to consume spare width.
+
+### Lane strip
+
+Each lane strip contains, from top to bottom:
+
+1. The derived lane number and lane name.
+2. Four rotary sends labelled 1 through 4.
+3. A visible two-band EQ area matching the compact Mixer grammar. EQ is
+  decorative and disabled: its controls cannot receive focus or input, expose
+  a disabled state to assistive technology, own no saved values, and do not
+  create audio nodes. Hovering the area shows "EQ controls are not available".
+4. The lane pan control.
+5. A vertical volume fader with a unity mark and drag value.
+6. One post-fader lane RMS meter with peak hold.
+
+Mute and Solo remain in the lane header and are intentionally absent here.
+
+### Send controls
+
+- Every lane has exactly four sends, one for each fixed return bus.
+- Each send ranges from 0% to 100%, defaults to 0%, and resets to 0%.
+- Sends are post-fader and post-pan. The sent signal therefore includes the
+  lane's current volume and stereo pan.
+- With no soloed lane, Lane Mute stops new dry output and new input to all four
+  sends. Existing return tails continue to ring.
+- When any lane is soloed, only soloed lanes produce dry output or new sends;
+  Solo overrides Mute. Existing return tails from lanes that become gated
+  continue to ring.
+- A send has no route to another send or to any return except its matching bus.
+  Feedback and crossfeed between return buses are forbidden.
+
+## Return Section
+
+There are exactly four global return buses. The Return section exposes one
+level control for each bus, labelled 1 through 4. Each row also shows the
+current module display name, Empty or Delay, beside its limiter toggle.
+
+- Each return is wet-only. Dry audio remains on the lane's normal path.
+- Return level ranges from 0% to 100%, defaults to 100%, and resets to 100%.
+- A return has no pan, mute, solo, meter, send, or crossfeed control.
+- All return outputs sum into the existing Master path immediately before the
+  unchanged Song-tab Master processing.
+- Return level 0% silences that return's output but does not change its FX
+  module, limiter setting, or send values.
+- Spec-010 owns each return's module, power behavior, limiter, and internal
+  audio graph.
+- Each return has one small square limiter toggle in its label area. The exact
+  tooltip is:
+
+  ```text
+  Limiter
+  Caps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.
+  ```
+
+## Audio Routing
+
+For each audible lane, the dry and send taps are:
 
 ```text
-Voice → lanePanner (lane pan) → masterBypass (GainNode, unity) → master
+voice -> lane volume -> lane pan -> dry Master path
+                              +-> send 1 -> return bus 1
+                              +-> send 2 -> return bus 2
+                              +-> send 3 -> return bus 3
+                              +-> send 4 -> return bus 4
 ```
 
-The `masterBypass` node sits outside the channel strip chain — it feeds the
-master bus directly, before the master gain. Orphan lanes are audible at unity
-gain with lane pan applied but no channel gain/pan/mute/solo processing.
+Mute and solo gating occurs before both the dry path and send taps. Return
+outputs rejoin the unchanged Master path as defined in spec-010. There is no
+lane-to-channel routing table, master bypass for missing channels, or orphan
+lane state.
 
-Stopping transport does not disconnect either route. Under the Ring Out
-contract in specs 005 and 010, natural song end, explicit Stop, Jump to End,
-Pause, and discontinuous seek stop source voices while existing delay/reverb
-energy continues through the stable channel output, analyser, and master bus.
-Removing a channel, replacing the project, or closing the engine disconnects
-or closes that graph and cuts its remaining tail.
+## Metering
 
-The lane-head pan knob controls `LaneState.pan`. The mixer strip pan knob
-controls `ChannelState.pan`. Both are applied when a lane is routed through a
-channel. Mute/Solo gates are independent and ANDed: a lane is audible only when
-it passes its own lane-level mute/solo AND (if routed to a channel) its
-channel's mute/solo.
+- Each lane strip has one lightweight RMS dBFS meter read after lane volume and
+  pan. It shows the signal that feeds the dry path and the four send taps.
+- One `AnalyserNode` per lane uses `fftSize` 256. A single animation-frame loop
+  reads visible Mixer telemetry, computes `20 * log10(rms)`, clamps display to
+  [-60, 0] dBFS, and maintains the existing decaying peak hold.
+- Meter sampling runs only while the Mixer tab is visible. Hiding the Mixer
+  cancels visual telemetry without changing audio, state, or return tails.
+- Returns and FX containers have no meters in this spec.
+- Standards-based LUFS and true-peak metering remains exclusively on the
+  unchanged Song-tab Output Level meter.
+
+## Persistence
+
+Spec-011 owns the physical format. The saved project must preserve:
+
+- lane order and stable lane IDs;
+- each lane's name, placements, volume, pan, mute, solo, and four send levels;
+- four return levels; and
+- the four FX and limiter records defined by spec-010.
+
+Project format version 4 is a breaking format. Version-3 projects are rejected;
+there is no version-3 migration or legacy channel/insert-FX interpretation.
+Project parsing rejects zero lanes, more than 64 lanes, duplicate lane IDs, or
+missing or malformed lane-owned Mixer data.
 
 ## Design Decisions
 
-| Decision | Rationale |
+| Decision | Reason |
 | --- | --- |
-| Channel and lane state coexist | Lane M/S controls arrangement; channel M/S/gain/pan controls the mix |
-| The project model owns channel state and defaults | Save, load, New, and generation share one complete project snapshot |
-| `useMixer(playbackEngineRef)` owns live channel edits | Mixer behavior stays separate from transport while persistence types stay in the project module |
-| Playback reconciles complete channel snapshots | Graph ordering and mute/solo gating do not leak into React state updaters |
-| Lane and channel mute/solo gates are ANDed | Both arrangement and mix filters apply |
-| One `AnalyserNode` per channel | All 16 meters update without graph switching |
-| Mixer uses a full-width peer tab | All strips receive the lower workspace without competing with Song or Samples |
-| Routing is 1:1 and channel count is capped at 16 | Add/reorder needs the routing UI in spec-017 |
-| dB meters render in CSS | Fill height and peak hold do not need a canvas |
-| Stereo width waits for spec-017 | The control needs routing and DSP behavior that spec must validate first |
-| Channel state is project-owned | Project save/load restores the mix without leaking it into other sessions |
-| Lane and channel pan are independent | Two panners keep arrangement and mix controls distinct |
-| One rAF loop reads all meters | React receives one batched state update per frame |
-| Removed channels route their lanes through a master bypass | Removing a strip does not silence its lane |
-| A restore action re-adds the lowest removed channel | Removal is reversible without exceeding the 16-channel cap |
-| Remove controls remain visible in a 44px target | Removal stays discoverable for mouse, keyboard, and touch users |
-| Channel labels use `channelIndex + 1` | Visible and accessible names match fixed routing |
-| Both pan knobs support drag, keyboard, and the same right-click cycle | Lane and channel controls share an interaction contract |
-| Mute-active fill meets 3:1 contrast | The state remains visible across all themes |
-| Faders show a drag value and unity tick | Gain changes have numeric feedback |
-| The Bottom Workspace tab controls Mixer visibility | Peer workflows share one predictable navigation model |
+| Lane state owns Mixer values | Tracker and Mixer cannot drift or require routing reconciliation. |
+| Stable IDs, derived numbers | Deletion can compact visible order without changing lane identity. |
+| Add appends | Structural editing stays predictable and does not require insertion UI. |
+| One structural undo entry | Lane content and its sound settings are restored together. |
+| Four post-fader, post-pan sends | A send follows the audible lane balance and stereo position. |
+| Four fixed global returns | The compact Mixer remains understandable and has no routing editor. |
+| One scrolling row | Every strip and fixed bus remains reachable without pinning or wrapping. |
+| EQ is decorative and disabled | The reference hierarchy is retained without inventing unsupported DSP. |
+| Song Master is unchanged | The overhaul ends at the existing Master input boundary. |
 
-## Implementation Notes
+## Acceptance Criteria
 
-### Hook composition
-
-`useAppState` calls `useLibraryData` then `useTransportEngine` unconditionally;
-adding `useMixer(playbackEngineRef)` after them keeps hook order stable. `playbackEngineRef`
-must be added to `useTransportEngine`'s return value — refs are stable across
-renders so this does not break memoization. `useMixer` keys its apply-to-player
-effect on the complete channel snapshot. `PlaybackEngine` owns channel removal,
-restoration, gain, pan, FX, and final mute/solo gating order; individual Mixer
-callbacks only update project-owned channel state.
-effect on `view` (returned by the engine) since `playbackEngineRef.current` mutating
-does not trigger renders. On teardown, cleanup runs in call order; the mixer
-cleanup runs before `playbackEngine.close()` and must null-check the ref.
-
-### Lane pan plumbing
-
-`handleSetLanePan` writes `LaneState.pan` and calls `playbackEngine.setLanePan()`,
-which updates the per-lane persistent panner directly so live knob changes
-affect already-sounding voices. `pan` travels through `EngineLane` /
-`toEngineLanes`, and the lane panner sits before `channel.input` in the audio
-chain (see Lane / Channel Pan Independence).
-
-The lane-head pan knob (`LaneRow.tsx`) and mixer-strip pan knob
-(`ChannelStrip.tsx`) both use `RotaryControl` from `RotaryField.tsx`. The shared
-control owns horizontal pointer drag, mouse-wheel changes, Shift fine control,
-arrow-key steps, Home/End limits, double-click reset, slider semantics, and
-clamping to [-1, 1]. Both callers use the shared right-click cycle: any
-position -> C (0) -> 100% R (1) -> 100% L (-1) -> C. Pan interaction changes
-belong in the shared control unless the difference is an explicit product
-requirement.
-
-## Acceptance Criteria (testable)
-
-- [x] **AC-001:** Up to 16 responsive 96-124px channel strips share the Mixer width before horizontal overflow, each with VOL slider, dB meter, 44px pan knob, M and S buttons.
-- [x] **AC-002:** Dragging a channel's VOL slider changes the audio output level for that channel in real-time.
-- [x] **AC-003:** The dB meter updates during playback, showing green/yellow/red zones proportional to output level, with a decaying peak hold line.
-- [x] **AC-004:** Clicking a channel's M button mutes that channel — lane N (hardcoded route) goes silent. The button shows active state.
-- [x] **AC-005:** Clicking a channel's S button soloes it — all other channels go silent. Clicking another channel's S transfers the solo.
-- [x] **AC-006:** Lane-level mute/solo and channel-level mute/solo are independent ANDed gates. A lane is audible when its own mute AND its channel's mute are off, and it passes both solo filters.
-- [x] **AC-008:** User can remove a channel via an always-visible 44px x button; the corresponding lane is re-routed to the master bypass bus
-  (audible at unity gain with lane pan applied). Remaining strips shift down and keep their stable channel labels.
-- [x] **AC-009:** Activating Mixer shows its full-width panel; activating a
-  peer tab hides it without unmounting Mixer state. No lower reveal seam is
-  present.
-- [x] **AC-011:** Channel state (presence, gain, pan, mute, and solo) is saved
-  in the active `.mixjam` project by spec-011 and is not persisted as
-  app-level state.
-- [x] **AC-012:** The lane-head pan knob and mixer-strip pan knob control independent values (lane pan and channel pan respectively); both are applied in the audio chain.
-- [x] **AC-013:** Removing all channels leaves all 16 lanes routed to the master bypass bus; all lanes remain audible. The mixer column shows no channel strips.
-
-- [x] **AC-014:** The Mixer panel receives the full Bottom Workspace width and
-  is independent of the upper MixJam Browser/Tracker column width.
-- [x] **AC-015:** All 16 channel strips are visible when space permits and are
-  reachable by horizontal scroll when the viewport is too narrow;
-  keyboard-tabbing scrolls a clipped strip into view.
-- [x] **AC-016:** Mixer panel state survives tab changes, and the selected
-  Bottom Workspace tab survives remount according to spec-006.
-- [x] **AC-017:** A restore affordance re-adds the lowest removed channel at default state (gain 0.8, pan 0, unmuted, unsoloed) and re-routes its lane from the master bypass
-  back to the channel. It is disabled/absent when no channel is removed.
-- [x] **AC-018:** Right-clicking ANY pan knob (lane-head or mixer-strip) never shows a context menu and steps the cycle: any position → C; C → 100% R; 100% R → 100% L; 100% L → C.
-- [x] **AC-019:** The remove button remains visible as a 44px target without requiring hover or keyboard focus.
-- [x] **AC-020:** Channel labels are stable `channelIndex + 1`; the selection
-  button's accessible name matches its visible label, related control labels use
-  the same channel number, and removing a middle channel leaves a numbering gap.
-- [x] **AC-021:** Both pan knobs are reachable with Tab; ArrowLeft/ArrowRight
-  and mouse-wheel movement change pan by 0.05 clamped to [-1, 1], Shift-wheel
-  provides fine adjustment, and `aria-valuetext` reflects the position.
-- [x] **AC-022:** The mute-active button fill measures at least 3:1 contrast against the inactive button in every bundled theme, and a muted channel's strip is visibly dimmed.
-- [x] **AC-023:** A channel fader shows its percentage value while dragging and renders a unity (100%) tick mark.
-- [x] **AC-024:** The master meter label reads "Output Level" and uses
-  standards-based master LUFS/dBTP values when available, while all 16 channel
-  meters remain RMS dBFS with their existing peak-hold behavior.
-- [x] **AC-025:** The shared Mixer/FX visual-telemetry frame loop is cancelled
-  while Song or Samples is active and restarts when Mixer or FX becomes active.
-- [x] **AC-026:** Channel processors and their route to the master bus remain
-  connected when transport stops, allowing existing FX energy to ring out;
-  graph-owning operations such as channel removal, project replacement, and
-  engine close still disconnect or close the route.
-- [x] **AC-027:** Switching from Song to Mixer preserves each channel fader's
-  value and rendered thumb position. Hidden Mixer controls retain measurable
-  geometry, so revealing the panel does not apply a delayed thumb correction.
-
-## Control-System Validation Evidence
-
-- `src/renderer/src/components/ChannelStrip.test.tsx` verifies that channel
-  gain uses the shared Radix-backed vertical fader and meter, preserves its
-  value and unity affordances, and handles Arrow, Home, and End keys in visual
-  orientation.
-- `src/renderer/src/hooks/useMixer.test.ts` verifies that inactive workspaces
-  schedule no visual-telemetry frame and that deactivation cancels a live loop.
-- `src/renderer/src/engine/playback-engine.test.ts` verifies live channel gain,
-  mute, and solo gating, including the first gain update while another channel
-  is soloed.
-- `tmp/verify-vertical-controls/evidence.md` records production Chromium
-  geometry for all 16 fixed-width strips and the shared fader/meter grammar.
-- `tests/e2e/audio-effects-rendering.spec.ts` and
-  `tmp/verify-fx-song-end/evidence.json` prove in Chromium that active source
-  voices reach zero while routed reverb energy remains audible after natural
-  end, explicit Stop, and Jump to End.
-- `tests/e2e/bottom-workspace.spec.ts` verifies in production Chromium that an
-  inactive Mixer retains fader geometry and that repeated Song-to-Mixer reveals
-  keep each fader's value, thumb position, and Radix pixel correction stable.
+- [ ] **AC-001:** A new project shows eight lanes and eight matching Mixer
+  strips with stable IDs and contiguous visible numbers.
+- [ ] **AC-002:** Adding appends one lane and strip with the documented
+  defaults; Add is disabled at 64.
+- [ ] **AC-003:** Empty-lane deletion is immediate, non-empty deletion requires
+  a blocking placement-count confirmation, playback stops on confirmed
+  deletion, and Delete is disabled at one lane.
+- [ ] **AC-004:** One Undo or Redo restores the complete lane structure,
+  placements, and Mixer state after add or delete.
+- [ ] **AC-005:** Deleting a middle lane compacts visible numbering while every
+  surviving lane retains its stable ID and saved sound values.
+- [ ] **AC-006:** Mixer strips cannot be independently added, deleted,
+  reordered, or routed, and no Mixer Mute or Solo controls are rendered.
+- [ ] **AC-007:** At UI Size 32 each compact strip is 76 px wide and exposes
+  four sends, disabled decorative EQ, pan, volume, and one lane meter in the
+  documented order. UI Size 44 and 56 scale the full strip consistently.
+- [ ] **AC-008:** Sends range from 0% to 100%, default and reset to 0%, and use
+  the post-volume, post-pan signal.
+- [ ] **AC-009:** Mute and solo stop new dry and send input according to the
+  documented gating rules while existing return tails ring out.
+- [ ] **AC-010:** The row order is all lane strips, Return, then FX 1 through FX
+  4, using base widths 76/120/160 px and one continuous horizontal scrollbar
+  with no wrap, pinning, or vertical scroll.
+- [ ] **AC-011:** Each wet-only return ranges from 0% to 100%, defaults and
+  resets to 100%, and has no pan, Mute, Solo, meter, send, or crossfeed.
+- [ ] **AC-012:** All four returns sum before the unchanged Song Master path.
+- [ ] **AC-013:** Lane meters are RMS dBFS with peak hold, Mixer visibility
+  gates only their shared telemetry loop, and the Song Output Level contract
+  is unchanged.
+- [ ] **AC-014:** Format-version-4 roundtrip preserves all lane-bound Mixer,
+  return, FX, and limiter state; invalid lane counts and malformed lane-owned
+  Mixer values are rejected; version 3 is rejected without migration.
 
 ## Non-Goals
 
-- No stereo width control.
-- No channel EQ or filter controls.
-- No channel preset save/load.
-- No automation (recording mixer movements over time).
-- No channel group/link (moving one fader moves another).
-- No send/return or aux buses — only insert routing.
-- No lane-to-channel routing UI (assignment, multi-lane routing) — spec-017.
-- No add-channel beyond 16 — spec-017.
-- No channel drag-to-reorder — spec-017.
-
-## References
-
-- spec-017 — Mixer Channel Routing & Per-Channel FX (deferred routing, add-channel, reordering)
+- No user-defined routing, multi-lane channels, channel removal, channel
+  reordering, groups, or links.
+- No functional channel EQ, filter, stereo-width, automation, or presets.
+- No return pan, mute, solo, metering, sends, crossfeed, or feedback routing.
+- No change to the Song tab's Master track or Output Level meter.
+- No compatibility path for project format version 3.

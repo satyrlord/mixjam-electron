@@ -1,7 +1,8 @@
 # Spec 008 — Sample Analysis & Type Classification
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — BPM, key, and type analysis
+implemented; validated stereo-pair evidence not implemented
 **Depends on:** spec-004 (Sample Library Browsing, Search & Tagging)
 
 ## Objective
@@ -63,6 +64,26 @@ Contextual projection never replaces the manual field itself.
 Repeated numbered or stereo filename variants inside one directory are
 collapsed to one voting cohort before group inference, so duplicated exports do
 not dominate a context merely by file count.
+
+### Validated stereo-pair evidence
+
+The analyzer is the only owner of generator-safe stereo-side evidence. It may
+set `stereo_pair_key` and `stereo_side` only when all of these checks pass:
+
+- two readable, metadata-ready mono files are in the same directory;
+- their basenames differ only by one terminal, separator-delimited `L`/`R` or
+  `Left`/`Right` token, matched case-insensitively;
+- exactly one file resolves to each side;
+- sample rate matches; and
+- duration differs by no more than one sample frame at that shared rate.
+
+The normalized directory plus basename with the side token removed forms the
+pair key. Ambiguous groups, an absent partner, stereo or unknown channel count,
+metadata mismatch, or an unrecognized filename produce NULL evidence for every
+candidate. A scan change or missing partner revalidates and clears both sides
+atomically. The analyzer exposes the persisted pair key and side through the
+windowed sample and generator DTOs. The generator consumes this evidence and
+never parses a filename to infer pan.
 
 Short one-shots, percussion, FX, and other ambiguous files may have NULL raw BPM
 or key. An abstention is not a vote for another value. Sample type remains the
@@ -218,6 +239,10 @@ short/one-shot-heavy group, and one group whose correct result is unresolved.
 - [x] **AC-013:** The eJay structural fixture proves a resolved nested context,
   a cross-folder source cohort, a mixed parent with resolved descendants, and a
   heterogeneous root without flattening the complete library.
+- [ ] **AC-014:** The stereo-pair validator persists left/right evidence only
+  for unambiguous complementary mono files with matching sample rate and
+  one-frame duration tolerance. It clears stale pairs atomically and exposes
+  evidence to generator DTOs; ambiguous and unpaired files remain NULL.
 
 ## Implementation Ownership
 
@@ -227,7 +252,8 @@ short/one-shot-heavy group, and one group whose correct result is unresolved.
   and SC/SL cohort groups, alias-aware tempo inference, group states, and final
   automatic projections.
 - `backend/analysis-persistence.ts` owns raw evidence, atomic group replacement,
-  manual-field protection, and the canonical root/cluster summary.
+  stereo-pair evidence, manual-field protection, and the canonical root/cluster
+  summary.
 - `backend/analysis-runner.ts` owns batch and individual orchestration through
   the same analyzer path.
 - `backend/schema.ts` owns the schema-v4 raw evidence and `analysis_groups`

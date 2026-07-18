@@ -1,13 +1,15 @@
 # Spec 005 — Audio Playback Engine
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — existing playback baseline implemented;
+dynamic lanes and send/return graph not implemented
 **Depends on:** spec-003 (Folder & App State Management)
 
 ## Objective
 
 Build the pure audio playback core: transport control (BPM, play/pause/stop), a
-lookahead scheduler, sample voice triggering, and per-channel gain/pan routing.
+lookahead scheduler, sample voice triggering, lane-owned mixing, and four fixed
+send/return buses.
 At the end of this slice, a test can load a sample, place it on a lane, press
 play, and hear audio. The engine is fully decoupled from the UI layer.
 
@@ -23,7 +25,7 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - **US-005:** As a user, each lane has its own volume and stereo pan control
   that affects its sound independently.
 - **US-006:** As a user, I can change the master output volume without altering
-  the relative balance between channels.
+  the relative balance between lanes and return buses.
 - **US-007:** As a user, the UI can display a master loudness meter driven by
   the engine's real output level.
 - **US-008:** As a user, playback suppresses clicks at placement edges next to
@@ -74,8 +76,8 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   playhead to tick 0 before preparation, then starts from the beginning.
 - Transport completion uses the **Ring Out** contract. Natural song end,
   explicit Stop, and Jump to End stop all source voices and prevent new
-  scheduling, but do not reset or rebuild channel effect processors. Delay and
-  reverb energy already inside those processors may therefore remain audible
+  scheduling, but do not reset or rebuild return-bus effect processors. Delay
+  energy already inside those processors may therefore remain audible
   while transport state is `stopped`. Pause and discontinuous seek use the
   same source-stop behavior. Project replacement and engine close terminate
   the AudioContext and cut any remaining tail.
@@ -108,16 +110,14 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Keeps the audible `masterGain -> analyser -> destination` route and adds an
   optional post-master-gain `AudioWorkletNode` branch for standards-based
   programme loudness. Optional metering never sits in the audible route.
-- Provides a factory for mixer channels (`createChannel(index?)`). The channel
-  registry is keyed by the caller's channel index — lane N always resolves to
-  channel N even when channels are created lazily out of order — so
-  `setChannelPan(index, pan)` targets the right channel. A pan set before a
-  lane's first trigger is stored and applied when its channel is created.
-- Provides `triggerVoice({ buffer, channel, when, laneIndex, playbackRate? })`
-  — creates a new `AudioBufferSourceNode`, routes it through the channel's
-  gain/pan chain into the master bus, and returns a `Voice` handle.
-- Provides `setMasterGain(value)` — 0 to 1 range, applied after all channel
-  routing.
+- Provides one stable mixer path per lane ID. A lane owns its gain, pan, mute,
+  solo, meter, and four ordered send values; there is no independent channel
+  registry or lane-to-channel routing assignment.
+- Provides `triggerVoice({ buffer, laneId, when, playbackRate? })` — creates a
+  new `AudioBufferSourceNode`, routes it through that lane's mixer path, and
+  returns a `Voice` handle.
+- Provides `setMasterGain(value)` — 0 to 1 range, applied after all lane
+  and return-bus summing. The existing Master behavior is unchanged.
 - Provides a project-owned read-only master snapshot with RMS dBFS fallback,
   Momentary/Short-term/Integrated LUFS, maximum true peak in dBTP, and
   Loudness Range in LU. Package-specific message types do not cross the engine
@@ -148,17 +148,27 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Decoding failures are reported as errors — a corrupt or unreadable sample
   does not crash the engine.
 
-### Channel
+### Lane mixer path and return buses
 
-- Each channel owns a pre-built `GainNode` → `StereoPannerNode` chain.
-- `setGain(value)` — 0 to 1 range.
-- `setPan(value)` — -1 (full left) to 1 (full right).
-- Channels are reusable — the same node chain serves all voices routed through
-  that channel.
-- The current product surface manages 16 stable channel indices (spec-007).
-  The engine can lazily create a channel for a numeric index, but no supported
-  product limit above 16 is defined or enforced. Spec-017 must validate a limit
-  before exposing add-channel behavior.
+- A project contains 1 through 64 lanes. A blank project starts with exactly
+  eight. Each lane has an immutable stable ID and one reusable mixer path.
+- The lane mixer path owns gain, pan, mute, solo, one post-lane analyser, and
+  exactly four ordered send levels. There is no separately addable, removable,
+  reorderable, or routable mixer channel.
+- `setGain(value)` and each send level use the inclusive 0 to 1 range.
+  `setPan(value)` uses -1 (full left) to 1 (full right).
+- Each voice reaches the lane gain and pan path. Its dry output reaches the
+  unchanged master bus, while four post-gain, post-pan send taps feed the fixed
+  return buses `FX1`, `FX2`, `FX3`, and `FX4` in that order.
+- Every return bus has one replaceable module host, power state, return level,
+  an enabled safety limiter, and a route to the unchanged master bus. A blank
+  project initializes each module to `Empty`, power to the module host default,
+  return level to 100%, limiter enabled, and every lane send to 0%.
+- Return buses never feed another return bus. This prevents routing cycles and
+  feedback paths outside an individual effect module's validated DSP.
+- Adding a lane appends one new lane mixer path. Deleting a lane disposes only
+  that lane's voices, analyser, and mixer path; it never deletes or reorders the
+  four project return buses.
 
 ### Voice
 
@@ -175,8 +185,8 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Defaults are enabled, 2 ms fade-in, and 4 ms fade-out. Both values accept
   fractional milliseconds from 0 through 20.
 - Each Tracker voice uses one linear-amplitude per-voice gain envelope. The
-  envelope applies equally to all decoded source channels before lane pan,
-  channel processing, and the master bus.
+  envelope applies equally to all decoded source channels before lane mixer
+  processing and the master bus.
 - Fade sample counts use
   `round(audioContext.sampleRate * durationMs / 1000)`. Tempo-following
   playback changes source rate but not the requested output-time duration.
@@ -204,14 +214,13 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - The decoded `AudioBuffer` and source file remain unchanged.
 - Explicit placement fades, loop crossfades, reverse playback, and offline
   export are not implemented. Future explicit fades must replace, not stack
-  with, the automatic envelope on the same edge. Spec-012 export must reuse
+  with, the automatic envelope on the same edge. Spec-019 export must reuse
   the same sample-count and boundary rules.
 
 ### Lane
 
-- Represents one of the 16 monophonic stereo lanes in the current MixJam
-  Player. Lane add/remove is not implemented, and no supported maximum above
-  16 is currently defined.
+- Represents one of 1 through 64 monophonic stereo lanes. A blank project has
+  exactly eight lanes.
 - **Monophonic:** if a new sample bubble overlaps a currently playing one on the
   same lane, the previous voice is cut off at the new placement's exact
   scheduled start time (classic eJay/Acid behavior). Lookahead scheduling must
@@ -222,15 +231,15 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   If several placements share one start tick, the last placement in stored
   lane order wins. Automatic fade planning uses this effective audible segment,
   not the earlier placement's nominal duration.
-- Each lane holds a set of clip placements (each with a sample reference,
-  start tick, and duration in ticks), mute state, solo state, and
-  a channel assignment.
+- Each lane holds a stable ID, visible order, clip placements (each with a
+  sample reference, start tick, and duration in ticks), and its complete
+  lane-owned mixer state.
 - Lanes share the 999-bar arrangement capacity. Placement duration is never
   trimmed at the boundary; placement operations follow the clamping and silent
   rejection contract above.
-- **Default routing:** each lane is pre-routed to its own mixer channel (lane 1
-  → channel 1, lane 2 → channel 2, etc.). This is why the default channel count
-  equals the default lane count (16).
+- The mixer strip in visible position N is the same project entity as Lane N.
+  Adding a lane is the only way to add a lane mixer strip; deleting a lane is
+  the only way to delete one.
 - During playback, the scheduler evaluates each lane's placements: when the
   playhead reaches an audible placement's start position, a voice is triggered.
 - Solo overrides mute: if any lane is soloed, only soloed lanes play.
@@ -252,11 +261,20 @@ the engine never knows who is listening.
   placement start ticks or musical durations; placement audio rendering follows
   spec-009.
 - [x] **AC-005:** The scheduler fires `onSchedule(tick, when)` callbacks for ticks within the lookahead window. A unit test with a mock clock verifies this.
-- [x] **AC-006:** `triggerVoice()` creates an `AudioBufferSourceNode` connected to the channel's gain/pan chain → master gain → destination.
+- [ ] **AC-006:** `triggerVoice()` creates an `AudioBufferSourceNode` connected
+  to its stable-ID lane mixer path. The dry path and four post-gain, post-pan
+  sends reach the unchanged master and fixed return buses respectively.
 - [x] **AC-007:** Calling `voice.stop()` before the buffer ends terminates the voice; a `voiceEnded` event fires.
 - [x] **AC-008:** `stopAllVoices()` immediately stops all active voices. Active voice count drops to 0.
-- [x] **AC-009:** `createChannel()` returns a channel with independent gain and pan. Setting gain on channel A does not affect channel B.
-- [x] **AC-009a:** Calling `setMasterGain()` changes the master output level without muting or altering individual channel settings.
+- [ ] **AC-009:** Every lane has independent gain, pan, mute, solo, meter, and
+  exactly four ordered send values. No independent channel registry exists.
+- [x] **AC-009a:** Calling `setMasterGain()` changes the master output level without muting or altering individual lane settings.
+- [ ] **AC-009g:** Projects enforce 1 through 64 stable-ID lane mixer paths. A
+  blank project creates eight; adding appends one; deleting disposes one; and
+  no mixer-path operation can change the four fixed return buses.
+- [ ] **AC-009h:** `FX1` through `FX4` are fixed in that order. Each defaults to
+  an Empty module, module-host default power, 100% return, and enabled limiter;
+  all new lane sends default to 0%.
 - [x] **AC-009b:** The engine exposes one normalized master snapshot containing
   RMS dBFS fallback and nullable Momentary, Short-term, Integrated LUFS,
   maximum true peak dBTP, and Loudness Range LU values.
@@ -287,8 +305,8 @@ the engine never knows who is listening.
   change `songEndTick`. If an edit shortens the song behind the playhead,
   stopped or paused navigation clamps to the new end, while active playback
   stops and resets to tick 0.
-- [x] **AC-017:** Natural song end, explicit Stop, and Jump to End reduce active
-  source voices to zero without resetting channel processors, so existing FX
+- [ ] **AC-017:** Natural song end, explicit Stop, and Jump to End reduce active
+  source voices to zero without resetting return-bus processors, so existing FX
   energy rings out after transport stops. Natural end and Stop reset to tick 0;
   Jump to End parks at `songEndTick`. Replaying after the tail decays uses the
   existing graph without duplicate connections.
@@ -352,8 +370,8 @@ the engine never knows who is listening.
 
 - Transport controls and the visual playhead are specified by spec-006.
 - Tempo-following resampling is specified by spec-009.
-- Per-channel effects are specified by spec-010.
-- No offline rendering for export. Export is spec-012.
+- Mixer send/return effects are specified by spec-010.
+- No offline rendering for export. Export is spec-019.
 - No loop-boundary crossfade or edit-boundary crossfade.
 - No explicit user-authored placement fade editor. A future explicit fade
   takes precedence over the automatic fade on the same edge.

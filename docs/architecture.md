@@ -36,7 +36,8 @@
 │  │    deterministic project planning                 │  │
 │  └───────────────────────────────────────────────────┘  │
 │  Folder handles in IndexedDB · preferences in localStorage│
-│  Song, arrangement, Mixer, routing, and FX in .mixjam     │
+│  Song, lanes, lane-owned Mixer state, and FX buses        │
+│  in .mixjam                                               │
 │  tracker/player (Web Audio) · skinnable via CSS vars     │
 └─────────────────────────────────────────────────────────┘
    Host A: any Chromium browser (GitHub Pages, https)
@@ -61,8 +62,9 @@ Rules of the process model:
   Workflow-owned persistence modules group indexed-sample lifecycle, analysis
   provenance, and browser/saved-library SQL without opening another connection.
 - **Analysis has one semantic owner.** The analyzer stores direct per-file
-  BPM/key evidence, derives directory and virtual source-cohort groups, infers
-  zero or more coherent clusters, and persists current BPM/key/type projections.
+  BPM/key evidence, validates stereo-pair side evidence, derives directory and
+  virtual source-cohort groups, infers zero or more coherent clusters, and
+  persists current BPM/key/type projections.
   Directory ancestry and structured filename labels are evidence, not a promise
   that a complete folder is uniform. Batch and individual requests run the same
   engine. There is no folder-calibration analyzer beside it.
@@ -86,18 +88,27 @@ Rules of the process model:
   competing semantic values. The renderer adapts the plan, serializes it through
   the production project format, writes it inside the User Folder, and updates
   recent projects only after the write succeeds.
-- **The project model owns the complete saved snapshot.** Song settings, lanes,
-  placements, Mixer channels, routing, and FX defaults/cloning live together in
-  the project module. Renderer hooks own live editing behavior but do not define
+- **The project model owns the complete saved snapshot.** Song settings and one
+  to 64 stable-identity lanes live with their placements, name, mute, solo,
+  pan, volume, and exactly four aligned Send values. The same snapshot owns
+  exactly four fixed-order FX buses. There is no separate channel array or
+  routing model. Renderer hooks own live editing behavior but do not define
   persistence types or reconstruct project defaults.
-- **Graph reconciliation belongs to playback.** Renderer Mixer state supplies a
-  complete channel snapshot. The playback module owns removal, restoration,
-  gain/pan/FX application, and final mute/solo gating order before mutating the
-  Web Audio graph.
+- **Mixer channels are derived from lanes.** Adding a lane appends its channel;
+  deleting a lane removes it. Array order defines visible numbering while the
+  stable lane id preserves relationships. A channel name always reflects its
+  lane name. No Mixer command adds, removes, routes, or reorders channels.
+- **Graph reconciliation belongs to playback.** Playback consumes one complete
+  project snapshot and reconciles lane gain, pan, mute/solo gating, dry output,
+  four post-fader/post-pan Sends, four modular Return processors, Return levels,
+  and Return limiters before the unchanged Master stage. Returns cannot feed
+  one another.
 - **Player preferences and global commands have policy owners.** One app-state
   module validates and persists panel layouts, the active Bottom Workspace tab,
-  expansion state, and MixJam Browser collapse. One shortcut module owns global
-  matching, editable-target suppression, dispatch, and displayed command text.
+  UI Size, expansion state, and MixJam Browser collapse. One shortcut module
+  owns global matching, modal suppression, dispatch, and displayed command
+  text. The Media Session API owns OS media actions; the shell does not register
+  invasive system-wide shortcuts.
 - **Host-local persistence follows its workflow.** Folder selection plus the
   best-effort `mixjam.json` mirror belong to app state. User Folder discovery,
   recent-project validation, merging, and ordering belong to the project

@@ -1,224 +1,321 @@
-# Spec 010 — Per-Channel Audio Effects
+# Spec 010 — Return FX Modules
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
-**Depends on:** spec-005 (Audio Playback Engine)
+
+**Spec Implementation Status:** NOT IMPLEMENTED
+
+**Depends on:** spec-005 (Audio Playback Engine), spec-007 (Lane-Bound Mixer)
+
+**Related:** spec-011 (Project Save & Load)
 
 ## Objective
 
-Implement per-channel insert effects: delay, reverb, and compression. Users
-can chain effects in order and adjust parameters per channel.
+Define four independent, global FX modules as black boxes hosted by the four
+Mixer return buses. Each fixed slot contains either an Empty module or a Delay
+module. Users edit one slot in a blocking modal with live audition, while the
+host owns routing, power, return level, tail lifecycle, and a per-return safety
+limiter.
 
 ## User Stories
 
-- **US-001:** As a user, I can add a delay effect to a channel and adjust
-  time, feedback, and wet/dry mix.
-- **US-002:** As a user, I can add a reverb effect to a channel and adjust
-  room size, decay, and wet/dry mix.
-- **US-003:** As a user, I can add a compressor to a channel and adjust
-  threshold, ratio, attack, and release.
-- **US-004:** As a user, I can order effects in a chain (e.g. delay → reverb
-  vs. reverb → delay).
-- **US-005:** As a user, I can bypass individual effects without removing them.
+- **US-001:** I can configure each of the four return slots independently.
+- **US-002:** I can audition Delay changes live, then commit or discard the
+  whole edit.
+- **US-003:** I can operate every modal control without a pointer.
+- **US-004:** I can power a slot off without cutting its existing tail, or
+  clear it when I want the tail and settings removed immediately.
+- **US-005:** I can enable or bypass a fixed safety limiter on each return.
 
-## Scope
+## Module Host Contract
 
-### Effect Types
+### Fixed independent slots
 
-**Delay:**
+- The Mixer always contains FX 1, FX 2, FX 3, and FX 4 after the Return
+  section. Slots cannot be added, deleted, reordered, chained, or routed into
+  one another.
+- Return bus N feeds FX slot N. Each slot receives only the sum of lane send N.
+- Every slot contains exactly one module record with a stable slot identity.
+  The supported module types are `empty` and `delay`.
+- A module is a black box to the host. The host provides stereo input, expects
+  stereo wet-only output, supplies current project BPM, and owns power, return
+  level, limiter, persistence, and disposal.
+- Module parameters never leak into lane state or another slot. Editing or
+  clearing one slot cannot mutate another slot.
 
-- Parameters: time (ms, 0–2000), feedback (0–1), wet/dry mix (0–1).
-- Stereo ping-pong option (alternates L/R).
-- Tempo-synced mode (time in note divisions: 1/4, 1/8, 1/16, etc.).
+### Empty module
 
-**Reverb:**
+Empty is an explicit saved module identity, not a missing record. It owns no
+editable parameters. At the black-box module boundary it returns its input
+unchanged with no latency, like every other input-to-output module. The Return
+host gates Empty input to silence, so non-zero sends and return level cannot
+duplicate dry audio through an empty slot.
 
-- Parameters: room size (0–1), decay (0–1), wet/dry mix (0–1).
-- Freeverb-style algorithm (or equivalent).
-- Mono input, stereo output.
+### Container power and Clear
 
-**Compressor:**
+- Every FX container has a saved Power setting, default on.
+- Turning Power off stops new input to the module. Already-generated Delay tail
+  remains connected and rings out through the return level and limiter.
+- Turning Power on resumes new input without resetting saved module settings.
+- Clear immediately replaces the module with Empty, disposes its owned graph,
+  and cuts its tail. Clear does not change container Power, return level,
+  limiter setting, or lane send values.
+- Clear takes effect without confirmation and is one undoable project edit.
+  Undo restores the prior module type and complete settings, but cannot recreate
+  audio energy from the tail that Clear already cut.
 
-- Parameters: threshold (dB, -60–0), ratio (1:1–20:1), attack (ms, 0–200),
-  release (ms, 5–3000), makeup gain (dB, 0–24).
-- May wrap the native `DynamicsCompressorNode` for efficiency, with custom
-  parameter mapping.
+### Container menu and summary
 
-### Effect Chain
+- Left-clicking a container opens its dropdown. An Empty slot offers
+  `Delay...`. A configured slot offers `Delay...` and `Clear slot`.
+- Choosing `Delay...` opens the Delay modal. In a configured slot it edits that
+  slot's independent settings; in Empty it begins a new Delay draft.
+- The closed container shows FX 1 through FX 4, Empty or Delay, Power state,
+  and a compact summary of time or division, Feedback, Tape Distortion, and
+  Ping-Pong.
 
-- Each channel has an ordered list of effect slots (initially empty, up to 4).
-- The audio signal flows: `channel input → FX1 → FX2 → FX3 → FX4 → channel output`.
-- Effects can be reordered by dragging.
-- Each effect has a bypass toggle.
+## Delay Module
 
-### Effect UI
+### Saved settings and defaults
 
-- FX is a peer in the full-width `Song | Mixer | FX | Samples` Bottom
-  Workspace from spec-006. The editor is non-modal and keeps the tracker
-  available while parameters change in real time.
-- FX contains its own channel selector and does not depend on Mixer remaining
-  visible. The selector retains the current channel across tab changes. If the
-  selected channel is removed, it selects the next channel, then the previous
-  channel, then shows the existing empty-mixer state.
-- Visual treatment (chain cards, connectors, bypass states, editors, meters)
-  follows the [Style Guide](../style-guide.md#effect-chain-fx-panel).
-  Control interaction follows the
-  [Style Guide](../style-guide.md#rotary-controls-pan-fx-parameters).
-- The selected channel displays an explicit left-to-right chain rail. Named
-  cards expose order, selection, bypass, a drag handle, pointer drop targets,
-  `Alt+ArrowLeft/Right`, and named Move left/right menu actions.
-- A described Add effect tile appends Delay, Reverb, or Compressor and becomes
-  a `4 of 4 effects used` status at the slot cap.
-- An empty chain combines its explanation and Add action into one centered
-  surface. A no-channel state offers both Restore a channel and Open Mixer.
-- The selected effect opens a spacious editor below the chain that is
-  label-first with dials or switches, editable values, and explanatory copy on
-  separate aligned rows. Output metering is grouped separately with scale
-  endpoints and enlarged live value.
-- Every parameter carries a plain-language explanation of its audible result.
-  Bypassed effects remain editable.
-- Factory starting points are Classic Echo, Slapback, and Ping-Pong Eighths;
-  Studio Room, Tight Room, and Long Hall; and Classic Control, Gentle Glue, and
-  Leveler. Choosing one writes ordinary effect parameter fields. Further edits
-  display `Custom`; preset identity is never stored.
-- Compressor editing includes a live positive-dB gain-reduction meter read
-  from its `DynamicsCompressorNode`. Bypass, silence, and missing processors
-  report zero reduction; no analyser node is added.
-- Reset and Remove live in a labeled actions menu. Removing an effect shows a
-  six-second Undo action that restores the same id, values, and bounded chain
-  position when the channel still exists and has capacity.
-- Add, order, and actions menus use the shared accessible dropdown primitive.
-- Delay booleans retain native checkbox semantics through visually hidden
-  inputs while using the project-owned switch visual and the full label target.
-- Empty chains explain signal order and focus adding; an empty mixer explains
-  that a channel must be restored. Removing the selected effect selects the
-  next card, then the previous card, then the empty state.
+| Setting | Range or values | Default |
+| --- | --- | --- |
+| Mode | Free, Sync | Free |
+| Free time | 0–2000 ms | 375 ms |
+| Sync division | 1/4, 1/8, 1/16, 1/8T, 1/16T | 1/8 |
+| Feedback | 0–75% | 35% |
+| Tape Distortion | 0–100% | 0% |
+| Ping-pong | Off, On | Off |
+| Power | Off, On | On |
 
-### DSP Implementation
+The sync division remains saved while Free mode is active, and Free time
+remains saved while Sync mode is active. Changing modes therefore restores the
+last value for that mode. Power is the container setting defined above: Space
+toggles whether new input reaches the Delay while preserving its tail.
 
-- Effects are implemented as Web Audio API node chains, not external WASM
-  modules for v1.
-- Delay uses `DelayNode` + feedback `GainNode`.
-- Reverb uses a convolutional or Freeverb-style node graph.
-- Compressor wraps `DynamicsCompressorNode` with parameter scaling.
-- All effect DSP is in the engine layer — no DOM/UI imports.
-- A channel keeps stable input and output nodes while its internal ordered
-  effect route is rebuilt. Existing voices therefore remain connected when a
-  slot changes, and every replaced processor disconnects all nodes it owns.
-- Effect tails follow the **Ring Out** lifecycle. Natural song end, explicit
-  Stop, Jump to End, Pause, and discontinuous seek stop source voices without
-  resetting or rebuilding the current processors, so delay and reverb energy
-  already in the graph decays naturally. Starting again before that decay
-  completes may intentionally overlap the remaining tail; starting after
-  decay reuses the same graph without replaying stale energy or adding graph
-  connections. Channel removal or effect-chain replacement disposes the owned
-  processors, while project replacement and engine close terminate the
-  AudioContext; those graph-owning operations cut remaining tails.
-- Effect chains are project-owned. Spec-011 writes each channel's complete
-  ordered FX chain into the active `.mixjam` file and restores it only when
-  that project is loaded. FX values are not persisted as app-level state.
+### Delay graph
 
-## Acceptance Criteria (testable)
+- Free mode maps time directly to the DelayNode from 0 to 2 seconds.
+- Sync mode derives delay time from current project BPM and the saved division.
+  BPM changes update the live time without changing the saved division.
+- Feedback is clamped to 0–0.75 before it reaches the feedback gain.
+- Ping-pong off preserves the incoming stereo field. Ping-pong on alternates
+  repeats between left and right while producing a stereo wet output.
+- Delay output is wet-only. The return bus provides no parallel dry path.
 
-- [x] **AC-001:** Adding a delay effect to a channel produces audible echo. Changing time/feedback/mix changes the sound in real-time.
-- [x] **AC-002:** Adding a reverb effect to a channel produces audible ambience. Changing room size/decay/mix changes the sound.
-- [x] **AC-003:** Adding a compressor to a channel reduces dynamic range. Changing threshold/ratio affects the amount of compression.
-- [x] **AC-004:** Bypassing an effect removes its influence on the signal; un-bypassing restores it.
-- [x] **AC-005:** Reordering effects changes the sound (for example, compression before delay differs from compression after delay).
-- [x] **AC-006:** Removing an effect from the chain cleans up its audio nodes — no memory leak.
-- [x] **AC-007:** Effects on channel A do not affect channel B.
-- [x] **AC-008:** FX occupies a non-modal, full-width peer tab in the Bottom
-  Workspace. Opening FX from a mixer strip selects that channel and activates
-  FX without hiding the tracker.
-- [x] **AC-008a:** FX provides a labeled internal channel selector, retains its
-  selection across tab changes, and handles selected-channel removal without
-  requiring Mixer to remain visible.
-- [x] **AC-009:** The selected channel shows the complete ordered chain with
-  pointer and keyboard reordering, immediate bypass, an explained add flow,
-  and an explicit four-slot status.
-- [x] **AC-010:** Every continuous parameter is editable with an accessible
-  rotary control, mouse-wheel steps, direct numeric input, keyboard steps,
-  fine adjustment, unit-aware output, and factory reset.
-- [x] **AC-011:** Built-in starting points apply existing effect fields,
-  preserve effect identity and bypass, and become Custom after an edit without
-  changing the persisted mixer wire format.
-- [x] **AC-012:** The compressor editor reports positive gain reduction from
-  the live compressor node and zero while bypassed, without analyser nodes.
-- [x] **AC-013:** Removing an effect offers one six-second Undo that restores
-  its snapshot and original bounded position when restoration remains valid.
-- [x] **AC-014:** Effect menus implement standard dropdown focus/keyboard
-  behavior, and rotary controls support pointer capture, touch, fine adjustment,
-  keyboard operation, and reset through the shared control.
-- [x] **AC-015:** Rotary controls use the project-owned SVG range track, value
-  arc, inset cap, and anchored pointer while preserving direct entry and the
-  complete interaction contract without an external rotary-control dependency.
-- [x] **AC-016:** The FX chain exposes visible signal-direction connectors and
-  explicit enabled/bypassed text; editable controls use one grouped surface,
-  output metering is separate and scaled, explanatory copy is at least 12 px,
-  and all FX interaction targets are at least 44 by 44 CSS pixels.
-- [x] **AC-017:** Reordering the selected effect keeps its card visible inside
-  the horizontal chain, and the compressor output meter spans two control-grid
-  tracks without overflowing its editor at narrow supported widths.
-- [x] **AC-018:** Every FX parameter is a label-first vertical module with its
-  dial or switch, editable value, and explanatory copy on separate aligned
-  rows; help text never continues inline from a value or adjacent control.
-- [x] **AC-019:** Natural end, explicit Stop, and Jump to End leave the active
-  effect graph connected after all source voices stop, producing measurable
-  post-boundary output. Replay after decay reuses that graph without duplicate
-  connections; project replacement and engine close cut remaining tails.
+### Tape Distortion
 
-## Validation Evidence
+Tape Distortion applies the same stereo-symmetric waveshaper after the delay tap and before
+both the
+wet output and feedback recirculation:
 
-- `tmp/verify-samples-fx-layout/evidence.md` records production Chromium
-  geometry and screenshots for the label-first FX modules at wide and narrow
-  widths in Emerald, Rack, and Soft.
-- `src/renderer/src/specs/spec-010-audio-effects.test.ts` verifies DSP node
-  construction, parameter mapping and bounds, real-time parameter updates,
-  tempo sync, ping-pong routing, bypass restoration, ordered graph rebuilds,
-  complete node cleanup, and channel isolation.
-- `src/renderer/src/components/ChannelEffects.test.tsx` and
-  `src/renderer/src/components/EffectsWorkspace.test.tsx`, and
-  `src/renderer/src/hooks/useMixer.test.ts` verify the strip entry point,
-  non-modal editor contract, presets, accessible parameter edits, removal
-  recovery, four-slot cap, reduction state, project-state replacement, and
-  rejection of malformed project slots.
-- `tests/e2e/audio-effects.spec.ts` verifies add, edit, bypass, reorder, selected
-  card visibility, narrow compressor-meter containment, and remove behavior
-  against the production browser bundle.
-- `tests/e2e/project-save-load.spec.ts` verifies that ordered FX chains restore
-  from their project and reset for a new project.
-- `tests/e2e/audio-effects-rendering.spec.ts` bundles the real DSP module into
-  Chromium and uses `OfflineAudioContext` to verify a rendered delay echo,
-  reverb tail, compressor gain reduction and bypass, and order-dependent output.
-  It also mounts the real transport runtime and engine stack to prove Ring Out
-  after natural end, explicit Stop, and Jump to End, plus clean replay through
-  the existing graph. The raw 10ms post-boundary measurements are under
-  `tmp/verify-fx-song-end/`.
-- `tmp/verify-audio-effects/evidence.md` records the built Chromium layout
-  assertions and screenshot.
-- `tmp/verify-fx-workspace-redesign/evidence.md` verifies the project-owned SVG
-  dial geometry, tooltip and edit interactions, 44 px hit targets, grouped
-  editor hierarchy, scaled meter, signal connector, explicit bypass states,
-  all-theme highlight tokens, and the 900 px layout in built Chromium.
-- `tmp/verify-complete-system/evidence.md` verifies Mixer-to-FX channel
-  selection, FX selector state, upper-work visibility, and FX panel geometry
-  across every theme at wide and narrow viewport sizes.
-- `src/renderer/src/components/PlayerView.test.tsx` and
-  `tmp/verify-bottom-workspace/evidence.md` verify the full-width FX tab,
-  persisted workspace selection, internal channel selection, selected-channel
-  removal fallback, and the Mixer-to-FX transition.
-- `src/renderer/src/hooks/useMixer.test.ts` verifies that the live compressor
-  reduction reader is polled through `PlaybackEngine` and that bypassed or
-  removed compressors report no stale reduction. The method is listed in
-  Fallow's `usedClassMembers` because the analyzer does not trace that live
-  call through the React engine ref.
+```text
+delay tap -> tape waveshaper -> wet output
+                          +-> feedback gain -> delay input
+```
+
+- Tape Distortion 0% is an exact identity path; it must not approximate identity with a
+  near-linear curve.
+- Let `a = tapeDistortion / 100` and `d = 1 + 4a`. The stereo-symmetric curve
+  is `y = (1 - a)x + a * tanh(d * x) / d`. Tape Distortion blends smoothly from
+  exact identity at 0% to drive factor 5 at 100%.
+- The division by `d` keeps small-signal loop gain at or below unity. Combined
+  with Feedback's 0.75 cap, Tape Distortion cannot turn the Delay feedback loop into a
+  self-amplifying route.
+- The WaveShaperNode uses `2x` oversampling.
+- Tape Distortion affects both heard repeats and later feedback repeats. It never affects
+  the lane's dry path.
+
+## Return Graph and Limiter
+
+Each of the four return buses owns this independent graph:
+
+```text
+sum of lane sends N
+  -> powered FX module N
+  -> return level N
+  -> safety limiter N
+  -> unchanged Master input
+```
+
+- The limiter is enabled by default and its enabled/bypassed setting is saved
+  per return.
+- Enabled behavior is fixed: ceiling -1 dBFS, 5 ms lookahead, 100 ms release,
+  and stereo-linked gain reduction. These values are not user-editable.
+- Stereo linking applies one gain-reduction envelope to both channels so image
+  position does not shift during limiting.
+- Limiter bypass is fully off: it removes limiting and lookahead latency from
+  that return instead of applying neutral parameters through the limiter.
+- Return level precedes the limiter. The limiter output feeds the existing
+  Master input; it does not replace or modify Song Master processing.
+- Four limited Returns and the dry lanes sum at Master. That sum can exceed
+  -1 dBFS, so the Return limiters are not a guarantee of safe Master level or
+  hearing protection.
+- The limiter owns no visible meter.
+
+## FX Edit Modal
+
+### Transaction and live audition
+
+- Activating an FX container opens a blocking modal for that slot. There is no
+  close `X` and no click-outside dismissal.
+- Opening snapshots the complete saved slot state. Parameter changes update an
+  isolated draft and audition that draft through the live module immediately.
+- **OK** or Enter commits the complete draft as one undoable project edit and
+  closes the modal.
+- **Cancel** or Escape restores the opening snapshot in state and the live
+  graph, discards all draft changes, and closes the modal.
+- Focus is trapped inside the modal and returns to the FX container that opened
+  it after either outcome.
+- The modal uses a Free/Sync segment, horizontal sliders with read-only value
+  text, a Sync division dropdown, a Ping-Pong Off/On control, and Reset,
+  Cancel, and OK actions. It has no typed numeric fields.
+
+### Keyboard contract
+
+- Tab and Shift+Tab move through modal controls without escaping the trap.
+- Left/Right and Down/Up change the focused continuous control. Free time uses
+  10 ms steps; Feedback and Tape Distortion use 1 percentage-point steps. Values clamp to
+  their documented ranges.
+- Home and End set the focused continuous control to its minimum and maximum.
+- Space always toggles the edited slot's Power state. Arrow keys select
+  Free/Sync, Sync division, and Ping-Pong values.
+- Backspace restores the focused setting to its documented default.
+- Ctrl+Backspace restores every Delay setting in the draft to its documented
+  default.
+- Enter activates the focused choice or button. Otherwise it commits OK.
+- Escape always cancels the entire draft.
+
+### Shortcut isolation and Media Session exceptions
+
+While the modal is open, ordinary application and project hotkeys are blocked,
+including transport keyboard shortcuts, save/open/new, undo/redo, deletion,
+and Tracker editing commands. Operating-system Media Session actions are the
+only transport exceptions:
+
+- Previous seeks to tick 0.
+- Play/Pause toggles the current transport state.
+- Next seeks to song end.
+
+These actions do not commit, cancel, reset, or change focus in the modal. Live
+audition continues against the resulting transport position.
+
+## Tail and Lifecycle Rules
+
+- Natural song end, Stop, Pause, Jump to End, and discontinuous seek stop source
+  voices and new send input but leave existing Delay energy connected to ring
+  out.
+- Lane mute/solo gating and FX container Power off also stop new input without
+  cutting an existing tail.
+- Return level changes and limiter bypass changes apply live to existing tails.
+- Clear cuts the selected module's tail immediately.
+- Project replacement, engine close, or AudioContext close disposes all return
+  graphs and cuts all tails.
+- Reopening playback reuses each current module graph without duplicate
+  connections. It may intentionally overlap a tail that is still audible.
+
+## Persistence and Validation
+
+Spec-011 owns the version-4 wire format. It saves exactly four slot records and
+four limiter settings. Each slot saves its stable position, module type,
+container Power, and complete Delay settings when the type is Delay. Empty is
+saved explicitly. Return levels and lane sends are owned by spec-007.
+
+Parsing rejects:
+
+- any slot count other than four;
+- duplicate or out-of-range slot positions;
+- unknown module types or unknown sync divisions;
+- missing settings, non-finite values, or values outside documented ranges;
+- a non-boolean Power or limiter-enabled value; and
+- Delay parameter fields attached to Empty.
+
+Project format version 4 is breaking. Version-3 per-channel insert effects are
+not migrated, imported, or interpreted.
+
+## Black-Box Verification Contract
+
+Each module implementation must be testable behind the same host boundary:
+
+- construct with stereo input/output and current BPM;
+- apply a complete validated settings snapshot;
+- update BPM without replacing saved settings;
+- accept or gate new input independently of tail output;
+- let the Return host enforce wet-only output, including silence for Empty;
+- dispose every owned node and connection; and
+- render deterministically in `OfflineAudioContext` for audible assertions.
+
+Delay verification uses an impulse fixture and checks repeat timing, feedback
+decay, ping-pong alternation, wet-only output, exact Tape Distortion identity at
+0%, increasing harmonic content above 0%, and bounded output at Tape Distortion
+100%. Limiter
+verification uses stereo fixtures to check the -1 dBFS ceiling, lookahead,
+release, stereo linking, and zero limiter latency while bypassed.
+
+## Design Decisions
+
+| Decision | Reason |
+| --- | --- |
+| Four fixed independent slots | The send/return model stays understandable and has no routing editor. |
+| Modules are black boxes | New module types can share one host lifecycle without exposing internal graphs. |
+| Empty is explicit and silent | Saved slot identity is deterministic and cannot leak dry send audio. |
+| Delay output is wet-only | Dry level remains owned by the lane path. |
+| Tape Distortion is inside wet and feedback paths | Saturation evolves across repeats instead of affecting only final output. |
+| Power gates input but preserves tails | Bypass is musical and does not truncate ambience. |
+| Clear disposes immediately | Clear has an unambiguous destructive audio result and remains undoable as data. |
+| Modal edits are transactional with live audition | Users hear changes without committing partial state. |
+| Fixed per-return limiter | Every return has independent protection before it reaches Master. |
+| Media Session actions remain active | Hardware and operating-system transport controls keep their expected role. |
+
+## Acceptance Criteria
+
+- [ ] **AC-001:** The Mixer always renders exactly four independent FX
+  containers after Return, each containing explicit Empty or Delay state.
+- [ ] **AC-002:** Empty produces silence for non-zero sends and creates no
+  audible dry path.
+- [ ] **AC-003:** Delay defaults, ranges, mode-specific retained values,
+  divisions, feedback cap, Tape Distortion, ping-pong, and bypass roundtrip exactly as
+  specified.
+- [ ] **AC-004:** Free and sync timing respond live, sync follows project BPM,
+  and Delay produces stereo wet-only output.
+- [ ] **AC-005:** Tape Distortion 0% is exact identity; positive Tape Distortion increases normalized
+  `tanh` saturation up to drive factor 5 with `2x` oversampling in both wet and
+  feedback paths, and the curve keeps the feedback loop contractive.
+- [ ] **AC-006:** Container Power off stops new input while an existing tail
+  rings; Power on resumes input without resetting settings.
+- [ ] **AC-007:** Clear immediately replaces the module with Empty, cuts its
+  tail, and is one undoable data edit that does not change sends, return level,
+  Power, or limiter setting.
+- [ ] **AC-008:** Each return graph follows module -> return level -> limiter ->
+  unchanged Master, with no crossfeed or dry leakage.
+- [ ] **AC-009:** Enabled limiters enforce a stereo-linked -1 dBFS ceiling with
+  5 ms lookahead and 100 ms release; bypass removes limiting and its latency;
+  enabled state saves independently for all four returns.
+- [ ] **AC-010:** The modal has no close `X`, cannot dismiss outside, traps and
+  restores focus, commits with OK/Enter, and cancels with Cancel/Escape.
+- [ ] **AC-011:** Draft changes audition live; Cancel restores the complete
+  opening snapshot in state and audio; OK commits all draft changes as one
+  undoable edit.
+- [ ] **AC-012:** Every documented keyboard step, toggle, default reset, global
+  reset, minimum, maximum, focus, and shortcut-blocking behavior works without
+  typed numeric input.
+- [ ] **AC-013:** While the modal is open, ordinary application hotkeys are
+  blocked but Media Session Previous, Play/Pause, and Next seek or toggle as
+  specified without changing modal state.
+- [ ] **AC-014:** Stop, Pause, natural end, Jump to End, seek, lane gating, and
+  Power preserve tails; Clear, project replacement, and engine close cut them.
+- [ ] **AC-015:** Format-version-4 parsing and roundtrip enforce exactly four
+  complete valid slots and limiter records and reject version 3 without
+  migration.
+- [ ] **AC-016:** Offline rendered-audio tests prove Delay timing, feedback,
+  ping-pong, wet-only routing, Tape Distortion behavior, limiter ceiling/linking/latency,
+  tail lifecycle, slot isolation, and complete node cleanup.
 
 ## Non-Goals
 
-- No per-lane effects (only per-channel).
-- No send/return or aux bus effects — insert only.
-- No effect presets save/load.
-- No effect automation over time.
-- No external effect plugin support (VST, JSFX, etc.).
-- No spectrum analyzer or EQ visualizer.
-- No side-chain compression.
+- No per-lane insert effects or ordered effect chains.
+- No Reverb, Compressor, third-party plugin, side-chain, automation, preset
+  library, spectrum analyzer, or functional EQ.
+- No user-created FX slots, slot reordering, return crossfeed, or feedback
+  routing.
+- No editable limiter ceiling, lookahead, release, linking, or metering.
+- No project-format-version-3 compatibility or insert-effect migration.

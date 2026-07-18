@@ -14,11 +14,11 @@
 - [Clip bubble](#clip-bubble)
 - [Clip placement](#clip-placement)
 - [Contextual group](#contextual-group)
-- [Effect chain](#effect-chain)
+- [Empty lane](#empty-lane)
 - [External project](#external-project)
 - [FolderRef](#folderref)
 - [FX](#fx)
-- [FX chain](#fx-chain)
+- [FX bus](#fx-bus)
 - [Lane](#lane)
 - [Library](#library)
 - [Library sync](#library-sync)
@@ -32,6 +32,7 @@
 - [Project](#project)
 - [Project BPM](#project-bpm)
 - [Read-only import](#read-only-import)
+- [Return](#return)
 - [Recent Projects rail](#recent-projects-rail)
 - [Sample](#sample)
 - [Sample Browser](#sample-browser)
@@ -48,12 +49,14 @@
 - [Song panel](#song-panel)
 - [Song Progress Bar](#song-progress-bar)
 - [Source duration](#source-duration)
+- [Stereo-pair evidence](#stereo-pair-evidence)
 - [Subcategory](#subcategory)
 - [Tag](#tag)
 - [Theme](#theme)
 - [Track](#track)
 - [Tracker](#tracker)
 - [Transport](#transport)
+- [UI Size](#ui-size)
 - [Transport Ribbon](#transport-ribbon)
 - [User Folder](#user-folder)
 - [Voice](#voice)
@@ -88,7 +91,7 @@ rewrites.
 The project-owned timeline content: [lanes](#lane) and their
 [clip placements](#clip-placement). The [Tracker](#tracker) is the visual
 surface used to edit the arrangement. An arrangement is part of a
-[song](#song), which also owns Song settings, Mixer state, routing, and FX.
+[song](#song), which also owns Song settings and four global FX buses.
 
 ## Arrangement capacity
 
@@ -108,9 +111,10 @@ created by the user. A sample has one primary category and may have additional
 
 ## Channel
 
-Exclusively a mixer signal-processing and routing path. A channel owns mixer
-state such as gain, pan, mute, solo, metering, and effects. It is distinct from
-a [lane](#lane), even when the current default routing is lane N to channel N.
+The Mixer representation and signal path of one [lane](#lane). Every lane has
+exactly one channel, and every channel is derived from exactly one lane. A
+channel cannot be added, deleted, routed, or renamed independently. Its name,
+pan, volume, and four FX Send values are lane-owned project state.
 
 Do not use *channel* for a lane, an audio file's channel count, an active voice,
 or a generic engine route when discussing MixJam product concepts. See
@@ -142,10 +146,11 @@ cohorts across instrument folders. Each group is resolved, mixed, or uncertain.
 Grouping is evidence for
 [analysis clusters](#analysis-cluster), not automatic relabeling.
 
-## Effect chain
+## Empty lane
 
-Use [FX chain](#fx-chain). The two terms name the same ordered processor chain;
-*FX chain* is preferred in compact product and persistence language.
+A [lane](#lane) with no sample events anywhere in the entire [song](#song). In
+this definition, a sample event is a [clip placement](#clip-placement). Lane
+controls, Mixer values, and FX Send values do not make a lane non-empty.
 
 ## External project
 
@@ -163,23 +168,26 @@ resolves a relative path through the referenced handle. See
 
 ## FX
 
-The per-[channel](#channel) insert-effects workflow and its peer panel in the
-[Bottom Workspace](#bottom-workspace). An *FX sample* instead means a source
-audio file whose [sample type](#sample-type) is an effect sound; it remains a
-[sample](#sample), not a signal processor.
+An audio-processing module hosted by one of the four global
+[FX buses](#fx-bus) in the Mixer. An FX module is a black box with an audio
+input and output, its own state, editor, live processor, and tests. An *FX
+sample* instead means a source audio file whose [sample type](#sample-type) is
+an effect sound; it remains a [sample](#sample), not a signal processor.
 
-## FX chain
+## FX bus
 
-The ordered list of insert-effect slots owned by one mixer [channel](#channel).
-Signal flows through the slots in order, and the complete chain is project-owned
-state serialized in the `.mixjam` file. See
+One of four fixed, global send/return paths in the Mixer. Each lane has one
+post-fader, post-pan Send value for each bus. A bus hosts exactly one FX module,
+then a Return level and a fixed optional limiter before it reaches the Master.
+Buses cannot feed one another. See [spec 007](specs/spec-007-mixer.md) and
 [spec 010](specs/spec-010-audio-effects.md).
 
 ## Lane
 
-A horizontal arrangement row in the [Tracker](#tracker). A lane owns clip
-placements and lane-level controls such as mute, solo, and pan.
-Lane state is separate from [channel](#channel) state and mixer routing. See
+A horizontal arrangement row in the [Tracker](#tracker). A lane has a stable
+project identifier and owns its clip placements, name, mute, solo, pan, Mixer
+volume, and four FX Send values. Its array position defines visible order and
+numbering. The derived [channel](#channel) is not separate state. See
 [spec 005](specs/spec-005-audio-playback-engine.md) and
 [spec 006](specs/spec-006-player-timeline-panels.md).
 
@@ -216,7 +224,7 @@ Transport Ribbon. See
 ## Bottom Workspace
 
 The full-width tabbed region below the [Middle Strip](#middle-strip) in the
-[Player](#player). Its peer tabs are Song, Mixer, FX, and Samples. Use *Bottom
+[Player](#player). Its peer tabs are Song, Mixer, and Samples. Use *Bottom
 Workspace* for the shared container; use the individual tab name for the
 workflow shown inside it. See [spec 006](specs/spec-006-player-timeline-panels.md).
 
@@ -289,6 +297,12 @@ app. Its first Save uses Save As and must choose a destination inside the User
 Folder; after that save, it is an ordinary writable project. See
 [spec 011](specs/spec-011-project-save-load.md).
 
+## Return
+
+The output stage of one [FX bus](#fx-bus). It owns a wet-only level and one
+fixed limiter toggle. It has no pan, mute, solo, meter, or Sends. The four
+Returns sum with dry lane output before the unchanged Master path.
+
 ## Recent Projects rail
 
 Use [MixJam Browser](#mixjam-browser). *Recent Projects rail* does not name
@@ -308,8 +322,9 @@ browse `.mixjam` files or define saved [libraries](#library).
 
 ## Sample bubble
 
-The visual snapshot of a sample or WAV file, regardless of context. Every
-sample bubble is 26px high. In a project, its width represents the sample's
+The visual snapshot of a sample or WAV file, regardless of context. Its height
+is 26px, 36px, or 46px at UI Size 32, 44, or 56 respectively. In a project,
+its width represents the sample's
 [musical span](#musical-span) in ticks at the Player's shared pixels-per-tick
 scale, with a 12px minimum. [Project BPM](#project-bpm) changes never move or
 resize placed bubbles: they change how quickly the source audio is rendered
@@ -319,6 +334,14 @@ everywhere in the UI. Placement data and UI context never create a different
 geometry. Drag-image canvases may add transparent padding for shadows, pointer
 offset, or a group badge, but the sample-bubble rectangle inside them keeps the
 shared dimensions.
+
+## UI Size
+
+The app-wide visual scale selected in the footer: 32, 44, or 56. It scales
+controls, interaction targets, lane and sample-bubble height, Mixer components,
+spacing, and supporting type. It does not change musical time, pixels per tick,
+project data, audio, or sample-bubble width. UI Size is app state, not project
+state.
 
 ## Sample Folder
 
@@ -411,6 +434,14 @@ The immutable length of a source audio file in seconds. It remains file
 metadata and may be shown in sample details or used to calculate playback rate.
 Once a [musical span](#musical-span) exists, source duration does not control
 placed geometry or scheduled duration by itself.
+
+## Stereo-pair evidence
+
+Analyzer-owned proof that two mono [samples](#sample) form complementary left
+and right files. It requires an explicit terminal side token plus a matching
+partner, sample rate, and duration. A filename token alone is not evidence.
+Generators may pan a lane away from center only from this persisted evidence.
+See [spec 008](specs/spec-008-sample-analysis.md).
 
 ## Subcategory
 

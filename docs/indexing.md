@@ -108,6 +108,10 @@ Manual fields are never replaced. The worker retains only compact result
 summaries and raw evidence; decoded PCM remains bounded to one sample. After file
 work, it rebuilds the affected root's group summaries and automatic projections
 from persisted raw evidence. Those contextual updates commit atomically.
+After metadata for the root is current, the same analysis transaction validates
+explicit complementary mono L/R or Left/Right filename pairs and persists the
+stereo-pair key and side defined by spec-008. Missing or changed partners clear
+both sides atomically; the generator never derives side evidence itself.
 `analysis-done` refreshes the current windowed query and cluster summaries.
 
 Individual re-analysis uses the same extractor and contextual inference as the

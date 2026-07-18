@@ -31,8 +31,8 @@ than enough for an eJay/Acid-style tracker.
   backed by `BackendAPI.readSampleBytes(rootId, relpath)` — a read through the
   Sample Folder's File System Access handle, so reads cannot escape the granted
   folder (see [architecture.md](architecture.md#process-model)).
-- Each voice is a fresh `AudioBufferSourceNode` (they are one-shot) routed through a
-  per-lane gain/pan node into the master bus.
+- Each voice is a fresh `AudioBufferSourceNode` (they are one-shot) routed through
+  its lane path and the shared send/return graph.
 
 ### Automatic clip-edge micro-fades
 
@@ -99,38 +99,76 @@ than enough for an eJay/Acid-style tracker.
   no preview timing reference plays at native rate; once placed, Tracker
   playback is governed by the placement span instead.
 
-## Per-channel insert effects
+## Lane, Send, and Return graph
 
-Each mixer channel has a stable input and output around an ordered chain of up
-to four Web Audio processors. The signal route is channel gain and pan, then
-the ordered effects, then the channel analyser and master bus. Rebuilding a
-chain does not reconnect active voices because they target the stable channel
-input. Replaced and removed processors disconnect every node they own.
+Each lane has one stable input and a project-owned volume and pan stage. The
+post-fader, post-pan output splits into the dry Master route and four independent
+Send gains. Each Send is linear from 0 through 100 percent and defaults to zero.
+One gate controls both the dry route and new Send input:
+`anySolo ? lane.solo : !lane.muted`. Solo therefore overrides mute. Audio
+already inside an FX processor continues its tail after mute or solo changes.
 
-The renderer supplies the playback module with one complete project-owned
-channel snapshot after a Mixer edit or project replacement. Playback owns the
-atomic reconciliation order: remove missing channels, restore present channels,
-apply gain, pan, and FX, then calculate final mute/solo gating. React state
-updaters never mutate the Web Audio graph or replay individual fields in order.
+Each Send feeds its matching global FX bus. The four buses are fixed, parallel,
+and cannot feed themselves or one another:
 
-- Delay uses dry/wet gain paths, `DelayNode` feedback whose 1.0 control value
-  maps to stable near-unity feedback, optional
-  quarter/eighth/sixteenth-note tempo sync, and a dual-delay stereo feedback
-  loop for ping-pong mode.
-- Reverb uses a generated two-channel impulse in a `ConvolverNode`; room size
-  changes impulse energy and decay changes its duration and envelope.
-- Compression maps the documented controls onto `DynamicsCompressorNode` and
-  follows it with a linear makeup-gain stage. Its processor exposes the native
-  node's negative `reduction` reading as a positive dB value through the
-  channel, audio-engine, and playback-engine facades. The mixer's existing
-  animation-frame meter loop reads that property for compressor effect ids;
-  bypass and missing processors return zero and no additional analyser is
-  inserted into the signal graph.
-- Bypass constructs a direct input-to-output route for that slot, so disabling
-  DSP also removes its feedback or convolution nodes from the live graph.
+```text
+lane voice -> lane volume -> lane pan -> dry ---------------------------> Master
+                                      +-> Send 1 -> FX 1 -> Return level
+                                                           -> limiter --> Master
+                                      +-> Send 2 -> FX 2 -> Return level
+                                                           -> limiter --> Master
+                                      +-> Send 3 -> FX 3 -> Return level
+                                                           -> limiter --> Master
+                                      +-> Send 4 -> FX 4 -> Return level
+                                                           -> limiter --> Master
+```
 
-Effect definitions live in project-owned mixer state and persist with gain,
-pan, mute, and solo in the active `.mixjam` file.
+Return processors are wet-only. Their level is linear from 0 through 100
+percent and defaults to 100 percent. Each Return then passes through its own
+optional fixed limiter. The limiter defaults on and uses a -1 dBFS ceiling,
+5 ms lookahead, 100 ms release, and stereo-linked peak detection. Bypass removes
+that limiter from the route. The four limited Returns and all dry lanes sum
+before the existing Master gain and meter. This is not a Master limiter: the
+sum can still exceed -1 dBFS.
+
+Playback consumes one complete project snapshot and atomically reconciles lane
+paths and the four buses. React state updaters never mutate the Web Audio graph
+or replay individual fields in order. Removing a lane disconnects every node it
+owns. Clearing an FX bus immediately replaces it with Empty and cuts its active
+tail. Powering a populated module off blocks new input but lets its existing tail
+finish.
+
+## Modular FX processors
+
+An FX module is a black box with a stable type, display metadata, defaults,
+validation, editor, summary, processor, live-update behavior, tail policy, and
+tests. The Return host provides input, output, level, limiter, lifecycle, and
+persistence. A module cannot reach another bus or the Master directly.
+
+`Empty` is the identity processor with no latency. The host gates an Empty bus
+to silence so a nonzero Send cannot duplicate the dry signal. Delay is the only
+other module in this phase. It is wet-only and has no Mix parameter:
+
+- Free time is 0 through 2000 ms. Tempo-sync divisions are `1/4`, `1/8`,
+  `1/16`, `1/8T`, and `1/16T`. Switching modes preserves the last value in
+  each mode.
+- Feedback is 0 through 75 percent and defaults to 35 percent.
+- Tape Distortion is 0 through 100 percent and defaults to zero. With
+  `a = tapeDistortion / 100` and `d = 1 + 4a`, it uses
+  `y = (1 - a)x + a * tanh(d * x) / d`. Zero is exact identity, 100 percent
+  reaches drive factor 5, and the loop's small-signal gain does not increase.
+  Processing uses 2x oversampling and applies the same curve to both stereo
+  channels without changing pan.
+- Tape Distortion follows the delay and precedes wet output and feedback. It
+  therefore colors both the first echo and accumulated repeats.
+- Ping-Pong defaults off and uses a stereo feedback loop when enabled.
+- A new Delay defaults to Free mode at 375 ms, with `1/8` retained as its saved
+  sync division, and is powered on.
+
+The Web Audio `WaveShaperNode` contract defines the distortion curve and
+oversampling behavior. The `tanh` transfer is the basic saturating nonlinearity
+used here; see the [Web Audio specification](https://webaudio.github.io/web-audio-api/#WaveShaperNode)
+and the [DAFx soft-clipping reference](https://dafx12.york.ac.uk/papers/dafx12_submission_45.pdf).
 
 ## Master loudness metering
 
@@ -156,9 +194,20 @@ session. Stop freezes the final values. A new start from tick zero, project
 replacement, explicit reset, or discontinuous seek/skip resets Integrated LUFS
 and Loudness Range; Momentary and Short-term readings continue after reset.
 
-The 16 channel meters remain lightweight post-channel RMS dBFS meters with
-peak hold. Standards-based programme loudness is measured only on the stereo
-master bus.
+Lane channel meters remain lightweight post-fader, post-pan RMS dBFS meters
+with peak hold. Returns have no meters. Standards-based programme loudness is
+measured only on the stereo Master bus.
+
+## OS media actions
+
+The renderer registers Media Session action handlers. `previoustrack` seeks to
+tick zero, play and pause toggle transport, and `nexttrack` seeks to song end.
+These actions remain available while a blocking modal is open and while MixJam
+is in the background when the operating system selects its media session. All
+ordinary app and transport shortcuts remain blocked by a modal. The Electron
+shell does not use `globalShortcut` for media keys. See the
+[Media Session API](https://developer.mozilla.org/en-US/docs/Web/API/MediaSession/setActionHandler)
+and [Electron globalShortcut documentation](https://www.electronjs.org/docs/latest/api/global-shortcut).
 
 ## Native-addon escape hatch — when to leave Web Audio
 
