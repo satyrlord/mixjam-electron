@@ -6,7 +6,7 @@ import type { AppState } from './useAppState'
 const CURRENT_GENERATOR: ProjectGeneratorMetadata = {
   generatorVersion: 1,
   profileId: 'techno',
-  profileVersion: 1,
+  profileVersion: 2,
   seed: 'coverage-seed',
   parameters: {
     bpmMode: 'fixed',
@@ -64,7 +64,7 @@ describe('createPlayerViewModel', () => {
     const stale = createPlayerViewModel({
       selectedSampleDetail: null,
       selectedTagIds: [],
-      projectGenerator: { ...CURRENT_GENERATOR, profileVersion: 2 }
+      projectGenerator: { ...CURRENT_GENERATOR, profileVersion: 1 }
     } as unknown as AppState)
 
     expect(current.browser.selectedSamplePath).toBe('Drums/Kick.wav')

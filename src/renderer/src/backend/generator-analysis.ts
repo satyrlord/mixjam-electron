@@ -39,6 +39,8 @@ export interface GeneratorAnalysisProgress {
 
 const PERCUSSIVE_TYPES = new Set<SampleType>(['Kick', 'Snare', 'Hi-hat', 'Percussion'])
 const TONAL_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop'])
+const RISER_NAME = /(?:^|[\s_.-])(?:riser?|swish(?:es)?|sweep(?:er)?|whoosh(?:es)?|swoosh(?:es)?|uplift(?:er)?|reverse)(?:[lr])?(?:[\s_.-]|$)/i
+const IMPACT_NAME = /(?:^|[\s_.-])(?:impact|hit|crash|slam(?:mer)?|boom(?:er)?|drop|downlift)(?:[lr])?(?:[\s_.-]|$)/i
 
 function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.max(minimum, Math.min(maximum, Number.isFinite(value) ? value : minimum))
@@ -91,39 +93,54 @@ function shortlistCandidates(
         return hashDifference || compareCodeUnits(left.relpath, right.relpath)
       })
   })
+  const categoryNames = [...new Set(candidates.map((candidate) => candidate.categoryName))]
+    .sort(compareCodeUnits)
+  const categoryQueues = categoryNames.map((categoryName) => [...candidates]
+    .filter((candidate) => candidate.categoryName === categoryName && profile.lanes.some((lane) =>
+      lane.types.includes(candidate.sampleType) &&
+      generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
+    ))
+    .sort((left, right) => {
+      const roleSeed = `${parameters.seed}:${profile.id}:${profile.version}:category-${categoryName}`
+      const hashDifference = hashText(`${roleSeed}:${left.relpath}`) - hashText(`${roleSeed}:${right.relpath}`)
+      return hashDifference || compareCodeUnits(left.relpath, right.relpath)
+    }))
 
   const result: ShortlistedCandidate[] = []
   const seen = new Set<string>()
-  const positions = queues.map(() => 0)
-  const addQueueGroup = (queueIndexes: readonly number[]): void => {
-    let advanced = true
-    while (result.length < MAX_GENERATOR_ATTEMPTS && advanced) {
-      advanced = false
-      for (const queueIndex of queueIndexes) {
-        if (result.length >= MAX_GENERATOR_ATTEMPTS) break
-        const queue = queues[queueIndex]!
-        while (positions[queueIndex]! < queue.length) {
-          const candidate = queue[positions[queueIndex]!]!
-          positions[queueIndex] = positions[queueIndex]! + 1
-          advanced = true
-          if (seen.has(candidate.relpath)) continue
-          seen.add(candidate.relpath)
-          const eligibleLaneIndexes = profile.lanes.flatMap((lane, laneIndex) =>
-            lane.types.includes(candidate.sampleType) &&
-            generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
-              ? [laneIndex]
-              : []
-          )
-          result.push({ candidate, eligibleLaneIndexes })
-          break
-        }
+  const allQueues = [...queues, ...categoryQueues]
+  const positions = allQueues.map(() => 0)
+  const addQueuePass = (queueIndexes: readonly number[]): boolean => {
+    let advanced = false
+    for (const queueIndex of queueIndexes) {
+      if (result.length >= MAX_GENERATOR_ATTEMPTS) break
+      const queue = allQueues[queueIndex]!
+      while (positions[queueIndex]! < queue.length) {
+        const candidate = queue[positions[queueIndex]!]!
+        positions[queueIndex] = positions[queueIndex]! + 1
+        if (seen.has(candidate.relpath)) continue
+        seen.add(candidate.relpath)
+        const eligibleLaneIndexes = profile.lanes.flatMap((lane, laneIndex) =>
+          lane.types.includes(candidate.sampleType) &&
+          generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
+            ? [laneIndex]
+            : []
+        )
+        result.push({ candidate, eligibleLaneIndexes })
+        advanced = true
+        break
       }
     }
+    return advanced
   }
   const coreQueueIndexes = laneOrder.flatMap((laneIndex, queueIndex) => core.has(laneIndex) ? [queueIndex] : [])
-  const optionalQueueIndexes = laneOrder.flatMap((laneIndex, queueIndex) => core.has(laneIndex) ? [] : [queueIndex])
-  addQueueGroup(coreQueueIndexes)
-  addQueueGroup(optionalQueueIndexes)
+  const laneQueueIndexes = queues.map((_, index) => index)
+  const categoryQueueIndexes = categoryQueues.map((_, index) => queues.length + index)
+  addQueuePass(coreQueueIndexes)
+  addQueuePass(categoryQueueIndexes)
+  while (result.length < MAX_GENERATOR_ATTEMPTS && addQueuePass(laneQueueIndexes)) {
+    addQueuePass(categoryQueueIndexes)
+  }
   return result
 }
 
@@ -210,6 +227,12 @@ function plannerKind(
   if (PERCUSSIVE_TYPES.has(candidate.sampleType) && durationSeconds <= 2.5) return 'one-shot'
   if (candidate.sampleType === 'Vocal') return 'vocal'
   if (candidate.sampleType === 'Atmosphere') return 'atmosphere'
+  if ((candidate.sampleType === 'FX' || candidate.sampleType === 'Other') && RISER_NAME.test(candidate.filename)) {
+    return 'riser'
+  }
+  if ((candidate.sampleType === 'FX' || candidate.sampleType === 'Other') && IMPACT_NAME.test(candidate.filename)) {
+    return 'impact'
+  }
   if ((candidate.sampleType === 'FX' || candidate.sampleType === 'Other') && metrics.energySlope > 0.35) return 'riser'
   if ((candidate.sampleType === 'FX' || candidate.sampleType === 'Other') && metrics.attackStrength > 0.45) return 'impact'
   if (candidate.sampleType === 'Loop' && (metrics.rhythmicRegularity > 0.45 || metrics.transientDensity > 0.04)) {
@@ -265,11 +288,11 @@ export async function analyzeGeneratorCandidates(
   const profile = GENERATOR_PROFILES[parameters.profileId]
   const bpm = parameters.bpmMode === 'fixed' ? parameters.bpm! : detectedGeneratorBpm(candidates)
   const analyzed: AnalyzedGeneratorCandidate[] = []
-  const missingCoreLanes = new Set(profile.coreLanes)
+  const missingLanes = new Set(shortlist.flatMap((entry) => entry.eligibleLaneIndexes))
+  const missingCategories = new Set(shortlist.map((entry) => entry.candidate.categoryName))
   let attempts = 0
   for (const { candidate, eligibleLaneIndexes } of shortlist) {
-    if (attempts >= MAX_GENERATOR_ATTEMPTS ||
-        (analyzed.length >= MAX_GENERATOR_ANALYSES && missingCoreLanes.size === 0)) break
+    if (attempts >= MAX_GENERATOR_ATTEMPTS || analyzed.length >= MAX_GENERATOR_ANALYSES) break
     if (!isCurrent()) throw cancellationError()
     attempts++
     try {
@@ -285,12 +308,18 @@ export async function analyzeGeneratorCandidates(
             const lane = profile.lanes[laneIndex]!
             return generatorCandidateMatchesLane(enriched, lane, enriched.sampleType, bpm)
           })
-          const newlyFilledCoreLanes = compatibleLaneIndexes.filter((laneIndex) => missingCoreLanes.has(laneIndex))
-          const reservedCapacity = missingCoreLanes.size
+          const newlyFilledLanes = compatibleLaneIndexes.filter((laneIndex) => missingLanes.has(laneIndex))
+          const fillsCategory = missingCategories.has(enriched.categoryName)
+          const reservedCapacity = Math.min(
+            MAX_GENERATOR_ANALYSES,
+            missingLanes.size + missingCategories.size
+          )
           if (compatibleLaneIndexes.length > 0 &&
-              (newlyFilledCoreLanes.length > 0 || analyzed.length < MAX_GENERATOR_ANALYSES - reservedCapacity)) {
+              (newlyFilledLanes.length > 0 || fillsCategory ||
+                analyzed.length < MAX_GENERATOR_ANALYSES - reservedCapacity)) {
             analyzed.push(enriched)
-            for (const laneIndex of newlyFilledCoreLanes) missingCoreLanes.delete(laneIndex)
+            for (const laneIndex of newlyFilledLanes) missingLanes.delete(laneIndex)
+            if (fillsCategory) missingCategories.delete(enriched.categoryName)
           }
         }
       }

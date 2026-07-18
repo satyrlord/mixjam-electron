@@ -193,8 +193,10 @@ to four bars. Rhythmic and tonal loops are eligible only when their standard
 placement-span calculation resolves to exactly 1, 2, 4, or 8 bars. Atmosphere
 and texture roles may cross one eight-bar phrase but must fit inside their
 section. The generator never trims or invents a source span. When compatible
-material longer than four bars exists, every successful plan places at least one
-such source at its complete span.
+material longer than four bars has a legal window in the quantized song, every
+successful plan places at least one such source at its complete span. Short
+songs use a shorter compatible fallback when the long source cannot fit any
+profile-approved section.
 
 Bass, Synth, Loop, Vocal, and Atmosphere roles use the selected song key.
 Exact-key matches rank above relative major/minor matches and unknown keys.
@@ -239,7 +241,9 @@ category that has not yet received a compatible decoded candidate, so abundant
 core material cannot starve support lanes or smaller categories after earlier
 read, decode, or planner-kind failures. A failure advances to the next
 deterministic candidate. Failure to fill any lane after the bounded search
-aborts before save.
+aborts before save. The 64-analysis limit is absolute; when more categories are
+encountered, the retained analyzed set defines the categories eligible for the
+plan.
 
 The transient analysis records no database state. It derives only the neutral
 values needed by the planner:
@@ -261,7 +265,9 @@ before audio-metric fallback. Riser vocabulary includes `rise`, `riser`, `swish`
 `swishes`, `sweep`, `sweeper`, `whoosh`, `swoosh`, `uplifter`, and `reverse`;
 impact vocabulary includes `impact`, `hit`, `crash`, `slam`, `slammer`, `boom`,
 `boomer`, `drop`, and `downlift`. Matching uses filename-token boundaries, so a
-word such as `sunrise` is not treated as the token `rise`.
+word such as `sunrise` is not treated as the token `rise`. A final attached or
+separated stereo-side suffix does not hide a token, so names such as `crashr`
+and `swish-1l` retain their transition meaning.
 
 ### Phrase grammar
 
@@ -273,8 +279,9 @@ the engine contains no genre-name branches.
 The shared role rules are:
 
 - Kick, Snare/Clap, Hi-hat, and Percussion use explicit beat-grid patterns with
-  lane-local sample rotation, alternating B-pattern bars, and a final-bar fill.
-  They are never continuous section-length tiles.
+  lane-local sample rotation and alternating B-pattern bars. High intensity adds
+  the final-bar fill. They are never continuous section-length tiles, and
+  coverage repair uses the same permitted beat offsets.
 - Drum alternate, Bass, Loop, and Synth roles use reusable A/B phrase material.
   Compatible samples tile at their complete source span within an active phrase,
   and different lanes do not share one lockstep candidate index.
@@ -399,9 +406,10 @@ save; any now-unreadable selection aborts the transaction. Missing material for
 any lane produces a clear error. Compatible secondary types may supplement
 primary types for variety, and every used secondary type is reported in the
 Generate result. Transition roles prefer a matching analyzed riser or impact; a
-typed FX candidate may provide the same boundary event when transient scoring
-does not label it confidently, while `Other` still requires the matching
-planner kind. Stereo pairs use the existing naming
+typed FX candidate classified as texture may provide the same boundary event
+when transient scoring does not label it confidently. A known opposite
+transition kind is rejected, and `Other` still requires the matching planner
+kind. Stereo pairs use the existing naming
 convention discovery and remain adjacent when a profile requests them.
 
 ### Arrangement and mixer generation
@@ -581,7 +589,7 @@ command.
   work begins.
 - [x] **AC-018:** Techno, trance, and house plans satisfy their phrase contracts:
   lane-local beat-grid percussion, phrase-tiled drum/bass/loop/synth material,
-  bounded unchanged repetition, profile-specific A/B motifs, rests, fills, a
+  bounded unchanged repetition, profile-specific A/B motifs, rests, high-only fills, a
   lower-density breakdown, a motif return, two populated boundary-transition
   lanes, and a restored peak. Low intensity emits only A/rest phrase metadata,
   every intensity uses all lanes across the song, and exact-end anchoring never
@@ -589,12 +597,14 @@ command.
 - [x] **AC-019:** Tonal lanes contain no incompatible known-key selections;
   enharmonic sharp/flat spellings compare consistently; primary percussive roles
   fit inside one beat; loop roles resolve to exact whole-bar spans; available
-  compatible material longer than four bars is placed at its full span;
+  compatible material longer than four bars with a legal song window is placed
+  at its full span;
   transient RMS compensation stays within plus or minus 6 dB and final gain
   stays within 0–1.
 - [x] **AC-020:** Every generator candidate retains its primary organizational
-  category. Every category with compatible material in the bounded analyzed set
-  appears in the arrangement without being treated as an acoustic type. Every
+  category. Every category with compatible material and a legal placement
+  window in the bounded analyzed set appears in the arrangement without being
+  treated as an acoustic type. Every
   generated placement stores a valid palette slot from 0 through 8, the slot
   participates in the corpus fingerprint, and built Chromium proves Tracker
   bubbles match Sample Browser colors and recolor correctly after a theme
@@ -619,9 +629,10 @@ command.
 - `backend/generator-engine.ts` owns pure deterministic section, phrase,
   placement, Mixer, FX, compatibility, and gain planning.
   `generator-engine.test.ts` contains focused coverage for all three profiles,
-  all-lane and all-category use, long-form placement, richer sample rotation,
-  seed behavior, phrase structure, key rejection, exact song end, and gain
-  bounds.
+  all-lane and all-category use, 30-second fallback, long-form placement,
+  transition-kind separation, intensity behavior, legal coverage grids, richer
+  sample rotation, seed behavior, phrase structure, key rejection, exact song
+  end, and gain bounds.
 - `backend/generator-parameters.ts` validates the complete request before worker
   I/O. `backend/musical-key.ts` owns enharmonic parsing shared by manual analysis
   validation and generator compatibility.
@@ -635,9 +646,9 @@ command.
   corpus fingerprint, bounded analysis counts, production-parser roundtrips,
   exact 3,360-tick ends, zero missing references, browser screenshots, playback
   proof, and cross-theme palette sampling. The profile-v2 structural rerun uses
-  all 16 lanes and all 11 current categories in each profile, reaches nine or
-  ten-bar source spans, and uses 38–42 distinct files. Human listening sign-off
-  and a fresh profile-v2 browser rerun remain pending.
+  all 16 lanes and all 11 current categories in each profile, reaches 9.25- or
+  10-bar source spans, and uses 37–40 distinct files. Human listening sign-off
+  remains pending.
 
 ## Validation
 

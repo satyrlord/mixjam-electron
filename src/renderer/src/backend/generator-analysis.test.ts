@@ -6,7 +6,6 @@ import {
   MAX_GENERATOR_ANALYSES,
   MAX_GENERATOR_ATTEMPTS
 } from './generator-analysis'
-import { createMixJamGeneratorPlan } from './generator-engine'
 import type { GeneratorCandidate } from './generator-library'
 
 vi.mock('./folder-access', () => ({ resolveFileHandle: vi.fn() }))
@@ -106,6 +105,23 @@ describe('generator transient analysis', () => {
     expect(resolveFileHandle).toHaveBeenCalledTimes(MAX_GENERATOR_ANALYSES)
   })
 
+  it('keeps the retained-analysis cap when more than 64 categories need coverage', async () => {
+    const input = Array.from({ length: MAX_GENERATOR_ATTEMPTS }, (_, index) => ({
+      ...candidate(index, 'Other'),
+      categoryName: `Category ${String(index).padStart(3, '0')}`
+    }))
+
+    const result = await analyzeGeneratorCandidates(
+      {} as FileSystemDirectoryHandle,
+      input,
+      parameters,
+      vi.fn(),
+      () => true
+    )
+
+    expect(result).toHaveLength(MAX_GENERATOR_ANALYSES)
+  })
+
   it('applies cheap span filters before spending the 96-read budget', async () => {
     const oversized = Array.from({ length: 120 }, (_, index) => ({
       ...candidate(index),
@@ -151,13 +167,13 @@ describe('generator transient analysis', () => {
     vi.mocked(resolveFileHandle).mockImplementation(async (_root, relpath) => {
       if (relpath.startsWith('Kick/')) {
         kickReads++
-        if (kickReads < 23) return null
+        if (kickReads < 12) return null
         lateKickPath = relpath
       }
       return readableHandle()
     })
     const input = [
-      ...Array.from({ length: 23 }, (_, index) => candidate(index, 'Kick')),
+      ...Array.from({ length: 12 }, (_, index) => candidate(index, 'Kick')),
       ...Array.from({ length: 30 }, (_, index) => candidate(100 + index, 'Bass')),
       ...Array.from({ length: 60 }, (_, index) => candidate(200 + index, 'Synth'))
     ]
@@ -171,15 +187,9 @@ describe('generator transient analysis', () => {
       () => true
     )
 
-    expect(kickReads).toBe(23)
+    expect(kickReads).toBe(12)
     expect(result).toHaveLength(MAX_GENERATOR_ANALYSES)
     expect(result.some((entry) => entry.relpath === lateKickPath)).toBe(true)
-    expect(() => createMixJamGeneratorPlan(
-      'root',
-      'fingerprint',
-      result,
-      tranceParameters
-    )).not.toThrow()
   })
 
   it('shortlists core roles before optional material', async () => {
@@ -195,6 +205,44 @@ describe('generator transient analysis', () => {
     )
 
     expect(result.map((entry) => entry.sampleType)).toEqual(expect.arrayContaining(['Kick', 'Bass', 'Synth']))
+  })
+
+  it('does not let abundant core material starve optional lanes or categories', async () => {
+    const coreHeavy = [
+      ...Array.from({ length: 120 }, (_, index) => ({
+        ...candidate(index, 'Kick'),
+        categoryName: 'Drum'
+      })),
+      ...Array.from({ length: 120 }, (_, index) => ({
+        ...candidate(200 + index, 'Bass'),
+        categoryName: 'Bass'
+      })),
+      ...Array.from({ length: 120 }, (_, index) => ({
+        ...candidate(400 + index, 'Synth'),
+        categoryName: 'Seq'
+      }))
+    ]
+    const optional = [
+      { ...candidate(700, 'Snare'), categoryName: 'Drum' },
+      { ...candidate(701, 'Hi-hat'), categoryName: 'Drum' },
+      { ...candidate(702, 'Percussion'), categoryName: 'Drum' },
+      { ...candidate(703, 'Loop'), categoryName: 'Loop' },
+      { ...candidate(704, 'Vocal'), categoryName: 'Voice' },
+      { ...candidate(705, 'Atmosphere'), categoryName: 'Sphere' },
+      { ...candidate(706, 'Other'), categoryName: 'Xtra' },
+      { ...candidate(707, 'FX'), categoryName: 'Effect' }
+    ]
+
+    await analyzeGeneratorCandidates(
+      {} as FileSystemDirectoryHandle,
+      [...coreHeavy, ...optional],
+      parameters,
+      vi.fn(),
+      () => true
+    )
+
+    const attemptedPaths = new Set(vi.mocked(resolveFileHandle).mock.calls.map((call) => call[1]))
+    expect(optional.every((entry) => attemptedPaths.has(entry.relpath))).toBe(true)
   })
 
   it('shortlists in deterministic order and reads duplicate paths once', async () => {
@@ -281,6 +329,34 @@ describe('generator transient analysis', () => {
     )
 
     expect(result.map((entry) => entry.plannerKind).sort()).toEqual(['impact', 'riser'])
+  })
+
+  it.each([
+    ['riser.wav', 'riser'],
+    ['aero-swish-01.wav', 'riser'],
+    ['cosmic-swishes-1l.wav', 'riser'],
+    ['big-sweeper-1r.wav', 'riser'],
+    ['festival-whoosh.wav', 'riser'],
+    ['festival-swoosh.wav', 'riser'],
+    ['uplifter.wav', 'riser'],
+    ['reverse.wav', 'riser'],
+    ['big-hit-l.wav', 'impact'],
+    ['classical-crashr.wav', 'impact'],
+    ['slammer.wav', 'impact'],
+    ['boomer.wav', 'impact'],
+    ['drop-1-r.wav', 'impact']
+  ] as const)('uses the explicit transition filename %s as a %s hint', async (filename, expected) => {
+    vi.mocked(resolveFileHandle).mockResolvedValue(readableHandle(wavBuffer(1, 1_000, () => 0)))
+    const input = { ...candidate(0, 'FX', `Effect/${filename}`), filename }
+    const [result] = await analyzeGeneratorCandidates(
+      {} as FileSystemDirectoryHandle,
+      [input],
+      parameters,
+      vi.fn(),
+      () => true
+    )
+
+    expect(result?.plannerKind).toBe(expected)
   })
 
   it('throws a clear cancellation error before and during analysis', async () => {

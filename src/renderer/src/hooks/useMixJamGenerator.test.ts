@@ -26,7 +26,7 @@ const SECOND_SAMPLE_FOLDER = { id: 'second-sample-folder', name: 'Other Samples'
 const PLAN: MixJamGeneratorPlan = {
   generatorVersion: 1,
   profileId: 'techno',
-  profileVersion: 1,
+  profileVersion: 2,
   seed: PARAMETERS.seed,
   parameters: {
     bpmMode: 'fixed',
@@ -162,7 +162,7 @@ describe('useMixJamGenerator', () => {
       projectGenerator: {
         generatorVersion: 1,
         profileId: 'techno',
-        profileVersion: 1,
+        profileVersion: 2,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: PARAMETERS.bpmMode,
@@ -195,7 +195,7 @@ describe('useMixJamGenerator', () => {
       projectGenerator: {
         generatorVersion: 2,
         profileId: 'techno',
-        profileVersion: 1,
+        profileVersion: 2,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: PARAMETERS.bpmMode,
@@ -310,7 +310,7 @@ describe('useMixJamGenerator', () => {
       projectGenerator: {
         generatorVersion: 1,
         profileId: 'techno',
-        profileVersion: 1,
+        profileVersion: 2,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: 'fixed',

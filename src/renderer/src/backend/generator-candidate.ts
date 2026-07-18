@@ -25,7 +25,9 @@ export function generatorCandidateMatchesLane(
   if (span > lane.maxBars * TICKS_PER_BAR) return false
   if (lane.maxBeats !== undefined && span > lane.maxBeats * TICKS_PER_BEAT) return false
   if (lane.role === 'percussion' && candidate.plannerKind !== undefined && candidate.plannerKind !== 'one-shot') return false
-  if (lane.role === 'transition' && candidate.plannerKind !== undefined && candidate.plannerKind !== lane.transitionKind) return false
+  if (lane.role === 'transition' && candidate.plannerKind !== undefined &&
+      candidate.plannerKind !== lane.transitionKind &&
+      !(candidate.sampleType === 'FX' && candidate.plannerKind === 'texture')) return false
   if ((type === 'Loop' || type === 'Synth') && !WHOLE_BAR_SPANS.has(span)) return false
   return true
 }

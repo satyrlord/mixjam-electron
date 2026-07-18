@@ -162,10 +162,10 @@ export type MixJamGeneratorIntensity = 'low' | 'medium' | 'high'
 export type MixJamGeneratorBpmMode = 'follow-detected' | 'fixed'
 
 export const MIXJAM_GENERATOR_VERSION = 1 as const
-export const MIXJAM_GENERATOR_PROFILE_VERSIONS: Record<MixJamGeneratorProfileId, 1> = {
-  techno: 1,
-  trance: 1,
-  house: 1
+export const MIXJAM_GENERATOR_PROFILE_VERSIONS: Record<MixJamGeneratorProfileId, 2> = {
+  techno: 2,
+  trance: 2,
+  house: 2
 }
 export const SAFE_GENERATOR_TOKEN = /^[A-Za-z0-9_-]+$/
 export const SAFE_SEED = /^[A-Za-z0-9_-]{1,64}$/
@@ -281,7 +281,7 @@ export interface MixJamGeneratorSelectionPlan {
 export interface MixJamGeneratorPlan {
   generatorVersion: 1
   profileId: MixJamGeneratorProfileId
-  profileVersion: 1
+  profileVersion: 2
   seed: string
   parameters: {
     bpmMode: MixJamGeneratorBpmMode

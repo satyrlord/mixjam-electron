@@ -6,7 +6,7 @@ import { parseProject, serializeProject } from './project-file'
 const plan: MixJamGeneratorPlan = {
   generatorVersion: 1,
   profileId: 'techno',
-  profileVersion: 1,
+  profileVersion: 2,
   seed: 'seed',
   parameters: { bpmMode: 'fixed', resolvedBpm: 140, intensity: 'medium', durationSeconds: 180 },
   corpusFingerprint: 'abc123',

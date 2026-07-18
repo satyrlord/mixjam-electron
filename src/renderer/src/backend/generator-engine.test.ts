@@ -7,7 +7,9 @@ import type {
 } from '../../../shared/backend-api'
 import { TICKS_PER_BAR } from '../engine/transport'
 import type { AnalyzedGeneratorCandidate, GeneratorPlannerKind } from './generator-analysis'
+import { generatorCandidateMatchesLane } from './generator-candidate'
 import { createMixJamGeneratorPlan } from './generator-engine'
+import { GENERATOR_PROFILES } from './generator-profiles'
 
 const BPM = 140
 const TICKS_PER_BEAT = TICKS_PER_BAR / 4
@@ -95,6 +97,47 @@ const candidates = [
   candidate(type as SampleType, typeIndex * 2 + index)
 ))
 
+const categoryRichCandidates = [
+  ...(['Kick', 'Snare', 'Hi-hat', 'Percussion'] as const).flatMap((type, typeIndex) =>
+    Array.from({ length: 4 }, (_, index) => candidate(type, 100 + typeIndex * 10 + index, {
+      categoryName: 'Drum',
+      paletteSlot: 1
+    }))
+  ),
+  ...Array.from({ length: 4 }, (_, index) => candidate('Bass', 200 + index, {
+    categoryName: 'Bass',
+    paletteSlot: 2
+  })),
+  ...Array.from({ length: 4 }, (_, index) => candidate('Loop', 300 + index, {
+    categoryName: 'Loop',
+    paletteSlot: 3
+  })),
+  ...Array.from({ length: 9 }, (_, index) => candidate('Synth', 400 + index, {
+    categoryName: ['Keys', 'Layer', 'Seq'][index % 3]!,
+    paletteSlot: 4 + index % 3
+  })),
+  ...Array.from({ length: 6 }, (_, index) => candidate('Vocal', 500 + index, {
+    categoryName: index % 2 === 0 ? 'Rap' : 'Voice',
+    paletteSlot: index % 2 === 0 ? 7 : 8
+  })),
+  ...Array.from({ length: 4 }, (_, index) => candidate('Atmosphere', 600 + index, {
+    categoryName: 'Sphere',
+    duration: durationForTicks(10 * TICKS_PER_BAR),
+    paletteSlot: 0,
+    plannerKind: 'atmosphere'
+  })),
+  ...Array.from({ length: 8 }, (_, index) => candidate('FX', 700 + index, {
+    categoryName: 'Effect',
+    paletteSlot: 1,
+    plannerKind: index % 2 === 0 ? 'riser' : 'impact'
+  })),
+  ...Array.from({ length: 4 }, (_, index) => candidate('Other', 800 + index, {
+    categoryName: 'Xtra',
+    paletteSlot: 2,
+    plannerKind: 'texture'
+  }))
+]
+
 function parameters(
   profileId: MixJamGeneratorProfileId,
   seed = 'stable-seed'
@@ -119,6 +162,148 @@ function overlaps(startTick: number, endTick: number, placement: MixJamGenerator
 }
 
 describe('MixJam generator engine', () => {
+  it.each(['techno', 'trance', 'house'] as const)(
+    'uses every lane, every eligible category, long material, and richer variation for %s',
+    (profileId) => {
+      const plan = createMixJamGeneratorPlan(
+        'root',
+        'fingerprint',
+        categoryRichCandidates,
+        parameters(profileId)
+      )
+      const placements = plan.lanes.flatMap((lane) => lane.placements)
+      const byRef = new Map(categoryRichCandidates.map((entry) => [entry.relpath, entry]))
+      const usedCategories = new Set(placements.map((placement) =>
+        byRef.get(placement.sampleRef)!.categoryName
+      ))
+      const eligibleCategories = new Set(categoryRichCandidates.map((entry) => entry.categoryName))
+
+      expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
+      expect(usedCategories).toEqual(eligibleCategories)
+      expect(Math.max(...placements.map((placement) => placement.durationTicks)))
+        .toBeGreaterThan(4 * TICKS_PER_BAR)
+      expect(plan.lanes[14]!.placements.length).toBeGreaterThan(0)
+      expect(plan.lanes[15]!.placements.length).toBeGreaterThan(0)
+      expect(plan.lanes.filter((lane) =>
+        new Set(lane.placements.map((placement) => placement.sampleRef)).size >= 3
+      ).length).toBeGreaterThanOrEqual(6)
+
+      const sectionSignatures = plan.sections.map((section) => {
+        const startTick = section.startBar * TICKS_PER_BAR
+        const endTick = section.endBar * TICKS_PER_BAR
+        return plan.lanes.flatMap((lane) => lane.placements.some((placement) =>
+          overlaps(startTick, endTick, placement)
+        ) ? [lane.index] : []).join(',')
+      })
+      expect(new Set(sectionSignatures).size).toBeGreaterThanOrEqual(4)
+    }
+  )
+
+  it.each((['techno', 'trance', 'house'] as const).flatMap((profileId) =>
+    (['low', 'medium', 'high'] as const).map((intensity) => ({ profileId, intensity }))
+  ))('keeps every lane, category, and long-form role across $profileId $intensity intensity', ({
+    profileId,
+    intensity
+  }) => {
+    const plan = createMixJamGeneratorPlan('root', 'fingerprint', categoryRichCandidates, {
+      ...parameters(profileId),
+      intensity
+    })
+    const placements = plan.lanes.flatMap((lane) => lane.placements)
+    const byRef = new Map(categoryRichCandidates.map((entry) => [entry.relpath, entry]))
+
+    expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
+    expect(new Set(placements.map((placement) => byRef.get(placement.sampleRef)!.categoryName)))
+      .toEqual(new Set(categoryRichCandidates.map((entry) => entry.categoryName)))
+    expect(placements.some((placement) => placement.durationTicks > 4 * TICKS_PER_BAR)).toBe(true)
+  })
+
+  it.each((['techno', 'trance', 'house'] as const).flatMap((profileId) =>
+    (['low', 'medium', 'high'] as const).map((intensity) => ({ profileId, intensity }))
+  ))('does not require unplaceable long material in a 30-second $profileId $intensity plan', ({
+    profileId,
+    intensity
+  }) => {
+    const plan = createMixJamGeneratorPlan('root', 'fingerprint', categoryRichCandidates, {
+      ...parameters(profileId),
+      durationSeconds: 30,
+      intensity
+    })
+
+    expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
+  })
+
+  it('does not use a known riser as an impact fallback', () => {
+    const riser = candidate('FX', 0, { plannerKind: 'riser' })
+    const texture = candidate('FX', 1, { plannerKind: 'texture' })
+    const otherTexture = candidate('Other', 2, { plannerKind: 'texture' })
+    const [riserLane, impactLane] = GENERATOR_PROFILES.techno.lanes.slice(14)
+
+    expect(generatorCandidateMatchesLane(riser, riserLane!, 'FX', BPM)).toBe(true)
+    expect(generatorCandidateMatchesLane(riser, impactLane!, 'FX', BPM)).toBe(false)
+    expect(generatorCandidateMatchesLane(texture, impactLane!, 'FX', BPM)).toBe(true)
+    expect(generatorCandidateMatchesLane(otherTexture, impactLane!, 'Other', BPM)).toBe(false)
+  })
+
+  it('keeps category-coverage percussion on the lane grid', () => {
+    const snareCategories = Array.from({ length: 30 }, (_, index) => candidate('Snare', 900 + index, {
+      categoryName: `Snare ${String(index).padStart(2, '0')}`,
+      plannerKind: 'one-shot'
+    }))
+    const plan = createMixJamGeneratorPlan('root', 'fingerprint', [
+      ...categoryRichCandidates,
+      ...snareCategories
+    ], {
+      ...parameters('techno'),
+      durationSeconds: 30,
+      intensity: 'low'
+    })
+    const snareProfile = GENERATOR_PROFILES.techno.lanes[1]!
+    const allowedOffsets = new Set([
+      ...(snareProfile.beatPattern ?? []),
+      ...(snareProfile.beatMutation ?? [])
+    ])
+
+    expect(plan.lanes[1]!.placements.every((placement) =>
+      allowedOffsets.has(placement.startTick % TICKS_PER_BAR)
+    )).toBe(true)
+  })
+
+  it('uses intensity for sample variety, density, fills, and wet effects', () => {
+    const plans = Object.fromEntries((['low', 'medium', 'high'] as const).map((intensity) => [
+      intensity,
+      createMixJamGeneratorPlan('root', 'fingerprint', categoryRichCandidates, {
+        ...parameters('techno'),
+        intensity
+      })
+    ])) as Record<'low' | 'medium' | 'high', MixJamGeneratorPlan>
+    const minimumSamples = { low: 2, medium: 3, high: 4 } as const
+    for (const intensity of ['low', 'medium', 'high'] as const) {
+      expect(plans[intensity].selections.every((selection) =>
+        selection.sampleRefs.length >= minimumSamples[intensity]
+      )).toBe(true)
+    }
+    expect(plans.high.lanes.flatMap((lane) => lane.placements).length)
+      .toBeGreaterThan(plans.low.lanes.flatMap((lane) => lane.placements).length)
+
+    const snareProfile = GENERATOR_PROFILES.techno.lanes[1]!
+    const fillOffsets = new Set((snareProfile.beatMutation ?? []).filter((offset) =>
+      !(snareProfile.beatPattern ?? []).includes(offset)
+    ))
+    expect(plans.low.lanes[1]!.placements.some((placement) =>
+      fillOffsets.has(placement.startTick % TICKS_PER_BAR)
+    )).toBe(false)
+    expect(plans.high.lanes[1]!.placements.some((placement) =>
+      fillOffsets.has(placement.startTick % TICKS_PER_BAR)
+    )).toBe(true)
+
+    const wetMix = (plan: MixJamGeneratorPlan): number =>
+      plan.channels[6]!.effects.find((effect) => effect.type === 'delay')!.values.mix as number
+    expect(wetMix(plans.low)).toBeCloseTo(0.28)
+    expect(wetMix(plans.medium)).toBeCloseTo(0.35)
+    expect(wetMix(plans.high)).toBeCloseTo(0.4025)
+  })
+
   it.each(['techno', 'trance', 'house'] as const)(
     'builds a deterministic, phrase-structured %s plan',
     (profileId) => {

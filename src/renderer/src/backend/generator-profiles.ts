@@ -13,6 +13,7 @@ export interface GeneratorLaneProfile {
   beatPattern?: readonly number[]
   beatMutation?: readonly number[]
   intentionalAnchor?: boolean
+  preferLong?: boolean
   transitionKind?: 'riser' | 'impact'
   gain: number
   pan: number
@@ -28,7 +29,7 @@ export interface GeneratorSectionProfile {
 
 export interface GeneratorProfile {
   id: MixJamGeneratorProfileId
-  version: 1
+  version: 2
   bpmTolerance: number
   stereoPairRules: readonly { leftLane: number; rightLane: number }[]
   coreLanes: readonly number[]
@@ -88,18 +89,18 @@ function commonLanes(patterns: ProfilePatterns): GeneratorLaneProfile[] {
     { name: 'Snare / Clap', types: ['Snare', 'Percussion'], maxBars: 1, maxBeats: 1, role: 'percussion', beatPattern: patterns.snarePattern, beatMutation: [8, 24, 28], gain: 0.5, pan: 0, effects: [PRESETS.tightRoom] },
     { name: 'Hi-hat', types: ['Hi-hat', 'Percussion'], maxBars: 1, maxBeats: 1, role: 'percussion', beatPattern: patterns.hatPattern, beatMutation: [2, 6, 10, 14, 18, 22, 26, 30], gain: 0.46, pan: 0.12, effects: [] },
     { name: 'Percussion', types: ['Percussion', 'Other'], maxBars: 1, maxBeats: 1, role: 'percussion', beatPattern: patterns.percussionPattern, beatMutation: [3, 11, 19, 27], gain: 0.42, pan: -0.12, effects: [] },
-    { name: 'Bass', types: ['Bass'], maxBars: 4, role: 'motif', gain: 0.58, pan: 0, effects: [PRESETS.leveler] },
-    { name: 'Loop', types: ['Loop', 'Synth'], maxBars: 4, role: 'motif', gain: 0.46, pan: 0, effects: [] },
-    { name: 'Synth A', types: ['Synth', 'Loop'], maxBars: 4, role: 'motif', gain: 0.46, pan: -0.18, effects: [PRESETS.pingPong] },
-    { name: 'Synth B', types: ['Synth', 'Loop'], maxBars: 4, role: 'motif', gain: 0.42, pan: 0.18, effects: [PRESETS.studioRoom] },
-    { name: 'Vocal', types: ['Vocal', 'Atmosphere'], maxBars: 4, role: 'vocal', gain: 0.38, pan: 0, effects: [PRESETS.classicEcho, PRESETS.studioRoom] },
-    { name: 'Atmosphere', types: ['Atmosphere', 'Other'], maxBars: 8, role: 'atmosphere', gain: 0.34, pan: 0, effects: [PRESETS.longHall] },
-    { name: 'FX', types: ['FX', 'Other'], maxBars: 4, role: 'atmosphere', gain: 0.4, pan: 0, effects: [PRESETS.studioRoom] },
-    { name: 'Drum alternate', types: ['Percussion', 'Hi-hat', 'Snare'], maxBars: 1, maxBeats: 1, role: 'percussion', beatPattern: [6, 14, 22, 30], beatMutation: [4, 12, 20, 28], gain: 0.38, pan: 0.12, effects: [] },
-    { name: 'Loop alternate', types: ['Loop', 'Synth'], maxBars: 4, role: 'motif', gain: 0.4, pan: 0, effects: [] },
-    { name: 'Synth alternate', types: ['Synth', 'Loop'], maxBars: 4, role: 'motif', gain: 0.38, pan: 0, effects: [] },
-    { name: 'Transition left', types: ['FX', 'Other'], maxBars: 4, role: 'transition', transitionKind: 'riser', gain: 0.34, pan: -0.6, effects: [PRESETS.longHall] },
-    { name: 'Transition right', types: ['FX', 'Other'], maxBars: 4, role: 'transition', transitionKind: 'impact', gain: 0.34, pan: 0.6, effects: [PRESETS.longHall] }
+    { name: 'Bass', types: ['Bass'], maxBars: 8, role: 'motif', gain: 0.58, pan: 0, effects: [PRESETS.leveler] },
+    { name: 'Loop', types: ['Loop', 'Synth'], maxBars: 8, role: 'motif', gain: 0.46, pan: 0, effects: [] },
+    { name: 'Synth A', types: ['Synth', 'Loop'], maxBars: 8, role: 'motif', gain: 0.46, pan: -0.18, effects: [PRESETS.pingPong] },
+    { name: 'Synth B', types: ['Synth', 'Loop'], maxBars: 8, role: 'motif', gain: 0.42, pan: 0.18, effects: [PRESETS.studioRoom] },
+    { name: 'Vocal', types: ['Vocal', 'Atmosphere'], maxBars: 8, role: 'vocal', gain: 0.38, pan: 0, effects: [PRESETS.classicEcho, PRESETS.studioRoom] },
+    { name: 'Atmosphere', types: ['Atmosphere', 'Other'], maxBars: 16, role: 'atmosphere', preferLong: true, gain: 0.34, pan: 0, effects: [PRESETS.longHall] },
+    { name: 'FX', types: ['FX', 'Other'], maxBars: 16, role: 'atmosphere', preferLong: true, gain: 0.4, pan: 0, effects: [PRESETS.studioRoom] },
+    { name: 'Drum alternate', types: ['Percussion', 'Hi-hat', 'Snare'], maxBars: 4, role: 'motif', preferLong: true, gain: 0.38, pan: 0.12, effects: [] },
+    { name: 'Loop alternate', types: ['Loop', 'Synth'], maxBars: 8, role: 'motif', gain: 0.4, pan: 0, effects: [] },
+    { name: 'Synth alternate', types: ['Synth', 'Loop'], maxBars: 8, role: 'motif', gain: 0.38, pan: 0, effects: [] },
+    { name: 'Transition left', types: ['FX', 'Other'], maxBars: 8, role: 'transition', transitionKind: 'riser', gain: 0.34, pan: -0.6, effects: [PRESETS.longHall] },
+    { name: 'Transition right', types: ['FX', 'Other'], maxBars: 8, role: 'transition', transitionKind: 'impact', gain: 0.34, pan: 0.6, effects: [PRESETS.longHall] }
   ]
 }
 
@@ -124,7 +125,7 @@ houseLanes = withLaneEffects(houseLanes, 12, [PRESETS.gentleGlue])
 
 export const GENERATOR_PROFILES: Record<MixJamGeneratorProfileId, GeneratorProfile> = {
   techno: {
-    id: 'techno', version: 1, bpmTolerance: 8,
+    id: 'techno', version: 2, bpmTolerance: 8,
     stereoPairRules: [],
     coreLanes: [0, 4, 6], lanes: technoLanes,
     sections: [
@@ -138,7 +139,7 @@ export const GENERATOR_PROFILES: Record<MixJamGeneratorProfileId, GeneratorProfi
     ]
   },
   trance: {
-    id: 'trance', version: 1, bpmTolerance: 6,
+    id: 'trance', version: 2, bpmTolerance: 6,
     stereoPairRules: [],
     coreLanes: [0, 4, 5, 6], lanes: tranceLanes,
     sections: [
@@ -152,7 +153,7 @@ export const GENERATOR_PROFILES: Record<MixJamGeneratorProfileId, GeneratorProfi
     ]
   },
   house: {
-    id: 'house', version: 1, bpmTolerance: 8,
+    id: 'house', version: 2, bpmTolerance: 8,
     stereoPairRules: [],
     coreLanes: [0, 2, 4], lanes: houseLanes,
     sections: [

@@ -128,7 +128,7 @@
     return {
       generatorVersion: 1,
       profileId: parameters.profileId,
-      profileVersion: 1,
+      profileVersion: 2,
       seed: parameters.seed,
       parameters: { bpmMode: parameters.bpmMode, resolvedBpm: bpm, intensity: parameters.intensity, durationSeconds: parameters.durationSeconds },
       corpusFingerprint: 'e2e-fingerprint',

@@ -78,6 +78,26 @@ function allocateSections(profile: GeneratorProfile, targetBars: number): MixJam
   })
 }
 
+function maximumLegalSpan(
+  laneIndex: number,
+  sections: readonly MixJamGeneratorSectionPlan[],
+  profile: GeneratorProfile
+): number {
+  const lane = profile.lanes[laneIndex]!
+  const songEnd = sections.at(-1)!.endBar * TICKS_PER_BAR
+  if (lane.role === 'transition') {
+    return Math.max(0, ...sections.slice(1).map((section) => {
+      const boundary = section.startBar * TICKS_PER_BAR
+      return lane.transitionKind === 'riser' ? boundary : songEnd - boundary
+    }))
+  }
+  return Math.max(0, ...sections.flatMap((section, sectionIndex) => {
+    if (!profile.sections[sectionIndex]!.activeLanes.includes(laneIndex)) return []
+    const sectionSpan = (section.endBar - section.startBar) * TICKS_PER_BAR
+    return [lane.role === 'atmosphere' ? sectionSpan : Math.min(8 * TICKS_PER_BAR, sectionSpan)]
+  }))
+}
+
 function dominantKey(candidates: readonly PlanningCandidate[]): string | null {
   const votes = new Map<string, number>()
   for (const candidate of candidates) {
@@ -127,6 +147,15 @@ function orderedCandidates(
         const difference = keyRank(left.musicalKey, key) - keyRank(right.musicalKey, key)
         if (difference !== 0) return difference
       }
+      if (lane.role === 'transition') {
+        const leftKindRank = left.plannerKind === lane.transitionKind ? 0 : 1
+        const rightKindRank = right.plannerKind === lane.transitionKind ? 0 : 1
+        if (leftKindRank !== rightKindRank) return leftKindRank - rightKindRank
+      }
+      if (lane.preferLong) {
+        const durationDifference = durationTicks(right, bpm) - durationTicks(left, bpm)
+        if (durationDifference !== 0) return durationDifference
+      }
       const scoreDifference = (right.loopConfidence ?? 0) - (left.loopConfidence ?? 0)
       if (lane.role === 'motif' && scoreDifference !== 0) return scoreDifference
       const roleSeed = `${seed}:${profile.id}:${profile.version}:lane-${laneIndex}:${type}`
@@ -140,22 +169,138 @@ function findTypeCandidates(
   bpm: number, key: string | null, seed: string
 ): Selection | null {
   const types = profile.lanes[laneIndex]!.types
-  for (const type of types) {
-    const ordered = orderedCandidates(candidates, profile, laneIndex, type, bpm, key, seed)
-    if (ordered.length > 0) return { requestedType: types[0]!, selectedType: type, candidates: ordered }
+  const ordered = types.flatMap((type) =>
+    orderedCandidates(candidates, profile, laneIndex, type, bpm, key, seed)
+  )
+  return ordered.length > 0
+    ? { requestedType: types[0]!, selectedType: ordered[0]!.sampleType, candidates: ordered }
+    : null
+}
+
+function selectDiverseCandidates(
+  selections: readonly (Selection | null)[],
+  sampleCount: number,
+  sections: readonly MixJamGeneratorSectionPlan[],
+  profile: GeneratorProfile,
+  bpm: number
+): Array<Selection | null> {
+  const selected = selections.map((selection) => selection
+    ? { ...selection, candidates: [] as PlanningCandidate[] }
+    : null)
+  const usedRefs = new Set<string>()
+  const categories = [...new Set(selections.flatMap((selection) =>
+    selection?.candidates.map((candidate) => candidate.categoryName) ?? []
+  ))]
+  const categoryOptions = new Map(categories.map((category) => [
+    category,
+    selections.flatMap((selection, laneIndex) => selection
+      ? selection.candidates.flatMap((candidate, candidateIndex) =>
+        candidate.categoryName === category ? [{ laneIndex, candidate, candidateIndex }] : []
+      )
+      : [])
+  ]))
+
+  categories.sort((left, right) =>
+    categoryOptions.get(left)!.length - categoryOptions.get(right)!.length || compareCodeUnits(left, right)
+  )
+  for (const category of categories) {
+    const choice = categoryOptions.get(category)!
+      .filter(({ laneIndex, candidate }) =>
+        !selected[laneIndex]!.candidates.some((entry) => entry.relpath === candidate.relpath)
+      )
+      .sort((left, right) => {
+        const leftUsed = Number(usedRefs.has(left.candidate.relpath))
+        const rightUsed = Number(usedRefs.has(right.candidate.relpath))
+        return leftUsed - rightUsed ||
+          selected[left.laneIndex]!.candidates.length - selected[right.laneIndex]!.candidates.length ||
+          left.candidateIndex - right.candidateIndex ||
+          left.laneIndex - right.laneIndex
+      })[0]
+    if (!choice) continue
+    selected[choice.laneIndex]!.candidates.push(choice.candidate)
+    usedRefs.add(choice.candidate.relpath)
   }
-  return null
+
+  const minimumPrimaryCount = Math.max(1, Math.ceil(sampleCount / 2))
+  for (let laneIndex = 0; laneIndex < selections.length; laneIndex++) {
+    const source = selections[laneIndex]
+    const destination = selected[laneIndex]
+    if (!source || !destination) continue
+    for (const candidate of source.candidates) {
+      const primaryCount = destination.candidates.filter((entry) =>
+        entry.sampleType === source.requestedType
+      ).length
+      if (primaryCount >= minimumPrimaryCount || destination.candidates.length >= sampleCount) break
+      if (candidate.sampleType !== source.requestedType || usedRefs.has(candidate.relpath) ||
+          destination.candidates.some((entry) => entry.relpath === candidate.relpath)) continue
+      destination.candidates.push(candidate)
+      usedRefs.add(candidate.relpath)
+    }
+  }
+
+  for (let laneIndex = 0; laneIndex < selections.length; laneIndex++) {
+    const source = selections[laneIndex]
+    const destination = selected[laneIndex]
+    if (!source || !destination) continue
+    for (const candidate of source.candidates) {
+      if (destination.candidates.length >= sampleCount) break
+      if (usedRefs.has(candidate.relpath)) continue
+      destination.candidates.push(candidate)
+      usedRefs.add(candidate.relpath)
+    }
+    for (const candidate of source.candidates) {
+      if (destination.candidates.length >= sampleCount) break
+      if (destination.candidates.some((entry) => entry.relpath === candidate.relpath)) continue
+      destination.candidates.push(candidate)
+    }
+    destination.selectedType = destination.candidates[0]?.sampleType ?? source.selectedType
+  }
+
+  for (let laneIndex = 0; laneIndex < selections.length; laneIndex++) {
+    const source = selections[laneIndex]
+    const destination = selected[laneIndex]
+    if (!source || !destination) continue
+    const maximumSpan = maximumLegalSpan(laneIndex, sections, profile)
+    if (destination.candidates.some((candidate) => durationTicks(candidate, bpm) <= maximumSpan)) continue
+    const fallback = source.candidates
+      .filter((candidate) => durationTicks(candidate, bpm) <= maximumSpan)
+      .sort((left, right) => durationTicks(left, bpm) - durationTicks(right, bpm) ||
+        compareCodeUnits(left.relpath, right.relpath))[0]
+    if (fallback && !destination.candidates.some((candidate) => candidate.relpath === fallback.relpath)) {
+      destination.candidates.push(fallback)
+    }
+  }
+  return selected
 }
 
 function activeLanesForIntensity(
   activeLanes: readonly number[], coreLanes: ReadonlySet<number>,
-  intensity: MixJamGeneratorParameters['intensity']
+  intensity: MixJamGeneratorParameters['intensity'], sectionIndex: number
 ): number[] {
   if (intensity === 'high') return [...activeLanes]
   const core = activeLanes.filter((lane) => coreLanes.has(lane))
   const optional = activeLanes.filter((lane) => !coreLanes.has(lane)).sort((a, b) => a - b)
   const fraction = intensity === 'low' ? 0.4 : 0.7
-  return [...new Set([...core, ...optional.slice(0, halfUp(optional.length * fraction))])].sort((a, b) => a - b)
+  const count = halfUp(optional.length * fraction)
+  const offset = optional.length === 0 ? 0 : sectionIndex * Math.max(1, count) % optional.length
+  const rotated = [...optional.slice(offset), ...optional.slice(0, offset)]
+  return [...new Set([...core, ...rotated.slice(0, count)])].sort((a, b) => a - b)
+}
+
+function ensureSectionLaneCoverage(
+  sections: MixJamGeneratorSectionPlan[], profile: GeneratorProfile,
+  selections: readonly (Selection | null)[]
+): void {
+  for (let laneIndex = 0; laneIndex < profile.lanes.length; laneIndex++) {
+    if (!selections[laneIndex] || sections.some((section) => section.activeLanes.includes(laneIndex))) continue
+    const candidates = sections.flatMap((section, sectionIndex) =>
+      profile.sections[sectionIndex]!.activeLanes.includes(laneIndex)
+        ? [{ section, sectionIndex }]
+        : []
+    ).sort((left, right) => left.sectionIndex - right.sectionIndex)
+    const target = candidates[0]?.section
+    if (target) target.activeLanes = [...target.activeLanes, laneIndex].sort((a, b) => a - b)
+  }
 }
 
 function effectPlans(
@@ -233,6 +378,35 @@ function createPhrases(
   return phrases
 }
 
+function ensurePhraseLaneCoverage(
+  phrases: MixJamGeneratorPhrasePlan[], sections: MixJamGeneratorSectionPlan[],
+  profile: GeneratorProfile, selections: readonly (Selection | null)[]
+): void {
+  for (let laneIndex = 0; laneIndex < profile.lanes.length; laneIndex++) {
+    const lane = profile.lanes[laneIndex]!
+    if (!selections[laneIndex] || lane.role === 'transition') continue
+    const scheduled = phrases.some((phrase, phraseIndex) =>
+      phrase.activeLanes.includes(laneIndex) && phrase.motif !== 'rest' &&
+      ((lane.role !== 'vocal' && lane.role !== 'atmosphere') || phraseIndex % 2 === 0)
+    )
+    if (scheduled) continue
+    const candidates = phrases.flatMap((phrase, phraseIndex) => {
+      const allowed = profile.sections[phrase.sectionIndex]!.activeLanes.includes(laneIndex)
+      const sparseRoleTurn = (lane.role === 'vocal' || lane.role === 'atmosphere') && phraseIndex % 2 === 1
+      return allowed && phrase.motif !== 'rest' && !sparseRoleTurn
+        ? [{ phrase, phraseIndex }]
+        : []
+    }).sort((left, right) => left.phraseIndex - right.phraseIndex)
+    const target = candidates[0]
+    if (!target) continue
+    target.phrase.activeLanes = [...target.phrase.activeLanes, laneIndex].sort((a, b) => a - b)
+    const section = sections[target.phrase.sectionIndex]!
+    if (!section.activeLanes.includes(laneIndex)) {
+      section.activeLanes = [...section.activeLanes, laneIndex].sort((a, b) => a - b)
+    }
+  }
+}
+
 function placementEnd(placement: MixJamGeneratorLanePlan['placements'][number]): number {
   return placement.startTick + placement.durationTicks
 }
@@ -258,16 +432,31 @@ function addPlacement(
   })
 }
 
+function candidateForPhrase(
+  selection: Selection, phrase: MixJamGeneratorPhrasePlan,
+  phraseOrdinal: number, laneIndex: number, offset = 0
+): PlanningCandidate {
+  const motifOffset = phrase.motif === 'B' ? 1 : 0
+  return selection.candidates[
+    (phraseOrdinal + laneIndex + motifOffset + offset) % selection.candidates.length
+  ]!
+}
+
 function schedulePercussion(
   lane: MixJamGeneratorLanePlan, laneProfile: GeneratorLaneProfile, selection: Selection,
   phrase: MixJamGeneratorPhrasePlan, phraseOrdinal: number, bpm: number,
-  profile: GeneratorProfile, seed: string, nextOrdinal: () => number
+  profile: GeneratorProfile, seed: string, intensity: MixJamGeneratorParameters['intensity'],
+  nextOrdinal: () => number
 ): void {
-  const pattern = phraseOrdinal % 2 === 1 ? laneProfile.beatMutation ?? laneProfile.beatPattern! : laneProfile.beatPattern!
-  const candidateIndex = phrase.motif === 'B' ? 1 : 0
-  const candidate = selection.candidates[candidateIndex] ?? selection.candidates[0]!
-  const span = durationTicks(candidate, bpm)
   for (let bar = phrase.startBar; bar < phrase.endBar; bar++) {
+    const isFill = intensity === 'high' &&
+      bar === phrase.endBar - 1 && phrase.endBar - phrase.startBar > 1
+    const useMutation = isFill || (phrase.motif === 'B' && (bar - phrase.startBar) % 2 === 1)
+    const pattern = useMutation
+      ? laneProfile.beatMutation ?? laneProfile.beatPattern!
+      : laneProfile.beatPattern!
+    const candidate = candidateForPhrase(selection, phrase, phraseOrdinal, lane.index, bar - phrase.startBar)
+    const span = durationTicks(candidate, bpm)
     for (const offset of pattern) {
       const startTick = bar * TICKS_PER_BAR + offset
       if (startTick + span <= (bar + 1) * TICKS_PER_BAR) {
@@ -280,29 +469,41 @@ function schedulePercussion(
 function schedulePhraseRole(
   lane: MixJamGeneratorLanePlan, laneProfile: GeneratorLaneProfile, selection: Selection,
   phrase: MixJamGeneratorPhrasePlan, phraseOrdinal: number, bpm: number,
-  profile: GeneratorProfile, seed: string, nextOrdinal: () => number
+  sectionEndBar: number, profile: GeneratorProfile, seed: string, nextOrdinal: () => number
 ): void {
   if (phrase.motif === 'rest') return
   if (laneProfile.role === 'vocal' && phraseOrdinal % 2 === 1) return
   if (laneProfile.role === 'atmosphere' && phraseOrdinal % 2 === 1) return
-  const candidateIndex = phrase.motif === 'B' ? 1 : 0
-  const candidate = selection.candidates[candidateIndex] ?? selection.candidates[0]!
-  const span = durationTicks(candidate, bpm)
   const phraseStart = phrase.startBar * TICKS_PER_BAR
   const phraseEnd = phrase.endBar * TICKS_PER_BAR
-  if (phraseStart + span <= phraseEnd) addPlacement(lane, candidate, phraseStart, span, nextOrdinal(), profile, seed)
+  if (laneProfile.role === 'motif') {
+    let startTick = phraseStart
+    let cue = 0
+    while (startTick < phraseEnd) {
+      const candidate = candidateForPhrase(selection, phrase, phraseOrdinal, lane.index, cue)
+      const span = durationTicks(candidate, bpm)
+      if (startTick + span > phraseEnd) break
+      addPlacement(lane, candidate, startTick, span, nextOrdinal(), profile, seed)
+      startTick += span
+      cue++
+    }
+    return
+  }
+
+  const candidate = candidateForPhrase(selection, phrase, phraseOrdinal, lane.index)
+  const span = durationTicks(candidate, bpm)
+  const roleEnd = laneProfile.role === 'atmosphere' ? sectionEndBar * TICKS_PER_BAR : phraseEnd
+  if (phraseStart + span <= roleEnd) {
+    addPlacement(lane, candidate, phraseStart, span, nextOrdinal(), profile, seed)
+  }
 
   // A second cue after a deliberate rest gives long phrases a recognizable
   // call/response shape without continuously tiling the source.
-  const response = laneProfile.role === 'vocal'
-    ? selection.candidates[candidateIndex === 0 ? 1 : 0] ?? candidate
-    : candidate
+  if (laneProfile.role !== 'vocal') return
+  const response = candidateForPhrase(selection, phrase, phraseOrdinal, lane.index, 1)
   const responseSpan = durationTicks(response, bpm)
-  const secondStart = laneProfile.role === 'vocal'
-    ? phraseEnd - responseSpan
-    : (phrase.startBar + Math.max(2, Math.floor((phrase.endBar - phrase.startBar) / 2) + 1)) * TICKS_PER_BAR
-  if ((laneProfile.role === 'motif' || laneProfile.role === 'vocal') &&
-      secondStart >= phraseStart + span && secondStart + responseSpan <= phraseEnd) {
+  const secondStart = phraseEnd - responseSpan
+  if (secondStart >= phraseStart + span && secondStart + responseSpan <= phraseEnd) {
     addPlacement(lane, response, secondStart, responseSpan, nextOrdinal(), profile, seed)
   }
 }
@@ -311,12 +512,12 @@ function schedulingSignature(
   laneProfile: GeneratorLaneProfile,
   selection: Selection,
   phrase: MixJamGeneratorPhrasePlan,
-  phraseOrdinal: number
+  phraseOrdinal: number,
+  laneIndex: number
 ): string | null {
   if (phrase.motif === 'rest') return null
   if ((laneProfile.role === 'vocal' || laneProfile.role === 'atmosphere') && phraseOrdinal % 2 === 1) return null
-  const candidateIndex = phrase.motif === 'B' ? 1 : 0
-  const candidate = selection.candidates[candidateIndex] ?? selection.candidates[0]!
+  const candidate = candidateForPhrase(selection, phrase, phraseOrdinal, laneIndex)
   if (laneProfile.role === 'percussion') {
     const pattern = phraseOrdinal % 2 === 1
       ? laneProfile.beatMutation ?? laneProfile.beatPattern!
@@ -324,7 +525,7 @@ function schedulingSignature(
     return `${candidate.relpath}:${pattern.join(',')}`
   }
   const response = laneProfile.role === 'vocal'
-    ? selection.candidates[candidateIndex === 0 ? 1 : 0] ?? candidate
+    ? candidateForPhrase(selection, phrase, phraseOrdinal, laneIndex, 1)
     : candidate
   return `${candidate.relpath}:${response.relpath}:${phrase.endBar - phrase.startBar}`
 }
@@ -341,13 +542,134 @@ function scheduleTransitions(
       const selection = selections[laneIndex]
       if (!selection) continue
       const laneProfile = profile.lanes[laneIndex]!
-      const candidate = selection.candidates[0]!
-      const span = durationTicks(candidate, bpm)
-      const startTick = laneProfile.transitionKind === 'riser' ? boundary - span : boundary
-      if (startTick >= 0 && startTick + span <= sections.at(-1)!.endBar * TICKS_PER_BAR) {
-        addPlacement(lanes[laneIndex]!, candidate, startTick, span, nextOrdinal(laneIndex), profile, seed)
+      const ordered = selection.candidates.map((_, index) =>
+        selection.candidates[(index + sectionIndex) % selection.candidates.length]!
+      )
+      const placement = ordered.map((candidate) => {
+        const span = durationTicks(candidate, bpm)
+        const startTick = laneProfile.transitionKind === 'riser' ? boundary - span : boundary
+        return { candidate, span, startTick }
+      }).find(({ startTick, span }) => startTick >= 0 &&
+        startTick + span <= sections.at(-1)!.endBar * TICKS_PER_BAR &&
+        intervalIsFree(lanes[laneIndex]!, startTick, startTick + span))
+      if (placement) {
+        addPlacement(lanes[laneIndex]!, placement.candidate, placement.startTick, placement.span,
+          nextOrdinal(laneIndex), profile, seed)
       }
     }
+  }
+}
+
+function addCoveragePlacement(
+  laneIndex: number, candidate: PlanningCandidate,
+  lanes: MixJamGeneratorLanePlan[], phrases: MixJamGeneratorPhrasePlan[],
+  sections: MixJamGeneratorSectionPlan[], profile: GeneratorProfile,
+  bpm: number, seed: string, nextOrdinal: (laneIndex: number) => number
+): boolean {
+  const lane = lanes[laneIndex]!
+  const laneProfile = profile.lanes[laneIndex]!
+  const span = durationTicks(candidate, bpm)
+  if (laneProfile.role === 'transition') {
+    for (let sectionIndex = 1; sectionIndex < sections.length; sectionIndex++) {
+      const boundary = sections[sectionIndex]!.startBar * TICKS_PER_BAR
+      const startTick = laneProfile.transitionKind === 'riser' ? boundary - span : boundary
+      if (startTick >= 0 && startTick + span <= sections.at(-1)!.endBar * TICKS_PER_BAR &&
+          intervalIsFree(lane, startTick, startTick + span)) {
+        addPlacement(lane, candidate, startTick, span, nextOrdinal(laneIndex), profile, seed)
+        return true
+      }
+    }
+    return false
+  }
+
+  for (let phraseIndex = 0; phraseIndex < phrases.length; phraseIndex++) {
+    const phrase = phrases[phraseIndex]!
+    if (!phrase.activeLanes.includes(laneIndex) || phrase.motif === 'rest') continue
+    if ((laneProfile.role === 'vocal' || laneProfile.role === 'atmosphere') && phraseIndex % 2 === 1) continue
+    const phraseStart = phrase.startBar * TICKS_PER_BAR
+    const phraseEnd = phrase.endBar * TICKS_PER_BAR
+    const roleEnd = laneProfile.role === 'atmosphere'
+      ? sections[phrase.sectionIndex]!.endBar * TICKS_PER_BAR
+      : phraseEnd
+    const offsets = laneProfile.role === 'percussion'
+      ? [...new Set([...(laneProfile.beatPattern ?? []), ...(laneProfile.beatMutation ?? [])])]
+      : [0]
+    for (let barTick = phraseStart; barTick < phraseEnd; barTick += TICKS_PER_BAR) {
+      for (const offset of offsets) {
+        const startTick = barTick + offset
+        if (startTick + span <= roleEnd && intervalIsFree(lane, startTick, startTick + span)) {
+          addPlacement(lane, candidate, startTick, span, nextOrdinal(laneIndex), profile, seed)
+          return true
+        }
+      }
+    }
+  }
+
+  // Intensity filtering can leave a lane active only in sections that are too
+  // short for its selected source. Fall back to another profile-approved
+  // section and make that decision visible in the section and phrase plans.
+  for (const phrase of phrases) {
+    if (!profile.sections[phrase.sectionIndex]!.activeLanes.includes(laneIndex) || phrase.motif === 'rest') continue
+    const phraseStart = phrase.startBar * TICKS_PER_BAR
+    const phraseEnd = phrase.endBar * TICKS_PER_BAR
+    const roleEnd = laneProfile.role === 'atmosphere'
+      ? sections[phrase.sectionIndex]!.endBar * TICKS_PER_BAR
+      : phraseEnd
+    const offsets = laneProfile.role === 'percussion'
+      ? [...new Set([...(laneProfile.beatPattern ?? []), ...(laneProfile.beatMutation ?? [])])]
+      : [0]
+    for (let barTick = phraseStart; barTick < phraseEnd; barTick += TICKS_PER_BAR) {
+      for (const offset of offsets) {
+        const startTick = barTick + offset
+        if (startTick + span > roleEnd || !intervalIsFree(lane, startTick, startTick + span)) continue
+        addPlacement(lane, candidate, startTick, span, nextOrdinal(laneIndex), profile, seed)
+        if (!phrase.activeLanes.includes(laneIndex)) {
+          phrase.activeLanes = [...phrase.activeLanes, laneIndex].sort((left, right) => left - right)
+        }
+        const section = sections[phrase.sectionIndex]!
+        if (!section.activeLanes.includes(laneIndex)) {
+          section.activeLanes = [...section.activeLanes, laneIndex].sort((left, right) => left - right)
+        }
+        return true
+      }
+    }
+  }
+  return false
+}
+
+function ensureArrangementCoverage(
+  lanes: MixJamGeneratorLanePlan[], phrases: MixJamGeneratorPhrasePlan[],
+  sections: MixJamGeneratorSectionPlan[], profile: GeneratorProfile,
+  selections: readonly (Selection | null)[], bpm: number, seed: string,
+  nextOrdinal: (laneIndex: number) => number
+): void {
+  for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
+    if (lanes[laneIndex]!.placements.length > 0) continue
+    selections[laneIndex]?.candidates.some((candidate) =>
+      addCoveragePlacement(laneIndex, candidate, lanes, phrases, sections, profile, bpm, seed, nextOrdinal)
+    )
+  }
+
+  const candidateByRef = new Map(selections.flatMap((selection) =>
+    selection?.candidates.map((candidate) => [candidate.relpath, candidate] as const) ?? []
+  ))
+  const usedCategories = new Set(lanes.flatMap((lane) => lane.placements.map((placement) =>
+    candidateByRef.get(placement.sampleRef)?.categoryName
+  )).filter((category): category is string => category !== undefined))
+  const categories = [...new Set(selections.flatMap((selection) =>
+    selection?.candidates.map((candidate) => candidate.categoryName) ?? []
+  ))].sort(compareCodeUnits)
+  for (const category of categories) {
+    if (usedCategories.has(category)) continue
+    const options = selections.flatMap((selection, laneIndex) => selection
+      ? selection.candidates.flatMap((candidate) =>
+        candidate.categoryName === category ? [{ laneIndex, candidate }] : []
+      )
+      : [])
+    const placed = options.some(({ laneIndex, candidate }) =>
+      addCoveragePlacement(laneIndex, candidate, lanes, phrases, sections, profile, bpm, seed, nextOrdinal)
+    )
+    if (placed) usedCategories.add(category)
   }
 }
 
@@ -374,9 +696,17 @@ function compensatedGain(baseGain: number, selected: readonly PlanningCandidate[
   return clamp(baseGain * 10 ** (compensationDb / 20), 0, 1)
 }
 
-function validateArrangement(lanes: readonly MixJamGeneratorLanePlan[], targetTicks: number): void {
+function validateArrangement(
+  lanes: readonly MixJamGeneratorLanePlan[], targetTicks: number,
+  candidates: readonly PlanningCandidate[], bpm: number,
+  eligibleSelections: readonly (Selection | null)[],
+  sections: readonly MixJamGeneratorSectionPlan[], profile: GeneratorProfile
+): void {
   let songEnd = 0
   for (const lane of lanes) {
+    if (lane.placements.length === 0) {
+      throw new Error(`The generator could not place material on the ${lane.name} lane.`)
+    }
     lane.placements.sort((left, right) => left.startTick - right.startTick || compareCodeUnits(left.id, right.id))
     for (let index = 0; index < lane.placements.length; index++) {
       const placement = lane.placements[index]!
@@ -391,6 +721,37 @@ function validateArrangement(lanes: readonly MixJamGeneratorLanePlan[], targetTi
     }
   }
   if (songEnd !== targetTicks) throw new Error('The generator could not place a non-overlapping sample at the song end.')
+
+  const candidateByRef = new Map(candidates.map((candidate) => [candidate.relpath, candidate]))
+  const placedCandidates = lanes.flatMap((lane) => lane.placements.map((placement) =>
+    candidateByRef.get(placement.sampleRef)!
+  ))
+  const eligibleCategories = new Set(eligibleSelections.flatMap((selection, laneIndex) =>
+    selection?.candidates.flatMap((candidate) =>
+      durationTicks(candidate, bpm) <= maximumLegalSpan(laneIndex, sections, profile)
+        ? [candidate.categoryName]
+        : []
+    ) ?? []
+  ))
+  const usedCategories = new Set(placedCandidates.map((candidate) => candidate.categoryName))
+  const missingCategories = [...eligibleCategories].filter((category) => !usedCategories.has(category))
+    .sort(compareCodeUnits)
+  if (missingCategories.length > 0) {
+    throw new Error(`The generator could not place these eligible categories: ${missingCategories.join(', ')}.`)
+  }
+
+  const longThreshold = 4 * TICKS_PER_BAR
+  const hasEligibleLongSample = eligibleSelections.some((selection, laneIndex) =>
+    selection?.candidates.some((candidate) => {
+      const span = durationTicks(candidate, bpm)
+      return span > longThreshold && span <= maximumLegalSpan(laneIndex, sections, profile)
+    })
+  )
+  if (hasEligibleLongSample && !placedCandidates.some((candidate) =>
+    durationTicks(candidate, bpm) > longThreshold
+  )) {
+    throw new Error('The generator could not place available long-form material.')
+  }
 }
 
 export function createMixJamGeneratorPlan(
@@ -407,24 +768,41 @@ export function createMixJamGeneratorPlan(
   const targetBars = Math.max(1, halfUp(parameters.durationSeconds * bpm / 240))
   const targetTicks = targetBars * TICKS_PER_BAR
   const key = dominantKey(candidates)
-  const sampleCount = parameters.intensity === 'low' ? 1 : 2
-  const selections = profile.lanes.map((_, laneIndex) => {
+  const sampleCount = parameters.intensity === 'low' ? 2 : parameters.intensity === 'medium' ? 3 : 4
+  const eligibleSelections = profile.lanes.map((_, laneIndex) => {
     const selected = findTypeCandidates(candidates, profile, laneIndex, bpm, key, parameters.seed)
-    return selected ? { ...selected, candidates: selected.candidates.slice(0, sampleCount) } : null
+    return selected
   })
 
   const coreLanes = new Set(profile.coreLanes)
   for (const laneIndex of coreLanes) {
-    if (!selections[laneIndex]) {
+    if (!eligibleSelections[laneIndex]) {
       throw new Error(`The ${profile.id} profile requires a ${profile.lanes[laneIndex]!.types.join(' or ')} sample.`)
     }
   }
-  const sections = allocateSections(profile, targetBars).map((section) => ({
+  for (let laneIndex = 0; laneIndex < profile.lanes.length; laneIndex++) {
+    if (!eligibleSelections[laneIndex]) {
+      throw new Error(
+        `The ${profile.id} profile requires compatible ${profile.lanes[laneIndex]!.types.join(' or ')} ` +
+        `material for the ${profile.lanes[laneIndex]!.name} lane.`
+      )
+    }
+  }
+  const allocatedSections = allocateSections(profile, targetBars)
+  const selections = selectDiverseCandidates(eligibleSelections, sampleCount, allocatedSections, profile, bpm)
+  const sections = allocatedSections.map((section, sectionIndex) => ({
     ...section,
-    activeLanes: activeLanesForIntensity(section.activeLanes, coreLanes, parameters.intensity)
+    activeLanes: activeLanesForIntensity(
+      section.activeLanes,
+      coreLanes,
+      parameters.intensity,
+      sectionIndex
+    )
       .filter((laneIndex) => selections[laneIndex] !== null)
   }))
+  ensureSectionLaneCoverage(sections, profile, selections)
   const phrases = createPhrases(sections, profile, parameters.seed, parameters.intensity)
+  ensurePhraseLaneCoverage(phrases, sections, profile, selections)
   const ordinals = Array.from({ length: 16 }, () => 0)
   const repetition = Array.from({ length: 16 }, () => ({ signature: '', run: 0 }))
   const nextOrdinal = (laneIndex: number): number => ordinals[laneIndex]++
@@ -439,7 +817,7 @@ export function createMixJamGeneratorPlan(
       const laneProfile = profile.lanes[laneIndex]!
       const selection = selections[laneIndex]
       if (!selection || laneProfile.role === 'transition') continue
-      const signature = schedulingSignature(laneProfile, selection, phrase, phraseOrdinal)
+      const signature = schedulingSignature(laneProfile, selection, phrase, phraseOrdinal, laneIndex)
       if (signature === null) {
         repetition[laneIndex] = { signature: '', run: 0 }
         continue
@@ -451,9 +829,15 @@ export function createMixJamGeneratorPlan(
       }
       const placementCount = lanes[laneIndex]!.placements.length
       if (laneProfile.role === 'percussion') {
-        schedulePercussion(lanes[laneIndex]!, laneProfile, selection, phrase, phraseOrdinal, bpm, profile, parameters.seed, () => nextOrdinal(laneIndex))
+        schedulePercussion(
+          lanes[laneIndex]!, laneProfile, selection, phrase, phraseOrdinal, bpm,
+          profile, parameters.seed, parameters.intensity, () => nextOrdinal(laneIndex)
+        )
       } else {
-        schedulePhraseRole(lanes[laneIndex]!, laneProfile, selection, phrase, phraseOrdinal, bpm, profile, parameters.seed, () => nextOrdinal(laneIndex))
+        schedulePhraseRole(
+          lanes[laneIndex]!, laneProfile, selection, phrase, phraseOrdinal, bpm,
+          sections[phrase.sectionIndex]!.endBar, profile, parameters.seed, () => nextOrdinal(laneIndex)
+        )
       }
       if (lanes[laneIndex]!.placements.length > placementCount) {
         repetition[laneIndex] = {
@@ -472,6 +856,9 @@ export function createMixJamGeneratorPlan(
     }
   }
   scheduleTransitions(sections, lanes, profile, selections, bpm, parameters.seed, nextOrdinal)
+  ensureArrangementCoverage(
+    lanes, phrases, sections, profile, selections, bpm, parameters.seed, nextOrdinal
+  )
 
   if (!lanes.some((lane) => lane.placements.some((placement) => placementEnd(placement) === targetTicks))) {
     const finalSection = sections.at(-1)!
@@ -487,7 +874,7 @@ export function createMixJamGeneratorPlan(
     addPlacement(lanes[anchor.laneIndex]!, anchor.candidate, anchor.startTick, anchor.span,
       nextOrdinal(anchor.laneIndex), profile, parameters.seed)
   }
-  validateArrangement(lanes, targetTicks)
+  validateArrangement(lanes, targetTicks, candidates, bpm, eligibleSelections, sections, profile)
 
   const allSelected = selections.flatMap((selection) => selection?.candidates ?? [])
   const rmsValues = allSelected.flatMap((candidate) => candidate.rms && candidate.rms > 0 ? [candidate.rms] : []).sort((a, b) => a - b)
@@ -503,7 +890,7 @@ export function createMixJamGeneratorPlan(
   const selectionPlans = selections.flatMap((selection, laneIndex) => selection ? [{
     laneIndex,
     requestedType: selection.requestedType,
-    selectedType: selection.selectedType,
+    selectedType: selection.candidates[0]!.sampleType,
     sampleRefs: selection.candidates.map((candidate) => candidate.relpath)
   }] : [])
 
@@ -526,11 +913,11 @@ export function createMixJamGeneratorPlan(
     dominantKey: key,
     analysis,
     selections: selectionPlans,
-    substitutions: selectionPlans.flatMap((selection) => selection.requestedType === selection.selectedType ? [] : [{
-      laneIndex: selection.laneIndex,
-      requestedType: selection.requestedType,
-      selectedType: selection.selectedType
-    }]),
+    substitutions: selections.flatMap((selection, laneIndex) => selection
+      ? [...new Set(selection.candidates.map((candidate) => candidate.sampleType))]
+        .filter((selectedType) => selectedType !== selection.requestedType)
+        .map((selectedType) => ({ laneIndex, requestedType: selection.requestedType, selectedType }))
+      : []),
     sections,
     phrases,
     lanes,

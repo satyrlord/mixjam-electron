@@ -87,12 +87,12 @@ function serialize(project = makeProject(), modifiedAt = MODIFIED_AT): string {
 
 describe('project file format', () => {
   it('supports regeneration only for the current generator and profile versions', () => {
-    expect(supportsExactGeneratorRegeneration({ ...GENERATOR, profileVersion: 1 })).toBe(true)
-    expect(supportsExactGeneratorRegeneration(GENERATOR)).toBe(false)
+    expect(supportsExactGeneratorRegeneration(GENERATOR)).toBe(true)
+    expect(supportsExactGeneratorRegeneration({ ...GENERATOR, profileVersion: 1 })).toBe(false)
     expect(supportsExactGeneratorRegeneration({
       ...GENERATOR,
       generatorVersion: 2,
-      profileVersion: 1
+      profileVersion: 2
     })).toBe(false)
   })
 
