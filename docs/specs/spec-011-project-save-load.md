@@ -271,7 +271,8 @@ testing; it does not constrain the product wizard's profiles or parameters.
 - The 16 lanes have musical roles rather than arbitrary sample distribution:
   kick phrases, clap/snare, hi-hat/percussion, groove loops, bass, sequences,
   keys, stereo layers, stereo spheres, voice, rap, extra texture, and stereo
-  transition FX.
+  transition FX. Each lane has its own stable ID so placements and lane Mixer
+  state cannot leak into another generated lane during serialization.
 - The arrangement uses a seven-section Ibiza-inspired melodic-techno arc:
   sunset DJ intro, tropical groove, melodic ascent, ocean-air breakdown,
   terrace buildup, Ibiza peak, and sunrise mix-out. The breakdown removes the

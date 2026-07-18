@@ -92,9 +92,9 @@ Lane strip 1 ... Lane strip N | Return | FX 1  FX 2
 - The Mixer row has no vertical scrollbar. Its content fits the available
   Bottom Workspace height at the supported minimum size.
 - Keyboard focus scrolls a clipped control into view.
-- Geometry uses the 32 px base control size. A lane strip is 76 px wide, the
+- Geometry uses the 30 px base control size. A lane strip is 76 px wide, the
   Return section is 120 px wide, and each FX container is 160 px wide. These
-  widths scale consistently at UI Size 44 and 56. At a selected UI Size each
+  widths scale consistently at UI Size 40 and 50. At a selected UI Size each
   width is fixed; strips do not grow merely to consume spare width.
 
 ### Lane strip
@@ -223,9 +223,9 @@ missing or malformed lane-owned Mixer data.
   surviving lane retains its stable ID and saved sound values.
 - [ ] **AC-006:** Mixer strips cannot be independently added, deleted,
   reordered, or routed, and no Mixer Mute or Solo controls are rendered.
-- [ ] **AC-007:** At UI Size 32 each compact strip is 76 px wide and exposes
+- [ ] **AC-007:** At UI Size 30 each compact strip is 76 px wide and exposes
   four sends, disabled decorative EQ, pan, volume, and one lane meter in the
-  documented order. UI Size 44 and 56 scale the full strip consistently.
+  documented order. UI Size 40 and 50 scale the full strip consistently.
 - [ ] **AC-008:** Sends range from 0% to 100%, default and reset to 0%, and use
   the post-volume, post-pan signal.
 - [ ] **AC-009:** Mute and solo stop new dry and send input according to the

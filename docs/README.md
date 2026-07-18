@@ -8,8 +8,6 @@ An Electron desktop app, in two halves:
 2. A **tracker/player** for arranging and playing back those samples — deliberately
    eJay/Sony Acid-simple, not a full DAW.
 
-This project is separate from MixJam Native (WinUI) and MixJam Web (React/Vite). Do not share schemas, docs, or code with them.
-
 Performance at that data scale and pixel-perfect CSS skinning are the two hard
 requirements that drive every architectural choice.
 

@@ -83,10 +83,10 @@ browser adjacencies.
 - Player layout, sizing, and region relationships follow the
   [Style Guide](../style-guide.md#layout-architecture).
 - The supported Player minimum is 1920x1080 CSS pixels. At that size, with UI
-  Size 56 and Mixer open, the Tracker still shows the ruler and at least one
+  Size 50 and Mixer open, the Tracker still shows the ruler and at least one
   complete lane. The root Player does not gain a vertical scrollbar.
-- UI Size is an app preference with values 32, 44, and 56 and a default of 32.
-  Sample-bubble/lane heights are 26/39px, 36/54px, and 46/68px respectively.
+- UI Size is an app preference with values 30, 40, and 50 and a default of 40.
+  Sample-bubble/lane heights are 24/37px, 33/49px, and 41/61px respectively.
   UI Size changes presentation only; it never changes project data.
 - The active Player uses a two-column layout only in the upper work band. The
   Bottom Workspace spans the full Player width and does not inherit the upper
@@ -125,7 +125,7 @@ browser adjacencies.
   pause that loop without changing audio state or unmounting any panel.
 - Mixer uses one horizontal scrollport containing the lane strips in visible
   order, then one Return strip, then `FX1`, `FX2`, `FX3`, and `FX4`. At base UI
-  Size 32, their widths are 76px, 120px, and 160px respectively. All lane
+  Size 30, their widths are 76px, 120px, and 160px respectively. All lane
   strips, the Return section, and all four FX containers remain reachable by
   horizontal scrolling; none is pinned outside that scrollport.
 - The tab row shows compact read-only BPM and Master Volume status. The status
@@ -532,7 +532,7 @@ window-level mouse listeners.
 - [x] **AC-002c:** When the MixJam Browser has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank region or browser-specific action buttons.
 - [x] **AC-002d:** Resizing the MixJam Browser/Tracker seam changes and persists
   only the upper split; it does not resize or divide the Bottom Workspace.
-- [x] **AC-003:** At UI Size 32, the 80px border-box Middle Strip spans the full
+- [x] **AC-003:** At UI Size 30, the 80px border-box Middle Strip spans the full
   Player width between the upper and lower work bands. Its 28px Song Progress
   Bar and 48px main row remain fully contained, including borders and group
   padding. Higher UI Sizes use the coherent scaling contract in spec-002.
@@ -563,8 +563,8 @@ window-level mouse listeners.
   outside pointer and sequential-focus paths. A lane fader thumb keeps its
   position and value through Mixer activation and subsequent animation frames.
 - [ ] **AC-005:** A blank project renders eight stable-ID lanes. Projects accept
-  1 through 64 lanes. UI Size 32/44/56 produces bubble/lane heights of 26/39px,
-  36/54px, and 46/68px while preserving the 240px lane-head x-origin.
+  1 through 64 lanes. UI Size 30/40/50 produces bubble/lane heights of 24/37px,
+  33/49px, and 41/61px while preserving the 240px lane-head x-origin.
 - [x] **AC-005a:** Right-clicking a lane head exposes Rename lane. The inline
   rename field is prefilled and focused; Enter or blur commits a trimmed,
   non-empty name, while Escape cancels. A committed name updates the lane label
@@ -577,7 +577,7 @@ window-level mouse listeners.
 - [ ] **AC-005d:** The empty-lane macro reports the removable-empty count,
   removes those lanes without confirmation as one undo step, preserves the first
   lane when all are empty, and is disabled at zero removable lanes.
-- [ ] **AC-005e:** At the supported 1920x1080 CSS minimum, UI Size 56 with Mixer
+- [ ] **AC-005e:** At the supported 1920x1080 CSS minimum, UI Size 50 with Mixer
   open leaves the ruler and one complete lane visible without a root vertical
   scrollbar.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
@@ -674,7 +674,7 @@ window-level mouse listeners.
   Bottom Workspace to at least 50% when needed. The cue disappears after the
   first placement.
 - [ ] **AC-028:** Transport, Mixer, theme, header, footer, management, browser,
-  and Tracker controls use one coherent selected 32px, 44px, or 56px target set.
+  and Tracker controls use one coherent selected 30px, 40px, or 50px target set.
   Sample bubbles and lanes use the matching geometry from spec-002. Every size
   remains keyboard-operable with visible focus and readable labels.
 - [x] **AC-029:** One project identity/menu trigger exposes New, Open, Save, and

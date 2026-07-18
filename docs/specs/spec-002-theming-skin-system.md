@@ -85,9 +85,9 @@ height, including the minimum-width 12px browser bubble.
 
 ### Global UI Size
 
-UI Size is an app-wide presentation preference with three discrete values: 32,
-44, and 56. The footer shows the segmented `[32][44][56]` control on Home and
-Player, immediately before the version. New app state defaults to 32.
+UI Size is an app-wide presentation preference with three discrete values: 30,
+40, and 50. The footer shows the segmented `[30][40][50]` control on Home and
+Player, immediately before the version. New app state defaults to 40.
 
 The value selects one coherent token set for controls, interaction targets,
 Mixer components, lane heads, tabs, menus, toolbars, footer and header chrome,
@@ -100,12 +100,12 @@ placement, or sample-bubble width. It is app state and is not written to a
 
 | UI Size | Sample bubble | Lane |
 | --- | --- | --- |
-| 32 | 26px | 39px |
-| 44 | 36px | 54px |
-| 56 | 46px | 68px |
+| 30 | 24px | 37px |
+| 40 | 33px | 49px |
+| 50 | 41px | 61px |
 
 The bubble rectangle keeps the same height in the Tracker, Sample Browser, and
-drag image. At 1920x1080 with UI Size 56 and Mixer open, the full ruler and one
+drag image. At 1920x1080 with UI Size 50 and Mixer open, the full ruler and one
 complete lane remain visible without a vertical scrollbar.
 
 Depth tokens (`depth.*` in the JSON, applied as the same-named CSS custom
@@ -393,15 +393,15 @@ every completed scan. Missing-sample visual treatment follows the
   use the required `#RRGGBB` form.
 - [x] **AC-019:** Soft theme `--text-muted` maintains at least 4.5:1 contrast
   against its normal text-bearing base, panel, lane, chrome, and pill surfaces.
-- [ ] **AC-020:** The footer exposes one global UI Size selector with values 32,
-  44, and 56 on both Home and Player. The app defaults to 32 and persists the
+- [ ] **AC-020:** The footer exposes one global UI Size selector with values 30,
+  40, and 50 on both Home and Player. The app defaults to 40 and persists the
   choice outside project files.
 - [ ] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
   controls, targets, panels, Mixer components, spacing, and supporting type.
-- [ ] **AC-022:** Sample bubbles and lanes use the documented 26/39, 36/54, and
-  46/68 pixel height pairs. Tracker, browser, and drag-image bubble rectangles
+- [ ] **AC-022:** Sample bubbles and lanes use the documented 24/37, 33/49, and
+  41/61 pixel height pairs. Tracker, browser, and drag-image bubble rectangles
   match at each size, while bubble width and musical placement do not change.
-- [ ] **AC-023:** Built Chromium proof at 1920x1080, UI Size 56, and an open Mixer
+- [ ] **AC-023:** Built Chromium proof at 1920x1080, UI Size 50, and an open Mixer
   shows the full ruler and one complete lane with no vertical scrollbar,
   clipping, overlap, or shrunken interaction targets.
 

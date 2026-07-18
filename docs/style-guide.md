@@ -81,9 +81,9 @@ The app has two views sharing a common header/footer shell:
 
 ```text
 App (full viewport, no root overflow scrollbar)
-  ├── Header (48px base at UI Size 32, full width)
+  ├── Header (48px base at UI Size 30, full width)
   ├── Content (flex-1, scrolls internally as needed)
-  └── Footer (48px base at UI Size 32, full width)
+  └── Footer (48px base at UI Size 30, full width)
 ```
 
 ### Home Screen Layout
@@ -135,7 +135,7 @@ Player (minimum 1920x1080, resizable, starts maximized in Electron)
 
 ### Header Bar (both views)
 
-- Its base height is 48px at UI Size 32 and scales with the selected size.
+- Its base height is 48px at UI Size 30 and scales with the selected size.
 - **Home state:** brand "MixJam Electron" anchored left; theme selector right.
 - **Player state:** home link "&lt; Return to Main Menu" (left), brand
   "MixJam Electron" (right of home link), timer (absolute center,
@@ -151,8 +151,8 @@ Player (minimum 1920x1080, resizable, starts maximized in Electron)
   version string (right).
 - **Player state:** "Select User Folder" link (left), version and UI Size
   control (right), center slot may show selected sample details.
-- The UI Size control is a segmented `[32][44][56]` selector. It is always
-  visible, defaults to 32, and is an app preference rather than project state.
+- The UI Size control is a segmented `[30][40][50]` selector. It is always
+  visible, defaults to 40, and is an app preference rather than project state.
 - Version string uses the semantic version from `package.json` and links to the
   GitHub repository.
 
@@ -165,7 +165,7 @@ Player (minimum 1920x1080, resizable, starts maximized in Electron)
 
 ### Middle Strip
 
-- 80px base border-box at UI Size 32, full width, fixed between upper work and
+- 80px base border-box at UI Size 30, full width, fixed between upper work and
   Bottom Workspace. The selected size scales its controls and rows coherently.
 - **Song Progress Bar:** 28px persistent timeline navigation row.
 - **Main Row (48px):** three semantic zones:
@@ -185,7 +185,7 @@ Player (minimum 1920x1080, resizable, starts maximized in Electron)
 - Tablist uses automatic activation with arrow-key navigation.
 - Mixer and the other tabs remember separate app-local heights. Entering Mixer
   expands it to its last usable height; leaving restores the other tab height.
-- At 1280x720 and UI Size 56, an open Mixer must leave the complete ruler and at
+- At 1920x1080 and UI Size 50, an open Mixer must leave the complete ruler and at
   least one complete lane visible. The Player never gains a vertical scrollbar.
 
 ### Resize Handles
@@ -255,8 +255,8 @@ Three typographic roles, each defined per theme via CSS custom properties:
 
 - **Primary rhythm:** 8px spacing grid.
 - **Micro-spacing:** 4px allowed only for icon/group internal spacing.
-- **Control hit targets:** use the selected UI Size token: 32x32, 44x44, or
-  56x56 CSS pixels. Do not mix target sizes within one UI Size.
+- **Control hit targets:** use the selected UI Size token: 30x30, 40x40, or
+  50x50 CSS pixels. Do not mix target sizes within one UI Size.
 - **Group padding:** must not increase rendered group beyond its container
   height (e.g. 48px Middle Strip main row).
 
@@ -269,16 +269,16 @@ Three typographic roles, each defined per theme via CSS custom properties:
 | Middle Strip total | 80px base border-box; scales with UI Size |
 | Song Progress Bar row | 28px |
 | Middle Strip main row | 48px base; scales with UI Size |
-| Lane height | 39px at size 32; 54px at size 44; 68px at size 56 |
+| Lane height | 37px at size 30; 49px at size 40; 61px at size 50 |
 | Lane head width | 240px (exact, including rendered border box) |
-| Sample bubble height | 26px at size 32; 36px at size 44; 46px at size 56 |
+| Sample bubble height | 24px at size 30; 33px at size 40; 41px at size 50 |
 | Ruler height | 33px, padded-left 240px |
 | Ruler beat/bar model | Beat tick lines at each beat; stronger tick every bar |
 | Bar number interval | Every 4 bars: 1, 5, 9, 13... |
 | Playhead width | 2px |
-| Mixer channel strip | 76px at size 32; scales by UI Size tokens |
-| Mixer Return section | 120px at size 32; scales by UI Size tokens |
-| Mixer FX container | 160px at size 32; scales by UI Size tokens |
+| Mixer channel strip | 76px at size 30; scales by UI Size tokens |
+| Mixer Return section | 120px at size 30; scales by UI Size tokens |
+| Mixer FX container | 160px at size 30; scales by UI Size tokens |
 | Lane Mute/Solo controls | selected UI Size target |
 | BPM numeric input | scales inside the selected UI Size target |
 | Vertical fader minimum width | selected UI Size target |
@@ -463,8 +463,8 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 ### Sample Bubbles
 
-- Height follows UI Size: 26px in a 39px lane, 36px in a 54px lane, or 46px in
-  a 68px lane.
+- Height follows UI Size: 24px in a 37px lane, 33px in a 49px lane, or 41px in
+  a 61px lane.
 - Rounded rectangles with theme radius (`--radius-sample-bubble`).
 - Width: musical span in pixels-per-tick, 12px minimum.
 - Label: filename, truncated, font weight and case from theme tokens.
@@ -524,7 +524,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 ### Channel Strip (Mixer)
 
-- Compact 76px vertical stack at UI Size 32. Higher UI Sizes scale through
+- Compact 76px vertical stack at UI Size 30. Higher UI Sizes scale through
   shared tokens.
 - The header shows the lane number and inherited lane name. Long names use an
   ellipsis and a tooltip. Renaming the lane updates the channel immediately.
@@ -539,7 +539,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 ### Return and FX Containers (Mixer)
 
-- The Return section is 120px wide at UI Size 32 and presents four Return
+- The Return section is 120px wide at UI Size 30 and presents four Return
   levels. Each row uses its label space for the current Empty or Delay name and
   one small square limiter toggle. Each limiter is independent, enabled by
   default, and has this tooltip:
@@ -550,7 +550,7 @@ present. Native light Windows scrollbars never appear on dark themes.
   ```
 
 - Four FX containers follow the Return section in a fixed 2x2 grid. Each is
-  136px wide by 112px high at UI Size 32. Width scales with the selected UI
+  136px wide by 112px high at UI Size 30. Width scales with the selected UI
   Size while the compact height keeps both rows inside the 720p Mixer without
   a vertical scrollbar. Each shows its number, Empty or Delay name, power state, and a compact
   summary of time/division, feedback, Tape Distortion, and Ping-Pong.
@@ -651,7 +651,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 ## Accessibility Foundations
 
 - Every icon-only control has an accessible name and visible focus indicator.
-- Interactive targets use the selected 32x32, 44x44, or 56x56 UI Size token.
+- Interactive targets use the selected 30x30, 40x40, or 50x50 UI Size token.
 - No overlapping interactive rectangles; every target's center hit-tests to
   that target or a descendant.
 - Menus use the shared Radix-backed primitive and return focus to trigger on

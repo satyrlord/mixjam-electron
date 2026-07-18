@@ -162,7 +162,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
   idle, sync, analysis, error, or ready states. The Library Setup scanner
   expands for active work and collapses when ready. Any number of available
   recent projects keeps the same layout because only the first four are rendered.
-- [x] **AC-003:** At base UI Size 32, footer and header are 48px high. The footer
+- [x] **AC-003:** At base UI Size 30, footer and header are 48px high. The footer
   shows "Select User Folder" left and the clickable version string right on both
   views. Spec-002 owns higher UI Size scaling and the footer size selector.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
