@@ -108,7 +108,7 @@ Home (1280x720 default, no maximize button)
 
 ### Player Layout
 
-- The minimum Player viewport is 1280x720 CSS pixels. A smaller browser
+- The minimum Player viewport is 1280x720 CSS pixels. A smaller renderer
   viewport cannot enter Player and shows a clear minimum-size message.
 - Electron enables resizing and maximizes on the current display once when the
   user enters Player from Home. Later manual restore or resize is respected.

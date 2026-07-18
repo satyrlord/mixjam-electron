@@ -57,7 +57,7 @@ this reference" a living library that updates as new samples are indexed.
 - The model (~150 MB quantized ONNX) is lazy-loaded on first need, never
   bundled with the app binary. Delivery follows the same static-asset
   pattern as spec-016's separation model (`app://` in the shell, HTTPS fetch
-  cached in OPFS in the browser).
+  cached in renderer OPFS).
 - **Worker placement:** inference runs in a dedicated inference worker owned
   by the backend worker, which posts embedding results back for batched DB
   writes — DB access stays exclusively in the backend worker (hard rule),

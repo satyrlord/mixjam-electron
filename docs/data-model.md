@@ -11,7 +11,7 @@ backend worker. The central design property:
 
 ```sql
 -- One row per Sample Folder that has ever been scanned. key is the FolderRef
--- id (the folder handle's IndexedDB key) — browsers have no absolute paths.
+-- id (the folder handle's IndexedDB key) — MixJam stores no absolute paths.
 CREATE TABLE scan_roots (
   id                     INTEGER PRIMARY KEY,
   key                    TEXT NOT NULL UNIQUE,

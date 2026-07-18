@@ -100,7 +100,7 @@ users who do not already have samples.
 - Curated collection list: which collections, and is the list hardcoded or
   remotely updatable?
 - Format handling: many archive.org items are FLAC/OGG/78rpm MP3 — download
-  as-is and rely on browser decode support, or transcode? (`AUDIO_EXTENSIONS`
+  as-is and rely on Electron Chromium decode support, or transcode? (`AUDIO_EXTENSIONS`
   in `src/renderer/src/backend/indexer.ts` defines what the indexer accepts
   today.)
 - Rate limiting / politeness: max concurrent downloads and item-size caps.

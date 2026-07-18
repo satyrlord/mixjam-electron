@@ -358,7 +358,7 @@ the engine never knows who is listening.
 - `tmp/verify-micro-fades/` records the production Chromium UI and native
   `AudioParam` automation proof for fractional 0.5 ms/3.5 ms settings.
 - `tests/e2e/clip-edge-micro-fades.spec.ts` keeps that production Chromium
-  control-to-engine automation check in the durable browser suite. It also
+  control-to-engine automation check in the durable Electron E2E suite. It also
   renders the real voice envelope through `OfflineAudioContext` and verifies
   zero endpoints, bounded sample steps, negative samples, tempo-rate playback,
   short clips, and preserved mono, stereo, and four-channel ratios. Its

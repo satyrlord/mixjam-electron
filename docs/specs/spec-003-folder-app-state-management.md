@@ -55,7 +55,7 @@ Each card shows:
   "Sample Folder").
 - **"Pick Folder" button** — opens the File System Access directory picker.
 - **Status text** — shows the selected folder's name, or a prompt if none
-  selected. (Browsers have no absolute paths; a folder is a `FolderRef` whose
+  selected. (MixJam stores no absolute paths; a folder is a `FolderRef` whose
   handle is persisted in IndexedDB.)
 - **Library status** in the full-width scanner row below both folder controls —
   Unindexed, Syncing, Ready, Cancelled, or Error. Checking, syncing, and

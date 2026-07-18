@@ -783,7 +783,7 @@ command.
 - `project/generator-support.ts` owns the exact generator-version and registered
   profile-ID/version support check without coupling the project-file parser to
   the Vite-only bundled registry.
-- `tests/e2e/mixjam-generator.spec.ts` defines the built-browser color,
+- `tests/e2e/mixjam-generator.spec.ts` defines the built-Electron color,
   generation, open, and playback checks. Its production-bundle run passed.
 - Existing structure evidence under `tmp/verify-generator-structure/` records
   production-parser roundtrips,
@@ -813,7 +813,7 @@ npm test -- src/renderer/src/hooks/useMixJamGenerator.test.ts
 npm test -- src/renderer/src/components/MixJamGeneratorDialog.test.tsx
 ```
 
-Run the repository checks and built-browser proof:
+Run the repository checks and built-Electron proof:
 
 ```sh
 npm run typecheck

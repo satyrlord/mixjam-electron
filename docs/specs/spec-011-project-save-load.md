@@ -323,7 +323,7 @@ generator, its tests, and this contract are the durable repository assets.
   to the implementation's temporary backing file and replace the target only
   when `close()` completes successfully. A failed write is aborted.
 - A user-initiated open or save action requests access again when a persisted
-  User Folder handle is in the browser's `prompt` state. The action fails with
+  User Folder handle is in Chromium's `prompt` state. The action fails with
   the folder-required message only if access is unavailable afterward.
 
 ### Load Flow
