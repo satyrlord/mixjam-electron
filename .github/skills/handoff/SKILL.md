@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Handoff
 
-Produce a **state-transfer document** — the minimum payload a fresh agent
+Produce a **state-transfer .md file** — the minimum payload a fresh agent
 needs to resume this session without re-litigating decisions already made.
 Save to the tmp folder of the current workspace.
 

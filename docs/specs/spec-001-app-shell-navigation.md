@@ -81,30 +81,18 @@ Implement view switching, the header bar, and the footer.
 - When switching from Player to Home, the window resizes from its current
   size back to 1280×720 and the maximize button is removed.
 
-### Browser host (non-Electron runtime)
+### Electron host
 
-The browser build is the real app: the same bundle and backend used by the
-Electron shell.
+Electron is the only supported runtime and the only end-user distribution.
+The main process loads the renderer from `app://bundle`; the renderer requires
+the preload-provided `window.shellAPI`. The renderer owns sqlite-wasm over OPFS,
+File System Access folders, localStorage preferences, and `.mixjam` project
+state. The shell owns only native window and allowlisted external-link actions.
 
-- The renderer always installs the real browser backend (sqlite-wasm over
-  OPFS, File System Access folders, localStorage preferences, and `.mixjam`
-  project state). Host detection only
-  selects the optional `window.shellAPI` (present inside the Electron shell).
-- There is **no demo mode**: with no granted Sample Folder the home screen
-  gates the tracker exactly as on desktop. Onboarding for users without
-  samples is spec-013 (Sample Folder Builder), not fake data.
-- Window-management behaviors are Electron-shell capabilities. In the browser,
-  the app uses the available viewport and does not attempt to resize the host
-  window. The Player has a 1280×720 CSS viewport minimum: below either minimum
-  dimension, Player entry is blocked and a clear minimum-size message remains
-  reachable. The native window-state acceptance criteria below apply only to
-  the Electron host.
-- Folder picking uses the File System Access directory picker in both hosts
-  (spec-003).
-- The app runs in exactly one tab per origin (opfs-sahpool allows one DB
-  connection); a second tab shows an "already open in another tab" notice.
-- This enables full-featured deployment on static hosts like GitHub Pages
-  (Chromium-only is an accepted constraint).
+There is no web deployment and no demo mode. With no granted Sample Folder,
+the Home Screen gates the Player. Onboarding for users without samples is
+spec-013, not fake data. A lifetime Web Lock protects the single opfs-sahpool
+connection; a competing Electron window shows an already-open notice.
 
 ### Header Bar (both views)
 
@@ -188,15 +176,14 @@ Implementation validation should be tracked in implementation PR/test evidence.
   scrolling internally with both content limits reachable; the default
   1280×720 Electron window has no Home overflow.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
-- [x] **AC-013:** In a browser-only host where `window.shellAPI` is missing, the renderer runs the
-  full real app (browser backend, folder gating, theming) with no mock or demo data; window-resize
-  calls are no-ops.
+- [x] **AC-013:** The production renderer loads from `app://bundle`, requires
+  the preload-provided `window.shellAPI`, and has no HTTP deployment or demo
+  backend path.
 - [x] **AC-014:** Automatic library sync is non-modal and survives Home/Player
   view changes without restarting. Scan and analysis work never applies an
   app-wide blur or blocks navigation.
-- [ ] **AC-015:** The browser host uses its available viewport. When either CSS
-  viewport dimension is below 1280×720, Player entry is blocked with a clear,
-  reachable minimum-size message; at or above the minimum, Player entry works.
+- [x] **AC-015:** A lifetime Web Lock prevents a competing Electron window
+  from opening the same OPFS database and shows an already-open notice.
 - [ ] **AC-016:** Operating-system Media Session previous, play, pause, and next
   actions seek to tick 0, toggle playback, and seek to song end respectively.
   They work during blocking modals and while backgrounded when the operating

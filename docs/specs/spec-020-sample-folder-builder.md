@@ -3,7 +3,7 @@
 **Spec Validation Status:** STUB — NOT VALIDATED
 **Spec Implementation Status:** NOT IMPLEMENTED
 **Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
-web-first architecture (Sample Folder is a persisted `FileSystemDirectoryHandle`)
+Electron renderer architecture (Sample Folder is a persisted `FileSystemDirectoryHandle`)
 
 Local semantic audio search belongs to
 [spec-015](spec-015-semantic-audio-search.md); this spec covers only the
@@ -62,8 +62,8 @@ users who do not already have samples.
 - The Sample Folder stays **read-only** in normal use (spec-003 picks it with
   mode `'read'`). Write access is an **upgrade on demand**: when the builder
   starts a download batch, it calls `requestPermission({ mode: 'readwrite' })`
-  on the existing Sample Folder handle from the user gesture — one extra
-  prompt in the browser host, auto-granted in the Electron shell. The upgrade
+  on the existing Sample Folder handle from the user gesture. The Electron
+  shell auto-grants the upgrade. The upgrade
   is not persisted as the folder's default role; day-to-day scanning and
   playback continue to require only read access.
 - The feature never writes anywhere other than the Sample Folder's
@@ -109,4 +109,4 @@ users who do not already have samples.
 
 - archive.org Advanced Search API — <https://archive.org/advancedsearch.php>
 - archive.org developer portal (metadata & download endpoints) — <https://archive.org/developers/>
-- Web-first architecture — [docs/architecture.md](../architecture.md)
+- Electron renderer architecture — [docs/architecture.md](../architecture.md)

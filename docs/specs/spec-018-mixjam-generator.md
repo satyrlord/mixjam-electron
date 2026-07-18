@@ -1,9 +1,9 @@
 # Spec 018 — MixJam Generator Wizard
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIAL — existing generator implemented;
-dynamic purposeful lanes, FX exclusion, cleanup, and stereo-evidence pan rules
-not implemented
+**Spec Implementation Status:** PARTIAL — the generator produces lane-owned
+projects, excludes FX, removes empty lanes, and persists the format-4 output.
+Some profile-level selection and stereo-evidence rules remain incomplete.
 **Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
 spec-008 (Sample Analysis), spec-011 (Project Save & Load, including its
 version-4 generator metadata contract)
@@ -819,7 +819,7 @@ Run the repository checks and built-browser proof:
 npm run typecheck
 npm run lint
 npm run build
-npx playwright test tests/e2e/mixjam-generator.spec.ts --project=browser-e2e
+npx playwright test tests/e2e/mixjam-generator.spec.ts --project=electron-e2e
 ```
 
 Real-corpus verification records the selected context key and group summary,

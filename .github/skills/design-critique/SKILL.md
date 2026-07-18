@@ -19,21 +19,12 @@ Before any critique work begins, capture screenshots of the running app
 automatically. The user does not need to supply any artifact — the skill
 gathers its own surfaces.
 
-### 1. Ensure the app is running
+### 1. Build the app
 
-Check whether the dev server is already listening on `http://localhost:5173`
-(or the production preview on `http://localhost:4173`). If neither is
-reachable, start the app:
+Capture the production Electron surface, not a development server:
 
 ```sh
-npm run dev
-```
-
-Wait for the Vite dev server to report readiness. If the build is stale or
-missing, build first:
-
-```sh
-npm run build && npm run preview
+npm run build
 ```
 
 ### 2. Capture screenshots via Playwright
@@ -41,14 +32,16 @@ npm run build && npm run preview
 Write a temporary Playwright script at
 `tmp/design-critique/capture.mjs` that:
 
-1. Launches a headless Chromium browser.
-2. Navigates to the running app URL.
+1. Removes `ELECTRON_RUN_AS_NODE` from the child environment and launches
+   `out/main/index.js` with Playwright's `_electron`.
+2. Gets the first Electron window.
 3. Injects the mock backend (same pattern as `tests/e2e/fixtures.ts`:
-   read `tests/e2e/mock-backend.js` and call `page.addInitScript`).
+   read `tests/e2e/mock-backend.js`, call `page.addInitScript`, then reload).
 4. Waits for `#root > *` to render.
 5. Navigates to each relevant view (home screen, player/tracker, sample
    browser, settings if applicable) and takes a full-page screenshot.
 6. Saves screenshots to `tmp/design-critique/screenshots/<view>.png`.
+7. Closes the Electron application in a `finally` block.
 
 Execute the capture script:
 
@@ -68,7 +61,7 @@ At minimum, capture these views:
 
 | View | Navigation trigger | What to capture |
 | --- | --- | --- |
-| Home | `/` (initial load) | Full home screen with wordmark, folder cards, recents, theme swatches |
+| Home | Initial Electron window | Full Home Screen with wordmark, folder cards, recents, theme swatches |
 | Player/Tracker | Click "Start New MixJam" or navigate | Lane heads, transport strip, mixer panel |
 | Sample Browser | Open the samples panel | Category filter, sample list, sample bubbles |
 | Theme variant | Cycle through 2-3 themes via theme swatches | One screenshot per theme to assess consistency across themes |
@@ -158,9 +151,8 @@ recommendation, and the priority recommendations are ordered by impact.
 
 ## Cleanup
 
-After the critique is written, stop any server that was started specifically
-for the capture. If the server was already running before the skill was
-invoked, leave it running.
+The capture script must close the Electron application it launched, including
+after an assertion or screenshot failure.
 
 ## Completion Criterion
 

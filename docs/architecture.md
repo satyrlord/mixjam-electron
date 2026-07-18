@@ -4,7 +4,7 @@
 
 | Layer | Choice | Why it is constrained this way |
 | ----- | ------ | ----------------------------- |
-| Hosts | **Browser-first (Chromium) + thin Electron shell** | One backend, two hosts. Browser build is primary (GitHub Pages); Electron loads the same bundle from `app://`. Chromium-only. |
+| Host | **Electron desktop app** | One distributed host. Electron loads the renderer from the privileged `app://bundle` origin and bundles Chromium. There is no web deployment. |
 | UI | **React + TypeScript** | React was not the prior bottleneck; virtualization was. Prior React investment is kept. |
 | UI primitives | **Project wrappers over Radix UI and react-resizable-panels** | Shared keyboard, focus, portal, collision, pointer, and ARIA behavior without third-party imports in features. |
 | Large-list rendering | **Virtualized list/grid** (TanStack Virtual or react-window) | ~30–50 DOM rows exist at once, recycled on scroll. Mandatory for any view that can show many samples. |
@@ -18,7 +18,7 @@
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│ Renderer (identical bundle in every host)                │
+│ Electron renderer (`app://bundle`)                       │
 │                                                          │
 │  UI (React) ──> BackendAPI facade (contract:             │
 │                 src/shared/backend-api.ts; impl:         │
@@ -40,11 +40,10 @@
 │  in .mixjam                                               │
 │  tracker/player (Web Audio) · skinnable via CSS vars     │
 └─────────────────────────────────────────────────────────┘
-   Host A: any Chromium browser (GitHub Pages, https)
-   Host B: thin Electron shell (~150-line main process):
-           window sizing, app:// protocol, auto-granted
-           fileSystem permission, openExternal allowlist
-           (exposed to the renderer as window.shellAPI)
+   Electron main process:
+     window sizing, app:// protocol, auto-granted fileSystem
+     permission, and openExternal allowlist
+     (exposed to the renderer as required window.shellAPI)
 ```
 
 Rules of the process model:
@@ -60,7 +59,7 @@ Rules of the process model:
   library sync, the single analyzer, individual analyzer requests, and generator
   planning.
   Workflow-owned persistence modules group indexed-sample lifecycle, analysis
-  provenance, and browser/saved-library SQL without opening another connection.
+  provenance, and sample/saved-library SQL without opening another connection.
 - **Analysis has one semantic owner.** The analyzer stores direct per-file
   BPM/key evidence, validates stereo-pair side evidence, derives directory and
   virtual source-cohort groups, infers zero or more coherent clusters, and
@@ -74,11 +73,12 @@ Rules of the process model:
   persisted directory handle); samples are `(root_id, relpath)`. Reading a file
   resolves the relpath through the root's handle, so reads cannot escape a
   granted folder by construction.
-- **The shell does not provide filesystem fallbacks.** Automated browser and
-  Electron checks seed the renderer's `BackendAPI` test facade; environment
+- **The shell does not provide filesystem fallbacks.** Automated Electron
+  checks seed the renderer's `BackendAPI` test facade; environment
   variables and renderer-supplied paths never grant host filesystem access.
-- **One tab.** A Web Lock (`mixjam-app`) is taken before the app mounts; a
-  second tab shows a friendly notice instead of failing on DB open.
+- **One active app instance per profile.** A Web Lock (`mixjam-app`) is taken
+  before the app mounts; a competing window shows a friendly notice instead
+  of failing on DB open.
 - **Audio stays on the renderer main thread** (Web Audio API). The engine loads
   sample bytes through `BackendAPI.readSampleBytes(rootId, relpath)`.
 - **Generated-project commit stays in the renderer.** The backend worker owns

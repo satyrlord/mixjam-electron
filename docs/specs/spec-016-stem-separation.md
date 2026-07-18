@@ -44,10 +44,9 @@ tempo-following, and mixing contracts as other samples.
 - The ONNX model is quantized (INT8 or FP16) to reduce size. Target: under
   80 MB for the quantized checkpoint. The model is lazy-loaded on first use —
   it is never bundled with the app binary.
-- Model delivery: shipped as a static asset alongside the renderer bundle (in
-  `public/models/` or fetched from a CDN on first use and cached in OPFS).
-  The Electron shell serves it from the `app://` protocol; the browser build
-  fetches it over HTTPS. Either way, inference is local.
+- Model delivery: ship the model as an Electron renderer asset under
+  `public/models/`, served from the `app://` protocol. Inference is local and
+  does not depend on a first-run network download.
 
 ### Inference Pipeline
 
@@ -175,12 +174,11 @@ CREATE TABLE stem_cache (
 - **Chunk stitching artifacts:** overlap-add crossfade handles most cases, but
   do transient-heavy drum stems show audible clicks at chunk boundaries? May
   need onset-aligned chunk boundaries.
-- **OPFS quota:** 2 GB of stem cache may bump against browser OPFS quota on
-  some origins (varies by browser/OS). Need to measure and potentially show a
+- **OPFS quota:** 2 GB of stem cache may approach Electron's persistent
+  storage quota. Measure it on supported operating systems and show a
   user-facing warning when quota is near.
-- **Model delivery mechanism:** bundle in the app (increases initial download by
-  ~80 MB) vs fetch-on-demand from a CDN (requires network on first use). A
-  hybrid — Electron bundles, browser fetches — may be the right split.
+- **Model package impact:** bundling the model increases the installer by about
+  80 MB. Validate that cost before this stub becomes an implemented contract.
 - **Stereo vs mono inference:** HTDemucs supports stereo input natively. Should
   the pipeline always run in stereo (higher quality, 2x compute), or offer a
   "fast mono" mode?

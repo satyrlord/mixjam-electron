@@ -34,7 +34,7 @@ Run in this order:
 4. **Fallow:** run the dead-code command. Pass only on zero findings.
 5. **Unit:** run the discovered unit suite. Pass when all tests pass; use `N-A`
    only when no suite exists.
-6. **E2E:** run the discovered browser E2E suite. Pass when all tests pass; use
+6. **E2E:** run the discovered Electron E2E suite. Pass when all tests pass; use
    `N-A` only when no suite exists.
 7. **Coverage:** run unit coverage, supplementary E2E coverage when available,
    and the combined report. Pass only when every reported unit Statements,

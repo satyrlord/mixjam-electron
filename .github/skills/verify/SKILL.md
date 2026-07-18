@@ -10,21 +10,20 @@ so theme, CSS, drawing, and tracker behavior need evidence from real Chromium.
 
 ## Build and Drive
 
-1. Remove `ELECTRON_RUN_AS_NODE` from the command environment when launching
-   Electron; the Chromium-only path is unaffected.
+1. Remove `ELECTRON_RUN_AS_NODE` from the command environment.
 2. Run `npm run build` and require a clean exit.
-3. Serve `out/renderer` with `node scripts/serve-static.mjs <port>` in a
-   background process.
-4. Create `tmp/verify-<slug>.mjs` inside the repository so Playwright resolves
-   the local `node_modules`.
-5. Drive only the changed states and write screenshots plus a short evidence
+3. Create `tmp/verify-<slug>.mjs` inside the repository so Playwright resolves
+   the local `node_modules`. Launch `out/main/index.js` with Playwright's
+   `_electron`, then use `electronApp.firstWindow()` as the page.
+4. Drive only the changed states and write screenshots plus a short evidence
    report under `tmp/verify-<slug>/`.
-6. Stop the static server after the assertions finish.
+5. Close the Electron application in a `finally` block.
 
 ## Seed Without Real Folders
 
-Inject a mock `window.backendAPI` with `page.addInitScript` before `page.goto`.
-Copy its shape from `tests/e2e/fixtures.ts` and compare it with
+Inject a mock `window.backendAPI` with `page.addInitScript`, then reload the
+first window so the mock runs before the renderer bootstraps. Copy its shape
+from `tests/e2e/fixtures.ts` and compare it with
 `src/shared/backend-api.ts`. Assert the feature fed by each mocked method; app
 boot alone does not prove the mock is complete.
 
@@ -52,7 +51,7 @@ boot alone does not prove the mock is complete.
 ## Completion Criterion
 
 Verification is complete when the production build passes, the relevant user
-states are driven in Chromium, every changed visual or interaction contract has
+states are driven in Electron's Chromium renderer, every changed visual or interaction contract has
 an objective assertion, screenshots and an evidence report exist under the
-run-specific `tmp/verify-<slug>/` directory, and the background server is
-stopped. Report exact failed assertions without claiming verification passed.
+run-specific `tmp/verify-<slug>/` directory, and the Electron application is
+closed. Report exact failed assertions without claiming verification passed.

@@ -1,7 +1,6 @@
 # MixJam Electron — Developer Guide
 
-A web-first Chromium app (GitHub Pages) with a thin Electron desktop shell,
-in two halves:
+An Electron desktop app, in two halves:
 
 1. A **sample-library browser and tagger** over a large local collection (35GB+,
    100,000+ samples, 850+ folders) with dynamic tags, a category/subcategory tree,
@@ -29,8 +28,6 @@ requirements that drive every architectural choice.
 ## Prerequisites
 
 - Node.js 20.19+ or 22.12+
-- A Chromium browser (the app uses the File System Access API and OPFS;
-  Safari/Firefox support is explicitly not a goal)
 
 There are no native modules — SQLite runs as WebAssembly
 (`@sqlite.org/sqlite-wasm`), so no build toolchain or ABI rebuilds are needed.
@@ -45,9 +42,8 @@ npm run dev       # starts Electron with hot reload via electron-vite
 If Electron fails to launch, check whether `ELECTRON_RUN_AS_NODE` is set in your
 environment — remove it before running `dev` or `build`.
 
-The browser build is `out/renderer` after `npm run build` — a static bundle that
-any plain static file server can host (no COOP/COEP headers required; this is
-what the GitHub Pages deploy publishes).
+The production renderer is loaded by Electron from the privileged
+`app://bundle` origin. The renderer bundle is not deployed as a website.
 
 ## Build
 
@@ -62,10 +58,10 @@ npm run preview   # preview the production build
 npm test              # run the full vitest suite (single pass)
 npm run test:watch    # run vitest in watch mode
 npm run test:coverage # run with v8 coverage report
-npm run test:e2e      # build and run browser Playwright tests
+npm run test:e2e      # build and run Electron Playwright tests
 npm run test:e2e:electron # build and run the Electron smoke project
-npm run test:all      # run vitest, then browser Playwright tests
-npm run coverage:all  # collect unit and browser e2e coverage
+npm run test:all      # run vitest, then Electron Playwright tests
+npm run coverage:all  # collect unit and Electron e2e coverage
 npm run coverage:report # merge collected coverage reports
 ```
 
@@ -89,6 +85,18 @@ npm run lint        # eslint
 npm run fallow      # dead-code audit
 npm run package:electron # package portable/AppImage/dmg artifacts
 ```
+
+## Distribution
+
+Electron packages are the only end-user artifacts. The production workflow
+builds on Windows, Linux, and macOS and produces a portable `.exe`, AppImage,
+and `.dmg`. Tag pushes matching `v*` attach those files to a GitHub Release;
+manual runs retain them as workflow artifacts for 14 days.
+
+Signing and macOS notarization are not configured. Current packages are
+unsigned and may trigger operating-system trust warnings. Do not describe a
+release as signed or notarized until the production workflow has credentials
+and a tagged run proves those steps.
 
 ## Project structure
 

@@ -2,7 +2,10 @@
 
 **Spec Validation Status:** VALIDATED
 
-**Spec Implementation Status:** NOT IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — four send/return buses, Empty and Delay
+modules, modal editing with live draft audition, limiter toggles, and persistence
+are implemented. Unified undo integration and rendered hard-ceiling verification
+remain.
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-007 (Lane-Bound Mixer)
 
@@ -166,6 +169,9 @@ sum of lane sends N
   graph, discards all draft changes, and closes the modal.
 - Focus is trapped inside the modal and returns to the FX container that opened
   it after either outcome.
+- The modal is portaled outside the Mixer scroll surface and centered in the
+  application viewport. Mixer clipping and horizontal scroll position cannot
+  move or crop it.
 - The modal uses a Free/Sync segment, horizontal sliders with read-only value
   text, a Sync division dropdown, a Ping-Pong Off/On control, and Reset,
   Cancel, and OK actions. It has no typed numeric fields.

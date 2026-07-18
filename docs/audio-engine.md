@@ -230,6 +230,7 @@ the swap: the scheduler/transport sit behind an interface, and only its
 implementation changes. Try an **`AudioWorklet`** before a native addon — it covers
 most custom-DSP needs while staying in the web stack.
 
-A native addon can serve only the Electron host; the browser build cannot load
-it. `AudioWorklet` works in both hosts and therefore comes first. A native addon
-would make the affected feature desktop-only.
+An `AudioWorklet` remains the first custom-DSP choice because it keeps DSP in
+Chromium's audio rendering model and avoids native ABI, packaging, and signing
+work. A native addon is acceptable only after one of the measured triggers
+above is reproduced.

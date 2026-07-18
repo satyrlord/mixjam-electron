@@ -96,7 +96,8 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 
 ## Resolved decisions — do not reopen
 
-- Web-first: one browser backend, thin Electron shell. No demo/mock mode
+- Electron-only: one renderer backend inside the Electron desktop app. The
+  renderer loads from `app://`; there is no browser deployment. No demo/mock mode
   (onboarding without samples is spec-013).
 - `@sqlite.org/sqlite-wasm` with opfs-sahpool VFS. One tab, enforced by Web Lock.
 - `rule_json` predicate tree compiles to parameterized SQL. Current executable subset:
@@ -123,7 +124,9 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
   compatibility or migration work only when it serves a real deployment,
   review, rollback, or risk-control need.
 - **Performance claims need real data.** Use `tmp/test-samples` fixtures, not synthetic files. Flag missing measurements explicitly.
-- **Deploy-origin checks:** verify browser build on a local static server (no COOP/COEP headers). Do not push branches just to test an origin.
+- **Production-surface checks:** verify the built renderer inside Electron at
+  the `app://bundle` origin. Do not publish a release merely to reproduce an
+  origin condition that can be tested locally.
 - **Close-out before finishing:** run a self-critique pass. List: (1) least confident items with concrete verification commands, (2) skipped or deferred work, (3) unstated assumptions,
   (4) biggest blind spot for the user. Log results in the handoff. Do not start fixing gaps — let the handoff carry them.
 - **Fresh-eyes audit** for large/risky changes: paste the handoff into a new agent context and ask

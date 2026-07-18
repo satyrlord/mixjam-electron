@@ -2,7 +2,7 @@
 
 **Spec Validation Status:** VALIDATED
 
-**Spec Implementation Status:** NOT IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline & Panel Layout)
 
@@ -77,10 +77,12 @@ off, solo off, and four sends at 0%.
 The Mixer uses one continuous horizontal row in this exact order:
 
 ```text
-Lane strip 1 ... Lane strip N | Return | FX 1 | FX 2 | FX 3 | FX 4
+Lane strip 1 ... Lane strip N | Return | FX 1  FX 2
+                                             FX 3  FX 4
 ```
 
-- The row never wraps and has no pinned section.
+- Lane strips and Return never wrap. The four fixed FX slots are one 2x2
+  section at the end of the row and have no independent scrolling.
 - The Mixer has one horizontal scrollbar for the complete row. The Return and
   FX sections scroll with lane strips.
 - The horizontal scrollbar is always visible while the Mixer is active and is
@@ -228,7 +230,7 @@ missing or malformed lane-owned Mixer data.
   the post-volume, post-pan signal.
 - [ ] **AC-009:** Mute and solo stop new dry and send input according to the
   documented gating rules while existing return tails ring out.
-- [ ] **AC-010:** The row order is all lane strips, Return, then FX 1 through FX
+- [ ] **AC-010:** The row order is all lane strips, Return, then the 2x2 FX 1 through FX
   4, using base widths 76/120/160 px and one continuous horizontal scrollbar
   with no wrap, pinning, or vertical scroll.
 - [ ] **AC-011:** Each wet-only return ranges from 0% to 100%, defaults and

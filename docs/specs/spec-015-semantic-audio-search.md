@@ -2,8 +2,8 @@
 
 **Spec Validation Status:** STUB — NOT VALIDATED
 **Spec Implementation Status:** NOT IMPLEMENTED
-**Depends on:** spec-004 (Sample Library — browser, search, `rule_json` query
-engine), web-first architecture (backend worker owns the database)
+**Depends on:** spec-004 (Sample Library browser, search, `rule_json` query
+engine), Electron renderer architecture (backend worker owns the database)
 
 This spec owns the `similarTo` query predicate, zero-shot tag suggestions, and
 all CLAP-model-dependent behavior. Deterministic key/BPM compatibility is

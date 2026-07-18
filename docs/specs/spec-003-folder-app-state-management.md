@@ -63,9 +63,9 @@ Each card shows:
   a visible text equivalent, and Cancel. Ready collapses to a compact status.
   Cancelled or failed first sync shows a contextual Retry action. Detailed
   behavior belongs to spec-004.
-- **"Restore access" button** — shown instead of the plain status when a
-  restored handle needs a user-gesture permission re-grant (browser host only;
-  the Electron shell auto-grants file system access).
+- **"Restore access" button** — defensive recovery shown if a restored handle
+  reports that permission is not granted. The Electron shell normally grants
+  file system access before the renderer loads.
 
 **User Folder card:**
 
@@ -113,10 +113,10 @@ Each card shows:
 - The user can change the folder at any time by clicking "Pick Folder" again.
 - If a previously saved folder no longer exists, the card shows an error
   state: "Folder not accessible — pick a new one."
-- If a previously saved folder exists but its permission has lapsed
-  (`queryPermission() === 'prompt'`, browser host), the card offers
-  "Restore access to `folder`", which re-requests permission in a user
-  gesture. The Electron shell auto-grants, so desktop users never see this.
+- If a previously saved folder exists but reports
+  `queryPermission() === 'prompt'`, the card offers "Restore access to
+  `folder`" and re-requests permission in a user gesture. This is a defensive
+  recovery path because the Electron shell normally auto-grants access.
 
 ### App State Persistence
 
@@ -159,7 +159,9 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
 - [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
 - [x] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
-- [x] **AC-013a:** If a restored handle needs a permission re-grant (browser host), the card offers "Restore access to `folder`"; granting it validates the folder and opens the gate.
+- [x] **AC-013a:** If a restored handle unexpectedly needs a permission
+  re-grant, the card offers "Restore access to `folder`"; granting it validates
+  the folder and opens the gate.
 - [x] **AC-014:** A `mixjam.json` app config file is written to the User Folder after both folders are selected.
 - [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
 - [x] **AC-016:** Selecting or restoring an accessible Sample Folder schedules

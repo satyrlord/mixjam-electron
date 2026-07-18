@@ -425,7 +425,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 - Thin themed scrollbars on all scrollable surfaces.
 - The Mixer is one continuous horizontal row: lane channels, Return section,
-  then FX 1 through FX 4. Nothing is pinned or wrapped. Its themed horizontal
+  then one 2x2 grid containing FX 1 through FX 4. Nothing is pinned. Its themed horizontal
   scrollbar is always visible while Mixer is active and disabled when content
   fits. There is no vertical Mixer scrollbar.
 - Trackpad horizontal movement and Shift+wheel move the Mixer horizontally.
@@ -548,8 +548,8 @@ present. Native light Windows scrollbars never appear on dark themes.
   Caps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.
   ```
 
-- Four FX containers follow the Return section. Each is 160px wide at UI Size
-  32 and shows its number, Empty or Delay name, power state, and a compact
+- Four FX containers follow the Return section in a fixed 2x2 grid. Each is
+  160px square at UI Size 32 and shows its number, Empty or Delay name, power state, and a compact
   summary of time/division, feedback, Tape Distortion, and Ping-Pong.
 - Left-click opens a dropdown. Empty offers `Delay...`. A configured slot offers
   `Delay...` and `Clear slot`. Clear is immediate and undoable.
@@ -562,7 +562,8 @@ present. Native light Windows scrollbars never appear on dark themes.
 ### Delay Editor Modal
 
 - Selecting Delay opens a full blocking modal with no close button and no typed
-  fields. The backdrop and all ordinary app controls and hotkeys are inert.
+  fields. It is centered in the application viewport, outside the Mixer scroll
+  surface. The backdrop and all ordinary app controls and hotkeys are inert.
 - Controls are a Free/Sync segment, horizontal parameter sliders with read-only
   values, a sync-division dropdown, Ping-Pong Off/On, Reset, Cancel, and OK.
 - Enter saves. Esc or Cancel discards. Space toggles the edited FX bypass.

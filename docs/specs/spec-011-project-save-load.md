@@ -1,7 +1,7 @@
 # Spec 011 — Project Save & Load
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** NOT IMPLEMENTED for breaking format version 4.
+**Spec Implementation Status:** IMPLEMENTED for breaking format version 4.
 **Depends on:** spec-006 (Player Timeline & Panel Layout), spec-007 (Mixer),
 spec-010 (Audio Effects)
 
@@ -356,8 +356,8 @@ generator, its tests, and this contract are the durable repository assets.
   - project file path relative to the User Folder ('/'-separated)
   - display name derived from the filename
   - last-opened timestamp
-- Deduplication uses the relative path as the canonical key (no absolute
-  filesystem paths are stored, consistent with the web-first data model).
+- Deduplication uses the relative path as the canonical key; no absolute
+  filesystem paths are stored.
 - Successfully opening a `.mixjam` file updates or inserts its registry entry.
 - Successfully saving a new project path updates or inserts its registry entry.
 - The MixJam Browser (spec-006) merges this registry with `.mixjam`

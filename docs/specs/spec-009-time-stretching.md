@@ -181,7 +181,7 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 - `arrangement.test.ts`, `useTransportEngine.test.ts`, and
   `SampleTileGrid.test.tsx` cover BPM-invariant geometry, first-drop span
   capture, same-sample span reuse, and cross-view width.
-- `tests/e2e/time-stretch-content.spec.ts` proves the production browser uses
+- `tests/e2e/time-stretch-content.spec.ts` proves the Electron renderer uses
   a deterministic generated PCM WAV at a `111 / 140` playback rate and fills
   the expected 8.648649-second span without relying on a local fixture corpus.
 - Verification commands:
