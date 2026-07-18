@@ -30,20 +30,22 @@ entering the Player. Folder selections persist as app state across restarts.
 
 ### Home Screen — Modified Layout
 
-The Home Screen content area is extended with two folder selection cards
-within the setup column of the two-column layout (see spec-001). The
-modified setup column:
+The Home Screen workflow column contains three independent sibling cards (see
+spec-001). Folder selection and library state share the first card, while
+project actions live in the second:
 
 ```text
-.setup-column (raised panel, right side of two-column layout)
-  ├── User Folder card      — output folder picker
-  ├── Sample Folder card    — input folder picker (initially disabled)
-  ├── "Start New MixJam" button  — disabled until both folders set
-  └── "Load MixJam" link        — unchanged from spec-001
+workflow column (right side of two-column layout)
+  ├── Library Setup card
+  │   ├── User Folder control — output folder picker
+  │   ├── Sample Folder control — input folder picker (initially disabled)
+  │   └── scanner row — full width; active detail or compact ready state
+  ├── Create or Open card
+  │   └── Start New MixJam (2fr) | Load MixJam (1fr)
+  └── Generate a MixJam card — owned by spec-018
 ```
 
-The full-width Recent Projects rail is a sibling of this setup panel and is
-owned by spec-001.
+The Recent Projects rail remains below the hero and is owned by spec-001.
 
 ### Folder Cards
 
@@ -55,10 +57,12 @@ Each card shows:
 - **Status text** — shows the selected folder's name, or a prompt if none
   selected. (Browsers have no absolute paths; a folder is a `FolderRef` whose
   handle is persisted in IndexedDB.)
-- **Library status** on the Sample Folder card — Unindexed, Syncing, Ready,
-  Cancelled, or Error. Syncing shows the current phase plus native progress
-  semantics and a visible text equivalent. Cancelled or failed first sync shows
-  a contextual Retry action. Detailed behavior belongs to spec-004.
+- **Library status** in the full-width scanner row below both folder controls —
+  Unindexed, Syncing, Ready, Cancelled, or Error. Checking, syncing, and
+  analysis expand the row with the current phase, native progress semantics,
+  a visible text equivalent, and Cancel. Ready collapses to a compact status.
+  Cancelled or failed first sync shows a contextual Retry action. Detailed
+  behavior belongs to spec-004.
 - **"Restore access" button** — shown instead of the plain status when a
   restored handle needs a user-gesture permission re-grant (browser host only;
   the Electron shell auto-grants file system access).
@@ -78,15 +82,17 @@ Each card shows:
 - Role: read-only. The app reads audio samples from this folder but never
   writes to it.
 
-### Launch Gate
+### Create or Open
 
-- The "Start New MixJam" button is **disabled** until both folders are
-  selected.
+- The launch gate lives in an independent card below Library Setup. Its action
+  row uses a 2:1 width ratio so "Start New MixJam" visually leads while "Load
+  MixJam" remains a quieter outlined secondary action.
+- "Start New MixJam" is **disabled** until both folders are selected.
 - When disabled, a hint label appears below the button: "Select both folders
   above to start."
 - Once both folders are set, the button becomes active and clicking it
   navigates to the MixJam Player (per spec-001).
-- The "Load MixJam" link uses the same two-folder readiness gate. Project paths
+- "Load MixJam" uses the same two-folder readiness gate. Project paths
   are User Folder-relative and sample references are Sample Folder-relative,
   so both folders must be available before a project can load.
 
@@ -136,7 +142,8 @@ Folder's directory handle). It is not user-editable.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** Home Screen shows two folder cards: User Folder (top) and Sample Folder (bottom).
+- [x] **AC-001:** Library Setup shows the User Folder and Sample Folder controls
+  side by side, with one scanner row spanning beneath them.
 - [x] **AC-002:** User Folder card is always active — "Pick Folder" button is clickable.
 - [x] **AC-003:** Sample Folder card is initially disabled (greyed out, non-interactive).
 - [x] **AC-004:** Sample Folder card becomes active only after a User Folder is selected.
@@ -158,10 +165,11 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-016:** Selecting or restoring an accessible Sample Folder schedules
   exactly one automatic library sync for that folder during the app session.
   Re-renders and Home/Player transitions do not start duplicate jobs.
-- [x] **AC-017:** While Home is visible, the Sample Folder card shows sync
-  phase and progress. Folder availability remains the launch gate, and an
-  existing index remains usable during background sync. A cancelled or failed
-  first sync remains visibly unindexed and offers Retry without a modal overlay.
+- [x] **AC-017:** While Home is visible, the Library Setup scanner row shows
+  expanded sync or analysis phase and progress, then collapses to a compact
+  ready state. Folder availability remains the launch gate, and an existing
+  index remains usable during background sync. A cancelled or failed first sync
+  remains visibly unindexed and offers Retry without a modal overlay.
 
 ## Non-Goals (deferred to later specs)
 

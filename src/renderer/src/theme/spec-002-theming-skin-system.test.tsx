@@ -362,6 +362,19 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(() => contrastRatio('not-a-color', '#000000')).toThrow('Invalid theme color "not-a-color": expected #RRGGBB')
   })
 
+  it('AC-019: Soft muted text remains readable on its normal text surfaces', () => {
+    const soft = resolveTheme('soft')
+    const mutedTextSurfaces = ['bg-base', 'bg-panel', 'bg-lane', 'chrome', 'pill-bg'] as const
+
+    expect(soft.colors['text-muted']).toBe('#526078')
+    for (const surface of mutedTextSurfaces) {
+      expect(
+        contrastRatio(soft.colors['text-muted'], soft.colors[surface]),
+        `Soft muted text on ${surface}`
+      ).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
   it('AC-010: Emerald theme JSON is parseable and has no duplicate keys in the declared schema', () => {
     const rawJson = readUtf8(EMERALD_JSON_PATH)
     const parsed = JSON.parse(rawJson) as {

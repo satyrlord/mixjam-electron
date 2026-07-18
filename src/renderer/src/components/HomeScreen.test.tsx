@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import HomeScreen from './HomeScreen'
 import type { FolderView } from '../hooks/useFolderSetup'
@@ -79,6 +79,23 @@ describe('HomeScreen', () => {
     expect(document.querySelector('.brand-mark')).toBeNull()
   })
 
+  it('separates library, project, and generator workflows with one primary action', () => {
+    renderHome()
+
+    const library = screen.getByRole('region', { name: 'Library Setup' })
+    const projects = screen.getByRole('region', { name: 'Create or Open' })
+    const generator = screen.getByRole('region', { name: 'Generate a MixJam' })
+    expect(document.querySelectorAll('.home-workflow-card')).toHaveLength(3)
+    expect(within(library).getByText('Library ready').closest('.library-sync-status'))
+      .toHaveClass('library-sync-compact')
+    expect(within(projects).getByRole('button', { name: 'Start New MixJam' }))
+      .toHaveClass('btn-primary')
+    expect(within(projects).getByRole('button', { name: 'Load MixJam' }))
+      .toHaveClass('btn-secondary')
+    expect(within(generator).getByRole('button', { name: 'Generate MixJam' }))
+      .toHaveClass('btn-secondary')
+  })
+
   it('renders start button disabled when canStart is false', () => {
     const { container } = renderHome({
       sampleFolder: UNSET_FOLDER,
@@ -127,8 +144,10 @@ describe('HomeScreen', () => {
       onCancelLibrarySync={vi.fn()} onStart={vi.fn()} onLoad={vi.fn()}
       onOpenProject={vi.fn()} onOpenGenerator={onOpenGenerator}
     />)
-    expect(screen.getByRole('button', { name: 'Preparing library…' })).toBeDisabled()
-    expect(screen.getByText('Scanning library')).toBeInTheDocument()
+    const generate = screen.getByRole('button', { name: 'Generate MixJam' })
+    const status = screen.getByText('Scanning library')
+    expect(generate).toBeDisabled()
+    expect(generate).toHaveAttribute('aria-describedby', status.id)
     expect(screen.queryByText('Wait for library preparation to finish.')).toBeNull()
   })
 
@@ -243,9 +262,15 @@ describe('HomeScreen', () => {
 
     const status = screen.getByText('Finding samples')
     expect(status).toBeInTheDocument()
-    expect(status.closest('.folder-card')).toHaveTextContent('Sample Folder')
+    expect(status.closest('.home-library-setup')).toHaveTextContent('Library Setup')
+    expect(status.closest('.folder-card')).toBeNull()
+    expect(status.closest('.library-sync-status')).not.toHaveClass('library-sync-compact')
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
     expect(container.querySelector('.scan-overlay')).toBeNull()
+    const generate = screen.getByRole('button', { name: 'Generate MixJam' })
+    const generatorStatus = screen.getByText('Available when library sync finishes.')
+    expect(generate).toBeDisabled()
+    expect(generate).toHaveAttribute('aria-describedby', generatorStatus.id)
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancelLibrarySync).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeEnabled()

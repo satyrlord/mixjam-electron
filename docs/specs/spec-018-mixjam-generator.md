@@ -51,20 +51,22 @@ transitions, motif returns, and mix balance are part of the generator contract.
 
 ### Home view entry
 
-The Home view gains a **Generate MixJam** card beside the Sample Folder and
-recent-project cards. The card is visible when a Sample Folder is selected, but
-its action is gated until both folders are accessible and the User Folder is
-writable. The card explains the concrete missing prerequisite when gated. It
-preserves the backend readiness message for preparation, empty, and unavailable
-states instead of replacing those states with a generic wait message.
+The Home workflow column includes an independent **Generate a MixJam** sibling
+card below Library Setup and Create or Open. It is visible when a Sample Folder
+is selected, but its action is gated until both folders are accessible and the
+User Folder is writable. The card remains at normal contrast while gated. Only
+its secondary action is disabled, with the concrete prerequisite kept visible
+and linked through `aria-describedby`. Scanner progress appears only in Library
+Setup; the generator card does not duplicate it.
 
 Its states are:
 
 - **Ready:** the User Folder is writable and the selected root has a completed
   sync and analysis job. **Generate** opens the wizard.
 - **Preparing:** the root has a usable index but its current sync or analysis is
-  still running. The card shows existing progress and waits for that job; it
-  does not start a duplicate job.
+  still running. The **Generate MixJam** action is disabled and the card shows
+  the backend readiness reason while Library Setup shows progress. It does not
+  start a duplicate job.
 - **Needs preparation:** the root has no completed current analysis. **Prepare
   library** starts or awaits the existing sync/analysis lifecycle.
 - **Empty or unavailable:** the card explains that the folder has no usable
@@ -531,10 +533,13 @@ command.
 
 ## Acceptance Criteria
 
-- [x] **AC-001:** The Home view shows a visible Generate MixJam card after a
-  Sample Folder is selected and gates the action until the User Folder is
-  accessible and writable. The card loads generator readiness independently of
-  opening the dialog and refreshes it as library preparation changes state.
+- [x] **AC-001:** The Home workflow column shows Generate a MixJam as an
+  independent sibling card after a Sample Folder is selected. The card stays at
+  normal contrast while its secondary action is gated until the User Folder is
+  accessible and writable. During active sync or analysis, the disabled action
+  has a visible readiness reason linked through `aria-describedby`; progress is
+  shown only in Library Setup. Readiness loads independently of opening the
+  dialog and refreshes as library preparation changes state.
 - [x] **AC-002:** The wizard has exactly two steps: Parameters and Generate; no
   preview step is present.
 - [x] **AC-003:** The Parameters step exposes the three profiles,

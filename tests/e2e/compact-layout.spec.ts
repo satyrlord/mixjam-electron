@@ -143,13 +143,26 @@ test('Home uses both desktop columns while library analysis is active', async ({
       const screen = document.querySelector('.home-screen')
       const content = document.querySelector('.home-content')
       const setup = document.querySelector('.home-setup')
+      const folderGrid = document.querySelector('.home-folder-grid')
+      const actionRow = document.querySelector('.home-project-action-row')
+      const libraryStatus = document.querySelector('.home-library-status')
+      const generateButton = document.querySelector('.home-generator-card .btn-secondary')
       if (!(screen instanceof HTMLElement) ||
         !(content instanceof HTMLElement) ||
-        !(setup instanceof HTMLElement)) {
+        !(setup instanceof HTMLElement) ||
+        !(folderGrid instanceof HTMLElement) ||
+        !(actionRow instanceof HTMLElement) ||
+        !(libraryStatus instanceof HTMLElement) ||
+        !(generateButton instanceof HTMLButtonElement)) {
         throw new Error('Home geometry elements are unavailable')
       }
       const screenBox = screen.getBoundingClientRect()
       const contentBox = content.getBoundingClientRect()
+      const cards = [...setup.querySelectorAll(':scope > .home-workflow-card')]
+        .filter((card): card is HTMLElement => card instanceof HTMLElement)
+      const actionButtons = [...actionRow.querySelectorAll('button')]
+        .filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement)
+      const actionWidths = actionButtons.map((button) => button.getBoundingClientRect().width)
       return {
         rootClientWidth: document.documentElement.clientWidth,
         rootScrollWidth: document.documentElement.scrollWidth,
@@ -158,7 +171,15 @@ test('Home uses both desktop columns while library analysis is active', async ({
         screenClientHeight: screen.clientHeight,
         screenScrollHeight: screen.scrollHeight,
         screenOverflowY: getComputedStyle(screen).overflowY,
-        setupColumns: getComputedStyle(setup).gridTemplateColumns.split(' ').length,
+        setupDirection: getComputedStyle(setup).flexDirection,
+        folderColumns: getComputedStyle(folderGrid).gridTemplateColumns.split(' ').length,
+        cardCount: cards.length,
+        cardsDoNotOverlap: cards.every((card, index) => index === 0 ||
+          cards[index - 1]!.getBoundingClientRect().bottom <= card.getBoundingClientRect().top),
+        actionWidthRatio: actionWidths.length === 2 ? actionWidths[0]! / actionWidths[1]! : 0,
+        scannerInsideFolder: libraryStatus.closest('.folder-card') !== null,
+        generateDisabled: generateButton.disabled,
+        generateDescription: generateButton.getAttribute('aria-describedby'),
         contentInsideScreen:
           contentBox.top >= screenBox.top - 1 &&
           contentBox.bottom <= screenBox.bottom + 1
@@ -169,7 +190,15 @@ test('Home uses both desktop columns while library analysis is active', async ({
     expect(geometry.rootScrollHeight).toBe(geometry.rootClientHeight)
     expect(geometry.screenScrollHeight).toBeLessThanOrEqual(geometry.screenClientHeight + 1)
     expect(geometry.screenOverflowY).toBe('hidden')
-    expect(geometry.setupColumns).toBe(2)
+    expect(geometry.setupDirection).toBe('column')
+    expect(geometry.folderColumns).toBe(2)
+    expect(geometry.cardCount).toBe(3)
+    expect(geometry.cardsDoNotOverlap).toBe(true)
+    expect(geometry.actionWidthRatio).toBeGreaterThan(1.9)
+    expect(geometry.actionWidthRatio).toBeLessThan(2.1)
+    expect(geometry.scannerInsideFolder).toBe(false)
+    expect(geometry.generateDisabled).toBe(true)
+    expect(geometry.generateDescription).toBe('home-generator-status')
     expect(geometry.contentInsideScreen).toBe(true)
   }
 })

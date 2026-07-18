@@ -365,6 +365,8 @@ every completed scan. Missing-sample visual treatment follows the
   option rows have an explicit themed background rather than a white user-agent
   fallback. The automated contrast check rejects malformed colors unless they
   use the required `#RRGGBB` form.
+- [x] **AC-019:** Soft theme `--text-muted` maintains at least 4.5:1 contrast
+  against its normal text-bearing base, panel, lane, chrome, and pill surfaces.
 
 ## Non-Goals (deferred to later specs)
 

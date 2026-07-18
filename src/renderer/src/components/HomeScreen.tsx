@@ -77,6 +77,13 @@ export default function HomeScreen({
   const homeRecent = mixJamFiles.slice(0, HOME_RECENT_LIMIT)
   const generatorReady = generatorReadiness?.status === 'ready'
   const generatorNeedsPreparation = generatorReadiness?.status === 'needs-preparation'
+  const libraryPreparationMessage = librarySyncState.status === 'checking'
+    ? 'Available when the library check finishes.'
+    : librarySyncState.status === 'syncing'
+      ? 'Available when library sync finishes.'
+      : librarySyncState.status === 'analyzing'
+        ? 'Available when library analysis finishes.'
+        : null
   const userFolderUnavailable = userFolder.status !== 'set'
   const sampleFolderUnavailable = sampleFolder.status !== 'set'
   const generatorLabel = sampleFolderUnavailable
@@ -85,7 +92,7 @@ export default function HomeScreen({
       ? 'Generate MixJam'
       : generatorNeedsPreparation
         ? 'Prepare library'
-        : 'Preparing library…'
+        : 'Generate MixJam'
   const generatorAction = sampleFolderUnavailable
     ? sampleFolder.status === 'needs-permission' ? onRestoreSample : onPickSample
     : generatorReady ? onOpenGenerator : onRetryLibrarySync
@@ -98,6 +105,8 @@ export default function HomeScreen({
     generatorMessage = sampleFolder.status === 'needs-permission'
       ? 'Restore access to the Sample Folder before generating.'
       : 'Select an accessible Sample Folder before generating.'
+  } else if (libraryPreparationMessage) {
+    generatorMessage = libraryPreparationMessage
   } else if (!generatorReadiness) {
     generatorMessage = 'Checking library readiness…'
   } else {
@@ -158,69 +167,90 @@ export default function HomeScreen({
           </div>
         </section>
 
-        <section className="home-setup" aria-label="App setup">
-          <FolderCard
-            label="User Folder"
-            icon={userIcon}
-            folderName={userFolder.ref?.name ?? null}
-            status={userFolder.status}
-            disabled={false}
-            emptyPrompt="Choose where MixJam saves your projects and exports."
-            onPick={onPickUser}
-            onRestore={onRestoreUser}
-          />
-          <FolderCard
-            label="Sample Folder"
-            icon={sampleIcon}
-            folderName={sampleFolder.ref?.name ?? null}
-            status={sampleFolder.status}
-            disabled={sampleDisabled}
-            emptyPrompt="Choose the folder that holds your sample library."
-            onPick={onPickSample}
-            onRestore={onRestoreSample}
-          >
-            {librarySyncState.status !== 'unavailable' && (
-              <LibrarySyncStatus
-                state={librarySyncState}
-                onRetry={onRetryLibrarySync}
-                onCancel={onCancelLibrarySync}
+        <section className="home-setup" aria-label="MixJam workflows">
+          <section className="home-workflow-card home-library-setup" aria-labelledby="home-library-title">
+            <h2 className="home-workflow-title" id="home-library-title">Library Setup</h2>
+            <div className="home-folder-grid">
+              <FolderCard
+                label="User Folder"
+                icon={userIcon}
+                folderName={userFolder.ref?.name ?? null}
+                status={userFolder.status}
+                disabled={false}
+                emptyPrompt="Choose where MixJam saves your projects and exports."
+                onPick={onPickUser}
+                onRestore={onRestoreUser}
               />
+              <FolderCard
+                label="Sample Folder"
+                icon={sampleIcon}
+                folderName={sampleFolder.ref?.name ?? null}
+                status={sampleFolder.status}
+                disabled={sampleDisabled}
+                emptyPrompt="Choose the folder that holds your sample library."
+                onPick={onPickSample}
+                onRestore={onRestoreSample}
+              />
+            </div>
+            {librarySyncState.status !== 'unavailable' && (
+              <div className="home-library-status">
+                <LibrarySyncStatus
+                  state={librarySyncState}
+                  compact={librarySyncState.status === 'ready'}
+                  onRetry={onRetryLibrarySync}
+                  onCancel={onCancelLibrarySync}
+                />
+              </div>
             )}
-          </FolderCard>
+          </section>
 
-          <div className="home-launch">
-            <button className="btn-primary" onClick={() => void onStart()} disabled={!canStart || projectBusy}>
-              Start New MixJam
-            </button>
-            {!canStart && <p className="home-launch-hint">Select both folders above to start.</p>}
-          </div>
+          <section className="home-workflow-card home-project-actions" aria-labelledby="home-project-actions-title">
+            <h2 className="home-workflow-title" id="home-project-actions-title">Create or Open</h2>
+            <div className="home-project-action-row">
+              <div className="home-launch">
+                <button
+                  className="btn-primary"
+                  aria-describedby={!canStart ? 'home-start-hint' : undefined}
+                  onClick={() => void onStart()}
+                  disabled={!canStart || projectBusy}
+                >
+                  Start New MixJam
+                </button>
+                {!canStart && (
+                  <p className="home-launch-hint" id="home-start-hint">Select both folders above to start.</p>
+                )}
+              </div>
 
-          <button
-            type="button"
-            className="link-secondary"
-            disabled={!canStart || projectBusy}
-            onClick={() => void onLoad()}
-          >
-            {projectBusy ? 'Opening…' : 'Load MixJam'}
-          </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={!canStart || projectBusy}
+                onClick={() => void onLoad()}
+              >
+                {projectBusy ? 'Opening…' : 'Load MixJam'}
+              </button>
+            </div>
+          </section>
 
           {sampleFolder.ref && (
-            <section className="home-generator-card" aria-labelledby="home-generator-title">
-              <div>
-                <h2 id="home-generator-title">Generate a MixJam</h2>
+            <section className="home-workflow-card home-generator-card" aria-labelledby="home-generator-title">
+              <div className="home-generator-copy">
+                <h2 className="home-workflow-title" id="home-generator-title">Generate a MixJam</h2>
+                <p className="home-workflow-copy">Build a draft from your analyzed samples.</p>
+                {generatorMessage && (
+                  <p className="home-launch-hint" id="home-generator-status">{generatorMessage}</p>
+                )}
               </div>
               <button
                 type="button"
-                className="btn-primary"
-                disabled={userFolderUnavailable || projectBusy || (!sampleFolderUnavailable &&
+                className="btn-secondary"
+                aria-describedby={generatorMessage ? 'home-generator-status' : undefined}
+                disabled={userFolderUnavailable || projectBusy || libraryPreparationMessage !== null || (!sampleFolderUnavailable &&
                   (!canStart || (!generatorReady && !generatorNeedsPreparation)))}
                 onClick={generatorAction}
               >
                 {generatorLabel}
               </button>
-              {generatorMessage && (
-                <p className="home-launch-hint">{generatorMessage}</p>
-              )}
             </section>
           )}
 

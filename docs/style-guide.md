@@ -88,22 +88,27 @@ App (full viewport, no root overflow scrollbar)
 
 ### Home Screen Layout
 
-```
+```text
 Home (1280x720 default, no maximize button)
   ├── Content (centered two-column layout)
   │   ├── Hero column (left): logo, wordmark, tagline, steps, theme grid
-  │   ├── Setup column (right): raised panel with folder cards + launch gate
+  │   ├── Workflow column (right): three independent sibling cards
+  │   │   ├── Library Setup: folder pickers + spanning scanner
+  │   │   ├── Create or Open: primary Start + secondary Load
+  │   │   └── Generate a MixJam: readiness copy + secondary action
   │   └── Recent Projects rail (full-width, below hero, up to 4 entries)
   └── Footer: "Select User Folder" (left), version (right)
 ```
 
 - The Home Screen has no timer and no home link.
+- The workflow cards have no enclosing outer panel. Headings, spacing, and
+  surface contrast establish their grouping.
 - At 1280x720, Home has no vertical overflow or scrollbar. At narrow widths,
   internal scrolling is owned by Home, not the root.
 
 ### Player Layout
 
-```
+```text
 Player (1920x1080 default, resizable, maximize enabled)
   ├── Header: home link (left), brand (left-of-center), timer (absolute center),
   │           theme selector (right)
@@ -169,6 +174,7 @@ Player (1920x1080 default, resizable, maximize enabled)
 ### Resize Handles
 
 Three resize handles share a common pattern:
+
 - **MixJam Browser handle:** 5px width, `ew-resize` cursor, on
   browser/tracker seam.
 - **Browser internal handle:** 5px width, `ew-resize`, splits category tree
@@ -187,7 +193,7 @@ All use the shared resizable-panel primitive (pointer, touch, keyboard).
 Three typographic roles, each defined per theme via CSS custom properties:
 
 | Role | Token | Purpose | Emerald Default |
-|------|-------|---------|-----------------|
+| ------ | ------- | --------- | ----------------- |
 | Chrome | `--font-chrome` | Header, chrome UI, brand | Josefin Sans |
 | Label | `--font-label` | Body copy, labels, buttons | Ubuntu |
 | Mono | `--font-mono` | Ruler, timer, code, bar numbers | JetBrains Mono |
@@ -195,7 +201,7 @@ Three typographic roles, each defined per theme via CSS custom properties:
 ### Type Scale
 
 | Element | Size | Weight | Notes |
-|---------|------|--------|-------|
+| --------- | ------ | -------- | ------- |
 | Lane name | 11px | normal | Truncated with ellipsis |
 | Status/helper text | 12px minimum | normal | |
 | Action labels | 13px minimum | normal | |
@@ -240,7 +246,7 @@ Three typographic roles, each defined per theme via CSS custom properties:
 ### Key Measurements
 
 | Element | Measurement |
-|---------|-------------|
+| --------- | ------------- |
 | Header height | 48px fixed |
 | Footer height | 48px fixed |
 | Middle Strip total | 80px border-box |
@@ -322,8 +328,8 @@ Depth tokens (gradients and shadows) are theme-dependent value strings:
 Each theme defines an 8-slot palette plus an unsorted color. Slots map to
 acoustic categories deterministically:
 
-| Slot | Category | 
-|------|----------|
+| Slot | Category |
+| ------ | ---------- |
 | 0 | Drums / Percussion |
 | 1 | Loop |
 | 2 | Bass |
@@ -385,7 +391,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 - Raised panels use `--bg-panel`, bordered with `--border`.
 - Cards within panels may have subtle rounded backgrounds.
-- Home's setup column is a raised panel.
+- Home uses three independent workflow cards without an enclosing panel.
 
 ### Menus & Dropdowns
 

@@ -775,24 +775,53 @@ select option:disabled {
   outline-offset: 2px;
 }
 
-/* ── Home setup panel: folder cards, launch, recents ── */
+/* ── Home workflow rail ─────────────────────── */
 .home-setup {
   grid-area: setup;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 16px;
+  min-width: 0;
+}
+
+.home-workflow-card {
+  min-width: 0;
+  padding: 12px;
   background: var(--bg-panel);
   border: var(--edge);
   border-radius: var(--radius);
   box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.24),
     inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
 }
 
-.home-setup > .home-generator-card {
-  grid-column: 1 / -1;
+.home-workflow-title {
+  margin: 0;
+  color: var(--text);
+  font: 600 13px/1.2 var(--font-chrome);
+  letter-spacing: 0.03em;
+}
+
+.home-workflow-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font: 12px/1.4 var(--font-label);
+}
+
+.home-library-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-folder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.home-library-status {
+  min-width: 0;
 }
 
 .home-recent {
@@ -876,12 +905,6 @@ select option:disabled {
     align-items: start;
   }
 
-  .home-setup {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .home-recent-list {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -890,6 +913,13 @@ select option:disabled {
 @media (max-width: 900px) {
   .home-recent-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .home-folder-grid,
+  .home-project-action-row {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1055,9 +1085,8 @@ select option:disabled {
 .home-launch {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .home-launch-hint {
@@ -1076,20 +1105,22 @@ select option:disabled {
   background: var(--accent);
 }
 
-/* "Load MixJam" is styled as a ghost button (outlined, padded) to signal
-   interactivity more clearly than a bare underline link. */
-.home-setup > .link-secondary {
-  align-self: center;
-  border: var(--edge-pill);
-  border-radius: var(--radius);
-  padding: 10px 16px;
-  min-height: 44px;
-  text-decoration: none;
+.home-project-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.home-setup > .link-secondary:hover {
-  border-color: var(--accent);
-  color: var(--text);
+.home-project-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.home-project-action-row .btn-primary,
+.home-project-action-row .btn-secondary {
+  width: 100%;
 }
 
 .btn-primary {
@@ -1108,6 +1139,30 @@ select option:disabled {
 
 .btn-primary:hover {
   background: var(--accent-dark);
+}
+
+.btn-secondary {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: var(--edge-pill);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 5%, var(--pill-bg));
+  color: var(--highlight);
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--pill-bg));
+  color: var(--text);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .link-secondary {
@@ -4321,21 +4376,19 @@ select option:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border: var(--edge-pill);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
+  gap: 12px;
 }
 
-.home-generator-card h2 {
-  margin: 0 0 4px;
-  color: var(--text);
-  font: 600 14px/1.2 var(--font-chrome);
+.home-generator-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.home-generator-card p { margin: 0; color: var(--text-muted); }
-.home-generator-card > .home-launch-hint { grid-column: 1 / -1; }
+.home-generator-card p {
+  margin: 0;
+}
 
 .mixjam-dialog-content.generator-dialog {
   position: fixed;
