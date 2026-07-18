@@ -1,5 +1,5 @@
 import ChannelStrip from './ChannelStrip'
-import type { ChannelState } from '../hooks/useMixer'
+import type { ChannelState } from '../project/project-state'
 
 interface MixerColumnProps {
   channels: ChannelState[]

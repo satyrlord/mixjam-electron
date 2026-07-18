@@ -1,4 +1,5 @@
 import { SAMPLE_BUBBLE_HEIGHT_PX } from '../lib/arrangement'
+import { bubbleTextColor } from '../lib/sample-utils'
 
 const ACCENT_FALLBACK = '#2D8C6F'
 const SELECT_FALLBACK = '#FFFFFF'
@@ -80,6 +81,173 @@ export const sampleBubbleThemeTokens: SampleBubbleThemeTokens = {
   textShadow: null,
   gloss: null,
   palette: []
+}
+
+/** DOM adapter values for a palette slot. CSS variables keep live theme
+ * switching independent from React renders. */
+export function sampleBubbleDomStyle(slot: number): Record<string, string> {
+  return {
+    backgroundColor: `var(--palette-${slot})`,
+    '--bubble-self': `var(--palette-${slot})`,
+    color: `var(--palette-ink-${slot})`,
+    textShadow: `var(--palette-shadow-${slot})`
+  }
+}
+
+export interface SampleBubbleCanvasVisual {
+  color: string
+  ink: string
+  label: string
+  radius: number
+  shadow: SampleBubbleShadow | null
+  outline: SampleBubbleBorder | null
+  textShadow: SampleBubbleShadow | null
+  gloss: SampleBubbleGloss | null
+  missing: boolean
+}
+
+export function resolveSampleBubbleCanvasVisual(
+  label: string,
+  slot: number | undefined,
+  missing: boolean
+): SampleBubbleCanvasVisual {
+  const color = missing
+    ? sampleBubbleThemeTokens.missing
+    : slot === undefined
+      ? sampleBubbleThemeTokens.accent
+      : sampleBubbleThemeTokens.palette[slot] || sampleBubbleThemeTokens.accent
+  return {
+    color,
+    ink: bubbleTextColor(color),
+    label: sampleBubbleThemeTokens.uppercase ? label.toUpperCase() : label,
+    radius: sampleBubbleThemeTokens.radius,
+    shadow: sampleBubbleThemeTokens.shadow,
+    outline: sampleBubbleThemeTokens.outline,
+    textShadow: sampleBubbleThemeTokens.textShadow,
+    gloss: sampleBubbleThemeTokens.gloss,
+    missing
+  }
+}
+
+export function roundSampleBubbleRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+): void {
+  ctx.beginPath()
+  if (!(width > 0) || !(height > 0)) return
+  const clampedRadius = Number.isFinite(radius)
+    ? Math.max(0, Math.min(radius, width / 2, height / 2))
+    : 0
+  ctx.moveTo(x + clampedRadius, y)
+  ctx.lineTo(x + width - clampedRadius, y)
+  ctx.arcTo(x + width, y, x + width, y + clampedRadius, clampedRadius)
+  ctx.lineTo(x + width, y + height - clampedRadius)
+  ctx.arcTo(x + width, y + height, x + width - clampedRadius, y + height, clampedRadius)
+  ctx.lineTo(x + clampedRadius, y + height)
+  ctx.arcTo(x, y + height, x, y + height - clampedRadius, clampedRadius)
+  ctx.lineTo(x, y + clampedRadius)
+  ctx.arcTo(x, y, x + clampedRadius, y, clampedRadius)
+  ctx.closePath()
+}
+
+export function drawSampleBubbleCanvas(
+  ctx: CanvasRenderingContext2D,
+  visual: SampleBubbleCanvasVisual,
+  x: number,
+  y: number,
+  width: number,
+  flashing = false,
+  devicePixelRatio = 1
+): void {
+  const { color, radius, shadow, outline, gloss, missing } = visual
+
+  if (shadow) {
+    ctx.save()
+    ctx.shadowOffsetX = shadow.x * devicePixelRatio
+    ctx.shadowOffsetY = shadow.y * devicePixelRatio
+    ctx.shadowBlur = shadow.blur * devicePixelRatio
+    ctx.shadowColor = shadow.color
+    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    ctx.fillStyle = color
+    ctx.fill()
+    ctx.restore()
+  }
+
+  roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+  ctx.fillStyle = color
+  ctx.fill()
+
+  if (missing) {
+    ctx.save()
+    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    ctx.clip()
+    ctx.strokeStyle = mixTowardBlack(color, 0.55)
+    ctx.lineWidth = 5
+    const step = 5 * Math.SQRT2 * 2
+    for (
+      let stripeX = x - SAMPLE_BUBBLE_HEIGHT_PX;
+      stripeX < x + width + SAMPLE_BUBBLE_HEIGHT_PX;
+      stripeX += step
+    ) {
+      ctx.beginPath()
+      ctx.moveTo(stripeX, y)
+      ctx.lineTo(stripeX + SAMPLE_BUBBLE_HEIGHT_PX, y + SAMPLE_BUBBLE_HEIGHT_PX)
+      ctx.stroke()
+    }
+    ctx.restore()
+  } else if (gloss) {
+    const glossFill = ctx.createLinearGradient(0, y, 0, y + SAMPLE_BUBBLE_HEIGHT_PX)
+    glossFill.addColorStop(0, gloss.top)
+    glossFill.addColorStop(1, gloss.bottom)
+    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    ctx.fillStyle = glossFill
+    ctx.fill()
+  }
+
+  if (flashing) {
+    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    ctx.globalAlpha = 0.4
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.globalAlpha = 1
+  }
+
+  if (outline) {
+    const inset = outline.width / 2
+    roundSampleBubbleRect(
+      ctx,
+      x + inset,
+      y + inset,
+      width - outline.width,
+      SAMPLE_BUBBLE_HEIGHT_PX - outline.width,
+      Math.max(0, radius - inset)
+    )
+    ctx.strokeStyle = outline.color
+    ctx.lineWidth = outline.width
+  } else {
+    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+  }
+  ctx.stroke()
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x + 8, y, Math.max(0, width - 16), SAMPLE_BUBBLE_HEIGHT_PX)
+  ctx.clip()
+  if (visual.textShadow && visual.ink === '#FFFFFF') {
+    ctx.shadowOffsetX = visual.textShadow.x * devicePixelRatio
+    ctx.shadowOffsetY = visual.textShadow.y * devicePixelRatio
+    ctx.shadowBlur = visual.textShadow.blur * devicePixelRatio
+    ctx.shadowColor = visual.textShadow.color
+  }
+  ctx.fillStyle = visual.ink
+  ctx.fillText(visual.label, x + 8, y + SAMPLE_BUBBLE_HEIGHT_PX / 2)
+  ctx.restore()
 }
 
 const redrawListeners = new Set<() => void>()

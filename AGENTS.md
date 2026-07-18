@@ -48,6 +48,7 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 - Update specs after each bug fix or change request. User requests overrule spec decisions.
 - Sample bubbles must be identical everywhere in the UI: same height, same width, in every view.
 - No archaeological data. The current implementation is the only implementation. Do not keep or reference prior iterations, dead code paths, or historical artifacts that do not serve the end user.
+- Do not consider backward compatibility. Ignore legacy code and libraries.
 
 ## Resolved decisions — do not reopen
 

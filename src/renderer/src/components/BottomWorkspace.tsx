@@ -1,18 +1,17 @@
 import type { ReactNode } from 'react'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from './ui/Tabs'
+import {
+  BOTTOM_WORKSPACE_TABS,
+  type BottomWorkspaceTab
+} from '../app-state/player-workspace-preferences'
 
-const BOTTOM_WORKSPACE_TABS = ['song', 'mixer', 'fx', 'samples'] as const
-export type BottomWorkspaceTab = (typeof BOTTOM_WORKSPACE_TABS)[number]
+export type { BottomWorkspaceTab } from '../app-state/player-workspace-preferences'
 
 const TAB_LABELS: Record<BottomWorkspaceTab, string> = {
   song: 'Song',
   mixer: 'Mixer',
   fx: 'FX',
   samples: 'Samples'
-}
-
-export function isBottomWorkspaceTab(value: string | null): value is BottomWorkspaceTab {
-  return BOTTOM_WORKSPACE_TABS.some((tab) => tab === value)
 }
 
 interface BottomWorkspaceProps {

@@ -30,6 +30,8 @@ category tree or tags.
 - Triggered after indexing (spec-004 phase 2 completes).
 - Automatic library sync analyzes only new, changed, interrupted, or
   stale-revision samples. Per-field manual overrides are never replaced.
+  Multi-field manual patches validate every supplied field before writing and
+  commit as one transaction, so an invalid later field cannot partially persist.
   Readable unsupported or damaged bytes clear stale automatic values; a
   transient file-read failure preserves them for a later retry.
 - Reports progress: `{ analyzed: N, total: M }`.

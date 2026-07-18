@@ -17,6 +17,7 @@ function createMockPlaybackEngine() {
     activeVoiceCount: 0,
     getChannelAnalyser: vi.fn().mockReturnValue(analyser),
     getChannelEffectReduction: vi.fn().mockReturnValue(0),
+    applyChannelSnapshot: vi.fn(),
     setChannelGain: vi.fn(),
     setChannelPan: vi.fn(),
     setChannelMute: vi.fn(),
@@ -88,7 +89,7 @@ describe('useMixer', () => {
     expect(result.current.channelPeaks.size).toBe(0)
   })
 
-  it('setChannelGain updates channel state and calls playbackEngine.setChannelGain', () => {
+  it('setChannelGain updates project state outside the Player', () => {
     const mockPlaybackEngine = createMockPlaybackEngine()
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
@@ -96,10 +97,10 @@ describe('useMixer', () => {
     act(() => { result.current.setChannelGain(0, 0.5) })
 
     expect(result.current.channels[0]!.gain).toBe(0.5)
-    expect(mockPlaybackEngine.setChannelGain).toHaveBeenCalledWith(0, 0.5)
+    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
   })
 
-  it('setChannelPan updates channel state and calls playbackEngine.setChannelPan', () => {
+  it('setChannelPan updates project state outside the Player', () => {
     const mockPlaybackEngine = createMockPlaybackEngine()
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
@@ -107,38 +108,34 @@ describe('useMixer', () => {
     act(() => { result.current.setChannelPan(2, -0.3) })
 
     expect(result.current.channels[2]!.pan).toBe(-0.3)
-    expect(mockPlaybackEngine.setChannelPan).toHaveBeenCalledWith(2, -0.3)
+    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
   })
 
-  it('toggleChannelMute toggles mute state and calls playbackEngine.setChannelMute', () => {
+  it('toggleChannelMute updates project state', () => {
     const mockPlaybackEngine = createMockPlaybackEngine()
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.toggleChannelMute(1) })
     expect(result.current.channels[1]!.muted).toBe(true)
-    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(1, true)
 
     act(() => { result.current.toggleChannelMute(1) })
     expect(result.current.channels[1]!.muted).toBe(false)
-    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(1, false)
   })
 
-  it('toggleChannelSolo toggles solo state and calls playbackEngine.setChannelSolo', () => {
+  it('toggleChannelSolo updates project state', () => {
     const mockPlaybackEngine = createMockPlaybackEngine()
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
 
     act(() => { result.current.toggleChannelSolo(3) })
     expect(result.current.channels[3]!.solo).toBe(true)
-    expect(mockPlaybackEngine.setChannelSolo).toHaveBeenCalledWith(3, true)
 
     act(() => { result.current.toggleChannelSolo(3) })
     expect(result.current.channels[3]!.solo).toBe(false)
-    expect(mockPlaybackEngine.setChannelSolo).toHaveBeenCalledWith(3, false)
   })
 
-  it('removeChannel removes channel from state and calls playbackEngine.removeChannel', () => {
+  it('removeChannel encodes removal in project state', () => {
     const mockPlaybackEngine = createMockPlaybackEngine()
     const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
@@ -146,7 +143,7 @@ describe('useMixer', () => {
     act(() => { result.current.removeChannel(0) })
     expect(result.current.channels).toHaveLength(15)
     expect(result.current.channels.find((ch) => ch.channelIndex === 0)).toBeUndefined()
-    expect(mockPlaybackEngine.removeChannel).toHaveBeenCalledWith(0)
+    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
   })
 
   it('does not persist project-owned channel state and cleans up the app-level storage key', () => {
@@ -185,7 +182,7 @@ describe('useMixer', () => {
     expect(result.current.channels[0]!.effects[2]!.id).toBe(delay.id)
     act(() => result.current.removeChannelEffect(0, delay.id))
     expect(result.current.channels[0]!.effects).toHaveLength(3)
-    expect(mockPlaybackEngine.setChannelEffects).toHaveBeenCalled()
+    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalled()
     expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
   })
 
@@ -208,14 +205,14 @@ describe('useMixer', () => {
     const randomUuid = vi.spyOn(crypto, 'randomUUID')
     const wrapper = ({ children }: { children: ReactNode }) => createElement(StrictMode, null, children)
     const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'), { wrapper })
-    mockPlaybackEngine.setChannelEffects.mockClear()
+    mockPlaybackEngine.applyChannelSnapshot.mockClear()
     randomUuid.mockClear()
 
     act(() => result.current.addChannelEffect(0, 'delay'))
 
     expect(randomUuid).toHaveBeenCalledTimes(1)
-    const channelZeroCalls = mockPlaybackEngine.setChannelEffects.mock.calls.filter(([channelIndex]) => channelIndex === 0)
-    expect(channelZeroCalls).toEqual([[0, result.current.channels[0]!.effects]])
+    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledTimes(1)
+    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledWith(result.current.channels, 16)
   })
 
   it('restores a removed effect snapshot at its original position', () => {
@@ -317,11 +314,16 @@ describe('useMixer', () => {
 
     rerender({ view: 'player' })
 
-    expect(mockPlaybackEngine.replayRemovedChannels).toHaveBeenCalledWith([])
-    expect(mockPlaybackEngine.setChannelGain).toHaveBeenCalledWith(0, 0.3)
-    expect(mockPlaybackEngine.setChannelPan).toHaveBeenCalledWith(1, -0.5)
-    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(2, true)
-    expect(mockPlaybackEngine.setChannelSolo).toHaveBeenCalledWith(3, true)
+    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledTimes(1)
+    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ channelIndex: 0, gain: 0.3 }),
+        expect.objectContaining({ channelIndex: 1, pan: -0.5 }),
+        expect.objectContaining({ channelIndex: 2, muted: true }),
+        expect.objectContaining({ channelIndex: 3, solo: true })
+      ]),
+      16
+    )
   })
 
   it('rAF loop does not call getChannelAnalyser when activeVoiceCount is 0', () => {
@@ -456,7 +458,7 @@ describe('useMixer', () => {
     act(() => { result.current.removeChannel(0) })
 
     expect(result.current.channels).toHaveLength(15)
-    expect(mockPlaybackEngine.removeChannel).toHaveBeenCalledTimes(2)
+    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
   })
 
   it('toggleChannelSolo no-ops gracefully when channel already removed', () => {
@@ -558,11 +560,9 @@ describe('useMixer', () => {
     const restored = result.current.channels.find((ch) => ch.channelIndex === 2)
     expect(restored).toEqual({ channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false, effects: [] })
     expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
-    // Lane re-route happens synchronously; gain/mute are re-applied by the
-    // apply-state effect on the resulting commit.
-    expect(mockPlaybackEngine.restoreChannel).toHaveBeenCalledWith(2)
-    expect(mockPlaybackEngine.setChannelGain).toHaveBeenCalledWith(2, 0.8)
-    expect(mockPlaybackEngine.setChannelMute).toHaveBeenCalledWith(2, false)
+    const latestSnapshot = mockPlaybackEngine.applyChannelSnapshot.mock.calls.at(-1)
+    expect(latestSnapshot?.[0]).toEqual(result.current.channels)
+    expect(latestSnapshot?.[1]).toBe(16)
     // Channels stay sorted by channelIndex after restore.
     const indices = result.current.channels.map((ch) => ch.channelIndex)
     expect(indices).toEqual([...indices].sort((a, b) => a - b))

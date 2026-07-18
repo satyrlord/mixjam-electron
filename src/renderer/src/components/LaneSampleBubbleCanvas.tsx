@@ -8,9 +8,11 @@ import {
 import { bubbleTextColor } from '../lib/sample-utils'
 import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import {
+  drawSampleBubbleCanvas,
   sampleBubbleThemeTokens as themeTokenCache,
-  mixTowardBlack,
-  onSampleBubbleThemeTokensRefreshed
+  onSampleBubbleThemeTokensRefreshed,
+  resolveSampleBubbleCanvasVisual,
+  roundSampleBubbleRect
 } from '../theme/sample-bubble-style'
 
 interface LaneSampleBubbleCanvasProps {
@@ -46,38 +48,8 @@ interface SampleBubbleHitRect {
   width: number
 }
 
-function getComputedAccent(): string {
-  return themeTokenCache.accent
-}
-
 function getComputedSelectColor(): string {
   return themeTokenCache.selection
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-): void {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + w - r, y)
-  ctx.arcTo(x + w, y, x + w, y + r, r)
-  ctx.lineTo(x + w, y + h - r)
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-  ctx.lineTo(x + r, y + h)
-  ctx.arcTo(x, y + h, x, y + h - r, r)
-  ctx.lineTo(x, y + r)
-  ctx.arcTo(x, y, x + r, y, r)
-  ctx.closePath()
-}
-
-function sampleBubbleFillColor(placement: ClipPlacement, accent: string): string {
-  if (placement.slot === undefined) return accent
-  return themeTokenCache.palette[placement.slot] || accent
 }
 
 function drawSampleBubble(
@@ -86,114 +58,23 @@ function drawSampleBubble(
   x: number,
   y: number,
   w: number,
-  accent: string,
   flashing = false,
   missing = false
 ): void {
-  const color = missing ? themeTokenCache.missing : sampleBubbleFillColor(placement, accent)
-  const radius = themeTokenCache.radius
-  const shadow = themeTokenCache.shadow
-  const border = themeTokenCache.outline
-  const gloss = themeTokenCache.gloss
-
-  if (shadow) {
-    // Canvas shadow units ignore the CTM, so the dpr scale that positions the
-    // bubble does not apply here — scale the token's CSS px values manually.
-    const dpr = window.devicePixelRatio || 1
-    ctx.save()
-    ctx.shadowOffsetX = shadow.x * dpr
-    ctx.shadowOffsetY = shadow.y * dpr
-    ctx.shadowBlur = shadow.blur * dpr
-    ctx.shadowColor = shadow.color
-    roundRect(ctx, x, y, w, SAMPLE_BUBBLE_HEIGHT_PX, radius)
-    ctx.fillStyle = color
-    ctx.fill()
-    ctx.restore()
-  }
-
-  roundRect(ctx, x, y, w, SAMPLE_BUBBLE_HEIGHT_PX, radius)
-  ctx.fillStyle = color
-  ctx.fill()
-
-  if (missing) {
-    ctx.save()
-    roundRect(ctx, x, y, w, SAMPLE_BUBBLE_HEIGHT_PX, radius)
-    ctx.clip()
-    ctx.strokeStyle = mixTowardBlack(color, 0.55)
-    ctx.lineWidth = 5
-    const step = 5 * Math.SQRT2 * 2
-    for (
-      let sx = x - SAMPLE_BUBBLE_HEIGHT_PX;
-      sx < x + w + SAMPLE_BUBBLE_HEIGHT_PX;
-      sx += step
-    ) {
-      ctx.beginPath()
-      ctx.moveTo(sx, y)
-      ctx.lineTo(sx + SAMPLE_BUBBLE_HEIGHT_PX, y + SAMPLE_BUBBLE_HEIGHT_PX)
-      ctx.stroke()
-    }
-    ctx.restore()
-  } else if (gloss) {
-    const glossFill = ctx.createLinearGradient(0, y, 0, y + SAMPLE_BUBBLE_HEIGHT_PX)
-    glossFill.addColorStop(0, gloss.top)
-    glossFill.addColorStop(1, gloss.bottom)
-    roundRect(ctx, x, y, w, SAMPLE_BUBBLE_HEIGHT_PX, radius)
-    ctx.fillStyle = glossFill
-    ctx.fill()
-  }
-
-  if (flashing) {
-    roundRect(ctx, x, y, w, SAMPLE_BUBBLE_HEIGHT_PX, radius)
-    ctx.globalAlpha = 0.4
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    ctx.globalAlpha = 1.0
-  }
-
-  if (border) {
-    // Stroke centered on an inset path so the full border width stays inside
-    // the bubble bounds (mirrors the selection stroke geometry).
-    const inset = border.width / 2
-    roundRect(
-      ctx,
-      x + inset,
-      y + inset,
-      w - border.width,
-      SAMPLE_BUBBLE_HEIGHT_PX - border.width,
-      Math.max(0, radius - inset)
-    )
-    ctx.strokeStyle = border.color
-    ctx.lineWidth = border.width
-    ctx.stroke()
-  } else {
-    roundRect(ctx, x, y, w, SAMPLE_BUBBLE_HEIGHT_PX, radius)
-    ctx.strokeStyle = color
-    ctx.lineWidth = 1
-    ctx.stroke()
-  }
-
-  const ink = bubbleTextColor(color)
-  const label = themeTokenCache.uppercase
-    ? placement.sampleName.toUpperCase()
-    : placement.sampleName
-  const textShadow = themeTokenCache.textShadow
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(x + 8, y, Math.max(0, w - 16), SAMPLE_BUBBLE_HEIGHT_PX)
-  ctx.clip()
-  if (textShadow && ink === '#FFFFFF') {
-    // Mirror the DOM bubbles: the theme label shadow applies under light ink
-    // only (a dark shadow under dark ink smears). Canvas shadows ignore the
-    // CTM — scale like the placement drop-shadow above.
-    const dpr = window.devicePixelRatio || 1
-    ctx.shadowOffsetX = textShadow.x * dpr
-    ctx.shadowOffsetY = textShadow.y * dpr
-    ctx.shadowBlur = textShadow.blur * dpr
-    ctx.shadowColor = textShadow.color
-  }
-  ctx.fillStyle = ink
-  ctx.fillText(label, x + 8, y + SAMPLE_BUBBLE_HEIGHT_PX / 2)
-  ctx.restore()
+  const visual = resolveSampleBubbleCanvasVisual(
+    placement.sampleName,
+    placement.slot,
+    missing
+  )
+  drawSampleBubbleCanvas(
+    ctx,
+    visual,
+    x,
+    y,
+    w,
+    flashing,
+    window.devicePixelRatio || 1
+  )
 }
 
 interface SampleBubbleDragGhost {
@@ -243,7 +124,6 @@ function buildSampleBubbleDragGhost(
     bubbleOffsetX,
     bubbleOffsetY,
     width,
-    getComputedAccent(),
     false,
     missing
   )
@@ -252,7 +132,7 @@ function buildSampleBubbleDragGhost(
     const bx = bubbleOffsetX + width + GHOST_BADGE_GAP
     const by = bubbleOffsetY + (SAMPLE_BUBBLE_HEIGHT_PX - GHOST_BADGE_HEIGHT) / 2
     const badge = getComputedSelectColor()
-    roundRect(ctx, bx, by, GHOST_BADGE_WIDTH, GHOST_BADGE_HEIGHT, GHOST_BADGE_HEIGHT / 2)
+    roundSampleBubbleRect(ctx, bx, by, GHOST_BADGE_WIDTH, GHOST_BADGE_HEIGHT, GHOST_BADGE_HEIGHT / 2)
     ctx.fillStyle = badge
     ctx.fill()
     ctx.fillStyle = bubbleTextColor(badge)
@@ -344,8 +224,6 @@ function LaneSampleBubbleCanvas({
     }
 
     const hitRects: SampleBubbleHitRect[] = []
-    const accent = getComputedAccent()
-
     ctx.font = `${themeTokenCache.fontWeight} 12px ${themeTokenCache.fontLabel}`
     ctx.textBaseline = 'middle'
 
@@ -355,7 +233,7 @@ function LaneSampleBubbleCanvas({
       if (x + w < viewportLeft || x > viewportLeft + canvasWidth) continue
 
       drawSampleBubble(
-        ctx, placement, x - viewportLeft, CLIP_TOP, w, accent,
+        ctx, placement, x - viewportLeft, CLIP_TOP, w,
         flashSamplePath === placement.samplePath,
         missingSamplePaths?.has(placement.samplePath) ?? false
       )
@@ -363,7 +241,7 @@ function LaneSampleBubbleCanvas({
       if (selectedPlacementIds.has(placement.id)) {
         const inset = SELECTION_BORDER_WIDTH / 2
         ctx.globalAlpha = 0.8
-        roundRect(
+        roundSampleBubbleRect(
           ctx,
           x - viewportLeft + inset,
           CLIP_TOP + inset,

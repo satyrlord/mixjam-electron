@@ -352,53 +352,6 @@ describe('PlaybackEngine.setChannelPan', () => {
   })
 })
 
-describe('PlaybackEngine.removeChannel', () => {
-  it('removes the channel and routes the lane through master bypass', async () => {
-    const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
-    ]
-    const { playbackEngine, context } = makePlaybackEngine({ lanes })
-    await playbackEngine.start(0)
-    await flushAsync()
-
-    playbackEngine.removeChannel(0)
-    const internals = playbackEngine as unknown as {
-      engine: { getChannel: (index: number) => { gain: number } | undefined }
-      removedChannels: Set<number>
-    }
-    expect(internals.engine.getChannel(0)).toBeUndefined()
-    expect(internals.removedChannels.has(0)).toBe(true)
-    expect(context.created.panners[0]!.connectedTo).toContain(context.created.gains[1])
-    await playbackEngine.close()
-  })
-
-  it('replayRemovedChannels reconciles removals when a project is replaced', async () => {
-    const { playbackEngine } = makePlaybackEngine({})
-    playbackEngine.replayRemovedChannels([1, 2, 3])
-    const removedChannels = (playbackEngine as unknown as { removedChannels: Set<number> }).removedChannels
-    expect([...removedChannels]).toEqual([1, 2, 3])
-    playbackEngine.replayRemovedChannels([2, 3])
-    expect([...removedChannels]).toEqual([2, 3])
-    await playbackEngine.close()
-  })
-
-  it('restores removed channel state and routing idempotently', async () => {
-    const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 0, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
-    ]
-    const { playbackEngine } = makePlaybackEngine({ lanes })
-    await playbackEngine.start(0)
-    await flushAsync()
-
-    playbackEngine.removeChannel(0)
-    playbackEngine.restoreChannel(0)
-    playbackEngine.restoreChannel(0)
-
-    expect(playbackEngine.getChannelAnalyser(0)).toBeDefined()
-    await playbackEngine.close()
-  })
-})
-
 describe('PlaybackEngine.seek', () => {
   it('moves the scheduler playhead and can restart playback from there', async () => {
     const lanes: EngineLane[] = [

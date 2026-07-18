@@ -1,7 +1,8 @@
 // @vitest-environment node
 import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { getLibraryRootState, listAnalysisCandidates } from './library'
+import { listAnalysisCandidates } from './analysis-persistence'
+import { getLibraryRootState } from './indexed-sample-persistence'
 import { DB } from './sql'
 import { ANALYSIS_REVISION, initSchema, METADATA_REVISION } from './schema'
 

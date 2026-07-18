@@ -8,7 +8,8 @@ import {
   type AnalysisPhaseProgress,
   type CalibrationPhaseProgress
 } from './analysis-runner'
-import { ensureScanRoot, querySamples, updateMetadata, upsertStub } from './library'
+import { querySamples } from './browser-library-persistence'
+import { ensureScanRoot, updateMetadata, upsertStub } from './indexed-sample-persistence'
 import { initSchema } from './schema'
 import { DB } from './sql'
 
@@ -250,6 +251,29 @@ describe('analysis runner', () => {
     })
   })
 
+  it('reports progress after an unreadable first candidate and stops if that read makes the job stale', async () => {
+    addCandidate('unreadable-first.wav')
+    addCandidate('never-read.wav')
+    let currentChecks = 0
+    const unreadable = {
+      arrayBuffer: async () => { throw new Error('temporarily locked') }
+    } as unknown as File
+    const events: AnalysisPhaseProgress[] = []
+
+    await runPendingAnalysis(
+      db,
+      rootId,
+      new Map([
+        ['unreadable-first.wav', unreadable],
+        ['never-read.wav', makeWav('never-read.wav')]
+      ]),
+      (progress) => events.push(progress),
+      () => ++currentChecks === 1
+    )
+
+    expect(events).toEqual([{ status: 'analyzing', analyzed: 0, total: 2 }])
+  })
+
   it('regular analysis preserves a mixed 24-file 100/150 BPM collection', async () => {
     const files = new Map<string, File>()
     for (let index = 0; index < 24; index++) {
@@ -306,6 +330,39 @@ describe('analysis runner', () => {
     expect(events).toEqual([{ status: 'calibrating', analyzed: 0, total: 17 }])
     expect(querySamples(db, { rootId: 'analysis-runner-root', limit: 20 }).rows
       .every((sample) => sample.sampleTypeSource === null)).toBe(true)
+  })
+
+  it('reports calibration read failures and unsupported current bytes', async () => {
+    addCandidate('read-error.wav')
+    const unreadable = {
+      arrayBuffer: async () => { throw 'locked' }
+    } as unknown as File
+    await expect(runUniformFolderCalibration(
+      db,
+      rootId,
+      new Map([['read-error.wav', unreadable]]),
+      () => undefined,
+      () => true
+    )).rejects.toThrow('Calibration could not read read-error.wav: locked')
+
+    db.close()
+    db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
+    initSchema(db)
+    rootId = ensureScanRoot(db, 'analysis-runner-root')
+    addCandidate('unsupported-calibration.wav')
+    await expect(runUniformFolderCalibration(
+      db,
+      rootId,
+      new Map([['unsupported-calibration.wav', new File([new ArrayBuffer(12)], 'unsupported.wav')]]),
+      () => undefined,
+      () => true
+    )).rejects.toThrow('Calibration does not support unsupported-calibration.wav')
+  })
+
+  it('calibrates an empty folder without terminal progress', async () => {
+    const events: CalibrationPhaseProgress[] = []
+    await runUniformFolderCalibration(db, rootId, new Map(), (progress) => events.push(progress), () => true)
+    expect(events).toEqual([{ status: 'calibrating', analyzed: 0, total: 0 }])
   })
 
   it('refreshes automatic values on re-scan while preserving manual fields', async () => {

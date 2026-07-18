@@ -178,10 +178,11 @@ stored in the recent-project registry.
 
 ### Persistence Ownership
 
-- `src/renderer/src/project/project-state.ts` owns the complete in-memory Song
-  settings contract, its defaults, cloning, and the nested transport-replacement
-  shape. Save, load, New, and generator paths pass that complete `song` object
-  instead of reconstructing flattened field lists. The project-file module owns
+- `src/renderer/src/project/project-state.ts` owns the complete in-memory
+  project state (Song, lanes, placements, channels), its canonical defaults,
+  explicit cloning, and the nested transport-replacement shape. Save, load,
+  New, and generator paths use this factory instead of reconstructing flattened
+  field lists. The project-file module owns
   format validation and migration, but it reuses this neutral state contract so
   adding a Song setting cannot silently omit a replacement or default path.
 - Song settings, Mixer settings, routing, and FX settings exist in memory while
@@ -418,7 +419,8 @@ generator, its tests, and this contract are the durable repository assets.
   serialization, and field-specific rejection of exclusive placement ends
   beyond tick 31,968.
 - `src/renderer/src/project/project-state.test.ts` covers canonical defaults,
-  nested overrides, and isolated clones for project-replacement boundaries.
+  nested overrides, isolated clones for project-replacement boundaries, and
+  deep isolation of nested channel effects.
 - `src/renderer/src/backend/project-files.test.ts` covers filtered open/save
   pickers, external read-only opens, User Folder write containment, writable
   close/abort behavior, direct reads/writes, cancellation, and missing-sample

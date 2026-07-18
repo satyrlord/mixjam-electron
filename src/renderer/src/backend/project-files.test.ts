@@ -82,6 +82,31 @@ describe('project file access', () => {
     await expect(saveMixJamFileAs(USER_FOLDER, 'Untitled.mixjam', '{}')).resolves.toBeNull()
   })
 
+  it('handles empty open selection and plain AbortError-shaped picker failures', async () => {
+    vi.mocked(loadFolderHandle).mockResolvedValue(fakeRoot())
+    window.showOpenFilePicker = vi.fn(async () => [])
+    await expect(openMixJamFile(USER_FOLDER)).resolves.toBeNull()
+
+    window.showSaveFilePicker = vi.fn(async () => {
+      throw { name: 'AbortError' }
+    })
+    await expect(saveMixJamFileAs(USER_FOLDER, 'Untitled', '{}')).resolves.toBeNull()
+  })
+
+  it('rejects inaccessible folders after failed permission recovery', async () => {
+    vi.mocked(loadFolderHandle).mockResolvedValueOnce(null)
+    await expect(readMixJamFile(USER_FOLDER, 'missing.mixjam')).rejects.toThrow(
+      'folder is no longer available'
+    )
+
+    const denied = fakeRoot([], 'prompt', 'denied')
+    vi.mocked(loadFolderHandle).mockResolvedValueOnce(denied)
+    await expect(readMixJamFile(USER_FOLDER, 'missing.mixjam')).rejects.toThrow(
+      'Access to the MixJam folder is required.'
+    )
+    expect(denied.requestPermission).toHaveBeenCalledWith({ mode: 'read' })
+  })
+
   it('does not request User Folder permission before opening a project', async () => {
     const root = fakeRoot(['club.mixjam'], 'prompt', 'granted')
     const file = fakeFile('club.mixjam')
@@ -187,6 +212,23 @@ describe('project file access', () => {
     })
   })
 
+  it('ignores unrelated generated names and propagates unexpected lookup failures', async () => {
+    const root = {
+      ...fakeRoot(),
+      keys: async function* () {
+        yield 'notes.txt'
+        yield 'house-seed-latest.mixjam'
+      },
+      getFileHandle: vi.fn(async () => {
+        throw new DOMException('denied', 'NotAllowedError')
+      })
+    } as unknown as FileSystemDirectoryHandle
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+    await expect(createGeneratedMixJamFile(USER_FOLDER, 'house-seed', '{}')).rejects.toThrow(
+      'denied'
+    )
+  })
+
   it('rejects unsafe generated project basenames before touching the folder', async () => {
     await expect(createGeneratedMixJamFile(USER_FOLDER, '../bad', '{}')).rejects.toThrow(
       'Generated MixJam basenames may contain only'
@@ -253,6 +295,23 @@ describe('project file access', () => {
     )
   })
 
+  it('rejects missing read and write targets and appends the save extension', async () => {
+    const root = fakeRoot(['untitled.mixjam'])
+    const file = fakeFile('untitled.mixjam')
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+    vi.mocked(resolveFileHandle).mockResolvedValue(null)
+    await expect(readMixJamFile(USER_FOLDER, 'missing.mixjam')).rejects.toThrow('could not be found')
+    await expect(writeMixJamFile(USER_FOLDER, 'missing.mixjam', '{}')).rejects.toThrow('could not be found')
+
+    window.showSaveFilePicker = vi.fn(async (options) => {
+      expect(options.suggestedName).toBe('untitled.mixjam')
+      return file.handle
+    })
+    await expect(saveMixJamFileAs(USER_FOLDER, 'untitled', '{}')).resolves.toMatchObject({
+      path: 'untitled.mixjam'
+    })
+  })
+
   it('finds missing samples without reading their bytes', async () => {
     const root = fakeRoot()
     vi.mocked(loadFolderHandle).mockResolvedValue(root)
@@ -266,6 +325,15 @@ describe('project file access', () => {
       'Loops/missing.wav'
     ])).resolves.toEqual(['Loops/missing.wav'])
     expect(resolveFileHandle).toHaveBeenCalledTimes(2)
+  })
+
+  it('treats unsafe sample paths as missing without resolving them', async () => {
+    vi.mocked(loadFolderHandle).mockResolvedValue(fakeRoot())
+    vi.mocked(resolveFileHandle).mockResolvedValue(null)
+    await expect(findMissingSampleFiles(SAMPLE_FOLDER, ['../escape.wav'])).resolves.toEqual([
+      '../escape.wav'
+    ])
+    expect(resolveFileHandle).not.toHaveBeenCalled()
   })
 
   it('serializes two concurrent generated file calls so each gets a distinct suffix', async () => {

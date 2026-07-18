@@ -1,5 +1,5 @@
 // Thin better-sqlite3-shaped wrapper over the sqlite-wasm oo1 API, so the SQL
-// layer (library.ts) reads the same as it did in the main process:
+// workflow-owned persistence modules read the same as they did in the main process:
 // db.prepare(sql).get/all/run and db.transaction(fn). Statements are cached by
 // SQL text; get()/all() materialize rows and reset the statement before
 // returning, so cached statements are never re-entered.
@@ -41,8 +41,8 @@ class Statement {
   /** Returns the current row as a column-name-keyed record, or undefined when
    *  the query produced no rows. The generic `T` is an assertion by the caller
    *  about expected column names and value types — sqlite-wasm does not
-   *  validate the shape at runtime. Concrete row interfaces in library.ts
-   *  (TagRow, CategoryRow, etc.) are the canonical shape definitions. */
+   *  validate the shape at runtime. Concrete row interfaces in the owning
+   *  persistence module are the canonical shape definitions. */
   get<T extends SqlRow = SqlRow>(...params: BindValue[]): T | undefined {
     try {
       this.bindParams(params)

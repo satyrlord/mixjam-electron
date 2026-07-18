@@ -2,8 +2,11 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type {
   AnalysisProgress,
+  CalibrationProgress,
+  MixJamGeneratorProgress,
   MixJamGeneratorParameters,
-  MixJamGeneratorPlan
+  MixJamGeneratorPlan,
+  MixJamGeneratorReadiness
 } from '../../../shared/backend-api'
 import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
 import type { AppState } from './useAppState'
@@ -17,6 +20,8 @@ const PARAMETERS: MixJamGeneratorParameters = {
   durationSeconds: 180,
   seed: 'stable-seed'
 }
+
+const SECOND_SAMPLE_FOLDER = { id: 'second-sample-folder', name: 'Other Samples' }
 
 const PLAN: MixJamGeneratorPlan = {
   generatorVersion: 1,
@@ -42,6 +47,31 @@ const PLAN: MixJamGeneratorPlan = {
   phrases: [],
   lanes: [],
   channels: []
+}
+
+const DETAILED_PLAN: MixJamGeneratorPlan = {
+  ...PLAN,
+  selections: [{
+    laneIndex: 0,
+    requestedType: 'Percussion',
+    selectedType: 'Snare',
+    sampleRefs: ['Drums/snare.wav']
+  }],
+  substitutions: [{ laneIndex: 0, requestedType: 'Percussion', selectedType: 'Snare' }],
+  sections: [{ name: 'Intro', startBar: 0, endBar: 1, activeLanes: [0] }],
+  channels: [{
+    channelIndex: 0,
+    gain: 0.8,
+    pan: 0,
+    muted: false,
+    solo: false,
+    effects: [{
+      id: 'fx-1',
+      type: 'reverb',
+      presetName: 'Room',
+      values: { roomSize: 0.5, decay: 0.4, mix: 0.2 }
+    }]
+  }]
 }
 
 function deferred<T>() {
@@ -83,6 +113,46 @@ describe('useMixJamGenerator', () => {
         eligibleSamples: 2
       })
     })
+  })
+
+  it('ignores readiness responses from an older sample root', async () => {
+    const firstReadiness = deferred<MixJamGeneratorReadiness>()
+    const secondReadiness = deferred<MixJamGeneratorReadiness>()
+    const backendAPI = createBackendAPI()
+    vi.mocked(backendAPI.getGeneratorReadiness)
+      .mockImplementationOnce(() => firstReadiness.promise)
+      .mockImplementationOnce(() => secondReadiness.promise)
+    const app = appState()
+    const { result, rerender } = renderHook(
+      ({ folder }: { folder: typeof TEST_SAMPLE_FOLDER }) => useMixJamGenerator(app, backendAPI, folder),
+      { initialProps: { folder: TEST_SAMPLE_FOLDER } }
+    )
+
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(1))
+    rerender({ folder: SECOND_SAMPLE_FOLDER })
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(2))
+
+    const currentRootReadiness: MixJamGeneratorReadiness = {
+      status: 'ready',
+      detectedBpm: 128,
+      eligibleSamples: 8
+    }
+    const oldRootReadiness: MixJamGeneratorReadiness = {
+      status: 'needs-preparation',
+      message: 'Old root is still preparing.'
+    }
+
+    await act(async () => {
+      secondReadiness.resolve(currentRootReadiness)
+      await secondReadiness.promise
+    })
+    expect(result.current.readiness).toEqual(currentRootReadiness)
+
+    await act(async () => {
+      firstReadiness.resolve(oldRootReadiness)
+      await firstReadiness.promise
+    })
+    expect(result.current.readiness).toEqual(currentRootReadiness)
   })
 
   it('submits exact regeneration only once with the saved corpus fingerprint', async () => {
@@ -232,5 +302,170 @@ describe('useMixJamGenerator', () => {
       status: 'preparing',
       message: 'Library preparation is still running.'
     })
+  })
+
+  it('opens current-corpus regeneration with stored parameters and refreshed readiness', async () => {
+    const backendAPI = createBackendAPI()
+    const app = appState({
+      projectGenerator: {
+        generatorVersion: 1,
+        profileId: 'techno',
+        profileVersion: 1,
+        seed: PARAMETERS.seed,
+        parameters: {
+          bpmMode: 'fixed',
+          resolvedBpm: 140,
+          intensity: 'medium',
+          durationSeconds: 180
+        },
+        corpusFingerprint: 'saved-fingerprint',
+        sampleFolderKey: TEST_SAMPLE_FOLDER.id
+      }
+    })
+    const { result } = renderHook(() => useMixJamGenerator(app, backendAPI, TEST_SAMPLE_FOLDER))
+
+    act(() => result.current.openRegenerateCurrent())
+
+    expect(result.current.open).toBe(true)
+    expect(result.current.mode).toBe('new')
+    expect(result.current.initialParameters).toEqual(PARAMETERS)
+    await waitFor(() => expect(result.current.readiness?.status).toBe('ready'))
+  })
+
+  it('owns progress, saving state, result summaries, and opening the saved result', async () => {
+    const planResult = deferred<MixJamGeneratorPlan>()
+    const saveResult = deferred<string | null>()
+    const backendAPI = createBackendAPI()
+    let emitProgress: ((progress: MixJamGeneratorProgress) => void) | undefined
+    vi.mocked(backendAPI.onGeneratorProgress).mockImplementation((listener) => {
+      emitProgress = listener
+      return () => {}
+    })
+    vi.mocked(backendAPI.planMixJam).mockReturnValue(planResult.promise)
+    const app = appState({ saveGeneratedProject: vi.fn(() => saveResult.promise) })
+    const { result } = renderHook(() => useMixJamGenerator(app, backendAPI, TEST_SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.readiness?.status).toBe('ready'))
+
+    act(() => {
+      result.current.openNew()
+      result.current.onGenerate(PARAMETERS)
+    })
+    await waitFor(() => expect(backendAPI.planMixJam).toHaveBeenCalledTimes(1))
+    const jobId = vi.mocked(backendAPI.planMixJam).mock.calls[0]![1]
+    act(() => emitProgress?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId },
+      status: 'running',
+      phase: 'analyzing',
+      completed: 1,
+      total: 2
+    }))
+    expect(result.current.progress?.completed).toBe(1)
+    act(() => emitProgress?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'foreign' },
+      status: 'running',
+      phase: 'analyzing',
+      completed: 2,
+      total: 2
+    }))
+    expect(result.current.progress?.completed).toBe(1)
+
+    await act(async () => { planResult.resolve(DETAILED_PLAN); await planResult.promise })
+    await waitFor(() => expect(result.current.saving).toBe(true))
+    act(() => result.current.close())
+    expect(result.current.open).toBe(true)
+
+    await act(async () => { saveResult.resolve('generated.mixjam'); await saveResult.promise })
+    await waitFor(() => expect(result.current.generating).toBe(false))
+    expect(result.current.result?.summary).toContain('1 selected samples')
+    expect(result.current.result?.summary).toContain('Percussion to Snare')
+    expect(result.current.result?.summary).toContain('FX: Room')
+
+    await act(async () => result.current.onOpenResult('generated.mixjam'))
+    expect(result.current.open).toBe(false)
+    expect(app.openProjectPath).toHaveBeenCalledWith('generated.mixjam')
+  })
+
+  it('rejects unsafe seeds and reports planning and save failures', async () => {
+    const backendAPI = createBackendAPI()
+    const app = appState({ saveGeneratedProject: vi.fn().mockResolvedValue(null) })
+    const { result } = renderHook(() => useMixJamGenerator(app, backendAPI, TEST_SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.readiness?.status).toBe('ready'))
+
+    act(() => result.current.onGenerate({ ...PARAMETERS, seed: 'unsafe seed!' }))
+    expect(backendAPI.planMixJam).not.toHaveBeenCalled()
+
+    vi.mocked(backendAPI.planMixJam).mockRejectedValueOnce(new Error('planning failed'))
+    act(() => result.current.onGenerate(PARAMETERS))
+    await waitFor(() => expect(result.current.error).toBe('planning failed'))
+
+    vi.mocked(backendAPI.planMixJam).mockResolvedValueOnce(PLAN)
+    act(() => result.current.onGenerate(PARAMETERS))
+    await waitFor(() => expect(result.current.error).toBe('The generated project could not be saved.'))
+  })
+
+  it('tracks analysis and calibration lifecycles only for the active root', async () => {
+    const backendAPI = createBackendAPI()
+    let emitAnalysis: ((progress: AnalysisProgress) => void) | undefined
+    let emitCalibration: ((progress: CalibrationProgress) => void) | undefined
+    let emitAnalysisDone: ((done: Parameters<Parameters<typeof backendAPI.onAnalysisDone>[0]>[0]) => void) | undefined
+    let emitCalibrationDone: ((done: Parameters<Parameters<typeof backendAPI.onCalibrationDone>[0]>[0]) => void) | undefined
+    vi.mocked(backendAPI.onAnalysisProgress).mockImplementation((listener) => { emitAnalysis = listener; return () => {} })
+    vi.mocked(backendAPI.onCalibrationProgress).mockImplementation((listener) => { emitCalibration = listener; return () => {} })
+    vi.mocked(backendAPI.onAnalysisDone).mockImplementation((listener) => { emitAnalysisDone = listener; return () => {} })
+    vi.mocked(backendAPI.onCalibrationDone).mockImplementation((listener) => { emitCalibrationDone = listener; return () => {} })
+    const { result } = renderHook(() => useMixJamGenerator(appState(), backendAPI, TEST_SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.readiness?.status).toBe('ready'))
+    vi.mocked(backendAPI.getGeneratorReadiness).mockClear()
+
+    act(() => emitCalibration?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'calibration-1' },
+      status: 'calibrating', analyzed: 1, total: 2
+    }))
+    expect(result.current.readiness?.status).toBe('preparing')
+    act(() => emitCalibration?.({ identity: null, status: 'idle', analyzed: 0, total: 0 }))
+    expect(backendAPI.getGeneratorReadiness).not.toHaveBeenCalled()
+    act(() => emitCalibration?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'calibration-1' },
+      status: 'idle', analyzed: 2, total: 2
+    }))
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(1))
+
+    act(() => emitAnalysisDone?.({
+      identity: { rootKey: 'other', sampleId: 1, jobId: 'analysis-1' }
+    }))
+    act(() => emitCalibrationDone?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'calibration-1' }
+    }))
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(2))
+
+    act(() => emitAnalysisDone?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'analysis-all', trigger: 'automatic' }
+    }))
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(3))
+
+    act(() => emitCalibrationDone?.({
+      identity: { rootKey: 'other', jobId: 'calibration-other' }
+    }))
+    expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(3)
+
+    act(() => emitAnalysis?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, sampleId: 1, jobId: 'analysis-2' },
+      status: 'idle', analyzed: 1, total: 1
+    }))
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(4))
+  })
+
+  it('stays closed and idle without a resolved Sample Folder', () => {
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useMixJamGenerator(appState(), backendAPI, null))
+
+    act(() => {
+      result.current.openNew()
+      result.current.onGenerate(PARAMETERS)
+    })
+
+    expect(result.current.readiness).toBeNull()
+    expect(result.current.generating).toBe(false)
+    expect(backendAPI.planMixJam).not.toHaveBeenCalled()
   })
 })

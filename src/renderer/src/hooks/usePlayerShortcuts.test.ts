@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useTrackerShortcuts } from './useTrackerShortcuts'
+import { usePlayerShortcuts } from './usePlayerShortcuts'
 import type { RuntimeTransportState } from './useTransportRuntime'
 
 function createRef<T>(initial: T): React.MutableRefObject<T> {
@@ -11,9 +11,10 @@ function fireKeyDown(key: string, opts: Partial<KeyboardEventInit> = {}) {
   window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...opts }))
 }
 
-describe('useTrackerShortcuts', () => {
+describe('usePlayerShortcuts', () => {
   let selectedPlacementIdsRef: React.MutableRefObject<ReadonlySet<string>>
   let transportStateRef: React.MutableRefObject<RuntimeTransportState>
+  let projectBusyRef: React.MutableRefObject<boolean>
   let clearSelection: ReturnType<typeof vi.fn<() => void>>
   let onRemovePlacements: ReturnType<typeof vi.fn<(placementIds: string[]) => void>>
   let onUndo: ReturnType<typeof vi.fn<() => void>>
@@ -21,20 +22,25 @@ describe('useTrackerShortcuts', () => {
   let onTransportPlay: ReturnType<typeof vi.fn<() => void>>
   let onTransportPause: ReturnType<typeof vi.fn<() => void>>
   let onTransportStop: ReturnType<typeof vi.fn<() => void>>
+  let onSave: ReturnType<typeof vi.fn<() => void>>
+  let onSaveAs: ReturnType<typeof vi.fn<() => void>>
   let onOpenShortcuts: ReturnType<typeof vi.fn<() => void>>
 
   function mount() {
     return renderHook(() =>
-      useTrackerShortcuts({
+      usePlayerShortcuts({
         selectedPlacementIdsRef,
         clearSelection,
         transportStateRef,
+        projectBusyRef,
         onRemovePlacements,
         onUndo,
         onRedo,
         onTransportPlay,
         onTransportPause,
         onTransportStop,
+        onSave,
+        onSaveAs,
         onOpenShortcuts
       })
     )
@@ -43,6 +49,7 @@ describe('useTrackerShortcuts', () => {
   beforeEach(() => {
     selectedPlacementIdsRef = createRef(new Set<string>())
     transportStateRef = createRef('stopped')
+    projectBusyRef = createRef(false)
     clearSelection = vi.fn<() => void>()
     onRemovePlacements = vi.fn<(placementIds: string[]) => void>()
     onUndo = vi.fn<() => void>()
@@ -50,6 +57,8 @@ describe('useTrackerShortcuts', () => {
     onTransportPlay = vi.fn<() => void>()
     onTransportPause = vi.fn<() => void>()
     onTransportStop = vi.fn<() => void>()
+    onSave = vi.fn<() => void>()
+    onSaveAs = vi.fn<() => void>()
     onOpenShortcuts = vi.fn<() => void>()
   })
 
@@ -136,6 +145,37 @@ describe('useTrackerShortcuts', () => {
 
     expect(onTransportPause).toHaveBeenCalledTimes(1)
     expect(onTransportPlay).not.toHaveBeenCalled()
+  })
+
+  it('uses the platform primary modifier for undo', () => {
+    mount()
+
+    fireKeyDown('z', { metaKey: true })
+
+    expect(onUndo).toHaveBeenCalledTimes(1)
+  })
+
+  // ── Project ──
+
+  it('dispatches Save and Save As through the global policy', () => {
+    mount()
+
+    fireKeyDown('s', { ctrlKey: true })
+    fireKeyDown('s', { metaKey: true, shiftKey: true })
+
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSaveAs).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves browser defaults untouched while a project operation is busy', () => {
+    projectBusyRef.current = true
+    mount()
+    const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(onSave).not.toHaveBeenCalled()
   })
 
   it('cancels preparation on Space while preparing', () => {

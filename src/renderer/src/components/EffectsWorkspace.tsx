@@ -10,7 +10,7 @@ import {
   type EffectType,
   type NoteDivision
 } from '../engine/effects'
-import type { ChannelState } from '../hooks/useMixer'
+import type { ChannelState } from '../project/project-state'
 import { RotaryField, ToggleField } from './RotaryField'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuRoot, DropdownMenuTrigger } from './ui/DropdownMenu'
 

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FolderRef } from '../../../shared/backend-api'
 import { createBackendAPI } from '../test/backendApi'
 import { createDefaultLanes, type LaneState } from '../lib/arrangement'
-import { createDefaultChannels, type ChannelState } from './useMixer'
+import { createDefaultChannels, type ChannelState } from '../project/project-state'
 import { useProjectPersistence } from './useProjectPersistence'
 import { parseProject, serializeProject, type ProjectData } from '../project/project-file'
 import type { ProjectTransportState } from '../project/project-state'
@@ -65,7 +65,9 @@ function projectText(project: ProjectData): string {
 
 function useHarness(
   api: ReturnType<typeof createBackendAPI>,
-  reloadMixJamFiles: () => Promise<void> = async () => undefined
+  reloadMixJamFiles: () => Promise<void> = async () => undefined,
+  userFolder: FolderRef | null = USER_FOLDER,
+  sampleFolder: FolderRef | null = SAMPLE_FOLDER
 ) {
   const [lanes, setLanes] = useState<LaneState[]>(createDefaultLanes)
   const [bpm, setBpm] = useState(120)
@@ -86,8 +88,8 @@ function useHarness(
   const replaceChannels = useCallback((next: ChannelState[]) => setChannels(next), [])
   const project = useProjectPersistence({
     backendAPI: api,
-    userFolder: USER_FOLDER,
-    sampleFolder: SAMPLE_FOLDER,
+    userFolder,
+    sampleFolder,
     lanes,
     song: { bpm, masterGain, clipEdgeMicroFades },
     channels,
@@ -396,5 +398,41 @@ describe('useProjectPersistence', () => {
     expect(result.current.lanes.every((lane) => lane.placements.length === 0)).toBe(true)
     expect(result.current.project.projectName).toBe('Untitled')
     expect(result.current.project.projectDirty).toBe(false)
+  })
+
+  it('reports missing folder requirements and a cancelled picker', async () => {
+    const noFolders = renderHook(() => useHarness(api, undefined, null, null))
+
+    await act(async () => {
+      expect(await noFolders.result.current.project.openProjectPicker()).toBe(false)
+      expect(await noFolders.result.current.project.openProjectPath('set.mixjam')).toBe(false)
+      expect(await noFolders.result.current.project.saveProjectAs()).toBe(false)
+      expect(await noFolders.result.current.project.saveGeneratedProject(makeProject(), 'set')).toBeNull()
+    })
+    expect(noFolders.result.current.project.projectError).toBe(
+      'Select both folders before generating a MixJam.'
+    )
+
+    const withFolders = renderHook(() => useHarness(api))
+    await act(async () => {
+      expect(await withFolders.result.current.project.openProjectPicker()).toBe(false)
+    })
+    expect(withFolders.result.current.project.projectError).toBeNull()
+  })
+
+  it('uses a plain path name and plural warning when opening a project', async () => {
+    vi.mocked(api.readMixJamFile).mockResolvedValue({
+      path: 'sets/session',
+      contents: projectText(makeProject())
+    })
+    vi.mocked(api.findMissingSampleFiles).mockResolvedValue(['one.wav', 'two.wav'])
+    const { result } = renderHook(() => useHarness(api))
+
+    await act(async () => {
+      expect(await result.current.project.openProjectPath('sets/session')).toBe(true)
+    })
+
+    expect(result.current.project.projectName).toBe('session')
+    expect(result.current.project.projectWarning).toContain('2 referenced samples')
   })
 })

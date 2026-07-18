@@ -6,40 +6,44 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { DB } from './sql'
 import { ANALYSIS_REVISION, initSchema, METADATA_REVISION } from './schema'
 import {
-  assignCategoryFromPath,
-  completeScanRoot,
+  listAnalysisCandidates,
+  listCalibrationCandidates
+} from './analysis-persistence'
+import {
   createCategory,
   createTag,
   deleteCategory,
   deleteLibrary,
   deleteTag,
-  ensureScanRoot,
-  ensureUnsortedCategory,
-  getLibraryRootState,
   hasSamples,
-  listAnalysisCandidates,
-  listCalibrationCandidates,
-  listMetadataCandidates,
-  scanRootId,
   listCategories,
   listLibraries,
   listMissingRelpaths,
   listTags,
-  markMissing,
-  markMetadataUnavailable,
   querySamples,
   renameTag,
   saveLibrary,
   setTagColor,
   assignTag,
-  syncCategoriesFromNames,
   unassignTag,
   tagsForSample,
-  toFtsPrefixQuery,
+  toFtsPrefixQuery
+} from './browser-library-persistence'
+import {
+  assignCategoryFromPath,
+  completeScanRoot,
+  ensureScanRoot,
+  ensureUnsortedCategory,
+  getLibraryRootState,
+  listMetadataCandidates,
+  scanRootId,
+  markMissing,
+  markMetadataUnavailable,
+  syncCategoriesFromNames,
   upsertStub,
   updateMetadata,
   UNSORTED_CATEGORY
-} from './library'
+} from './indexed-sample-persistence'
 
 let sqlite3: Sqlite3Static
 let db: DB
@@ -531,6 +535,20 @@ describe('saveLibrary / listLibraries / deleteLibrary (AC-012, AC-013, AC-014)',
     const lib = saveLibrary(db, 'My Set', ruleJson)
     const found = listLibraries(db).find((l) => l.id === lib.id)!
     expect(JSON.parse(found.ruleJson)).toEqual(JSON.parse(ruleJson))
+  })
+
+  it('rolls back the library row when saving its rule fails', () => {
+    db.exec(`
+      CREATE TRIGGER reject_library_rule
+      BEFORE INSERT ON library_rules
+      BEGIN
+        SELECT RAISE(ABORT, 'forced rule failure');
+      END;
+    `)
+
+    expect(() => saveLibrary(db, 'Orphan', '{}')).toThrow('forced rule failure')
+    expect(db.prepare('SELECT id, name FROM libraries').all()).toEqual([])
+    expect(db.prepare('SELECT library_id FROM library_rules').all()).toEqual([])
   })
 
   it('AC-014: deleting a library removes only the saved query, not samples or tags', () => {

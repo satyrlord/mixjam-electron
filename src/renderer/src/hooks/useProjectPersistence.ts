@@ -5,9 +5,12 @@ import type {
   MixJamFileContents,
   OpenedMixJamFileContents
 } from '../../../shared/backend-api'
-import { createDefaultLanes } from '../lib/arrangement'
-import type { ChannelState } from './useMixer'
-import { createDefaultChannels } from './useMixer'
+import {
+  createDefaultProjectState,
+  type ChannelState,
+  type ProjectSongState,
+  type ProjectTransportState
+} from '../project/project-state'
 import {
   parseProject,
   projectFingerprint,
@@ -17,11 +20,6 @@ import {
   type ProjectGeneratorMetadata
 } from '../project/project-file'
 import { useSyncedRef } from './useSyncedRef'
-import {
-  createDefaultProjectSongState,
-  type ProjectSongState,
-  type ProjectTransportState
-} from '../project/project-state'
 
 interface ProjectMetadata {
   path: string | null
@@ -340,11 +338,7 @@ export function useProjectPersistence({
   }, [backendAPI, reloadMixJamFiles, sampleFolder, userFolder])
 
   const beginNewProject = useCallback(() => {
-    const project: ProjectData = {
-      song: createDefaultProjectSongState(),
-      lanes: createDefaultLanes(),
-      channels: createDefaultChannels()
-    }
+    const project: ProjectData = createDefaultProjectState()
     const fingerprint = projectFingerprint(project)
     setReplacementTarget(fingerprint)
     setBaselineFingerprint(fingerprint)

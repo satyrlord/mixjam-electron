@@ -137,6 +137,55 @@ describe('worker proxy', () => {
     expect(calibrationDone).toHaveBeenCalledWith({ identity: calibrationValue.identity })
   })
 
+  it('forwards generator progress and makes every unsubscribe effective', () => {
+    const worker = new FakeWorker()
+    const proxy = createWorkerProxy(worker)
+    const listeners = Array.from({ length: 7 }, () => vi.fn())
+    const unsubscribes = [
+      proxy.onScanProgress(listeners[0]),
+      proxy.onScanDone(listeners[1]),
+      proxy.onAnalysisProgress(listeners[2]),
+      proxy.onAnalysisDone(listeners[3]),
+      proxy.onCalibrationProgress(listeners[4]),
+      proxy.onCalibrationDone(listeners[5]),
+      proxy.onGeneratorProgress(listeners[6])
+    ]
+    worker.emit({
+      type: 'generator-progress',
+      progress: {
+        identity: { rootKey: 'root-test', jobId: 'generator-1' },
+        status: 'running',
+        phase: 'analyzing',
+        completed: 1,
+        total: 2
+      }
+    })
+    expect(listeners[6]).toHaveBeenCalledOnce()
+    unsubscribes.forEach((unsubscribe) => unsubscribe())
+    worker.emit({
+      type: 'generator-progress',
+      progress: {
+        identity: null,
+        status: 'idle',
+        phase: null,
+        completed: 0,
+        total: 0
+      }
+    })
+    expect(listeners[6]).toHaveBeenCalledOnce()
+  })
+
+  it('ignores responses for unknown request ids and uses the fatal fallback message', async () => {
+    const worker = new FakeWorker()
+    const proxy = createWorkerProxy(worker)
+    worker.emit({ type: 'response', seq: 999, ok: true, result: null })
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const pending = proxy.call('listTags')
+    worker.fail('')
+    await expect(pending).rejects.toThrow('Backend worker failed')
+    consoleError.mockRestore()
+  })
+
   it('rejects pending and future calls after a fatal worker error', async () => {
     const worker = new FakeWorker()
     const proxy = createWorkerProxy(worker)

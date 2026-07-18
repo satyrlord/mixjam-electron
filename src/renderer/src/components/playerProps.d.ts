@@ -9,7 +9,7 @@ import type {
 } from '../../../shared/backend-api'
 import type { PlacementGroupEntry, FooterSampleDetail, LaneState } from '../lib/arrangement'
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
-import type { ChannelState } from '../hooks/useMixer'
+import type { ChannelState } from '../project/project-state'
 import type { EffectSlot, EffectType } from '../engine/effects'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import type { MasterMeterSnapshot } from '../engine/master-meter'

@@ -5,12 +5,15 @@ import { DB } from './sql'
 import { initSchema } from './schema'
 import {
   applyAnalysisResult,
+  updateSampleAnalysis
+} from './analysis-persistence'
+import { querySamples } from './browser-library-persistence'
+import {
   ensureScanRoot,
-  querySamples,
   updateMetadata,
-  updateSampleAnalysis,
   upsertStub
-} from './library'
+} from './indexed-sample-persistence'
+import { canonicalMusicalKey, parseMusicalKey } from './musical-key'
 
 let sqlite3: Sqlite3Static
 let db: DB
@@ -24,6 +27,23 @@ beforeEach(() => {
   upsertStub(db, root, 'kick.wav', 'kick.wav', 'wav', 100, 100)
   updateMetadata(db, root, 'kick.wav', 0.5, 44100, 1)
   sampleId = db.prepare('SELECT id FROM samples WHERE relpath = ?').get<{ id: number }>('kick.wav')!.id
+})
+
+describe('musical key normalization', () => {
+  it.each([
+    ['C', { root: 0, minor: false }, 'C'],
+    ['Db', { root: 1, minor: false }, 'C#'],
+    ['E#m', { root: 5, minor: true }, 'Fm'],
+    ['Cbm', { root: 11, minor: true }, 'Bm']
+  ])('parses and canonicalizes %s', (input, parsed, canonical) => {
+    expect(parseMusicalKey(input)).toEqual(parsed)
+    expect(canonicalMusicalKey(input)).toBe(canonical)
+  })
+
+  it.each(['', 'H', 'c', 'C##', 'C major'])('rejects invalid key %j', (input) => {
+    expect(parseMusicalKey(input)).toBeNull()
+    expect(canonicalMusicalKey(input)).toBeNull()
+  })
 })
 afterEach(() => db.close())
 
@@ -94,6 +114,18 @@ describe('analysis persistence', () => {
       .toThrow('Musical key must look like C, C#, Am, or Bbm')
     expect(() => updateSampleAnalysis(db, sampleId, { musicalKey: 'Xm' }))
       .toThrow('Musical key must look like C, C#, Am, or Bbm')
+  })
+
+  it('validates a multi-field patch before writing any field', () => {
+    expect(() => updateSampleAnalysis(db, sampleId, { bpm: 128, musicalKey: 'H' }))
+      .toThrow('Musical key must look like C, C#, Am, or Bbm')
+
+    expect(querySamples(db, { rootId: 'analysis-root' }).rows[0]).toMatchObject({
+      bpm: null,
+      bpmSource: null,
+      musicalKey: null,
+      musicalKeySource: null
+    })
   })
 
   it('preserves the accepted spelling of manual flat keys', () => {

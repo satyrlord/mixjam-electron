@@ -29,7 +29,7 @@ import {
   type EffectType
 } from '../src/renderer/src/engine/effects'
 import { TICKS_PER_BAR, tickDurationSeconds } from '../src/renderer/src/engine/transport'
-import type { ChannelState } from '../src/renderer/src/hooks/useMixer'
+import type { ChannelState } from '../src/renderer/src/project/project-state'
 import { createDefaultProjectSongState } from '../src/renderer/src/project/project-state'
 
 export const SONG_BPM = 140

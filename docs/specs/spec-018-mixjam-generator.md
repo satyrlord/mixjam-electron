@@ -410,6 +410,11 @@ The worker serializes generator planning with sync, individual analysis, and
 uniform calibration. User cancellation, Sample Folder replacement, or worker
 shutdown marks the job cancelled. The worker checks cancellation between file
 reads and before returning a plan. Cancellation before commit creates no file.
+If an automatic sync request targets a root whose completed automatic job is
+already current, the request is suppressed without cancelling an active
+generation for that same root. Readiness responses are scoped to both the
+current root and request generation, so a stale response cannot update a new
+root's card.
 Once the renderer begins its short transactional save, cancellation is disabled;
 a write failure before file creation completes removes the incomplete allocation
 and leaves no recent-project row.

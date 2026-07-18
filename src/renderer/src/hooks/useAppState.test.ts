@@ -607,4 +607,22 @@ describe('useAppState', () => {
     act(() => { result.current.setLanePan(3, -0.5) })
     expect(result.current.lanes[3].pan).toBe(-0.5)
   })
+
+  it('keeps the current view when project open actions do not open a file', async () => {
+    vi.useRealTimers()
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
+
+    let pickerOpened = true
+    let pathOpened = true
+    await act(async () => {
+      pickerOpened = await result.current.openProjectPicker()
+      pathOpened = await result.current.openProjectPath('missing.mixjam')
+    })
+
+    expect(pickerOpened).toBe(false)
+    expect(pathOpened).toBe(false)
+    expect(result.current.view).toBe('home')
+    expect(backendAPI.resizeToPlayer).not.toHaveBeenCalled()
+  })
 })

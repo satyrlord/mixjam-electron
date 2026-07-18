@@ -74,6 +74,8 @@ per-slot ink resolves dark, matching `sampleBubbleDomStyle`).
 
 Sample bubbles use the shared `SAMPLE_BUBBLE_HEIGHT_PX` geometry constant for
 tracker canvas drawing, browser virtualization, and the DOM height token.
+Canvas rounded rectangles clamp the theme radius to the actual bubble width and
+height, including the minimum-width 12px browser bubble.
 
 Depth tokens (`depth.*` in the JSON, applied as the same-named CSS custom
 properties) carry theme-dependent gradient/shadow value strings so the same

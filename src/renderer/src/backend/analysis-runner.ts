@@ -4,7 +4,7 @@ import {
   applyAnalysisResult,
   listAnalysisCandidates,
   listCalibrationCandidates
-} from './library'
+} from './analysis-persistence'
 import type { DB } from './sql'
 
 export type AnalysisPhaseProgress = Omit<AnalysisProgress, 'identity'>

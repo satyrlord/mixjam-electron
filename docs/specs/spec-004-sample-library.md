@@ -135,6 +135,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   project-owned musical span. Before first placement, the browser estimates the
   span from source duration and detected BPM, or the current project BPM when
   detection is unavailable, following spec-009.
+  Canvas rounded rectangles clamp the theme radius to the actual bubble width
+  and height, preserving the shared geometry at the minimum width.
 - Sort controls support filename, duration, and date added. Selecting the active
   sort again toggles ascending/descending.
 - Selecting a bubble highlights it, previews its audio, and populates the Player
@@ -218,6 +220,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 - A library is a named, saved set of filter/search/tag criteria.
 - Creating a library saves the current filter state under a user-chosen name.
+- Library metadata and its compiled rule are created in one transaction; a
+  failed rule write leaves no orphan library row.
 - Opening a library applies its saved filters: clicking a library's name in the
   manage panel parses its `rule_json` and restores the search text, category,
   and tag filters.

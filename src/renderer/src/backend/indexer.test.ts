@@ -7,11 +7,13 @@ import { DB } from './sql'
 import { initSchema } from './schema'
 import { runScan, type ScanPhaseProgress } from './indexer'
 import {
-  getLibraryRootState,
   listCategories,
-  querySamples,
+  querySamples
+} from './browser-library-persistence'
+import {
+  getLibraryRootState,
   UNSORTED_CATEGORY
-} from './library'
+} from './indexed-sample-persistence'
 
 // ---------------------------------------------------------------------------
 // Map-backed FileSystemDirectoryHandle fake

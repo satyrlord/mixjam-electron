@@ -1,51 +1,6 @@
 import { DialogClose, DialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
 import { useRef } from 'react'
-
-interface ShortcutEntry {
-  keys: string
-  action: string
-}
-
-interface ShortcutSection {
-  title: string
-  entries: ShortcutEntry[]
-}
-
-const SHORTCUT_SECTIONS: ShortcutSection[] = [
-  {
-    title: 'Transport',
-    entries: [
-      { keys: 'Space', action: 'Play / pause / cancel preparation' },
-      { keys: 'Ctrl+Z', action: 'Undo placement edit' },
-      { keys: 'Ctrl+Y / Ctrl+Shift+Z', action: 'Redo placement edit' }
-    ]
-  },
-  {
-    title: 'Placements',
-    entries: [
-      { keys: 'Drag tile onto a lane', action: 'Place sample (snaps to beat)' },
-      { keys: 'Alt+Drop', action: 'Freeform placement — no beat snap' },
-      { keys: 'Shift+Drop', action: 'Duplicate instead of move' },
-      { keys: 'Ctrl+Drag on lanes', action: 'Rectangle-select placements' },
-      { keys: 'Delete', action: 'Remove selected placements' },
-      { keys: 'Right-click sample bubble', action: 'Delete / locate in browser' }
-    ]
-  },
-  {
-    title: 'Browser',
-    entries: [
-      { keys: 'Click tile', action: 'Preview sample (quantised while playing)' },
-      { keys: 'Click category', action: 'Filter by category' }
-    ]
-  },
-  {
-    title: 'Help',
-    entries: [
-      { keys: '?', action: 'Show this overlay' },
-      { keys: 'Esc', action: 'Close' }
-    ]
-  }
-]
+import { PLAYER_SHORTCUT_SECTIONS } from '../hooks/usePlayerShortcuts'
 
 interface ShortcutsOverlayProps {
   onClose: () => void
@@ -55,8 +10,8 @@ interface ShortcutsOverlayProps {
  *  Strip More menu or the "?" key; closed by Esc, the close button, or a
  *  click on the backdrop. */
 export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
-  const returnFocusRef = useRef<HTMLElement | null>(
-    document.activeElement instanceof HTMLElement ? document.activeElement : null
+  const returnFocusRef = useRef<HTMLElement>(
+    document.activeElement instanceof HTMLElement ? document.activeElement : document.body
   )
   return (
     <DialogRoot open onOpenChange={(open) => { if (!open) onClose() }}>
@@ -68,7 +23,7 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
         onOverlayClick={onClose}
         onCloseAutoFocus={(event) => {
           event.preventDefault()
-          returnFocusRef.current?.focus()
+          returnFocusRef.current.focus()
         }}
       >
         <div className="shortcuts-head">
@@ -78,7 +33,7 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
           </DialogClose>
         </div>
         <div className="shortcuts-sections">
-          {SHORTCUT_SECTIONS.map((section) => (
+          {PLAYER_SHORTCUT_SECTIONS.map((section) => (
             <section key={section.title} className="shortcuts-section">
               <h3 className="shortcuts-section-title">{section.title}</h3>
               <dl className="shortcuts-list">

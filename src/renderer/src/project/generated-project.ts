@@ -1,8 +1,7 @@
 import type { MixJamGeneratorPlan } from '../../../shared/backend-api'
 import { isEffectSlot, type EffectSlot } from '../engine/effects'
-import type { ChannelState } from '../hooks/useMixer'
 import type { LaneState } from '../lib/arrangement'
-import { createDefaultProjectSongState } from './project-state'
+import { createDefaultProjectState, type ChannelState } from './project-state'
 import type { ProjectData } from './project-file'
 
 function materializeEffect(plan: MixJamGeneratorPlan['channels'][number]['effects'][number]): EffectSlot {
@@ -39,9 +38,11 @@ export function materializeGeneratedProject(plan: MixJamGeneratorPlan): ProjectD
   }))
 
   return {
-    song: createDefaultProjectSongState({ bpm: plan.parameters.resolvedBpm }),
-    lanes,
-    channels,
+    ...createDefaultProjectState({
+      song: { bpm: plan.parameters.resolvedBpm },
+      lanes,
+      channels
+    }),
     generator: {
       generatorVersion: plan.generatorVersion,
       profileId: plan.profileId,

@@ -51,4 +51,21 @@ describe('materializeGeneratedProject', () => {
     expect(parsed.lanes[0]?.placements[0]?.startTick + parsed.lanes[0]!.placements[0]!.durationTicks)
       .toBe(plan.targetTicks)
   })
+
+  it('rejects an effect plan that does not satisfy the audio engine contract', () => {
+    const invalidPlan: MixJamGeneratorPlan = {
+      ...plan,
+      channels: [{
+        channelIndex: 0,
+        gain: 0.8,
+        pan: 0,
+        muted: false,
+        solo: false,
+        effects: [{ id: 'invalid', type: 'reverb', presetName: 'Broken', values: {} }]
+      }]
+    }
+
+    expect(() => materializeGeneratedProject(invalidPlan))
+      .toThrow('Generator produced an invalid reverb effect.')
+  })
 })

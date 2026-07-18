@@ -16,7 +16,7 @@ import {
   timelinePixelsPerSecond
 } from '../lib/arrangement'
 import { TICKS_PER_BEAT } from '../engine/transport'
-import { isEditableTarget, useTrackerShortcuts } from '../hooks/useTrackerShortcuts'
+import { usePlayerShortcuts } from '../hooks/usePlayerShortcuts'
 import { useDragCleanups } from '../hooks/useDragCleanups'
 import { usePlacementDrag } from '../hooks/usePlacementDrag'
 import MixJamBrowser from './MixJamBrowser'
@@ -28,84 +28,20 @@ import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
 import EffectsWorkspace from './EffectsWorkspace'
 import BottomWorkspace, {
-  isBottomWorkspaceTab,
   type BottomWorkspaceTab
 } from './BottomWorkspace'
+import {
+  loadPlayerWorkspacePreferences,
+  playerWorkspacePreferences
+} from '../app-state/player-workspace-preferences'
 import { ContextMenuContent, ContextMenuItem, ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 import { Panel, PanelGroup, PanelResizeHandle, usePanelRef, type PanelLayout } from './ui/ResizablePanels'
 import { SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
 
 const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
 
-const LEFT_COL_STORAGE_KEY = 'mixjam-left-col-w'
-const UPPER_LAYOUT_STORAGE_KEY = 'mixjam:upper-work-layout'
-const BOTTOM_LAYOUT_STORAGE_KEY = 'mixjam:bottom-workspace-layout-v2'
-const BOTTOM_EXPANSION_STORAGE_KEY = 'mixjam:bottom-workspace-expansion-v2'
-const BOTTOM_WORKSPACE_STORAGE_KEY = 'mixjam:bottom-workspace-tab'
-const DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT = 24
 const BOTTOM_WORKSPACE_EXPANDED_PERCENT = 60
 const BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT = 50
-
-interface BottomWorkspaceExpansionState {
-  expanded: boolean
-  previousBottomSize: number
-}
-
-function initialBottomWorkspaceTab(): BottomWorkspaceTab {
-  try {
-    const stored = localStorage.getItem(BOTTOM_WORKSPACE_STORAGE_KEY)
-    return isBottomWorkspaceTab(stored) ? stored : 'song'
-  } catch {
-    return 'song'
-  }
-}
-
-function loadPanelLayout(key: string, fallback: PanelLayout): PanelLayout {
-  try {
-    const stored = localStorage.getItem(key)
-    if (!stored) return fallback
-    const parsed = JSON.parse(stored) as unknown
-    if (!parsed || typeof parsed !== 'object') return fallback
-    const entries = Object.entries(parsed)
-    if (entries.length !== Object.keys(fallback).length) return fallback
-    if (entries.some(([, value]) => typeof value !== 'number' || !Number.isFinite(value))) return fallback
-    return Object.fromEntries(entries) as PanelLayout
-  } catch {
-    return fallback
-  }
-}
-
-function savePanelLayout(key: string, layout: PanelLayout): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(layout))
-  } catch {
-    // Storage can be unavailable; the current layout still remains usable.
-  }
-}
-
-function loadBottomWorkspaceExpansionState(fallbackSize: number): BottomWorkspaceExpansionState {
-  const fallback = { expanded: false, previousBottomSize: fallbackSize }
-  try {
-    const stored = localStorage.getItem(BOTTOM_EXPANSION_STORAGE_KEY)
-    if (!stored) return fallback
-    const parsed = JSON.parse(stored) as Partial<BottomWorkspaceExpansionState>
-    if (typeof parsed.expanded !== 'boolean' ||
-      typeof parsed.previousBottomSize !== 'number' ||
-      !Number.isFinite(parsed.previousBottomSize) ||
-      parsed.previousBottomSize <= 0 || parsed.previousBottomSize > 100) return fallback
-    return { expanded: parsed.expanded, previousBottomSize: parsed.previousBottomSize }
-  } catch {
-    return fallback
-  }
-}
-
-function saveBottomWorkspaceExpansionState(state: BottomWorkspaceExpansionState): void {
-  try {
-    localStorage.setItem(BOTTOM_EXPANSION_STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    // Storage can be unavailable; the current in-memory state still works.
-  }
-}
 
 export function reconcileSelectedChannelIndex(
   channels: ReadonlyArray<{ channelIndex: number }>,
@@ -263,35 +199,18 @@ export default function PlayerView({
   }, [lanesMouseDown, trackDragCleanup, clearSelection])
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(false)
-  const browserPanelRef = usePanelRef()
-  const [upperDefaultLayout] = useState<PanelLayout>(() => {
-    const fallbackBrowserPercent = (() => {
-      try {
-        const legacyWidth = Number(localStorage.getItem(LEFT_COL_STORAGE_KEY))
-        if (Number.isFinite(legacyWidth) && legacyWidth >= LEFT_COL_MIN_PX) {
-          return Math.max(15, Math.min(45, legacyWidth / window.innerWidth * 100))
-        }
-      } catch {
-        // Use the regular default below.
-      }
-      return 18
-    })()
-    return loadPanelLayout(UPPER_LAYOUT_STORAGE_KEY, {
-      browser: fallbackBrowserPercent,
-      tracker: 100 - fallbackBrowserPercent
-    })
-  })
-  const [verticalDefaultLayout] = useState<PanelLayout>(() =>
-    loadPanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, {
-      upper: 100 - DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT,
-      bottom: DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT
-    })
+  const [workspaceDefaults] = useState(() =>
+    loadPlayerWorkspacePreferences(window.innerWidth, LEFT_COL_MIN_PX)
   )
-  const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(initialBottomWorkspaceTab)
+  const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(
+    workspaceDefaults.mixJamBrowserCollapsed
+  )
+  const browserPanelRef = usePanelRef()
+  const upperDefaultLayout: PanelLayout = workspaceDefaults.upperLayout
+  const verticalDefaultLayout: PanelLayout = workspaceDefaults.verticalLayout
+  const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(workspaceDefaults.bottomTab)
   const bottomPanelRef = usePanelRef()
-  const initialBottomSize = verticalDefaultLayout.bottom ?? DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT
-  const [initialExpansionState] = useState(() => loadBottomWorkspaceExpansionState(initialBottomSize))
+  const initialExpansionState = workspaceDefaults.bottomExpansion
   const previousBottomSizeRef = useRef(initialExpansionState.previousBottomSize)
   const [bottomWorkspaceExpanded, setBottomWorkspaceExpanded] = useState(initialExpansionState.expanded)
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null)
@@ -313,18 +232,14 @@ export default function PlayerView({
 
   const setBottomTab = useCallback((tab: BottomWorkspaceTab) => {
     setBottomTabState(tab)
-    try {
-      localStorage.setItem(BOTTOM_WORKSPACE_STORAGE_KEY, tab)
-    } catch {
-      // Storage can be unavailable; the active in-memory tab still works.
-    }
+    playerWorkspacePreferences.saveBottomTab(tab)
   }, [])
 
   const toggleBottomWorkspaceExpanded = useCallback(() => {
     const panel = bottomPanelRef.current
     if (!panel) return
     if (bottomWorkspaceExpanded) {
-      saveBottomWorkspaceExpansionState({
+      playerWorkspacePreferences.saveBottomExpansion({
         expanded: false,
         previousBottomSize: previousBottomSizeRef.current
       })
@@ -333,7 +248,7 @@ export default function PlayerView({
       return
     }
     previousBottomSizeRef.current = panel.getSize().asPercentage
-    saveBottomWorkspaceExpansionState({
+    playerWorkspacePreferences.saveBottomExpansion({
       expanded: true,
       previousBottomSize: previousBottomSizeRef.current
     })
@@ -349,20 +264,9 @@ export default function PlayerView({
     }
   }, [bottomPanelRef, setBottomTab])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 's') return
-      if (event.repeat || isEditableTarget(event.target) || projectBusy) return
-      event.preventDefault()
-      if (event.shiftKey) void saveProjectAs()
-      else void saveProject()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [projectBusy, saveProject, saveProjectAs])
-
   const handleMixJamBrowserCollapsedChange = useCallback((collapsed: boolean) => {
     setMixJamBrowserCollapsed(collapsed)
+    playerWorkspacePreferences.saveMixJamBrowserCollapsed(collapsed)
     if (collapsed) browserPanelRef.current?.collapse()
     else browserPanelRef.current?.expand()
   }, [browserPanelRef])
@@ -380,17 +284,22 @@ export default function PlayerView({
   selectedPlacementIdsRef.current = selectedPlacementIds
   const transportStateRef = useRef(transportState)
   transportStateRef.current = transportState
+  const projectBusyRef = useRef(projectBusy)
+  projectBusyRef.current = projectBusy
 
-  useTrackerShortcuts({
+  usePlayerShortcuts({
     selectedPlacementIdsRef,
     clearSelection,
     transportStateRef,
+    projectBusyRef,
     onRemovePlacements: arrangement.onRemovePlacements,
     onUndo: transport.onUndo,
     onRedo: transport.onRedo,
     onTransportPlay: transport.onTransportPlay,
     onTransportPause: transport.onTransportPause,
     onTransportStop: handleTransportStop,
+    onSave: saveProject,
+    onSaveAs: saveProjectAs,
     onOpenShortcuts: () => setShortcutsOpen(true)
   })
 
@@ -474,12 +383,12 @@ export default function PlayerView({
       orientation="vertical"
       defaultLayout={verticalDefaultLayout}
       onLayoutChanged={(layout, meta) => {
-        savePanelLayout(BOTTOM_LAYOUT_STORAGE_KEY, layout)
+        playerWorkspacePreferences.saveVerticalLayout(layout)
         const bottomSize = layout.bottom
         if (!meta.isUserInteraction || bottomSize === undefined) return
         previousBottomSizeRef.current = bottomSize
         setBottomWorkspaceExpanded(false)
-        saveBottomWorkspaceExpansionState({ expanded: false, previousBottomSize: bottomSize })
+        playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: bottomSize })
       }}
     >
       <Panel id="upper" minSize="244px">
@@ -489,7 +398,7 @@ export default function PlayerView({
             className="upper-work-group"
             orientation="horizontal"
             defaultLayout={upperDefaultLayout}
-            onLayoutChanged={(layout) => savePanelLayout(UPPER_LAYOUT_STORAGE_KEY, layout)}
+            onLayoutChanged={(layout) => playerWorkspacePreferences.saveUpperLayout(layout)}
           >
             <Panel
               id="browser"
@@ -504,6 +413,7 @@ export default function PlayerView({
               <MixJamBrowser
                 mixJamFiles={mixJamFiles}
                 busy={project.busy}
+                collapsed={mixJamBrowserCollapsed}
                 onOpenProject={(path) => void project.onOpenPath(path)}
                 onCollapsedChange={handleMixJamBrowserCollapsedChange}
               />

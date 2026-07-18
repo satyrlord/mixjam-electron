@@ -8,7 +8,8 @@ import {
   sampleBubbleWidth,
   sampleBubbleWidthFromTicks
 } from '../lib/arrangement'
-import { bubbleStyle, categorySlot, formatDuration } from '../lib/sample-utils'
+import { categorySlot, formatDuration } from '../lib/sample-utils'
+import { sampleBubbleDomStyle } from '../theme/sample-bubble-style'
 import { Tooltip } from './ui/Tooltip'
 import { ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 
@@ -251,7 +252,7 @@ function SampleTileGrid({
                         >
                           <span
                             className={`sample-bubble${isSelected ? ' selected' : ''}${flashSamplePath === sample.relpath ? ' sample-bubble-flash' : ''}`}
-                            style={{ width: `${width}px`, ...(slot !== undefined ? bubbleStyle(slot) : {}) } as React.CSSProperties}
+                            style={{ width: `${width}px`, ...(slot !== undefined ? sampleBubbleDomStyle(slot) : {}) } as React.CSSProperties}
                           >
                             <b>{(sample.name || 'Unknown').replace(/\.[^.]+$/, '')}</b>
                             <i>{formatDuration(sample.durationSeconds)}</i>

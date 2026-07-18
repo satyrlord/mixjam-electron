@@ -6,7 +6,6 @@ import {
   type ClipPlacement,
   type LaneState
 } from '../lib/arrangement'
-import type { ChannelState } from '../hooks/useMixer'
 import {
   MAX_CLIP_EDGE_FADE_MS,
   MIN_CLIP_EDGE_FADE_MS
@@ -14,8 +13,9 @@ import {
 import {
   cloneProjectSongState,
   createDefaultProjectSongState,
+  type ChannelState,
+  type ProjectState,
   type ProjectSongState,
-  type ProjectTransportState
 } from './project-state'
 import {
   MIXJAM_GENERATOR_BPM_MODES,
@@ -62,8 +62,7 @@ export function supportsExactGeneratorRegeneration(generator: ProjectGeneratorMe
     generator.profileVersion === MIXJAM_GENERATOR_PROFILE_VERSIONS[generator.profileId]
 }
 
-export interface ProjectData extends ProjectTransportState {
-  channels: ChannelState[]
+export interface ProjectData extends ProjectState {
   generator?: ProjectGeneratorMetadata
 }
 

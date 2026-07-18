@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger
 } from './ui/DropdownMenu'
 import { Tooltip } from './ui/Tooltip'
+import { PLAYER_SHORTCUT_HINTS } from '../hooks/usePlayerShortcuts'
 
 // Inline SVGs avoid Windows color-emoji rendering and keep every command on
 // the current theme's foreground color.
@@ -243,11 +244,11 @@ export default function MiddleStrip({
               <DropdownMenuSeparator className="strip-menu-separator" />
               <DropdownMenuItem disabled={projectBusy} onSelect={() => onSaveProject()} aria-label="Save">
                 <span>Save</span>
-                <span className="strip-menu-hint">Ctrl+S</span>
+                <span className="strip-menu-hint">{PLAYER_SHORTCUT_HINTS.save}</span>
               </DropdownMenuItem>
               <DropdownMenuItem disabled={projectBusy} onSelect={() => onSaveProjectAs()} aria-label="Save As">
                 <span>Save As</span>
-                <span className="strip-menu-hint">Ctrl+Shift+S</span>
+                <span className="strip-menu-hint">{PLAYER_SHORTCUT_HINTS.saveAs}</span>
               </DropdownMenuItem>
               {canRegenerate && (
                 <>
@@ -266,7 +267,7 @@ export default function MiddleStrip({
 
         <div className="strip-command-dock">
           <div className="strip-edit-group" aria-label="Edit history">
-            <Tooltip content="Undo (Ctrl+Z)">
+            <Tooltip content={`Undo (${PLAYER_SHORTCUT_HINTS.undo})`}>
               <span className="mixjam-tooltip-anchor">
                 <button
                   type="button"
@@ -279,7 +280,7 @@ export default function MiddleStrip({
                 </button>
               </span>
             </Tooltip>
-            <Tooltip content="Redo (Ctrl+Y)">
+            <Tooltip content={`Redo (${PLAYER_SHORTCUT_HINTS.redo})`}>
               <span className="mixjam-tooltip-anchor">
                 <button
                   type="button"
@@ -318,7 +319,7 @@ export default function MiddleStrip({
                 </button>
               </span>
             </Tooltip>
-            <Tooltip content={isPreparing ? 'Preparing audio; Stop cancels' : isPlaying ? 'Pause (Space)' : 'Play (Space)'}>
+            <Tooltip content={isPreparing ? 'Preparing audio; Stop cancels' : isPlaying ? `Pause (${PLAYER_SHORTCUT_HINTS.playPause})` : `Play (${PLAYER_SHORTCUT_HINTS.playPause})`}>
               <span className="mixjam-tooltip-anchor">
                 <button
                   type="button"
@@ -375,7 +376,7 @@ export default function MiddleStrip({
             <DropdownMenuContent className="strip-more-menu" align="end">
               <DropdownMenuItem onSelect={() => onOpenShortcuts()} aria-label="Keyboard Shortcuts">
                 <span>Keyboard Shortcuts</span>
-                <span className="strip-menu-hint">?</span>
+                <span className="strip-menu-hint">{PLAYER_SHORTCUT_HINTS.help}</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="strip-menu-separator" />
               <DropdownMenuItem

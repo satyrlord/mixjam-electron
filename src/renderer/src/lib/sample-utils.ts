@@ -51,22 +51,6 @@ export function bubbleTextColor(background: string): string {
   return contrastVsWhite >= contrastVsDark ? BUBBLE_INK_LIGHT : BUBBLE_INK_DARK
 }
 
-/** Inline style for a sample bubble painted from a theme palette slot. All
- *  values are var() references to the --palette-* custom properties published
- *  by applyTheme, so bubbles restyle live on theme switch without a React
- *  re-render. --bubble-self feeds the CSS border-color fallback chain: themes
- *  with a --sample-bubble-border-color token win over the self-colored border.
- *  Spread into a style prop with an `as React.CSSProperties` cast (custom
- *  property keys are not in the CSSProperties type). */
-export function bubbleStyle(slot: number): Record<string, string> {
-  return {
-    backgroundColor: `var(--palette-${slot})`,
-    '--bubble-self': `var(--palette-${slot})`,
-    color: `var(--palette-ink-${slot})`,
-    textShadow: `var(--palette-shadow-${slot})`
-  }
-}
-
 export function formatDuration(seconds: number | null): string {
   if (seconds === null) return '?'
   if (seconds < 60) return `${seconds.toFixed(1)}s`

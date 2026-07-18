@@ -15,7 +15,7 @@ import {
   syncCategoriesFromNames,
   updateMetadata,
   upsertStub
-} from './library'
+} from './indexed-sample-persistence'
 
 // The audio file extensions the library recognises.
 const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.flac', '.ogg', '.aiff'])

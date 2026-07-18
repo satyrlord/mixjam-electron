@@ -48,6 +48,15 @@ export interface PlaybackEngineOptions extends AudioEngineOptions {
   clipEdgeMicroFades?: ClipEdgeMicroFadeSettings
 }
 
+export interface PlaybackChannelSnapshot {
+  channelIndex: number
+  gain: number
+  pan: number
+  muted: boolean
+  solo: boolean
+  effects: readonly EffectSlot[]
+}
+
 export class PlaybackEngine {
   private readonly engine: AudioEngine
   private readonly scheduler: Scheduler
@@ -157,6 +166,44 @@ export class PlaybackEngine {
   setChannelEffects(channelIndex: number, effects: readonly EffectSlot[]): void {
     this.channelEffects.set(channelIndex, effects.map((effect) => ({ ...effect })))
     this.engine.setChannelEffects(channelIndex, effects, this.currentBpm)
+  }
+
+  /**
+   * Reconciles the complete project-owned channel state into the audio graph.
+   * Callers provide data, while this graph-owning module owns removal,
+   * restoration, effect ordering, and final solo/mute gating.
+   */
+  applyChannelSnapshot(
+    channels: readonly PlaybackChannelSnapshot[],
+    channelCount: number
+  ): void {
+    const nextByIndex = new Map(
+      channels.map((channel) => [channel.channelIndex, channel] as const)
+    )
+
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      if (!nextByIndex.has(channelIndex) && !this.removedChannels.has(channelIndex)) {
+        this.removeChannel(channelIndex)
+      }
+    }
+
+    for (const channel of channels) {
+      const { channelIndex } = channel
+      this.channelPans.set(channelIndex, channel.pan)
+      this.channelGains.set(channelIndex, channel.gain)
+      this.channelMutes.set(channelIndex, channel.muted)
+      this.channelSolos.set(channelIndex, channel.solo)
+      this.channelEffects.set(
+        channelIndex,
+        channel.effects.map((effect) => ({ ...effect }))
+      )
+
+      if (this.removedChannels.has(channelIndex)) this.restoreChannel(channelIndex)
+      this.engine.setChannelPan(channelIndex, channel.pan)
+      this.engine.setChannelEffects(channelIndex, channel.effects, this.currentBpm)
+    }
+
+    this.applyChannelSoloMuteGating()
   }
 
   private isChannelGated(channelIndex: number): boolean {

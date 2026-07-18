@@ -1,21 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlaybackEngine } from '../engine/playback-engine'
 import { createDefaultEffect, isEffectSlot, type EffectSlot, type EffectType } from '../engine/effects'
+import {
+  DEFAULT_PROJECT_CHANNEL_COUNT,
+  createDefaultChannel,
+  createDefaultChannels,
+  type ChannelState
+} from '../project/project-state'
 
-const DEFAULT_CHANNEL_COUNT = 16
 const PEAK_HOLD_DECAY_DB_PER_S = 30
 const SILENCE_DB = -100
 const LEGACY_STORAGE_KEY = 'mixjam-mixer-channels'
-
-export interface ChannelState {
-  /** The channel index in the audio graph (lane N → channel N for 1:1 routing). */
-  channelIndex: number
-  gain: number
-  pan: number
-  muted: boolean
-  solo: boolean
-  effects: EffectSlot[]
-}
 
 export interface MixerState {
   channels: ChannelState[]
@@ -48,21 +43,11 @@ export interface MixerActions {
 
 export type Mixer = MixerState & MixerActions
 
-const DEFAULT_CHANNEL_GAIN = 0.8
-
-function createDefaultChannel(channelIndex: number): ChannelState {
-  return { channelIndex, gain: DEFAULT_CHANNEL_GAIN, pan: 0, muted: false, solo: false, effects: [] }
-}
-
-export function createDefaultChannels(): ChannelState[] {
-  return Array.from({ length: DEFAULT_CHANNEL_COUNT }, (_, i) => createDefaultChannel(i))
-}
-
-/** Indices in [0, DEFAULT_CHANNEL_COUNT) that are absent from `channels`. */
+/** Indices in [0, DEFAULT_PROJECT_CHANNEL_COUNT) absent from `channels`. */
 function removedIndicesOf(channels: ChannelState[]): number[] {
   const present = new Set(channels.map((ch) => ch.channelIndex))
   const removed: number[] = []
-  for (let i = 0; i < DEFAULT_CHANNEL_COUNT; i++) {
+  for (let i = 0; i < DEFAULT_PROJECT_CHANNEL_COUNT; i++) {
     if (!present.has(i)) removed.push(i)
   }
   return removed
@@ -255,28 +240,14 @@ export function useMixer(
     }
   }, [playbackEngineRef, visualTelemetryActive])
 
-  // Apply channel state to PlaybackEngine when entering the Player (a fresh PlaybackEngine
-  // is created on each entry). Also replays removed channel indices so channel
-  // removal from the active project is reflected in the newly created graph.
+  // Reconcile the complete project snapshot when it changes or a fresh engine
+  // is created. The graph owner decides ordering, removal, and solo/mute gating.
   useEffect(() => {
     if (view !== 'player') return
     const playbackEngine = playbackEngineRef.current
     if (!playbackEngine) return
 
-    // Replay removed channels first so their indices are marked before we
-    // push gain/pan/mute/solo (which would otherwise create the channels).
-    playbackEngine.replayRemovedChannels(removedIndicesOf(channels))
-
-    for (const ch of channels) {
-      playbackEngine.setChannelEffects(ch.channelIndex, ch.effects)
-      playbackEngine.setChannelGain(ch.channelIndex, ch.gain)
-      playbackEngine.setChannelPan(ch.channelIndex, ch.pan)
-    }
-    // Apply mute/solo gating after all gains are set.
-    for (const ch of channels) {
-      playbackEngine.setChannelMute(ch.channelIndex, ch.muted)
-      playbackEngine.setChannelSolo(ch.channelIndex, ch.solo)
-    }
+    playbackEngine.applyChannelSnapshot(channels, DEFAULT_PROJECT_CHANNEL_COUNT)
   }, [view, playbackEngineRef, channels])
 
   const replaceChannels = useCallback((nextChannels: ChannelState[]) => {
@@ -299,50 +270,35 @@ export function useMixer(
     setChannels((prev) =>
       prev.map((ch) => (ch.channelIndex === channelIndex ? { ...ch, gain } : ch))
     )
-    playbackEngineRef.current?.setChannelGain(channelIndex, gain)
-  }, [playbackEngineRef])
+  }, [])
 
   const setChannelPan = useCallback((channelIndex: number, pan: number) => {
     setChannels((prev) =>
       prev.map((ch) => (ch.channelIndex === channelIndex ? { ...ch, pan } : ch))
     )
-    playbackEngineRef.current?.setChannelPan(channelIndex, pan)
-  }, [playbackEngineRef])
+  }, [])
 
   const toggleChannelMute = useCallback((channelIndex: number) => {
     setChannels((prev) => {
       const next = prev.map((ch) =>
         ch.channelIndex === channelIndex ? { ...ch, muted: !ch.muted } : ch
       )
-      // Apply gating immediately using the fresh state from the updater,
-      // not the stale closure.
-      const playbackEngine = playbackEngineRef.current
-      if (playbackEngine) {
-        const updated = next.find((c) => c.channelIndex === channelIndex)
-        if (updated) playbackEngine.setChannelMute(channelIndex, updated.muted)
-      }
       return next
     })
-  }, [playbackEngineRef])
+  }, [])
 
   const toggleChannelSolo = useCallback((channelIndex: number) => {
     setChannels((prev) => {
       const next = prev.map((ch) =>
         ch.channelIndex === channelIndex ? { ...ch, solo: !ch.solo } : ch
       )
-      const playbackEngine = playbackEngineRef.current
-      if (playbackEngine) {
-        const updated = next.find((c) => c.channelIndex === channelIndex)
-        if (updated) playbackEngine.setChannelSolo(channelIndex, updated.solo)
-      }
       return next
     })
-  }, [playbackEngineRef])
+  }, [])
 
   const removeChannel = useCallback((channelIndex: number) => {
     setChannels((prev) => prev.filter((ch) => ch.channelIndex !== channelIndex))
-    playbackEngineRef.current?.removeChannel(channelIndex)
-  }, [playbackEngineRef])
+  }, [])
 
   const mutateEffects = useCallback((channelIndex: number, mutate: (effects: EffectSlot[]) => EffectSlot[]) => {
     setChannels((prev) => prev.map((channel) => {
@@ -405,20 +361,17 @@ export function useMixer(
     const lowest = removed[0]
     if (lowest === undefined) return
     const restored = createDefaultChannel(lowest)
-    // Re-route the lane back into its channel strip. Gain/pan/mute/solo are
-    // re-pushed to PlaybackEngine by the apply-state effect on the next commit.
-    playbackEngineRef.current?.restoreChannel(lowest)
     setChannels((prev) =>
       [...prev, restored].sort((a, b) => a.channelIndex - b.channelIndex)
     )
-  }, [playbackEngineRef])
+  }, [])
 
   return {
     channels,
     channelLevels,
     channelPeaks,
     effectReductions,
-    canRestoreChannel: channels.length < DEFAULT_CHANNEL_COUNT,
+    canRestoreChannel: channels.length < DEFAULT_PROJECT_CHANNEL_COUNT,
     setVisualTelemetryActive,
     replaceChannels,
     setChannelGain,

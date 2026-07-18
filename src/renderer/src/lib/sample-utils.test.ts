@@ -3,7 +3,6 @@ import {
   PALETTE_SLOT_COUNT,
   ROOT_CATEGORY_NAMES,
   SLOT_UNSORTED,
-  bubbleStyle,
   categorySlot,
   formatDuration,
   meterFillPct,
@@ -72,21 +71,6 @@ describe('categorySlot', () => {
     // At least two different slots across 8 distinct unknown names
     // (probabilistically near-certain with 8 palette slots).
     expect(slots.size).toBeGreaterThan(1)
-  })
-})
-
-describe('bubbleStyle', () => {
-  it('references the slot custom properties so bubbles restyle on theme switch', () => {
-    expect(bubbleStyle(3)).toEqual({
-      backgroundColor: 'var(--palette-3)',
-      '--bubble-self': 'var(--palette-3)',
-      color: 'var(--palette-ink-3)',
-      textShadow: 'var(--palette-shadow-3)'
-    })
-  })
-
-  it('addresses the unsorted slot like any other', () => {
-    expect(bubbleStyle(SLOT_UNSORTED).backgroundColor).toBe('var(--palette-8)')
   })
 })
 

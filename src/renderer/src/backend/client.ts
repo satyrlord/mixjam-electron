@@ -14,12 +14,11 @@ import {
   validateFolder
 } from './folder-access'
 import {
-  listMixJamFiles,
   loadFolderSelections,
-  recordRecentProject,
   saveFolderSelections,
   writeAppConfig
 } from './app-state'
+import { listMixJamFiles, recordRecentProject } from './project-catalog'
 import {
   createGeneratedMixJamFile,
   findMissingSampleFiles,

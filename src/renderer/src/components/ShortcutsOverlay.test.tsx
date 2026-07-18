@@ -11,6 +11,7 @@ describe('ShortcutsOverlay', () => {
     render(<ShortcutsOverlay onClose={vi.fn()} />)
 
     expect(screen.getByText('Transport')).toBeTruthy()
+    expect(screen.getByText('Project')).toBeTruthy()
     expect(screen.getByText('Placements')).toBeTruthy()
     expect(screen.getByText('Browser')).toBeTruthy()
     expect(screen.getByText('Help')).toBeTruthy()
@@ -20,6 +21,8 @@ describe('ShortcutsOverlay', () => {
     render(<ShortcutsOverlay onClose={vi.fn()} />)
 
     expect(screen.getByText('Space')).toBeTruthy()
+    expect(screen.getByText('Ctrl+S')).toBeTruthy()
+    expect(screen.getByText('Save project')).toBeTruthy()
     expect(screen.getByText('Play / pause / cancel preparation')).toBeTruthy()
     expect(screen.getByText('Ctrl+Z')).toBeTruthy()
     expect(screen.getByText('Undo placement edit')).toBeTruthy()

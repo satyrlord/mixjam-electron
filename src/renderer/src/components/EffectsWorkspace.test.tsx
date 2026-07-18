@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import EffectsWorkspace from './EffectsWorkspace'
 import { createDefaultEffect, type EffectSlot } from '../engine/effects'
-import type { ChannelState } from '../hooks/useMixer'
+import type { ChannelState } from '../project/project-state'
 
 function Harness({ initial = [] }: { initial?: EffectSlot[] }) {
   const [effects, setEffects] = useState(initial)
@@ -68,6 +68,15 @@ describe('EffectsWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Mixer' }))
     expect(onRestoreChannel).toHaveBeenCalledTimes(1)
     expect(onOpenMixer).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows omitted recovery callbacks in the no-channel empty state', () => {
+    render(<EffectsWorkspace channels={[]} selectedChannelIndex={null} selectedEffectId={null} effectReductions={new Map()} canRestoreChannel onSelectChannel={vi.fn()} onSelectEffect={vi.fn()} onAdd={vi.fn()} onUpdate={vi.fn()} onToggleBypass={vi.fn()} onRemove={vi.fn()} onRestore={vi.fn()} onMove={vi.fn()} />)
+
+    expect(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Restore a channel' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Open Mixer' }))
+    }).not.toThrow()
   })
 
   it('provides an internal channel selector', () => {

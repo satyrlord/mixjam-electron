@@ -4,7 +4,7 @@ import MixJamBrowser from './MixJamBrowser'
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
 
-describe('MixJamBrowser storage failures', () => {
+describe('MixJamBrowser', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     localStorage.removeItem('mixjam:recents-rail-collapsed')
@@ -12,17 +12,28 @@ describe('MixJamBrowser storage failures', () => {
     else Reflect.deleteProperty(navigator, 'clipboard')
   })
 
-  it('keeps collapse state usable when browser storage is unavailable', () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new DOMException('blocked', 'SecurityError')
-    })
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new DOMException('full', 'QuotaExceededError')
-    })
-
-    render(<MixJamBrowser mixJamFiles={[]} onOpenProject={vi.fn()} />)
+  it('requests a controlled collapse state change', () => {
+    const onCollapsedChange = vi.fn()
+    const { rerender } = render(
+      <MixJamBrowser
+        mixJamFiles={[]}
+        collapsed={false}
+        onOpenProject={vi.fn()}
+        onCollapsedChange={onCollapsedChange}
+      />
+    )
     const toggle = screen.getByRole('button', { name: 'Collapse MixJam Browser' })
     fireEvent.click(toggle)
+    expect(onCollapsedChange).toHaveBeenLastCalledWith(true)
+
+    rerender(
+      <MixJamBrowser
+        mixJamFiles={[]}
+        collapsed
+        onOpenProject={vi.fn()}
+        onCollapsedChange={onCollapsedChange}
+      />
+    )
 
     expect(screen.getByRole('button', { name: 'Expand MixJam Browser' })).toBeInTheDocument()
   })
@@ -32,6 +43,7 @@ describe('MixJamBrowser storage failures', () => {
     render(
       <MixJamBrowser
         mixJamFiles={[]}
+        collapsed={false}
         onOpenProject={vi.fn()}
         onCollapsedChange={onCollapsedChange}
       />
@@ -48,6 +60,7 @@ describe('MixJamBrowser storage failures', () => {
     render(
       <MixJamBrowser
         mixJamFiles={[{ path: 'sets/club.mixjam', displayName: 'Club', lastOpened: null }]}
+        collapsed={false}
         onOpenProject={onOpenProject}
       />
     )
@@ -67,6 +80,7 @@ describe('MixJamBrowser storage failures', () => {
     render(
       <MixJamBrowser
         mixJamFiles={[{ path: 'sets/club.mixjam', displayName: 'Club', lastOpened: null }]}
+        collapsed={false}
         onOpenProject={vi.fn()}
       />
     )

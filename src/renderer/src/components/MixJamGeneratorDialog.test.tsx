@@ -161,4 +161,86 @@ describe('MixJamGeneratorDialog', () => {
     fireEvent.pointerDown(container.ownerDocument.querySelector('.mixjam-dialog-overlay')!)
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  it('edits every parameter and generates a fixed-BPM request', () => {
+    const { onGenerate } = renderDialog()
+    fireEvent.change(screen.getByLabelText('Profile'), { target: { value: 'house' } })
+    fireEvent.change(screen.getByLabelText('BPM source'), { target: { value: 'fixed' } })
+    fireEvent.change(screen.getByLabelText('BPM'), { target: { value: '125' } })
+    fireEvent.change(screen.getByLabelText('Intensity'), { target: { value: 'high' } })
+    fireEvent.change(screen.getByLabelText('Duration (seconds)'), { target: { value: '300' } })
+    fireEvent.change(screen.getByLabelText('Seed'), { target: { value: 'fixed-seed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate and Save' }))
+    expect(onGenerate).toHaveBeenCalledWith({
+      profileId: 'house', bpmMode: 'fixed', bpm: 125,
+      intensity: 'high', durationSeconds: 300, seed: 'fixed-seed'
+    })
+  })
+
+  it('creates a safe random seed', () => {
+    vi.spyOn(crypto, 'getRandomValues').mockImplementation((array) => {
+      ;(array as Uint8Array).fill(15)
+      return array
+    })
+    renderDialog()
+    fireEvent.click(screen.getByRole('button', { name: 'New' }))
+    expect(screen.getByLabelText('Seed')).toHaveValue('0f0f0f0f0f0f0f0f')
+  })
+
+  it('shows readiness checking, blocked readiness, and errors', () => {
+    const { rerender } = renderDialog({ readiness: null, error: 'Generation failed' })
+    expect(screen.getByText('Checking library…')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Generation failed')
+    expect(screen.getByRole('button', { name: 'Generate and Save' })).toBeDisabled()
+    rerender(<MixJamGeneratorDialog
+      open readiness={{ status: 'needs-preparation', message: 'Analyze samples first' }}
+      generating={false} result={null} error={null}
+      onClose={vi.fn()} onGenerate={vi.fn()} onOpenResult={vi.fn()}
+    />)
+    expect(screen.getByText('Analyze samples first')).toBeInTheDocument()
+  })
+
+  it('runs result actions', () => {
+    const { onOpenResult, onClose } = renderDialog({
+      result: { path: 'club-night.mixjam', summary: 'Summary text' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Open in Player' }))
+    expect(onOpenResult).toHaveBeenCalledWith('club-night.mixjam')
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it.each([
+    ['shortlisting', 'Shortlisting samples'],
+    ['analyzing', 'Analyzing samples'],
+    ['arranging', 'Arranging song']
+  ] as const)('renders %s progress with counts', (phase, heading) => {
+    renderDialog({ generating: true, progress: {
+      identity: { rootKey: 'samples', jobId: 'job' }, status: 'running', phase, completed: 2, total: 5
+    } })
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    expect(screen.getByText('2 of 5')).toBeInTheDocument()
+  })
+
+  it('renders preparing and saving progress copy', () => {
+    const { rerender } = renderDialog({
+      generating: true, progress: {
+        identity: { rootKey: 'samples', jobId: 'job' }, status: 'running',
+        phase: 'arranging', completed: 0, total: 0
+      }
+    })
+    expect(screen.getByText('Preparing the musical plan.')).toBeInTheDocument()
+    rerender(<MixJamGeneratorDialog
+      open readiness={READY} generating saving result={null} error={null}
+      onClose={vi.fn()} onGenerate={vi.fn()} onOpenResult={vi.fn()}
+    />)
+    expect(screen.getByRole('heading', { name: 'Saving project' })).toBeInTheDocument()
+    expect(screen.getByText('The project is being committed to your User Folder.')).toBeInTheDocument()
+  })
+
+  it('calls Cancel from the parameter form', () => {
+    const { onClose } = renderDialog()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onClose).toHaveBeenCalledOnce()
+  })
 })

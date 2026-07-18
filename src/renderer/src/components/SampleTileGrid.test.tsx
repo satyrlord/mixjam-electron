@@ -346,7 +346,7 @@ describe('SampleTileGrid', () => {
     )
 
     const button = container.querySelector('.sample-bubble') as HTMLElement
-    // bubbleStyle points the surface at the shared slot custom property
+    // The DOM adapter points the surface at the shared slot custom property.
     expect(button.style.backgroundColor).toBe('var(--palette-3)')
   })
 
@@ -457,7 +457,7 @@ describe('SampleTileGrid', () => {
     )
 
     const button = container.querySelector('.sample-bubble') as HTMLElement
-    // categorySlot('Drums') is slot 0, applied via bubbleStyle
+    // categorySlot('Drums') is slot 0, applied through the sample-bubble owner.
     expect(button.style.backgroundColor).toBe('var(--palette-0)')
   })
 })

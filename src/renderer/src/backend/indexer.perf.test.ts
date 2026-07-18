@@ -15,7 +15,7 @@ import { beforeAll, beforeEach, afterEach, describe, expect, it } from 'vitest'
 import { DB } from './sql'
 import { initSchema } from './schema'
 import { runScan, type ScanPhaseProgress } from './indexer'
-import { querySamples } from './library'
+import { querySamples } from './browser-library-persistence'
 
 // ---------------------------------------------------------------------------
 // Config

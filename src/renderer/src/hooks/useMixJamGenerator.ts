@@ -56,6 +56,14 @@ export function useMixJamGenerator(
   const [initialParameters, setInitialParameters] = useState<MixJamGeneratorParameters | undefined>()
   const exactAutoSubmitPendingRef = useRef(false)
   const runStateRef = useRef<GeneratorRunState>({ status: 'idle' })
+  const readinessRequestRef = useRef({ generation: 0, rootKey: null as string | null })
+  const resolvedRootKey = resolvedSampleFolder?.id ?? null
+  if (readinessRequestRef.current.rootKey !== resolvedRootKey) {
+    readinessRequestRef.current = {
+      generation: readinessRequestRef.current.generation + 1,
+      rootKey: resolvedRootKey
+    }
+  }
 
   const updateRunState = useCallback((next: GeneratorRunState) => {
     runStateRef.current = next
@@ -90,12 +98,24 @@ export function useMixJamGenerator(
     exactAutoSubmitPendingRef.current = false
   }, [])
 
+  const requestReadiness = useCallback((folder: { id: string; name: string }) => {
+    const requestGeneration = ++readinessRequestRef.current.generation
+    const requestRootKey = folder.id
+    const isCurrentRequest = (): boolean =>
+      readinessRequestRef.current.generation === requestGeneration &&
+      readinessRequestRef.current.rootKey === requestRootKey
+    void backendAPI.getGeneratorReadiness(folder)
+      .then((next) => {
+        if (isCurrentRequest()) setReadiness(next)
+      })
+      .catch((err: unknown) => {
+        if (isCurrentRequest()) setError(err instanceof Error ? err.message : String(err))
+      })
+  }, [backendAPI])
+
   const fetchReadiness = useCallback(() => {
-    if (!resolvedSampleFolder) return
-    backendAPI.getGeneratorReadiness(resolvedSampleFolder)
-      .then(setReadiness)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
-  }, [backendAPI, resolvedSampleFolder])
+    if (resolvedSampleFolder) requestReadiness(resolvedSampleFolder)
+  }, [requestReadiness, resolvedSampleFolder])
 
   useEffect(() => {
     if (!resolvedSampleFolder) return
@@ -223,14 +243,8 @@ export function useMixJamGenerator(
       setReadiness(null)
       return
     }
-    let active = true
-    void backendAPI.getGeneratorReadiness(resolvedSampleFolder)
-      .then((next) => { if (active) setReadiness(next) })
-      .catch((err: unknown) => {
-        if (active) setError(err instanceof Error ? err.message : String(err))
-      })
-    return () => { active = false }
-  }, [app.librarySyncState.status, backendAPI, resolvedSampleFolder])
+    requestReadiness(resolvedSampleFolder)
+  }, [app.librarySyncState.status, requestReadiness, resolvedSampleFolder])
 
   const onGenerate = useCallback((parameters: MixJamGeneratorParameters) => {
     void runGenerate(parameters)

@@ -4,7 +4,8 @@ import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
   type FooterSampleDetail
 } from '../lib/arrangement'
-import { bubbleStyle, categorySlot } from '../lib/sample-utils'
+import { categorySlot } from '../lib/sample-utils'
+import { sampleBubbleDomStyle } from '../theme/sample-bubble-style'
 import type { PlayerBrowserProps } from './playerProps'
 import ManagePanel from './ManagePanel'
 import SampleTileGrid from './SampleTileGrid'
@@ -85,7 +86,7 @@ function CategoryTreeNode({
         >
           <span
             className={`sample-bubble bubble-category${selected ? ' selected' : ''}`}
-            style={bubbleStyle(categorySlot(category.name)) as React.CSSProperties}
+            style={sampleBubbleDomStyle(categorySlot(category.name)) as React.CSSProperties}
           >
             {category.name}
           </span>

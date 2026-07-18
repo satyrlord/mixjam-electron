@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultLanes, TRACKER_TOTAL_TICKS } from '../lib/arrangement'
-import { createDefaultChannels } from '../hooks/useMixer'
+import { createDefaultChannels } from './project-state'
 import {
   NEWER_PROJECT_VERSION_MESSAGE,
   ProjectFileError,

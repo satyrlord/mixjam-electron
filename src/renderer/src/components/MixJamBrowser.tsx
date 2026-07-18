@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react'
+import { useLayoutEffect } from 'react'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import {
   ContextMenuContent,
@@ -7,19 +7,6 @@ import {
   ContextMenuTrigger
 } from './ui/ContextMenu'
 import { Tooltip } from './ui/Tooltip'
-
-// Keep the existing storage key so a collapsed preference set before the
-// component rename is preserved.
-const STORAGE_KEY = 'mixjam:recents-rail-collapsed'
-
-function loadCollapsed(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === '1'
-  } catch (error) {
-    if (error instanceof DOMException) return false
-    throw error
-  }
-}
 
 async function copyProjectPath(projectPath: string): Promise<void> {
   try {
@@ -32,6 +19,7 @@ async function copyProjectPath(projectPath: string): Promise<void> {
 interface MixJamBrowserProps {
   mixJamFiles: MixJamFileItem[]
   busy?: boolean
+  collapsed: boolean
   onOpenProject: (projectRelpath: string) => void
   onCollapsedChange?: (collapsed: boolean) => void
 }
@@ -39,24 +27,16 @@ interface MixJamBrowserProps {
 export default function MixJamBrowser({
   mixJamFiles,
   busy = false,
+  collapsed,
   onOpenProject,
   onCollapsedChange
 }: MixJamBrowserProps) {
-  const [collapsed, setCollapsed] = useState(loadCollapsed)
-
   useLayoutEffect(() => {
     onCollapsedChange?.(collapsed)
   }, [collapsed, onCollapsedChange])
 
   const toggle = () => {
-    const next = !collapsed
-    setCollapsed(next)
-    try {
-      if (next) localStorage.setItem(STORAGE_KEY, '1')
-      else localStorage.removeItem(STORAGE_KEY)
-    } catch (error) {
-      if (!(error instanceof DOMException)) throw error
-    }
+    onCollapsedChange?.(!collapsed)
   }
 
   return (

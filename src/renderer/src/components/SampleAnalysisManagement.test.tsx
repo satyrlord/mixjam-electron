@@ -77,4 +77,50 @@ describe('SampleAnalysisManagement', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel calibration' }))
     expect(onCancel).toHaveBeenCalledTimes(1)
   })
+
+  it('reports indeterminate calibration progress while preparing', () => {
+    render(
+      <SampleAnalysisManagement
+        librarySyncState={{ status: 'ready', rootKey: 'samples', lastCompletedAt: 1 }}
+        progress={{
+          identity: { rootKey: 'samples', jobId: 'calibration-1' },
+          status: 'calibrating',
+          analyzed: 0,
+          total: 0
+        }}
+        onStart={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Analysis'))
+    expect(screen.getByRole('progressbar')).not.toHaveAttribute('value')
+    expect(screen.getByText('Preparing calibration')).toBeInTheDocument()
+  })
+
+  it('reports cancellation and falls back to a generic failure message', () => {
+    const props = {
+      librarySyncState: { status: 'cancelled', rootKey: 'samples', hasUsableIndex: false } as const,
+      onStart: vi.fn(),
+      onCancel: vi.fn()
+    }
+    const { rerender } = render(
+      <SampleAnalysisManagement
+        {...props}
+        progress={{ identity: null, status: 'cancelled', analyzed: 0, total: 0 }}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Analysis'))
+    expect(screen.getByText('Calibration cancelled.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start Uniform Folder Calibration' })).toBeDisabled()
+
+    rerender(
+      <SampleAnalysisManagement
+        {...props}
+        progress={{ identity: null, status: 'error', analyzed: 0, total: 0 }}
+      />
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('Calibration failed.')
+  })
 })
