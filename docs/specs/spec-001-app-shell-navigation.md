@@ -94,6 +94,19 @@ the Home Screen gates the Player. Onboarding for users without samples is
 spec-013, not fake data. A lifetime Web Lock protects the single opfs-sahpool
 connection; a competing Electron window shows an already-open notice.
 
+### Distribution
+
+The only end-user artifacts are Electron packages. The production workflow
+runs the unit suite, builds and packages natively on Windows, Linux, and macOS,
+then launches each unpacked packaged executable for its Electron smoke test.
+It produces a portable `.exe`, AppImage, and `.dmg`. Manual workflow runs retain
+the packages as workflow artifacts for 14 days. A `v*` tag attaches the three
+packages to its GitHub Release only after those gates pass.
+
+Code signing and macOS notarization are separate release-readiness gates. They
+are not configured, so current artifacts are unsigned and must not be described
+as signed, notarized, or warning-free.
+
 ### Header Bar (both views)
 
 - Sizing and positioning follow the [Style Guide](../style-guide.md#layout-architecture).
@@ -127,9 +140,8 @@ connection; a competing Electron window shows an already-open notice.
   and a center detail slot that may be populated by the Sample Browser
   selection model (spec-004).
 - The center footer slot is empty when no sample is selected.
-- Version string is derived from the number of git commits at build time
-  (format: `0.<commit-count>`, e.g. `0.43`). Falls back to the package.json
-  version when git is unavailable. Clicking the version link opens the default
+- Version string uses the semantic version from `package.json`, matching the
+  packaged application metadata. Clicking the version link opens the default
   system browser to `https://github.com/satyrlord/mixjam-electron`.
 
 ## Acceptance Criteria (testable)
@@ -188,6 +200,10 @@ Implementation validation should be tracked in implementation PR/test evidence.
   actions seek to tick 0, toggle playback, and seek to song end respectively.
   They work during blocking modals and while backgrounded when the operating
   system selects MixJam, without registering a global shortcut.
+- [ ] **AC-017:** A `v*` tag completes the native Windows, Linux, and macOS
+  production matrix, passes the unit suite, smoke-tests each packaged Electron
+  executable, and attaches one portable `.exe`, one AppImage, and one `.dmg` to
+  the GitHub Release. Signing and notarization status is stated accurately.
 
 ## Native Window Evidence
 

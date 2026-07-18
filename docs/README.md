@@ -27,7 +27,7 @@ requirements that drive every architectural choice.
 
 ## Prerequisites
 
-- Node.js 20.19+ or 22.12+
+- Node.js latest LTS
 
 There are no native modules — SQLite runs as WebAssembly
 (`@sqlite.org/sqlite-wasm`), so no build toolchain or ABI rebuilds are needed.

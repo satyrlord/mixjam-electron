@@ -153,7 +153,8 @@ Player (minimum 1280x720 CSS pixels, resizable, starts maximized in Electron)
   control (right), center slot may show selected sample details.
 - The UI Size control is a segmented `[32][44][56]` selector. It is always
   visible, defaults to 32, and is an app preference rather than project state.
-- Version string format: `0.<commit-count>`, clickable to the GitHub repo.
+- Version string uses the semantic version from `package.json` and links to the
+  GitHub repository.
 
 ### MixJam Browser
 
@@ -549,7 +550,9 @@ present. Native light Windows scrollbars never appear on dark themes.
   ```
 
 - Four FX containers follow the Return section in a fixed 2x2 grid. Each is
-  160px square at UI Size 32 and shows its number, Empty or Delay name, power state, and a compact
+  136px wide by 112px high at UI Size 32. Width scales with the selected UI
+  Size while the compact height keeps both rows inside the 720p Mixer without
+  a vertical scrollbar. Each shows its number, Empty or Delay name, power state, and a compact
   summary of time/division, feedback, Tape Distortion, and Ping-Pong.
 - Left-click opens a dropdown. Empty offers `Delay...`. A configured slot offers
   `Delay...` and `Clear slot`. Clear is immediate and undoable.
