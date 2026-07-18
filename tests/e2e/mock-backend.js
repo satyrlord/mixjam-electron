@@ -310,7 +310,19 @@
     },
     querySamples: function (req) { return Promise.resolve(querySamples(req)) },
     getGeneratorReadiness: function () {
-      return Promise.resolve({ status: 'ready', detectedBpm: 120, eligibleSamples: MOCK_SAMPLES.length })
+      return Promise.resolve({
+        status: 'ready',
+        analysisState: 'resolved',
+        detectedBpm: 120,
+        eligibleSamples: MOCK_SAMPLES.length,
+        tempoClusters: [{
+          relpathPrefix: '',
+          sampleCount: MOCK_SAMPLES.length,
+          bpm: 120,
+          musicalKey: 'Am',
+          confidence: 1
+        }]
+      })
     },
     planMixJam: function (folder, jobId, parameters) {
       var identity = { rootKey: folder.id, jobId: jobId }

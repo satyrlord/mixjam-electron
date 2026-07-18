@@ -165,24 +165,21 @@ export function createBackendAPI(): BackendAPI {
       analyzed: 0,
       total: 0
     }),
-    startUniformFolderCalibration: vi.fn().mockResolvedValue({
-      rootKey: TEST_SAMPLE_FOLDER.id,
-      jobId: 'test-calibration-job'
-    }),
-    cancelUniformFolderCalibration: vi.fn().mockResolvedValue(undefined),
-    getCalibrationProgress: vi.fn().mockResolvedValue({
-      identity: null,
-      status: 'idle',
-      analyzed: 0,
-      total: 0
-    }),
     querySamples: vi
       .fn()
       .mockImplementation(async (request: SampleQueryRequest) => queryDefaultRows(request)),
     getGeneratorReadiness: vi.fn().mockResolvedValue({
       status: 'ready',
+      analysisState: 'resolved',
       detectedBpm: 140,
-      eligibleSamples: DEFAULT_SAMPLE_ROWS.length
+      eligibleSamples: DEFAULT_SAMPLE_ROWS.length,
+      tempoClusters: [{
+        relpathPrefix: '',
+        sampleCount: DEFAULT_SAMPLE_ROWS.length,
+        bpm: 140,
+        musicalKey: 'Am',
+        confidence: 1
+      }]
     }),
     planMixJam: vi.fn().mockRejectedValue(new Error('Generator fixture not configured')),
     cancelMixJamPlanning: vi.fn().mockResolvedValue(undefined),
@@ -235,8 +232,6 @@ export function createBackendAPI(): BackendAPI {
     onScanDone: vi.fn().mockReturnValue(() => {}),
     onAnalysisProgress: vi.fn().mockReturnValue(() => {}),
     onAnalysisDone: vi.fn().mockReturnValue(() => {}),
-    onCalibrationProgress: vi.fn().mockReturnValue(() => {}),
-    onCalibrationDone: vi.fn().mockReturnValue(() => {}),
     onGeneratorProgress: vi.fn().mockReturnValue(() => {})
   }
 }

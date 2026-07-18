@@ -3,6 +3,8 @@
 ## Quick index
 
 - [App state](#app-state)
+- [Analysis cluster](#analysis-cluster)
+- [Analysis evidence](#analysis-evidence)
 - [Arrangement](#arrangement)
 - [Arrangement capacity](#arrangement-capacity)
 - [Bottom Workspace](#bottom-workspace)
@@ -11,6 +13,7 @@
 - [Clip](#clip)
 - [Clip bubble](#clip-bubble)
 - [Clip placement](#clip-placement)
+- [Contextual group](#contextual-group)
 - [Effect chain](#effect-chain)
 - [External project](#external-project)
 - [FolderRef](#folderref)
@@ -62,6 +65,24 @@ directory handles, permissions, settings, current view, caches, and transient
 runtime flags. App state is not a [session](#session) and is not stored in the
 `.mixjam` project format.
 
+## Analysis cluster
+
+A resolved [contextual group](#contextual-group) representing one coherent
+tempo/key population. A mixed parent exposes its nearest resolved,
+non-overlapping descendants or source cohorts as clusters. A cluster records its
+context key, support, confidence, and sample count for the
+[MixJam Generator](#mixjam-generator). It is not an organizational
+[category](#category) or a promise that a physical folder is uniform.
+
+## Analysis evidence
+
+The direct per-file BPM or key result persisted as `raw_bpm` or
+`raw_musical_key`, together with the sample's duration and relative path. It is
+kept separate from the current user-facing BPM/key projection so contextual
+inference can be recomputed without decoding unchanged audio. A manual value is
+authoritative evidence for that sample but remains protected from contextual
+rewrites.
+
 ## Arrangement
 
 The project-owned timeline content: [lanes](#lane) and their
@@ -111,6 +132,15 @@ The nonvisual arrangement record that places a [sample](#sample) on a
 [lane](#lane), including its start tick and [musical span](#musical-span). The
 Tracker renders the referenced sample as a [sample bubble](#sample-bubble);
 placement data does not create a second kind of visual object.
+
+## Contextual group
+
+An explainable sample set used by analysis. The analyzer evaluates directory
+prefixes from the Sample Folder root through nested product, style, author, and
+instrument directories. Structured source-pack suffixes may also form virtual
+cohorts across instrument folders. Each group is resolved, mixed, or uncertain.
+Grouping is evidence for
+[analysis clusters](#analysis-cluster), not automatic relabeling.
 
 ## Effect chain
 
@@ -166,8 +196,8 @@ The automatic incremental reconciliation of the active
 after an accessible Sample Folder is selected or restored and runs at most once
 for that folder during an app session. Existing indexed data remains usable
 while sync runs. A manual Re-scan invokes the same pipeline only as a recovery
-action for files changed while MixJam is already open. Uniform folder
-calibration is an analysis workflow, not a second library sync.
+action for files changed while MixJam is already open. The one analyzer updates
+contextual groups and clusters as part of this pipeline.
 
 ## Middle Strip
 
@@ -177,8 +207,7 @@ project identity and project menu, edit-history controls,
 [Transport Ribbon](#transport-ribbon), sample search, transient
 [library sync](#library-sync) status, and a compact utility menu. The utility
 menu contains Keyboard Shortcuts and the single low-prominence manual Re-scan
-recovery action. The Middle Strip never exposes Uniform Folder Calibration. It
-is fixed
+recovery action. It is fixed
 between the Tracker and Bottom Workspace, so Bottom Workspace resizing does
 not move the progress bar out of this band. It is not a synonym for the
 Transport Ribbon. See
@@ -207,7 +236,8 @@ Projects rail* describes the same region too narrowly.
 
 The Home wizard that turns a prepared [Sample Folder](#sample-folder) into a
 saved, ready-to-play [project](#project) using a selected profile, BPM,
-intensity, duration, and seed. Its output is an ordinary `.mixjam` project with
+intensity, duration, seed, and, for a mixed root, an
+[analysis cluster](#analysis-cluster). Its output is an ordinary `.mixjam` project with
 optional generator metadata for exact or current-corpus regeneration. The
 generator does not infer genre and is distinct from the repository's developer
 test-song generator described by [spec 011](specs/spec-011-project-save-load.md).

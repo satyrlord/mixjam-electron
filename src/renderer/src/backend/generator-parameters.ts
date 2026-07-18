@@ -2,6 +2,7 @@ import {
   MIXJAM_GENERATOR_BPM_MODES,
   MIXJAM_GENERATOR_INTENSITIES,
   MIXJAM_GENERATOR_PROFILE_IDS,
+  isSafeAnalysisGroupKey,
   SAFE_SEED,
   type MixJamGeneratorParameters
 } from '../../../shared/backend-api'
@@ -28,6 +29,10 @@ export function validateMixJamGeneratorParameters(
   }
   if (!MIXJAM_GENERATOR_INTENSITIES.includes(value.intensity as never)) {
     throw new Error('Intensity must be low, medium, or high.')
+  }
+  if (value.tempoClusterPrefix !== undefined &&
+      (typeof value.tempoClusterPrefix !== 'string' || !isSafeAnalysisGroupKey(value.tempoClusterPrefix))) {
+    throw new Error('The analyzer group selection must be a relative group key.')
   }
   if (value.bpmMode === 'fixed' &&
       (!Number.isInteger(value.bpm) || (value.bpm as number) < 60 || (value.bpm as number) > 180)) {

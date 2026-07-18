@@ -1,5 +1,4 @@
 import type {
-  CalibrationProgress,
   CategoryItem,
   LibraryItem,
   LibrarySyncState,
@@ -31,7 +30,6 @@ export interface PlayerBrowserProps {
   categories: CategoryItem[]
   libraries: LibraryItem[]
   librarySyncState: LibrarySyncState
-  calibrationProgress: CalibrationProgress
   onSearchChange: (query: string) => void
   onLoadMoreSamples: () => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
@@ -42,8 +40,6 @@ export interface PlayerBrowserProps {
   onRescanLibrary: () => Promise<void>
   onRetryLibrarySync: () => Promise<void>
   onCancelLibrarySync: () => Promise<void>
-  onStartUniformFolderCalibration: () => Promise<void>
-  onCancelUniformFolderCalibration: () => Promise<void>
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
   onSetTagColor: (id: number, color: string | null) => Promise<void>

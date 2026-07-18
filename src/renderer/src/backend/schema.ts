@@ -2,13 +2,15 @@ import type { DB } from './sql'
 
 // Schema of the OPFS-backed database. Bump SCHEMA_VERSION and add
 // version-gated migrations below.
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 /** Bump when metadata parsing semantics change for unchanged file bytes. */
 export const METADATA_REVISION = 1
 
 /** Bump when automatic BPM, key, or sample-type analysis semantics change. */
-export const ANALYSIS_REVISION = 1
+export const ANALYSIS_REVISION = 2
+
+const PRE_CONTEXT_ANALYSIS_REVISION = 1
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -50,8 +52,25 @@ CREATE TABLE IF NOT EXISTS samples (
   scan_state  INTEGER NOT NULL DEFAULT 0,
   metadata_revision INTEGER NOT NULL DEFAULT 0,
   analysis_revision INTEGER NOT NULL DEFAULT 0,
+  raw_bpm REAL,
+  raw_musical_key TEXT,
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
   UNIQUE (root_id, relpath)
+);
+
+CREATE TABLE IF NOT EXISTS analysis_groups (
+  root_id INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
+  relpath_prefix TEXT NOT NULL,
+  depth INTEGER NOT NULL,
+  sample_count INTEGER NOT NULL,
+  state TEXT NOT NULL,
+  bpm REAL,
+  musical_key TEXT,
+  bpm_support REAL NOT NULL,
+  key_support REAL NOT NULL,
+  confidence REAL NOT NULL,
+  analysis_revision INTEGER NOT NULL,
+  PRIMARY KEY (root_id, relpath_prefix)
 );
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -98,6 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_samples_key        ON samples(musical_key);
 CREATE INDEX IF NOT EXISTS idx_sample_tags_tag    ON sample_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_sample_cats_cat    ON sample_categories(category_id);
 CREATE INDEX IF NOT EXISTS idx_categories_parent  ON categories(parent_id);
+CREATE INDEX IF NOT EXISTS idx_analysis_groups_root ON analysis_groups(root_id, depth);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS samples_fts USING fts5(
   filename, relpath,
@@ -220,7 +240,27 @@ export function initSchema(db: DB): void {
          musical_key_source = 'analysis' OR
          sample_type_source = 'analysis'
        )`
-    ).run(ANALYSIS_REVISION)
+    ).run(PRE_CONTEXT_ANALYSIS_REVISION)
     db.prepare('UPDATE schema_version SET version = ?').run(3)
+    version = 3
+  }
+
+  if (version < 4) {
+    const sampleColumns = new Set(
+      db.prepare('PRAGMA table_info(samples)').all<{ name: string }>().map((column) => column.name)
+    )
+    if (!sampleColumns.has('raw_bpm')) db.exec('ALTER TABLE samples ADD COLUMN raw_bpm REAL')
+    if (!sampleColumns.has('raw_musical_key')) {
+      db.exec('ALTER TABLE samples ADD COLUMN raw_musical_key TEXT')
+    }
+    db.prepare(
+      `UPDATE samples SET
+         raw_bpm = CASE WHEN bpm_source = 'analysis' THEN bpm ELSE raw_bpm END,
+         raw_musical_key = CASE
+           WHEN musical_key_source = 'analysis' THEN musical_key
+           ELSE raw_musical_key
+         END`
+    ).run()
+    db.prepare('UPDATE schema_version SET version = ?').run(4)
   }
 }

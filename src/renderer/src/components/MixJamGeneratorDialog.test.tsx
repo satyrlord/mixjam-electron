@@ -4,7 +4,15 @@ import MixJamGeneratorDialog from './MixJamGeneratorDialog'
 import type { MixJamGeneratorParameters, MixJamGeneratorReadiness } from '../../../shared/backend-api'
 import { MIXJAM_GENERATOR_PROFILE_IDS, MIXJAM_GENERATOR_INTENSITIES } from '../../../shared/backend-api'
 
-const READY: MixJamGeneratorReadiness = { status: 'ready', detectedBpm: 130, eligibleSamples: 12 }
+const READY: MixJamGeneratorReadiness = {
+  status: 'ready',
+  analysisState: 'resolved',
+  detectedBpm: 130,
+  eligibleSamples: 12,
+  tempoClusters: [{
+    relpathPrefix: '', sampleCount: 12, bpm: 130, musicalKey: 'Am', confidence: 0.95
+  }]
+}
 
 function renderDialog(overrides: Partial<Parameters<typeof MixJamGeneratorDialog>[0]> = {}) {
   const onGenerate = vi.fn()
@@ -173,8 +181,67 @@ describe('MixJamGeneratorDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate and Save' }))
     expect(onGenerate).toHaveBeenCalledWith({
       profileId: 'house', bpmMode: 'fixed', bpm: 125,
-      intensity: 'high', durationSeconds: 300, seed: 'fixed-seed'
+      intensity: 'high', durationSeconds: 300, seed: 'fixed-seed', tempoClusterPrefix: ''
     })
+  })
+
+  it('requires an explicit analyzer group for a mixed Sample Folder', () => {
+    const onGenerate = vi.fn()
+    const readiness: MixJamGeneratorReadiness = {
+      status: 'ready',
+      analysisState: 'mixed',
+      detectedBpm: null,
+      eligibleSamples: 20,
+      tempoClusters: [
+        { relpathPrefix: 'Dance', sampleCount: 8, bpm: 140, musicalKey: 'Am', confidence: 0.9 },
+        { relpathPrefix: 'Techno', sampleCount: 12, bpm: 128, musicalKey: 'Cm', confidence: 0.92 }
+      ]
+    }
+    renderDialog({ readiness, onGenerate })
+
+    expect(screen.getByRole('button', { name: 'Generate and Save' })).toBeDisabled()
+    expect(screen.getByRole('option', { name: /Techno.*92% confidence/ })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Analyzer group'), { target: { value: 'Techno' } })
+    expect(screen.getByRole('button', { name: 'Generate and Save' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Generate and Save' }))
+    expect(onGenerate).toHaveBeenCalledWith(expect.objectContaining({ tempoClusterPrefix: 'Techno' }))
+  })
+
+  it('clears a saved analyzer group that is absent from refreshed readiness', async () => {
+    const readiness: MixJamGeneratorReadiness = {
+      status: 'ready',
+      analysisState: 'mixed',
+      detectedBpm: null,
+      eligibleSamples: 8,
+      tempoClusters: [
+        { relpathPrefix: 'Dance', sampleCount: 8, bpm: 140, musicalKey: 'Am', confidence: 0.9 }
+      ]
+    }
+    renderDialog({
+      readiness,
+      initialParameters: {
+        profileId: 'techno', bpmMode: 'follow-detected', bpm: 140,
+        intensity: 'medium', durationSeconds: 180, seed: 'saved-seed', tempoClusterPrefix: 'Techno'
+      }
+    })
+
+    await waitFor(() => expect(screen.getByLabelText('Analyzer group')).toHaveValue('__unselected__'))
+    expect(screen.getByRole('button', { name: 'Generate and Save' })).toBeDisabled()
+  })
+
+  it('requires Fixed BPM when the analyzer has no confident tempo', () => {
+    const readiness: MixJamGeneratorReadiness = {
+      status: 'ready',
+      analysisState: 'resolved',
+      detectedBpm: null,
+      eligibleSamples: 12,
+      tempoClusters: []
+    }
+    renderDialog({ readiness })
+
+    expect(screen.getByRole('button', { name: 'Generate and Save' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('BPM source'), { target: { value: 'fixed' } })
+    expect(screen.getByRole('button', { name: 'Generate and Save' })).toBeEnabled()
   })
 
   it('creates a safe random seed', () => {

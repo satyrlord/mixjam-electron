@@ -5,10 +5,7 @@ import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { DB } from './sql'
 import { ANALYSIS_REVISION, initSchema, METADATA_REVISION } from './schema'
-import {
-  listAnalysisCandidates,
-  listCalibrationCandidates
-} from './analysis-persistence'
+import { listAnalysisCandidates } from './analysis-persistence'
 import {
   createCategory,
   createTag,
@@ -364,27 +361,6 @@ describe('analysis revision selection', () => {
     db.prepare('UPDATE samples SET analysis_revision = ? WHERE id = ?')
       .run(ANALYSIS_REVISION, sampleId)
     expect(listAnalysisCandidates(db, rootId)).toEqual([])
-  })
-})
-
-describe('calibration candidate selection', () => {
-  it('includes every non-missing row so unavailable and pending files cannot be skipped', () => {
-    for (const [relpath, state] of [
-      ['pending.wav', 0],
-      ['ready.wav', 1],
-      ['missing.wav', 2],
-      ['unavailable.wav', 3]
-    ] as const) {
-      upsertStub(db, rootId, relpath, relpath, 'wav', 100, 1000)
-      db.prepare('UPDATE samples SET scan_state = ? WHERE root_id = ? AND relpath = ?')
-        .run(state, rootId, relpath)
-    }
-
-    expect(listCalibrationCandidates(db, rootId).map(({ relpath }) => relpath)).toEqual([
-      'pending.wav',
-      'ready.wav',
-      'unavailable.wav'
-    ])
   })
 })
 
@@ -748,7 +724,7 @@ describe('syncCategoriesFromNames', () => {
 describe('initSchema', () => {
   it('stamps a fresh database once and leaves existing schema version rows unchanged', () => {
     const initial = db.prepare('SELECT version FROM schema_version').all<{ version: number }>()
-    expect(initial).toEqual([{ version: 3 }])
+    expect(initial).toEqual([{ version: 4 }])
 
     initSchema(db)
 

@@ -42,23 +42,10 @@ function makeBackendAPI(overrides: Partial<BackendAPI> = {}): BackendAPI {
       analyzed: 0,
       total: 0
     })),
-    startUniformFolderCalibration: vi.fn(async (folder: FolderRef) => ({
-      rootKey: folder.id,
-      jobId: 'test-calibration'
-    })),
-    cancelUniformFolderCalibration: vi.fn(async () => undefined),
-    getCalibrationProgress: vi.fn(async () => ({
-      identity: null,
-      status: 'idle' as const,
-      analyzed: 0,
-      total: 0
-    })),
     onScanProgress: vi.fn(() => () => undefined),
     onScanDone: vi.fn(() => () => undefined),
     onAnalysisProgress: vi.fn(() => () => undefined),
     onAnalysisDone: vi.fn(() => () => undefined),
-    onCalibrationProgress: vi.fn(() => () => undefined),
-    onCalibrationDone: vi.fn(() => () => undefined),
     listTags: vi.fn(async () => []),
     createTag: vi.fn(),
     renameTag: vi.fn(),

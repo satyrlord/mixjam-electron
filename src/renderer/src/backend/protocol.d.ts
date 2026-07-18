@@ -5,9 +5,6 @@
 import type {
   AnalysisDone,
   AnalysisProgress,
-  CalibrationDone,
-  CalibrationJobIdentity,
-  CalibrationProgress,
   CategoryItem,
   LibraryItem,
   LibraryRootState,
@@ -45,9 +42,6 @@ export interface BackendCalls {
   cancelLibrarySync: (jobId: string) => void
   getScanProgress: () => ScanProgress
   getAnalysisProgress: () => AnalysisProgress
-  startUniformFolderCalibration: (rootKey: string) => CalibrationJobIdentity
-  cancelUniformFolderCalibration: (jobId: string) => void
-  getCalibrationProgress: () => CalibrationProgress
   listTags: () => TagItem[]
   createTag: (name: string, color?: string) => TagItem
   renameTag: (id: number, name: string) => void
@@ -86,8 +80,6 @@ export type WorkerEvent =
   | { type: 'scan-done'; done: LibraryScanDone }
   | { type: 'analysis-progress'; progress: AnalysisProgress }
   | { type: 'analysis-done'; done: AnalysisDone }
-  | { type: 'calibration-progress'; progress: CalibrationProgress }
-  | { type: 'calibration-done'; done: CalibrationDone }
   | { type: 'generator-progress'; progress: MixJamGeneratorProgress }
 
 export type WorkerMessage = WorkerResponse | WorkerEvent

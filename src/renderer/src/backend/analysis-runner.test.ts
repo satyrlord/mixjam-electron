@@ -4,9 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   runPendingAnalysis,
   runSingleAnalysis,
-  runUniformFolderCalibration,
-  type AnalysisPhaseProgress,
-  type CalibrationPhaseProgress
+  type AnalysisPhaseProgress
 } from './analysis-runner'
 import { querySamples } from './browser-library-persistence'
 import { ensureScanRoot, updateMetadata, upsertStub } from './indexed-sample-persistence'
@@ -274,10 +272,10 @@ describe('analysis runner', () => {
     expect(events).toEqual([{ status: 'analyzing', analyzed: 0, total: 2 }])
   })
 
-  it('regular analysis preserves a mixed 24-file 100/150 BPM collection', async () => {
+  it('contextual analysis preserves distinct non-aliased tempo groups', async () => {
     const files = new Map<string, File>()
     for (let index = 0; index < 24; index++) {
-      const bpm = index < 12 ? 100 : 150
+      const bpm = index < 12 ? 100 : 140
       const relpath = `mixed-${bpm}-${index}.wav`
       addCandidate(relpath)
       files.set(relpath, makePulseWav(relpath, bpm, 8 * 60 / bpm))
@@ -287,82 +285,11 @@ describe('analysis runner', () => {
 
     const rows = querySamples(db, { rootId: 'analysis-runner-root', limit: 30 }).rows
     const low = rows.filter((sample) => sample.relpath.includes('mixed-100-'))
-    const high = rows.filter((sample) => sample.relpath.includes('mixed-150-'))
+    const high = rows.filter((sample) => sample.relpath.includes('mixed-140-'))
     expect(low).toHaveLength(12)
     expect(high).toHaveLength(12)
     expect(low.every((sample) => sample.bpm !== null && Math.abs(sample.bpm - 100) <= 5)).toBe(true)
-    expect(high.every((sample) => sample.bpm !== null && Math.abs(sample.bpm - 150) <= 5)).toBe(true)
-  })
-
-  it('persists uniform-batch tempo calibration after per-file analysis', async () => {
-    const files = new Map<string, File>()
-    for (let index = 0; index < 16; index++) {
-      const relpath = `uniform-${index}.wav`
-      addCandidate(relpath)
-      files.set(relpath, makePulseWav(relpath, 140, (index + 8) * 60 / 140))
-    }
-
-    await runUniformFolderCalibration(db, rootId, files, () => undefined, () => true)
-
-    const rows = querySamples(db, { rootId: 'analysis-runner-root', limit: 20 }).rows
-    expect(rows).toHaveLength(16)
-    expect(rows.every((sample) => sample.bpm === 140 && sample.bpmSource === 'analysis')).toBe(true)
-  })
-
-  it('refuses calibration when any indexed candidate cannot be inspected', async () => {
-    addCandidate('missing.wav')
-    const files = new Map<string, File>()
-    for (let index = 0; index < 16; index++) {
-      const relpath = `uniform-readable-${index}.wav`
-      addCandidate(relpath)
-      files.set(relpath, makePulseWav(relpath, 140, (index + 8) * 60 / 140))
-    }
-    const events: CalibrationPhaseProgress[] = []
-
-    await expect(runUniformFolderCalibration(
-      db,
-      rootId,
-      files,
-      (progress) => events.push(progress),
-      () => true
-    )).rejects.toThrow('Calibration requires a readable file: missing.wav')
-
-    expect(events).toEqual([{ status: 'calibrating', analyzed: 0, total: 17 }])
-    expect(querySamples(db, { rootId: 'analysis-runner-root', limit: 20 }).rows
-      .every((sample) => sample.sampleTypeSource === null)).toBe(true)
-  })
-
-  it('reports calibration read failures and unsupported current bytes', async () => {
-    addCandidate('read-error.wav')
-    const unreadable = {
-      arrayBuffer: async () => { throw 'locked' }
-    } as unknown as File
-    await expect(runUniformFolderCalibration(
-      db,
-      rootId,
-      new Map([['read-error.wav', unreadable]]),
-      () => undefined,
-      () => true
-    )).rejects.toThrow('Calibration could not read read-error.wav: locked')
-
-    db.close()
-    db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
-    initSchema(db)
-    rootId = ensureScanRoot(db, 'analysis-runner-root')
-    addCandidate('unsupported-calibration.wav')
-    await expect(runUniformFolderCalibration(
-      db,
-      rootId,
-      new Map([['unsupported-calibration.wav', new File([new ArrayBuffer(12)], 'unsupported.wav')]]),
-      () => undefined,
-      () => true
-    )).rejects.toThrow('Calibration does not support unsupported-calibration.wav')
-  })
-
-  it('calibrates an empty folder without terminal progress', async () => {
-    const events: CalibrationPhaseProgress[] = []
-    await runUniformFolderCalibration(db, rootId, new Map(), (progress) => events.push(progress), () => true)
-    expect(events).toEqual([{ status: 'calibrating', analyzed: 0, total: 0 }])
+    expect(high.every((sample) => sample.bpm !== null && Math.abs(sample.bpm - 140) <= 5)).toBe(true)
   })
 
   it('refreshes automatic values on re-scan while preserving manual fields', async () => {
@@ -396,30 +323,6 @@ describe('analysis runner', () => {
     })
     expect(rows.filter((sample) => sample.relpath !== 'refresh-0.wav')
       .every((sample) => sample.bpm !== 90 && sample.sampleType !== 'Bass')).toBe(true)
-  })
-
-  it('keeps raw results durable but does not report completion when calibration is stale', async () => {
-    const files = new Map<string, File>()
-    for (let index = 0; index < 16; index++) {
-      const relpath = `stale-calibration-${index}.wav`
-      addCandidate(relpath)
-      files.set(relpath, makeWav(relpath, (index + 1) * 60 / 140, 8000, 0))
-    }
-    const events: CalibrationPhaseProgress[] = []
-    let currentChecks = 0
-
-    await runUniformFolderCalibration(
-      db,
-      rootId,
-      files,
-      (progress) => events.push(progress),
-      () => ++currentChecks <= 32
-    )
-
-    const rows = querySamples(db, { rootId: 'analysis-runner-root', limit: 20 }).rows
-    expect(rows.every((sample) => sample.sampleTypeSource === 'analysis')).toBe(true)
-    expect(rows.some((sample) => sample.bpm !== 140)).toBe(true)
-    expect(events.at(-1)).toEqual({ status: 'calibrating', analyzed: 15, total: 16 })
   })
 
   it('reports and persists a single-sample analysis', async () => {

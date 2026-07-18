@@ -89,12 +89,6 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   categories: DEFAULT_CATEGORIES,
   libraries: [],
   librarySyncState: READY_LIBRARY_STATE,
-  calibrationProgress: {
-    identity: null,
-    status: 'idle',
-    analyzed: 0,
-    total: 0
-  },
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
@@ -105,8 +99,6 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   onRescanLibrary: asyncNoop,
   onRetryLibrarySync: asyncNoop,
   onCancelLibrarySync: asyncNoop,
-  onStartUniformFolderCalibration: asyncNoop,
-  onCancelUniformFolderCalibration: asyncNoop,
   onCreateTag: asyncNoop as never,
   onRenameTag: asyncNoop as never,
   onSetTagColor: asyncNoop as never,

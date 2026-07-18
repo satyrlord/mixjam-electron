@@ -12,7 +12,7 @@ import {
 import { TICKS_PER_BAR } from '../engine/transport'
 import type { AnalyzedGeneratorCandidate } from './generator-analysis'
 import { generatorCandidateDurationTicks, generatorCandidateMatchesLane } from './generator-candidate'
-import { detectedGeneratorBpm, type GeneratorCandidate } from './generator-library'
+import type { GeneratorCandidate } from './generator-library'
 import { canonicalMusicalKey, parseMusicalKey } from './musical-key'
 import { validateMixJamGeneratorParameters } from './generator-parameters'
 import {
@@ -760,11 +760,12 @@ export function createMixJamGeneratorPlan(
   candidates: readonly PlanningCandidate[],
   parameters: MixJamGeneratorParameters,
   analysis = { attemptedFiles: candidates.length, analyzedFiles: candidates.length, uniqueReads: candidates.length },
-  detectedBpm = detectedGeneratorBpm(candidates)
+  detectedBpm = parameters.bpm
 ): MixJamGeneratorPlan {
   validateMixJamGeneratorParameters(parameters)
   const profile = GENERATOR_PROFILES[parameters.profileId]
-  const bpm = parameters.bpmMode === 'follow-detected' ? detectedBpm : parameters.bpm!
+  const bpm = parameters.bpmMode === 'follow-detected' ? detectedBpm : parameters.bpm
+  if (bpm === undefined) throw new Error('No canonical analyzer tempo was supplied for generation.')
   const targetBars = Math.max(1, halfUp(parameters.durationSeconds * bpm / 240))
   const targetTicks = targetBars * TICKS_PER_BAR
   const key = dominantKey(candidates)
@@ -902,6 +903,9 @@ export function createMixJamGeneratorPlan(
     parameters: {
       bpmMode: parameters.bpmMode,
       resolvedBpm: bpm,
+      ...(parameters.tempoClusterPrefix !== undefined
+        ? { tempoClusterPrefix: parameters.tempoClusterPrefix }
+        : {}),
       intensity: parameters.intensity,
       durationSeconds: parameters.durationSeconds
     },

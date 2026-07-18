@@ -82,6 +82,9 @@ export function useMixJamGenerator(
       profileId: generator.profileId,
       bpmMode: generator.parameters.bpmMode,
       ...(generator.parameters.bpmMode === 'fixed' ? { bpm: generator.parameters.resolvedBpm } : {}),
+      ...(generator.parameters.tempoClusterPrefix !== undefined
+        ? { tempoClusterPrefix: generator.parameters.tempoClusterPrefix }
+        : {}),
       intensity: generator.parameters.intensity,
       durationSeconds: generator.parameters.durationSeconds,
       seed: generator.seed
@@ -132,14 +135,6 @@ export function useMixJamGenerator(
       }),
       backendAPI.onAnalysisDone((done) => {
         if (done.identity.rootKey === rootKey) fetchReadiness()
-      }),
-      backendAPI.onCalibrationProgress((progress) => {
-        if (progress.identity?.rootKey !== rootKey) return
-        if (progress.status === 'calibrating') preparing()
-        else fetchReadiness()
-      }),
-      backendAPI.onCalibrationDone((done) => {
-        if (done.identity.rootKey === rootKey) fetchReadiness()
       })
     ]
     return () => { for (const unsub of unsubs) unsub() }
@@ -159,8 +154,16 @@ export function useMixJamGenerator(
     setOpen(true)
     setReadiness({
       status: 'ready',
+      analysisState: 'resolved',
       detectedBpm: parameters.bpm ?? app.bpm,
-      eligibleSamples: 0
+      eligibleSamples: 0,
+      tempoClusters: [{
+        relpathPrefix: parameters.tempoClusterPrefix ?? '',
+        sampleCount: 0,
+        bpm: parameters.bpm ?? app.bpm,
+        musicalKey: null,
+        confidence: 1
+      }]
     })
   }, [app.bpm, resetState, storedGeneratorParameters])
 

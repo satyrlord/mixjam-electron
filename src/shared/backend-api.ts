@@ -169,6 +169,15 @@ export const MIXJAM_GENERATOR_PROFILE_VERSIONS: Record<MixJamGeneratorProfileId,
 }
 export const SAFE_GENERATOR_TOKEN = /^[A-Za-z0-9_-]+$/
 export const SAFE_SEED = /^[A-Za-z0-9_-]{1,64}$/
+
+export function isSafeAnalysisGroupKey(value: string): boolean {
+  if (value === '') return true
+  const hasControlCharacter = Array.from(value).some((character) => character.charCodeAt(0) <= 31)
+  if (value.startsWith('/') || value.endsWith('/') || value.includes('\\') || hasControlCharacter) {
+    return false
+  }
+  return value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
+}
 export const MIXJAM_GENERATOR_PROFILE_IDS: readonly MixJamGeneratorProfileId[] = ['techno', 'trance', 'house']
 export const MIXJAM_GENERATOR_INTENSITIES: readonly MixJamGeneratorIntensity[] = ['low', 'medium', 'high']
 export const MIXJAM_GENERATOR_BPM_MODES: readonly MixJamGeneratorBpmMode[] = ['follow-detected', 'fixed']
@@ -194,13 +203,30 @@ export interface MixJamGeneratorParameters {
   bpmMode: MixJamGeneratorBpmMode
   /** Required in fixed mode and ignored in follow-detected mode. */
   bpm?: number
+  /** Exact canonical analyzer group selected for this generation. Empty means
+   * the whole Sample Folder; omitted means no group has been selected. */
+  tempoClusterPrefix?: string
   intensity: MixJamGeneratorIntensity
   durationSeconds: number
   seed: string
 }
 
+export interface MixJamGeneratorTempoCluster {
+  relpathPrefix: string
+  sampleCount: number
+  bpm: number
+  musicalKey: string | null
+  confidence: number
+}
+
 export type MixJamGeneratorReadiness =
-  | { status: 'ready'; detectedBpm: number; eligibleSamples: number }
+  | {
+      status: 'ready'
+      analysisState: 'resolved' | 'mixed' | 'uncertain'
+      detectedBpm: number | null
+      eligibleSamples: number
+      tempoClusters: MixJamGeneratorTempoCluster[]
+    }
   | { status: 'preparing'; message: string }
   | { status: 'needs-preparation'; message: string }
 
@@ -286,6 +312,7 @@ export interface MixJamGeneratorPlan {
   parameters: {
     bpmMode: MixJamGeneratorBpmMode
     resolvedBpm: number
+    tempoClusterPrefix?: string
     intensity: MixJamGeneratorIntensity
     durationSeconds: number
   }
@@ -437,24 +464,6 @@ export interface LibraryScanDone {
   lastCompletedAt: number
 }
 
-export interface CalibrationJobIdentity {
-  rootKey: FolderRef['id']
-  jobId: string
-}
-
-export interface CalibrationProgress {
-  identity: CalibrationJobIdentity | null
-  status: 'idle' | 'calibrating' | 'cancelled' | 'error'
-  analyzed: number
-  total: number
-  /** Present for a fatal calibration failure; safe to show in renderer diagnostics. */
-  error?: string
-}
-
-export interface CalibrationDone {
-  identity: CalibrationJobIdentity
-}
-
 export interface BackendAPI {
   // Host capabilities — delegated to the ShellAPI in Electron, browser
   // fallbacks (no-op resize, window.open) otherwise.
@@ -499,11 +508,6 @@ export interface BackendAPI {
   getLibraryRootState: (sampleFolder: FolderRef) => Promise<LibraryRootState>
   getScanProgress: () => Promise<ScanProgress>
   getAnalysisProgress: () => Promise<AnalysisProgress>
-  startUniformFolderCalibration: (
-    sampleFolder: FolderRef
-  ) => Promise<CalibrationJobIdentity>
-  cancelUniformFolderCalibration: (jobId: string) => Promise<void>
-  getCalibrationProgress: () => Promise<CalibrationProgress>
   querySamples: (req: SampleQueryRequest) => Promise<SampleQueryResponse>
   getGeneratorReadiness: (sampleFolder: FolderRef) => Promise<MixJamGeneratorReadiness>
   planMixJam: (
@@ -544,7 +548,5 @@ export interface BackendAPI {
   onScanDone: (cb: (done: LibraryScanDone) => void) => () => void
   onAnalysisProgress: (cb: (progress: AnalysisProgress) => void) => () => void
   onAnalysisDone: (cb: (done: AnalysisDone) => void) => () => void
-  onCalibrationProgress: (cb: (progress: CalibrationProgress) => void) => () => void
-  onCalibrationDone: (cb: (done: CalibrationDone) => void) => () => void
   onGeneratorProgress: (cb: (progress: MixJamGeneratorProgress) => void) => () => void
 }

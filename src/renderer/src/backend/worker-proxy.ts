@@ -1,8 +1,6 @@
 import type {
   AnalysisDone,
   AnalysisProgress,
-  CalibrationDone,
-  CalibrationProgress,
   LibraryScanDone,
   MixJamGeneratorProgress,
   ScanProgress
@@ -30,8 +28,6 @@ export interface WorkerProxy {
   onScanDone(listener: (done: LibraryScanDone) => void): () => void
   onAnalysisProgress(listener: (progress: AnalysisProgress) => void): () => void
   onAnalysisDone(listener: (done: AnalysisDone) => void): () => void
-  onCalibrationProgress(listener: (progress: CalibrationProgress) => void): () => void
-  onCalibrationDone(listener: (done: CalibrationDone) => void): () => void
   onGeneratorProgress(listener: (progress: MixJamGeneratorProgress) => void): () => void
   dispose(): void
 }
@@ -44,8 +40,6 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
   const doneListeners = new Set<(done: LibraryScanDone) => void>()
   const analysisProgressListeners = new Set<(progress: AnalysisProgress) => void>()
   const analysisDoneListeners = new Set<(done: AnalysisDone) => void>()
-  const calibrationProgressListeners = new Set<(progress: CalibrationProgress) => void>()
-  const calibrationDoneListeners = new Set<(done: CalibrationDone) => void>()
   const generatorProgressListeners = new Set<(progress: MixJamGeneratorProgress) => void>()
 
   function stop(error: Error): void {
@@ -60,8 +54,6 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     doneListeners.clear()
     analysisProgressListeners.clear()
     analysisDoneListeners.clear()
-    calibrationProgressListeners.clear()
-    calibrationDoneListeners.clear()
     generatorProgressListeners.clear()
   }
 
@@ -91,15 +83,9 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
       for (const listener of analysisDoneListeners) listener(message.done)
       return
     }
-    if (message.type === 'calibration-progress') {
-      for (const listener of calibrationProgressListeners) listener(message.progress)
-      return
-    }
     if (message.type === 'generator-progress') {
       for (const listener of generatorProgressListeners) listener(message.progress)
-      return
     }
-    for (const listener of calibrationDoneListeners) listener(message.done)
   }
 
   worker.onerror = (event) => {
@@ -132,14 +118,6 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     onAnalysisDone(listener) {
       if (!stoppedError) analysisDoneListeners.add(listener)
       return () => analysisDoneListeners.delete(listener)
-    },
-    onCalibrationProgress(listener) {
-      if (!stoppedError) calibrationProgressListeners.add(listener)
-      return () => calibrationProgressListeners.delete(listener)
-    },
-    onCalibrationDone(listener) {
-      if (!stoppedError) calibrationDoneListeners.add(listener)
-      return () => calibrationDoneListeners.delete(listener)
     },
     onGeneratorProgress(listener) {
       if (!stoppedError) generatorProgressListeners.add(listener)

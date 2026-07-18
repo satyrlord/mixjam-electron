@@ -10,7 +10,7 @@ test('generator opens from Home with editable parameters and no preview step', a
   await expect(dialog.getByRole('spinbutton', { name: 'BPM', exact: true })).toHaveCount(0)
   await expect(dialog.getByLabel('Intensity')).toHaveValue('medium')
   await expect(dialog.getByLabel('Duration (seconds)')).toHaveValue('180')
-  await expect(dialog.getByText('5 samples ready. Detected BPM: 120.')).toBeVisible()
+  await expect(dialog.getByText('5 samples ready. Analyzer tempo: 120 BPM.')).toBeVisible()
   await expect(dialog.getByText(/preview/i)).toHaveCount(0)
   await expect(dialog.getByRole('button', { name: 'Generate and Save' })).toBeEnabled()
 

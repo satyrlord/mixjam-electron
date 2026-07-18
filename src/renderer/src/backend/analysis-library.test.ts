@@ -5,6 +5,10 @@ import { DB } from './sql'
 import { initSchema } from './schema'
 import {
   applyAnalysisResult,
+  applyContextualAnalysisResult,
+  getCanonicalRootAnalysisSummary,
+  listStoredAnalysisEvidence,
+  reconcileAnalysisGroups,
   updateSampleAnalysis
 } from './analysis-persistence'
 import { querySamples } from './browser-library-persistence'
@@ -71,6 +75,61 @@ describe('analysis persistence', () => {
       musicalKeySource: 'manual',
       sampleType: 'Bass',
       sampleTypeSource: 'manual'
+    })
+    expect(listStoredAnalysisEvidence(db, db.prepare(
+      'SELECT root_id FROM samples WHERE id = ?'
+    ).get<{ root_id: number }>(sampleId)!.root_id)[0]).toMatchObject({
+      bpm: 120,
+      musicalKey: 'C'
+    })
+    applyContextualAnalysisResult(db, sampleId, { bpm: 140, musicalKey: 'Dm' })
+    expect(querySamples(db, { rootId: 'analysis-root' }).rows[0]).toMatchObject({
+      bpm: 133,
+      bpmSource: 'manual',
+      musicalKey: 'Am',
+      musicalKeySource: 'manual'
+    })
+  })
+
+  it('reconciles only changed group summaries and exposes canonical clusters', () => {
+    const rootId = db.prepare('SELECT root_id FROM samples WHERE id = ?')
+      .get<{ root_id: number }>(sampleId)!.root_id
+    const groups = [
+      {
+        relpathPrefix: '', depth: 0, sampleCount: 8, state: 'mixed' as const,
+        bpm: null, musicalKey: null, bpmSupport: 0, keySupport: 0, confidence: 0
+      },
+      {
+        relpathPrefix: 'Product/Slow', depth: 2, sampleCount: 4, state: 'resolved' as const,
+        bpm: 100, musicalKey: 'Am', bpmSupport: 1, keySupport: 1, confidence: 1
+      },
+      {
+        relpathPrefix: 'Product/Fast', depth: 2, sampleCount: 4, state: 'resolved' as const,
+        bpm: 140, musicalKey: 'Dm', bpmSupport: 1, keySupport: 1, confidence: 1
+      }
+    ]
+    reconcileAnalysisGroups(db, rootId, groups)
+    const before = db.prepare(
+      `SELECT rowid FROM analysis_groups
+       WHERE root_id = ? AND relpath_prefix = 'Product/Slow'`
+    ).get<{ rowid: number }>(rootId)!.rowid
+
+    reconcileAnalysisGroups(db, rootId, [
+      { ...groups[0]!, confidence: 0.1 },
+      groups[1]!,
+      groups[2]!
+    ])
+
+    expect(db.prepare(
+      `SELECT rowid FROM analysis_groups
+       WHERE root_id = ? AND relpath_prefix = 'Product/Slow'`
+    ).get<{ rowid: number }>(rootId)!.rowid).toBe(before)
+    expect(getCanonicalRootAnalysisSummary(db, 'analysis-root')).toMatchObject({
+      state: 'mixed',
+      clusters: [
+        { relpathPrefix: 'Product/Fast', bpm: 140 },
+        { relpathPrefix: 'Product/Slow', bpm: 100 }
+      ]
     })
   })
 

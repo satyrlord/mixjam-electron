@@ -23,6 +23,7 @@ const GENERATOR: ProjectGeneratorMetadata = {
   parameters: {
     bpmMode: 'follow-detected',
     resolvedBpm: 140,
+    tempoClusterPrefix: '@cohort/Techno/SC1',
     intensity: 'medium',
     durationSeconds: 180
   },
@@ -195,6 +196,7 @@ describe('project file format', () => {
   it.each([
     ['bpmMode', 'automatic', 'project.generator.parameters.bpmMode'],
     ['resolvedBpm', 59, 'project.generator.parameters.resolvedBpm'],
+    ['tempoClusterPrefix', '../escape', 'project.generator.parameters.tempoClusterPrefix'],
     ['intensity', 'extreme', 'project.generator.parameters.intensity'],
     ['durationSeconds', 601, 'project.generator.parameters.durationSeconds']
   ])('rejects invalid generator parameter %s', (field, value, expectedPath) => {
@@ -204,6 +206,14 @@ describe('project file format', () => {
     raw.generator.parameters[field] = value
 
     expect(() => parseProject(JSON.stringify(raw))).toThrow(expectedPath)
+  })
+
+  it('round-trips the whole-root analysis group key', () => {
+    const generator = {
+      ...GENERATOR,
+      parameters: { ...GENERATOR.parameters, tempoClusterPrefix: '' }
+    }
+    expect(parseProject(serialize({ ...makeProject(), generator })).generator).toEqual(generator)
   })
 
   it('serializes only project content, without capacity padding or a stored song end', () => {

@@ -20,24 +20,7 @@ export interface SampleAnalysisResult {
   durationSeconds: number
 }
 
-export interface BatchAnalysisCalibration {
-  bpm: number | null
-  musicalKey: string | null
-}
-
-export interface CalibratedAnalysisBatch {
-  results: SampleAnalysisResult[]
-  calibration: BatchAnalysisCalibration
-}
-
 const SAMPLE_TYPES = new Set<SampleType>(SAMPLE_TYPE_VALUES)
-const MIN_CALIBRATION_BATCH_SIZE = 16
-const MIN_UNIFORM_TEMPO_BPM = 80
-const MAX_UNIFORM_TEMPO_BPM = 180
-const TEMPO_ALIAS_MULTIPLIERS = [0.75, 1, 1.5, 2] as const
-const TEMPO_COMPATIBILITY_TOLERANCE = 0.02
-const MIN_ACOUSTIC_TEMPO_DETECTIONS = 16
-const MIN_ACOUSTIC_TEMPO_SUPPORT = 0.55
 
 export function isSampleType(value: unknown): value is SampleType {
   return typeof value === 'string' && SAMPLE_TYPES.has(value as SampleType)
@@ -362,86 +345,6 @@ export function detectMusicalKey(samples: Float32Array, sampleRate: number): str
   return bestScore > 0 && bestScore > secondScore * 1.005 ? bestKey : null
 }
 
-function isTempoCandidateCompatible(candidate: number, detectedBpm: number): boolean {
-  return TEMPO_ALIAS_MULTIPLIERS.some(
-    (multiplier) => Math.abs(detectedBpm * multiplier - candidate) / candidate
-      <= TEMPO_COMPATIBILITY_TOLERANCE
-  )
-}
-
-function detectUniformBatchTempo(results: readonly SampleAnalysisResult[]): number | null {
-  if (results.length < MIN_CALIBRATION_BATCH_SIZE) return null
-  const votes = new Map<number, number>()
-  for (const result of results) {
-    const duration = result.durationSeconds
-    if (!Number.isFinite(duration) || duration <= 0) continue
-    const firstBeatCount = Math.max(1, Math.ceil(duration * MIN_UNIFORM_TEMPO_BPM / 60))
-    const lastBeatCount = Math.floor(duration * MAX_UNIFORM_TEMPO_BPM / 60)
-    const fileBins = new Set<number>()
-    for (let beatCount = firstBeatCount; beatCount <= lastBeatCount; beatCount++) {
-      const candidate = beatCount * 60 / duration
-      fileBins.add(Math.round(candidate * 2))
-    }
-    for (const bin of fileBins) votes.set(bin, (votes.get(bin) ?? 0) + 1)
-  }
-
-  const ranked = [...votes.entries()].sort((left, right) => right[1] - left[1])
-  const [bestBin, bestVotes] = ranked[0] ?? [0, 0]
-  const secondVotes = ranked[1]?.[1] ?? 0
-  if (bestVotes / results.length < 0.9) return null
-  if (secondVotes > 0 && bestVotes / secondVotes < 1.05) return null
-  const candidate = bestBin / 2
-  const detectedBpms = results
-    .map(({ bpm }) => bpm)
-    .filter((bpm): bpm is number => bpm !== null && Number.isFinite(bpm) && bpm > 0)
-  if (detectedBpms.length < MIN_ACOUSTIC_TEMPO_DETECTIONS) return null
-  const compatibleDetections = detectedBpms.filter(
-    (bpm) => isTempoCandidateCompatible(candidate, bpm)
-  ).length
-  if (compatibleDetections / detectedBpms.length < MIN_ACOUSTIC_TEMPO_SUPPORT) return null
-  return candidate
-}
-
-function detectUniformBatchKey(
-  results: readonly SampleAnalysisResult[],
-  uniformTempo: number | null
-): string | null {
-  if (uniformTempo === null || results.length < MIN_CALIBRATION_BATCH_SIZE) return null
-  const votes = new Map<string, number>()
-  for (const { musicalKey } of results) {
-    if (musicalKey !== null) votes.set(musicalKey, (votes.get(musicalKey) ?? 0) + 1)
-  }
-  const ranked = [...votes.entries()].sort((left, right) => right[1] - left[1])
-  const [bestKey, bestVotes] = ranked[0] ?? ['', 0]
-  const detected = ranked.reduce((sum, [, count]) => sum + count, 0)
-  const secondVotes = ranked[1]?.[1] ?? 0
-  if (detected < MIN_CALIBRATION_BATCH_SIZE) return null
-  if (bestVotes / detected < 0.55) return null
-  if (secondVotes > 0 && bestVotes / secondVotes < 2) return null
-  return bestKey
-}
-
-/** Reconciles per-file aliases when duration and acoustic evidence prove a
- * uniform-tempo batch with one dominant key. A passing calibration replaces
- * automatic batch results; provenance-aware persistence protects manual data. */
-export function calibrateConfirmedUniformBatch(
-  results: readonly SampleAnalysisResult[]
-): CalibratedAnalysisBatch {
-  const bpm = detectUniformBatchTempo(results)
-  const musicalKey = detectUniformBatchKey(results, bpm)
-  if (bpm === null && musicalKey === null) {
-    return { results: [...results], calibration: { bpm, musicalKey } }
-  }
-  return {
-    results: results.map((result) => ({
-      ...result,
-      bpm: bpm ?? result.bpm,
-      musicalKey: musicalKey ?? result.musicalKey
-    })),
-    calibration: { bpm, musicalKey }
-  }
-}
-
 export function classifySample(
   features: AudioFeatures,
   duration: number,
@@ -468,16 +371,25 @@ export function classifySample(
 }
 
 export function analyzeDecodedAudio(decoded: DecodedPcm): SampleAnalysisResult {
-  const features = extractFeatures(decoded.samples, decoded.sampleRate)
+  const { features, durationSeconds } = extractDecodedAudioFeatures(decoded)
   const bpm = detectBpm(decoded.samples, decoded.sampleRate)
   const musicalKey = detectMusicalKey(decoded.samples, decoded.sampleRate)
-  const durationSeconds = decoded.samples.length / decoded.sampleRate
   return {
     bpm,
     musicalKey,
     sampleType: classifySample(features, durationSeconds, bpm),
     features,
     durationSeconds
+  }
+}
+
+export function extractDecodedAudioFeatures(decoded: DecodedPcm): {
+  features: AudioFeatures
+  durationSeconds: number
+} {
+  return {
+    features: extractFeatures(decoded.samples, decoded.sampleRate),
+    durationSeconds: decoded.samples.length / decoded.sampleRate
   }
 }
 

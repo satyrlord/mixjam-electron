@@ -64,8 +64,31 @@ export default function MixJamGeneratorDialog({
     if (open) setParameters(initialParameters ?? { ...DEFAULTS, seed: newSeed() })
   }, [initialParameters, open])
 
+  useEffect(() => {
+    if (!open || readiness?.status !== 'ready') return
+    setParameters((current) => {
+      const selectionStillExists = readiness.tempoClusters.some(
+        (cluster) => cluster.relpathPrefix === current.tempoClusterPrefix
+      )
+      if (selectionStillExists) return current
+      const nextPrefix = readiness.analysisState === 'resolved'
+        ? readiness.tempoClusters[0]?.relpathPrefix
+        : undefined
+      return current.tempoClusterPrefix === nextPrefix
+        ? current
+        : { ...current, tempoClusterPrefix: nextPrefix }
+    })
+  }, [open, readiness])
+
   const ready = readiness?.status === 'ready'
   const seedValid = SAFE_SEED.test(parameters.seed)
+  const selectedCluster = ready
+    ? readiness.tempoClusters.find((cluster) => cluster.relpathPrefix === parameters.tempoClusterPrefix)
+    : undefined
+  const groupSelectionMissing = ready && readiness.analysisState === 'mixed' && !selectedCluster
+  const detectedTempoMissing = ready && parameters.bpmMode === 'follow-detected' &&
+    (selectedCluster?.bpm ?? readiness.detectedBpm) === null
+  const canGenerate = ready && seedValid && !groupSelectionMissing && !detectedTempoMissing
 
   return (
     <DialogRoot open={open} onOpenChange={(next) => { if (!next && !saving) onClose() }}>
@@ -114,7 +137,7 @@ export default function MixJamGeneratorDialog({
             </div>
           </section>
         ) : (
-          <form onSubmit={(event) => { event.preventDefault(); onGenerate(parameters) }}>
+          <form onSubmit={(event) => { event.preventDefault(); if (canGenerate) onGenerate(parameters) }}>
             <div className="generator-fields">
               <label>Profile
                 <select value={parameters.profileId} onChange={(event) => setParameters({ ...parameters, profileId: event.target.value as MixJamGeneratorParameters['profileId'] })}>
@@ -123,6 +146,29 @@ export default function MixJamGeneratorDialog({
                   ))}
                 </select>
               </label>
+              {ready && readiness.analysisState === 'mixed' && (
+                <label>Analyzer group
+                  <select
+                    aria-label="Analyzer group"
+                    value={parameters.tempoClusterPrefix ?? '__unselected__'}
+                    onChange={(event) => setParameters({
+                      ...parameters,
+                      tempoClusterPrefix: event.target.value === '__unselected__'
+                        ? undefined
+                        : event.target.value
+                    })}
+                  >
+                    <option value="__unselected__">Select a sample group</option>
+                    {readiness.tempoClusters.map((cluster) => (
+                      <option key={cluster.relpathPrefix} value={cluster.relpathPrefix}>
+                        {cluster.relpathPrefix || 'Entire Sample Folder'} — {cluster.bpm} BPM
+                        {cluster.musicalKey ? `, ${cluster.musicalKey}` : ''} ({cluster.sampleCount} samples,
+                        {' '}{Math.round(cluster.confidence * 100)}% confidence)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label>BPM source
                 <select value={parameters.bpmMode} onChange={(event) => setParameters({ ...parameters, bpmMode: event.target.value as MixJamGeneratorParameters['bpmMode'] })}>
                   {MIXJAM_GENERATOR_BPM_MODES.map((mode) => (
@@ -154,12 +200,16 @@ export default function MixJamGeneratorDialog({
             </div>
             <p className={`generator-readiness generator-readiness-${readiness?.status ?? 'checking'}`}>
               {readiness === null ? 'Checking library…' : readiness.status === 'ready'
-                ? `${readiness.eligibleSamples} samples ready. Detected BPM: ${readiness.detectedBpm}.`
+                ? readiness.analysisState === 'mixed'
+                  ? `${readiness.eligibleSamples} samples ready in ${readiness.tempoClusters.length} analyzer groups. Select one group to generate from.`
+                  : readiness.detectedBpm === null
+                    ? `${readiness.eligibleSamples} samples ready. No confident tempo was found; choose Fixed BPM.`
+                    : `${readiness.eligibleSamples} samples ready. Analyzer tempo: ${readiness.detectedBpm} BPM.`
                 : readiness.message}
             </p>
             {error && <p className="generator-error" role="alert">{error}</p>}
             <div className="generator-actions">
-              <button type="submit" className="btn-primary" disabled={!ready || generating || !seedValid}>
+              <button type="submit" className="btn-primary" disabled={!canGenerate || generating}>
                 {generating ? 'Generating…' : 'Generate and Save'}
               </button>
               <button type="button" className="link-secondary" onClick={onClose}>Cancel</button>

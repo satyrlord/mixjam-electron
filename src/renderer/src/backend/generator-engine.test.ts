@@ -145,6 +145,7 @@ function parameters(
   return {
     profileId,
     bpmMode: 'follow-detected',
+    bpm: BPM,
     intensity: 'medium',
     durationSeconds: 180,
     seed

@@ -99,10 +99,8 @@ categories. Libraries are saved queries, not file copies.
   a second scan variant.
 - Progress and completion events include root and job identity, so switching
   Sample Folder during a scan cannot update the new root with stale events.
-- Uniform Folder Calibration has its own state and commands. It is serialized
-  by the backend worker but remains outside the library-sync lifecycle.
-- Uniform Folder Calibration belongs to spec-008. It is not a second Re-scan
-  action and is never exposed in the Middle Strip.
+- Contextual sample analysis is part of the single worker-owned analysis job.
+  It has no separate command or scan variant; spec-008 owns its inference rules.
 
 ### Sample Browser Container
 
@@ -166,8 +164,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   visible. Progress follows the job across view changes without restarting it.
 - The Samples panel's filter/sort row owns category and tag filters, the result
   count summary, and filename/duration/date-added sorting.
-- Advanced Uniform Folder Calibration lives in Samples analysis management
-  under spec-008, not beside Re-scan.
+- Contextual BPM, key, and type results are produced automatically by the one
+  analyzer defined in spec-008. There is no separate analysis-management action.
 - These controls never bypass the SQLite-backed query/filter flow; they only
   change the current browser query state or trigger the indexed sync path.
 

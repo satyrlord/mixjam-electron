@@ -42,7 +42,15 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
         rootKey: 'test-user-folder',
         lastCompletedAt: 1
       }}
-      generatorReadiness={{ status: 'ready', detectedBpm: 140, eligibleSamples: 2 }}
+      generatorReadiness={{
+        status: 'ready',
+        analysisState: 'resolved',
+        detectedBpm: 140,
+        eligibleSamples: 2,
+        tempoClusters: [{
+          relpathPrefix: '', sampleCount: 2, bpm: 140, musicalKey: 'Am', confidence: 1
+        }]
+      }}
       canStart={true}
       mixJamFiles={[]}
       projectBusy={false}

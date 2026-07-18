@@ -520,47 +520,6 @@ describe('useLibraryData', () => {
     })
   })
 
-  it('starts Uniform Folder Calibration through its separate API', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => expect(result.current.samples).toHaveLength(2))
-    await act(async () => {
-      await result.current.startUniformFolderCalibration()
-    })
-
-    expect(api.startUniformFolderCalibration).toHaveBeenCalledWith(SAMPLE_FOLDER)
-    expect(api.startLibrarySync).not.toHaveBeenCalledWith(SAMPLE_FOLDER, 'manual')
-  })
-
-  it('hydrates an active calibration without starting an automatic sync', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    const identity = {
-      rootKey: SAMPLE_FOLDER.id,
-      jobId: 'calibration-job'
-    }
-    vi.mocked(api.getCalibrationProgress).mockResolvedValue({
-      identity,
-      status: 'calibrating',
-      analyzed: 12,
-      total: 40
-    })
-
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-
-    await waitFor(() => {
-      expect(result.current.calibrationProgress).toEqual({
-        identity,
-        status: 'calibrating',
-        analyzed: 12,
-        total: 40
-      })
-    })
-    expect(api.startLibrarySync).not.toHaveBeenCalled()
-  })
-
   it('refreshes the active query after individual re-analysis commits', async () => {
     vi.useRealTimers()
     const api = makeApi()
@@ -1434,12 +1393,19 @@ describe('useLibraryData', () => {
     expect(result.current.samples[1]).toBe(other)
   })
 
-  it('clears manual analysis fields and treats an empty patch as a state no-op', async () => {
+  it('reanalyzes cleared manual fields and treats an empty patch as a state no-op', async () => {
     vi.useRealTimers()
     const api = makeApi()
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(2))
     const sample = result.current.samples[0]!
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [
+        makeDbRow({ id: sample.dbId, relpath: sample.relpath, filename: sample.name }),
+        makeDbRow({ id: 2, relpath: 'b.wav', filename: 'b.wav' })
+      ],
+      total: 2
+    })
 
     await act(async () => {
       await result.current.updateSampleAnalysis(sample, {
@@ -1449,19 +1415,21 @@ describe('useLibraryData', () => {
       })
     })
 
+    expect(api.reanalyzeSample).toHaveBeenCalledWith(SAMPLE_FOLDER, sample.dbId, sample.relpath)
     expect(result.current.samples[0]).toMatchObject({
-      bpm: null,
-      bpmSource: null,
-      musicalKey: null,
-      musicalKeySource: null,
-      sampleType: null,
-      sampleTypeSource: null
+      bpm: 120,
+      bpmSource: 'analysis',
+      musicalKey: 'C',
+      musicalKeySource: 'analysis',
+      sampleType: 'Synth',
+      sampleTypeSource: 'analysis'
     })
 
     const afterClear = result.current.samples[0]
     await act(async () => {
       await result.current.updateSampleAnalysis(sample, {})
     })
+    expect(api.reanalyzeSample).toHaveBeenCalledTimes(1)
     expect(result.current.samples[0]).toEqual(afterClear)
   })
 
@@ -1532,62 +1500,12 @@ describe('useLibraryData', () => {
     await waitFor(() => expect(result.current.librarySyncState.status).toBe('ready'))
   })
 
-  it('tracks, rejects, completes, and cancels calibration jobs', async () => {
-    vi.useRealTimers()
-    const api = makeApi()
-    const identity = { rootKey: SAMPLE_FOLDER.id, jobId: 'calibration-a' }
-    vi.mocked(api.startUniformFolderCalibration).mockResolvedValue(identity)
-    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
-    await waitFor(() => expect(api.onCalibrationProgress).toHaveBeenCalled())
-    const progress = vi.mocked(api.onCalibrationProgress).mock.calls[0]![0]
-    const done = vi.mocked(api.onCalibrationDone).mock.calls[0]![0]
-
-    act(() => {
-      progress({ identity: null, status: 'idle', analyzed: 0, total: 0 })
-      progress({
-        identity: { rootKey: 'other-root', jobId: 'wrong-root' },
-        status: 'calibrating',
-        analyzed: 1,
-        total: 2
-      })
-    })
-    await act(async () => { await result.current.startUniformFolderCalibration() })
-    expect(result.current.calibrationProgress.status).toBe('calibrating')
-
-    act(() => {
-      progress({
-        identity: { ...identity, jobId: 'conflict' },
-        status: 'calibrating',
-        analyzed: 1,
-        total: 2
-      })
-      done({ identity: { ...identity, jobId: 'conflict' } })
-    })
-    expect(result.current.calibrationProgress.identity).toEqual(identity)
-
-    await act(async () => { await result.current.cancelUniformFolderCalibration() })
-    expect(api.cancelUniformFolderCalibration).toHaveBeenCalledWith(identity.jobId)
-
-    act(() => done({ identity }))
-    await waitFor(() => expect(result.current.calibrationProgress.status).toBe('idle'))
-
-    act(() => progress({
-      identity: { ...identity, jobId: 'calibration-b' },
-      status: 'cancelled',
-      analyzed: 1,
-      total: 2
-    }))
-    expect(result.current.calibrationProgress.status).toBe('cancelled')
-    await act(async () => { await result.current.cancelUniformFolderCalibration() })
-  })
-
-  it('surfaces non-Error manual sync and calibration failures', async () => {
+  it('surfaces non-Error manual sync failures', async () => {
     vi.useRealTimers()
     const api = makeApi()
     vi.mocked(api.startLibrarySync)
       .mockResolvedValueOnce({ identity: AUTO_JOB, disposition: 'suppressed' })
       .mockRejectedValueOnce('manual failed')
-    vi.mocked(api.startUniformFolderCalibration).mockRejectedValue('calibration failed')
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
     await waitFor(() => expect(api.startLibrarySync).toHaveBeenCalledWith(SAMPLE_FOLDER, 'automatic'))
@@ -1596,12 +1514,6 @@ describe('useLibraryData', () => {
     expect(result.current.librarySyncState).toMatchObject({
       status: 'error',
       message: 'Unable to start library sync.'
-    })
-
-    await act(async () => { await result.current.startUniformFolderCalibration() })
-    expect(result.current.calibrationProgress).toMatchObject({
-      status: 'error',
-      error: 'Calibration failed.'
     })
     consoleSpy.mockRestore()
   })

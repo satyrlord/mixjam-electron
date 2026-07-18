@@ -103,11 +103,6 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     getLibraryRootState: (sampleFolder) => call('getLibraryRootState', sampleFolder.id),
     getScanProgress: () => call('getScanProgress'),
     getAnalysisProgress: () => call('getAnalysisProgress'),
-    startUniformFolderCalibration: (sampleFolder) =>
-      call('startUniformFolderCalibration', sampleFolder.id),
-    cancelUniformFolderCalibration: (jobId) =>
-      call('cancelUniformFolderCalibration', jobId),
-    getCalibrationProgress: () => call('getCalibrationProgress'),
     querySamples: (req) => call('querySamples', req),
     getGeneratorReadiness: (sampleFolder) => call('getGeneratorReadiness', sampleFolder.id),
     planMixJam: (sampleFolder, jobId, parameters, expectedFingerprint) =>
@@ -145,12 +140,6 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
     },
     onAnalysisDone: (cb) => {
       return workerProxy.onAnalysisDone(cb)
-    },
-    onCalibrationProgress: (cb) => {
-      return workerProxy.onCalibrationProgress(cb)
-    },
-    onCalibrationDone: (cb) => {
-      return workerProxy.onCalibrationDone(cb)
     },
     onGeneratorProgress: (cb) => {
       return workerProxy.onGeneratorProgress(cb)

@@ -50,6 +50,27 @@ spec-002 defines the *token mechanics*.
 6. **Dark by default, light supported.** The default Emerald theme is dark.
    Light themes (Vintage, Soft, Riso) work within the same token system.
 
+7. **No system font fallbacks.** Every text label, button, link, and
+   piece of chrome must use theme fonts (font roles defined in the
+   Typography section). No element may render in a system font or
+   browser default. Every text-bearing element must inherit or
+   explicitly reference a theme font-family token.
+
+8. **No overlapping control containers.** No interactive control
+   container (button, input, fader, knob, menu, panel) may overlap any
+   other control container. Every hit-testable rectangle must be
+   disjoint. No z-index fights, no invisible catch-basins over other
+   controls, no stacked interactive surfaces that share pixels.
+
+9. **No scrollbars on the main view.** The root viewport must never
+   show a scrollbar. Every view must fit within the available viewport
+   without overflow. Use the already-available empty space to redesign
+   the layout, optimize screen real-estate, minimize dead space, and
+   eliminate any need for root-level scrolling. Internal scroll
+   surfaces (lane list, browser grid, mixer strips, effect chains) may
+   scroll, but the shell (header, content, footer) must occupy exactly
+   the viewport with no overflow.
+
 ---
 
 ## Layout Architecture
@@ -190,6 +211,12 @@ Three typographic roles, each defined per theme via CSS custom properties:
   through the UI. Do not repeat as component-level font-size overrides.
 - A theme's typeface is part of its identity. Each theme may override any
   role with a different bundled font.
+- **No system font fallbacks.** Every text-bearing element (labels,
+  buttons, links, chrome, status text, tooltips, menu items, placeholder
+  text, input values) must render in a theme font via a font-family token.
+  No element may fall back to a system font or browser default. The
+  `font-family` chain must resolve to a bundled theme font for every
+  visible glyph.
 
 ### Text Transform Rules
 

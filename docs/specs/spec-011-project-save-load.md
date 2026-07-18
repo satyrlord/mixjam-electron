@@ -160,6 +160,7 @@ the Sample Folder key used for exact regeneration:
     "parameters": {
       "bpmMode": "follow-detected",
       "resolvedBpm": 140,
+      "tempoClusterPrefix": "Techno",
       "intensity": "medium",
       "durationSeconds": 180
     },
@@ -175,6 +176,11 @@ production parser must validate the object when present, preserve it through
 load/save roundtrips, reject unsupported future format versions, and expose it
 to the regeneration workflow. The object is not app-level state and is never
 stored in the recent-project registry.
+
+`parameters.tempoClusterPrefix` is optional. When present, it is the selected
+spec-008 analysis-group key. It may be a relative directory prefix or a virtual
+`@cohort/<top-level>/<SC|SL token>` key. It is stored so exact regeneration uses
+the same coherent sample population. It is never an absolute filesystem path.
 
 ### Persistence Ownership
 
@@ -404,7 +410,8 @@ generator, its tests, and this contract are the durable repository assets.
   3 without changing project state and without inventing generator metadata.
 - [x] **AC-030:** A version-3 generator block validates, survives a load/save
   roundtrip, and preserves the profile, profile version, generator version,
-  safe seed, parameters, corpus fingerprint, and Sample Folder key.
+  safe seed, parameters including an optional analysis-group key, corpus
+  fingerprint, and Sample Folder key.
 - [x] **AC-031:** A generated version-3 project exposes its generator metadata to
   exact and current-corpus regeneration without storing it in app state or the
   recent-project registry.

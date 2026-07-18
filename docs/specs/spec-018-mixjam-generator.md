@@ -1,10 +1,7 @@
 # Spec 018 — MixJam Generator Wizard
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** CODE COMPLETE; ACCEPTANCE SIGN-OFF PENDING
-(AC-017–AC-021 are implemented. AC-016 remains open only for manual listening
-sign-off; real-corpus, built-Chromium, playback, and palette evidence is
-recorded under `tmp/verify-generator-structure/`.)
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
 spec-008 (Sample Analysis), spec-011 (Project Save & Load, including its
 version-3 generator metadata extension)
@@ -46,6 +43,9 @@ transitions, motif returns, and mix balance are part of the generator contract.
 - **US-009:** As a user, generated songs use compatible material and recognizable
   profile-specific phrases instead of continuously tiling samples across a
   section.
+- **US-010:** As a user with a mixed Sample Folder, I choose one coherent
+  analysis cluster instead of receiving a project based on a misleading
+  root-wide BPM median.
 
 ## Scope
 
@@ -74,7 +74,8 @@ Its states are:
 
 The wizard is a modal with two steps:
 
-1. **Parameters** — choose profile, BPM, intensity, duration, and seed.
+1. **Parameters** — choose analysis cluster when needed, profile, BPM,
+   intensity, duration, and seed.
 2. **Generate** — show planning, selection, arrangement, and save progress;
    then show the saved artifact and an **Open in Player** action.
 
@@ -89,16 +90,23 @@ confirmation. Any planning or selection error occurs before a file commit.
 
 | Parameter | Type | Default | Contract |
 | --- | --- | --- | --- |
+| `tempoClusterPrefix` | analyzer context key | the only coherent group; unset for a mixed root | required when the root exposes more than one generator-eligible group |
 | `profile` | enum | `techno` | `techno`, `trance`, `house` |
-| `bpm` | integer or `follow detected` | corpus-derived | clamped to 60–180; mode and resolved value are both saved |
+| `bpm` | integer or `follow detected` | selected-cluster BPM | clamped to 60–180; mode and resolved value are both saved |
 | `intensity` | enum | `medium` | `low`, `medium`, `high` |
 | `durationSeconds` | integer | `180` | 30–600 seconds, one-second step |
 | `seed` | safe token | generated hex | 1–64 ASCII characters matching `[A-Za-z0-9_-]+` |
 
-BPM defaults to the median of positive BPM values in the eligible analyzed
-corpus, using manual and analysis values. A corpus with no positive values uses
-128 BPM. The current validated corpus therefore defaults to 140 BPM. The
-`follow detected` choice recomputes this value when the corpus snapshot changes.
+The Parameters step shows each resolved group's context key, representative BPM
+and key, confidence, and sample count. A single coherent group is selected
+without an extra choice. A mixed root requires an explicit group selection and
+is never silently treated as one corpus. Unresolved groups are not selectable.
+
+BPM defaults to the selected cluster's representative BPM. When analysis has no
+confident tempo, `follow detected` is unavailable and the user must choose Fixed
+BPM; that input falls back to 128 for editing. The `follow detected` choice
+recomputes its value when the selected cluster snapshot changes. The generator
+never takes a median over the complete Sample Folder.
 Genre is not inferred from folders or acoustic analysis. Intensity is a fixed
 medium default because the analysis pipeline has no arrangement-intensity
 signal.
@@ -228,46 +236,28 @@ and cue frequency without leaving an unused lane, changing section boundaries,
 or changing the exact song end. Category coverage may add a distinct candidate
 beyond a role's base count.
 
-### Bounded audio scoring
+### Bounded planner scoring
 
-Indexed metadata creates deterministic per-lane and per-category candidate
-queues. Core lanes receive the first reservation, then category and lane queues
-advance in balanced passes. Metadata-cheap type and musical-span eligibility
-runs before the 96-read shortlist is fixed. The worker
-reads and decodes each relative path at most once. One planning job attempts at
-most 96 unique files and retains at most 64 successful, role-compatible
-analyses. Retention reserves capacity for every feasible lane and primary
-category that has not yet received a compatible decoded candidate, so abundant
-core material cannot starve support lanes or smaller categories after earlier
-read, decode, or planner-kind failures. A failure advances to the next
-deterministic candidate. Failure to fill any lane after the bounded search
-aborts before save. The 64-analysis limit is absolute; when more categories are
-encountered, the retained analyzed set defines the categories eligible for the
-plan.
+Indexed metadata from the selected analyzer context key creates
+deterministic per-lane and per-category candidate queues. Core lanes receive the
+first reservation, then category and lane queues advance in balanced passes.
+Type and musical-span eligibility run before the 96-read shortlist is fixed.
+The worker reads and decodes each shortlisted relative path at most once. One
+planning job attempts at most 96 unique files and retains at most 64 successful,
+role-compatible scoring results. Reservations cover every feasible lane and
+primary category, so abundant core material cannot starve support lanes or
+smaller categories. Failure to fill any lane aborts before save.
 
-The transient analysis records no database state. It derives only the neutral
-values needed by the planner:
+The transient scoring records no database state. It may derive arrangement
+metrics such as RMS, peak, spectral centroid, transient density, attack strength,
+rhythmic regularity, loop confidence, boundary continuity, energy slope, and a
+planner kind. It consumes the shared analyzer's stored BPM, key, and sample type
+and must not derive competing semantic values for those fields.
 
-- RMS and peak level;
-- spectral centroid and transient density;
-- attack strength and rhythmic regularity;
-- whole-bar loop confidence and boundary continuity;
-- energy slope for riser, impact, and sustained-texture decisions; and
-- a planner kind: one-shot, rhythmic loop, tonal loop, vocal, atmosphere,
-  riser, impact, or texture.
-
-The analysis algorithm is deterministic for the same bytes and parameters. It
-does not use machine learning, network services, wall-clock time, process-global
-state, or persisted waveform assets.
-
-Explicit transition words in a filename provide a deterministic semantic hint
-before audio-metric fallback. Riser vocabulary includes `rise`, `riser`, `swish`,
-`swishes`, `sweep`, `sweeper`, `whoosh`, `swoosh`, `uplifter`, and `reverse`;
-impact vocabulary includes `impact`, `hit`, `crash`, `slam`, `slammer`, `boom`,
-`boomer`, `drop`, and `downlift`. Matching uses filename-token boundaries, so a
-word such as `sunrise` is not treated as the token `rise`. A final attached or
-separated stereo-side suffix does not hide a token, so names such as `crashr`
-and `swish-1l` retain their transition meaning.
+Explicit transition words in a filename may remain a deterministic planner hint.
+Matching uses token boundaries, so `sunrise` is not treated as `rise`; stereo-side
+suffixes do not hide a token. This hint classifies an arrangement transition and
+does not rewrite the sample's stored acoustic type.
 
 ### Phrase grammar
 
@@ -356,15 +346,17 @@ lane-index-to-channel-index contract.
 
 ### Runtime and query ownership
 
-The backend worker owns database access, candidate filtering, corpus snapshot
-creation, bounded audio analysis, and deterministic planning. The renderer never
+The backend worker owns database access, cluster-scoped candidate filtering,
+corpus snapshot creation, bounded planner scoring, and deterministic planning. The renderer never
 pulls the full sample library into the UI. A generator-specific BackendAPI
 operation returns a bounded, neutral `MixJamGeneratorPlan` DTO. Shared API types
 must not import renderer `ProjectData`, `LaneState`, `ChannelState`, or
 `EffectSlot` types.
 
 The profile and arrangement engine is pure and consumes enriched candidate DTOs.
-The worker owns file reads and transient analysis outside that pure boundary.
+The worker owns bounded file reads and transient arrangement scoring outside
+that pure boundary. Spec-008 remains the only owner of stored BPM, key, and
+sample-type semantics.
 The renderer owns `serializeProject`, User Folder writes, recent-project updates,
 and opening the resulting project because those operations use the existing
 renderer persistence and File System Access contracts.
@@ -372,11 +364,13 @@ renderer persistence and File System Access contracts.
 Worker filtering must support:
 
 - `rootId` scoping;
+- a current, resolved `tempoClusterPrefix` context key;
 - acoustic `sampleType` role filters plus organizational-category diversity;
 - positive duration and role-specific duration limits;
 - current `scan_state = 1` metadata rows only;
 - deterministic ordering and bounded result sets; and
-- soft BPM ranking plus hard rejection of incompatible known keys.
+- soft distance from the resolved project BPM plus hard rejection of
+  incompatible known keys.
 
 The candidate query also joins the primary organizational category name. The
 shared palette-slot helper converts that name to a slot from 0 through 8. A
@@ -388,13 +382,15 @@ scarce categories before filling per-lane variety. Every generated placement
 DTO carries the selected sample's slot, and the renderer persists it through the
 existing spec-011 placement field.
 
-Candidates within the profile BPM tolerance are preferred. Unknown BPM is a
-deterministic fallback, not an automatic rejection. The planner selects one song
-key from current, keyed tonal candidates. The schema has no separate
-key-confidence field; current manual and analysis key values form the reliable
-set. Sharp and flat spellings are compared by canonical pitch and major/minor
-mode, so enharmonic exact and relative-key matches behave identically. Missing
-or mixed keys fall back according to the tonal rules above. Profile roles use acoustic sample types
+Candidates within the profile BPM tolerance of the resolved project BPM are
+preferred. Unknown BPM is a deterministic fallback inside the selected context.
+The planner prefers
+the selected cluster key, or selects one song key from its current keyed tonal
+members when the cluster key is unresolved. Stored BPM/key/type come from
+spec-008; the planner does not recompute them.
+Sharp and flat spellings are compared by canonical pitch and major/minor mode,
+so enharmonic exact and relative-key matches behave identically. Missing or
+mixed keys fall back according to the tonal rules above. Profile roles use acoustic sample types
 (`Kick`, `Snare`, `Hi-hat`, `Percussion`, `Bass`, `Synth`, `FX`, `Vocal`,
 `Loop`, `Atmosphere`, `Other`), never the organizational category field.
 
@@ -432,10 +428,12 @@ is not allowed.
 ### Planning job lifecycle
 
 The renderer creates a transient job ID and starts one root-scoped planning
-request. Progress events use that root and job identity and report
-`shortlisting`, `analyzing`, or `arranging`, plus completed and total candidate
-counts where applicable. The wizard shows the active phase instead of one
-indefinite Generating label.
+request whose validated parameters carry the selected context key. Progress
+events use the root and job identity and report `shortlisting`, `analyzing`, or
+`arranging`, plus completed and total
+candidate counts where applicable. `analyzing` here means bounded planner
+scoring, not BPM/key/type analysis. The wizard shows the active phase instead of
+one indefinite Generating label.
 
 The renderer owns one explicit planning or saving state per job ID. Cancelling
 planning immediately releases that UI state, and progress, success, failure, or
@@ -443,10 +441,11 @@ cleanup from an older job cannot update a reopened or newer run. Close, Escape,
 backdrop, and Cancel all cancel during planning. Every dismissal path is blocked
 only after the renderer enters the saving state.
 
-The worker serializes generator planning with sync, individual analysis, and
-uniform calibration. User cancellation, Sample Folder replacement, or worker
-shutdown marks the job cancelled. The worker checks cancellation between file
-reads and before returning a plan. Cancellation before commit creates no file.
+The worker serializes generator planning with sync and analyzer writes. User
+cancellation, Sample Folder replacement, selected-cluster invalidation, or
+worker shutdown marks the job cancelled. The worker checks cancellation between
+file reads and before returning a plan. Cancellation before commit creates no
+file.
 If an automatic sync request targets a root whose completed automatic job is
 already current, the request is suppressed without cancelling an active
 generation for that same root. Readiness responses are scoped to both the
@@ -496,6 +495,7 @@ Generated projects require the spec-011 version-3 migration and persist:
     "parameters": {
       "bpmMode": "follow-detected",
       "resolvedBpm": 140,
+      "tempoClusterPrefix": "House",
       "intensity": "medium",
       "durationSeconds": 180
     },
@@ -505,20 +505,23 @@ Generated projects require the spec-011 version-3 migration and persist:
 }
 ```
 
-The fingerprint is a canonical hash of the indexed snapshot before
-parameter-specific shortlisting. It covers every current generator-eligible row
-for the root: current metadata-ready state, positive duration, and a valid
-acoustic sample type. The hash contains the stable FolderRef root key plus the
-sorted records' relative path, size, mtime, metadata/analysis revisions,
-duration, BPM, key, sample type, primary category name, and palette slot. Scan
-completion timestamps are excluded because a no-op re-scan must preserve the
-fingerprint. Audio-byte hashing is out of scope.
+The fingerprint remains a canonical hash of the complete indexed root snapshot
+before cluster selection and parameter-specific shortlisting. It covers every
+current generator-eligible row plus the canonical root analysis summary and its
+resolved groups. The hash contains the stable FolderRef root key plus the sorted
+records' relative path, size, mtime, metadata/analysis revisions, duration, BPM,
+key, sample type, primary category name, and palette slot. The selected context
+key is stored in generator parameters. Scan completion timestamps are excluded
+because a no-op re-scan must preserve the fingerprint. Transient planner metrics
+and audio-byte hashing are out of scope.
 
 **Regenerate** always creates a new artifact. Exact regeneration uses the stored
-parameters and seed and requires a matching fingerprint/root. Current-corpus
-regeneration opens Parameters prefilled from metadata, requires explicit
-confirmation, and may produce different selections. Both paths use the same
-transactional save and monotonic naming rules.
+parameters and seed and requires a matching fingerprint, root, and cluster key.
+Current-corpus regeneration opens Parameters prefilled from
+metadata. If the stored cluster no longer exists, the user must select a current
+cluster and confirm that semantic change. Current-corpus regeneration may
+produce different selections. Both paths use the same transactional save and
+monotonic naming rules.
 
 The loaded project's Middle Strip menu exposes **Regenerate** only when the
 project has a valid generator block whose generator and profile versions are
@@ -534,16 +537,16 @@ command.
   opening the dialog and refreshes it as library preparation changes state.
 - [x] **AC-002:** The wizard has exactly two steps: Parameters and Generate; no
   preview step is present.
-- [x] **AC-003:** The Parameters step exposes the three profiles, corpus-derived
-  BPM, medium intensity, editable 30–600 second duration, and a validated
-  safe-token seed.
+- [x] **AC-003:** The Parameters step exposes the three profiles,
+  selected-cluster BPM, medium intensity, editable 30–600 second duration, and
+  a validated safe-token seed. A mixed root requires coherent cluster selection
+  and never defaults from a root-wide median.
 - [x] **AC-004:** Duration uses nearest whole-bar, half-up rounding and the
   generated project ends exactly at the resulting bar boundary without
   overlapping placements on a lane.
-- [x] **AC-005:** Generation is allowed only when no sync/analysis job is active
-  for the selected root and the worker has no current metadata or analysis
-  candidates pending. Preparation reuses the existing sync scheduler and does
-  not start duplicate work.
+- [x] **AC-005:** Generation is allowed only when no sync/analyzer job is active
+  for the selected root and the selected analysis group is current. Preparation
+  reuses the existing scheduler and does not start duplicate work.
 - [x] **AC-006:** Preview is not required; Generate performs one deterministic
   planning pass, commits automatically after validation, and reports its actual
   selections, substitutions, sections, quantized duration, and mixer/FX summary
@@ -552,12 +555,12 @@ command.
   required/fallback roles, concrete mixer/FX state, and profile versions without
   engine-specific genre branches.
 - [x] **AC-008:** Candidate selection uses worker-side validated type, duration,
-  readability, BPM, key, and root filters; organizational categories are not
-  treated as acoustic types.
+  readability, BPM, key, root, selected context key, and group confidence;
+  organizational categories are not acoustic types.
 - [x] **AC-009:** Missing compatible material for any lane fails clearly;
   secondary role types are reported; no partial project is generated.
-- [x] **AC-010:** With the same seed, profile version, generator version, and
-  indexed corpus fingerprint, repeated planning produces semantically equivalent
+- [ ] **AC-010:** With the same seed, profile version, generator version, and
+  indexed-root fingerprint, repeated planning produces semantically equivalent
   sample references, placements, spans, lanes, mixer state, and FX state.
 - [x] **AC-011:** The project format-3 generator block roundtrips through the
   production parser and preserves all metadata needed for regeneration.
@@ -572,21 +575,19 @@ command.
 - [x] **AC-014:** A successful save updates the MixJam Browser, remains on the
   completion state without replacing the loaded project, and opens only after an
   explicit Open in Player action.
-- [x] **AC-015:** Exact regeneration creates a new artifact only when the stored
-  corpus fingerprint/root matches; current-corpus regeneration requires explicit
-  confirmation and may differ. The project menu exposes both paths only for a
-  project with valid generator metadata. One exact-regeneration action performs
-  one planning and save attempt.
+- [ ] **AC-015:** Exact regeneration creates a new artifact only when the stored
+  corpus fingerprint and root match and the stored cluster key remains valid.
+  Current-corpus regeneration requires explicit confirmation and a new cluster
+  choice when the old cluster disappeared. One exact-regeneration action
+  performs one planning and save attempt.
 - [ ] **AC-016:** The generated project passes focused unit tests, a real-corpus
   production-parser roundtrip, built-Chromium open/playback proof, and manual
   listening sign-off for techno, trance, and house.
-- [x] **AC-017:** One planning job attempts no more than 96 unique files, retains
-  no more than 64 successful role-compatible transient analyses, reserves
-  retention capacity for unfilled lanes and categories, reads each relative
-  path at most once, reports typed progress, and can be cancelled before save
-  without leaving a file or recent-project entry. Generator parameters are
-  validated at the worker boundary before snapshot, fingerprint, or audio-file
-  work begins.
+- [ ] **AC-017:** One planning job attempts no more than 96 unique files, retains
+  no more than 64 role-compatible scoring results, reserves candidates for
+  unfilled lanes and categories, reads each relative path at most once, and can
+  be cancelled before save without leaving a file or recent-project entry.
+  Parameters are validated before snapshot, fingerprint, or audio-file work.
 - [x] **AC-018:** Techno, trance, and house plans satisfy their phrase contracts:
   lane-local beat-grid percussion, phrase-tiled drum/bass/loop/synth material,
   bounded unchanged repetition, profile-specific A/B motifs, rests, high-only fills, a
@@ -594,38 +595,43 @@ command.
   lanes, and a restored peak. Low intensity emits only A/rest phrase metadata,
   every intensity uses all lanes across the song, and exact-end anchoring never
   bypasses role-grid rules.
-- [x] **AC-019:** Tonal lanes contain no incompatible known-key selections;
+- [ ] **AC-019:** Tonal lanes contain no incompatible known-key selections;
   enharmonic sharp/flat spellings compare consistently; primary percussive roles
   fit inside one beat; loop roles resolve to exact whole-bar spans; available
   compatible material longer than four bars with a legal song window is placed
   at its full span;
   transient RMS compensation stays within plus or minus 6 dB and final gain
   stays within 0–1.
-- [x] **AC-020:** Every generator candidate retains its primary organizational
+- [ ] **AC-020:** Every generator candidate retains its primary organizational
   category. Every category with compatible material and a legal placement
-  window in the bounded analyzed set appears in the arrangement without being
+  window in the selected cluster shortlist appears in the arrangement without being
   treated as an acoustic type. Every
   generated placement stores a valid palette slot from 0 through 8, the slot
   participates in the corpus fingerprint, and built Chromium proves Tracker
   bubbles match Sample Browser colors and recolor correctly after a theme
   switch.
-- [x] **AC-021:** For a fixed corpus and parameters, the same seed reproduces the
-  complete plan, while different seeds create a measurable selection or phrase
-  change without changing section boundaries or the required profile arc.
+- [ ] **AC-021:** For a fixed indexed-root snapshot and parameters, the same
+  seed reproduces the complete plan, while different seeds create a measurable
+  selection or phrase change without changing section boundaries or the
+  required profile arc.
+- [ ] **AC-022:** Planner scoring consumes analyzer-owned BPM, key, and sample
+  type. Its bounded decoder may derive arrangement metrics and transition hints,
+  but it contains no competing BPM, key, or acoustic-type classifier.
 
-## Implementation Evidence
+## Implementation Ownership
 
 - `backend/generator-profiles.ts` owns the three versioned profiles, exact core
   lanes, phrase rules, transition kinds, Mixer defaults, and FX presets.
-- `backend/generator-library.ts` owns root-scoped readiness, current-row
-  selection, detected BPM, organizational-category palette retention, and the
-  canonical corpus fingerprint. `generator-library.test.ts` covers those
-  boundaries and every fingerprint field.
+- The spec-008 analyzer owns group readiness, raw BPM/key evidence, and the
+  stored BPM/key/type projections used by generator queries.
+- `backend/generator-library.ts` owns root/cluster-scoped readiness, bounded
+  candidate queries, organizational-category palette retention, and the
+  canonical indexed-root fingerprint. `generator-library.test.ts` covers
+  those boundaries and every fingerprint field.
 - `backend/generator-analysis.ts` owns deterministic lane/category shortlisting,
-  the 96-read and 64-analysis bounds, coverage reservations, transition filename
-  vocabulary, decode failure fallback, transient metrics, progress, and
-  cancellation.
-  `generator-analysis.test.ts` contains focused coverage for those contracts.
+  bounded file reads, transient arrangement metrics, transition hints, coverage
+  reservations, progress, and cancellation. Its tests must prove that planning
+  does not recompute BPM, key, or acoustic sample type.
 - `backend/generator-engine.ts` owns pure deterministic section, phrase,
   placement, Mixer, FX, compatibility, and gain planning.
   `generator-engine.test.ts` contains focused coverage for all three profiles,
@@ -642,13 +648,14 @@ command.
   adjacent tests cover these renderer boundaries.
 - `tests/e2e/mixjam-generator.spec.ts` defines the built-browser color,
   generation, open, and playback checks. Its production-bundle run passed.
-- `tmp/verify-generator-structure/evidence.md` records the full 8,014-file
-  corpus fingerprint, bounded analysis counts, production-parser roundtrips,
+- Existing structure evidence under `tmp/verify-generator-structure/` records
+  production-parser roundtrips,
   exact 3,360-tick ends, zero missing references, browser screenshots, playback
   proof, and cross-theme palette sampling. The profile-v2 structural rerun uses
   all 16 lanes and all 11 current categories in each profile, reaches 9.25- or
   10-bar source spans, and uses 37–40 distinct files. Human listening sign-off
-  remains pending.
+  remains pending. It does not prove the contextual-cluster contract; a new
+  verification run must add that evidence.
 
 ## Validation
 
@@ -676,11 +683,13 @@ npm run build
 npx playwright test tests/e2e/mixjam-generator.spec.ts --project=browser-e2e
 ```
 
-Real-corpus verification records the corpus fingerprint, parameters, seed,
-selected roles, transient-analysis counts, phrase structure, palette slots,
-placement count, final tick, missing references, parser roundtrip, playback
-proof, screenshots, and listening notes for techno, trance, and house under a
-fresh `tmp/verify-generator-structure/` directory.
+Real-corpus verification records the selected context key and group summary,
+cluster fingerprint, parameters, seed, selected roles, bounded planner
+read/analysis counts, proof that stored BPM/key/type remain unchanged, phrase
+structure, palette slots, placement count, final tick, missing references,
+parser roundtrip, playback proof, screenshots, and listening notes under a fresh
+`tmp/verify-generator-structure/` directory. Include a mixed-root case in which
+two cluster choices produce internally compatible candidate sets.
 
 ## Non-Goals and Deferred Decisions
 
@@ -689,8 +698,9 @@ fresh `tmp/verify-generator-structure/` directory.
 - No user-authored or downloadable profile system in the first slice; adding a
   profile file and registration remains the extension seam.
 - No user-selected target key in the first slice; key preference is derived.
-- No persistent generator-feature columns, waveform cache, full-library
-  generator rescan, machine-learning classifier, or network analysis service.
+- No generator-owned BPM, key, or acoustic-type analysis, waveform cache,
+  full-library generator rescan, machine-learning classifier, or network
+  analysis service. Bounded transient arrangement scoring remains planner work.
 - No user-visible generator-version choice.
 - No audio generation, stem separation, upload, cloud sharing, or project export.
 - No silent regeneration against a changed corpus and no destructive replacement

@@ -41,8 +41,27 @@ CREATE TABLE samples (
   scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-ready, 2=missing, 3=metadata-unavailable
   metadata_revision INTEGER NOT NULL DEFAULT 0,
   analysis_revision INTEGER NOT NULL DEFAULT 0,
+  raw_bpm      REAL,                   -- direct per-file analyzer evidence
+  raw_musical_key TEXT,                -- direct per-file analyzer evidence
   category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,  -- one primary category per sample
   UNIQUE (root_id, relpath)               -- the dedup key
+);
+
+-- One row for each analyzed context key. '' is the root; ordinary keys are
+-- relative-directory prefixes; @cohort/<top>/<SC|SL> keys cross subfolders.
+CREATE TABLE analysis_groups (
+  root_id           INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
+  relpath_prefix    TEXT NOT NULL,
+  depth             INTEGER NOT NULL,
+  sample_count      INTEGER NOT NULL,
+  state             TEXT NOT NULL,  -- 'resolved', 'mixed', or 'uncertain'
+  bpm               REAL,
+  musical_key       TEXT,
+  bpm_support       REAL NOT NULL,
+  key_support       REAL NOT NULL,
+  confidence        REAL NOT NULL,
+  analysis_revision INTEGER NOT NULL,
+  PRIMARY KEY (root_id, relpath_prefix)
 );
 
 CREATE TABLE tags (
@@ -96,9 +115,10 @@ app state's `sampleFolder`), but every folder ever scanned keeps its rows, scope
 by `root_id`, so switching folders switches the visible library instead of
 mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
 
-## Library-sync bookkeeping
+## Library-sync and analysis bookkeeping
 
-Schema version 3 persists four facts needed by automatic library sync:
+Schema version 3 introduced four facts retained by schema v4 for automatic
+library sync:
 
 - `scan_roots.last_completed_at INTEGER` is NULL until a complete filesystem
   pass finishes. A non-NULL value means the root has a valid index even when it
@@ -114,13 +134,27 @@ Schema version 3 persists four facts needed by automatic library sync:
   A manual Re-scan retries unavailable metadata, and new bytes or a newer parser
   revision reset the row to pending.
 - `samples.analysis_revision INTEGER NOT NULL DEFAULT 0` records the analysis
-  algorithm revision attempted for the current file bytes. New or changed files
-  reset it to 0. Automatic analysis stamps the current revision even when a
-  valid result is NULL, so later app launches do not repeatedly decode unchanged
-  unsupported or low-confidence samples.
+  projection revision attempted for the current file bytes. New or changed
+  files reset it to 0. Automatic analysis stamps the current revision even when
+  a valid result is NULL, so later app launches do not repeatedly decode
+  unchanged unsupported or low-confidence samples.
 
-Migration from prior schema versions preserves uncertainty without requiring a
-full-library re-analysis:
+`samples.raw_bpm` and `samples.raw_musical_key` preserve the analyzer's direct
+per-file result. `samples.bpm` and `samples.musical_key` remain the contextual
+user-facing projections. This separation lets group inference rerun from stored
+raw evidence, duration, sample type, and relative-path labels without decoding
+unchanged audio. `analysis_groups` stores one summary for each directory or
+virtual cohort context key. A resolved child group is a generator cluster; mixed
+and uncertain rows explain why no single BPM/key was projected.
+
+Changing one sample resets its analysis revision, making its retained raw
+evidence stale. After pending files are decoded, the analyzer rebuilds the
+affected root's group summaries and automatic projections from stored raw
+evidence in one transaction. Manual
+projections are never replaced. A grouping-only algorithm revision may rebuild
+all group rows from raw evidence without reading audio bytes.
+
+Migration from schema versions before v3 preserves uncertainty:
 
 - roots from prior versions keep `last_completed_at = NULL` because a prior
   schema cannot prove enumeration and metadata work completed; existing rows
@@ -135,6 +169,13 @@ full-library re-analysis:
   work resumes and previously failed metadata receives one classified attempt;
 - missing rows remain missing and keep revision 0 until restored.
 
+Schema v4 adds `raw_bpm`, `raw_musical_key`, and `analysis_groups`, then bumps
+the analysis revision. Existing projected BPM/key values cannot prove the direct
+per-file evidence that produced them, so current readable WAV rows receive one
+intentional analyzer pass to populate raw evidence and the contextual model.
+This is the one exception to the normal grouping-only reuse rule. Manual fields
+remain protected during that pass.
+
 These fields let automatic sync distinguish an empty completed folder from an
 unscanned folder and select only new, changed, parser-stale, or analysis-stale
 candidates. They are app/index state, not project data.
@@ -146,6 +187,14 @@ clear a stale automatic value when readable bytes do not produce that field;
 fields whose source is `manual` remain unchanged. `sample_type` is acoustic
 metadata; `category_id` remains the
 spec-004 organizational folder/user category and analysis never overwrites it.
+
+`samples.bpm`, `musical_key`, and `sample_type` are the current user-facing
+projections. Manual projections are authoritative only for their sample.
+Generate MixJam may select a resolved `analysis_groups` prefix and keep its
+existing bounded audio scoring pass. The selected value is a context key, so
+cohort keys use their deterministic cohort-membership matcher instead of path
+containment. Planner scoring must not recompute semantic BPM, key, or sample
+type.
 
 `PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).
 There is no WAL under opfs-sahpool — queries and the indexer share the single
@@ -163,6 +212,7 @@ CREATE INDEX idx_samples_filename   ON samples(filename);
 CREATE INDEX idx_samples_date_added ON samples(date_added);
 CREATE INDEX idx_samples_bpm        ON samples(bpm);
 CREATE INDEX idx_samples_key        ON samples(musical_key);
+CREATE INDEX idx_analysis_groups_root ON analysis_groups(root_id, depth);
 CREATE INDEX idx_sample_tags_tag    ON sample_tags(tag_id);
 CREATE INDEX idx_sample_cats_cat    ON sample_categories(category_id);
 CREATE INDEX idx_categories_parent  ON categories(parent_id);

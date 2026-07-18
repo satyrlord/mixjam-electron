@@ -4,31 +4,35 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { listAnalysisCandidates } from './analysis-persistence'
 import { getLibraryRootState } from './indexed-sample-persistence'
 import { DB } from './sql'
-import { ANALYSIS_REVISION, initSchema, METADATA_REVISION } from './schema'
+import { initSchema, METADATA_REVISION } from './schema'
 
 let sqlite3: Sqlite3Static
 beforeAll(async () => { sqlite3 = await sqlite3InitModule() })
 
 describe('schema migrations', () => {
-  it('creates a fresh v3 database from scratch', () => {
+  it('creates a fresh v4 database from scratch', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     expect(() => initSchema(db)).not.toThrow()
     expect(() => initSchema(db)).not.toThrow()
 
     const version = db.prepare('SELECT version FROM schema_version').get<{ version: number }>()
-    expect(version?.version).toBe(3)
+    expect(version?.version).toBe(4)
     expect(db.prepare('PRAGMA table_info(scan_roots)').all<{ name: string }>()
       .map(({ name }) => name)).toEqual(expect.arrayContaining([
         'last_completed_at', 'legacy_index_available'
       ]))
     expect(db.prepare('PRAGMA table_info(samples)').all<{ name: string }>()
       .map(({ name }) => name)).toEqual(expect.arrayContaining([
-        'metadata_revision', 'analysis_revision'
+        'metadata_revision', 'analysis_revision', 'raw_bpm', 'raw_musical_key'
+      ]))
+    expect(db.prepare('PRAGMA table_info(analysis_groups)').all<{ name: string }>()
+      .map(({ name }) => name)).toEqual(expect.arrayContaining([
+        'root_id', 'relpath_prefix', 'state', 'bpm', 'musical_key', 'confidence'
       ]))
     db.close()
   })
 
-  it('idempotently re-runs on an already v3 database', () => {
+  it('idempotently re-runs on an already v4 database', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     initSchema(db)
     expect(() => initSchema(db)).not.toThrow()
@@ -86,7 +90,7 @@ describe('schema migrations', () => {
       'bpm_source', 'musical_key_source', 'sample_type', 'sample_type_source'
     ]))
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(3)
+      .toBe(4)
     db.close()
   })
 
@@ -157,7 +161,7 @@ describe('schema migrations', () => {
     expect(() => initSchema(db)).not.toThrow()
     expect(() => initSchema(db)).not.toThrow()
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(3)
+      .toBe(4)
     db.close()
   })
 
@@ -195,7 +199,7 @@ describe('schema migrations', () => {
       'bpm_source', 'musical_key_source', 'sample_type', 'sample_type_source'
     ]))
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(3)
+      .toBe(4)
     db.close()
   })
 
@@ -214,7 +218,9 @@ describe('schema migrations', () => {
     ).run(rootId, rootId, rootId, rootId)
     db.prepare(
       `UPDATE samples
-       SET sample_type = 'Kick', sample_type_source = 'analysis'
+       SET bpm = 112, bpm_source = 'analysis',
+           musical_key = 'C', musical_key_source = 'analysis',
+           sample_type = 'Kick', sample_type_source = 'analysis'
        WHERE relpath = 'analyzed.wav'`
     ).run()
     db.prepare('UPDATE schema_version SET version = 2').run()
@@ -236,7 +242,7 @@ describe('schema migrations', () => {
       {
         relpath: 'analyzed.wav',
         metadata_revision: METADATA_REVISION,
-        analysis_revision: ANALYSIS_REVISION
+        analysis_revision: 1
       },
       { relpath: 'missing.wav', metadata_revision: 0, analysis_revision: 0 },
       { relpath: 'pending.wav', metadata_revision: 0, analysis_revision: 0 },
@@ -247,7 +253,10 @@ describe('schema migrations', () => {
       }
     ])
     expect(listAnalysisCandidates(db, rootId).map(({ relpath }) => relpath))
-      .toEqual(['ready.wav'])
+      .toEqual(['ready.wav', 'analyzed.wav'])
+    expect(db.prepare(
+      `SELECT raw_bpm, raw_musical_key FROM samples WHERE relpath = 'analyzed.wav'`
+    ).get()).toEqual({ raw_bpm: 112, raw_musical_key: 'C' })
     db.close()
   })
 

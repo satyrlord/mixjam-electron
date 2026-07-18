@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type {
   AnalysisProgress,
-  CalibrationProgress,
   LibraryJobIdentity,
   ScanProgress
 } from '../../../shared/backend-api'
@@ -86,25 +85,14 @@ describe('worker proxy', () => {
     const done = vi.fn()
     const analysisProgress = vi.fn()
     const analysisDone = vi.fn()
-    const calibrationProgress = vi.fn()
-    const calibrationDone = vi.fn()
     const unsubscribe = proxy.onScanProgress(progress)
     proxy.onScanDone(done)
     proxy.onAnalysisProgress(analysisProgress)
     proxy.onAnalysisDone(analysisDone)
-    proxy.onCalibrationProgress(calibrationProgress)
-    proxy.onCalibrationDone(calibrationDone)
     const value: ScanProgress = {
       identity: IDENTITY,
       status: 'scanning', phase: 1, found: 4, processed: 2, total: 4
     }
-    const calibrationValue: CalibrationProgress = {
-      identity: { rootKey: 'root-test', jobId: 'calibration-1' },
-      status: 'calibrating',
-      analyzed: 1,
-      total: 4
-    }
-
     worker.emit({ type: 'scan-progress', progress: value })
     worker.emit({
       type: 'scan-done',
@@ -115,11 +103,6 @@ describe('worker proxy', () => {
       progress: { identity: IDENTITY, status: 'analyzing', analyzed: 2, total: 4 }
     })
     worker.emit({ type: 'analysis-done', done: { identity: IDENTITY } })
-    worker.emit({ type: 'calibration-progress', progress: calibrationValue })
-    worker.emit({
-      type: 'calibration-done',
-      done: { identity: calibrationValue.identity! }
-    })
     unsubscribe()
     worker.emit({ type: 'scan-progress', progress: value })
 
@@ -133,22 +116,18 @@ describe('worker proxy', () => {
       total: 4
     })
     expect(analysisDone).toHaveBeenCalledWith({ identity: IDENTITY })
-    expect(calibrationProgress).toHaveBeenCalledWith(calibrationValue)
-    expect(calibrationDone).toHaveBeenCalledWith({ identity: calibrationValue.identity })
   })
 
   it('forwards generator progress and makes every unsubscribe effective', () => {
     const worker = new FakeWorker()
     const proxy = createWorkerProxy(worker)
-    const listeners = Array.from({ length: 7 }, () => vi.fn())
+    const listeners = Array.from({ length: 5 }, () => vi.fn())
     const unsubscribes = [
       proxy.onScanProgress(listeners[0]),
       proxy.onScanDone(listeners[1]),
       proxy.onAnalysisProgress(listeners[2]),
       proxy.onAnalysisDone(listeners[3]),
-      proxy.onCalibrationProgress(listeners[4]),
-      proxy.onCalibrationDone(listeners[5]),
-      proxy.onGeneratorProgress(listeners[6])
+      proxy.onGeneratorProgress(listeners[4])
     ]
     worker.emit({
       type: 'generator-progress',
@@ -160,7 +139,7 @@ describe('worker proxy', () => {
         total: 2
       }
     })
-    expect(listeners[6]).toHaveBeenCalledOnce()
+    expect(listeners[4]).toHaveBeenCalledOnce()
     unsubscribes.forEach((unsubscribe) => unsubscribe())
     worker.emit({
       type: 'generator-progress',
@@ -172,7 +151,7 @@ describe('worker proxy', () => {
         total: 0
       }
     })
-    expect(listeners[6]).toHaveBeenCalledOnce()
+    expect(listeners[4]).toHaveBeenCalledOnce()
   })
 
   it('ignores responses for unknown request ids and uses the fatal fallback message', async () => {

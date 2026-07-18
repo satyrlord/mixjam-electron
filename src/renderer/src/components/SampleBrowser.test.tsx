@@ -53,12 +53,6 @@ function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowser
     categories: CATEGORIES,
     libraries: LIBRARIES,
     librarySyncState: { status: 'ready', rootKey: 'samples', lastCompletedAt: 1 },
-    calibrationProgress: {
-      identity: null,
-      status: 'idle',
-      analyzed: 0,
-      total: 0
-    },
     onSearchChange: noop,
     onLoadMoreSamples: noop,
     onSelectSampleDetail: noop,
@@ -69,8 +63,6 @@ function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowser
     onRescanLibrary: asyncNoop,
     onRetryLibrarySync: asyncNoop,
     onCancelLibrarySync: asyncNoop,
-    onStartUniformFolderCalibration: asyncNoop,
-    onCancelUniformFolderCalibration: asyncNoop,
     onCreateTag: asyncNoop as never,
     onRenameTag: asyncNoop as never,
     onSetTagColor: asyncNoop as never,

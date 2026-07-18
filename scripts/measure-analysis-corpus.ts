@@ -4,10 +4,10 @@ import { arch, cpus, platform, release, totalmem } from 'node:os'
 import { relative, resolve } from 'node:path'
 import {
   analyzeDecodedAudio,
-  calibrateConfirmedUniformBatch,
   decodeWav,
   type SampleAnalysisResult
 } from '../src/renderer/src/backend/analysis'
+import { resolveContextualAnalysis } from '../src/renderer/src/backend/contextual-analysis'
 
 interface CorpusFile {
   absolutePath: string
@@ -24,7 +24,7 @@ interface FileMeasurement {
   musicalKey: string | null
   rawBpm: number | null
   rawMusicalKey: string | null
-  sampleType: string | null
+  sampleType: SampleAnalysisResult['sampleType'] | null
   explicitFilenameBpm: number | null
   bpmWithinFive: boolean | null
   musicalKeyExact: boolean | null
@@ -150,11 +150,9 @@ async function measureRun(
 ): Promise<{
   summary: RunSummary
   details: FileMeasurement[]
-  calibration: { bpm: number | null; musicalKey: string | null }
 }> {
   const started = process.hrtime.bigint()
   const details: FileMeasurement[] = []
-  const decodedResults: Array<{ detailIndex: number; result: SampleAnalysisResult }> = []
   for (const file of files) {
     let result: SampleAnalysisResult | null = null
     let error: unknown = null
@@ -169,7 +167,6 @@ async function measureRun(
       const decoded = decodeWav(exactArrayBuffer(bytes))
       if (decoded) {
         result = analyzeDecodedAudio(decoded)
-        decodedResults.push({ detailIndex: details.length, result })
         details.push({
           ...summarizedResult(file, result, null),
           durationSeconds: decoded.samples.length / decoded.sampleRate
@@ -181,20 +178,29 @@ async function measureRun(
     }
     details.push(summarizedResult(file, result, error))
   }
-  const calibrated = calibrateConfirmedUniformBatch(
-    decodedResults.map(({ result: decodedResult }) => decodedResult)
-  )
-  for (let index = 0; index < decodedResults.length; index++) {
-    const detail = details[decodedResults[index].detailIndex]
-    const calibratedResult = calibrated.results[index]
-    detail.bpm = calibratedResult.bpm
-    detail.musicalKey = calibratedResult.musicalKey
-    detail.bpmWithinFive = calibratedResult.bpm === null
+  const contextual = resolveContextualAnalysis(details.flatMap((item, index) => (
+    item.status === 'decoded'
+      ? [{
+          id: index,
+          relpath: item.sampleRef,
+          durationSeconds: item.durationSeconds ?? 0,
+          bpm: item.rawBpm,
+          musicalKey: item.rawMusicalKey,
+          sampleType: item.sampleType
+        }]
+      : []
+  )))
+  for (const result of contextual.samples) {
+    const item = details[result.sampleId]
+    if (!item) continue
+    item.bpm = result.bpm
+    item.musicalKey = result.musicalKey
+    item.bpmWithinFive = result.bpm === null
       ? null
-      : Math.abs(EXPECTED_BPM - calibratedResult.bpm) <= 5
-    detail.musicalKeyExact = calibratedResult.musicalKey === null
+      : Math.abs(EXPECTED_BPM - result.bpm) <= 5
+    item.musicalKeyExact = result.musicalKey === null
       ? null
-      : calibratedResult.musicalKey === EXPECTED_MUSICAL_KEY
+      : result.musicalKey === EXPECTED_MUSICAL_KEY
   }
   const elapsedSeconds = Number(process.hrtime.bigint() - started) / 1_000_000_000
   const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0)
@@ -212,8 +218,7 @@ async function measureRun(
       keyNonNull: details.filter((item) => item.musicalKey !== null).length,
       sampleTypeNonNull: details.filter((item) => item.sampleType !== null).length
     },
-    details,
-    calibration: calibrated.calibration
+    details
   }
 }
 
@@ -268,7 +273,6 @@ async function main(): Promise<void> {
       concurrency: 'sequential'
     },
     correctness: correctness.summary,
-    calibration: correctness.calibration,
     groundTruth: {
       source: 'User-confirmed corpus contract',
       expectedBpm: EXPECTED_BPM,
@@ -301,14 +305,13 @@ async function main(): Promise<void> {
 - Corpus: ${evidence.corpus.wavFiles}/${evidence.corpus.discoveredWavFiles} WAV files (${evidence.corpus.selection}), ${evidence.corpus.bytes} bytes
 - Corpus SHA-256: \`${evidence.corpus.sha256}\`
 - Environment: ${evidence.environment.cpuModel}, ${evidence.environment.logicalCpuCount} logical CPUs, Node ${evidence.environment.node}
-- Execution: sequential production \`decodeWav\` + \`analyzeDecodedAudio\`; one correctness pass followed by ${timedRunCount} timed passes
+- Execution: sequential production \`decodeWav\` + \`analyzeDecodedAudio\` + \`resolveContextualAnalysis\`; one correctness pass followed by ${timedRunCount} timed passes
 - Decoded: ${evidence.correctness.decoded}
 - Unsupported: ${evidence.correctness.unsupported}
 - Failed: ${evidence.correctness.failed}
 - Non-null BPM: ${evidence.correctness.bpmNonNull}
 - Non-null musical key: ${evidence.correctness.keyNonNull}
 - Non-null sample type: ${evidence.correctness.sampleTypeNonNull}
-- Uniform-batch calibration: BPM ${evidence.calibration.bpm ?? 'none'}, key ${evidence.calibration.musicalKey ?? 'none'}
 - Ground truth: ${EXPECTED_BPM} BPM and ${EXPECTED_MUSICAL_KEY} for every file
 - BPM within 5 of ground truth: ${evidence.groundTruth.bpmWithinFive}/${evidence.corpus.wavFiles} overall (${evidence.groundTruth.bpmOverallAccuracyPercent.toFixed(2)}%); ${evidence.groundTruth.bpmAccuracyAmongDetectedPercent.toFixed(2)}% among detected; coverage ${evidence.groundTruth.bpmCoveragePercent.toFixed(2)}%
 - Exact musical key: ${evidence.groundTruth.keyExact}/${evidence.corpus.wavFiles} overall (${evidence.groundTruth.keyOverallAccuracyPercent.toFixed(2)}%); ${evidence.groundTruth.keyAccuracyAmongDetectedPercent.toFixed(2)}% among detected; coverage ${evidence.groundTruth.keyCoveragePercent.toFixed(2)}%

@@ -30,7 +30,9 @@
 │  │    connection, runs all queries                   │  │
 │  │  • indexer — directory-handle traversal +         │  │
 │  │    music-metadata parseBlob (see indexing.md)     │  │
-│  │  • generator — bounded transient analysis +       │  │
+│  │  • analyzer — evidence, contextual groups, and    │  │
+│  │    cluster projections                            │  │
+│  │  • generator — bounded planner scoring +          │  │
 │  │    deterministic project planning                 │  │
 │  └───────────────────────────────────────────────────┘  │
 │  Folder handles in IndexedDB · preferences in localStorage│
@@ -54,9 +56,16 @@ Rules of the process model:
 - **Backend job policy has one owner.** The worker entry module initializes the
   database and dispatches typed requests. A deep job-coordination module owns
   admission, queueing, replacement, cancellation, identity, and progress for
-  library sync, calibration, individual analysis, and generator planning.
+  library sync, the single analyzer, individual analyzer requests, and generator
+  planning.
   Workflow-owned persistence modules group indexed-sample lifecycle, analysis
   provenance, and browser/saved-library SQL without opening another connection.
+- **Analysis has one semantic owner.** The analyzer stores direct per-file
+  BPM/key evidence, derives directory and virtual source-cohort groups, infers
+  zero or more coherent clusters, and persists current BPM/key/type projections.
+  Directory ancestry and structured filename labels are evidence, not a promise
+  that a complete folder is uniform. Batch and individual requests run the same
+  engine. There is no folder-calibration analyzer beside it.
 - **Renderer requests are windowed.** The virtual list asks for the visible
   slice + buffer (`LIMIT`/`OFFSET` or keyset pagination), never the full result set.
 - **No absolute paths anywhere.** Folders are `FolderRef`s (an id keying a
@@ -71,10 +80,12 @@ Rules of the process model:
 - **Audio stays on the renderer main thread** (Web Audio API). The engine loads
   sample bytes through `BackendAPI.readSampleBytes(rootId, relpath)`.
 - **Generated-project commit stays in the renderer.** The backend worker owns
-  root-scoped shortlisting, transient sample analysis, and deterministic neutral
-  planning. The renderer adapts the plan, serializes it through the production
-  project format, writes it inside the User Folder, and updates recent projects
-  only after the write succeeds.
+  root/cluster-scoped queries, bounded arrangement scoring, and deterministic
+  neutral planning. The generator may decode its bounded shortlist for planner
+  metrics, but it consumes analyzer-owned BPM, key, and type and does not derive
+  competing semantic values. The renderer adapts the plan, serializes it through
+  the production project format, writes it inside the User Folder, and updates
+  recent projects only after the write succeeds.
 - **The project model owns the complete saved snapshot.** Song settings, lanes,
   placements, Mixer channels, routing, and FX defaults/cloning live together in
   the project module. Renderer hooks own live editing behavior but do not define

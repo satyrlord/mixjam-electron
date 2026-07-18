@@ -24,6 +24,7 @@ import {
   MIXJAM_GENERATOR_PROFILE_IDS,
   MIXJAM_GENERATOR_VERSION,
   SAFE_GENERATOR_TOKEN,
+  isSafeAnalysisGroupKey,
   type MixJamGeneratorBpmMode,
   type MixJamGeneratorIntensity,
   type MixJamGeneratorProfileId
@@ -43,6 +44,7 @@ export type GeneratorIntensity = MixJamGeneratorIntensity
 export interface GeneratorParameters {
   bpmMode: GeneratorBpmMode
   resolvedBpm: number
+  tempoClusterPrefix?: string
   intensity: GeneratorIntensity
   durationSeconds: number
 }
@@ -213,6 +215,14 @@ function readGeneratorSeed(record: Record<string, unknown>, path: string): strin
   return seed
 }
 
+function readAnalysisGroupKey(record: Record<string, unknown>, path: string): string {
+  const value = record.tempoClusterPrefix
+  if (typeof value !== 'string' || !isSafeAnalysisGroupKey(value)) {
+    fail(`${path}.tempoClusterPrefix`, 'must be a safe relative analysis-group key')
+  }
+  return value
+}
+
 function parseGenerator(value: unknown): ProjectGeneratorMetadata {
   const path = 'project.generator'
   if (!isRecord(value)) fail(path, 'must be an object')
@@ -226,6 +236,9 @@ function parseGenerator(value: unknown): ProjectGeneratorMetadata {
     parameters: {
       bpmMode: readEnum(value.parameters, 'bpmMode', `${path}.parameters`, MIXJAM_GENERATOR_BPM_MODES),
       resolvedBpm: readInteger(value.parameters, 'resolvedBpm', `${path}.parameters`, 60, 180),
+      ...(value.parameters.tempoClusterPrefix !== undefined
+        ? { tempoClusterPrefix: readAnalysisGroupKey(value.parameters, `${path}.parameters`) }
+        : {}),
       intensity: readEnum(value.parameters, 'intensity', `${path}.parameters`, MIXJAM_GENERATOR_INTENSITIES),
       durationSeconds: readInteger(value.parameters, 'durationSeconds', `${path}.parameters`, 30, 600)
     },

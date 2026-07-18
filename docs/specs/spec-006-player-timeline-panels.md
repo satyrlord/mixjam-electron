@@ -288,8 +288,8 @@ infrequent commands out of the permanent button row.
     region, and one More menu.
 - The More menu contains Keyboard Shortcuts and the single manual **Re-scan
   Sample Folder** recovery action. Re-scan helper text states that it is for
-  files changed while MixJam is already open. Uniform Folder Calibration is
-  not present in the Middle Strip.
+  files changed while MixJam is already open. Contextual analysis runs as part
+  of the normal analyzer and adds no second Middle Strip command.
 
 #### Design tokens and foundations
 

@@ -3,11 +3,12 @@ import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { categorySlot } from '../../../shared/sample-palette'
 import {
-  detectedGeneratorBpm,
   fingerprintGeneratorSnapshot,
   getStoredGeneratorReadiness,
   loadGeneratorSnapshot,
-  type GeneratorCandidate
+  selectGeneratorAnalysisGroup,
+  type GeneratorCandidate,
+  type GeneratorRootSnapshot
 } from './generator-library'
 import { ANALYSIS_REVISION, initSchema, METADATA_REVISION } from './schema'
 import { DB } from './sql'
@@ -23,9 +24,16 @@ beforeEach(() => {
 afterEach(() => db.close())
 
 function insertRoot(key: string, completed = true): number {
-  return db.prepare(
+  const rootId = db.prepare(
     'INSERT INTO scan_roots (key, last_completed_at) VALUES (?, ?)'
   ).run(key, completed ? 1_000 : null).lastInsertRowid
+  db.prepare(
+    `INSERT INTO analysis_groups (
+       root_id, relpath_prefix, depth, sample_count, state, bpm, musical_key,
+       bpm_support, key_support, confidence, analysis_revision
+     ) VALUES (?, '', 0, 1, 'resolved', 120, 'Am', 1, 1, 1, ?)`
+  ).run(rootId, ANALYSIS_REVISION)
+  return rootId
 }
 
 function insertCategory(name: string): number {
@@ -94,6 +102,31 @@ function candidate(overrides: Partial<GeneratorCandidate> = {}): GeneratorCandid
   }
 }
 
+function snapshot(candidates: GeneratorCandidate[], rootKey = 'root'): GeneratorRootSnapshot {
+  return {
+    rootKey,
+    candidates,
+    analysisSummary: {
+      state: 'resolved',
+      sampleCount: candidates.length,
+      bpm: 128,
+      musicalKey: 'Am',
+      bpmSupport: 1,
+      keySupport: 1,
+      confidence: 1,
+      clusters: [{
+        relpathPrefix: '',
+        sampleCount: candidates.length,
+        bpm: 128,
+        musicalKey: 'Am',
+        bpmSupport: 1,
+        keySupport: 1,
+        confidence: 1
+      }]
+    }
+  }
+}
+
 describe('generator library snapshot', () => {
   it('scopes candidates to the requested root and keeps only current, typed, positive-duration rows', () => {
     const drums = insertCategory('Drums')
@@ -108,8 +141,12 @@ describe('generator library snapshot', () => {
 
     expect(getStoredGeneratorReadiness(db, 'requested-root')).toEqual({
       status: 'ready',
+      analysisState: 'resolved',
       detectedBpm: 120,
-      eligibleSamples: 1
+      eligibleSamples: 1,
+      tempoClusters: [{
+        relpathPrefix: '', sampleCount: 1, bpm: 120, musicalKey: 'Am', confidence: 1
+      }]
     })
     expect(loadGeneratorSnapshot(db, 'requested-root').candidates.map((row) => row.relpath))
       .toEqual(['valid.wav'])
@@ -158,27 +195,90 @@ describe('generator library snapshot', () => {
   })
 })
 
-describe('generator BPM detection', () => {
-  it('uses the rounded median of positive detected BPM values', () => {
-    expect(detectedGeneratorBpm([
-      candidate({ bpm: 121 }),
-      candidate({ bpm: 124 }),
-      candidate({ bpm: 180 })
-    ])).toBe(124)
-    expect(detectedGeneratorBpm([
-      candidate({ bpm: 121 }),
-      candidate({ bpm: 124 })
-    ])).toBe(123)
+describe('generator analyzer-group selection', () => {
+  const parameters = {
+    profileId: 'techno' as const,
+    bpmMode: 'follow-detected' as const,
+    intensity: 'medium' as const,
+    durationSeconds: 180,
+    seed: 'cluster-seed'
+  }
+
+  it('requires an explicit canonical group for mixed roots and filters by exact prefix', () => {
+    const mixed = snapshot([
+      candidate({ relpath: 'Dance/kick.wav' }),
+      candidate({ relpath: 'Techno/kick.wav' })
+    ])
+    mixed.analysisSummary = {
+      ...mixed.analysisSummary,
+      state: 'mixed',
+      bpm: null,
+      musicalKey: null,
+      clusters: [
+        { ...mixed.analysisSummary.clusters[0]!, relpathPrefix: 'Dance', sampleCount: 1, bpm: 140 },
+        { ...mixed.analysisSummary.clusters[0]!, relpathPrefix: 'Techno', sampleCount: 1, bpm: 128 }
+      ]
+    }
+
+    expect(() => selectGeneratorAnalysisGroup(mixed, parameters))
+      .toThrow('Select an analyzer group')
+    expect(selectGeneratorAnalysisGroup(mixed, {
+      ...parameters,
+      tempoClusterPrefix: 'Techno'
+    })).toMatchObject({
+      detectedBpm: 128,
+      parameters: { tempoClusterPrefix: 'Techno' },
+      candidates: [{ relpath: 'Techno/kick.wav' }]
+    })
+    expect(() => selectGeneratorAnalysisGroup(mixed, {
+      ...parameters,
+      tempoClusterPrefix: 'Missing'
+    })).toThrow('no longer available')
   })
 
-  it('defaults to 128 BPM when no candidate has detected BPM', () => {
-    expect(detectedGeneratorBpm([candidate({ bpm: null })])).toBe(128)
-    expect(detectedGeneratorBpm([])).toBe(128)
+  it('uses the sole resolved cluster and requires fixed BPM when analysis is uncertain', () => {
+    const resolved = snapshot([candidate()])
+    expect(selectGeneratorAnalysisGroup(resolved, parameters)).toMatchObject({
+      detectedBpm: 128,
+      parameters: { tempoClusterPrefix: '' }
+    })
+
+    const uncertain = snapshot([candidate()])
+    uncertain.analysisSummary = {
+      ...uncertain.analysisSummary,
+      state: 'uncertain',
+      bpm: null,
+      musicalKey: null,
+      clusters: []
+    }
+    expect(() => selectGeneratorAnalysisGroup(uncertain, parameters))
+      .toThrow('choose Fixed BPM')
+    expect(selectGeneratorAnalysisGroup(uncertain, {
+      ...parameters,
+      bpmMode: 'fixed',
+      bpm: 132
+    })).toMatchObject({ detectedBpm: 132, candidates: [expect.any(Object)] })
   })
 
-  it('clamps the detected median to the supported project BPM range', () => {
-    expect(detectedGeneratorBpm([candidate({ bpm: 20 }), candidate({ bpm: 40 })])).toBe(60)
-    expect(detectedGeneratorBpm([candidate({ bpm: 200 }), candidate({ bpm: 300 })])).toBe(180)
+  it('allows fixed BPM for a key-only resolved summary without a tempo cluster', () => {
+    const resolved = snapshot([candidate()])
+    resolved.analysisSummary = {
+      ...resolved.analysisSummary,
+      bpm: null,
+      clusters: []
+    }
+
+    expect(() => selectGeneratorAnalysisGroup(resolved, parameters))
+      .toThrow('choose Fixed BPM')
+    expect(selectGeneratorAnalysisGroup(resolved, {
+      ...parameters,
+      bpmMode: 'fixed',
+      bpm: 136
+    })).toMatchObject({
+      detectedBpm: 136,
+      candidates: [{ relpath: 'Drums/kick.wav' }],
+      parameters: { bpm: 136 }
+    })
   })
 })
 
@@ -186,13 +286,13 @@ describe('generator corpus fingerprint', () => {
   it('is independent of candidate input order', async () => {
     const first = candidate({ relpath: 'a.wav' })
     const second = candidate({ relpath: 'b.wav', sampleType: 'Bass' })
-    await expect(fingerprintGeneratorSnapshot({ rootKey: 'root', candidates: [first, second] }))
-      .resolves.toBe(await fingerprintGeneratorSnapshot({ rootKey: 'root', candidates: [second, first] }))
+    await expect(fingerprintGeneratorSnapshot(snapshot([first, second])))
+      .resolves.toBe(await fingerprintGeneratorSnapshot(snapshot([second, first])))
   })
 
   it('changes for every canonical root or candidate field', async () => {
     const baseCandidate = candidate()
-    const baseline = await fingerprintGeneratorSnapshot({ rootKey: 'root', candidates: [baseCandidate] })
+    const baseline = await fingerprintGeneratorSnapshot(snapshot([baseCandidate]))
     const variants: Array<{ name: string; rootKey?: string; candidate: GeneratorCandidate }> = [
       { name: 'rootKey', rootKey: 'other-root', candidate: baseCandidate },
       { name: 'relpath', candidate: candidate({ relpath: 'other.wav' }) },
@@ -209,19 +309,17 @@ describe('generator corpus fingerprint', () => {
     ]
 
     for (const variant of variants) {
-      const fingerprint = await fingerprintGeneratorSnapshot({
-        rootKey: variant.rootKey ?? 'root',
-        candidates: [variant.candidate]
-      })
+      const fingerprint = await fingerprintGeneratorSnapshot(
+        snapshot([variant.candidate], variant.rootKey ?? 'root')
+      )
       expect(fingerprint, variant.name).not.toBe(baseline)
     }
   })
 
   it('ignores display-only filename changes', async () => {
-    const baseline = await fingerprintGeneratorSnapshot({ rootKey: 'root', candidates: [candidate()] })
-    await expect(fingerprintGeneratorSnapshot({
-      rootKey: 'root',
-      candidates: [candidate({ filename: 'renamed-display-only.wav' })]
-    })).resolves.toBe(baseline)
+    const baseline = await fingerprintGeneratorSnapshot(snapshot([candidate()]))
+    await expect(fingerprintGeneratorSnapshot(
+      snapshot([candidate({ filename: 'renamed-display-only.wav' })])
+    )).resolves.toBe(baseline)
   })
 })

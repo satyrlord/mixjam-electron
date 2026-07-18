@@ -2,7 +2,6 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type {
   AnalysisProgress,
-  CalibrationProgress,
   MixJamGeneratorProgress,
   MixJamGeneratorParameters,
   MixJamGeneratorPlan,
@@ -109,8 +108,12 @@ describe('useMixJamGenerator', () => {
       expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledWith(TEST_SAMPLE_FOLDER)
       expect(result.current.readiness).toEqual({
         status: 'ready',
+        analysisState: 'resolved',
         detectedBpm: 140,
-        eligibleSamples: 2
+        eligibleSamples: 2,
+        tempoClusters: [{
+          relpathPrefix: '', sampleCount: 2, bpm: 140, musicalKey: 'Am', confidence: 1
+        }]
       })
     })
   })
@@ -134,8 +137,12 @@ describe('useMixJamGenerator', () => {
 
     const currentRootReadiness: MixJamGeneratorReadiness = {
       status: 'ready',
+      analysisState: 'resolved',
       detectedBpm: 128,
-      eligibleSamples: 8
+      eligibleSamples: 8,
+      tempoClusters: [{
+        relpathPrefix: '', sampleCount: 8, bpm: 128, musicalKey: null, confidence: 0.9
+      }]
     }
     const oldRootReadiness: MixJamGeneratorReadiness = {
       status: 'needs-preparation',
@@ -403,56 +410,37 @@ describe('useMixJamGenerator', () => {
     await waitFor(() => expect(result.current.error).toBe('The generated project could not be saved.'))
   })
 
-  it('tracks analysis and calibration lifecycles only for the active root', async () => {
+  it('tracks analysis lifecycle only for the active root', async () => {
     const backendAPI = createBackendAPI()
     let emitAnalysis: ((progress: AnalysisProgress) => void) | undefined
-    let emitCalibration: ((progress: CalibrationProgress) => void) | undefined
     let emitAnalysisDone: ((done: Parameters<Parameters<typeof backendAPI.onAnalysisDone>[0]>[0]) => void) | undefined
-    let emitCalibrationDone: ((done: Parameters<Parameters<typeof backendAPI.onCalibrationDone>[0]>[0]) => void) | undefined
     vi.mocked(backendAPI.onAnalysisProgress).mockImplementation((listener) => { emitAnalysis = listener; return () => {} })
-    vi.mocked(backendAPI.onCalibrationProgress).mockImplementation((listener) => { emitCalibration = listener; return () => {} })
     vi.mocked(backendAPI.onAnalysisDone).mockImplementation((listener) => { emitAnalysisDone = listener; return () => {} })
-    vi.mocked(backendAPI.onCalibrationDone).mockImplementation((listener) => { emitCalibrationDone = listener; return () => {} })
     const { result } = renderHook(() => useMixJamGenerator(appState(), backendAPI, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.readiness?.status).toBe('ready'))
     vi.mocked(backendAPI.getGeneratorReadiness).mockClear()
 
-    act(() => emitCalibration?.({
-      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'calibration-1' },
-      status: 'calibrating', analyzed: 1, total: 2
+    act(() => emitAnalysis?.({
+      identity: { rootKey: TEST_SAMPLE_FOLDER.id, sampleId: 1, jobId: 'analysis-1' },
+      status: 'analyzing', analyzed: 0, total: 1
     }))
     expect(result.current.readiness?.status).toBe('preparing')
-    act(() => emitCalibration?.({ identity: null, status: 'idle', analyzed: 0, total: 0 }))
-    expect(backendAPI.getGeneratorReadiness).not.toHaveBeenCalled()
-    act(() => emitCalibration?.({
-      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'calibration-1' },
-      status: 'idle', analyzed: 2, total: 2
-    }))
-    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(1))
 
     act(() => emitAnalysisDone?.({
       identity: { rootKey: 'other', sampleId: 1, jobId: 'analysis-1' }
     }))
-    act(() => emitCalibrationDone?.({
-      identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'calibration-1' }
-    }))
-    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(2))
+    expect(backendAPI.getGeneratorReadiness).not.toHaveBeenCalled()
 
     act(() => emitAnalysisDone?.({
       identity: { rootKey: TEST_SAMPLE_FOLDER.id, jobId: 'analysis-all', trigger: 'automatic' }
     }))
-    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(3))
-
-    act(() => emitCalibrationDone?.({
-      identity: { rootKey: 'other', jobId: 'calibration-other' }
-    }))
-    expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(3)
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(1))
 
     act(() => emitAnalysis?.({
       identity: { rootKey: TEST_SAMPLE_FOLDER.id, sampleId: 1, jobId: 'analysis-2' },
       status: 'idle', analyzed: 1, total: 1
     }))
-    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(4))
+    await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(2))
   })
 
   it('stays closed and idle without a resolved Sample Folder', () => {

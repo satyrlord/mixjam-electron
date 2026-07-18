@@ -22,6 +22,12 @@ describe('MixJam generator parameter validation', () => {
     [{ ...valid, durationSeconds: 600.5 }, 'Duration must be an integer from 30 to 600 seconds.'],
     [{ ...valid, durationSeconds: 601 }, 'Duration must be an integer from 30 to 600 seconds.'],
     [{ ...valid, bpmMode: 'automatic' }, 'BPM mode must be fixed or follow-detected.'],
+    [{ ...valid, tempoClusterPrefix: 140 }, 'The analyzer group selection must be a relative group key.'],
+    [{ ...valid, tempoClusterPrefix: '/absolute' }, 'The analyzer group selection must be a relative group key.'],
+    [{ ...valid, tempoClusterPrefix: 'pack/' }, 'The analyzer group selection must be a relative group key.'],
+    [{ ...valid, tempoClusterPrefix: 'pack\\child' }, 'The analyzer group selection must be a relative group key.'],
+    [{ ...valid, tempoClusterPrefix: 'pack/../child' }, 'The analyzer group selection must be a relative group key.'],
+    [{ ...valid, tempoClusterPrefix: 'pack//child' }, 'The analyzer group selection must be a relative group key.'],
     [{ ...valid, bpm: 59 }, 'Fixed BPM must be an integer from 60 to 180.'],
     [{ ...valid, bpm: 120.5 }, 'Fixed BPM must be an integer from 60 to 180.'],
     [{ ...valid, bpm: 181 }, 'Fixed BPM must be an integer from 60 to 180.']

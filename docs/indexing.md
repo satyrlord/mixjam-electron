@@ -32,8 +32,8 @@ hooks only request work and render the returned job state. Sync does not wait
 for Player entry, and Home/Player navigation never starts or restarts a job.
 
 The backend job coordinator runs one library job at a time and serializes it
-with calibration, individual analysis, and generator planning. A duplicate
-request for the active or queued root returns the existing job identity. Picking
+with the single analyzer, individual analyzer requests, and generator planning.
+A duplicate request for the active or queued root returns the existing job identity. Picking
 a different Sample Folder cancels the prior root at its next checkpoint, removes
 its queued automatic request, prioritizes the new root, and invalidates UI events
 from the previous root. A completed app-owned mutation, including a spec-013
@@ -90,34 +90,38 @@ counter and is observed at phase boundaries and phase-1 batch boundaries; phase
 and the UI enters a cancelled state immediately. A later Retry or Re-scan
 resumes naturally by re-upserting phase-1 rows and processing remaining stubs.
 
-**Phase 3 — sample analysis.** After phase 2, `scan-done` makes indexed samples
-available immediately. The same backend worker then decodes PCM/IEEE-float WAV
-files sequentially and extracts BPM, musical key, and acoustic sample type.
+**Phase 3 — contextual sample analysis.** After phase 2, `scan-done` makes
+indexed samples available immediately. The same backend worker then runs the
+one analyzer. It extracts per-file evidence, BPM, musical key, acoustic sample
+type from PCM/IEEE-float WAV files. Direct BPM/key results are stored separately
+from their contextual projections. The analyzer derives group summaries for
+directory prefixes and structured SC/SL source cohorts, then exposes resolved
+non-overlapping groups as tempo/key clusters. A folder path or filename cohort
+is group evidence, not a uniformity contract.
 Analysis has its own `{ status, analyzed, total }` progress events and yields to
 the worker event loop after every file so library queries continue to interleave.
-Each per-file result is committed before its progress count advances.
+Each per-file evidence record is committed before its progress count advances.
 Automatic and manual sync analyze only files that are new, changed,
 interrupted, or stale for the current analysis revision. Unchanged attempted
 files are not decoded again, including files whose valid result was NULL.
 Manual fields are never replaced. The worker retains only compact result
-summaries; decoded PCM remains bounded to one sample. `analysis-done` refreshes
-the current windowed renderer query.
+summaries and raw evidence; decoded PCM remains bounded to one sample. After file
+work, it rebuilds the affected root's group summaries and automatic projections
+from persisted raw evidence. Those contextual updates commit atomically.
+`analysis-done` refreshes the current windowed query and cluster summaries.
 
-**Uniform Folder Calibration** is a separate advanced analysis action owned by
-spec-008. It intentionally analyzes the full root after explicit confirmation
-and may commit guarded whole-batch BPM/key calibration in one transaction. It
-is not a scan variant and is not exposed beside the manual Re-scan action.
-Calibration has a separate UI lifecycle. The backend worker serializes it with
-library sync; it cannot start while sync is active, and a newly selected-root
-sync cancels calibration at its next safe checkpoint.
-Individual re-analysis uses its own typed job identity and is serialized with
-both library sync and calibration. Its request completes only after the worker
-has committed the result or reported the operation error.
+Individual re-analysis uses the same extractor and contextual inference as the
+batch path. It has its own typed job identity and is serialized with library
+sync. Its request completes only after the file evidence and affected context
+have committed or the operation has reported an error. There is no separate
+folder calibration request or lifecycle.
 MixJam Generator planning is another typed, root-scoped worker job. It is
-serialized with library sync, calibration, and individual re-analysis. It reads
-and decodes only its bounded candidate set, stores no transient analysis in the
-database, and returns a neutral plan for renderer-owned project serialization
-and commit. Cancellation is checked between reads and before the plan returns.
+serialized with library sync and analyzer writes. It selects one current
+analysis cluster and may decode its bounded candidate set for arrangement
+scoring. It consumes analyzer-owned BPM, key, and type and performs no competing
+semantic inference for those fields. It returns a neutral plan for
+renderer-owned project serialization and commit. Cancellation is checked
+between reads and before the plan returns.
 An automatic sync requested for a newly selected root during individual
 analysis is queued and starts when that analysis finishes; the folder-selection
 request is not discarded.
@@ -171,12 +175,23 @@ The cheap, reliable change key is **`(size_bytes, mtime)`**. On sync of a root:
    - **known path, `mtime`/`size` changed** → reset to stub and re-extract
      metadata, while preserving tags, bpm/key fields, and the original
      `date_added`; reset metadata and analysis revisions; filesystem-derived
-     category assignments are recomputed.
+     category assignments are recomputed. Mark that file's raw evidence and the
+     affected root's group model stale through the reset analysis revision.
    - **known path, unchanged** → skip.
 3. **Deletions:** any `samples` row whose path was not seen in the walk is marked
    `scan_state = 2` (missing) rather than hard-deleted, so its tags/library
    memberships survive a temporarily-disconnected drive. Missing rows are hidden
    from normal browsing by default. No purge-missing UI exists yet.
+
+Contextual membership uses the current relative path, including structured
+source-cohort suffixes. A rename therefore invalidates the old and new context
+keys through the existing missing-plus-new identity behavior. Adding, changing,
+removing, or re-analyzing one member marks
+the root's group model stale. The analyzer rebuilds that model from stored raw
+evidence without decoding unchanged siblings. A grouping revision may
+invalidate every root model, but it reuses compatible raw evidence; only an
+analysis revision that changes direct per-file extraction requires new audio
+reads.
 
 Content hashing (for move/rename detection and true dedup) is **out of scope for
 v1**; `UNIQUE(root_id, relpath)` is the dedup key. Hashing can be added later as

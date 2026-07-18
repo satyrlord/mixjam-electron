@@ -1,6 +1,16 @@
-import type { MixJamGeneratorReadiness, SampleType } from '../../../shared/backend-api'
+import type {
+  MixJamGeneratorParameters,
+  MixJamGeneratorReadiness,
+  MixJamGeneratorTempoCluster,
+  SampleType
+} from '../../../shared/backend-api'
 import { categorySlot } from '../../../shared/sample-palette'
 import { isSampleType } from './analysis'
+import {
+  analysisGroupContainsRelpath,
+  getCanonicalRootAnalysisSummary,
+  type CanonicalRootAnalysisSummary
+} from './analysis-persistence'
 import { ANALYSIS_REVISION, METADATA_REVISION } from './schema'
 import type { DB } from './sql'
 
@@ -19,9 +29,10 @@ export interface GeneratorCandidate {
   analysisRevision: number
 }
 
-interface GeneratorRootSnapshot {
+export interface GeneratorRootSnapshot {
   rootKey: string
   candidates: GeneratorCandidate[]
+  analysisSummary: CanonicalRootAnalysisSummary
 }
 
 function compareCodeUnits(left: string, right: string): number {
@@ -62,10 +73,26 @@ export function getStoredGeneratorReadiness(db: DB, rootKey: string): MixJamGene
   if (candidates.length === 0) {
     return { status: 'needs-preparation', message: 'No analyzed samples are available for generation.' }
   }
+  const summary = getCanonicalRootAnalysisSummary(db, rootKey)
+  if (!summary) {
+    return { status: 'needs-preparation', message: 'Finish library analysis before generating.' }
+  }
   return {
     status: 'ready',
-    detectedBpm: detectedGeneratorBpm(candidates),
-    eligibleSamples: candidates.length
+    analysisState: summary.state,
+    detectedBpm: summary.state === 'resolved' ? summary.bpm : null,
+    eligibleSamples: candidates.length,
+    tempoClusters: summary.clusters.map(toGeneratorTempoCluster)
+  }
+}
+
+function toGeneratorTempoCluster(cluster: CanonicalRootAnalysisSummary['clusters'][number]): MixJamGeneratorTempoCluster {
+  return {
+    relpathPrefix: cluster.relpathPrefix,
+    sampleCount: cluster.sampleCount,
+    bpm: cluster.bpm,
+    musicalKey: cluster.musicalKey,
+    confidence: cluster.confidence
   }
 }
 
@@ -122,19 +149,65 @@ export function loadGeneratorSnapshot(db: DB, rootKey: string): GeneratorRootSna
   }
   const candidates = listGeneratorCandidates(db, root.id)
   if (candidates.length === 0) throw new Error('No analyzed samples are available for generation.')
-  return { rootKey, candidates }
+  const analysisSummary = getCanonicalRootAnalysisSummary(db, rootKey)
+  if (!analysisSummary) throw new Error('Library analysis has not produced a canonical summary.')
+  return { rootKey, candidates, analysisSummary }
 }
 
-export function detectedGeneratorBpm(candidates: readonly GeneratorCandidate[]): number {
-  const bpms = candidates
-    .flatMap((candidate) => candidate.bpm === null ? [] : [candidate.bpm])
-    .sort((left, right) => left - right)
-  if (bpms.length === 0) return 128
-  const middle = Math.floor(bpms.length / 2)
-  const median = bpms.length % 2 === 1
-    ? Math.round(bpms[middle]!)
-    : Math.round((bpms[middle - 1]! + bpms[middle]!) / 2)
-  return Math.max(60, Math.min(180, median))
+export interface GeneratorAnalysisSelection {
+  candidates: GeneratorCandidate[]
+  parameters: MixJamGeneratorParameters
+  detectedBpm: number
+}
+
+export function selectGeneratorAnalysisGroup(
+  snapshot: GeneratorRootSnapshot,
+  parameters: MixJamGeneratorParameters
+): GeneratorAnalysisSelection {
+  const { analysisSummary } = snapshot
+  let cluster: CanonicalRootAnalysisSummary['clusters'][number] | undefined
+
+  if (analysisSummary.state === 'mixed') {
+    if (parameters.tempoClusterPrefix === undefined) {
+      throw new Error('Select an analyzer group before generating from a mixed Sample Folder.')
+    }
+    cluster = analysisSummary.clusters.find(
+      (candidate) => candidate.relpathPrefix === parameters.tempoClusterPrefix
+    )
+    if (!cluster) throw new Error('The selected analyzer group is no longer available.')
+  } else if (analysisSummary.state === 'resolved') {
+    cluster = analysisSummary.clusters[0]
+    if (!cluster && parameters.tempoClusterPrefix !== undefined) {
+      throw new Error('The selected analyzer group is no longer available.')
+    }
+    if (cluster && parameters.tempoClusterPrefix !== undefined &&
+        parameters.tempoClusterPrefix !== cluster.relpathPrefix) {
+      throw new Error('The selected analyzer group is no longer available.')
+    }
+  } else if (parameters.tempoClusterPrefix !== undefined) {
+    throw new Error('The selected analyzer group is no longer available.')
+  }
+
+  const candidates = cluster
+    ? snapshot.candidates.filter((candidate) =>
+        analysisGroupContainsRelpath(cluster.relpathPrefix, candidate.relpath))
+    : snapshot.candidates
+  if (candidates.length === 0) throw new Error('The selected analyzer group has no generator-ready samples.')
+
+  const detectedBpm = cluster?.bpm ?? analysisSummary.bpm
+  if (parameters.bpmMode === 'follow-detected' && detectedBpm === null) {
+    throw new Error('No confident analyzer tempo is available; choose Fixed BPM.')
+  }
+  const selectedParameters = cluster
+    ? { ...parameters, tempoClusterPrefix: cluster.relpathPrefix }
+    : { ...parameters, tempoClusterPrefix: undefined }
+  return {
+    candidates,
+    parameters: parameters.bpmMode === 'follow-detected'
+      ? { ...selectedParameters, bpm: detectedBpm! }
+      : selectedParameters,
+    detectedBpm: detectedBpm ?? parameters.bpm!
+  }
 }
 
 export async function fingerprintGeneratorSnapshot(snapshot: GeneratorRootSnapshot): Promise<string> {
@@ -153,7 +226,12 @@ export async function fingerprintGeneratorSnapshot(snapshot: GeneratorRootSnapsh
       categoryName: candidate.categoryName,
       paletteSlot: candidate.paletteSlot
     }))
-  const canonical = JSON.stringify({ version: 1, rootKey: snapshot.rootKey, candidates })
+  const canonical = JSON.stringify({
+    version: 1,
+    rootKey: snapshot.rootKey,
+    analysisSummary: snapshot.analysisSummary,
+    candidates
+  })
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }

@@ -1,8 +1,8 @@
 import type { MixJamGeneratorParameters, SampleType } from '../../../shared/backend-api'
-import { analyzeDecodedAudio, decodeWav, type DecodedPcm } from './analysis'
+import { decodeWav, extractDecodedAudioFeatures, type DecodedPcm } from './analysis'
 import { resolveFileHandle } from './folder-access'
 import { generatorCandidateMatchesLane } from './generator-candidate'
-import { detectedGeneratorBpm, type GeneratorCandidate } from './generator-library'
+import type { GeneratorCandidate } from './generator-library'
 import { GENERATOR_PROFILES } from './generator-profiles'
 
 export const MAX_GENERATOR_ATTEMPTS = 96
@@ -74,7 +74,7 @@ function shortlistCandidates(
 ): ShortlistedCandidate[] {
   const profile = GENERATOR_PROFILES[parameters.profileId]
   if (!profile) throw new Error(`Unknown generator profile: ${String(parameters.profileId)}`)
-  const bpm = parameters.bpmMode === 'fixed' ? parameters.bpm! : detectedGeneratorBpm(candidates)
+  const bpm = parameters.bpm!
   const core = new Set(profile.coreLanes)
   const laneOrder = profile.lanes
     .map((_, laneIndex) => laneIndex)
@@ -247,11 +247,11 @@ function enrichCandidate(
   decoded: DecodedPcm,
   parameters: MixJamGeneratorParameters
 ): AnalyzedGeneratorCandidate {
-  const analysis = analyzeDecodedAudio(decoded)
+  const analysis = extractDecodedAudioFeatures(decoded)
   const metrics = energyMetrics(decoded)
   let peak = 0
   for (const sample of decoded.samples) peak = Math.max(peak, Math.abs(sample))
-  const bpm = analysis.bpm ?? candidate.bpm ?? (parameters.bpmMode === 'fixed' ? parameters.bpm : null)
+  const bpm = candidate.bpm ?? parameters.bpm ?? null
   const bars = bpm && bpm > 0 ? analysis.durationSeconds * bpm / 240 : 0
   const nearestWholeBar = Math.max(1, Math.round(bars))
   const durationConfidence = bars > 0 ? clamp(1 - Math.abs(bars - nearestWholeBar) / 0.125) : 0
@@ -286,7 +286,7 @@ export async function analyzeGeneratorCandidates(
   emit({ phase: 'analyzing', completed: 0, total: shortlist.length })
 
   const profile = GENERATOR_PROFILES[parameters.profileId]
-  const bpm = parameters.bpmMode === 'fixed' ? parameters.bpm! : detectedGeneratorBpm(candidates)
+  const bpm = parameters.bpm!
   const analyzed: AnalyzedGeneratorCandidate[] = []
   const missingLanes = new Set(shortlist.flatMap((entry) => entry.eligibleLaneIndexes))
   const missingCategories = new Set(shortlist.map((entry) => entry.candidate.categoryName))

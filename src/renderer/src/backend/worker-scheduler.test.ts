@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type {
   AnalysisProgress,
-  CalibrationProgress,
   LibraryJobIdentity,
   LibrarySyncStartResult,
   ScanProgress
@@ -22,16 +21,9 @@ interface PendingSingleAnalysis {
   reject: (error: unknown) => void
 }
 
-interface PendingCalibration {
-  emit: (progress: Omit<CalibrationProgress, 'identity'>) => void
-  resolve: () => void
-  reject: (error: unknown) => void
-}
-
 const mocks = vi.hoisted(() => ({
   pendingScans: [] as PendingScan[],
   pendingSingleAnalyses: [] as PendingSingleAnalysis[],
-  pendingCalibrations: [] as PendingCalibration[],
   pendingGeneratorFingerprints: [] as Array<() => void>,
   runScan: vi.fn(),
   runPendingAnalysis: vi.fn<(
@@ -42,13 +34,10 @@ const mocks = vi.hoisted(() => ({
     isCurrent: () => boolean
   ) => Promise<void>>(async () => undefined),
   runSingleAnalysis: vi.fn(),
-  runUniformFolderCalibration: vi.fn(),
   loadFolderHandle: vi.fn<(key: string) => Promise<FileSystemDirectoryHandle | null>>(async () => ({} as FileSystemDirectoryHandle)),
   resolveFileHandle: vi.fn<(root: FileSystemDirectoryHandle, relpath: string) => Promise<FileSystemFileHandle | null>>(async () => ({
     getFile: async () => new File([new Uint8Array([1])], 'sample.wav')
   } as FileSystemFileHandle)),
-  scanRootId: vi.fn(() => 1 as number | undefined),
-  listCalibrationCandidates: vi.fn(() => [] as Array<{ id: number; relpath: string }>),
   getStoredGeneratorReadiness: vi.fn(() => ({ status: 'ready' as const })),
   analyzeGeneratorCandidates: vi.fn<(
     root: FileSystemDirectoryHandle,
@@ -78,13 +67,11 @@ vi.mock('./schema', () => ({
 
 vi.mock('./indexed-sample-persistence', () => ({
   ensureUnsortedCategory: vi.fn(),
-  getLibraryRootState: vi.fn(),
-  scanRootId: mocks.scanRootId
+  getLibraryRootState: vi.fn()
 }))
 
 vi.mock('./analysis-persistence', () => ({
-  updateSampleAnalysis: vi.fn(),
-  listCalibrationCandidates: mocks.listCalibrationCandidates
+  updateSampleAnalysis: vi.fn()
 }))
 
 vi.mock('./browser-library-persistence', () => ({
@@ -119,14 +106,17 @@ vi.mock('./indexer', () => ({
 
 vi.mock('./analysis-runner', () => ({
   runPendingAnalysis: mocks.runPendingAnalysis,
-  runSingleAnalysis: mocks.runSingleAnalysis,
-  runUniformFolderCalibration: mocks.runUniformFolderCalibration
+  runSingleAnalysis: mocks.runSingleAnalysis
 }))
 
 vi.mock('./generator-library', () => ({
-  detectedGeneratorBpm: vi.fn(() => null),
   getStoredGeneratorReadiness: mocks.getStoredGeneratorReadiness,
   loadGeneratorSnapshot: vi.fn(() => ({ candidates: [] })),
+  selectGeneratorAnalysisGroup: vi.fn((snapshot, parameters) => ({
+    candidates: snapshot.candidates,
+    parameters,
+    detectedBpm: 120
+  })),
   fingerprintGeneratorSnapshot: vi.fn(() => new Promise<string>((resolve) => {
     mocks.pendingGeneratorFingerprints.push(() => resolve('fingerprint'))
   }))
@@ -186,16 +176,6 @@ beforeAll(async () => {
       emit: (progress: Omit<AnalysisProgress, 'identity'>) => void
     ): Promise<void> => new Promise((resolve, reject) => {
       mocks.pendingSingleAnalyses.push({ sampleId, emit, resolve, reject })
-    })
-  )
-  mocks.runUniformFolderCalibration.mockImplementation(
-    (
-      _db: unknown,
-      _rootId: number,
-      _files: ReadonlyMap<string, File>,
-      emit: (progress: Omit<CalibrationProgress, 'identity'>) => void
-    ): Promise<void> => new Promise((resolve, reject) => {
-      mocks.pendingCalibrations.push({ emit, resolve, reject })
     })
   )
   vi.stubGlobal('self', workerContext)
@@ -262,13 +242,6 @@ async function waitForPendingSingle(
       .toBeGreaterThanOrEqual(occurrence)
   })
   return mocks.pendingSingleAnalyses.filter((job) => job.sampleId === sampleId)[occurrence - 1]
-}
-
-async function waitForPendingCalibration(occurrence = 1): Promise<PendingCalibration> {
-  await vi.waitFor(() => {
-    expect(mocks.pendingCalibrations.length).toBeGreaterThanOrEqual(occurrence)
-  })
-  return mocks.pendingCalibrations[occurrence - 1]
 }
 
 async function waitForPending(rootKey: string, occurrence = 1): Promise<PendingScan> {
@@ -362,68 +335,6 @@ describe('worker library scheduler', () => {
     consoleError.mockRestore()
   })
 
-  it('covers calibration admission, progress, coalescing, and cancellation identity', async () => {
-    const firstResponse = await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['root-calibration-coverage'])
-    )
-    if (!firstResponse.ok) throw new Error(firstResponse.error)
-    const identity = firstResponse.result as { jobId: string }
-    const pending = await waitForPendingCalibration()
-    const duplicate = await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['root-calibration-coverage'])
-    )
-    expect(duplicate).toMatchObject({ ok: true, result: { jobId: identity.jobId } })
-    expect(await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['root-calibration-other'])
-    )).toMatchObject({ ok: false, error: 'Wait for the current folder calibration to finish' })
-
-    pending.emit({ status: 'calibrating', analyzed: 1, total: 3 })
-    await waitForResponse(sendCall('cancelUniformFolderCalibration', ['stale-calibration']))
-    await waitForResponse(sendCall('cancelUniformFolderCalibration', [identity.jobId]))
-    pending.resolve()
-    expect(messages).toContainEqual({
-      type: 'calibration-progress',
-      progress: expect.objectContaining({ status: 'cancelled', analyzed: 1, total: 3 })
-    })
-  })
-
-  it('completes calibration and reports a non-Error runner failure', async () => {
-    const completeResponse = await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['cal-complete'])
-    )
-    if (!completeResponse.ok) throw new Error(completeResponse.error)
-    ;(await waitForPendingCalibration(2)).resolve()
-    await vi.waitFor(() => expect(messages).toContainEqual({
-      type: 'calibration-done',
-      done: { identity: completeResponse.result }
-    }))
-
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await waitForResponse(sendCall('startUniformFolderCalibration', ['cal-string-failure']))
-    ;(await waitForPendingCalibration(3)).reject('calibration failed')
-    await vi.waitFor(() => expect(messages).toContainEqual({
-      type: 'calibration-progress',
-      progress: expect.objectContaining({ status: 'error', error: 'calibration failed' })
-    }))
-    consoleError.mockRestore()
-  })
-
-  it('promotes a queued sync over calibration and deduplicates that queue', async () => {
-    const calibration = await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['cal-queue-owner'])
-    )
-    if (!calibration.ok) throw new Error(calibration.error)
-    const pendingCalibration = await waitForPendingCalibration(4)
-    const first = await callStart('root-cal-queued', 'mutation')
-    const duplicate = await callStart('root-cal-queued', 'mutation')
-    expect(duplicate).toEqual(first)
-    const promoted = await callStart('root-cal-queued', 'automatic')
-    expect(promoted).toMatchObject({ disposition: 'started', identity: first.identity })
-    pendingCalibration.emit({ status: 'calibrating', analyzed: 9, total: 9 })
-    pendingCalibration.resolve()
-    await complete(await waitForPending('root-cal-queued'))
-  })
-
   it('starts a standalone mutation and can remove a queued mutation by identity', async () => {
     const standalone = await callStart('root-standalone-mutation', 'mutation')
     expect(standalone.disposition).toBe('started')
@@ -442,42 +353,6 @@ describe('worker library scheduler', () => {
       disposition: 'coalesced'
     })
     await complete(await waitForPending('root-manual-coalesce'))
-  })
-
-  it('surfaces calibration setup and file-read failures', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    mocks.loadFolderHandle.mockResolvedValueOnce(null)
-    await waitForResponse(sendCall('startUniformFolderCalibration', ['cal-no-root']))
-    await vi.waitFor(() => expect(messages).toContainEqual({
-      type: 'calibration-progress',
-      progress: expect.objectContaining({ status: 'error', error: expect.stringContaining('No stored') })
-    }))
-
-    mocks.scanRootId.mockReturnValueOnce(undefined)
-    await waitForResponse(sendCall('startUniformFolderCalibration', ['cal-no-index']))
-    await vi.waitFor(() => expect(messages).toContainEqual({
-      type: 'calibration-progress',
-      progress: expect.objectContaining({ status: 'error', error: 'Library sync must complete before calibration' })
-    }))
-
-    mocks.listCalibrationCandidates.mockReturnValueOnce([{ id: 1, relpath: 'missing.wav' }])
-    mocks.resolveFileHandle.mockResolvedValueOnce(null)
-    await waitForResponse(sendCall('startUniformFolderCalibration', ['cal-unreadable']))
-    await vi.waitFor(() => expect(messages).toContainEqual({
-      type: 'calibration-progress',
-      progress: expect.objectContaining({ status: 'error', error: expect.stringContaining('readable file') })
-    }))
-
-    mocks.listCalibrationCandidates.mockReturnValueOnce([{ id: 2, relpath: 'broken.wav' }])
-    mocks.resolveFileHandle.mockResolvedValueOnce({
-      getFile: async () => { throw 'read failed' }
-    } as unknown as FileSystemFileHandle)
-    await waitForResponse(sendCall('startUniformFolderCalibration', ['cal-read-error']))
-    await vi.waitFor(() => expect(messages).toContainEqual({
-      type: 'calibration-progress',
-      progress: expect.objectContaining({ status: 'error', error: expect.stringContaining('read failed') })
-    }))
-    consoleError.mockRestore()
   })
 
   it('surfaces missing roots and files during individual analysis', async () => {
@@ -532,9 +407,6 @@ describe('worker library scheduler', () => {
     const parameters = { profileId: 'techno', bpmMode: 'fixed', bpm: 120, intensity: 'medium', durationSeconds: 60, seed: 'coverage' }
     const activeSeq = sendCall('planMixJam', ['root-generator-blocking', 'generator-blocking', parameters])
     await vi.waitFor(() => expect(mocks.pendingGeneratorFingerprints.length).toBeGreaterThan(0))
-    expect(await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['root-generator-blocking'])
-    )).toMatchObject({ ok: false, error: 'Wait for MixJam generation to finish.' })
     expect(await waitForResponse(
       sendCall('reanalyzeSample', ['root-generator-blocking', 900, 'sample.wav'])
     )).toMatchObject({ ok: false, error: 'Wait for MixJam generation to finish.' })
@@ -885,17 +757,10 @@ describe('worker library scheduler', () => {
     await complete(pendingSync)
   })
 
-  it('serializes single analysis with sync and calibration in both start orders', async () => {
+  it('serializes single analysis with sync', async () => {
     const singleSeq = sendCall('reanalyzeSample', ['root-serialized', 303, 'active.wav'])
     const pendingSingle = await waitForPendingSingle(303)
 
-    const blockedCalibration = await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['root-serialized'])
-    )
-    expect(blockedCalibration).toMatchObject({
-      ok: false,
-      error: 'Wait for the current sample analysis to finish'
-    })
     const blockedSync = await waitForResponse(
       sendCall('startLibrarySync', ['root-serialized', 'manual'])
     )
@@ -915,30 +780,5 @@ describe('worker library scheduler', () => {
     pendingSingle.resolve()
     await waitForResponse(singleSeq)
     await complete(await waitForPending('root-serialized'))
-
-    const calibrationResponse = await waitForResponse(
-      sendCall('startUniformFolderCalibration', ['root-calibration-first'])
-    )
-    if (!calibrationResponse.ok) throw new Error(calibrationResponse.error)
-    const calibration = calibrationResponse.result as { jobId: string }
-    const pendingCalibration = await waitForPendingCalibration()
-
-    const blockedSingle = await waitForResponse(
-      sendCall('reanalyzeSample', ['root-calibration-first', 304, 'blocked.wav'])
-    )
-    expect(blockedSingle).toMatchObject({
-      ok: false,
-      error: 'Wait for the current sync or analysis to finish'
-    })
-
-    await waitForResponse(
-      sendCall('cancelUniformFolderCalibration', [calibration.jobId])
-    )
-    pendingCalibration.resolve()
-
-    const retrySeq = sendCall('reanalyzeSample', ['root-calibration-first', 304, 'retry.wav'])
-    const retry = await waitForPendingSingle(304)
-    retry.resolve()
-    expect(await waitForResponse(retrySeq)).toMatchObject({ ok: true })
   })
 })

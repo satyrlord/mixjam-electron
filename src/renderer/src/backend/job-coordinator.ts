@@ -1,7 +1,5 @@
 import type {
   AnalysisProgress,
-  CalibrationJobIdentity,
-  CalibrationProgress,
   LibraryJobIdentity,
   LibrarySyncStartResult,
   LibrarySyncTrigger,
@@ -15,21 +13,18 @@ import { SAFE_GENERATOR_TOKEN } from '../../../shared/backend-api'
 import { analyzeGeneratorCandidates } from './generator-analysis'
 import { createMixJamGeneratorPlan } from './generator-engine'
 import {
-  detectedGeneratorBpm,
   fingerprintGeneratorSnapshot,
   getStoredGeneratorReadiness,
-  loadGeneratorSnapshot
+  loadGeneratorSnapshot,
+  selectGeneratorAnalysisGroup
 } from './generator-library'
 import { validateMixJamGeneratorParameters } from './generator-parameters'
-import * as analysisPersistence from './analysis-persistence'
 import {
   runPendingAnalysis,
-  runSingleAnalysis,
-  runUniformFolderCalibration
+  runSingleAnalysis
 } from './analysis-runner'
 import { resolveFileHandle } from './folder-access'
 import { loadFolderHandle } from './handle-store'
-import * as indexedSamples from './indexed-sample-persistence'
 import { runScan } from './indexer'
 import type { WorkerMessage } from './protocol'
 import type { DB } from './sql'
@@ -52,12 +47,6 @@ export function createBackendJobCoordinator(
     analyzed: 0,
     total: 0
   }
-  const CALIBRATION_IDLE: CalibrationProgress = {
-    identity: null,
-    status: 'idle',
-    analyzed: 0,
-    total: 0
-  }
   const GENERATOR_IDLE: MixJamGeneratorProgress = {
     identity: null,
     status: 'idle',
@@ -68,21 +57,14 @@ export function createBackendJobCoordinator(
   
   let progress: ScanProgress = { ...IDLE }
   let analysisProgress: AnalysisProgress = { ...ANALYSIS_IDLE }
-  let calibrationProgress: CalibrationProgress = { ...CALIBRATION_IDLE }
   let generatorProgress: MixJamGeneratorProgress = { ...GENERATOR_IDLE }
   let syncGeneration = 0
-  let calibrationGeneration = 0
   let generatorGeneration = 0
   let jobSequence = 0
   let selectedRootKey: string | null = null
   
   interface ActiveSyncJob {
     identity: LibraryJobIdentity
-    generation: number
-  }
-  
-  interface ActiveCalibrationJob {
-    identity: CalibrationJobIdentity
     generation: number
   }
   
@@ -96,7 +78,6 @@ export function createBackendJobCoordinator(
   }
   
   let activeSync: ActiveSyncJob | null = null
-  let activeCalibration: ActiveCalibrationJob | null = null
   let activeSingleAnalysis: ActiveSampleAnalysisJob | null = null
   let activeGenerator: ActiveGeneratorJob | null = null
   const completedAutomaticJobs = new Map<string, LibraryJobIdentity>()
@@ -118,7 +99,7 @@ export function createBackendJobCoordinator(
     emitEvent({ type: 'generator-progress', progress: generatorProgress })
   }
   
-  function nextJobId(prefix: 'sync' | 'calibration' | 'analysis'): string {
+  function nextJobId(prefix: 'sync' | 'analysis'): string {
     jobSequence++
     return `${prefix}-${Date.now().toString(36)}-${jobSequence.toString(36)}`
   }
@@ -130,29 +111,11 @@ export function createBackendJobCoordinator(
     return { rootKey, jobId: nextJobId('sync'), trigger }
   }
   
-  function createCalibrationIdentity(rootKey: string): CalibrationJobIdentity {
-    return { rootKey, jobId: nextJobId('calibration') }
-  }
-  
   function createSampleAnalysisIdentity(
     rootKey: string,
     sampleId: number
   ): SampleAnalysisJobIdentity {
     return { rootKey, sampleId, jobId: nextJobId('analysis') }
-  }
-  
-  function cancelActiveCalibrationForSync(): void {
-    if (!activeCalibration) return
-    const { identity } = activeCalibration
-    calibrationGeneration++
-    activeCalibration = null
-    calibrationProgress = {
-      identity,
-      status: 'cancelled',
-      analyzed: calibrationProgress.analyzed,
-      total: calibrationProgress.total
-    }
-    emitEvent({ type: 'calibration-progress', progress: calibrationProgress })
   }
   
   function cancelActiveSyncForReplacement(): void {
@@ -182,7 +145,7 @@ export function createBackendJobCoordinator(
   }
   
   function startNextQueuedSync(db: DB): void {
-    if (activeSync || activeCalibration || activeSingleAnalysis || queuedSyncs.size === 0) return
+    if (activeSync || activeSingleAnalysis || queuedSyncs.size === 0) return
     const preferred = selectedRootKey ? queuedSyncs.get(selectedRootKey) : undefined
     const identity = preferred ?? queuedSyncs.values().next().value as LibraryJobIdentity | undefined
     if (!identity) return
@@ -328,7 +291,6 @@ export function createBackendJobCoordinator(
       if (trigger === 'automatic') automaticAttemptJobIds.add(queuedForRoot.jobId)
       selectedRootKey = rootKey
       if (activeSync) cancelActiveSyncForReplacement()
-      if (activeCalibration) cancelActiveCalibrationForSync()
       beginLibrarySync(db, queuedForRoot)
       return { identity: queuedForRoot, disposition: 'started' }
     }
@@ -355,14 +317,6 @@ export function createBackendJobCoordinator(
       cancelActiveSyncForReplacement()
     } else if (trigger !== 'mutation') {
       selectedRootKey = rootKey
-    }
-  
-    if (activeCalibration) {
-      if (trigger === 'mutation' && activeCalibration.identity.rootKey !== rootKey) {
-        queuedSyncs.set(rootKey, identity)
-        return { identity, disposition: 'queued' }
-      }
-      cancelActiveCalibrationForSync()
     }
   
     beginLibrarySync(db, identity)
@@ -396,109 +350,13 @@ export function createBackendJobCoordinator(
     }
   }
   
-  function startUniformFolderCalibration(db: DB, rootKey: string): CalibrationJobIdentity {
-    if (activeSync) throw new Error('Wait for the current library sync to finish')
-    if (activeSingleAnalysis) throw new Error('Wait for the current sample analysis to finish')
-    if (activeCalibration) {
-      if (activeCalibration.identity.rootKey === rootKey) return activeCalibration.identity
-      throw new Error('Wait for the current folder calibration to finish')
-    }
-  
-    const identity = createCalibrationIdentity(rootKey)
-    const generation = ++calibrationGeneration
-    activeCalibration = { identity, generation }
-    const isCurrent = (): boolean =>
-      activeCalibration?.identity.jobId === identity.jobId &&
-      activeCalibration.generation === generation &&
-      calibrationGeneration === generation
-  
-    calibrationProgress = {
-      identity,
-      status: 'calibrating',
-      analyzed: 0,
-      total: 0
-    }
-    emitEvent({ type: 'calibration-progress', progress: calibrationProgress })
-  
-    void (async () => {
-      try {
-        const root = await loadFolderHandle(rootKey)
-        if (!root) throw new Error(`No stored folder handle for root ${rootKey}`)
-        const rootId = indexedSamples.scanRootId(db, rootKey)
-        if (rootId === undefined) throw new Error('Library sync must complete before calibration')
-  
-        const files = new Map<string, File>()
-        for (const candidate of analysisPersistence.listCalibrationCandidates(db, rootId)) {
-          if (!isCurrent()) return
-          const handle = await resolveFileHandle(root, candidate.relpath)
-          if (!handle) {
-            throw new Error(`Calibration requires a readable file: ${candidate.relpath}`)
-          }
-          try {
-            files.set(candidate.relpath, await handle.getFile())
-          } catch (cause) {
-            const detail = cause instanceof Error ? cause.message : String(cause)
-            throw new Error(`Calibration could not read ${candidate.relpath}: ${detail}`, { cause })
-          }
-        }
-  
-        await runUniformFolderCalibration(
-          db,
-          rootId,
-          files,
-          (next) => {
-            if (!isCurrent()) return
-            calibrationProgress = { ...next, identity }
-            emitEvent({ type: 'calibration-progress', progress: calibrationProgress })
-          },
-          isCurrent
-        )
-        if (!isCurrent()) return
-        calibrationProgress = { ...CALIBRATION_IDLE }
-        emitEvent({ type: 'calibration-done', done: { identity } })
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        console.error('Calibration error:', message, error)
-        if (!isCurrent()) return
-        calibrationProgress = {
-          identity,
-          status: 'error',
-          analyzed: calibrationProgress.analyzed,
-          total: calibrationProgress.total,
-          error: message
-        }
-        emitEvent({ type: 'calibration-progress', progress: calibrationProgress })
-      }
-  
-      if (activeCalibration?.identity.jobId === identity.jobId) activeCalibration = null
-      startNextQueuedSync(db)
-    })()
-  
-    return identity
-  }
-  
-  function cancelUniformFolderCalibration(db: DB, jobId: string): void {
-    if (activeCalibration?.identity.jobId !== jobId) return
-    const { identity } = activeCalibration
-    calibrationGeneration++
-    activeCalibration = null
-    calibrationProgress = {
-      identity,
-      status: 'cancelled',
-      analyzed: calibrationProgress.analyzed,
-      total: calibrationProgress.total
-    }
-    emitEvent({ type: 'calibration-progress', progress: calibrationProgress })
-    startNextQueuedSync(db)
-  }
-  
   async function reanalyzeSample(
     db: DB,
     rootKey: string,
     sampleId: number,
     relpath: string
   ): Promise<SampleAnalysisDone> {
-    if (activeSync || activeCalibration || activeSingleAnalysis) {
+    if (activeSync || activeSingleAnalysis) {
       throw new Error('Wait for the current sync or analysis to finish')
     }
     const identity = createSampleAnalysisIdentity(rootKey, sampleId)
@@ -551,7 +409,7 @@ export function createBackendJobCoordinator(
 
   return {
     getGeneratorReadiness(rootKey: string) {
-      if (activeSync?.identity.rootKey === rootKey || activeSingleAnalysis?.identity.rootKey === rootKey || activeCalibration?.identity.rootKey === rootKey || activeGenerator?.identity.rootKey === rootKey) {
+      if (activeSync?.identity.rootKey === rootKey || activeSingleAnalysis?.identity.rootKey === rootKey || activeGenerator?.identity.rootKey === rootKey) {
         return { status: 'preparing' as const, message: 'Library preparation is still running.' }
       }
       return getStoredGeneratorReadiness(db, rootKey)
@@ -559,7 +417,7 @@ export function createBackendJobCoordinator(
     async planMixJam(rootKey: string, jobId: string, parameters: MixJamGeneratorParameters, expectedFingerprint?: string) {
       if (!SAFE_GENERATOR_TOKEN.test(jobId)) throw new Error('The generator job ID is invalid.')
       validateMixJamGeneratorParameters(parameters)
-      if (activeSync || activeSingleAnalysis || activeCalibration || activeGenerator) {
+      if (activeSync || activeSingleAnalysis || activeGenerator) {
         throw new Error('Wait for library preparation to finish before generating.')
       }
       const generation = ++generatorGeneration
@@ -570,13 +428,13 @@ export function createBackendJobCoordinator(
         generatorProgress = { identity, status: 'running', phase: 'shortlisting', completed: 0, total: 0 }
         emitEvent({ type: 'generator-progress', progress: generatorProgress })
         const snapshot = loadGeneratorSnapshot(db, rootKey)
-        const detectedBpm = detectedGeneratorBpm(snapshot.candidates)
         const fingerprint = await fingerprintGeneratorSnapshot(snapshot)
         if (expectedFingerprint !== undefined && fingerprint !== expectedFingerprint) throw new Error('The Sample Folder has changed since this project was generated.')
+        const selection = selectGeneratorAnalysisGroup(snapshot, parameters)
         const rootHandle = await loadFolderHandle(rootKey)
         if (!rootHandle) throw new Error('The Sample Folder is no longer available.')
         let attemptedFiles = 0
-        const analyzed = await analyzeGeneratorCandidates(rootHandle, snapshot.candidates, parameters, (next) => {
+        const analyzed = await analyzeGeneratorCandidates(rootHandle, selection.candidates, selection.parameters, (next) => {
           if (!isCurrent()) return
           attemptedFiles = next.phase === 'analyzing' ? Math.max(attemptedFiles, next.completed) : attemptedFiles
           generatorProgress = { identity, status: 'running', ...next }
@@ -585,7 +443,7 @@ export function createBackendJobCoordinator(
         if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
         generatorProgress = { identity, status: 'running', phase: 'arranging', completed: analyzed.length, total: analyzed.length }
         emitEvent({ type: 'generator-progress', progress: generatorProgress })
-        const plan = createMixJamGeneratorPlan(rootKey, fingerprint, analyzed, parameters, { attemptedFiles, analyzedFiles: analyzed.length, uniqueReads: attemptedFiles }, detectedBpm)
+        const plan = createMixJamGeneratorPlan(rootKey, fingerprint, analyzed, selection.parameters, { attemptedFiles, analyzedFiles: analyzed.length, uniqueReads: attemptedFiles }, selection.detectedBpm)
         if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
         activeGenerator = null
         generatorProgress = { ...GENERATOR_IDLE }
@@ -606,12 +464,6 @@ export function createBackendJobCoordinator(
     cancelLibrarySync: (jobId: string): void => cancelLibrarySync(db, jobId),
     getScanProgress: () => ({ ...progress }),
     getAnalysisProgress: () => ({ ...analysisProgress }),
-    startUniformFolderCalibration(rootKey: string): CalibrationJobIdentity {
-      if (activeGenerator) throw new Error('Wait for MixJam generation to finish.')
-      return startUniformFolderCalibration(db, rootKey)
-    },
-    cancelUniformFolderCalibration: (jobId: string): void => cancelUniformFolderCalibration(db, jobId),
-    getCalibrationProgress: () => ({ ...calibrationProgress }),
     reanalyzeSample(rootKey: string, sampleId: number, relpath: string): Promise<SampleAnalysisDone> {
       if (activeGenerator) throw new Error('Wait for MixJam generation to finish.')
       return reanalyzeSample(db, rootKey, sampleId, relpath)
