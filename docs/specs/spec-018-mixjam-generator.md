@@ -9,10 +9,11 @@ version-3 generator metadata extension)
 ## Objective
 
 Add a one-click **MixJam Generator** wizard in the Home view. It turns an
-analyzed Sample Folder into a ready-to-play `.mixjam` project. The first slice
-ships three polished, data-driven profiles: **techno**, **trance**, and
-**house**. The engine is profile-driven so later profiles do not require changes
-to selection or arrangement code.
+analyzed Sample Folder into a ready-to-play `.mixjam` project. Repository-owned
+profiles are bundled as auto-discovered JSON templates. **Techno**, **trance**,
+and **house** remain the shipped baselines, but adding another valid template
+must require only one new JSON file, with no TypeScript, engine, worker, or UI
+registration change.
 
 The feature is aimed at first-time producers and users of vintage software
 such as eJay or Sony Acid. It is a style-guided arrangement tool;
@@ -93,7 +94,7 @@ confirmation. Any planning or selection error occurs before a file commit.
 | Parameter | Type | Default | Contract |
 | --- | --- | --- | --- |
 | `tempoClusterPrefix` | analyzer context key | the only coherent group; unset for a mixed root | required when the root exposes more than one generator-eligible group |
-| `profile` | enum | `techno` | `techno`, `trance`, `house` |
+| `profileId` | registered template ID | the template marked `default`; `techno` in the shipped set | any ID in the validated bundled-template registry |
 | `bpm` | integer or `follow detected` | selected-cluster BPM | clamped to 60–180; mode and resolved value are both saved |
 | `intensity` | enum | `medium` | `low`, `medium`, `high` |
 | `durationSeconds` | integer | `180` | 30–600 seconds, one-second step |
@@ -124,30 +125,81 @@ The result is at least one bar. The generated project ends exactly at
 3,360 ticks, and exactly 180 seconds. At other values the wizard reports the
 quantized duration produced by the nearest whole-bar result.
 
-### Profiles
+### Bundled template discovery and schema
 
-Profiles are pure JSON/TypeScript data. Each profile declares:
+Product generator profiles are repo-maintained JSON files directly under
+`src/shared/generator-templates/templates/`. The build discovers every
+`*.json` file in that directory eagerly and constructs one immutable validated
+registry. Discovery is build-time bundling, not a runtime filesystem scan. The
+worker and UI consume that registry; neither keeps an enum, switch, import list,
+nor separate registration table of profile IDs.
 
-- a stable profile ID and profile schema version;
-- core acoustic anchors and the compatible role chain for every lane;
-- the exact `coreLanes`, which remain present whenever their section gate is
-  active, while every lane must receive material somewhere in the song;
-- explicit compatible-type chains and reported substitutions;
-- lane names, lane pans, and role assignments for the fixed 16-lane project;
-- a section table with section names, bar proportions, density rules, and
-  transition behavior;
-- a phrase grammar for rhythmic patterns, motif reuse, rests, fills, and
-  profile-specific variation;
-- deterministic mixer gain/pan/mute/solo defaults and ordered FX chains; and
-- BPM tolerance, key preference, duration limits, stereo-pair rules, transient
-  audio-scoring weights, and intensity adjustments.
+The bundled template schema is a closed, versioned contract. The runtime
+validator is authoritative; `src/shared/generator-templates/schema.json`
+mirrors it for editor feedback. Unknown fields, unknown enum values, and
+unsupported schema versions are errors rather than forward-compatible guesses.
+Schema version 1 contains:
+
+| Field | Contract |
+| --- | --- |
+| `$schema` | Optional editor hint pointing at the bundled schema; it does not affect planning. |
+| `schemaVersion` | Integer `1`; versions the JSON document shape independently of musical profile revisions. |
+| `id` | Stable lowercase ID matching `[a-z0-9]+(?:-[a-z0-9]+)*`; it is persisted as `generator.profileId`. |
+| `label` | Non-empty user-facing string of at most 64 characters; it is not used for branching or deterministic selection. |
+| `version` | Positive integer persisted as `generator.profileVersion`; bump it whenever a planning field changes in a way that can change the generated project. |
+| `order` | Optional non-negative integer used for UI order; omitted values sort as `1000`, and ties sort by `label`, then `id`. |
+| `default` | Optional boolean; at most one bundled template may set it to `true`. Techno is the shipped default. The first sorted template is only a defensive fallback when no template is marked. |
+| `bpmTolerance` | Finite BPM distance from 0 through 60 used to rank compatible candidates. |
+| `coreLanes` | Unique lane indexes whose section gates define the continuous acoustic anchors. |
+| `sections` | Ordered records with unique names, positive weights totaling 100, valid lane indexes, and generic phrase modes; collectively they activate all lanes. |
+| `lanes` | Exactly 16 unique names with type chains, span limits, roles, optional patterns or transitions, gain, pan, and up to four supported FX definitions. |
+
+Every referenced lane index must exist. Lane and section names are unique within
+one template. Beat offsets are unique integers from 0 through 31. Percussion
+lanes require a beat pattern and are the only lanes that may declare beat
+patterns or mutations. Transition lanes require `riser` or `impact` and are the
+only lanes that may declare a transition kind. Gains, pans, effect values,
+acoustic types, role kinds, phrase modes, and source-span limits must fit their
+shared supported ranges. Core lanes must be active, and the complete section
+set must activate every lane.
+
+The filename stem must equal `id` exactly, so `techno.json` contains
+`"id": "techno"`. IDs must be unique across all discovered files. A filename
+mismatch, duplicate ID, duplicate lane or section name, multiple defaults,
+malformed JSON, or schema/semantic failure rejects the complete registry; the
+app must not omit only the bad template and continue with a partial set. The
+registry validates before it is exposed to parameter validation or planning. An
+unknown `profileId`, invalid registry, or unsupported `schemaVersion` fails
+before a corpus snapshot, fingerprint query, candidate query, or audio read.
+
+Changing only `$schema`, `label`, `order`, or `default` does not require a
+`version` bump because those fields do not affect a plan. Changing any other
+planning field requires a bump. The ID itself is stable; changing it creates a
+different profile. One active bundled template exists per ID. A stored project
+therefore supports exact regeneration only when the running registry contains
+that same ID at that same `profileVersion`; the app never substitutes a newer
+version silently.
+
+The engine operates only on a validated template and generic acoustic-role,
+section, phrase, transition, Mixer, and FX primitives. It must not compare a
+template ID, label, filename, or genre name. Adding a template may compose the
+schema's existing primitives. Adding a genuinely new musical primitive is a
+schema-and-engine feature, not profile registration.
+
+### Shipped baseline templates
+
+Each template declares core acoustic anchors and the compatible role chain for
+every lane; the exact `coreLanes`; lane labels, pans, beat patterns, role
+assignments, and FX; its section table and generic phrase modes; and BPM
+tolerance. Shared role grammar and intensity transformations remain
+genre-neutral engine primitives and never inspect the template ID.
 
 The section table is normative for each profile. The engine allocates whole bars
 with largest-remainder rounding so the section lengths sum to `targetBars`.
 Techno, trance, and house have distinct section tables and transition rules;
 they are not aliases over one shared arrangement arc.
 
-The first-slice profile contracts are:
+The shipped baseline profile contracts are:
 
 | Profile | Core roles | Fallback/support roles | Section weights (in order) |
 | --- | --- | --- | --- |
@@ -168,14 +220,15 @@ creates a lower-density breakdown, and restores its core roles before the
 outro. The individual role gates and transition FX placements are profile data,
 not engine branches.
 
-The three first-slice profiles explicitly declare no stereo-pair request.
 Transition left and Transition right are independent riser and impact roles,
-not two halves of one stereo file. The profile schema retains an explicit
-`stereoPairRules` list so a later profile must opt into pair discovery rather
-than receiving it from a lane-name heuristic.
+not two halves of one stereo file. Template schema version 1 has no stereo-pair
+primitive because the planner does not implement pair discovery. Adding that
+behavior requires a schema-and-engine feature with a behavioral test; a lane
+name never implies pairing.
 
-All profiles use this fixed lane-role template; unsupported roles use the listed
-acoustic-type fallback in order:
+The shipped baseline templates use this fixed lane-role layout; unsupported
+roles use the listed acoustic-type fallback in order. Future templates still
+declare exactly 16 lanes, but may compose a different validated role layout:
 
 | Lane | Role | Sample type chain | Maximum source span |
 | ---: | --- | --- | ---: |
@@ -289,7 +342,7 @@ The shared role rules are:
 - One sample may not repeat unchanged for more than two complete phrases. Kick
   is the sole intentional repetition anchor and is the only exception.
 
-Profile character is normative:
+The shipped baseline character is normative and comes from the JSON data:
 
 | Profile | Phrase behavior |
 | --- | --- |
@@ -328,10 +381,11 @@ by spec-010 and `engine/effects.ts`.
 | Drum alternate | 0.38 | 0.12 | none |
 | Transition left / right | 0.34 | -0.60 / 0.60 | Long Hall reverb |
 
-Profile overrides are limited to these concrete differences: trance adds Long
+The baseline JSON templates record these concrete differences: trance adds Long
 Hall after Synth A's delay and uses Classic Control on Kick; house uses Slapback
 instead of Ping-Pong Eighths on Synth A and adds Gentle Glue to both Loop lanes.
-Techno uses the common table unchanged.
+Techno uses the common values unchanged. These are template values, not
+profile-ID branches in the engine.
 
 Transient RMS values compensate for level differences between the selected
 files. Each lane targets the median RMS of the selected set while preserving the
@@ -355,7 +409,11 @@ operation returns a bounded, neutral `MixJamGeneratorPlan` DTO. Shared API types
 must not import renderer `ProjectData`, `LaneState`, `ChannelState`, or
 `EffectSlot` types.
 
-The profile and arrangement engine is pure and consumes enriched candidate DTOs.
+The validated-template registry is shared by parameter validation, the worker,
+and the profile picker. The picker renders registry metadata in `order`,
+`label`, `id` order and sends the selected stable ID. The profile and
+arrangement engine is pure and consumes one validated template plus enriched
+candidate DTOs.
 The worker owns bounded file reads and transient arrangement scoring outside
 that pure boundary. Spec-008 remains the only owner of stored BPM, key, and
 sample-type semantics.
@@ -396,8 +454,9 @@ mixed keys fall back according to the tonal rules above. Profile roles use acous
 (`Kick`, `Snare`, `Hi-hat`, `Percussion`, `Bass`, `Synth`, `FX`, `Vocal`,
 `Loop`, `Atmosphere`, `Other`), never the organizational category field.
 
-Selection hashes the safe seed with the profile version and role key, then sorts
-by hash and relative path. Stable relative-path tie-breaking is mandatory.
+Selection hashes the safe seed with the profile ID, profile version, and stable
+lane index, then sorts by hash and relative path. Stable relative-path
+tie-breaking is mandatory.
 Rows with current readable metadata are preferred. The renderer calls the
 existing missing-file check for every selected `sampleRef` immediately before
 save; any now-unreadable selection aborts the transaction. Missing material for
@@ -407,8 +466,8 @@ Generate result. Transition roles prefer a matching analyzed riser or impact; a
 typed FX candidate classified as texture may provide the same boundary event
 when transient scoring does not label it confidently. A known opposite
 transition kind is rejected, and `Other` still requires the matching planner
-kind. Stereo pairs use the existing naming
-convention discovery and remain adjacent when a profile requests them.
+kind. Template schema version 1 selects lane candidates independently and does
+not offer stereo-pair discovery.
 
 ### Arrangement and mixer generation
 
@@ -418,14 +477,15 @@ BPM is captured on each placement; otherwise the selected project BPM is used
 for the initial span. The engine must place samples so the final exclusive end
 equals the quantized song boundary without trimming a source span. Every
 placement carries a required palette slot from 0 through 8. Placement and FX IDs
-are derived from the seed, profile version, role, and ordinal; generator code
-must not use `Date.now()`, `randomUUID()`, or a process-global sequence.
+are derived from the seed, profile ID, profile version, stable lane index, and
+ordinal; generator code must not use `Date.now()`, `randomUUID()`, or a
+process-global sequence.
 
-Each profile's concrete mixer state includes gain, pan, mute/solo defaults, and
-ordered delay, reverb, compressor, or other supported FX slots. Intensity may
-apply only the profile's documented density and FX adjustments. Bounded RMS
-compensation may adjust gain as documented above. Seeded random gain or FX state
-is not allowed.
+Each template's concrete Mixer state includes gain, pan, and ordered delay,
+reverb, compressor, or other supported FX slots. The genre-neutral engine sets
+every generated channel unmuted and unsoloed. Intensity applies only the shared
+documented density and FX transformations. Bounded RMS compensation may adjust
+gain as documented above. Seeded random gain or FX state is not allowed.
 
 ### Planning job lifecycle
 
@@ -460,8 +520,8 @@ and leaves no recent-project row.
 ### Output, naming, and transaction
 
 The renderer serializes the complete project with `serializeProject` and saves it
-inside the User Folder. The filename uses a safe profile slug, BPM, intensity,
-and a short digest of the safe seed:
+inside the User Folder. The filename uses the validated safe profile ID, BPM,
+intensity, and a short digest of the safe seed:
 
 ```text
 <profile>-<bpm>bpm-<intensity>-<seed-digest>-001.mixjam
@@ -507,6 +567,12 @@ Generated projects require the spec-011 version-3 migration and persist:
 }
 ```
 
+The template JSON field `version` is serialized as `profileVersion` in project
+metadata. `schemaVersion` versions the bundled JSON document shape and is not a
+project parameter. Exact regeneration resolves the stored profile ID/version
+pair against the validated registry, whose template has already passed the
+running schema validator.
+
 The fingerprint remains a canonical hash of the complete indexed root snapshot
 before cluster selection and parameter-specific shortlisting. It covers every
 current generator-eligible row plus the canonical root analysis summary and its
@@ -517,8 +583,11 @@ key is stored in generator parameters. Scan completion timestamps are excluded
 because a no-op re-scan must preserve the fingerprint. Transient planner metrics
 and audio-byte hashing are out of scope.
 
-**Regenerate** always creates a new artifact. Exact regeneration uses the stored
-parameters and seed and requires a matching fingerprint, root, and cluster key.
+**Regenerate** always creates a new artifact. Exact regeneration first resolves
+the stored `(profileId, profileVersion)` pair against the validated bundled
+registry. It uses that exact template, stored parameters, and seed and requires
+a matching fingerprint, root, and cluster key. A matching ID at a different
+version is not exact and must never be substituted silently.
 Current-corpus regeneration opens Parameters prefilled from
 metadata. If the stored cluster no longer exists, the user must select a current
 cluster and confirm that semantic change. Current-corpus regeneration may
@@ -526,9 +595,10 @@ produce different selections. Both paths use the same transactional save and
 monotonic naming rules.
 
 The loaded project's Middle Strip menu exposes **Regenerate** only when the
-project has a valid generator block whose generator and profile versions are
-supported by the running app. It offers the exact and current-corpus paths
-explicitly; a regular hand-authored or newer-version project has no regeneration
+project has a valid generator block whose generator version is supported and
+whose exact profile ID/version pair is registered by the running app. It offers
+the exact and current-corpus paths explicitly; a regular hand-authored project,
+an unregistered profile, or an unsupported profile version has no regeneration
 command.
 
 ## Acceptance Criteria
@@ -542,10 +612,11 @@ command.
   dialog and refreshes as library preparation changes state.
 - [x] **AC-002:** The wizard has exactly two steps: Parameters and Generate; no
   preview step is present.
-- [x] **AC-003:** The Parameters step exposes the three profiles,
-  selected-cluster BPM, medium intensity, editable 30–600 second duration, and
-  a validated safe-token seed. A mixed root requires coherent cluster selection
-  and never defaults from a root-wide median.
+- [x] **AC-003:** The Parameters step exposes every validated bundled template
+  in deterministic registry order, selected-cluster BPM, medium intensity,
+  editable 30–600 second duration, and a validated safe-token seed. A mixed
+  root requires coherent cluster selection and never defaults from a root-wide
+  median.
 - [x] **AC-004:** Duration uses nearest whole-bar, half-up rounding and the
   generated project ends exactly at the resulting bar boundary without
   overlapping placements on a lane.
@@ -556,17 +627,19 @@ command.
   planning pass, commits automatically after validation, and reports its actual
   selections, substitutions, sections, quantized duration, and mixer/FX summary
   in the completion or error state.
-- [x] **AC-007:** The three profile definitions contain normative section tables,
-  required/fallback roles, concrete mixer/FX state, and profile versions without
-  engine-specific genre branches.
+- [x] **AC-007:** Every discovered profile JSON contains normative section
+  tables and phrase modes, required/fallback roles, beat patterns, concrete
+  Mixer/FX state, and a profile version without engine-specific genre branches.
+  Techno, trance, and house remain the shipped baseline templates.
 - [x] **AC-008:** Candidate selection uses worker-side validated type, duration,
   readability, BPM, key, root, selected context key, and group confidence;
   organizational categories are not acoustic types.
 - [x] **AC-009:** Missing compatible material for any lane fails clearly;
   secondary role types are reported; no partial project is generated.
-- [ ] **AC-010:** With the same seed, profile version, generator version, and
-  indexed-root fingerprint, repeated planning produces semantically equivalent
-  sample references, placements, spans, lanes, mixer state, and FX state.
+- [ ] **AC-010:** With the same seed, registered profile ID and profile version,
+  generator version, and indexed-root fingerprint, repeated planning produces
+  semantically equivalent sample references, placements, spans, lanes, Mixer
+  state, and FX state.
 - [x] **AC-011:** The project format-3 generator block roundtrips through the
   production parser and preserves all metadata needed for regeneration.
 - [x] **AC-012:** Generated projects contain exactly 16 populated lanes, at most
@@ -580,8 +653,10 @@ command.
 - [x] **AC-014:** A successful save updates the MixJam Browser, remains on the
   completion state without replacing the loaded project, and opens only after an
   explicit Open in Player action.
-- [ ] **AC-015:** Exact regeneration creates a new artifact only when the stored
-  corpus fingerprint and root match and the stored cluster key remains valid.
+- [ ] **AC-015:** Exact regeneration creates a new artifact only when the
+  validated registry contains the stored profile ID at the stored profile
+  version, the corpus fingerprint and root match, and the stored cluster key
+  remains valid. A different registered version is never substituted.
   Current-corpus regeneration requires explicit confirmation and a new cluster
   choice when the old cluster disappeared. One exact-regeneration action
   performs one planning and save attempt.
@@ -622,11 +697,44 @@ command.
 - [ ] **AC-022:** Planner scoring consumes analyzer-owned BPM, key, and sample
   type. Its bounded decoder may derive arrangement metrics and transition hints,
   but it contains no competing BPM, key, or acoustic-type classifier.
+- [x] **AC-023:** Adding one valid `<id>.json` file directly under
+  `src/shared/generator-templates/templates/` adds a selectable and plannable
+  profile in the next build without changing a TypeScript import, ID union,
+  registry table, worker dispatch, engine branch, or UI option list.
+- [x] **AC-024:** Registry construction rejects malformed JSON, unsupported
+  schema versions, unknown fields or enum values, invalid semantics, a filename
+  stem that differs from `id`, duplicate IDs, duplicate lane or section names,
+  and multiple defaults. Failure is atomic and occurs before corpus, query,
+  fingerprint, or audio-file work.
+- [x] **AC-025:** Registry ordering is deterministic by `order`, then `label`,
+  then `id`. Techno is the one shipped `default`; if a future valid set has no
+  default, the first sorted template is selected defensively.
+- [x] **AC-026:** A valid non-baseline fixture ID exercises the same generic
+  parameter, candidate, section, phrase, placement, Mixer, and FX path. Engine,
+  worker, and UI code do not compare template IDs, labels, filenames, or genre
+  names.
+- [x] **AC-027:** Generator metadata roundtrips the registered template ID and
+  profile version. Exact regeneration resolves that pair and refuses a missing
+  ID or version instead of falling back to another registered template.
+- [x] **AC-028:** Techno, trance, and house are JSON schema-version-1 templates
+  whose validated plans preserve their existing profile-version-2 section,
+  phrase, lane, selection, Mixer, FX, and deterministic output contracts.
+- [x] **AC-029:** A registry fixture with at least 250 valid unique templates
+  validates, sorts, and exposes every profile without a fixed-capacity limit or
+  generated TypeScript ID list. Planning resolves only the selected template.
 
 ## Implementation Ownership
 
-- `backend/generator-profiles.ts` owns the three versioned profiles, exact core
-  lanes, phrase rules, transition kinds, Mixer defaults, and FX presets.
+- `src/shared/generator-templates.ts` owns eager build-time discovery, JSON
+  parsing, schema and semantic validation, atomic registry construction,
+  deterministic ordering, default selection, and the registered version map.
+  `src/shared/generator-templates/schema.json` mirrors the runtime contract for
+  editor feedback. `src/shared/generator-templates/templates/*.json` owns all
+  bundled profile labels, versions, lane patterns and roles, section phrase
+  modes, transition kinds, Mixer gain/pan defaults, and FX state. There is no
+  second profile list in backend or UI code.
+- `src/shared/backend-api.ts` exposes profile IDs as validated registry strings,
+  not a closed three-value union.
 - The spec-008 analyzer owns group readiness, raw BPM/key evidence, and the
   stored BPM/key/type projections used by generator queries.
 - `backend/generator-library.ts` owns root/cluster-scoped readiness, bounded
@@ -638,35 +746,43 @@ command.
   reservations, progress, and cancellation. Its tests must prove that planning
   does not recompute BPM, key, or acoustic sample type.
 - `backend/generator-engine.ts` owns pure deterministic section, phrase,
-  placement, Mixer, FX, compatibility, and gain planning.
-  `generator-engine.test.ts` contains focused coverage for all three profiles,
-  all-lane and all-category use, 30-second fallback, long-form placement,
-  transition-kind separation, intensity behavior, legal coverage grids, richer
-  sample rotation, seed behavior, phrase structure, key rejection, exact song
-  end, and gain bounds.
-- `backend/generator-parameters.ts` validates the complete request before worker
-  I/O. `backend/musical-key.ts` owns enharmonic parsing shared by manual analysis
-  validation and generator compatibility.
+  placement, Mixer, FX, compatibility, and gain planning from validated generic
+  template primitives. `generator-engine.test.ts` contains focused coverage for
+  every discovered template and a non-baseline fixture, all-lane and
+  all-category use, 30-second fallback, long-form placement, transition-kind
+  separation, intensity behavior, legal coverage grids, richer sample rotation,
+  seed behavior, phrase structure, key rejection, exact song end, and gain
+  bounds.
+- `backend/generator-parameters.ts` validates the complete request, including a
+  registry lookup for `profileId`, before worker I/O. `backend/musical-key.ts`
+  owns enharmonic parsing shared by manual analysis validation and generator
+  compatibility.
 - `project/generated-project.ts`, `hooks/useMixJamGenerator.ts`, and
   `components/MixJamGeneratorDialog.tsx` adapt and commit the neutral plan,
-  expose cancellation and progress, and keep Open in Player explicit. Their
-  adjacent tests cover these renderer boundaries.
+  expose cancellation and progress, render profile choices from registry
+  metadata, resolve regeneration by exact ID/version, and keep Open in Player
+  explicit. Their adjacent tests cover these renderer boundaries.
+- `project/generator-support.ts` owns the exact generator-version and registered
+  profile-ID/version support check without coupling the project-file parser to
+  the Vite-only bundled registry.
 - `tests/e2e/mixjam-generator.spec.ts` defines the built-browser color,
   generation, open, and playback checks. Its production-bundle run passed.
 - Existing structure evidence under `tmp/verify-generator-structure/` records
   production-parser roundtrips,
   exact 3,360-tick ends, zero missing references, browser screenshots, playback
-  proof, and cross-theme palette sampling. The profile-v2 structural rerun uses
-  all 16 lanes and all 11 current categories in each profile, reaches 9.25- or
-  10-bar source spans, and uses 37–40 distinct files. Human listening sign-off
-  remains pending. It does not prove the contextual-cluster contract; a new
-  verification run must add that evidence.
+  proof, and cross-theme palette sampling. The baseline profile-v2 structural
+  rerun uses all 16 lanes and all 11 current categories in each of techno,
+  trance, and house, reaches 9.25- or 10-bar source spans, and uses 37–40
+  distinct files. Human listening sign-off remains pending. It does not prove
+  the contextual-cluster contract; a new verification run must add that
+  evidence.
 
 ## Validation
 
 Run the focused behavior and persistence checks:
 
 ```sh
+npm test -- src/renderer/src/backend/generator-profiles.test.ts
 npm test -- src/renderer/src/backend/generator-engine.test.ts
 npm test -- src/renderer/src/backend/generator-analysis.test.ts
 npm test -- src/renderer/src/backend/generator-library.test.ts
@@ -696,12 +812,27 @@ parser roundtrip, playback proof, screenshots, and listening notes under a fresh
 `tmp/verify-generator-structure/` directory. Include a mixed-root case in which
 two cluster choices produce internally compatible candidate sets.
 
+Template validation also adds a valid non-baseline fixture and proves that the
+same registry-to-parameter-to-engine path plans it without source registration.
+An at-least-250-template fixture proves the registry has no three-profile or
+other hand-maintained capacity boundary.
+Negative fixtures cover malformed JSON-shaped values, unknown schema fields and
+versions, filename/ID mismatch, duplicate IDs, duplicate lane or section names,
+multiple defaults, invalid lane references, unsupported acoustic types or
+effects, and out-of-range numeric values. A planning-boundary test asserts that
+rejection occurs before any corpus, query, fingerprint, or audio-read dependency
+runs.
+
 ## Non-Goals and Deferred Decisions
 
 - No separate preview step and no real-time preview inside the wizard.
 - No favorite parameter presets in the first slice.
-- No user-authored or downloadable profile system in the first slice; adding a
-  profile file and registration remains the extension seam.
+- No user-authored templates, runtime imports, runtime downloads, network
+  catalog, plugin template source, or watched hot-reload directory. Templates
+  are reviewed repository assets bundled at build time.
+- No executable code, expressions, or scripts inside templates. JSON may only
+  compose the schema's supported declarative primitives. A new primitive still
+  requires a versioned schema and engine change.
 - No user-selected target key in the first slice; key preference is derived.
 - No generator-owned BPM, key, or acoustic-type analysis, waveform cache,
   full-library generator rescan, machine-learning classifier, or network
@@ -717,6 +848,8 @@ two cluster choices produce internally compatible candidate sets.
 - `src/renderer/src/project/project-file.ts` — project serialization and parsing.
 - `src/renderer/src/project/project-state.ts` — canonical project defaults.
 - `src/shared/backend-api.ts` — BackendAPI contract and sample types.
+- `src/shared/generator-templates.ts` — bundled-template validator and registry.
+- `src/shared/generator-templates/schema.json` — editor-facing template schema.
 - [spec-003](spec-003-folder-app-state-management.md) — Home folders and
   User Folder access.
 - [spec-004](spec-004-sample-library.md) — sample querying and indexing.

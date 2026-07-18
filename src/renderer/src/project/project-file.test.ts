@@ -8,10 +8,10 @@ import {
   parseProject,
   projectFingerprint,
   serializeProject,
-  supportsExactGeneratorRegeneration,
   type ProjectData,
   type ProjectGeneratorMetadata
 } from './project-file'
+import { supportsExactGeneratorRegeneration } from './generator-support'
 
 const CREATED_AT = '2026-07-13T10:00:00.000Z'
 const MODIFIED_AT = '2026-07-13T11:00:00.000Z'
@@ -95,6 +95,18 @@ describe('project file format', () => {
       generatorVersion: 2,
       profileVersion: 2
     })).toBe(false)
+    expect(supportsExactGeneratorRegeneration({
+      ...GENERATOR,
+      profileId: 'future-json-profile'
+    })).toBe(false)
+  })
+
+  it('loads safe metadata for an unregistered JSON profile without offering exact regeneration', () => {
+    const futureGenerator = { ...GENERATOR, profileId: 'future-json-profile' }
+    const parsed = parseProject(serialize({ ...makeProject(), generator: futureGenerator }))
+
+    expect(parsed.generator).toEqual(futureGenerator)
+    expect(supportsExactGeneratorRegeneration(parsed.generator!)).toBe(false)
   })
 
   it('round-trips arrangement, Song, Mixer, routing, and FX state', () => {
@@ -178,7 +190,7 @@ describe('project file format', () => {
 
   it.each([
     ['generatorVersion', 0, 'project.generator.generatorVersion'],
-    ['profileId', 'ambient', 'project.generator.profileId'],
+    ['profileId', '../ambient', 'project.generator.profileId'],
     ['profileVersion', 0, 'project.generator.profileVersion'],
     ['seed', 'not safe', 'project.generator.seed'],
     ['seed', 'a'.repeat(65), 'project.generator.seed'],

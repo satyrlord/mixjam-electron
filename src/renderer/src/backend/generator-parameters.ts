@@ -1,21 +1,22 @@
 import {
   MIXJAM_GENERATOR_BPM_MODES,
   MIXJAM_GENERATOR_INTENSITIES,
-  MIXJAM_GENERATOR_PROFILE_IDS,
   isSafeAnalysisGroupKey,
   SAFE_SEED,
   type MixJamGeneratorParameters
 } from '../../../shared/backend-api'
+import { MIXJAM_GENERATOR_PROFILE_IDS } from '../../../shared/generator-templates'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 export function validateMixJamGeneratorParameters(
-  value: unknown
+  value: unknown,
+  profileIds: readonly string[] = MIXJAM_GENERATOR_PROFILE_IDS
 ): asserts value is MixJamGeneratorParameters {
   if (!isRecord(value)) throw new Error('Generator parameters must be an object.')
-  if (!MIXJAM_GENERATOR_PROFILE_IDS.includes(value.profileId as never)) {
+  if (typeof value.profileId !== 'string' || !profileIds.includes(value.profileId)) {
     throw new Error(`Unknown generator profile: ${String(value.profileId)}`)
   }
   if (typeof value.seed !== 'string' || !SAFE_SEED.test(value.seed)) {

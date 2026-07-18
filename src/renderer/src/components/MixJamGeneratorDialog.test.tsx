@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import MixJamGeneratorDialog from './MixJamGeneratorDialog'
 import type { MixJamGeneratorParameters, MixJamGeneratorReadiness } from '../../../shared/backend-api'
-import { MIXJAM_GENERATOR_PROFILE_IDS, MIXJAM_GENERATOR_INTENSITIES } from '../../../shared/backend-api'
+import { MIXJAM_GENERATOR_INTENSITIES } from '../../../shared/backend-api'
+import { MIXJAM_GENERATOR_PROFILE_IDS } from '../../../shared/generator-templates'
 
 const READY: MixJamGeneratorReadiness = {
   status: 'ready',

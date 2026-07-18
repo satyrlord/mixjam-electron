@@ -1,0 +1,38 @@
+{
+  "$schema": "../schema.json",
+  "schemaVersion": 1,
+  "id": "techno",
+  "label": "Techno",
+  "version": 2,
+  "order": 10,
+  "default": true,
+  "bpmTolerance": 8,
+  "coreLanes": [0, 4, 6],
+  "sections": [
+    { "name": "Intro", "weight": 8, "activeLanes": [2, 3, 5, 9, 10], "phraseMode": "sparse" },
+    { "name": "Groove", "weight": 22, "activeLanes": [0, 1, 2, 3, 4, 5, 11], "phraseMode": "steady" },
+    { "name": "Build", "weight": 15, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 10, 11, 12, 14, 15], "phraseMode": "build" },
+    { "name": "Breakdown", "weight": 10, "activeLanes": [6, 7, 8, 9, 10, 13, 14, 15], "phraseMode": "breakdown" },
+    { "name": "Drive", "weight": 23, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "return" },
+    { "name": "Peak", "weight": 14, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "peak" },
+    { "name": "Outro", "weight": 8, "activeLanes": [0, 2, 3, 5, 9, 10, 12, 14, 15], "phraseMode": "outro" }
+  ],
+  "lanes": [
+    { "name": "Kick", "types": ["Kick"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [0, 8, 16, 24], "beatMutation": [0, 8, 16, 22, 28], "intentionalAnchor": true, "gain": 0.78, "pan": 0, "effects": [{ "type": "compressor", "presetName": "Gentle Glue", "values": { "threshold": -18, "ratio": 2, "attackMs": 30, "releaseMs": 250, "makeupGain": 1.5 } }] },
+    { "name": "Snare / Clap", "types": ["Snare", "Percussion"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [8, 24], "beatMutation": [8, 24, 28], "gain": 0.5, "pan": 0, "effects": [{ "type": "reverb", "presetName": "Tight Room", "values": { "roomSize": 0.25, "decay": 0.2, "mix": 0.18 } }] },
+    { "name": "Hi-hat", "types": ["Hi-hat", "Percussion"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [4, 12, 20, 28], "beatMutation": [2, 6, 10, 14, 18, 22, 26, 30], "gain": 0.46, "pan": 0.12, "effects": [] },
+    { "name": "Percussion", "types": ["Percussion", "Other"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [6, 14, 22, 30], "beatMutation": [3, 11, 19, 27], "gain": 0.42, "pan": -0.12, "effects": [] },
+    { "name": "Bass", "types": ["Bass"], "maxBars": 8, "role": "motif", "gain": 0.58, "pan": 0, "effects": [{ "type": "compressor", "presetName": "Leveler", "values": { "threshold": -30, "ratio": 3, "attackMs": 60, "releaseMs": 600, "makeupGain": 3 } }] },
+    { "name": "Loop", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.46, "pan": 0, "effects": [] },
+    { "name": "Synth A", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.46, "pan": -0.18, "effects": [{ "type": "delay", "presetName": "Ping-Pong Eighths", "values": { "timeMs": 375, "feedback": 0.42, "mix": 0.35, "pingPong": true, "tempoSync": true, "noteDivision": "1/8" } }] },
+    { "name": "Synth B", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.42, "pan": 0.18, "effects": [{ "type": "reverb", "presetName": "Studio Room", "values": { "roomSize": 0.55, "decay": 0.45, "mix": 0.25 } }] },
+    { "name": "Vocal", "types": ["Vocal", "Atmosphere"], "maxBars": 8, "role": "vocal", "gain": 0.38, "pan": 0, "effects": [{ "type": "delay", "presetName": "Classic Echo", "values": { "timeMs": 375, "feedback": 0.35, "mix": 0.3, "pingPong": false, "tempoSync": false, "noteDivision": "1/8" } }, { "type": "reverb", "presetName": "Studio Room", "values": { "roomSize": 0.55, "decay": 0.45, "mix": 0.25 } }] },
+    { "name": "Atmosphere", "types": ["Atmosphere", "Other"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.34, "pan": 0, "effects": [{ "type": "reverb", "presetName": "Long Hall", "values": { "roomSize": 0.85, "decay": 0.75, "mix": 0.35 } }] },
+    { "name": "FX", "types": ["FX", "Other"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.4, "pan": 0, "effects": [{ "type": "reverb", "presetName": "Studio Room", "values": { "roomSize": 0.55, "decay": 0.45, "mix": 0.25 } }] },
+    { "name": "Drum alternate", "types": ["Percussion", "Hi-hat", "Snare"], "maxBars": 4, "role": "motif", "preferLong": true, "gain": 0.38, "pan": 0.12, "effects": [] },
+    { "name": "Loop alternate", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.4, "pan": 0, "effects": [] },
+    { "name": "Synth alternate", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.38, "pan": 0, "effects": [] },
+    { "name": "Transition left", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "riser", "gain": 0.34, "pan": -0.6, "effects": [{ "type": "reverb", "presetName": "Long Hall", "values": { "roomSize": 0.85, "decay": 0.75, "mix": 0.35 } }] },
+    { "name": "Transition right", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "impact", "gain": 0.34, "pan": 0.6, "effects": [{ "type": "reverb", "presetName": "Long Hall", "values": { "roomSize": 0.85, "decay": 0.75, "mix": 0.35 } }] }
+  ]
+}

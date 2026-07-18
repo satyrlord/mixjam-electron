@@ -1,4 +1,4 @@
-# Spec 012 — Audio Export
+# Spec 019 — Audio Export
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** NOT IMPLEMENTED
@@ -47,15 +47,15 @@ at the project BPM with spec-009 tempo-following resampling applied.
 
 ### WAV Export
 
-- Uncompressed PCM, 44100 Hz sample rate.
-- 16-bit or 24-bit depth, user-selectable.
+- Uncompressed PCM, 44100 Hz sample rate, stereo.
+- 16-bit only.
 - Standard RIFF/WAV header.
 - No metadata tags in v1 (no artist, title, album fields).
 
 ### MP3 Export
 
 - Encoded using a JavaScript/WASM MP3 encoder (e.g. lamejs).
-- Constant bitrate (CBR), user-selectable: 128, 192, 256, 320 kbps.
+- Constant bitrate (CBR), only 320 kbps.
 - 44100 Hz, stereo, joint stereo encoding.
 
 ### Progress & Cancellation

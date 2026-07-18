@@ -1,4 +1,4 @@
-# Spec 013 — Sample Folder Builder (archive.org)
+# Spec 020 — Sample Folder Builder (archive.org)
 
 **Spec Validation Status:** STUB — NOT VALIDATED
 **Spec Implementation Status:** NOT IMPLEMENTED

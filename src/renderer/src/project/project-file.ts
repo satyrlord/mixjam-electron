@@ -20,15 +20,13 @@ import {
 import {
   MIXJAM_GENERATOR_BPM_MODES,
   MIXJAM_GENERATOR_INTENSITIES,
-  MIXJAM_GENERATOR_PROFILE_VERSIONS,
-  MIXJAM_GENERATOR_PROFILE_IDS,
-  MIXJAM_GENERATOR_VERSION,
   SAFE_GENERATOR_TOKEN,
   isSafeAnalysisGroupKey,
   type MixJamGeneratorBpmMode,
   type MixJamGeneratorIntensity,
   type MixJamGeneratorProfileId
 } from '../../../shared/backend-api'
+import { isGeneratorProfileId } from '../../../shared/generator-profile-id'
 
 const PROJECT_FORMAT_VERSION = 3
 export const NEWER_PROJECT_VERSION_MESSAGE =
@@ -57,11 +55,6 @@ export interface ProjectGeneratorMetadata {
   parameters: GeneratorParameters
   corpusFingerprint: string
   sampleFolderKey: string
-}
-
-export function supportsExactGeneratorRegeneration(generator: ProjectGeneratorMetadata): boolean {
-  return generator.generatorVersion === MIXJAM_GENERATOR_VERSION &&
-    generator.profileVersion === MIXJAM_GENERATOR_PROFILE_VERSIONS[generator.profileId]
 }
 
 export interface ProjectData extends ProjectState {
@@ -215,6 +208,14 @@ function readGeneratorSeed(record: Record<string, unknown>, path: string): strin
   return seed
 }
 
+function readGeneratorProfileId(record: Record<string, unknown>, path: string): GeneratorProfileId {
+  const value = record.profileId
+  if (!isGeneratorProfileId(value)) {
+    fail(`${path}.profileId`, 'must be a lowercase profile slug containing at most 64 characters')
+  }
+  return value
+}
+
 function readAnalysisGroupKey(record: Record<string, unknown>, path: string): string {
   const value = record.tempoClusterPrefix
   if (typeof value !== 'string' || !isSafeAnalysisGroupKey(value)) {
@@ -230,7 +231,7 @@ function parseGenerator(value: unknown): ProjectGeneratorMetadata {
 
   return {
     generatorVersion: readInteger(value, 'generatorVersion', path, 1, Number.MAX_SAFE_INTEGER),
-    profileId: readEnum(value, 'profileId', path, MIXJAM_GENERATOR_PROFILE_IDS),
+    profileId: readGeneratorProfileId(value, path),
     profileVersion: readInteger(value, 'profileVersion', path, 1, Number.MAX_SAFE_INTEGER),
     seed: readGeneratorSeed(value, path),
     parameters: {

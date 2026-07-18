@@ -760,10 +760,11 @@ export function createMixJamGeneratorPlan(
   candidates: readonly PlanningCandidate[],
   parameters: MixJamGeneratorParameters,
   analysis = { attemptedFiles: candidates.length, analyzedFiles: candidates.length, uniqueReads: candidates.length },
-  detectedBpm = parameters.bpm
+  detectedBpm = parameters.bpm,
+  profiles: Readonly<Record<string, GeneratorProfile>> = GENERATOR_PROFILES
 ): MixJamGeneratorPlan {
-  validateMixJamGeneratorParameters(parameters)
-  const profile = GENERATOR_PROFILES[parameters.profileId]
+  validateMixJamGeneratorParameters(parameters, Object.keys(profiles))
+  const profile = profiles[parameters.profileId]!
   const bpm = parameters.bpmMode === 'follow-detected' ? detectedBpm : parameters.bpm
   if (bpm === undefined) throw new Error('No canonical analyzer tempo was supplied for generation.')
   const targetBars = Math.max(1, halfUp(parameters.durationSeconds * bpm / 240))

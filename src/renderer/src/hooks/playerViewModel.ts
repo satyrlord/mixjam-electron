@@ -6,7 +6,7 @@ import type {
   PlayerTransportProps
 } from '../components/playerProps'
 import type { AppState } from './useAppState'
-import { supportsExactGeneratorRegeneration } from '../project/project-file'
+import { supportsExactGeneratorRegeneration } from '../project/generator-support'
 
 export interface PlayerViewModel {
   browser: PlayerBrowserProps

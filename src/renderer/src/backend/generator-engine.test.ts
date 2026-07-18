@@ -1,25 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import type {
-  MixJamGeneratorParameters,
-  MixJamGeneratorPlan,
-  MixJamGeneratorProfileId,
-  SampleType
+import {
+  type MixJamGeneratorParameters,
+  type MixJamGeneratorPlan,
+  type MixJamGeneratorProfileId,
+  type SampleType
 } from '../../../shared/backend-api'
+import { MIXJAM_GENERATOR_PROFILE_IDS } from '../../../shared/generator-templates'
 import { TICKS_PER_BAR } from '../engine/transport'
 import type { AnalyzedGeneratorCandidate, GeneratorPlannerKind } from './generator-analysis'
 import { generatorCandidateMatchesLane } from './generator-candidate'
 import { createMixJamGeneratorPlan } from './generator-engine'
-import { GENERATOR_PROFILES } from './generator-profiles'
+import { createGeneratorProfileRegistry, GENERATOR_PROFILES } from './generator-profiles'
 
 const BPM = 140
 const TICKS_PER_BEAT = TICKS_PER_BAR / 4
 const PERCUSSION_LANES = [0, 1, 2, 3, 11] as const
 const LOOP_AND_SYNTH_LANES = [5, 6, 7, 12, 13] as const
-const CORE_LANES: Record<MixJamGeneratorProfileId, readonly number[]> = {
-  techno: [0, 4, 6],
-  trance: [0, 4, 5, 6],
-  house: [0, 2, 4]
-}
+const CORE_LANES: Record<MixJamGeneratorProfileId, readonly number[]> = Object.fromEntries(
+  MIXJAM_GENERATOR_PROFILE_IDS.map((profileId) => [profileId, GENERATOR_PROFILES[profileId]!.coreLanes])
+)
 
 function durationForTicks(ticks: number): number {
   return ticks * 60 / (BPM * 8)
@@ -163,7 +162,30 @@ function overlaps(startTick: number, endTick: number, placement: MixJamGenerator
 }
 
 describe('MixJam generator engine', () => {
-  it.each(['techno', 'trance', 'house'] as const)(
+  it('plans a validated non-baseline JSON profile through the same engine path', () => {
+    const custom = JSON.parse(JSON.stringify(GENERATOR_PROFILES.techno)) as Record<string, unknown>
+    custom.id = 'custom-profile'
+    custom.label = 'Custom profile'
+    custom.default = false
+    const registry = createGeneratorProfileRegistry({ 'custom-profile.json': custom })
+
+    const plan = createMixJamGeneratorPlan(
+      'root',
+      'fingerprint',
+      categoryRichCandidates,
+      parameters('custom-profile'),
+      { attemptedFiles: categoryRichCandidates.length, analyzedFiles: categoryRichCandidates.length, uniqueReads: categoryRichCandidates.length },
+      BPM,
+      registry.profiles
+    )
+
+    expect(plan.profileId).toBe('custom-profile')
+    expect(plan.lanes).toHaveLength(16)
+    expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
+    expect(plan.channels.flatMap((channel) => channel.effects).length).toBeGreaterThan(0)
+  })
+
+  it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
     'uses every lane, every eligible category, long material, and richer variation for %s',
     (profileId) => {
       const plan = createMixJamGeneratorPlan(
@@ -200,7 +222,7 @@ describe('MixJam generator engine', () => {
     }
   )
 
-  it.each((['techno', 'trance', 'house'] as const).flatMap((profileId) =>
+  it.each(MIXJAM_GENERATOR_PROFILE_IDS.flatMap((profileId) =>
     (['low', 'medium', 'high'] as const).map((intensity) => ({ profileId, intensity }))
   ))('keeps every lane, category, and long-form role across $profileId $intensity intensity', ({
     profileId,
@@ -219,7 +241,7 @@ describe('MixJam generator engine', () => {
     expect(placements.some((placement) => placement.durationTicks > 4 * TICKS_PER_BAR)).toBe(true)
   })
 
-  it.each((['techno', 'trance', 'house'] as const).flatMap((profileId) =>
+  it.each(MIXJAM_GENERATOR_PROFILE_IDS.flatMap((profileId) =>
     (['low', 'medium', 'high'] as const).map((intensity) => ({ profileId, intensity }))
   ))('does not require unplaceable long material in a 30-second $profileId $intensity plan', ({
     profileId,
@@ -305,7 +327,7 @@ describe('MixJam generator engine', () => {
     expect(wetMix(plans.high)).toBeCloseTo(0.4025)
   })
 
-  it.each(['techno', 'trance', 'house'] as const)(
+  it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
     'builds a deterministic, phrase-structured %s plan',
     (profileId) => {
       const first = createMixJamGeneratorPlan('root', 'fingerprint', candidates, parameters(profileId))
@@ -574,7 +596,7 @@ describe('MixJam generator engine', () => {
     expect(plan.targetBars).toBe(120)
   })
 
-  it.each(['techno', 'trance', 'house'] as const)(
+  it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
     'bounds unchanged low-intensity phrase repetition for %s',
     (profileId) => {
       const plan = createMixJamGeneratorPlan('root', 'fingerprint', candidates, {

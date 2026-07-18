@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mixjam.dev/schemas/generator-template-v1.json",
+  "title": "MixJam generator template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "label",
+    "version",
+    "bpmTolerance",
+    "coreLanes",
+    "sections",
+    "lanes"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "label": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "version": { "type": "integer", "minimum": 1 },
+    "order": { "type": "integer", "minimum": 0 },
+    "default": { "type": "boolean" },
+    "bpmTolerance": { "type": "number", "minimum": 0, "maximum": 60 },
+    "coreLanes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/laneIndex" }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/section" }
+    },
+    "lanes": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/lane" }
+    }
+  },
+  "$defs": {
+    "laneIndex": { "type": "integer", "minimum": 0, "maximum": 15 },
+    "beatOffsets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 0, "maximum": 31 }
+    },
+    "sampleType": {
+      "enum": ["Kick", "Snare", "Hi-hat", "Percussion", "Bass", "Synth", "FX", "Vocal", "Loop", "Atmosphere", "Other"]
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "weight", "activeLanes", "phraseMode"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "activeLanes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/laneIndex" }
+        },
+        "phraseMode": { "enum": ["sparse", "steady", "build", "breakdown", "return", "peak", "outro"] }
+      }
+    },
+    "effect": {
+      "oneOf": [
+        { "$ref": "#/$defs/delayEffect" },
+        { "$ref": "#/$defs/reverbEffect" },
+        { "$ref": "#/$defs/compressorEffect" }
+      ]
+    },
+    "delayEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "presetName", "values"],
+      "properties": {
+        "type": { "const": "delay" },
+        "presetName": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timeMs", "feedback", "mix", "pingPong", "tempoSync", "noteDivision"],
+          "properties": {
+            "timeMs": { "type": "number", "minimum": 0, "maximum": 2000 },
+            "feedback": { "type": "number", "minimum": 0, "maximum": 1 },
+            "mix": { "type": "number", "minimum": 0, "maximum": 1 },
+            "pingPong": { "type": "boolean" },
+            "tempoSync": { "type": "boolean" },
+            "noteDivision": { "enum": ["1/4", "1/8", "1/16", "1/8T", "1/16T"] }
+          }
+        }
+      }
+    },
+    "reverbEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "presetName", "values"],
+      "properties": {
+        "type": { "const": "reverb" },
+        "presetName": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["roomSize", "decay", "mix"],
+          "properties": {
+            "roomSize": { "type": "number", "minimum": 0, "maximum": 1 },
+            "decay": { "type": "number", "minimum": 0, "maximum": 1 },
+            "mix": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "compressorEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "presetName", "values"],
+      "properties": {
+        "type": { "const": "compressor" },
+        "presetName": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["threshold", "ratio", "attackMs", "releaseMs", "makeupGain"],
+          "properties": {
+            "threshold": { "type": "number", "minimum": -60, "maximum": 0 },
+            "ratio": { "type": "number", "minimum": 1, "maximum": 20 },
+            "attackMs": { "type": "number", "minimum": 0, "maximum": 200 },
+            "releaseMs": { "type": "number", "minimum": 5, "maximum": 3000 },
+            "makeupGain": { "type": "number", "minimum": 0, "maximum": 24 }
+          }
+        }
+      }
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "types", "maxBars", "role", "gain", "pan", "effects"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sampleType" }
+        },
+        "maxBars": { "type": "integer", "minimum": 1, "maximum": 999 },
+        "maxBeats": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "role": { "enum": ["percussion", "motif", "vocal", "atmosphere", "transition"] },
+        "beatPattern": { "$ref": "#/$defs/beatOffsets" },
+        "beatMutation": { "$ref": "#/$defs/beatOffsets" },
+        "intentionalAnchor": { "type": "boolean" },
+        "preferLong": { "type": "boolean" },
+        "transitionKind": { "enum": ["riser", "impact"] },
+        "gain": { "type": "number", "minimum": 0, "maximum": 1 },
+        "pan": { "type": "number", "minimum": -1, "maximum": 1 },
+        "effects": {
+          "type": "array",
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/effect" }
+        }
+      }
+    }
+  },
+  "$comment": "The runtime parser also enforces filename/id equality, unique names, section weights totaling 100, full lane activation, role-specific fields, and registry-wide ID/default uniqueness."
+}

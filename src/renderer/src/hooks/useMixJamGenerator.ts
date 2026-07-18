@@ -8,7 +8,7 @@ import type { AppState } from './useAppState'
 import type { GeneratorResult } from '../components/MixJamGeneratorDialog'
 import { materializeGeneratedProject } from '../project/generated-project'
 import { SAFE_SEED } from '../../../shared/backend-api'
-import { supportsExactGeneratorRegeneration } from '../project/project-file'
+import { supportsExactGeneratorRegeneration } from '../project/generator-support'
 
 export type MixJamGeneratorMode = 'new' | 'regenerate-exact'
 

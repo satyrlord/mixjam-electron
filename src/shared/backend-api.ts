@@ -1,3 +1,7 @@
+import type { SampleType } from './sample-types'
+
+export { SAMPLE_TYPE_VALUES, type SampleType } from './sample-types'
+
 // The renderer-facing backend contract. One real implementation exists — the
 // browser backend (sqlite-wasm over OPFS + File System Access API) in
 // src/renderer/src/backend — and it runs identically in any Chromium browser
@@ -69,13 +73,6 @@ export interface LibraryItem {
 }
 
 export type AnalysisSource = 'analysis' | 'manual' | null
-
-export const SAMPLE_TYPE_VALUES = [
-  'Kick', 'Snare', 'Hi-hat', 'Percussion', 'Bass', 'Synth',
-  'FX', 'Vocal', 'Loop', 'Atmosphere', 'Other'
-] as const
-
-export type SampleType = (typeof SAMPLE_TYPE_VALUES)[number]
 
 export interface SampleAnalysisPatch {
   bpm?: number | null
@@ -157,16 +154,11 @@ export interface SampleQueryResponse {
   total: number
 }
 
-export type MixJamGeneratorProfileId = 'techno' | 'trance' | 'house'
 export type MixJamGeneratorIntensity = 'low' | 'medium' | 'high'
 export type MixJamGeneratorBpmMode = 'follow-detected' | 'fixed'
+export type MixJamGeneratorProfileId = string
 
 export const MIXJAM_GENERATOR_VERSION = 1 as const
-export const MIXJAM_GENERATOR_PROFILE_VERSIONS: Record<MixJamGeneratorProfileId, 2> = {
-  techno: 2,
-  trance: 2,
-  house: 2
-}
 export const SAFE_GENERATOR_TOKEN = /^[A-Za-z0-9_-]+$/
 export const SAFE_SEED = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -178,14 +170,8 @@ export function isSafeAnalysisGroupKey(value: string): boolean {
   }
   return value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
 }
-export const MIXJAM_GENERATOR_PROFILE_IDS: readonly MixJamGeneratorProfileId[] = ['techno', 'trance', 'house']
 export const MIXJAM_GENERATOR_INTENSITIES: readonly MixJamGeneratorIntensity[] = ['low', 'medium', 'high']
 export const MIXJAM_GENERATOR_BPM_MODES: readonly MixJamGeneratorBpmMode[] = ['follow-detected', 'fixed']
-export const MIXJAM_GENERATOR_PROFILE_LABELS: Record<MixJamGeneratorProfileId, string> = {
-  techno: 'Techno',
-  trance: 'Trance',
-  house: 'House'
-}
 
 export const MIXJAM_GENERATOR_INTENSITY_LABELS: Record<MixJamGeneratorIntensity, string> = {
   low: 'Low',
@@ -307,7 +293,7 @@ export interface MixJamGeneratorSelectionPlan {
 export interface MixJamGeneratorPlan {
   generatorVersion: 1
   profileId: MixJamGeneratorProfileId
-  profileVersion: 2
+  profileVersion: number
   seed: string
   parameters: {
     bpmMode: MixJamGeneratorBpmMode

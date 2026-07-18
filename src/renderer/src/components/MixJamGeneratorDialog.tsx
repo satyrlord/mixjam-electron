@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react'
 import type { MixJamGeneratorParameters, MixJamGeneratorProgress, MixJamGeneratorReadiness } from '../../../shared/backend-api'
 import {
   SAFE_SEED,
-  MIXJAM_GENERATOR_PROFILE_IDS,
-  MIXJAM_GENERATOR_PROFILE_LABELS,
   MIXJAM_GENERATOR_BPM_MODES,
   MIXJAM_GENERATOR_BPM_MODE_LABELS,
   MIXJAM_GENERATOR_INTENSITIES,
   MIXJAM_GENERATOR_INTENSITY_LABELS
 } from '../../../shared/backend-api'
+import {
+  MIXJAM_GENERATOR_DEFAULT_PROFILE_ID,
+  MIXJAM_GENERATOR_PROFILE_IDS,
+  MIXJAM_GENERATOR_PROFILE_LABELS
+} from '../../../shared/generator-templates'
 import { DialogClose, DialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
 
 export interface GeneratorResult {
@@ -37,7 +40,7 @@ function newSeed(): string {
 }
 
 const DEFAULTS: MixJamGeneratorParameters = {
-  profileId: 'techno',
+  profileId: MIXJAM_GENERATOR_DEFAULT_PROFILE_ID,
   bpmMode: 'follow-detected',
   bpm: 140,
   intensity: 'medium',
