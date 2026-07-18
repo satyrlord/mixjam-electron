@@ -534,6 +534,7 @@ select option:disabled {
 /* ── Main content area ──────────────────────── */
 .content {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -616,11 +617,12 @@ select option:disabled {
 /* ── Home Screen ─────────────────────────────── */
 .home-screen {
   flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px 32px;
-  overflow-y: auto;
+  padding: 16px 32px;
+  overflow: hidden;
   /* Accent glow bleeding from the top gives the first screen the same
      dimensionality as the tracker chrome without hardcoding a color. */
   background:
@@ -634,12 +636,12 @@ select option:disabled {
 
 .home-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(408px, 1fr) minmax(500px, 1.1fr);
   grid-template-areas:
     'hero setup'
     'recent setup';
-  column-gap: 48px;
-  row-gap: 20px;
+  column-gap: 24px;
+  row-gap: 16px;
   align-items: center;
   width: 1120px;
   max-width: 100%;
@@ -650,7 +652,7 @@ select option:disabled {
   grid-area: hero;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 24px;
   min-width: 0;
 }
 
@@ -776,17 +778,21 @@ select option:disabled {
 /* ── Home setup panel: folder cards, launch, recents ── */
 .home-setup {
   grid-area: setup;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 16px;
-  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
   background: var(--bg-panel);
   border: var(--edge);
   border-radius: var(--radius);
   box-shadow:
     0 18px 48px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.home-setup > .home-generator-card {
+  grid-column: 1 / -1;
 }
 
 .home-recent {
@@ -855,9 +861,10 @@ select option:disabled {
   max-width: 100%;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .home-screen {
     align-items: flex-start;
+    overflow-y: auto;
   }
 
   .home-content {
@@ -869,6 +876,18 @@ select option:disabled {
     align-items: start;
   }
 
+  .home-setup {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-recent-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
   .home-recent-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4354,6 +4373,7 @@ select option:disabled {
   list-style: none;
   color: var(--text-muted);
 }
+
 .generator-steps li { border-bottom: 2px solid var(--border); padding: 0 0 7px; }
 .generator-steps li[aria-current='step'] { border-color: var(--accent); color: var(--text); }
 .generator-progress { min-height: 180px; display: grid; align-content: center; }

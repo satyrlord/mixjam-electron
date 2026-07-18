@@ -137,9 +137,9 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-002b:** The Home hero uses `public/app-icon-128.png` as the visible
   MixJam logo instead of a generated waveform mark.
 - [x] **AC-002c:** At the default 1280×720 window size, including its shorter
-  Electron renderer viewport, Home has no vertical overflow or scrollbar. Any
-  number of available recent projects keeps the same layout because only the
-  first four are rendered.
+  Electron renderer viewport, Home has no vertical overflow or scrollbar in
+  idle, sync, analysis, error, or ready states. Any number of available recent
+  projects keeps the same layout because only the first four are rendered.
 - [x] **AC-003:** Footer is 48px height (same as header), shows "Select User Folder" left and clickable version string right on both views.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.

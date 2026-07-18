@@ -121,13 +121,56 @@ test('Home stays root-overflow-free across desktop and narrow renderer sizes', a
       expect(geometry.contentBottomReachable).toBe(true)
       expect(geometry.rootScrollWidth).toBe(geometry.rootClientWidth)
       expect(geometry.rootScrollHeight).toBe(geometry.rootClientHeight)
-      expect(geometry.screenOverflowY).toBe('auto')
+      expect(geometry.screenOverflowY).toBe(viewport.width <= 1000 ? 'auto' : 'hidden')
       if (viewport.expectInternalScroll) {
         expect(geometry.screenScrollHeight).toBeGreaterThan(geometry.screenClientHeight)
       } else {
         expect(geometry.screenScrollHeight).toBeLessThanOrEqual(geometry.screenClientHeight + 1)
       }
     }
+  }
+})
+
+test('Home uses both desktop columns while library analysis is active', async ({ seededPage: page }) => {
+  await page.setViewportSize({ width: 1280, height: 681 })
+  await setActivityState(page, 'analyzing', 'home-active-analysis')
+
+  for (const theme of ALL_THEMES) {
+    await page.locator('.theme-selector').selectOption(theme)
+    await settleLayout(page)
+
+    const geometry = await page.evaluate(() => {
+      const screen = document.querySelector('.home-screen')
+      const content = document.querySelector('.home-content')
+      const setup = document.querySelector('.home-setup')
+      if (!(screen instanceof HTMLElement) ||
+        !(content instanceof HTMLElement) ||
+        !(setup instanceof HTMLElement)) {
+        throw new Error('Home geometry elements are unavailable')
+      }
+      const screenBox = screen.getBoundingClientRect()
+      const contentBox = content.getBoundingClientRect()
+      return {
+        rootClientWidth: document.documentElement.clientWidth,
+        rootScrollWidth: document.documentElement.scrollWidth,
+        rootClientHeight: document.documentElement.clientHeight,
+        rootScrollHeight: document.documentElement.scrollHeight,
+        screenClientHeight: screen.clientHeight,
+        screenScrollHeight: screen.scrollHeight,
+        screenOverflowY: getComputedStyle(screen).overflowY,
+        setupColumns: getComputedStyle(setup).gridTemplateColumns.split(' ').length,
+        contentInsideScreen:
+          contentBox.top >= screenBox.top - 1 &&
+          contentBox.bottom <= screenBox.bottom + 1
+      }
+    })
+
+    expect(geometry.rootScrollWidth).toBe(geometry.rootClientWidth)
+    expect(geometry.rootScrollHeight).toBe(geometry.rootClientHeight)
+    expect(geometry.screenScrollHeight).toBeLessThanOrEqual(geometry.screenClientHeight + 1)
+    expect(geometry.screenOverflowY).toBe('hidden')
+    expect(geometry.setupColumns).toBe(2)
+    expect(geometry.contentInsideScreen).toBe(true)
   }
 })
 
