@@ -228,7 +228,10 @@ those shell capabilities.
 Linux CI uses a 2560x1440 virtual display with Openbox registered as its X11
 window manager. The framed Electron window therefore has room for the required
 1920x1080 renderer content area, and maximize and unmaximize requests exercise
-the same window-manager contract as a desktop session.
+the same window-manager contract as a desktop session. The smoke test treats
+Electron's maximized state as authoritative and verifies renderer content bounds
+separately. It does not equate raw window bounds with the display work area,
+because X11 frame extents depend on the active window-manager theme.
 
 The smoke test also asks Electron's `nativeImage` implementation to decode the
 same platform-specific asset passed to the live `BrowserWindow` and requires a

@@ -578,23 +578,26 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Container anatomy, top to bottom:
   - Header: mono slot number ("01"), the Empty or Delay name, and a round
     power LED tinted with the slot accent. On a populated slot the LED is the
-    power toggle (`aria-pressed`, unlit when bypassed, expanded invisible hit
-    area to keep the UI-Size pointer target); an Empty slot shows a static
-    unlit dot.
-  - Body: an Edit button (cog icon tinted with the slot accent) and a Mix
-    rotary that edits the wet Return level (default 100%). Edit opens the
-    Delay editor; on an Empty slot it auditions a default Delay in the same
-    editor.
+    power toggle (`aria-pressed`, unlit when bypassed): a UI-Size hit box
+    that paints its compact dot centered inside. An Empty slot shows a
+    static unlit dot.
+  - Body: an Edit button (cog icon tinted with the slot accent), the square
+    limiter toggle, and a Mix rotary that edits the wet Return level
+    (default 100%). Edit opens the Delay editor; on an Empty slot it
+    auditions a default Delay in the same editor.
   - Foot: a one-line mono summary of time/division, feedback, Tape
-    Distortion, and Ping-Pong, plus the limiter toggle.
+    Distortion, and Ping-Pong.
 - Left-click on the name opens a dropdown. Empty offers `Delay...`. A
   configured slot offers `Delay...` and `Clear slot`. Clear is immediate and
   undoable.
 - Bypass stops new input but lets the current tail finish. A bypassed
   container dims to half opacity and desaturates.
-- Slot accents come from the optional theme tokens `--fx-accent-1` through
-  `--fx-accent-4` (fallback `--accent`). Arcade, Neon, Neon Rave, and Riso
-  define distinct per-slot accents matching the reference board.
+- Slot accents come from the theme tokens `--fx-accent-1` through
+  `--fx-accent-4` (optional per theme; missing slots fall back to
+  `--accent`). Every bundled theme ships explicit values drawn from its own
+  color system: Arcade, Neon, Neon Rave, and Riso use the reference board's
+  multi-accent sets; most others alternate two theme tones (IDE uses four
+  syntax-style tones); Mono stays single phosphor green by design.
 - The reference board (`fx-mixer-16-themes`, REV 07) governs structure and
   density only. Do not invent hardware controls, screws, tape labels, or
   behavior that is not in a specification.

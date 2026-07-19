@@ -136,14 +136,30 @@ test.describe('Electron smoke', () => {
       expect(home.iconAssetIsEmpty).toBe(false)
 
       await window.evaluate(() => window.shellAPI.resizeToPlayer())
-      await expect.poll(async () => snapshot()).toMatchObject({
+      await expect.poll(async () => {
+        const [nativeState, rendererState] = await Promise.all([
+          snapshot(),
+          window.evaluate(() => ({ width: innerWidth, height: innerHeight }))
+        ])
+        return {
+          resizable: nativeState.resizable,
+          maximizable: nativeState.maximizable,
+          maximized: nativeState.maximized,
+          contentMeetsMinimum:
+            nativeState.contentBounds.width >= 1920 && nativeState.contentBounds.height >= 1080,
+          rendererMeetsMinimum: rendererState.width >= 1920 && rendererState.height >= 1080
+        }
+      }).toEqual({
         resizable: true,
         maximizable: true,
-        maximized: true
+        maximized: true,
+        contentMeetsMinimum: true,
+        rendererMeetsMinimum: true
       })
       const player = await snapshot()
-      expect(player.bounds.width).toBeGreaterThanOrEqual(player.workArea.width)
-      expect(player.bounds.height).toBeGreaterThanOrEqual(player.workArea.height)
+      // isMaximized() is the cross-platform native state. A managed X11
+      // window's reported bounds can exclude theme-specific frame extents, so
+      // they do not have to equal the display work area.
       expect(player.contentBounds.width).toBeGreaterThanOrEqual(1920)
       expect(player.contentBounds.height).toBeGreaterThanOrEqual(1080)
 
