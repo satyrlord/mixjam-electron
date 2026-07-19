@@ -112,6 +112,16 @@ test.describe('Electron smoke', () => {
           const bounds = nativeWindow.getBounds()
           const contentBounds = nativeWindow.getContentBounds()
           const handle = nativeWindow.getNativeWindowHandle()
+          // Inlined here because evaluate() runs in the Electron main process,
+          // not in the test's Node.js context.
+          function parseNativeWindowHandle(h: Buffer): string {
+            let value = 0n
+            const byteLength = Math.min(h.length, 8)
+            for (let index = byteLength - 1; index >= 0; index -= 1) {
+              value = (value << 8n) | BigInt(h[index] ?? 0)
+            }
+            return value.toString()
+          }
           return {
             windowHandle: parseNativeWindowHandle(handle),
             bounds,
