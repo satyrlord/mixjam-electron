@@ -49,9 +49,12 @@ The Mixer also hosts four fixed send/return buses and four fixed FX containers.
 Every lane has a project-owned stable ID that does not change when another lane
 is inserted or deleted. Mixer positions are derived from current array order
 and remain contiguous from 1 through N. The visible Mixer strip label is exactly
-the lane-owned name; it never adds a position, number, or channel prefix.
-Deleting an earlier lane therefore compacts strip positions without changing a
-surviving lane's name, stable ID, or saved Mixer values.
+the lane-owned name; the name itself never adds a position, number, or channel
+prefix. A separate derived position line beneath the name ("CH 01" through
+"CH NN") displays the current strip position; it recompacts on deletion and is
+never part of the lane name. Deleting an earlier lane therefore compacts strip
+positions without changing a surviving lane's name, stable ID, or saved Mixer
+values.
 
 Adding a lane appends it after the final lane. It receives a new stable ID,
 the next visible default name, no placements, volume 80%, centered pan, mute
@@ -99,8 +102,12 @@ Lane strip 1 ... Lane strip N | FX + Return 1  FX + Return 2
   consistently at UI Size 40 and 50. At a selected UI Size each width is fixed;
   strips do not grow merely to consume spare width.
 - Lane-strip and combined FX and Return control rectangles do not collide with
-  adjacent controls at UI Size 30, 40, and 50. Decorative EQ cells and rotary
-  artwork remain inside their owning control or strip at every size.
+  adjacent controls at UI Size 30, 40, and 50. Rotary artwork remains inside
+  its owning control or strip at every size.
+- Lane strips render inside a Channels panel and the four containers inside an
+  FX bank panel. Each panel has a decorative header (channel count and "4
+  Sends"; "4 × FX Slots" and "Active") with a status LED. Both panels share
+  the single scrolling row.
 - Sends, Returns, and Pan use the same project-owned SVG rotary visual as FX
   parameters. Compact sizing does not replace the range track, value arc,
   inset cap, default marker, or pointer with a separate CSS-only dial.
@@ -109,17 +116,18 @@ Lane strip 1 ... Lane strip N | FX + Return 1  FX + Return 2
 
 Each lane strip contains, from top to bottom:
 
-1. The exact lane-owned name, with no derived prefix.
-2. Four rotary sends labelled 1 through 4.
-3. A visible two-band EQ area matching the compact Mixer grammar. EQ is
-  decorative and disabled: its controls cannot receive focus or input, expose
-  a disabled state to assistive technology, own no saved values, and do not
-  create audio nodes. Hovering the area shows "EQ controls are not available".
+1. The exact lane-owned name, with no derived prefix inside the name.
+2. The derived channel position line ("CH 01").
+3. Four rotary sends labelled 1 through 4, each tinted with its matching FX
+  slot accent so sends map to FX slots 1:1 by color.
 4. The lane pan control.
-5. A vertical volume fader with a unity mark and drag value.
-6. One post-fader lane RMS meter with peak hold.
+5. A vertical volume fader with a unity mark and drag value, beside one
+  post-fader lane RMS meter with peak hold rendered as a segmented LED-style
+  column.
+6. A read-only dB readout of the fader position.
 
-Mute and Solo remain in the lane header and are intentionally absent here.
+There is no EQ section. Mute and Solo remain in the lane header and are
+intentionally absent here.
 
 ### Send controls
 
@@ -140,7 +148,9 @@ Mute and Solo remain in the lane header and are intentionally absent here.
 There are exactly four global return buses. Each FX container exposes the level
 and limiter controls for its matching return bus. There is no separate Return
 section. The container also shows the current module display name, Empty or
-Delay.
+Delay. The Return level presents as the container's Mix rotary; power state
+presents as a slot-accent LED toggle in the container header; a dedicated Edit
+control opens the module editor.
 
 - Each return is wet-only. Dry audio remains on the lane's normal path.
 - Return level ranges from 0% to 100%, defaults to 100%, and resets to 100%.
@@ -215,7 +225,7 @@ missing or malformed lane-owned Mixer data.
 | Four fixed global returns | The compact Mixer remains understandable and has no routing editor. |
 | Return controls live in their matching FX containers | Bus identity stays visible while removing a redundant standalone column. |
 | One scrolling row | Every strip and fixed bus remains reachable without pinning or wrapping. |
-| EQ is decorative and disabled | The reference hierarchy is retained without inventing unsupported DSP. |
+| No EQ section | The governing reference board (REV 07) has no EQ; nothing decorative is invented. |
 | Song Master is unchanged | The overhaul ends at the existing Master input boundary. |
 
 Implementation ownership follows the same model. `LaneState` is the only
@@ -245,8 +255,9 @@ removed solo cannot keep the remaining lanes gated.
 - [ ] **AC-006:** Mixer strips cannot be independently added, deleted,
   reordered, or routed, and no Mixer Mute or Solo controls are rendered.
 - [ ] **AC-007:** At UI Size 30 each compact strip is 76 px wide and exposes
-  four sends, disabled decorative EQ, pan, volume, and one lane meter in the
-  documented order. UI Size 40 and 50 scale the full strip consistently.
+  the name, derived channel number, four sends, pan, volume beside its lane
+  meter, and the dB readout in the documented order. UI Size 40 and 50 scale
+  the full strip consistently.
 - [ ] **AC-008:** Sends range from 0% to 100%, default and reset to 0%, and use
   the post-volume, post-pan signal.
 - [ ] **AC-009:** Mute and solo stop new dry and send input according to the
@@ -265,8 +276,7 @@ removed solo cannot keep the remaining lanes gated.
   Mixer values are rejected; version 3 is rejected without migration.
 - [ ] **AC-015:** Lane-strip and combined FX and Return buttons, sliders, and
   rotary hit rectangles do not collide with adjacent controls at UI Size 30,
-  40, and 50; each decorative EQ cell remains inside its channel strip, and
-  each rotary SVG remains inside its owning slider.
+  40, and 50, and each rotary SVG remains inside its owning slider.
 - [ ] **AC-016:** Sends, Returns, Pan, and FX parameters render the shared SVG
   rotary structure; Pan uses a bipolar center arc and other Mixer dials use a
   unipolar minimum-to-value arc.

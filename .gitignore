@@ -60,5 +60,4 @@ Thumbs.db
 
 # Generated one-off outputs
 logs/
-superpowers/
-.superpowers/
+.claude/

@@ -537,24 +537,35 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 - Compact 76px vertical stack at UI Size 30. Higher UI Sizes scale through
   shared tokens.
-- The header shows the inherited lane name exactly, with no derived number or
-  channel prefix. Long names use an ellipsis and a tooltip. Renaming the lane
-  updates the channel immediately.
-- Four numbered Sends form a 2x2 group. Each tooltip shows the current module
-  type and Send percentage. Sends remain adjustable when their bus is Empty.
-- A decorative EQ group contains a disabled power button, Treble, and Bass.
-  It has no saved state, audio behavior, or tab stops. Its tooltip reads
-  "EQ controls are not available". Its three cells divide the strip's inner
-  width and never inherit a minimum width that crosses a strip boundary.
-- Pan edits the lane-owned pan value. Volume defaults to 80 percent and sits
-  beside the dry RMS dBFS meter and peak hold.
-- There are no Mute, Solo, remove, routing, or reorder controls in the Mixer.
+- All strips sit inside a Channels panel whose small uppercase mono header
+  reads "N × Channels" on the left and a status LED plus "4 Sends" on the
+  right. The FX bank is a sibling panel with the same header grammar.
+- The header shows the inherited lane name exactly; the name never gains a
+  prefix. Long names use an ellipsis and a tooltip. Renaming the lane updates
+  the channel immediately. A separate mono position line beneath the name
+  shows the derived channel number ("CH 01"); it recompacts when lanes are
+  deleted and is not part of the lane name.
+- Four numbered Sends form a 2x2 group. Each send dial is tinted with its
+  matching FX slot accent (`--fx-accent-1` through `--fx-accent-4`, falling
+  back to `--accent`), mapping sends to FX slots 1:1 by color. Each tooltip
+  shows the current module type and Send percentage. Sends remain adjustable
+  when their bus is Empty.
+- Pan edits the lane-owned pan value.
+- Volume defaults to 80 percent. The fader is a rectangular track with an
+  accent value fill and a low-profile rail thumb; the dry RMS dBFS meter with
+  peak hold renders beside it as a narrow segmented LED-style column.
+- A mono dB readout at the strip foot shows the fader position in dB
+  ("-2 dB"; "−∞ dB" at zero).
+- There are no EQ, Mute, Solo, remove, routing, or reorder controls in the
+  Mixer.
 
 ### Return and FX Containers (Mixer)
 
-- Four combined FX and Return containers form a fixed 2x2 grid. Each container
-  includes its matching Return level and one small square limiter toggle. Each
-  limiter is independent, enabled by default, and has this tooltip:
+- Four combined FX and Return containers form a fixed 2x2 grid inside the FX
+  bank panel ("4 × FX Slots" header with status LED and "Active"). Each
+  container includes its matching Return level and one small square limiter
+  toggle. Each limiter is independent, enabled by default, and has this
+  tooltip:
 
   ```text
   Limiter
@@ -563,16 +574,30 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 - Each container is 160px wide by 112px high at UI Size 30. Width scales with
   the selected UI Size while the compact height keeps both rows inside the
-  1080p Mixer without a vertical scrollbar. Each shows its number, Empty or
-  Delay name, power state, Return level, limiter state, and a compact summary
-  of time/division, feedback, Tape Distortion, and Ping-Pong.
-- Left-click opens a dropdown. Empty offers `Delay...`. A configured slot offers
-  `Delay...` and `Clear slot`. Clear is immediate and undoable.
-- A populated slot has a power toggle. Bypass stops new input but lets the
-  current tail finish.
-- The reference mixer screenshots govern structure and density only. Do not
-  invent hardware controls, screws, tape labels, or behavior that is not in a
-  specification.
+  1080p Mixer without a vertical scrollbar.
+- Container anatomy, top to bottom:
+  - Header: mono slot number ("01"), the Empty or Delay name, and a round
+    power LED tinted with the slot accent. On a populated slot the LED is the
+    power toggle (`aria-pressed`, unlit when bypassed, expanded invisible hit
+    area to keep the UI-Size pointer target); an Empty slot shows a static
+    unlit dot.
+  - Body: an Edit button (cog icon tinted with the slot accent) and a Mix
+    rotary that edits the wet Return level (default 100%). Edit opens the
+    Delay editor; on an Empty slot it auditions a default Delay in the same
+    editor.
+  - Foot: a one-line mono summary of time/division, feedback, Tape
+    Distortion, and Ping-Pong, plus the limiter toggle.
+- Left-click on the name opens a dropdown. Empty offers `Delay...`. A
+  configured slot offers `Delay...` and `Clear slot`. Clear is immediate and
+  undoable.
+- Bypass stops new input but lets the current tail finish. A bypassed
+  container dims to half opacity and desaturates.
+- Slot accents come from the optional theme tokens `--fx-accent-1` through
+  `--fx-accent-4` (fallback `--accent`). Arcade, Neon, Neon Rave, and Riso
+  define distinct per-slot accents matching the reference board.
+- The reference board (`fx-mixer-16-themes`, REV 07) governs structure and
+  density only. Do not invent hardware controls, screws, tape labels, or
+  behavior that is not in a specification.
 
 ### Delay Editor Modal
 
