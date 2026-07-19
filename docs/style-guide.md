@@ -282,8 +282,7 @@ Three typographic roles, each defined per theme via CSS custom properties:
 | Bar number interval | Every 4 bars: 1, 5, 9, 13... |
 | Playhead width | 2px |
 | Mixer channel strip | 76 / 101 / 127px at size 30 / 40 / 50 |
-| Mixer Return section | 120 / 160 / 200px at size 30 / 40 / 50 |
-| Mixer FX container | 160 / 213 / 267px at size 30 / 40 / 50 |
+| Mixer FX and Return container | 160 / 213 / 267px at size 30 / 40 / 50 |
 | Lane Mute/Solo controls | selected UI Size target |
 | BPM numeric input | scales inside the selected UI Size target |
 | Vertical fader minimum width | selected UI Size target |
@@ -430,10 +429,10 @@ present. Native light Windows scrollbars never appear on dark themes.
 ### Scrollbars
 
 - Thin themed scrollbars on all scrollable surfaces.
-- The Mixer is one continuous horizontal row: lane channels, Return section,
-  then one 2x2 grid containing FX 1 through FX 4. Nothing is pinned. Its themed horizontal
-  scrollbar is always visible while Mixer is active and disabled when content
-  fits. There is no vertical Mixer scrollbar.
+- The Mixer is one continuous horizontal row: lane channels, then one 2x2 grid
+  containing the combined FX and Return containers 1 through 4. Nothing is
+  pinned. Its themed horizontal scrollbar is always visible while Mixer is
+  active and disabled when content fits. There is no vertical Mixer scrollbar.
 - Trackpad horizontal movement and Shift+wheel move the Mixer horizontally.
   Plain vertical wheel movement is not captured. Left/Right scroll the canvas
   when its scroll surface has focus, and focusing a control reveals it.
@@ -551,21 +550,20 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 ### Return and FX Containers (Mixer)
 
-- The Return section is 120px wide at UI Size 30 and presents four Return
-  levels. Each row uses its label space for the current Empty or Delay name and
-  one small square limiter toggle. Each limiter is independent, enabled by
-  default, and has this tooltip:
+- Four combined FX and Return containers form a fixed 2x2 grid. Each container
+  includes its matching Return level and one small square limiter toggle. Each
+  limiter is independent, enabled by default, and has this tooltip:
 
   ```text
   Limiter
   Caps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.
   ```
 
-- Four FX containers follow the Return section in a fixed 2x2 grid. Each is
-  160px wide by 112px high at UI Size 30. Width scales with the selected UI
-  Size while the compact height keeps both rows inside the 1080p Mixer without
-  a vertical scrollbar. Each shows its number, Empty or Delay name, power state, and a compact
-  summary of time/division, feedback, Tape Distortion, and Ping-Pong.
+- Each container is 160px wide by 112px high at UI Size 30. Width scales with
+  the selected UI Size while the compact height keeps both rows inside the
+  1080p Mixer without a vertical scrollbar. Each shows its number, Empty or
+  Delay name, power state, Return level, limiter state, and a compact summary
+  of time/division, feedback, Tape Distortion, and Ping-Pong.
 - Left-click opens a dropdown. Empty offers `Delay...`. A configured slot offers
   `Delay...` and `Clear slot`. Clear is immediate and undoable.
 - A populated slot has a power toggle. Bypass stops new input but lets the

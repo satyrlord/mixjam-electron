@@ -71,15 +71,47 @@ function buildCalls(db: DB, jobs: JobCoordinator): BackendCalls {
   }
 }
 
+const ALLOWED_OPS = new Set<string>([
+  'querySamples',
+  'getGeneratorReadiness',
+  'planMixJam',
+  'cancelMixJamPlanning',
+  'getGeneratorProgress',
+  'getLibraryRootState',
+  'listMissingRelpaths',
+  'startLibrarySync',
+  'cancelLibrarySync',
+  'getScanProgress',
+  'getAnalysisProgress',
+  'listTags',
+  'createTag',
+  'renameTag',
+  'setTagColor',
+  'deleteTag',
+  'assignTag',
+  'unassignTag',
+  'updateSampleAnalysis',
+  'reanalyzeSample',
+  'listCategories',
+  'createCategory',
+  'deleteCategory',
+  'listLibraries',
+  'saveLibrary',
+  'deleteLibrary'
+])
+
 ctx.onmessage = (event) => {
   const { seq, op, args } = event.data
   void ready
     .then(({ calls }) => {
-      if (!Object.prototype.hasOwnProperty.call(calls, op)) {
+      if (typeof op !== 'string' || !ALLOWED_OPS.has(op)) {
         throw new Error(`Unknown backend op: ${String(op)}`)
       }
-      const fn = calls[op] as (...callArgs: unknown[]) => unknown
-      return fn(...args)
+      const fn = calls[op as keyof typeof calls]
+      if (typeof fn !== 'function') {
+        throw new Error(`Backend op is not a function: ${op}`)
+      }
+      return (fn as (...callArgs: unknown[]) => unknown)(...args)
     })
     .then((result) => emitEvent({ type: 'response', seq, ok: true, result }))
     .catch((error: unknown) => {

@@ -21,7 +21,7 @@ The Mixer also hosts four fixed send/return buses and four fixed FX containers.
   compact strip.
 - **US-002:** I always see the same lane order in the Tracker and Mixer.
 - **US-003:** I can add and delete lanes between the hard limits of 1 and 64.
-- **US-004:** I can reach every lane strip, the Return section, and all four FX
+- **US-004:** I can reach every lane strip and all four combined FX and Return
   containers with one horizontal scrollbar.
 - **US-005:** I can set the common wet return level for each of the four FX
   buses without changing the Song tab's Master track.
@@ -78,14 +78,15 @@ off, solo off, and four sends at 0%.
 The Mixer uses one continuous horizontal row in this exact order:
 
 ```text
-Lane strip 1 ... Lane strip N | Return | FX 1  FX 2
-                                             FX 3  FX 4
+Lane strip 1 ... Lane strip N | FX + Return 1  FX + Return 2
+                               FX + Return 3  FX + Return 4
 ```
 
-- Lane strips and Return never wrap. The four fixed FX slots are one 2x2
-  section at the end of the row and have no independent scrolling.
-- The Mixer has one horizontal scrollbar for the complete row. The Return and
-  FX sections scroll with lane strips.
+- Lane strips never wrap. The four fixed FX slots are one 2x2 section at the
+  end of the row. Each slot contains its matching Return controls and the
+  section has no independent scrolling.
+- The Mixer has one horizontal scrollbar for the complete row. The combined
+  four-card section scrolls with lane strips.
 - The horizontal scrollbar is always visible while the Mixer is active and is
   disabled when the full row fits.
 - Horizontal trackpad movement and Shift+wheel scroll the row. Plain vertical
@@ -93,13 +94,13 @@ Lane strip 1 ... Lane strip N | Return | FX 1  FX 2
 - The Mixer row has no vertical scrollbar. Its content fits the available
   Bottom Workspace height at the supported minimum size.
 - Keyboard focus scrolls a clipped control into view.
-- Geometry uses the 30 px base control size. A lane strip is 76 px wide, the
-  Return section is 120 px wide, and each FX container is 160 px wide. These
-  widths scale consistently at UI Size 40 and 50. At a selected UI Size each
-  width is fixed; strips do not grow merely to consume spare width.
-- Lane-strip and Return control rectangles do not collide with adjacent controls
-  at UI Size 30, 40, and 50. Decorative EQ cells and rotary artwork remain
-  inside their owning control or strip at every size.
+- Geometry uses the 30 px base control size. A lane strip is 76 px wide and
+  each combined FX and Return container is 160 px wide. These widths scale
+  consistently at UI Size 40 and 50. At a selected UI Size each width is fixed;
+  strips do not grow merely to consume spare width.
+- Lane-strip and combined FX and Return control rectangles do not collide with
+  adjacent controls at UI Size 30, 40, and 50. Decorative EQ cells and rotary
+  artwork remain inside their owning control or strip at every size.
 - Sends, Returns, and Pan use the same project-owned SVG rotary visual as FX
   parameters. Compact sizing does not replace the range track, value arc,
   inset cap, default marker, or pointer with a separate CSS-only dial.
@@ -134,11 +135,12 @@ Mute and Solo remain in the lane header and are intentionally absent here.
 - A send has no route to another send or to any return except its matching bus.
   Feedback and crossfeed between return buses are forbidden.
 
-## Return Section
+## Integrated Return Controls
 
-There are exactly four global return buses. The Return section exposes one
-level control for each bus, labelled 1 through 4. Each row also shows the
-current module display name, Empty or Delay, beside its limiter toggle.
+There are exactly four global return buses. Each FX container exposes the level
+and limiter controls for its matching return bus. There is no separate Return
+section. The container also shows the current module display name, Empty or
+Delay.
 
 - Each return is wet-only. Dry audio remains on the lane's normal path.
 - Return level ranges from 0% to 100%, defaults to 100%, and resets to 100%.
@@ -149,8 +151,8 @@ current module display name, Empty or Delay, beside its limiter toggle.
   module, limiter setting, or send values.
 - Spec-010 owns each return's module, power behavior, limiter, and internal
   audio graph.
-- Each return has one small square limiter toggle in its label area. The exact
-  tooltip is:
+- Each combined FX and Return container has one small square limiter toggle.
+  The exact tooltip is:
 
   ```text
   Limiter
@@ -211,6 +213,7 @@ missing or malformed lane-owned Mixer data.
 | One structural undo entry | Lane content and its sound settings are restored together. |
 | Four post-fader, post-pan sends | A send follows the audible lane balance and stereo position. |
 | Four fixed global returns | The compact Mixer remains understandable and has no routing editor. |
+| Return controls live in their matching FX containers | Bus identity stays visible while removing a redundant standalone column. |
 | One scrolling row | Every strip and fixed bus remains reachable without pinning or wrapping. |
 | EQ is decorative and disabled | The reference hierarchy is retained without inventing unsupported DSP. |
 | Song Master is unchanged | The overhaul ends at the existing Master input boundary. |
@@ -248,9 +251,9 @@ removed solo cannot keep the remaining lanes gated.
   the post-volume, post-pan signal.
 - [ ] **AC-009:** Mute and solo stop new dry and send input according to the
   documented gating rules while existing return tails ring out.
-- [ ] **AC-010:** The row order is all lane strips, Return, then the 2x2 FX 1 through FX
-  4, using base widths 76/120/160 px and one continuous horizontal scrollbar
-  with no wrap, pinning, or vertical scroll.
+- [ ] **AC-010:** The row order is all lane strips, then the 2x2 combined FX and
+  Return containers 1 through 4, using base widths 76/160 px and one continuous
+  horizontal scrollbar with no wrap, pinning, or vertical scroll.
 - [ ] **AC-011:** Each wet-only return ranges from 0% to 100%, defaults and
   resets to 100%, and has no pan, Mute, Solo, meter, send, or crossfeed.
 - [ ] **AC-012:** All four returns sum before the unchanged Song Master path.
@@ -260,10 +263,10 @@ removed solo cannot keep the remaining lanes gated.
 - [ ] **AC-014:** Format-version-4 roundtrip preserves all lane-bound Mixer,
   return, FX, and limiter state; invalid lane counts and malformed lane-owned
   Mixer values are rejected; version 3 is rejected without migration.
-- [ ] **AC-015:** Lane-strip and Return buttons, sliders, and rotary hit
-  rectangles do not collide with adjacent controls at UI Size 30, 40, and 50;
-  each decorative EQ cell remains inside its channel strip, and each rotary SVG
-  remains inside its owning slider.
+- [ ] **AC-015:** Lane-strip and combined FX and Return buttons, sliders, and
+  rotary hit rectangles do not collide with adjacent controls at UI Size 30,
+  40, and 50; each decorative EQ cell remains inside its channel strip, and
+  each rotary SVG remains inside its owning slider.
 - [ ] **AC-016:** Sends, Returns, Pan, and FX parameters render the shared SVG
   rotary structure; Pan uses a bipolar center arc and other Mixer dials use a
   unipolar minimum-to-value arc.

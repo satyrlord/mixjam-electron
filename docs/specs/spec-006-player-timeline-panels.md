@@ -124,10 +124,11 @@ browser adjacencies.
   animation-frame loop runs only while Mixer is active; Song and Samples
   pause that loop without changing audio state or unmounting any panel.
 - Mixer uses one horizontal scrollport containing the lane strips in visible
-  order, then one Return strip, then `FX1`, `FX2`, `FX3`, and `FX4`. At base UI
-  Size 30, their widths are 76px, 120px, and 160px respectively. All lane
-  strips, the Return section, and all four FX containers remain reachable by
-  horizontal scrolling; none is pinned outside that scrollport.
+  order, then a 2x2 grid of combined FX and Return containers `FX1` through
+  `FX4`. At base UI Size 30, lane strips are 76px wide and each combined
+  container is 160px wide. All lane strips and all four combined containers
+  remain reachable by horizontal scrolling; none is pinned outside that
+  scrollport.
 - The tab row shows compact read-only BPM and Master Volume status. The status
   is an accessible button that activates Song; it does not create a second
   editable BPM or volume control.

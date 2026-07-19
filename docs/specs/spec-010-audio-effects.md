@@ -33,8 +33,9 @@ limiter.
 
 ### Fixed independent slots
 
-- The Mixer always contains FX 1, FX 2, FX 3, and FX 4 after the Return
-  section. Slots cannot be added, deleted, reordered, chained, or routed into
+- The Mixer always contains FX 1, FX 2, FX 3, and FX 4 in one 2x2 section after
+  the lane strips. Each container also owns the controls for its matching
+  Return. Slots cannot be added, deleted, reordered, chained, or routed into
   one another.
 - Return bus N feeds FX slot N. Each slot receives only the sum of lane send N.
 - Every slot contains exactly one module record with a stable slot identity.
@@ -73,8 +74,8 @@ duplicate dry audio through an empty slot.
 - Choosing `Delay...` opens the Delay modal. In a configured slot it edits that
   slot's independent settings; in Empty it begins a new Delay draft.
 - The closed container shows FX 1 through FX 4, Empty or Delay, Power state,
-  and a compact summary of time or division, Feedback, Tape Distortion, and
-  Ping-Pong.
+  Return level, limiter state, and a compact summary of time or division,
+  Feedback, Tape Distortion, and Ping-Pong.
 
 ## Delay Module
 
@@ -281,12 +282,14 @@ release, stereo linking, and zero limiter latency while bypassed.
 | Clear disposes immediately | Clear has an unambiguous destructive audio result and remains undoable as data. |
 | Modal edits are transactional with live audition | Users hear changes without committing partial state. |
 | Fixed per-return limiter | Every return has independent protection before it reaches Master. |
+| Return controls share the FX container | The fixed one-to-one bus relationship is visible without a separate Return column. |
 | Media Session actions remain active | Hardware and operating-system transport controls keep their expected role. |
 
 ## Acceptance Criteria
 
-- [ ] **AC-001:** The Mixer always renders exactly four independent FX
-  containers after Return, each containing explicit Empty or Delay state.
+- [ ] **AC-001:** The Mixer always renders exactly four independent combined FX
+  and Return containers after the lane strips, each containing explicit Empty
+  or Delay state plus its matching Return level and limiter controls.
 - [ ] **AC-002:** Empty produces silence for non-zero sends and creates no
   audible dry path.
 - [ ] **AC-003:** Delay defaults, ranges, mode-specific retained values,

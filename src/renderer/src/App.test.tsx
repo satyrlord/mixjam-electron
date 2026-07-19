@@ -72,12 +72,12 @@ describe('App', () => {
       const initial = render(<App />)
       const sizeGroup = screen.getByRole('group', { name: 'UI Size' })
 
-      expect(within(sizeGroup).getAllByRole('button').map((button) => button.textContent)).toEqual(['30', '40', '50'])
+      expect(within(sizeGroup).getAllByRole('button').map((button) => button.textContent)).toEqual(['75%', '100%', '125%'])
       expect(initial.container.querySelector('.app')).toHaveAttribute('data-ui-size', '40')
       expect(document.documentElement).toHaveAttribute('data-ui-size', '40')
       expect(document.documentElement.style.getPropertyValue('--ui-header-height')).toBe('64px')
 
-      fireEvent.click(within(sizeGroup).getByRole('button', { name: '50' }))
+      fireEvent.click(within(sizeGroup).getByRole('button', { name: '125%' }))
       expect(initial.container.querySelector('.app')).toHaveAttribute('data-ui-size', '50')
       expect(document.documentElement).toHaveAttribute('data-ui-size', '50')
       expect(document.documentElement.style.getPropertyValue('--ui-header-height')).toBe('80px')
