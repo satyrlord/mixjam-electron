@@ -137,6 +137,11 @@ or replay individual fields in order. Removing a lane disconnects every node it
 owns. Clearing an FX bus immediately replaces it with Empty and cuts its active
 tail. Powering a populated module off blocks new input but lets its existing tail
 finish.
+Creating or replacing a playback engine applies the complete snapshot before
+the engine is exposed for use. A Sample Folder change therefore preserves
+unchanged gain, pan, mute/solo, Sends, and Returns. Lane pan is applied once in
+the reusable channel path; a voice connects directly to that path and never
+creates a second lane panner.
 The snapshot may arrive before playback creates any lane channels. Playback
 therefore retains each lane's four Send values and replays them, including the
 Return connections, when the first voice lazily creates that channel.

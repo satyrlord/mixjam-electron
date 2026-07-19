@@ -6,7 +6,8 @@ import type {
   SampleAnalysisPatch,
   TagItem
 } from '../../../shared/backend-api'
-import type { PlacementGroupEntry, FooterSampleDetail, LaneState } from '../lib/arrangement'
+import type { PlacementGroupEntry, FooterSampleDetail } from '../lib/arrangement'
+import type { LaneState } from '../project/project-state'
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'

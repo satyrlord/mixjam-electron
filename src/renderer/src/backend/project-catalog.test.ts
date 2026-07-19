@@ -13,7 +13,10 @@ import {
 } from './project-catalog'
 
 vi.mock('./handle-store', () => ({ loadFolderHandle: vi.fn() }))
-vi.mock('./folder-access', () => ({ resolveFileHandle: vi.fn() }))
+vi.mock('./folder-access', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./folder-access')>(),
+  resolveFileHandle: vi.fn()
+}))
 
 const USER_REF: FolderRef = { id: 'user-1', name: 'MixJam' }
 
@@ -68,6 +71,10 @@ beforeEach(() => {
 })
 
 describe('recent project records', () => {
+  it('treats a non-array storage payload as an empty recent-project list', () => {
+    expect(normalizeRecentProjects({ path: 'not-a-list.mixjam' })).toEqual([])
+  })
+
   it('drops malformed entries, dedupes paths, and sorts newest first', () => {
     const entries = normalizeRecentProjects([
       { path: 'a.mixjam', displayName: 'a', lastOpened: '2026-01-01T00:00:00.000Z' },

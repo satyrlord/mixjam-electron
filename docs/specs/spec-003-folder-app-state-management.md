@@ -117,6 +117,10 @@ Each card shows:
   `queryPermission() === 'prompt'`, the card offers "Restore access to
   `folder`" and re-requests permission in a user gesture. This is a defensive
   recovery path because the Electron shell normally auto-grants access.
+- `backend/folder-access.ts` owns role-to-permission mapping, stored-handle
+  loading, automatic-access checks, explicit user-gesture recovery, relative
+  path resolution, and picked-file containment. Other backend workflows do not
+  import the handle store directly or request permission during background work.
 
 ### App State Persistence
 

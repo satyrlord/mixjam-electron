@@ -27,16 +27,18 @@ replace `stat()`.
 
 Library sync starts automatically after an accessible Sample Folder is selected
 or restored and at most once for that root during an app session. The backend
-worker owns this scheduling and keys roots by the string `FolderRef.id`; React
-hooks only request work and render the returned job state. Sync does not wait
-for Player entry, and Home/Player navigation never starts or restarts a job.
+worker owns scheduling and keys roots by the string `FolderRef.id`. One renderer
+library-sync runtime requests work, filters root/job-scoped events, hydrates a
+coalesced job, and projects the returned lifecycle state. Browse queries and
+metadata mutations do not duplicate that policy. Sync does not wait for Player
+entry, and Home/Player navigation never starts or restarts a job.
 
 The backend job coordinator runs one library job at a time and serializes it
 with the single analyzer, individual analyzer requests, and generator planning.
 A duplicate request for the active or queued root returns the existing job identity. Picking
 a different Sample Folder cancels the prior root at its next checkpoint, removes
 its queued automatic request, prioritizes the new root, and invalidates UI events
-from the previous root. A completed app-owned mutation, including a spec-013
+from the previous root. A completed app-owned mutation, including a spec-020
 download, bypasses the once-per-session suppression. If the same root is active,
 the coordinator sets a dirty bit and guarantees one follow-up reconciliation
 after the active job; multiple mutation events collapse into that one follow-up.

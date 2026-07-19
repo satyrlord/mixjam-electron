@@ -4,8 +4,13 @@ import type {
   OpenedMixJamFileContents
 } from '../../../shared/backend-api'
 import { isProjectRelativePath } from '../project/project-file'
-import { resolveFileHandle } from './folder-access'
-import { loadFolderHandle } from './handle-store'
+import {
+  openFolderForAutomaticAccess,
+  relativePathForHandle,
+  requireFolderForAutomaticAccess,
+  requireFolderForUserAction,
+  resolveFileHandle
+} from './folder-access'
 
 const MIXJAM_EXTENSION = '.mixjam'
 const GENERATED_BASENAME_PATTERN = /^[A-Za-z0-9_-]+$/
@@ -21,25 +26,6 @@ function isAbortError(error: unknown): boolean {
     : !!error && typeof error === 'object' && (error as { name?: unknown }).name === 'AbortError'
 }
 
-async function loadAccessibleFolder(
-  ref: FolderRef,
-  mode: 'read' | 'readwrite'
-): Promise<FileSystemDirectoryHandle> {
-  const handle = await loadFolderHandle(ref.id)
-  if (!handle) throw new Error(`The ${ref.name} folder is no longer available.`)
-  let permission = await handle.queryPermission({ mode })
-  if (permission !== 'granted') {
-    try {
-      permission = await handle.requestPermission({ mode })
-    } catch {
-      // Requesting stored-handle access requires transient user activation in
-      // the browser. Present the same actionable message if activation expired.
-    }
-  }
-  if (permission !== 'granted') throw new Error(`Access to the ${ref.name} folder is required.`)
-  return handle
-}
-
 function assertMixJamFileName(fileName: string): void {
   if (!fileName.toLowerCase().endsWith(MIXJAM_EXTENSION)) {
     throw new Error('MixJam project filenames must end in .mixjam.')
@@ -50,8 +36,7 @@ async function writableProjectPath(
   root: FileSystemDirectoryHandle,
   file: FileSystemFileHandle
 ): Promise<string> {
-  const segments = await root.resolve(file)
-  const relpath = segments?.join('/') ?? ''
+  const relpath = (await relativePathForHandle(root, file)) ?? ''
   if (!isProjectRelativePath(relpath)) {
     throw new Error('MixJam projects must be saved inside the selected User Folder.')
   }
@@ -65,7 +50,7 @@ async function projectPathWithinUserFolder(
 ): Promise<string | null> {
   if (!root) return null
   try {
-    const relpath = (await root.resolve(file))?.join('/') ?? ''
+    const relpath = (await relativePathForHandle(root, file)) ?? ''
     return isProjectRelativePath(relpath) && relpath.toLowerCase().endsWith(MIXJAM_EXTENSION)
       ? relpath
       : null
@@ -116,7 +101,7 @@ async function createGeneratedMixJamFileUnlocked(
   if (!GENERATED_BASENAME_PATTERN.test(basename)) {
     throw new Error('Generated MixJam basenames may contain only letters, numbers, underscores, and hyphens.')
   }
-  const root = await loadAccessibleFolder(userFolder, 'readwrite')
+  const root = await requireFolderForAutomaticAccess(userFolder, 'user')
   let maximumExistingSuffix = 0
   const prefix = `${basename}-`
   for await (const name of root.keys()) {
@@ -167,7 +152,7 @@ export function createGeneratedMixJamFile(
 export async function openMixJamFile(
   userFolder: FolderRef
 ): Promise<OpenedMixJamFileContents | null> {
-  const root = await loadFolderHandle(userFolder.id)
+  const root = await openFolderForAutomaticAccess(userFolder, 'user')
   let handle: FileSystemFileHandle
   try {
     const selected = await window.showOpenFilePicker({
@@ -199,7 +184,7 @@ export async function readMixJamFile(
   if (!isProjectRelativePath(projectRelpath) || !projectRelpath.toLowerCase().endsWith(MIXJAM_EXTENSION)) {
     throw new Error('The MixJam project path is invalid.')
   }
-  const root = await loadAccessibleFolder(userFolder, 'read')
+  const root = await requireFolderForAutomaticAccess(userFolder, 'user')
   const handle = await resolveFileHandle(root, projectRelpath)
   if (!handle) throw new Error(`The project "${projectRelpath}" could not be found.`)
   return { path: projectRelpath, contents: await readFile(handle) }
@@ -210,7 +195,7 @@ export async function saveMixJamFileAs(
   suggestedName: string,
   contents: string
 ): Promise<MixJamFileContents | null> {
-  const root = await loadAccessibleFolder(userFolder, 'readwrite')
+  const root = await requireFolderForUserAction(userFolder, 'user')
   let handle: FileSystemFileHandle
   try {
     handle = await window.showSaveFilePicker({
@@ -240,7 +225,7 @@ export async function writeMixJamFile(
   if (!isProjectRelativePath(projectRelpath) || !projectRelpath.toLowerCase().endsWith(MIXJAM_EXTENSION)) {
     throw new Error('The MixJam project path is invalid.')
   }
-  const root = await loadAccessibleFolder(userFolder, 'readwrite')
+  const root = await requireFolderForUserAction(userFolder, 'user')
   const handle = await resolveFileHandle(root, projectRelpath)
   if (!handle) throw new Error(`The project "${projectRelpath}" could not be found.`)
   await writeFile(handle, contents)
@@ -250,7 +235,7 @@ export async function findMissingSampleFiles(
   sampleFolder: FolderRef,
   relpaths: string[]
 ): Promise<string[]> {
-  const root = await loadAccessibleFolder(sampleFolder, 'read')
+  const root = await requireFolderForAutomaticAccess(sampleFolder, 'sample')
   const unique = [...new Set(relpaths)]
   const resolved = await Promise.all(unique.map(async (relpath) => ({
     relpath,

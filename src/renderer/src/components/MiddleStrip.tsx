@@ -11,6 +11,7 @@ import {
 } from './ui/DropdownMenu'
 import { Tooltip } from './ui/Tooltip'
 import { PLAYER_SHORTCUT_HINTS } from '../hooks/usePlayerShortcuts'
+import { getLibrarySyncPresentation } from '../lib/library-sync-presentation'
 
 // Inline SVGs avoid Windows color-emoji rendering and keep every command on
 // the current theme's foreground color.
@@ -59,18 +60,16 @@ interface LibraryActivityProps {
 }
 
 function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
+  const presentation = getLibrarySyncPresentation(state)
   let label: string
   let detail: string
   let percentage: number | undefined
-  let active = false
-  let retryable = false
   let error = false
 
   switch (state.status) {
     case 'checking':
       label = 'Checking library'
       detail = 'Checking the Sample Folder for changes'
-      active = true
       break
     case 'syncing':
       percentage = progressPercent(state.processed, state.total)
@@ -78,7 +77,6 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
       detail = percentage === undefined
         ? label
         : `${label}, ${percentage}% complete`
-      active = true
       break
     case 'analyzing':
       percentage = progressPercent(state.analyzed, state.total)
@@ -86,17 +84,14 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
       detail = percentage === undefined
         ? label
         : `${label}, ${percentage}% complete`
-      active = true
       break
     case 'cancelled':
       label = 'Library sync cancelled'
       detail = 'Library sync was cancelled'
-      retryable = !state.hasUsableIndex
       break
     case 'error':
       label = 'Library sync failed'
       detail = `Library sync failed: ${state.message}`
-      retryable = !state.hasUsableIndex
       error = true
       break
     default:
@@ -105,7 +100,7 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
 
   return (
     <div
-      className={`strip-activity${active ? ' strip-activity-active' : ''}${error ? ' strip-activity-error' : ''}`}
+      className={`strip-activity${presentation.active ? ' strip-activity-active' : ''}${error ? ' strip-activity-error' : ''}`}
       role="status"
       aria-live="polite"
       aria-label={detail}
@@ -117,7 +112,7 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
           <progress max={100} value={percentage} aria-hidden="true" />
         )}
       </span>
-      {active && (
+      {presentation.canCancel && (
         <button
           type="button"
           className="strip-activity-action"
@@ -127,7 +122,7 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
           <CommandIcon shape="close" />
         </button>
       )}
-      {retryable && (
+      {presentation.canRetry && (
         <button
           type="button"
           className="strip-activity-action"
@@ -208,9 +203,7 @@ export default function MiddleStrip({
 }: MiddleStripProps) {
   const isPlaying = transportState === 'playing'
   const isPreparing = transportState === 'preparing'
-  const libraryBusy = librarySyncState.status === 'checking' ||
-    librarySyncState.status === 'syncing' ||
-    librarySyncState.status === 'analyzing'
+  const librarySyncPresentation = getLibrarySyncPresentation(librarySyncState)
 
   return (
     <section className="middle-strip">
@@ -380,7 +373,7 @@ export default function MiddleStrip({
               </DropdownMenuItem>
               <DropdownMenuSeparator className="strip-menu-separator" />
               <DropdownMenuItem
-                disabled={libraryBusy}
+                disabled={librarySyncPresentation.active}
                 onSelect={() => onRescanLibrary()}
                 className="strip-rescan-menu-item"
                 aria-label="Re-scan Sample Folder"

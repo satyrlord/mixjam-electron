@@ -8,7 +8,7 @@ import type { AppState } from './useAppState'
 import type { GeneratorResult } from '../components/MixJamGeneratorDialog'
 import { materializeGeneratedProject } from '../project/generated-project'
 import { SAFE_SEED } from '../../../shared/backend-api'
-import { supportsExactGeneratorRegeneration } from '../project/generator-support'
+import { persistedGeneratorParameters } from '../project/generator-support'
 
 export type MixJamGeneratorMode = 'new' | 'regenerate-exact'
 
@@ -77,18 +77,7 @@ export function useMixJamGenerator(
 
   const storedGeneratorParameters = useCallback((): MixJamGeneratorParameters | null => {
     const generator = app.projectGenerator
-    if (!generator || !supportsExactGeneratorRegeneration(generator)) return null
-    return {
-      profileId: generator.profileId,
-      bpmMode: generator.parameters.bpmMode,
-      ...(generator.parameters.bpmMode === 'fixed' ? { bpm: generator.parameters.resolvedBpm } : {}),
-      ...(generator.parameters.tempoClusterPrefix !== undefined
-        ? { tempoClusterPrefix: generator.parameters.tempoClusterPrefix }
-        : {}),
-      intensity: generator.parameters.intensity,
-      durationSeconds: generator.parameters.durationSeconds,
-      seed: generator.seed
-    }
+    return generator ? persistedGeneratorParameters(generator) : null
   }, [app.projectGenerator])
 
   const resetState = useCallback((modeValue: MixJamGeneratorMode, params: MixJamGeneratorParameters | undefined) => {

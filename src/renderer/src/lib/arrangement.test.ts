@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
-  DEFAULT_LANE_COUNT,
-  MAX_LANE_COUNT,
-  MIN_LANE_COUNT,
   TRACKER_BAR_COUNT,
   TRACKER_BEAT_WIDTH_PX,
   TRACKER_GEOMETRY_SCALE,
@@ -15,11 +12,6 @@ import {
   DEFAULT_PLACEMENT_DURATION_TICKS,
   sampleBubbleScreenRect,
   timelinePixelsPerSecond,
-  createDefaultLanes,
-  addLane,
-  deleteLane,
-  deleteEmptyLanes,
-  isEmptyLane,
   duplicatePlacementGroup,
   duplicatePlacement,
   laneShouldDim,
@@ -28,13 +20,23 @@ import {
   placeSampleOnLane,
   removePlacementFromLane,
   resolvePendingPlacementBpms,
+  songEndTick,
+  toEngineLanes
+} from '../lib/arrangement'
+import {
+  DEFAULT_LANE_COUNT,
+  MAX_LANE_COUNT,
+  MIN_LANE_COUNT,
+  addLane,
+  createDefaultLanes,
+  deleteEmptyLanes,
+  deleteLane,
+  isEmptyLane,
   renameLane,
   setLanePan,
-  songEndTick,
-  toEngineLanes,
   toggleLaneMute,
   toggleLaneSolo
-} from '../lib/arrangement'
+} from '../project/project-state'
 import { clamp } from './sample-utils'
 
 describe('clamp', () => {

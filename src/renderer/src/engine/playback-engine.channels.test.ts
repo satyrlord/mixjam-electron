@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { EngineLane } from './lane-evaluation'
-import { createDefaultEffect } from './effects'
 import { PlaybackEngine } from './playback-engine'
 import type { SchedulerClock } from './scheduler'
 import { createMockContext } from '../test/mockAudioContext'
@@ -43,7 +42,6 @@ describe('PlaybackEngine channel reconciliation', () => {
         pan: -0.25,
         muted: false,
         solo: false,
-        effects: [],
         sends: [0.2, 0.4, 0.6, 0.8]
       }
     ])
@@ -58,14 +56,13 @@ describe('PlaybackEngine channel reconciliation', () => {
   })
 
   it('applies complete snapshots to channel graph state and routing', async () => {
-    const { playbackEngine, context } = makePlaybackEngine(testLanes())
+    const { playbackEngine } = makePlaybackEngine(testLanes())
     await playbackEngine.start(0)
 
-    const delay = createDefaultEffect('delay')
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: -0.25, muted: false, solo: true, effects: [delay], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0.25, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] }
+      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: -0.25, muted: false, solo: true, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0.25, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, sends: [0, 0, 0, 0] }
     ])
 
     const channel0 = playbackEngine.audioEngine.getChannel(0)!
@@ -73,29 +70,21 @@ describe('PlaybackEngine channel reconciliation', () => {
     const channel2 = playbackEngine.audioEngine.getChannel(2)!
     expect(channel0.gain).toBe(0.4)
     expect(channel0.pan).toBe(-0.25)
-    expect(channel0.effects).toEqual([delay])
     expect(channel1.gain).toBe(0)
     expect(channel2.gain).toBe(0)
-    expect(context.created.delays.length).toBeGreaterThan(0)
-    const removedLanePanner = context.created.panners.find((panner) =>
-      panner.connectedTo.some((target) => (target as unknown) === (channel1.input as unknown))
-    )!
-
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: true, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] }
+      { laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: true, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, sends: [0, 0, 0, 0] }
     ])
 
     expect(playbackEngine.audioEngine.getChannel(1)).toBeUndefined()
     expect(playbackEngine.audioEngine.getChannel(0)!.gain).toBe(0)
     expect(playbackEngine.audioEngine.getChannel(2)!.gain).toBe(0.7)
-    expect(playbackEngine.audioEngine.getChannel(0)!.effects).toEqual([])
-    expect(removedLanePanner.connectedTo).toHaveLength(0)
 
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: -0.5, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] }
+      { laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: -0.5, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, sends: [0, 0, 0, 0] }
     ])
 
     playbackEngine.stop()
@@ -104,10 +93,6 @@ describe('PlaybackEngine channel reconciliation', () => {
     expect(restoredChannel).not.toBe(channel1)
     expect(restoredChannel.gain).toBe(0.6)
     expect(restoredChannel.pan).toBe(-0.5)
-    const restoredInput = restoredChannel.input as unknown
-    expect(context.created.panners.some((panner) =>
-      panner.connectedTo.some((target) => (target as unknown) === restoredInput)
-    )).toBe(true)
     await playbackEngine.close()
   })
 
@@ -115,12 +100,12 @@ describe('PlaybackEngine channel reconciliation', () => {
     const { playbackEngine } = makePlaybackEngine(testLanes())
     await playbackEngine.start(0)
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0, muted: false, solo: true, effects: [], sends: [0, 0, 0, 0] }
+      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0, muted: false, solo: true, sends: [0, 0, 0, 0] }
     ])
 
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] }
+      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] }
     ])
 
     expect(playbackEngine.audioEngine.getChannel(1)).toBeUndefined()
@@ -130,26 +115,21 @@ describe('PlaybackEngine channel reconciliation', () => {
 
   it('disposes a middle lane graph when a different stable lane is reindexed into its channel', async () => {
     const lanes = testLanes()
-    const { playbackEngine, context } = makePlaybackEngine(lanes)
+    const { playbackEngine } = makePlaybackEngine(lanes)
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.8, pan: 0, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] }
+      { laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-1', channelIndex: 1, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-2', channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] }
     ])
     await playbackEngine.start(0)
     const oldChannel = playbackEngine.audioEngine.getChannel(1)!
-    const oldLanePanner = context.created.panners.find((panner) =>
-      panner.connectedTo.some((target) => (target as unknown) === (oldChannel.input as unknown))
-    )!
-
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, effects: [], sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 1, gain: 0.7, pan: 0.25, muted: false, solo: false, effects: [], sends: [0.1, 0.2, 0.3, 0.4] }
+      { laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      { laneId: 'lane-2', channelIndex: 1, gain: 0.7, pan: 0.25, muted: false, solo: false, sends: [0.1, 0.2, 0.3, 0.4] }
     ])
 
     expect(playbackEngine.audioEngine.getChannel(1)).toBeUndefined()
     expect(playbackEngine.audioEngine.getChannel(2)).toBeUndefined()
-    expect(oldLanePanner.connectedTo).toHaveLength(0)
 
     lanes.splice(1, 2, { ...lanes[2]!, index: 1, channelIndex: 1 })
     playbackEngine.stop()

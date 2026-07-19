@@ -222,9 +222,10 @@ the same coherent sample population. It is never an absolute filesystem path.
 
 - `src/renderer/src/project/project-state.ts` owns the complete in-memory
   project state (Song, lanes, placements, lane Mixer state, and four buses), its canonical defaults,
-  explicit cloning, and the nested transport-replacement shape. Save, load,
-  New, and generator paths use this factory instead of reconstructing flattened
-  field lists. The project-file module owns
+  explicit cloning, pure lane/Mixer edits, the lane/Return edit-history shape, the
+  nested transport-replacement shape, and adaptation to the playback graph.
+  Save, load, New, and generator paths use this owner instead of reconstructing
+  flattened field lists. The project-file module owns
   format validation and unsupported-version rejection, but it reuses this
   neutral state contract so
   adding a Song setting cannot silently omit a replacement or default path.

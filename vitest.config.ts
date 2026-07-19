@@ -1,7 +1,7 @@
 import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
-// The two DB-backed backend suites run under plain Node (sqlite-wasm loads
+// DB-backed backend suites run under plain Node (sqlite-wasm loads
 // fine there with an in-memory database); everything else runs under jsdom.
 const NODE_BACKEND_TESTS = [
   'src/renderer/src/backend/library.test.ts',
@@ -43,7 +43,6 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json'],
       reportsDirectory: './coverage-unit',
-      all: false,
       include: ['src/renderer/src/**/*.{ts,tsx}'],
       exclude: [
         '**/out/**',

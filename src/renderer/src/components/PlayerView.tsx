@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import type {
   TrackerArrangementProps,
@@ -11,14 +11,11 @@ import {
   LANE_HEAD_WIDTH_PX,
   LEFT_COL_MIN_PX,
   TRACKER_BAR_COUNT,
-  TRACKER_TIMELINE_MIN_WIDTH_PX,
-  TRACKER_TOTAL_TICKS,
-  timelinePixelsPerSecond
+  TRACKER_TIMELINE_MIN_WIDTH_PX
 } from '../lib/arrangement'
 import { TICKS_PER_BEAT } from '../engine/transport'
 import { usePlayerShortcuts } from '../hooks/usePlayerShortcuts'
-import { useDragCleanups } from '../hooks/useDragCleanups'
-import { usePlacementDrag } from '../hooks/usePlacementDrag'
+import { useTrackerInteraction } from '../hooks/useTrackerInteraction'
 import MixJamBrowser from './MixJamBrowser'
 import MiddleStrip from './MiddleStrip'
 import SongControlsMain from './SongControlsMain'
@@ -26,33 +23,13 @@ import MixerColumn from './MixerColumn'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
-import BottomWorkspace, {
-  type BottomWorkspaceTab
-} from './BottomWorkspace'
-import {
-  loadPlayerWorkspacePreferences,
-  playerWorkspacePreferences
-} from '../app-state/player-workspace-preferences'
+import BottomWorkspace, { useBottomWorkspace } from './BottomWorkspace'
 import { ContextMenuContent, ContextMenuItem, ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
-import { Panel, PanelGroup, PanelResizeHandle, usePanelRef, type PanelLayout } from './ui/ResizablePanels'
+import { Panel, PanelGroup, PanelResizeHandle } from './ui/ResizablePanels'
 import { SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
 import { Tooltip } from './ui/Tooltip'
-import { useUiGeometry } from '../ui-size'
 
 const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
-
-const BOTTOM_WORKSPACE_EXPANDED_PERCENT = 60
-const BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT = 50
-
-export function reconcileSelectedLaneId(
-  lanes: ReadonlyArray<{ id: string }>,
-  selectedLaneId: string | null
-): string | null {
-  if (selectedLaneId !== null && lanes.some((lane) => lane.id === selectedLaneId)) {
-    return selectedLaneId
-  }
-  return lanes[0]?.id ?? null
-}
 
 export interface PlayerViewProps {
   mixJamFiles: MixJamFileItem[]
@@ -75,149 +52,29 @@ export default function PlayerView({
   const { transportState, onTransportSeek } = transport
   const hasPlacedSamples = lanes.some((lane) => lane.placements.length > 0)
   const emptyLaneCount = Math.max(0, lanes.filter((lane) => lane.placements.length === 0).length - (lanes.every((lane) => lane.placements.length === 0) ? 1 : 0))
-
-  const totalTicks = TRACKER_TOTAL_TICKS
-
-  // Lane content width measurement for consistent bubble widths
-  const lanesRef = useRef<HTMLDivElement>(null)
-  const timelineRef = useRef<HTMLDivElement>(null)
-  const [laneContentWidth, setLaneContentWidth] = useState(0)
-
-  useEffect(() => {
-    const el = timelineRef.current
-    if (!el) return
-    const measure = () => setLaneContentWidth(el.clientWidth - LANE_HEAD_WIDTH_PX)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const pixelsPerTick = laneContentWidth > 0 ? laneContentWidth / totalTicks : 0
-  const bubblePixelsPerSecond = timelinePixelsPerSecond(
-    laneContentWidth,
-    totalTicks,
-    transport.bpm
-  )
-  const lastGridTick = Math.floor((totalTicks - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
-  const sampleDurationTicksByPath = useMemo(() => {
-    const result = new Map<string, number>()
-    for (const lane of lanes) {
-      for (const placement of lane.placements) {
-        if (!result.has(placement.samplePath)) {
-          result.set(placement.samplePath, placement.durationTicks)
-        }
-      }
-    }
-    return result
-  }, [lanes])
-
-  const [selectedPlacementIds, setSelectedPlacementIds] = useState<Set<string>>(new Set())
-  const clearSelection = useCallback(() => setSelectedPlacementIds(new Set()), [])
-
-  const trackDragCleanup = useDragCleanups()
-
+  const tracker = useTrackerInteraction({ arrangement, transport, browser })
   const {
-    selectionRect,
-    handleLanesMouseDown: lanesMouseDown,
-    handleSampleDragStart,
-    handlePlacementDragStart,
-    handleLaneCanvasDragOver,
-    handleLaneCanvasDrop
-  } = usePlacementDrag({
-    lanes,
-    totalTicks,
-    bpm: transport.bpm,
-    sampleDurationTicksByPath,
-    selectedPlacementIds,
-    pixelsPerTick,
-    onClearSelection: clearSelection,
-    onPlaceSampleDetailOnLane: arrangement.onPlaceSampleDetailOnLane,
-    onMovePlacement: arrangement.onMovePlacement,
-    onDuplicatePlacement: arrangement.onDuplicatePlacement,
-    onMovePlacementGroup: arrangement.onMovePlacementGroup,
-    onDuplicatePlacementGroup: arrangement.onDuplicatePlacementGroup
-  })
-
-  const scrollTrackerToTick = useCallback((tick: number) => {
-    const scrollport = lanesRef.current
-    if (!scrollport) return
-    const maximumScroll = Math.max(0, scrollport.scrollWidth - scrollport.clientWidth)
-    const timelineWidth = Math.max(0, scrollport.scrollWidth - LANE_HEAD_WIDTH_PX)
-    const boundedTick = Math.max(0, Math.min(totalTicks, tick))
-    const targetX = LANE_HEAD_WIDTH_PX + (boundedTick / totalTicks) * timelineWidth
-    const nextScrollLeft = boundedTick === 0
-      ? 0
-      : Math.max(0, Math.min(maximumScroll, targetX - scrollport.clientWidth + 8))
-    scrollport.scrollLeft = nextScrollLeft
-  }, [totalTicks])
-
-  const handleTransportStop = useCallback(() => {
-    transport.onTransportStop()
-    scrollTrackerToTick(0)
-  }, [scrollTrackerToTick, transport])
-
-  const handleTransportSkipBack = useCallback(() => {
-    transport.onTransportSkipBack()
-    scrollTrackerToTick(0)
-  }, [scrollTrackerToTick, transport])
-
-  const handleTransportJumpToEnd = useCallback(() => {
-    transport.onTransportJumpToEnd()
-    scrollTrackerToTick(transport.songEndTick)
-  }, [scrollTrackerToTick, transport])
-
-  const previousTransportStateRef = useRef(transportState)
-  useEffect(() => {
-    const previousState = previousTransportStateRef.current
-    if ((previousState === 'playing' || previousState === 'preparing') &&
-        transportState === 'stopped' && currentTick === 0) {
-      scrollTrackerToTick(0)
-    }
-    previousTransportStateRef.current = transportState
-  }, [currentTick, scrollTrackerToTick, transportState])
-
-  const previousSongEndTickRef = useRef(transport.songEndTick)
-  useEffect(() => {
-    const previousEndTick = previousSongEndTickRef.current
-    if (transport.songEndTick < previousEndTick &&
-        currentTick > transport.songEndTick &&
-        transportState !== 'playing' && transportState !== 'preparing') {
-      scrollTrackerToTick(transport.songEndTick)
-    }
-    previousSongEndTickRef.current = transport.songEndTick
-  }, [currentTick, scrollTrackerToTick, transport.songEndTick, transportState])
-
-  const handleLanesMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const container = lanesRef.current
-    const cleanup = lanesMouseDown(e, container, setSelectedPlacementIds)
-    if (cleanup) trackDragCleanup(cleanup)
-    if (!e.ctrlKey) {
-      clearSelection()
-    }
-  }, [lanesMouseDown, trackDragCleanup, clearSelection])
+    lanesRef, timelineRef, totalTicks, pixelsPerTick, bubblePixelsPerSecond, sampleDurationTicksByPath,
+    selectedPlacementIds, clearSelection, selectedLaneId, setSelectedLaneId, contextMenu, setContextMenu,
+    laneContextMenu, setLaneContextMenu, renamingLaneIndex, activeFlashPath, selectionRect,
+    handleLanesMouseDown, handleSampleDragStart, handlePlacementDragStart, handleLaneCanvasDragOver,
+    handleLaneCanvasDrop, onTransportStop: handleTransportStop, onTransportSkipBack: handleTransportSkipBack,
+    onTransportJumpToEnd: handleTransportJumpToEnd, onContextDelete: handleContextDelete,
+    onContextLocate: handleContextLocate, onLaneContextMenu: handleLaneContextMenu,
+    onRenameLane: handleRenameLane, onDeleteLane: handleDeleteLane, onCommitLaneName: handleCommitLaneName,
+    onCancelLaneRename: handleCancelLaneRename
+  } = tracker
+  const lastGridTick = Math.floor((totalTicks - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const [workspaceDefaults] = useState(() =>
-    loadPlayerWorkspacePreferences(window.innerWidth, LEFT_COL_MIN_PX)
-  )
-  const uiGeometry = useUiGeometry()
-  const mixerMinimumHeight = uiGeometry.tabRowHeight +
-    (4 * uiGeometry.spaceMd) + uiGeometry.size +
-    (2 * uiGeometry.mixerFxHeight) + uiGeometry.spaceSm + 14
-  const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(
-    workspaceDefaults.mixJamBrowserCollapsed
-  )
-  const browserPanelRef = usePanelRef()
-  const upperDefaultLayout: PanelLayout = workspaceDefaults.upperLayout
-  const verticalDefaultLayout: PanelLayout = workspaceDefaults.verticalLayout
-  const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(workspaceDefaults.bottomTab)
-  const bottomPanelRef = usePanelRef()
-  const bottomTabSizesRef = useRef({ ...workspaceDefaults.bottomTabSizes })
-  const initialExpansionState = workspaceDefaults.bottomExpansion
-  const previousBottomSizeRef = useRef(initialExpansionState.previousBottomSize)
-  const [bottomWorkspaceExpanded, setBottomWorkspaceExpanded] = useState(initialExpansionState.expanded)
-  const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
+  const workspace = useBottomWorkspace()
+  const {
+    browserPanelRef, bottomPanelRef, bottomTab, expanded: bottomWorkspaceExpanded,
+    mixerMinimumHeight, mixJamBrowserCollapsed, upperDefaultLayout, verticalDefaultLayout,
+    setBottomTab, toggleExpanded: toggleBottomWorkspaceExpanded, openSamples: openSamplesFromCue,
+    onBrowserCollapsedChange: handleMixJamBrowserCollapsedChange,
+    onVerticalLayoutChanged, onUpperLayoutChanged
+  } = workspace
   const { onSetVisualTelemetryActive } = mixer
   const {
     busy: projectBusy,
@@ -232,73 +89,6 @@ export default function PlayerView({
   useEffect(() => () => {
     onSetVisualTelemetryActive(false)
   }, [onSetVisualTelemetryActive])
-
-  const setBottomTab = useCallback((tab: BottomWorkspaceTab) => {
-    if (tab === bottomTab) return
-    const currentSize = bottomPanelRef.current!.getSize().asPercentage
-    bottomTabSizesRef.current = { ...bottomTabSizesRef.current, [bottomTab]: currentSize }
-    playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
-    setBottomTabState(tab)
-    playerWorkspacePreferences.saveBottomTab(tab)
-  }, [bottomPanelRef, bottomTab])
-
-  useEffect(() => {
-    const panel = bottomPanelRef.current!
-    const targetPercentage = bottomTabSizesRef.current[bottomTab]
-    if (bottomTab !== 'mixer') {
-      panel.resize(`${targetPercentage}%`)
-      return
-    }
-    const current = panel.getSize()
-    const groupHeight = current.inPixels * 100 / current.asPercentage
-    const rememberedHeight = groupHeight * targetPercentage / 100
-    panel.resize(`${Math.max(mixerMinimumHeight, rememberedHeight)}px`)
-  }, [bottomPanelRef, bottomTab, mixerMinimumHeight])
-
-  const toggleBottomWorkspaceExpanded = useCallback(() => {
-    const panel = bottomPanelRef.current!
-    if (bottomWorkspaceExpanded) {
-      playerWorkspacePreferences.saveBottomExpansion({
-        expanded: false,
-        previousBottomSize: previousBottomSizeRef.current
-      })
-      panel.resize(`${previousBottomSizeRef.current}%`)
-      setBottomWorkspaceExpanded(false)
-      return
-    }
-    previousBottomSizeRef.current = panel.getSize().asPercentage
-    playerWorkspacePreferences.saveBottomExpansion({
-      expanded: true,
-      previousBottomSize: previousBottomSizeRef.current
-    })
-    panel.resize(`${BOTTOM_WORKSPACE_EXPANDED_PERCENT}%`)
-    setBottomWorkspaceExpanded(true)
-  }, [bottomPanelRef, bottomWorkspaceExpanded])
-
-  const openSamplesFromCue = useCallback(() => {
-    bottomTabSizesRef.current = {
-      ...bottomTabSizesRef.current,
-      samples: Math.max(
-        bottomTabSizesRef.current.samples,
-        BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT
-      )
-    }
-    playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
-    setBottomTab('samples')
-  }, [setBottomTab])
-
-  const handleMixJamBrowserCollapsedChange = useCallback((collapsed: boolean) => {
-    setMixJamBrowserCollapsed(collapsed)
-    playerWorkspacePreferences.saveMixJamBrowserCollapsed(collapsed)
-    if (collapsed) browserPanelRef.current?.collapse()
-    else browserPanelRef.current?.expand()
-  }, [browserPanelRef])
-
-  useEffect(() => {
-    const nextLaneId = reconcileSelectedLaneId(arrangement.lanes, selectedLaneId)
-    if (nextLaneId === selectedLaneId) return
-    setSelectedLaneId(nextLaneId)
-  }, [arrangement.lanes, selectedLaneId])
 
   // Refs for values read by the global keyboard shortcut handler so the
   // listener subscribes once instead of on every selection / transport change.
@@ -325,105 +115,13 @@ export default function PlayerView({
     onOpenShortcuts: () => setShortcutsOpen(true)
   })
 
-  const [contextMenu, setContextMenu] = useState<{
-    x: number
-    y: number
-    laneIndex: number
-    placementId: string
-    samplePath: string
-    sampleName: string
-  } | null>(null)
-  const [laneContextMenu, setLaneContextMenu] = useState<{
-    laneIndex: number
-    laneName: string
-  } | null>(null)
-  const [renamingLaneIndex, setRenamingLaneIndex] = useState<number | null>(null)
-
-  // Flash state for "locate in browser": the target path stays put for the
-  // whole animation while a visibility flag blinks, so the effect below never
-  // re-runs (and kills its own interval) mid-flash.
-  const [flashSamplePath, setFlashSamplePath] = useState<string | null>(null)
-  const [flashVisible, setFlashVisible] = useState(false)
-  const activeFlashPath = flashVisible ? flashSamplePath : null
-
-  // Flash effect: blink the highlight 3 times (6 visibility toggles) then clear.
-  useEffect(() => {
-    if (!flashSamplePath) return
-    setFlashVisible(true)
-    let toggles = 0
-    const timer = setInterval(() => {
-      toggles++
-      if (toggles >= 6) {
-        clearInterval(timer)
-        setFlashVisible(false)
-        setFlashSamplePath(null)
-      } else {
-        setFlashVisible((v) => !v)
-      }
-    }, 300)
-    return () => clearInterval(timer)
-  }, [flashSamplePath])
-
-  const handleContextDelete = useCallback(() => {
-    if (!contextMenu) return
-    arrangement.onRemovePlacementFromLane(contextMenu.laneIndex, contextMenu.placementId)
-    setContextMenu(null)
-  }, [contextMenu, arrangement])
-
-  const handleContextLocate = useCallback(() => {
-    if (!contextMenu) return
-    browser.onSearchChange(contextMenu.sampleName.replace(/\.[^.]+$/, ''))
-    browser.onSelectCategory(undefined)
-    setFlashSamplePath(contextMenu.samplePath)
-    setContextMenu(null)
-  }, [contextMenu, browser])
-
-  const handleLaneContextMenu = useCallback((laneIndex: number, laneName: string) => {
-    setLaneContextMenu({ laneIndex, laneName })
-  }, [])
-
-  const handleRenameLane = useCallback(() => {
-    if (!laneContextMenu) return
-    setRenamingLaneIndex(laneContextMenu.laneIndex)
-    setLaneContextMenu(null)
-  }, [laneContextMenu])
-
-  const handleDeleteLane = useCallback(() => {
-    if (!laneContextMenu) return
-    const lane = lanes.find((candidate) => candidate.index === laneContextMenu.laneIndex)
-    if (!lane) return
-    if (lane.placements.length > 0 && !window.confirm(`Delete ${lane.name} and its ${lane.placements.length} sample event${lane.placements.length === 1 ? '' : 's'}?`)) return
-    arrangement.onDeleteLane(lane.index)
-    setLaneContextMenu(null)
-  }, [arrangement, laneContextMenu, lanes])
-
-  const onRenameLane = arrangement.onRenameLane
-  const handleCommitLaneName = useCallback((laneIndex: number, name: string) => {
-    onRenameLane(laneIndex, name)
-    setRenamingLaneIndex(null)
-  }, [onRenameLane])
-
-  const handleCancelLaneRename = useCallback(() => {
-    setRenamingLaneIndex(null)
-  }, [])
-
   return (
     <PanelGroup
       id="player-workspace-split"
       className={`player-view${mixJamBrowserCollapsed ? ' mixjam-browser-collapsed' : ''}`}
       orientation="vertical"
       defaultLayout={verticalDefaultLayout}
-      onLayoutChanged={(layout, meta) => {
-        playerWorkspacePreferences.saveVerticalLayout(layout)
-        const bottomSize = layout.bottom
-        if (bottomSize === undefined) return
-        bottomTabSizesRef.current = { ...bottomTabSizesRef.current, [bottomTab]: bottomSize }
-        playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
-        if (!meta.isUserInteraction || bottomTab === 'mixer') return
-        previousBottomSizeRef.current = bottomSize
-        setBottomWorkspaceExpanded(false)
-        playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: bottomSize })
-      }}
+      onLayoutChanged={onVerticalLayoutChanged}
     >
       <Panel id="upper" minSize="244px">
         <div className="upper-middle-work">
@@ -432,7 +130,7 @@ export default function PlayerView({
             className="upper-work-group"
             orientation="horizontal"
             defaultLayout={upperDefaultLayout}
-            onLayoutChanged={(layout) => playerWorkspacePreferences.saveUpperLayout(layout)}
+            onLayoutChanged={onUpperLayoutChanged}
           >
             <Panel
               id="browser"

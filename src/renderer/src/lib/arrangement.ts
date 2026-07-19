@@ -1,6 +1,7 @@
 import type { SampleListItem } from '../../../shared/backend-api'
 import { type EngineLane } from '../engine/lane-evaluation'
 import { BEATS_PER_BAR, TICKS_PER_BAR, tickDurationSeconds } from '../engine/transport'
+import type { ClipPlacement, LaneState } from '../project/project-state'
 import { clamp } from './sample-utils'
 
 /** Detail passed around the UI after a user selects or drags a sample. All
@@ -13,13 +14,6 @@ export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags
   slot?: number
 }
 
-/** A blank project starts compact, while saved projects may grow to this hard cap. */
-export const DEFAULT_LANE_COUNT = 8
-export const MIN_LANE_COUNT = 1
-export const MAX_LANE_COUNT = 64
-const DEFAULT_LANE_GAIN = 0.8
-const DEFAULT_LANE_SENDS = [0, 0, 0, 0] as const
-export type LaneSendLevels = [number, number, number, number]
 export const TRACKER_GEOMETRY_SCALE = 0.75
 
 function compactTrackerPixels(basePixels: number, gridPixels = 1): number {
@@ -67,41 +61,6 @@ export function timelinePixelsPerSecond(
 // The upper MixJam Browser must leave its collapse control reachable.
 export const LEFT_COL_MIN_PX = 168
 
-export interface ClipPlacement {
-  id: string
-  samplePath: string
-  sampleName: string
-  startTick: number
-  durationTicks: number
-  /** Immutable source-audio duration in seconds. Tracker geometry and playback
-   * duration are controlled by durationTicks. */
-  durationSeconds: number | null
-  /** Native tempo captured from the sample when it is placed. Keeping tempo
-   * with the placement lets one lane contain loops at different tempos. */
-  nativeBPM?: number | null
-  /** Transient marker for a placement created before background analysis had
-   * produced a native BPM. It is intentionally omitted from project files. */
-  nativeBPMPending?: boolean
-  /** Category-derived palette slot, stored at placement time. The slot (not a
-   *  hex) is what stays stable; the color resolves from the active theme's
-   *  palette at draw time (spec-002 Sample Palette). */
-  slot?: number
-}
-
-export interface LaneState {
-  /** Stable project identity. It is intentionally independent of visible index. */
-  id: string
-  index: number
-  name: string
-  muted: boolean
-  solo: boolean
-  pan: number
-  /** Lane-owned Mixer state. */
-  gain: number
-  sends: LaneSendLevels
-  placements: ClipPlacement[]
-}
-
 // Monotonic counter appended to generated placement ids so multiple placements
 // synchronously in the same millisecond (e.g. a batched group duplicate)
 // never collide on id, which would make delete/select-by-id affect both.
@@ -145,55 +104,6 @@ export function sampleBubbleScreenRect(
     x: placement.startTick * pixelsPerTick,
     width: sampleBubbleWidthFromTicks(placement.durationTicks, pixelsPerTick)
   }
-}
-
-export function createDefaultLanes(): LaneState[] {
-  return Array.from({ length: DEFAULT_LANE_COUNT }, (_, index) => createLane(index))
-}
-
-let laneIdSequence = 0
-
-function createLane(index: number, id = `lane-${index + 1}-${++laneIdSequence}`): LaneState {
-  return {
-    id,
-    index,
-    name: `Lane ${index + 1}`,
-    muted: false,
-    solo: false,
-    pan: 0,
-    gain: DEFAULT_LANE_GAIN,
-    sends: [...DEFAULT_LANE_SENDS],
-    placements: []
-  }
-}
-
-/** Add one lane after the current last lane. Returns the same array at 64 lanes. */
-export function addLane(lanes: readonly LaneState[]): LaneState[] {
-  if (lanes.length >= MAX_LANE_COUNT) return [...lanes]
-  const next = lanes.map((lane, index) => ({ ...lane, index }))
-  return [...next, createLane(next.length)]
-}
-
-/** Delete a lane by visible index. The caller is responsible for confirming
- * deletion when the lane contains placements. The final lane cannot be removed. */
-export function deleteLane(lanes: readonly LaneState[], laneIndex: number): LaneState[] {
-  if (lanes.length <= MIN_LANE_COUNT) return [...lanes]
-  const remaining = lanes.filter((lane) => lane.index !== laneIndex)
-  if (remaining.length === lanes.length || remaining.length < MIN_LANE_COUNT) return [...lanes]
-  return remaining.map((lane, index) => ({ ...lane, index }))
-}
-
-/** A lane is empty when no sample event is placed anywhere on it. */
-export function isEmptyLane(lane: Pick<LaneState, 'placements'>): boolean {
-  return lane.placements.length === 0
-}
-
-/** Remove every empty lane without confirmation, preserving at least one lane. */
-export function deleteEmptyLanes(lanes: readonly LaneState[]): LaneState[] {
-  if (lanes.length <= MIN_LANE_COUNT) return [...lanes]
-  const nonEmpty = lanes.filter((lane) => !isEmptyLane(lane))
-  const kept = nonEmpty.length > 0 ? nonEmpty : [lanes[0]!]
-  return kept.map((lane, index) => ({ ...lane, index }))
 }
 
 // Maps the UI lane model onto the engine's lane model. Default routing: lane N
@@ -308,32 +218,8 @@ export function resolvePendingPlacementBpms(
   })
   return changed ? next : lanes
 }
-
 function sortPlacements(placements: ClipPlacement[]): ClipPlacement[] {
   return [...placements].sort((a, b) => a.startTick - b.startTick)
-}
-
-export function toggleLaneMute(lanes: LaneState[], laneIndex: number): LaneState[] {
-  return lanes.map((lane) =>
-    lane.index === laneIndex ? { ...lane, muted: !lane.muted } : lane
-  )
-}
-
-export function toggleLaneSolo(lanes: LaneState[], laneIndex: number): LaneState[] {
-  const targetLane = lanes.find((lane) => lane.index === laneIndex)
-  if (!targetLane) return lanes
-
-  const willSolo = !targetLane.solo
-
-  return lanes.map((lane) => {
-    if (lane.index === laneIndex) {
-      return { ...lane, solo: willSolo }
-    }
-    if (willSolo) {
-      return { ...lane, solo: false }
-    }
-    return lane
-  })
 }
 
 // A lane is dimmed when it is muted, or when any lane is soloed and this lane is
@@ -525,38 +411,3 @@ export function removePlacements(lanes: LaneState[], placementIds: readonly stri
   })
   return changed ? next : lanes
 }
-
-export function setLanePan(lanes: LaneState[], laneIndex: number, pan: number): LaneState[] {
-  return lanes.map((lane) =>
-    lane.index === laneIndex ? { ...lane, pan: clamp(pan, -1, 1) } : lane
-  )
-}
-
-export function setLaneGain(lanes: LaneState[], laneIndex: number, gain: number): LaneState[] {
-  const bounded = clamp(gain, 0, 1)
-  return lanes.map((lane) => lane.index === laneIndex ? { ...lane, gain: bounded } : lane)
-}
-
-export function setLaneSend(lanes: LaneState[], laneIndex: number, sendIndex: number, value: number): LaneState[] {
-  if (sendIndex < 0 || sendIndex > 3) return lanes
-  return lanes.map((lane) => {
-    if (lane.index !== laneIndex) return lane
-    const sends: LaneSendLevels = [...lane.sends]
-    sends[sendIndex] = clamp(value, 0, 1)
-    return { ...lane, sends }
-  })
-}
-
-export function renameLane(lanes: LaneState[], laneIndex: number, name: string): LaneState[] {
-  const nextName = name.trim()
-  if (!nextName) return lanes
-
-  let changed = false
-  const next = lanes.map((lane) => {
-    if (lane.index !== laneIndex || lane.name === nextName) return lane
-    changed = true
-    return { ...lane, name: nextName }
-  })
-  return changed ? next : lanes
-}
-

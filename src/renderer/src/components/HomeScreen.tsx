@@ -3,6 +3,7 @@ import type { FolderView } from '../hooks/useFolderSetup'
 import type { LibrarySyncState, MixJamFileItem, MixJamGeneratorReadiness } from '../../../shared/backend-api'
 import { THEME_OPTIONS, resolveTheme } from '../theme/themes'
 import LibrarySyncStatus from './LibrarySyncStatus'
+import { getLibrarySyncPresentation } from '../lib/library-sync-presentation'
 import { Tooltip } from './ui/Tooltip'
 import appIconUrl from '../../../../public/app-icon-128.png'
 
@@ -77,13 +78,8 @@ export default function HomeScreen({
   const homeRecent = mixJamFiles.slice(0, HOME_RECENT_LIMIT)
   const generatorReady = generatorReadiness?.status === 'ready'
   const generatorNeedsPreparation = generatorReadiness?.status === 'needs-preparation'
-  const libraryPreparationMessage = librarySyncState.status === 'checking'
-    ? 'Available when the library check finishes.'
-    : librarySyncState.status === 'syncing'
-      ? 'Available when library sync finishes.'
-      : librarySyncState.status === 'analyzing'
-        ? 'Available when library analysis finishes.'
-        : null
+  const librarySyncPresentation = getLibrarySyncPresentation(librarySyncState)
+  const libraryPreparationMessage = librarySyncPresentation.preparationMessage
   const userFolderUnavailable = userFolder.status !== 'set'
   const sampleFolderUnavailable = sampleFolder.status !== 'set'
   const generatorLabel = sampleFolderUnavailable
@@ -192,7 +188,7 @@ export default function HomeScreen({
                 onRestore={onRestoreSample}
               />
             </div>
-            {librarySyncState.status !== 'unavailable' && (
+            {librarySyncPresentation.hasStatus && (
               <div className="home-library-status">
                 <LibrarySyncStatus
                   state={librarySyncState}

@@ -1,6 +1,5 @@
 import type { FolderRef, MixJamFileItem } from '../../../shared/backend-api'
-import { resolveFileHandle } from './folder-access'
-import { loadFolderHandle } from './handle-store'
+import { openFolderForAutomaticAccess, resolveFileHandle } from './folder-access'
 
 export const RECENT_PROJECTS_STORAGE_KEY = 'mixjam.recent-projects'
 
@@ -133,13 +132,8 @@ export async function listMixJamFiles(
 ): Promise<MixJamFileItem[]> {
   if (!userFolder) return []
 
-  let handle: FileSystemDirectoryHandle | null
-  try {
-    handle = await loadFolderHandle(userFolder.id)
-    if (!handle || (await handle.queryPermission({ mode: 'read' })) !== 'granted') return []
-  } catch {
-    return []
-  }
+  const handle = await openFolderForAutomaticAccess(userFolder, 'user')
+  if (!handle) return []
 
   const merged = new Map<string, MixJamFileItem>()
   const registered = readRecentProjects(storage)

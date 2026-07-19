@@ -1,8 +1,8 @@
 # Spec 005 — Audio Playback Engine
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIAL — existing playback baseline implemented;
-dynamic lanes and send/return graph not implemented
+**Spec Implementation Status:** PARTIAL — the playback baseline, dynamic lane
+paths, and send/return graph are implemented; unchecked validation remains
 **Depends on:** spec-003 (Folder & App State Management)
 
 ## Objective
@@ -160,6 +160,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Each voice reaches the lane gain and pan path. Its dry output reaches the
   unchanged master bus, while four post-gain, post-pan send taps feed the fixed
   return buses `FX1`, `FX2`, `FX3`, and `FX4` in that order.
+- Playback accepts one complete project graph snapshot. Engine creation and
+  Sample Folder replacement hydrate all lane and Return state before use.
+  Lane pan has one owner in the reusable channel path; a voice does not create
+  or traverse a second lane panner.
 - Every return bus has one replaceable module host, power state, return level,
   an enabled safety limiter, and a route to the unchanged master bus. A blank
   project initializes each module to `Empty`, power to the module host default,
@@ -343,9 +347,9 @@ the engine never knows who is listening.
   stop/reset, and edit-time playhead clamping.
 - `src/renderer/src/project/project-file.test.ts` rejects persisted placements
   beyond capacity and proves sparse project serialization.
-- `tests/e2e/audio-effects-rendering.spec.ts` exercises the real transport
-  runtime and audio engine in Chromium for natural end, replay, explicit Stop,
-  and Jump to End. Raw post-boundary output samples are under
+- `tests/e2e/audio-effects-rendering.spec.ts` exercises the real transport,
+  send/return graph, and Return Delay in Chromium for natural end, replay,
+  explicit Stop, and Jump to End. Raw post-boundary output samples are under
   `tmp/verify-fx-song-end/`.
 - `src/renderer/src/engine/clip-edge-fades.test.ts`,
   `clip-edge-boundary-policy.test.ts`, `lane-evaluation.test.ts`,

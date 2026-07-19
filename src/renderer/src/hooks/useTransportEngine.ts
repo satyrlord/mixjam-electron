@@ -4,31 +4,18 @@ import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
   type PlacementGroupEntry,
   type FooterSampleDetail,
-  type LaneState,
-  createDefaultLanes,
   duplicatePlacementGroup,
   duplicatePlacement,
-  addLane,
-  deleteEmptyLanes,
-  deleteLane,
-  MAX_LANE_COUNT,
-  MIN_LANE_COUNT,
   laneShouldDim,
   movePlacementGroup,
   movePlacement,
   placeSampleOnLane,
   removePlacementFromLane,
   removePlacements,
-  renameLane,
   resolvePendingPlacementBpms,
   placementDurationTicks,
-  setLanePan,
-  setLaneGain,
-  setLaneSend,
   songEndTick as deriveSongEndTick,
-  toEngineLanes,
-  toggleLaneMute,
-  toggleLaneSolo
+  toEngineLanes
 } from '../lib/arrangement'
 import type { RuntimeTransportState } from './useTransportRuntime'
 import { PlaybackEngine } from '../engine/playback-engine'
@@ -39,9 +26,23 @@ import { useUndoHistory } from './useUndoHistory'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
 import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 import {
-  cloneProjectFxBuses,
-  createDefaultFxBuses,
+  addLane,
+  createDefaultProjectEditState,
   createDefaultProjectSongState,
+  deleteEmptyLanes,
+  deleteLane,
+  MAX_LANE_COUNT,
+  MIN_LANE_COUNT,
+  projectEditStateFromProject,
+  renameLane,
+  setLaneGain,
+  setLanePan,
+  setLaneSend,
+  toPlaybackProjectGraphSnapshot,
+  toggleLaneMute,
+  toggleLaneSolo,
+  type LaneState,
+  type ProjectEditState,
   type ProjectFxBuses,
   type ProjectState,
   type ProjectSongState,
@@ -127,11 +128,6 @@ export interface TransportEngineActions {
 
 export type TransportEngine = TransportEngineState & TransportEngineActions
 
-interface ProjectEditState {
-  lanes: LaneState[]
-  fxBuses: ProjectFxBuses
-}
-
 export function useTransportEngine(
   backendAPI: BackendAPI,
   sampleFolder: FolderRef | null,
@@ -139,14 +135,18 @@ export function useTransportEngine(
 ): TransportEngine {
   const [view, setView] = useState<View>(initialView)
   const defaultSong = useMemo(createDefaultProjectSongState, [])
-  const projectHistory = useUndoHistory<ProjectEditState>({
-    lanes: createDefaultLanes(),
-    fxBuses: createDefaultFxBuses()
-  }, UNDO_HISTORY_LIMIT)
+  const projectHistory = useUndoHistory<ProjectEditState>(
+    createDefaultProjectEditState(),
+    UNDO_HISTORY_LIMIT
+  )
   const { lanes, fxBuses } = projectHistory.current
   const songEndTick = useMemo(() => deriveSongEndTick(lanes), [lanes])
   const getEngineLanes = useCallback(
     () => toEngineLanes(projectHistory.currentRef.current.lanes),
+    [projectHistory.currentRef]
+  )
+  const getProjectGraphSnapshot = useCallback(
+    () => toPlaybackProjectGraphSnapshot(projectHistory.currentRef.current),
     [projectHistory.currentRef]
   )
   const runtime = useTransportRuntime({
@@ -154,6 +154,7 @@ export function useTransportEngine(
     sampleFolder,
     active: view === 'player',
     getLanes: getEngineLanes,
+    getProjectGraphSnapshot,
     songEndTick,
     initialBpm: defaultSong.bpm,
     initialMasterGain: defaultSong.masterGain,
@@ -179,6 +180,7 @@ export function useTransportEngine(
     setBpm,
     setMasterGain,
     setClipEdgeMicroFades,
+    replaceSongState,
     resetMasterMeter
   } = runtime
 
@@ -231,29 +233,14 @@ export function useTransportEngine(
   const replaceProjectState = useCallback((state: ProjectState) => {
     mixerGestureStartRef.current = null
     transportStop()
-    const lanes = state.lanes.slice(0, MAX_LANE_COUNT).map((lane) => ({
-      ...lane,
-      placements: lane.placements.map((placement) => ({ ...placement }))
-    }))
-    reset({
-      lanes: lanes.length > 0 ? lanes : createDefaultLanes().slice(0, MIN_LANE_COUNT),
-      fxBuses: cloneProjectFxBuses(state.fxBuses)
-    })
-    setBpm(state.song.bpm)
-    setMasterGain(state.song.masterGain)
-    setClipEdgeMicroFades(state.song.clipEdgeMicroFades)
-    const playbackEngine = playbackEngineRef.current
-    if (playbackEngine) {
-      for (const lane of lanes) playbackEngine.setLanePan(lane.index, lane.pan)
-      playbackEngine.replaceReturnSnapshot(state.fxBuses.map((bus) => ({
-        index: bus.index,
-        module: { ...bus.module },
-        powered: bus.powered,
-        returnLevel: bus.returnLevel,
-        limiterEnabled: bus.limiterEnabled
-      })))
-    }
-  }, [playbackEngineRef, reset, setBpm, setClipEdgeMicroFades, setMasterGain, transportStop])
+    const editState = projectEditStateFromProject(state)
+    reset(editState)
+    replaceSongState(state.song)
+    playbackEngineRef.current?.applyProjectGraphSnapshot(
+      toPlaybackProjectGraphSnapshot(editState),
+      'replace-project'
+    )
+  }, [playbackEngineRef, replaceSongState, reset, transportStop])
 
   const placeSampleDetailOnLane = useCallback(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
@@ -339,18 +326,18 @@ export function useTransportEngine(
   const handleSetLanePan = useCallback(
     (laneIndex: number, pan: number) => {
       applyMixerEdit((current) => ({ ...current, lanes: setLanePan(current.lanes, laneIndex, pan) }))
-      // Update the per-lane persistent panner directly so live knob changes
-      // affect already-sounding voices without waiting for the next trigger.
-      playbackEngineRef.current?.setLanePan(laneIndex, pan)
     },
-    [applyMixerEdit, playbackEngineRef]
+    [applyMixerEdit]
   )
 
   const handleSetLaneGain = useCallback((laneIndex: number, gain: number) => {
     applyMixerEdit((current) => ({ ...current, lanes: setLaneGain(current.lanes, laneIndex, gain) }))
   }, [applyMixerEdit])
   const handleSetLaneSend = useCallback((laneIndex: number, sendIndex: number, value: number) => {
-    applyMixerEdit((current) => ({ ...current, lanes: setLaneSend(current.lanes, laneIndex, sendIndex, value) }))
+    applyMixerEdit((current) => {
+      const lanes = setLaneSend(current.lanes, laneIndex, sendIndex, value)
+      return lanes === current.lanes ? current : { ...current, lanes }
+    })
   }, [applyMixerEdit])
 
   const handleSetReturnBus = useCallback((bus: PlaybackReturnSnapshot) => {

@@ -781,11 +781,14 @@ command.
 - `project/generated-project.ts`, `hooks/useMixJamGenerator.ts`, and
   `components/MixJamGeneratorDialog.tsx` adapt and commit the neutral plan,
   expose cancellation and progress, render profile choices from registry
-  metadata, resolve regeneration by exact ID/version, and keep Open in Player
-  explicit. Their adjacent tests cover these renderer boundaries.
-- `project/generator-support.ts` owns the exact generator-version and registered
-  profile-ID/version support check without coupling the project-file parser to
-  the Vite-only bundled registry.
+  metadata, manage the generation lifecycle, and keep Open in Player explicit.
+  Their adjacent tests cover these renderer seams.
+- `project/generator-support.ts` owns persisted generator-metadata
+  interpretation. It performs the exact generator-version and registered
+  profile-ID/version support check and reconstructs fixed or follow-detected
+  BPM parameters plus the optional analysis group. Unsupported metadata yields
+  no planner parameters. This keeps both the project-file parser and generation
+  hook free of profile-registry decoding policy.
 - `tests/e2e/mixjam-generator.spec.ts` defines the built-Electron color,
   generation, open, and playback checks. Its production-bundle run passed.
 - Existing structure evidence under `tmp/verify-generator-structure/` records

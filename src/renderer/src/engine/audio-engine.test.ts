@@ -123,6 +123,17 @@ describe('AudioEngine', () => {
     expect(context.created.sources[0].playbackRate.value).toBe(0.75)
   })
 
+  it('ignores send updates outside the fixed Return bus range', () => {
+    const { engine } = makeEngine()
+    const channel = engine.createChannel()
+
+    expect(() => {
+      channel.setSend(-1, 0.5)
+      channel.setSend(channel.sendOutputs.length, 0.5)
+    }).not.toThrow()
+    expect(channel.sendOutputs.every((send) => send.gain.value === 1)).toBe(true)
+  })
+
   it('applies one shared linear edge envelope before lane and channel routing', () => {
     const { engine, context } = makeEngine()
     const channel = engine.createChannel()

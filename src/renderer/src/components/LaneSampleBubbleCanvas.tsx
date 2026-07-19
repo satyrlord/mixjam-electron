@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import {
   LANE_HEAD_WIDTH_PX,
-  sampleBubbleScreenRect,
-  type ClipPlacement
+  sampleBubbleScreenRect
 } from '../lib/arrangement'
+import type { ClipPlacement } from '../project/project-state'
 import { bubbleTextColor } from '../lib/sample-utils'
 import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import {

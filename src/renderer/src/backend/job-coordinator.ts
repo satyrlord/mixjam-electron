@@ -23,8 +23,7 @@ import {
   runPendingAnalysis,
   runSingleAnalysis
 } from './analysis-runner'
-import { resolveFileHandle } from './folder-access'
-import { loadFolderHandle } from './handle-store'
+import { requireFolderForAutomaticAccess, resolveFileHandle } from './folder-access'
 import { runScan } from './indexer'
 import type { WorkerMessage } from './protocol'
 import type { DB } from './sql'
@@ -177,8 +176,7 @@ export function createBackendJobCoordinator(
     void (async () => {
       let result: Awaited<ReturnType<typeof runScan>>
       try {
-        const handle = await loadFolderHandle(identity.rootKey)
-        if (!handle) throw new Error(`No stored folder handle for root ${identity.rootKey}`)
+        const handle = await requireFolderForAutomaticAccess(identity.rootKey, 'sample')
   
         result = await runScan(
           db,
@@ -372,8 +370,7 @@ export function createBackendJobCoordinator(
       activeSingleAnalysis?.identity.jobId === identity.jobId
   
     try {
-      const root = await loadFolderHandle(rootKey)
-      if (!root) throw new Error(`No stored folder handle for root ${rootKey}`)
+      const root = await requireFolderForAutomaticAccess(rootKey, 'sample')
       const handle = await resolveFileHandle(root, relpath)
       if (!handle) throw new Error(`Sample is not readable: ${relpath}`)
       const file = await handle.getFile()
@@ -431,8 +428,7 @@ export function createBackendJobCoordinator(
         const fingerprint = await fingerprintGeneratorSnapshot(snapshot)
         if (expectedFingerprint !== undefined && fingerprint !== expectedFingerprint) throw new Error('The Sample Folder has changed since this project was generated.')
         const selection = selectGeneratorAnalysisGroup(snapshot, parameters)
-        const rootHandle = await loadFolderHandle(rootKey)
-        if (!rootHandle) throw new Error('The Sample Folder is no longer available.')
+        const rootHandle = await requireFolderForAutomaticAccess(rootKey, 'sample')
         let attemptedFiles = 0
         const analyzed = await analyzeGeneratorCandidates(rootHandle, selection.candidates, selection.parameters, (next) => {
           if (!isCurrent()) return

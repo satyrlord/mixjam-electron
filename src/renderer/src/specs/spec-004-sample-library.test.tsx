@@ -15,7 +15,7 @@ import type {
   SampleListItem,
   TagItem
 } from '../../../shared/backend-api'
-import type { LaneState } from '../lib/arrangement'
+import type { LaneState } from '../project/project-state'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 import { createDefaultFxBuses } from '../project/project-state'
 

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PlaybackChannelSnapshot, PlaybackEngine, PlaybackReturnSnapshot } from '../engine/playback-engine'
+import type { PlaybackEngine, PlaybackReturnSnapshot } from '../engine/playback-engine'
 import type { ReturnModule } from '../engine/return-effects'
-import type { LaneState } from '../lib/arrangement'
-import type { ProjectFxBuses } from '../project/project-state'
+import {
+  toPlaybackProjectGraphSnapshot,
+  type LaneState,
+  type ProjectFxBuses
+} from '../project/project-state'
 
 const PEAK_HOLD_DECAY_DB_PER_S = 30
 const SILENCE_DB = -100
@@ -28,21 +31,6 @@ function rmsToDb(rms: number): number {
   return Math.max(SILENCE_DB, 20 * Math.log10(rms))
 }
 
-export function playbackChannelsFromLanes(lanes: readonly LaneState[]): PlaybackChannelSnapshot[] {
-  return lanes.map((lane) => ({
-      laneId: lane.id,
-      channelIndex: lane.index,
-      gain: lane.gain,
-      // The persistent lane panner owns pan. The graph channel stays centered
-      // so the same pan is never applied twice.
-      pan: 0,
-      muted: lane.muted,
-      solo: lane.solo,
-      effects: [],
-      sends: lane.sends
-    }))
-}
-
 /**
  * Owns visual channel telemetry and the four Return buses. Mixer channel
  * controls are derived from LaneState; this hook never stores a second copy.
@@ -53,20 +41,17 @@ export function useMixer(
   lanes: readonly LaneState[],
   fxBuses: ProjectFxBuses
 ): Mixer {
-  const channels = useMemo(() => playbackChannelsFromLanes(lanes), [lanes])
-  const returnBuses = useMemo(() => fxBuses.map((bus) => ({
-    index: bus.index,
-    module: { ...bus.module } as ReturnModule,
-    powered: bus.powered,
-    returnLevel: bus.returnLevel,
-    limiterEnabled: bus.limiterEnabled
-  })) as MixerState['returnBuses'], [fxBuses])
+  const projectGraphSnapshot = useMemo(
+    () => toPlaybackProjectGraphSnapshot({ lanes: [...lanes], fxBuses }),
+    [fxBuses, lanes]
+  )
+  const returnBuses = projectGraphSnapshot.returns as MixerState['returnBuses']
   const [channelLevels, setChannelLevels] = useState<Map<number, number>>(new Map())
   const [channelPeaks, setChannelPeaks] = useState<Map<number, number>>(new Map())
   const [visualTelemetryActive, setVisualTelemetryActive] = useState(false)
 
-  const channelsRef = useRef(channels)
-  channelsRef.current = channels
+  const channelsRef = useRef(projectGraphSnapshot.channels)
+  channelsRef.current = projectGraphSnapshot.channels
   const peaksRef = useRef(new Map<number, number>())
   const lastFrameRef = useRef(0)
   const meterBuffersRef = useRef(new Map<number, Float32Array>())
@@ -165,13 +150,8 @@ export function useMixer(
 
   useEffect(() => {
     if (view !== 'player') return
-    playbackEngineRef.current?.applyChannelSnapshot(channels)
-  }, [channels, playbackEngineRef, view])
-
-  useEffect(() => {
-    if (view !== 'player') return
-    playbackEngineRef.current?.applyReturnSnapshot(returnBuses)
-  }, [playbackEngineRef, returnBuses, view])
+    playbackEngineRef.current?.applyProjectGraphSnapshot(projectGraphSnapshot)
+  }, [playbackEngineRef, projectGraphSnapshot, view])
 
   const previewReturnBus = useCallback((bus: PlaybackReturnSnapshot) => {
     playbackEngineRef.current?.applyReturnSnapshot([

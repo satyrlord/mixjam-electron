@@ -10,12 +10,6 @@
   background: var(--chrome);
 }
 
-.mixer-empty-text {
-  font-family: var(--font-label);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .mixer-column-head {
   display: flex;
   align-items: center;
@@ -28,28 +22,6 @@
 .mixer-column-title {
   padding: 8px 8px 4px;
   flex-shrink: 0;
-}
-
-.mixer-restore {
-  width: 44px;
-  height: 44px;
-  border: var(--edge-pill);
-  border-radius: 2px;
-  background: var(--pill-bg);
-  color: var(--text-muted);
-  font-size: 18px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mixer-restore:hover {
-  color: var(--text);
-  border-color: var(--accent);
 }
 
 /* Horizontal scroll keeps every strip reachable at any column width
@@ -79,11 +51,6 @@
   gap: 4px;
 }
 
-.mixer-strips-empty {
-  align-items: center;
-  justify-content: center;
-}
-
 /* ── Channel Strip ── */
 .mixer-channel-strip {
   width: 76px;
@@ -97,15 +64,6 @@
   border: var(--edge);
   border-radius: var(--radius);
   position: relative;
-}
-
-.mixer-channel-strip:last-child {
-  /* last-child margin handled by the parent .mixer-strips gap */
-}
-
-.mixer-channel-remove:hover {
-  color: var(--highlight);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .mixer-channel-label {
@@ -145,28 +103,6 @@
 .mixer-channel-select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-.mixer-channel-remove {
-  position: static;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  opacity: 1;
-  z-index: 2;
-}
-
-.mixer-channel-remove:hover {
-  color: var(--highlight);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* ── Channel gain fader + dB meter ── */

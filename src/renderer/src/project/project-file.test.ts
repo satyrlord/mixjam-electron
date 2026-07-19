@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultLanes, TRACKER_TOTAL_TICKS } from '../lib/arrangement'
+import { TRACKER_TOTAL_TICKS } from '../lib/arrangement'
 import {
   NEWER_PROJECT_VERSION_MESSAGE,
   ProjectFileError,
@@ -11,7 +11,7 @@ import {
   type ProjectGeneratorMetadata
 } from './project-file'
 import { supportsExactGeneratorRegeneration } from './generator-support'
-import { createDefaultFxBuses, type ProjectFxBuses } from './project-state'
+import { createDefaultFxBuses, createDefaultLanes, type ProjectFxBuses } from './project-state'
 
 const CREATED_AT = '2026-07-13T10:00:00.000Z'
 const MODIFIED_AT = '2026-07-13T11:00:00.000Z'

@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import PlayerView, { reconcileSelectedLaneId } from './PlayerView'
+import PlayerView from './PlayerView'
+import { reconcileSelectedLaneId } from '../hooks/useTrackerInteraction'
 import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
@@ -11,7 +12,7 @@ import type {
   PlayerTransportProps
 } from './playerProps'
 import type { LibrarySyncState, MixJamFileItem, SampleListItem } from '../../../shared/backend-api'
-import type { LaneState } from '../lib/arrangement'
+import type { LaneState } from '../project/project-state'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 import { createDefaultFxBuses } from '../project/project-state'
 

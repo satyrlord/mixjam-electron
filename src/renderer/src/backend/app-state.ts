@@ -2,7 +2,7 @@
 // Project catalog state has its own owner in project-catalog.ts.
 
 import type { FolderRef, FolderSelections } from '../../../shared/backend-api'
-import { loadFolderHandle } from './handle-store'
+import { openFolderForAutomaticAccess } from './folder-access'
 
 export const FOLDER_SELECTIONS_STORAGE_KEY = 'mixjam.session' // persisted compatibility key
 const CONFIG_FILE_NAME = 'mixjam.json'
@@ -64,7 +64,7 @@ export function buildAppConfig(
 export async function writeAppConfig(selections: FolderSelections, appVersion: string): Promise<void> {
   const config = buildAppConfig(selections, appVersion)
   if (!config || !selections.userFolder) return
-  const dir = await loadFolderHandle(selections.userFolder.id)
+  const dir = await openFolderForAutomaticAccess(selections.userFolder, 'user')
   if (!dir) return
   const file = await dir.getFileHandle(CONFIG_FILE_NAME, { create: true })
   const writable = await file.createWritable()

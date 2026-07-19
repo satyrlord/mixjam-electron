@@ -111,8 +111,10 @@ Home (1920x1080 renderer content minimum, resizable, maximizable)
   additional. If either dimension is below that minimum, the renderer shows
   only the unsupported-resolution notice. Home, Player, navigation, and project
   actions are not mounted.
-- All views launch maximized on their current display. The user may restore,
-  resize above the minimum, or maximize again at any time.
+- Home launches and returns unmaximized with a centered 1920x1080 renderer
+  content area. Entering Player maximizes the window once on its current
+  display. The user may then restore, resize above the minimum, or maximize
+  again at any time.
 - The root Player never scrolls vertically. At minimum size every layout keeps
   the full ruler and at least one complete lane visible.
 

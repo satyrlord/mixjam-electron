@@ -1,4 +1,5 @@
 import type { LibrarySyncState } from '../../../shared/backend-api'
+import { getLibrarySyncPresentation } from '../lib/library-sync-presentation'
 
 interface LibrarySyncStatusProps {
   state: LibrarySyncState
@@ -26,13 +27,12 @@ export default function LibrarySyncStatus({
   onRetry,
   onCancel
 }: LibrarySyncStatusProps) {
-  if (state.status === 'unavailable' || (state.status === 'ready' && !showReady)) return null
+  const presentation = getLibrarySyncPresentation(state)
+  if (!presentation.hasStatus || (state.status === 'ready' && !showReady)) return null
 
-  let label: string
+  let label = ''
   let detail: string | null = null
   let progress: { value?: number; max: number; label: string } | null = null
-  let active = false
-  let canRetry = false
 
   switch (state.status) {
     case 'unindexed':
@@ -41,7 +41,6 @@ export default function LibrarySyncStatus({
     case 'checking':
       label = 'Checking library'
       progress = { max: 1, label }
-      active = true
       break
     case 'syncing': {
       label = phaseLabel(state.phase)
@@ -55,7 +54,6 @@ export default function LibrarySyncStatus({
         max: Math.max(1, state.total),
         label
       }
-      active = true
       break
     }
     case 'analyzing':
@@ -68,7 +66,6 @@ export default function LibrarySyncStatus({
         max: Math.max(1, state.total),
         label
       }
-      active = true
       break
     case 'ready':
       label = 'Library ready'
@@ -76,12 +73,10 @@ export default function LibrarySyncStatus({
     case 'cancelled':
       label = 'Library sync cancelled'
       detail = state.hasUsableIndex ? 'Existing samples are still available.' : null
-      canRetry = !state.hasUsableIndex
       break
     case 'error':
       label = 'Library sync failed'
       detail = state.message
-      canRetry = !state.hasUsableIndex
       break
   }
 
@@ -104,10 +99,10 @@ export default function LibrarySyncStatus({
           value={progress.value}
         />
       )}
-      {active && onCancel && (
+      {presentation.canCancel && onCancel && (
         <button type="button" onClick={onCancel}>Cancel</button>
       )}
-      {canRetry && onRetry && (
+      {presentation.canRetry && onRetry && (
         <button type="button" onClick={onRetry}>Retry library sync</button>
       )}
     </div>

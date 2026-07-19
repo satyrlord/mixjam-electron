@@ -12,7 +12,10 @@ import {
 } from './project-files'
 
 vi.mock('./handle-store', () => ({ loadFolderHandle: vi.fn() }))
-vi.mock('./folder-access', () => ({ resolveFileHandle: vi.fn() }))
+vi.mock('./folder-access', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./folder-access')>(),
+  resolveFileHandle: vi.fn()
+}))
 
 const USER_FOLDER: FolderRef = { id: 'user-folder', name: 'MixJam' }
 const SAMPLE_FOLDER: FolderRef = { id: 'sample-folder', name: 'Samples' }
@@ -93,10 +96,10 @@ describe('project file access', () => {
     await expect(saveMixJamFileAs(USER_FOLDER, 'Untitled', '{}')).resolves.toBeNull()
   })
 
-  it('rejects inaccessible folders after failed permission recovery', async () => {
+  it('rejects inaccessible folders without trying to recover access automatically', async () => {
     vi.mocked(loadFolderHandle).mockResolvedValueOnce(null)
     await expect(readMixJamFile(USER_FOLDER, 'missing.mixjam')).rejects.toThrow(
-      'folder is no longer available'
+      'Access to the MixJam folder is required.'
     )
 
     const denied = fakeRoot([], 'prompt', 'denied')
@@ -104,18 +107,33 @@ describe('project file access', () => {
     await expect(readMixJamFile(USER_FOLDER, 'missing.mixjam')).rejects.toThrow(
       'Access to the MixJam folder is required.'
     )
-    expect(denied.requestPermission).toHaveBeenCalledWith({ mode: 'read' })
+    expect(denied.queryPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
+    expect(denied.requestPermission).not.toHaveBeenCalled()
   })
 
-  it('does not request User Folder permission before opening a project', async () => {
+  it('recovers prompted User Folder access for an explicit save action', async () => {
+    const root = fakeRoot(['saved.mixjam'], 'prompt', 'granted')
+    const file = fakeFile('saved.mixjam')
+    vi.mocked(loadFolderHandle).mockResolvedValue(root)
+    window.showSaveFilePicker = vi.fn(async () => file.handle)
+
+    await expect(saveMixJamFileAs(USER_FOLDER, 'saved.mixjam', '{}')).resolves.toMatchObject({
+      path: 'saved.mixjam'
+    })
+
+    expect(root.queryPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
+    expect(root.requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
+  })
+
+  it('opens an external project when automatic User Folder access is unavailable', async () => {
     const root = fakeRoot(['club.mixjam'], 'prompt', 'granted')
     const file = fakeFile('club.mixjam')
     vi.mocked(loadFolderHandle).mockResolvedValue(root)
     window.showOpenFilePicker = vi.fn(async () => [file.handle])
 
-    await expect(openMixJamFile(USER_FOLDER)).resolves.toMatchObject({ path: 'club.mixjam' })
+    await expect(openMixJamFile(USER_FOLDER)).resolves.toMatchObject({ path: null })
 
-    expect(root.queryPermission).not.toHaveBeenCalled()
+    expect(root.queryPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
     expect(root.requestPermission).not.toHaveBeenCalled()
   })
 

@@ -113,7 +113,10 @@ describe('writeAppConfig', () => {
       name: 'mixjam.json',
       createWritable: async () => ({ write, close })
     } as unknown as FileSystemFileHandle))
-    vi.mocked(loadFolderHandle).mockResolvedValue({ getFileHandle } as unknown as FileSystemDirectoryHandle)
+    vi.mocked(loadFolderHandle).mockResolvedValue({
+      getFileHandle,
+      queryPermission: vi.fn(async () => 'granted')
+    } as unknown as FileSystemDirectoryHandle)
 
     await writeAppConfig({ userFolder: USER_REF, sampleFolder: SAMPLE_REF }, '1.2.3')
 

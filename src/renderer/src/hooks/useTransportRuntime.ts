@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { type Transport, type TransportState, createTransport, TICKS_PER_BEAT } from '../engine/transport'
-import { PlaybackEngine } from '../engine/playback-engine'
+import { PlaybackEngine, type PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
 import type { EngineLane } from '../engine/lane-evaluation'
 import { useSyncedRef } from './useSyncedRef'
 import {
@@ -14,6 +14,7 @@ import {
   normalizeClipEdgeMicroFades,
   type ClipEdgeMicroFadeSettings
 } from '../engine/clip-edge-fades'
+import type { ProjectSongState } from '../project/project-state'
 
 export type RuntimeTransportState = TransportState | 'preparing'
 
@@ -22,6 +23,7 @@ interface UseTransportRuntimeParams {
   sampleFolder: FolderRef | null
   active: boolean
   getLanes: () => EngineLane[]
+  getProjectGraphSnapshot: () => PlaybackProjectGraphSnapshot
   songEndTick: number
   initialBpm: number
   initialMasterGain: number
@@ -48,6 +50,7 @@ export interface TransportRuntime {
   setBpm: (nextBpm: number) => void
   setMasterGain: (value: number) => void
   setClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
+  replaceSongState: (song: ProjectSongState) => void
   resetMasterMeter: () => void
 }
 
@@ -56,6 +59,7 @@ export function useTransportRuntime({
   sampleFolder,
   active,
   getLanes,
+  getProjectGraphSnapshot,
   songEndTick,
   initialBpm,
   initialMasterGain,
@@ -76,6 +80,8 @@ export function useTransportRuntime({
   const currentTickRef = useSyncedRef(currentTick)
   const songEndTickRef = useSyncedRef(songEndTick)
   const activeRef = useSyncedRef(active)
+  const getLanesRef = useSyncedRef(getLanes)
+  const projectGraphSnapshotRef = useSyncedRef(getProjectGraphSnapshot)
   const bpmRef = useRef(initialBpm)
   const masterGainRef = useRef(initialMasterGain)
   const clipEdgeMicroFadesRef = useRef(initialFades)
@@ -181,7 +187,7 @@ export function useTransportRuntime({
     const transport = createTransport(bpmRef.current)
     const playbackEngine = new PlaybackEngine({
       bpm: bpmRef.current,
-      getLanes,
+      getLanes: () => getLanesRef.current(),
       loadSampleBytes: (samplePath) => {
         if (!sampleFolder) return Promise.resolve(null)
         return backendAPI.readSampleBytes(sampleFolder.id, samplePath)
@@ -189,6 +195,7 @@ export function useTransportRuntime({
       clipEdgeMicroFades: clipEdgeMicroFadesRef.current
     })
     playbackEngine.setMasterGain(masterGainRef.current)
+    playbackEngine.applyProjectGraphSnapshot(projectGraphSnapshotRef.current())
     transportRef.current = transport
     playbackEngineRef.current = playbackEngine
     commitTransportState(transport.state)
@@ -218,7 +225,7 @@ export function useTransportRuntime({
       setCurrentTick(0)
       setMasterMeter(emptyMasterMeterSnapshot())
     }
-  }, [active, backendAPI, sampleFolder, getLanes, currentTickRef, songEndTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState, stopAndReset])
+  }, [active, backendAPI, sampleFolder, getLanesRef, projectGraphSnapshotRef, currentTickRef, songEndTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState, stopAndReset])
 
   const transportPlay = useCallback(() => {
     if (!activeRef.current) return
@@ -345,6 +352,12 @@ export function useTransportRuntime({
     playbackEngineRef.current?.setClipEdgeMicroFades(normalized)
   }, [])
 
+  const replaceSongState = useCallback((song: ProjectSongState) => {
+    setBpm(song.bpm)
+    setMasterGain(song.masterGain)
+    setClipEdgeMicroFades(song.clipEdgeMicroFades)
+  }, [setBpm, setClipEdgeMicroFades, setMasterGain])
+
   const resetMasterMeter = useCallback(() => {
     const playbackEngine = playbackEngineRef.current
     if (!playbackEngine) return
@@ -372,6 +385,7 @@ export function useTransportRuntime({
     setBpm,
     setMasterGain,
     setClipEdgeMicroFades,
+    replaceSongState,
     resetMasterMeter
   }
 }

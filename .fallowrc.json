@@ -13,7 +13,7 @@
   "ignoreDependencies": ["playwright-core", "v8-to-istanbul"],
   "usedClassMembers": [
     "play", "pause", "stop", "setBpm", "previewSample", "undo", "redo",
-    "getChannelEffectReduction", "applyReturnSnapshot"
+    "applyReturnSnapshot"
   ],
   "rules": {
     "unused-files": "error",

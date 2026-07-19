@@ -4,9 +4,9 @@ import LaneSampleBubbleCanvas from './LaneSampleBubbleCanvas'
 import {
   LANE_HEAD_WIDTH_PX,
   TRACKER_TIMELINE_MIN_WIDTH_PX,
-  TRACKER_TOTAL_TICKS,
-  type ClipPlacement
+  TRACKER_TOTAL_TICKS
 } from '../lib/arrangement'
+import type { ClipPlacement } from '../project/project-state'
 
 const PLACEMENTS: ClipPlacement[] = [
   {

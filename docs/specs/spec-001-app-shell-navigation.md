@@ -96,7 +96,7 @@ state. The shell owns only native window and allowlisted external-link actions.
 
 There is no web deployment and no demo mode. With no granted Sample Folder,
 the Home Screen gates the Player. Onboarding for users without samples is
-spec-013, not fake data. A lifetime Web Lock protects the single opfs-sahpool
+spec-020, not fake data. A lifetime Web Lock protects the single opfs-sahpool
 connection; a competing Electron window shows an already-open notice.
 
 ### Distribution

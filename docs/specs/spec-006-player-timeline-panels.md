@@ -141,6 +141,10 @@ browser adjacencies.
   browser-width migration, and storage for both panel layouts, the active tab,
   Samples expansion/restore state, and MixJam Browser collapse. Rendering code
   coordinates live panel refs but does not parse or write storage formats.
+- The Bottom Workspace module owns that live coordination: panel refs, tab-size
+  capture and restore, expand/restore actions, and browser-collapse effects.
+  The root Player supplies content and layout regions but does not duplicate
+  this state machine.
 - Mixer effect selection and editing remain inside Mixer. There is no FX tab or
   cross-tab FX transition.
 - Samples exposes an explicit expand/restore action. Expansion grows the Bottom
@@ -214,6 +218,10 @@ browser adjacencies.
 
 ### Lanes (1 through 64)
 
+- `hooks/useTrackerInteraction.ts` owns Tracker selection, drag coordination,
+  scroll and transport-location policy, lane context menus, and sample-location
+  feedback. `PlayerView` composes the Tracker region and renders its returned
+  state; it does not own a parallel interaction state machine.
 - Lane sizing, head width, control dimensions, and visual treatment follow the
   [Style Guide](../style-guide.md#layout-architecture) and
   [Style Guide](../style-guide.md#spacing--rhythm).
@@ -235,7 +243,7 @@ browser adjacencies.
   - Solo button (S) — toggle style. When any lane is soloed,
     non-soloed lanes are dimmed.
   - Pan knob — drag-to-pan dial. Interaction follows the
-    [Style Guide](../style-guide.md#rotary-controls-pan-fx-parameters).
+    [Style Guide](../style-guide.md#rotary-controls-sends-returns-pan-fx-parameters).
 - **Lane canvas:** hosts sample bubbles.
 - **Focused lane:** subtle accent-color left border on the lane head.
 - Add and delete stop playback before changing project state. Deletion removes
@@ -537,7 +545,7 @@ window-level mouse listeners.
   Player width between the upper and lower work bands. Its 28px Song Progress
   Bar and 48px main row remain fully contained, including borders and group
   padding. Higher UI Sizes use the coherent scaling contract in spec-002.
-- [ ] **AC-004:** The Bottom Workspace presents Song, Mixer, and Samples as
+- [x] **AC-004:** The Bottom Workspace presents Song, Mixer, and Samples as
   ordered peer tabs; the lower reveal seam no longer exists.
 - [x] **AC-004a:** With no valid persisted selection, Song is active. A valid
   last tab is restored after remount, and each mounted panel preserves its
@@ -556,7 +564,7 @@ window-level mouse listeners.
   is an SVG ear icon with the `Reset loudness measurement` accessible name and
   tooltip. BPM accepts 50 to 200, initializes to 120 for a new project, and
   supports precise numeric entry.
-- [ ] **AC-004e:** Mixer and return-module visual telemetry runs only while Mixer
+- [x] **AC-004e:** Mixer and return-module visual telemetry runs only while Mixer
   is the active Bottom Workspace tab. Song, Samples, and leaving Player cancel its
   animation-frame loop without changing audio state.
 - [x] **AC-004f:** Inactive Bottom Workspace panels retain their layout geometry

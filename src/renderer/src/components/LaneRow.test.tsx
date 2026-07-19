@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import LaneRow from './LaneRow'
-import type { LaneState } from '../lib/arrangement'
+import type { LaneState } from '../project/project-state'
 
 function makeLane(overrides: Partial<LaneState> = {}): LaneState {
   return {
@@ -67,9 +67,7 @@ describe('LaneRow', () => {
     expect(onSetLanePan).toHaveBeenCalledWith(0, 0)
   })
 
-  // --- spec-007 AC-018 right-click pan cycle ---
-
-  it('right-click on pan cycles any position to center first, then C→R→L→C, suppressing the menu (AC-018)', () => {
+  it('right-click on pan cycles any position to center first, then C→R→L→C, suppressing the menu', () => {
     const onSetLanePan = vi.fn()
     const { rerender } = render(
       <LaneRow {...DEFAULT_PROPS} lane={makeLane({ pan: 0.4 })} onSetLanePan={onSetLanePan} />
@@ -100,7 +98,7 @@ describe('LaneRow', () => {
     expect(onSetLanePan).toHaveBeenLastCalledWith(0, 0)
   })
 
-  it('right-click cycles from key-step residue near center (AC-018 epsilon)', () => {
+  it('right-click cycles from key-step residue near center', () => {
     const onSetLanePan = vi.fn()
     // ArrowRight x3 then ArrowLeft x3 lands on ~1.4e-17, which reads as Center
     // but is not exactly 0; the first right-click must still step to 100% R.
@@ -191,7 +189,7 @@ describe('LaneRow', () => {
     expect(onCancelLaneRename).toHaveBeenCalledOnce()
   })
 
-  it('mouse wheel adjusts the lane pan knob by 0.05 (AC-021)', () => {
+  it('mouse wheel adjusts the lane pan knob by 0.05', () => {
     const onSetLanePan = vi.fn()
     render(
       <LaneRow {...DEFAULT_PROPS} lane={makeLane({ pan: 0 })} onSetLanePan={onSetLanePan} />

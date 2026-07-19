@@ -69,7 +69,7 @@ categories. Libraries are saved queries, not file copies.
   Selecting a different root cancels the old root at its next checkpoint,
   discards its queued automatic request, and prioritizes the newly selected
   root.
-- An app-owned filesystem mutation, such as a completed spec-013 download,
+- An app-owned filesystem mutation, such as a completed spec-020 download,
   schedules a sync even when the root already used its once-per-session
   automatic trigger. If the same root is active, the worker marks it dirty and
   guarantees one follow-up reconciliation after the current job; repeated
@@ -99,6 +99,11 @@ categories. Libraries are saved queries, not file copies.
   a second scan variant.
 - Progress and completion events include root and job identity, so switching
   Sample Folder during a scan cannot update the new root with stale events.
+- `hooks/useLibrarySyncRuntime.ts` is the renderer lifecycle owner. It filters
+  those root/job events, hydrates coalesced work, and exposes sync, retry, and
+  cancel actions. `useLibraryData` owns browse queries and mutations. Home,
+  Middle Strip, and status controls derive shared capabilities from
+  `lib/library-sync-presentation.ts` while keeping view-specific copy local.
 - Contextual sample analysis is part of the single worker-owned analysis job.
   It has no separate command or scan variant; spec-008 owns its inference rules.
 
@@ -116,7 +121,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
       └── .tiles              — virtualized rows of sample bubbles
 ```
 
-- Song, Mixer, and FX are peer panels outside the Samples panel. Their controls
+- Song and Mixer are peer panels outside the Samples panel. Their controls
   do not live inside the sample browser.
 - A vertical resize handle separates the category tree from the sample list
   inside the browser region (defined in spec-006). It supports pointer, touch,

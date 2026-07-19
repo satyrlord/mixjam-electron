@@ -2,8 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
-import { createDefaultFxBuses } from '../project/project-state'
-import { createDefaultLanes } from '../lib/arrangement'
+import { createDefaultFxBuses, createDefaultLanes } from '../project/project-state'
 import MixerColumn from './MixerColumn'
 
 type ReturnBuses = readonly [PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot]

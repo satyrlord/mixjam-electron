@@ -10,10 +10,8 @@ import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseFile } from 'music-metadata'
 import {
-  createDefaultLanes,
   placeSampleOnLane,
-  placementDurationTicks,
-  type LaneState
+  placementDurationTicks
 } from '../src/renderer/src/lib/arrangement'
 import { categorySlot } from '../src/renderer/src/lib/sample-utils'
 import {
@@ -25,7 +23,9 @@ import {
 import { TICKS_PER_BAR, tickDurationSeconds } from '../src/renderer/src/engine/transport'
 import {
   createDefaultFxBuses,
-  createDefaultProjectSongState
+  createDefaultLanes,
+  createDefaultProjectSongState,
+  type LaneState
 } from '../src/renderer/src/project/project-state'
 
 export const SONG_BPM = 140

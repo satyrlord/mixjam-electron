@@ -8,11 +8,9 @@ test.describe('Library', () => {
   })
 
   test('sample browser shows sample tiles', async ({ seededPage }) => {
-    const bubbles = seededPage.locator('.sample-bubble')
-    const count = await bubbles.count()
-    expect(count).toBeGreaterThan(0)
-
-    await expect(seededPage.locator('.sample-bubble b').first()).toBeAttached()
+    const bubbles = seededPage.locator('.tiles .sample-bubble')
+    await expect(bubbles).toHaveCount(5)
+    await expect(bubbles.filter({ hasText: 'kick_808' })).toBeVisible()
   })
 
   test('category filter shows categories from mock data', async ({ seededPage }) => {
@@ -44,22 +42,19 @@ test.describe('Library', () => {
   })
 
   test('clicking a category filters samples', async ({ seededPage }) => {
-    await seededPage.waitForTimeout(500)
+    const sampleTiles = seededPage.locator('.tiles .sample-bubble')
+    await expect(sampleTiles).toHaveCount(5)
 
-    const sampleTiles = () => seededPage.locator('.tiles .sample-bubble')
+    await seededPage.getByRole('button', { name: 'Drums', exact: true }).click()
 
-    const tileCount = await sampleTiles().count()
-    expect(tileCount).toBeGreaterThan(0)
-
-    await seededPage.locator('.bubble-category').filter({ hasText: 'Drums' }).click()
-    await seededPage.waitForTimeout(500)
-
-    const afterFilter = await sampleTiles().count()
-    expect(afterFilter).toBeGreaterThan(0)
+    await expect(sampleTiles).toHaveCount(2)
+    await expect(sampleTiles.filter({ hasText: 'kick_808' })).toBeVisible()
+    await expect(sampleTiles.filter({ hasText: 'snare_clap' })).toBeVisible()
+    await expect(sampleTiles.filter({ hasText: 'deep_sub' })).toHaveCount(0)
   })
 
   test('back button returns to home screen', async ({ seededPage }) => {
-    const backBtn = seededPage.locator('header button').first()
+    const backBtn = seededPage.getByRole('button', { name: /Return to Main Menu/ })
     await backBtn.click()
 
     await expect(seededPage.locator('.home-setup')).toBeVisible({ timeout: 5_000 })

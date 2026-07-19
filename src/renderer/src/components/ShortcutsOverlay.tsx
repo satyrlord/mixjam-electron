@@ -14,7 +14,7 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
     document.activeElement instanceof HTMLElement ? document.activeElement : document.body
   )
   return (
-    <DialogRoot open onOpenChange={(open) => { if (!open) onClose() }}>
+    <DialogRoot open onOpenChange={onClose}>
       <DialogContent
         className="shortcuts-panel"
         aria-label="Keyboard shortcuts"

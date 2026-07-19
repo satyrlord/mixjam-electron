@@ -16,9 +16,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./hooks/useFolderSetup', () => ({ useFolderSetup: () => mocks.folder }))
 vi.mock('./hooks/useAppState', () => ({ useAppState: () => mocks.app }))
 vi.mock('./hooks/useMixJamGenerator', () => ({ useMixJamGenerator: () => mocks.generator }))
-vi.mock('./hooks/playerViewModel', () => ({
-  createPlayerViewModel: () => ({ browser: {}, arrangement: {}, transport: {}, mixer: {}, project: {} })
-}))
 vi.mock('./theme/themes', () => ({ selectTheme: (key: string) => key === 'bad' ? 'emerald' : key }))
 vi.mock('./components/ui/Tooltip', () => ({ TooltipProvider: ({ children }: { children: ReactNode }) => children }))
 vi.mock('./components/Header', () => ({ default: (props: { onHome: () => void; onThemeChange: (key: string) => void; theme: string }) => (

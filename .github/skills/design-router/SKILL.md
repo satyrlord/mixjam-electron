@@ -1,5 +1,7 @@
 ---
 name: design-router
+description: Selects one bundled design system before generating or restyling UI.
+disable-model-invocation: true
 license: MIT
 metadata:
   author: typeui.sh (catalog) / router by user

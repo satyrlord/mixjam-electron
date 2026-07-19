@@ -3,10 +3,15 @@ import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FolderRef } from '../../../shared/backend-api'
 import { createBackendAPI } from '../test/backendApi'
-import { createDefaultLanes, type LaneState } from '../lib/arrangement'
 import { useProjectPersistence } from './useProjectPersistence'
 import { parseProject, serializeProject, type ProjectData } from '../project/project-file'
-import { createDefaultFxBuses, createDefaultProjectState, type ProjectState } from '../project/project-state'
+import {
+  createDefaultFxBuses,
+  createDefaultLanes,
+  createDefaultProjectState,
+  type LaneState,
+  type ProjectState
+} from '../project/project-state'
 
 const USER_FOLDER: FolderRef = { id: 'user-folder', name: 'MixJam' }
 const SAMPLE_FOLDER: FolderRef = { id: 'sample-folder', name: 'Samples' }

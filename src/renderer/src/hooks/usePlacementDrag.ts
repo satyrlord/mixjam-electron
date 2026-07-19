@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { FooterSampleDetail, LaneState, PlacementGroupEntry } from '../lib/arrangement'
+import type { FooterSampleDetail, PlacementGroupEntry } from '../lib/arrangement'
+import type { LaneState } from '../project/project-state'
 import {
   LANE_HEAD_WIDTH_PX,
   RULER_HEIGHT_PX,

@@ -6,8 +6,76 @@ import { loadFolderHandle, saveFolderHandle } from './handle-store'
 
 /** The User Folder is written to (mixjam.json, projects); the Sample Folder is
  *  only ever read. */
-function permissionMode(role: FolderRole): 'read' | 'readwrite' {
+function folderPermissionMode(role: FolderRole): 'read' | 'readwrite' {
   return role === 'user' ? 'readwrite' : 'read'
+}
+
+type StoredFolder = FolderRef | string
+
+function storedFolderId(folder: StoredFolder): string {
+  return typeof folder === 'string' ? folder : folder.id
+}
+
+function storedFolderLabel(folder: StoredFolder, role: FolderRole): string {
+  return typeof folder === 'string'
+    ? `the ${role === 'user' ? 'User Folder' : 'Sample Folder'}`
+    : `the ${folder.name} folder`
+}
+
+/**
+ * Opens a persisted folder for background work. This deliberately never calls
+ * requestPermission(): Chromium only permits that recovery in a user gesture.
+ */
+export async function openFolderForAutomaticAccess(
+  folder: StoredFolder,
+  role: FolderRole
+): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const handle = await loadFolderHandle(storedFolderId(folder))
+    if (!handle) return null
+    return (await handle.queryPermission({ mode: folderPermissionMode(role) })) === 'granted'
+      ? handle
+      : null
+  } catch {
+    return null
+  }
+}
+
+/** Opens a persisted folder from a user gesture, requesting recovery when needed. */
+export async function openFolderForUserAction(
+  folder: StoredFolder,
+  role: FolderRole
+): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const handle = await loadFolderHandle(storedFolderId(folder))
+    if (!handle) return null
+    const mode = folderPermissionMode(role)
+    const permission = await handle.queryPermission({ mode })
+    if (permission === 'granted') return handle
+    return (await handle.requestPermission({ mode })) === 'granted' ? handle : null
+  } catch {
+    return null
+  }
+}
+
+/** Opens a folder for automatic work or reports the actionable access failure. */
+export async function requireFolderForAutomaticAccess(
+  folder: StoredFolder,
+  role: FolderRole
+): Promise<FileSystemDirectoryHandle> {
+  const handle = await openFolderForAutomaticAccess(folder, role)
+  if (handle) return handle
+  throw new Error(`Access to ${storedFolderLabel(folder, role)} is required.`)
+}
+
+/** Opens a folder from an explicit user action or reports the access failure. */
+export async function requireFolderForUserAction(
+  folder: StoredFolder,
+  role: FolderRole
+): Promise<FileSystemDirectoryHandle> {
+  const handle = await openFolderForUserAction(folder, role)
+  if (handle) return handle
+  throw new Error(`Access to ${storedFolderLabel(folder, role)} is required.`)
 }
 
 /** Shows the directory picker. Resolves null when the user cancels. */
@@ -16,7 +84,7 @@ export async function pickFolder(role: FolderRole): Promise<FolderRef | null> {
   try {
     handle = await window.showDirectoryPicker({
       id: `mixjam-${role}`,
-      mode: permissionMode(role),
+      mode: folderPermissionMode(role),
       startIn: role === 'user' ? 'documents' : 'music'
     })
   } catch {
@@ -50,7 +118,7 @@ export async function validateFolder(ref: FolderRef, role: FolderRole): Promise<
   }
   if (!handle) return 'invalid'
 
-  const permission = await handle.queryPermission({ mode: permissionMode(role) })
+  const permission = await handle.queryPermission({ mode: folderPermissionMode(role) })
   if (permission !== 'granted') {
     // Keep a recovery state if Chromium reports a prompt despite Electron's
     // normal file-system auto-grant.
@@ -72,13 +140,7 @@ export async function validateFolder(ref: FolderRef, role: FolderRole): Promise<
 /** Re-requests permission on a stored handle. Must be called from a user
  *  gesture. Returns true when access was granted. */
 export async function requestFolderAccess(ref: FolderRef, role: FolderRole): Promise<boolean> {
-  const handle = await loadFolderHandle(ref.id)
-  if (!handle) return false
-  try {
-    return (await handle.requestPermission({ mode: permissionMode(role) })) === 'granted'
-  } catch {
-    return false
-  }
+  return (await openFolderForUserAction(ref, role)) !== null
 }
 
 /** Splits a '/'-separated relpath into safe segments; null when the relpath
@@ -109,6 +171,19 @@ export async function resolveFileHandle(
   }
 }
 
+/** Returns the slash-separated path only when a picked file is under root. */
+export async function relativePathForHandle(
+  root: FileSystemDirectoryHandle,
+  file: FileSystemFileHandle
+): Promise<string | null> {
+  try {
+    const segments = await root.resolve(file)
+    return segments?.join('/') || null
+  } catch {
+    return null
+  }
+}
+
 /** Reads the raw bytes of a file inside a stored folder. Returns null if the
  *  ref, path, or permission is invalid — never throws. */
 export async function readSampleBytes(
@@ -116,7 +191,7 @@ export async function readSampleBytes(
   relpath: string
 ): Promise<ArrayBuffer | null> {
   try {
-    const dir = await loadFolderHandle(rootId)
+    const dir = await openFolderForAutomaticAccess(rootId, 'sample')
     if (!dir) return null
     const fileHandle = await resolveFileHandle(dir, relpath)
     if (!fileHandle) return null

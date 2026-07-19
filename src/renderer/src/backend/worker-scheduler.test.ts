@@ -97,6 +97,11 @@ vi.mock('./handle-store', () => ({
 }))
 
 vi.mock('./folder-access', () => ({
+  requireFolderForAutomaticAccess: async (rootKey: string) => {
+    const handle = await mocks.loadFolderHandle(rootKey)
+    if (!handle) throw new Error('Access to the Sample Folder is required.')
+    return handle
+  },
   resolveFileHandle: mocks.resolveFileHandle
 }))
 
@@ -360,7 +365,7 @@ describe('worker library scheduler', () => {
     mocks.loadFolderHandle.mockResolvedValueOnce(null)
     expect(await waitForResponse(
       sendCall('reanalyzeSample', ['single-no-root', 800, 'missing.wav'])
-    )).toMatchObject({ ok: false, error: expect.stringContaining('No stored folder handle') })
+    )).toMatchObject({ ok: false, error: 'Access to the Sample Folder is required.' })
 
     mocks.resolveFileHandle.mockResolvedValueOnce(null)
     expect(await waitForResponse(
@@ -421,7 +426,7 @@ describe('worker library scheduler', () => {
     mocks.pendingGeneratorFingerprints.shift()?.()
     expect(await waitForResponse(missingSeq)).toMatchObject({
       ok: false,
-      error: 'The Sample Folder is no longer available.'
+      error: 'Access to the Sample Folder is required.'
     })
 
     mocks.analyzeGeneratorCandidates.mockRejectedValueOnce(new Error('cancelled by runner'))
@@ -780,5 +785,33 @@ describe('worker library scheduler', () => {
     pendingSingle.resolve()
     await waitForResponse(singleSeq)
     await complete(await waitForPending('root-serialized'))
+  })
+
+  it('deduplicates queued mutations and cancels one queued root without dropping another', async () => {
+    const singleSeq = sendCall('reanalyzeSample', ['root-queue-owner', 404, 'active.wav'])
+    const pendingSingle = await waitForPendingSingle(404)
+
+    const queued = await waitForResponse(
+      sendCall('startLibrarySync', ['root-queue-kept', 'mutation'])
+    )
+    if (!queued.ok) throw new Error(queued.error)
+    const duplicate = await waitForResponse(
+      sendCall('startLibrarySync', ['root-queue-kept', 'mutation'])
+    )
+    expect(duplicate).toMatchObject({ ok: true, result: queued.result })
+
+    const removable = await waitForResponse(
+      sendCall('startLibrarySync', ['root-queue-removed', 'mutation'])
+    )
+    if (!removable.ok) throw new Error(removable.error)
+    const removableResult = removable.result as LibrarySyncStartResult
+    await callCancel(removableResult.identity.jobId)
+
+    pendingSingle.resolve()
+    await waitForResponse(singleSeq)
+    await complete(await waitForPending('root-queue-kept'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(mocks.pendingScans.some((scan) => scan.rootKey === 'root-queue-removed')).toBe(false)
   })
 })

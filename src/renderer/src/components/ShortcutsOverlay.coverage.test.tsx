@@ -1,51 +1,47 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('./ui/Dialog', () => ({
-  DialogRoot: ({ children, onOpenChange }: { children: ReactNode; onOpenChange: (open: boolean) => void }) => (
-    <div>{children}<button onClick={() => onOpenChange(false)}>Root close</button>
-      <button onClick={() => onOpenChange(true)}>Root stays open</button></div>
-  ),
-  DialogContent: ({ children, onOverlayClick, onCloseAutoFocus }: {
-    children: ReactNode
-    onOverlayClick: () => void
-    onCloseAutoFocus: (event: { preventDefault: () => void }) => void
-  }) => (
-    <div>{children}<button onClick={onOverlayClick}>Overlay close</button>
-      <button onClick={() => onCloseAutoFocus({ preventDefault: vi.fn() })}>Restore focus</button></div>
-  ),
-  DialogClose: ({ children }: { children: ReactNode }) => children,
-  DialogTitle: ({ children }: { children: ReactNode }) => children
-}))
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
+import { describe, expect, it, vi } from 'vitest'
 
 import ShortcutsOverlay from './ShortcutsOverlay'
 
-describe('ShortcutsOverlay callback branches', () => {
-  afterEach(() => vi.restoreAllMocks())
+function ShortcutsHarness() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>Open shortcuts</button>
+      {open ? <ShortcutsOverlay onClose={() => setOpen(false)} /> : null}
+    </>
+  )
+}
 
-  it('closes through root and overlay callbacks and restores captured focus', () => {
-    const trigger = document.createElement('button')
-    document.body.append(trigger)
+function OpenShortcutsHarness() {
+  const [open, setOpen] = useState(true)
+  return open ? <ShortcutsOverlay onClose={() => setOpen(false)} /> : null
+}
+
+describe('ShortcutsOverlay focus lifecycle', () => {
+  it('restores focus to the opener after the dialog closes', async () => {
+    render(<ShortcutsHarness />)
+    const trigger = screen.getByRole('button', { name: 'Open shortcuts' })
     trigger.focus()
-    const focus = vi.spyOn(trigger, 'focus')
-    const onClose = vi.fn()
-    render(<ShortcutsOverlay onClose={onClose} />)
-    fireEvent.click(screen.getByText('Root stays open'))
-    expect(onClose).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByText('Root close'))
-    fireEvent.click(screen.getByText('Overlay close'))
-    fireEvent.click(screen.getByText('Restore focus'))
-    expect(onClose).toHaveBeenCalledTimes(2)
-    expect(focus).toHaveBeenCalled()
-    trigger.remove()
+    fireEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close shortcuts' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Keyboard Shortcuts' })).not.toBeInTheDocument()
+      expect(trigger).toHaveFocus()
+    })
   })
 
-  it('falls back to the document body when no HTMLElement is active', () => {
-    vi.spyOn(document, 'activeElement', 'get').mockReturnValue(null)
-    const focus = vi.spyOn(document.body, 'focus')
-    render(<ShortcutsOverlay onClose={vi.fn()} />)
-    expect(() => fireEvent.click(screen.getByText('Restore focus'))).not.toThrow()
-    expect(focus).toHaveBeenCalled()
+  it('falls back to the document body when the prior active element is not HTML', async () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    vi.spyOn(document, 'activeElement', 'get').mockReturnValueOnce(svg)
+    const bodyFocus = vi.spyOn(document.body, 'focus')
+
+    render(<OpenShortcutsHarness />)
+    fireEvent.click(screen.getByRole('button', { name: 'Close shortcuts' }))
+
+    await waitFor(() => expect(bodyFocus).toHaveBeenCalled())
   })
 })

@@ -50,9 +50,9 @@ Use simple English: short sentences, common words, plain structure. No idioms or
 
 ## Spec status
 
-See [docs/README.md#specs](docs/README.md#specs). Specs 001-011 are implemented;
-check individual spec files for acceptance wording and evidence. Specs 012-018
-status is documented in their individual files and in docs/README.md.
+See [docs/README.md#specs](docs/README.md#specs). Check each individual spec
+file for its validation status, implementation status, acceptance wording, and
+evidence.
 
 ## Always consult these docs
 
@@ -98,7 +98,7 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 
 - Electron-only: one renderer backend inside the Electron desktop app. The
   renderer loads from `app://`; there is no browser deployment. No demo/mock mode
-  (onboarding without samples is spec-013).
+  (onboarding without samples is spec-020).
 - `@sqlite.org/sqlite-wasm` with opfs-sahpool VFS. One tab, enforced by Web Lock.
 - `rule_json` predicate tree compiles to parameterized SQL. Current executable subset:
   one `and` group with optional text, one category, tag-any leaves.

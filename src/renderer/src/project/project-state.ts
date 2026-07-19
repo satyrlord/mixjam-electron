@@ -1,14 +1,162 @@
 import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 import { DEFAULT_CLIP_EDGE_MICRO_FADES } from '../engine/clip-edge-fades'
+import type { PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
 import {
   createEmptyReturnModule,
   RETURN_BUS_COUNT,
   type ReturnModule
 } from '../engine/return-effects'
-import { createDefaultLanes, type LaneState } from '../lib/arrangement'
+import { clamp } from '../lib/sample-utils'
 
 const DEFAULT_BPM = 120
 const DEFAULT_MASTER_GAIN = 0.8
+const DEFAULT_LANE_GAIN = 0.8
+const DEFAULT_LANE_SENDS = [0, 0, 0, 0] as const
+
+/** A blank project starts compact, while saved projects may grow to this hard cap. */
+export const DEFAULT_LANE_COUNT = 8
+export const MIN_LANE_COUNT = 1
+export const MAX_LANE_COUNT = 64
+
+export type LaneSendLevels = [number, number, number, number]
+
+export interface ClipPlacement {
+  id: string
+  samplePath: string
+  sampleName: string
+  startTick: number
+  durationTicks: number
+  /** Immutable source-audio duration in seconds. Tracker geometry and playback
+   * duration are controlled by durationTicks. */
+  durationSeconds: number | null
+  /** Native tempo captured from the sample when it is placed. */
+  nativeBPM?: number | null
+  /** Transient marker omitted from project files. */
+  nativeBPMPending?: boolean
+  /** Category-derived palette slot stored at placement time. */
+  slot?: number
+}
+
+export interface LaneState {
+  /** Stable project identity, independent of visible index. */
+  id: string
+  index: number
+  name: string
+  muted: boolean
+  solo: boolean
+  pan: number
+  gain: number
+  sends: LaneSendLevels
+  placements: ClipPlacement[]
+}
+
+let laneIdSequence = 0
+
+function createLane(index: number, id = `lane-${index + 1}-${++laneIdSequence}`): LaneState {
+  return {
+    id,
+    index,
+    name: `Lane ${index + 1}`,
+    muted: false,
+    solo: false,
+    pan: 0,
+    gain: DEFAULT_LANE_GAIN,
+    sends: [...DEFAULT_LANE_SENDS],
+    placements: []
+  }
+}
+
+export function createDefaultLanes(): LaneState[] {
+  return Array.from({ length: DEFAULT_LANE_COUNT }, (_, index) => createLane(index))
+}
+
+function cloneProjectLanes(lanes: readonly LaneState[]): LaneState[] {
+  return lanes.map((lane) => ({
+    ...lane,
+    sends: [...lane.sends],
+    placements: lane.placements.map((placement) => ({ ...placement }))
+  }))
+}
+
+/** Add one lane after the current last lane. Returns a shallow copy at 64 lanes. */
+export function addLane(lanes: readonly LaneState[]): LaneState[] {
+  if (lanes.length >= MAX_LANE_COUNT) return [...lanes]
+  const next = lanes.map((lane, index) => ({ ...lane, index }))
+  return [...next, createLane(next.length)]
+}
+
+/** Delete a lane by visible index. The final lane cannot be removed. */
+export function deleteLane(lanes: readonly LaneState[], laneIndex: number): LaneState[] {
+  if (lanes.length <= MIN_LANE_COUNT) return [...lanes]
+  const remaining = lanes.filter((lane) => lane.index !== laneIndex)
+  if (remaining.length === lanes.length || remaining.length < MIN_LANE_COUNT) return [...lanes]
+  return remaining.map((lane, index) => ({ ...lane, index }))
+}
+
+export function isEmptyLane(lane: Pick<LaneState, 'placements'>): boolean {
+  return lane.placements.length === 0
+}
+
+export function deleteEmptyLanes(lanes: readonly LaneState[]): LaneState[] {
+  if (lanes.length <= MIN_LANE_COUNT) return [...lanes]
+  const nonEmpty = lanes.filter((lane) => !isEmptyLane(lane))
+  const kept = nonEmpty.length > 0 ? nonEmpty : [lanes[0]!]
+  return kept.map((lane, index) => ({ ...lane, index }))
+}
+
+export function toggleLaneMute(lanes: LaneState[], laneIndex: number): LaneState[] {
+  return lanes.map((lane) =>
+    lane.index === laneIndex ? { ...lane, muted: !lane.muted } : lane
+  )
+}
+
+export function toggleLaneSolo(lanes: LaneState[], laneIndex: number): LaneState[] {
+  const targetLane = lanes.find((lane) => lane.index === laneIndex)
+  if (!targetLane) return lanes
+  const willSolo = !targetLane.solo
+  return lanes.map((lane) => {
+    if (lane.index === laneIndex) return { ...lane, solo: willSolo }
+    return willSolo ? { ...lane, solo: false } : lane
+  })
+}
+
+export function setLanePan(lanes: LaneState[], laneIndex: number, pan: number): LaneState[] {
+  return lanes.map((lane) =>
+    lane.index === laneIndex ? { ...lane, pan: clamp(pan, -1, 1) } : lane
+  )
+}
+
+export function setLaneGain(lanes: LaneState[], laneIndex: number, gain: number): LaneState[] {
+  const bounded = clamp(gain, 0, 1)
+  return lanes.map((lane) => lane.index === laneIndex ? { ...lane, gain: bounded } : lane)
+}
+
+export function setLaneSend(
+  lanes: LaneState[],
+  laneIndex: number,
+  sendIndex: number,
+  value: number
+): LaneState[] {
+  if (sendIndex < 0 || sendIndex >= RETURN_BUS_COUNT) return lanes
+  return lanes.map((lane) => {
+    if (lane.index !== laneIndex) return lane
+    const sends: LaneSendLevels = [...lane.sends]
+    sends[sendIndex] = clamp(value, 0, 1)
+    return { ...lane, sends }
+  })
+}
+
+export function renameLane(lanes: LaneState[], laneIndex: number, name: string): LaneState[] {
+  const nextName = name.trim()
+  if (!nextName) return lanes
+  let changed = false
+  const next = lanes.map((lane) => {
+    if (lane.index !== laneIndex || lane.name === nextName) return lane
+    changed = true
+    return { ...lane, name: nextName }
+  })
+  return changed ? next : lanes
+}
 
 export interface ProjectSongState {
   bpm: number
@@ -41,6 +189,16 @@ export type ProjectFxBuses = [
 /** Complete project-owned state shared by New, load, save, and generation. */
 export interface ProjectState extends ProjectTransportState {
   fxBuses: ProjectFxBuses
+}
+
+/** The lane and Return state covered by the shared edit-history contract. */
+export type ProjectEditState = Pick<ProjectState, 'lanes' | 'fxBuses'>
+
+export function createDefaultProjectEditState(): ProjectEditState {
+  return {
+    lanes: createDefaultLanes(),
+    fxBuses: createDefaultFxBuses()
+  }
 }
 
 export function createDefaultProjectSongState(
@@ -98,14 +256,6 @@ export function cloneProjectFxBuses(buses: readonly ProjectFxBusState[]): Projec
   }) as ProjectFxBuses
 }
 
-function cloneProjectLanes(lanes: readonly LaneState[]): LaneState[] {
-  return lanes.map((lane) => ({
-    ...lane,
-    sends: [...lane.sends],
-    placements: lane.placements.map((placement) => ({ ...placement }))
-  }))
-}
-
 export function createDefaultProjectState(
   overrides: {
     song?: Partial<ProjectSongState>
@@ -127,5 +277,38 @@ export function cloneProjectState(project: ProjectState): ProjectState {
     song: cloneProjectSongState(project.song),
     lanes: cloneProjectLanes(project.lanes),
     fxBuses: cloneProjectFxBuses(project.fxBuses)
+  }
+}
+
+export function projectEditStateFromProject(project: ProjectState): ProjectEditState {
+  const lanes = cloneProjectLanes(project.lanes.slice(0, MAX_LANE_COUNT))
+  return {
+    lanes: lanes.length > 0 ? lanes : createDefaultLanes().slice(0, MIN_LANE_COUNT),
+    fxBuses: cloneProjectFxBuses(project.fxBuses)
+  }
+}
+
+/** Adapt project-owned lane and Return state to the one snapshot consumed by
+ * playback graph reconciliation. */
+export function toPlaybackProjectGraphSnapshot(
+  project: ProjectEditState
+): PlaybackProjectGraphSnapshot {
+  return {
+    channels: project.lanes.map((lane) => ({
+      laneId: lane.id,
+      channelIndex: lane.index,
+      gain: lane.gain,
+      pan: lane.pan,
+      muted: lane.muted,
+      solo: lane.solo,
+      sends: [...lane.sends]
+    })),
+    returns: project.fxBuses.map((bus) => ({
+      index: bus.index,
+      module: { ...bus.module } as ReturnModule,
+      powered: bus.powered,
+      returnLevel: bus.returnLevel,
+      limiterEnabled: bus.limiterEnabled
+    }))
   }
 }

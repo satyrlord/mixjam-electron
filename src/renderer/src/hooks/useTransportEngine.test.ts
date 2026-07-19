@@ -3,8 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
 import { useTransportEngine, type TransportEngine } from './useTransportEngine'
 import { PlaybackEngine } from '../engine/playback-engine'
-import { createDefaultLanes } from '../lib/arrangement'
-import { createDefaultFxBuses } from '../project/project-state'
+import {
+  addLane as addProjectLane,
+  createDefaultFxBuses,
+  createDefaultLanes,
+  createDefaultProjectSongState,
+  MAX_LANE_COUNT
+} from '../project/project-state'
 import { createDefaultDelayReturnModule } from '../engine/return-effects'
 
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
@@ -121,7 +126,62 @@ describe('useTransportEngine', () => {
     expect(result.current.canUndo).toBe(false)
   })
 
-  it('setLanePan updates lane pan without affecting channel pan (independent, spec-007)', async () => {
+  it('does not create a Mixer history entry for an invalid send edit', () => {
+    const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
+
+    act(() => {
+      result.current.beginMixerGesture()
+      result.current.setLaneSend(0, 4, 0.5)
+      result.current.commitMixerGesture()
+    })
+
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('leaves project state unchanged for invalid placement, BPM, and Return edits', () => {
+    const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
+    const initialLanes = result.current.lanes
+    const initialReturns = result.current.fxBuses
+
+    act(() => {
+      result.current.placeSampleDetailOnLane(PLAYABLE_SAMPLE, 0, Number.NaN)
+      result.current.resolvePendingPlacementBpms(new Map())
+      result.current.setReturnBus({
+        index: 4,
+        module: createDefaultDelayReturnModule('invalid-return'),
+        powered: true,
+        returnLevel: 0.5,
+        limiterEnabled: false
+      })
+    })
+
+    expect(result.current.lanes).toBe(initialLanes)
+    expect(result.current.fxBuses).toBe(initialReturns)
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('adds and deletes lanes while enforcing the maximum lane count', () => {
+    const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
+
+    act(() => result.current.addLane())
+    expect(result.current.lanes).toHaveLength(9)
+    act(() => result.current.deleteLane(8))
+    expect(result.current.lanes).toHaveLength(8)
+
+    let maxLanes = createDefaultLanes()
+    while (maxLanes.length < MAX_LANE_COUNT) maxLanes = addProjectLane(maxLanes)
+    act(() => result.current.replaceProjectState({
+      lanes: maxLanes,
+      fxBuses: createDefaultFxBuses(),
+      song: createDefaultProjectSongState()
+    }))
+    act(() => result.current.addLane())
+
+    expect(result.current.lanes).toHaveLength(MAX_LANE_COUNT)
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('setLanePan updates the project-owned pan used by the lane channel', async () => {
     vi.useRealTimers()
     const api = createBackendAPI()
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))

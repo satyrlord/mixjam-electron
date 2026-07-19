@@ -33,19 +33,30 @@ test('master loudness worklet loads under production CSP and matches reference s
       outputChannelCount: [2],
       processorOptions: { interval: 0.1, capacity: durationSeconds }
     })
-    const snapshots: Array<{ currentMeasurements?: Array<{
+    type Measurement = {
       integratedLoudness: number
       maximumTruePeakLevel: number
-    }> }> = []
-    worklet.port.onmessage = (event) => snapshots.push(event.data)
+    }
+    const measurement = new Promise<Measurement>((resolveMeasurement, rejectMeasurement) => {
+      const timeout = window.setTimeout(
+        () => rejectMeasurement(new Error('Loudness worklet emitted no offline snapshot')),
+        2_000
+      )
+      worklet.port.onmessage = (event: MessageEvent<{
+        currentMeasurements?: Measurement[]
+      }>) => {
+        const result = event.data.currentMeasurements?.[0]
+        if (!result ||
+            !Number.isFinite(result.integratedLoudness) ||
+            !Number.isFinite(result.maximumTruePeakLevel)) return
+        window.clearTimeout(timeout)
+        resolveMeasurement(result)
+      }
+    })
     source.connect(worklet).connect(context.destination)
     source.start()
-    await context.startRendering()
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    const [, result] = await Promise.all([context.startRendering(), measurement])
     worklet.port.close()
-
-    const result = snapshots.at(-1)?.currentMeasurements?.[0]
-    if (!result) throw new Error('Loudness worklet emitted no offline snapshot')
     return result
   }, processorUrl)
 

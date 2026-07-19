@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
-  AnalysisProgress,
   BackendAPI,
   CategoryItem,
   FolderRef,
   LibraryItem,
-  LibraryJobIdentity,
-  LibraryRootState,
-  LibrarySyncStartResult,
   LibrarySyncState,
   MixJamFileItem,
   SampleItem,
   SampleAnalysisPatch,
   SampleListItem,
-  ScanProgress,
   TagItem
 } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/arrangement'
@@ -21,6 +16,7 @@ import { useSyncedRef } from './useSyncedRef'
 import { useSampleTags } from './useSampleTags'
 import { useSampleCategories } from './useSampleCategories'
 import { useSampleLibraries } from './useSampleLibraries'
+import { useLibrarySyncRuntime } from './useLibrarySyncRuntime'
 
 export type SampleSortColumn = 'filename' | 'duration' | 'dateAdded'
 export type SampleSortDirection = 'asc' | 'desc'
@@ -129,12 +125,6 @@ export function useLibraryData(
   const [error, setError] = useState<string | null>(null)
   const [totalCount, setTotalCount] = useState(0)
   const [selectedSampleDetail, setSelectedSampleDetail] = useState<FooterSampleDetail | null>(null)
-  const [librarySyncState, setLibrarySyncState] = useState<LibrarySyncState>(() =>
-    sampleFolder
-      ? { status: 'unindexed', rootKey: sampleFolder.id }
-      : { status: 'unavailable' }
-  )
-  const [dbIndexed, setDbIndexed] = useState(false)
   const [missingSamplePaths, setMissingSamplePaths] = useState<ReadonlySet<string>>(new Set())
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined)
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
@@ -146,11 +136,6 @@ export function useLibraryData(
   const [categories, setCategories] = useState<CategoryItem[]>([])
   const [libraries, setLibraries] = useState<LibraryItem[]>([])
   const querySeqRef = useRef(0)
-  const activeRootKeyRef = useRef<string | null>(sampleFolder?.id ?? null)
-  const activeJobRef = useRef<LibraryJobIdentity | null>(null)
-  const hasUsableIndexRef = useRef(false)
-  const lastCompletedAtRef = useRef<number | null>(null)
-  activeRootKeyRef.current = sampleFolder?.id ?? null
   // Windowed paging cursor for the current query generation.
   const nextOffsetRef = useRef(0)
   const loadingMoreRef = useRef(false)
@@ -205,149 +190,6 @@ export function useLibraryData(
     void reloadMixJamFiles()
   }, [reloadMixJamFiles])
 
-  const terminalJobIdsRef = useRef<Set<string>>(new Set())
-
-  const applyRootState = useCallback((root: LibraryRootState) => {
-    if (root.rootKey !== activeRootKeyRef.current) return
-    hasUsableIndexRef.current = root.hasUsableIndex
-    lastCompletedAtRef.current = root.lastCompletedAt
-    setDbIndexed(root.hasUsableIndex)
-    setLibrarySyncState((current) => {
-      const active = current.status === 'checking' ||
-        current.status === 'syncing' ||
-        current.status === 'analyzing'
-      if (active && current.rootKey === root.rootKey) return current
-      return root.lastCompletedAt === null
-        ? { status: 'unindexed', rootKey: root.rootKey }
-        : { status: 'ready', rootKey: root.rootKey, lastCompletedAt: root.lastCompletedAt }
-    })
-  }, [])
-
-  const acceptJob = useCallback((identity: LibraryJobIdentity): boolean => {
-    if (identity.rootKey !== activeRootKeyRef.current ||
-        terminalJobIdsRef.current.has(identity.jobId)) {
-      return false
-    }
-    const active = activeJobRef.current
-    if (active && active.jobId !== identity.jobId) return false
-    activeJobRef.current = identity
-    return true
-  }, [])
-
-  const finishJob = useCallback((identity: LibraryJobIdentity) => {
-    terminalJobIdsRef.current.add(identity.jobId)
-    if (activeJobRef.current?.jobId === identity.jobId) activeJobRef.current = null
-  }, [])
-
-  const applyScanProgress = useCallback((progress: ScanProgress) => {
-    const identity = progress.identity
-    if (!identity || !acceptJob(identity)) return
-    if (progress.status === 'scanning') {
-      setLibrarySyncState({
-        status: 'syncing',
-        rootKey: identity.rootKey,
-        jobId: identity.jobId,
-        hasUsableIndex: hasUsableIndexRef.current,
-        phase: progress.phase,
-        found: progress.found,
-        processed: progress.processed,
-        total: progress.total
-      })
-      return
-    }
-    if (progress.status === 'cancelled') {
-      setLibrarySyncState({
-        status: 'cancelled',
-        rootKey: identity.rootKey,
-        hasUsableIndex: hasUsableIndexRef.current
-      })
-      finishJob(identity)
-      return
-    }
-    if (progress.status === 'error') {
-      setLibrarySyncState({
-        status: 'error',
-        rootKey: identity.rootKey,
-        message: progress.error ?? 'Library sync failed.',
-        hasUsableIndex: hasUsableIndexRef.current
-      })
-      finishJob(identity)
-    }
-  }, [acceptJob, finishJob])
-
-  const applyAnalysisProgress = useCallback((progress: AnalysisProgress) => {
-    const identity = progress.identity
-    if (!identity || 'sampleId' in identity || !acceptJob(identity)) return
-    if (progress.status === 'analyzing') {
-      const lastCompletedAt = lastCompletedAtRef.current
-      if (lastCompletedAt === null) return
-      setLibrarySyncState({
-        status: 'analyzing',
-        rootKey: identity.rootKey,
-        jobId: identity.jobId,
-        lastCompletedAt,
-        analyzed: progress.analyzed,
-        total: progress.total
-      })
-      return
-    }
-    if (progress.status === 'error') {
-      setLibrarySyncState({
-        status: 'error',
-        rootKey: identity.rootKey,
-        message: progress.error ?? 'Sample analysis failed.',
-        hasUsableIndex: true
-      })
-      finishJob(identity)
-    }
-  }, [acceptJob, finishJob])
-
-  const hydrateActiveJob = useCallback(async (identity: LibraryJobIdentity) => {
-    const [scan, analysis] = await Promise.all([
-      backendAPI.getScanProgress(),
-      backendAPI.getAnalysisProgress()
-    ])
-    if (scan.identity?.jobId === identity.jobId) applyScanProgress(scan)
-    if (analysis.identity &&
-        !('sampleId' in analysis.identity) &&
-        analysis.identity.jobId === identity.jobId) {
-      applyAnalysisProgress(analysis)
-    }
-  }, [applyAnalysisProgress, applyScanProgress, backendAPI])
-
-  const applyStartResult = useCallback(async (
-    result: LibrarySyncStartResult,
-    folder: FolderRef
-  ) => {
-    if (folder.id !== activeRootKeyRef.current) return
-    if (result.disposition === 'started') {
-      terminalJobIdsRef.current.delete(result.identity.jobId)
-      activeJobRef.current = result.identity
-      setLibrarySyncState((current) => {
-        const alreadyActive = (current.status === 'checking' ||
-          current.status === 'syncing' ||
-          current.status === 'analyzing') &&
-          current.rootKey === result.identity.rootKey &&
-          current.jobId === result.identity.jobId
-        return alreadyActive
-          ? current
-          : {
-              status: 'checking',
-              rootKey: result.identity.rootKey,
-              jobId: result.identity.jobId
-            }
-      })
-      return
-    }
-    if (result.disposition === 'coalesced') {
-      terminalJobIdsRef.current.delete(result.identity.jobId)
-      activeJobRef.current = result.identity
-      await hydrateActiveJob(result.identity)
-      return
-    }
-    applyRootState(await backendAPI.getLibraryRootState(folder))
-  }, [applyRootState, backendAPI, hydrateActiveJob])
-
   const refreshMissingSamplePaths = useCallback(async () => {
     if (!sampleFolder) return
     try {
@@ -362,75 +204,38 @@ export function useLibraryData(
     }
   }, [backendAPI, sampleFolder])
 
+  const queryDbRef = useRef<() => void>(() => {})
+  const refreshMissingRef = useRef<() => void>(() => {})
+  const refreshLibraryMetadata = useCallback(() => {
+    void backendAPI.listCategories().then(setCategories)
+    void backendAPI.listTags().then(setTags)
+  }, [backendAPI])
+  const librarySync = useLibrarySyncRuntime({
+    backendAPI,
+    sampleFolder,
+    onScanDone: () => {
+      refreshLibraryMetadata()
+      queryDbRef.current()
+      refreshMissingRef.current()
+    },
+    onAnalysisDone: () => queryDbRef.current()
+  })
+  const { state: librarySyncState, dbIndexed } = librarySync
+
+  // Query and selection state belongs to the database browse workflow, not
+  // the library lifecycle. Reset it when the active Sample Folder changes.
   useEffect(() => {
-    activeRootKeyRef.current = sampleFolder?.id ?? null
-    activeJobRef.current = null
-    hasUsableIndexRef.current = false
-    lastCompletedAtRef.current = null
     querySeqRef.current++
     loadingMoreRef.current = false
-    if (!sampleFolder) {
-      setLibrarySyncState({ status: 'unavailable' })
-      setDbIndexed(false)
-      setMissingSamplePaths(new Set())
-      setSamples([])
-      setTotalCount(0)
-      setLoading(false)
-      return
-    }
-
-    let active = true
-    setLibrarySyncState({ status: 'unindexed', rootKey: sampleFolder.id })
-    setDbIndexed(false)
     setSamples([])
     setTotalCount(0)
     setLoading(false)
-
-    void (async () => {
-      try {
-        const root = await backendAPI.getLibraryRootState(sampleFolder)
-        if (!active || sampleFolder.id !== activeRootKeyRef.current) return
-        applyRootState(root)
-      } catch (cause) {
-        console.error('Failed to read library state:', cause)
-        if (active && sampleFolder.id === activeRootKeyRef.current) {
-          setLibrarySyncState({
-            status: 'error',
-            rootKey: sampleFolder.id,
-            message: 'Unable to read library status.',
-            hasUsableIndex: false
-          })
-        }
-      }
-
-      if (!active || sampleFolder.id !== activeRootKeyRef.current) return
-      void refreshMissingSamplePaths()
-      try {
-        const result = await backendAPI.startLibrarySync(sampleFolder, 'automatic')
-        if (active) await applyStartResult(result, sampleFolder)
-      } catch (cause) {
-        console.error('Failed to start automatic library sync:', cause)
-        if (active && sampleFolder.id === activeRootKeyRef.current) {
-          setLibrarySyncState({
-            status: 'error',
-            rootKey: sampleFolder.id,
-            message: cause instanceof Error ? cause.message : 'Unable to start library sync.',
-            hasUsableIndex: hasUsableIndexRef.current
-          })
-        }
-      }
-    })()
-
-    return () => {
-      active = false
+    if (!sampleFolder) {
+      setMissingSamplePaths(new Set())
+      return
     }
-  }, [
-    applyRootState,
-    applyStartResult,
-    backendAPI,
-    refreshMissingSamplePaths,
-    sampleFolder
-  ])
+    void refreshMissingSamplePaths()
+  }, [refreshMissingSamplePaths, sampleFolder])
 
   // Windowed DB query, scoped to the active Sample Folder's scan root. Fetches
   // only the first page; the grid requests more via loadMoreSamples as the user
@@ -538,39 +343,10 @@ export function useLibraryData(
     if (!stillVisible) setSelectedSampleDetail(null)
   }, [samples, selectedSampleDetail])
 
-  // Keep refs to the latest callbacks so onScanDone calls the current
-  // versions with up-to-date filter/folder state.
-  const queryDbRef = useRef(queryDb)
+  // Keep the latest callbacks for the sync runtime without resubscribing its
+  // root/job-scoped listeners whenever browse filters change.
   queryDbRef.current = queryDb
-  const refreshMissingRef = useRef(refreshMissingSamplePaths)
   refreshMissingRef.current = refreshMissingSamplePaths
-
-  // Root- and job-scoped library lifecycle listeners. Events for a folder or
-  // job that is no longer active are ignored.
-  useEffect(() => {
-    const unsubProgress = backendAPI.onScanProgress(applyScanProgress)
-    const unsubDone = backendAPI.onScanDone((done) => {
-      if (!acceptJob(done.identity)) return
-      hasUsableIndexRef.current = true
-      lastCompletedAtRef.current = done.lastCompletedAt
-      setDbIndexed(true)
-      setLibrarySyncState({
-        status: 'analyzing',
-        rootKey: done.identity.rootKey,
-        jobId: done.identity.jobId,
-        lastCompletedAt: done.lastCompletedAt,
-        analyzed: 0,
-        total: 0
-      })
-      // Refresh categories (folder-driven categories may have changed)
-      void backendAPI.listCategories().then(setCategories)
-      void backendAPI.listTags().then(setTags)
-      void queryDbRef.current()
-      // A re-scan can mark placed samples missing (or resurrect them).
-      void refreshMissingRef.current()
-    })
-    return () => { unsubProgress(); unsubDone() }
-  }, [acceptJob, applyScanProgress, backendAPI])
 
   // Tags, categories, libraries — load once on mount
   useEffect(() => {
@@ -584,60 +360,6 @@ export function useLibraryData(
     })
     return () => { active = false }
   }, [backendAPI])
-
-  const requestLibrarySync = useCallback(async () => {
-    const syncActive = librarySyncState.status === 'checking' ||
-      librarySyncState.status === 'syncing' ||
-      librarySyncState.status === 'analyzing'
-    if (!sampleFolder || syncActive) return
-    try {
-      await applyStartResult(
-        await backendAPI.startLibrarySync(sampleFolder, 'manual'),
-        sampleFolder
-      )
-    } catch (cause) {
-      console.error('Failed to start library sync:', cause)
-      setLibrarySyncState({
-        status: 'error',
-        rootKey: sampleFolder.id,
-        message: cause instanceof Error ? cause.message : 'Unable to start library sync.',
-        hasUsableIndex: hasUsableIndexRef.current
-      })
-    }
-  }, [
-    applyStartResult,
-    backendAPI,
-    librarySyncState.status,
-    sampleFolder
-  ])
-
-  const cancelLibrarySync = useCallback(async () => {
-    if (librarySyncState.status !== 'checking' &&
-        librarySyncState.status !== 'syncing' &&
-        librarySyncState.status !== 'analyzing') {
-      return
-    }
-    await backendAPI.cancelLibrarySync(librarySyncState.jobId)
-  }, [backendAPI, librarySyncState])
-
-  useEffect(() => {
-    const unsubProgress = backendAPI.onAnalysisProgress(applyAnalysisProgress)
-    const unsubDone = backendAPI.onAnalysisDone((done) => {
-      const identity = done.identity
-      if ('sampleId' in identity || !acceptJob(identity)) return
-      const lastCompletedAt = lastCompletedAtRef.current
-      if (lastCompletedAt !== null) {
-        setLibrarySyncState({
-          status: 'ready',
-          rootKey: identity.rootKey,
-          lastCompletedAt
-        })
-      }
-      finishJob(identity)
-      void queryDbRef.current()
-    })
-    return () => { unsubProgress(); unsubDone() }
-  }, [acceptJob, applyAnalysisProgress, backendAPI, finishJob])
 
   const updateSampleAnalysis = useCallback(async (
     sample: SampleListItem,
@@ -734,9 +456,9 @@ export function useLibraryData(
     setSearchQuery,
     setSelectedCategoryId,
     setSelectedTagIds,
-    rescanLibrary: requestLibrarySync,
-    retryLibrarySync: requestLibrarySync,
-    cancelLibrarySync,
+    rescanLibrary: librarySync.rescan,
+    retryLibrarySync: librarySync.retry,
+    cancelLibrarySync: librarySync.cancel,
     loadMoreSamples,
     createTag: tagActions.createTag,
     renameTag: tagActions.renameTag,

@@ -3,7 +3,9 @@ import {
   cloneProjectState,
   cloneProjectSongState,
   createDefaultProjectState,
-  createDefaultProjectSongState
+  createDefaultProjectSongState,
+  projectEditStateFromProject,
+  toPlaybackProjectGraphSnapshot
 } from './project-state'
 
 describe('project state', () => {
@@ -105,5 +107,35 @@ describe('project state', () => {
 
   it('rejects project state with a non-canonical return bus count', () => {
     expect(() => createDefaultProjectState({ fxBuses: [] })).toThrow('exactly 4 return buses')
+  })
+
+  it('creates an isolated complete edit-state replacement', () => {
+    const project = createDefaultProjectState()
+    project.lanes[0]!.sends = [0.1, 0.2, 0.3, 0.4]
+    project.lanes[0]!.placements.push({
+      id: 'placement-1', samplePath: 'kick.wav', sampleName: 'Kick',
+      startTick: 0, durationTicks: 8, durationSeconds: 0.5
+    })
+    const editState = projectEditStateFromProject(project)
+
+    expect(editState.lanes[0]!.sends).not.toBe(project.lanes[0]!.sends)
+    expect(editState.lanes[0]!.placements[0]).not.toBe(project.lanes[0]!.placements[0])
+    expect(editState.fxBuses[0]!.module).not.toBe(project.fxBuses[0]!.module)
+  })
+
+  it('adapts one complete graph snapshot with the project-owned pan', () => {
+    const project = createDefaultProjectState()
+    project.lanes[0] = {
+      ...project.lanes[0]!, gain: 0.4, pan: -0.75, muted: true,
+      sends: [0.1, 0.2, 0.3, 0.4]
+    }
+    const graph = toPlaybackProjectGraphSnapshot(project)
+
+    expect(graph.channels[0]).toMatchObject({
+      gain: 0.4, pan: -0.75, muted: true, sends: [0.1, 0.2, 0.3, 0.4]
+    })
+    expect(graph.returns).toHaveLength(4)
+    expect(graph.channels[0]!.sends).not.toBe(project.lanes[0]!.sends)
+    expect(graph.returns[0]!.module).not.toBe(project.fxBuses[0]!.module)
   })
 })

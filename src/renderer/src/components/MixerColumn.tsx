@@ -1,4 +1,4 @@
-import type { LaneState } from '../lib/arrangement'
+import type { LaneState } from '../project/project-state'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import ChannelStrip from './ChannelStrip'
 import MixerFxSlot from './MixerFxSlot'
@@ -79,7 +79,6 @@ export default function MixerColumn({
                   returnModuleName(returnBuses[3])
                 ]}
                 muted={lane.muted}
-                solo={lane.solo}
                 levelDb={channelLevels.get(lane.index) ?? -100}
                 peakDb={channelPeaks.get(lane.index) ?? -100}
                 selected={selectedLaneId === lane.id}

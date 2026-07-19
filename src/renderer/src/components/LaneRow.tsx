@@ -1,8 +1,8 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import {
-  LANE_HEAD_WIDTH_PX,
-  type LaneState
+  LANE_HEAD_WIDTH_PX
 } from '../lib/arrangement'
+import type { LaneState } from '../project/project-state'
 import { nextPanCycle } from '../lib/sample-utils'
 import LaneSampleBubbleCanvas from './LaneSampleBubbleCanvas'
 import { RotaryControl } from './RotaryField'

@@ -1,8 +1,6 @@
 import { isReturnModule, RETURN_BUS_COUNT, type ReturnModule } from '../engine/return-effects'
 import {
-  TRACKER_TOTAL_TICKS,
-  type ClipPlacement,
-  type LaneState
+  TRACKER_TOTAL_TICKS
 } from '../lib/arrangement'
 import {
   MAX_CLIP_EDGE_FADE_MS,
@@ -11,6 +9,8 @@ import {
 import {
   cloneProjectSongState,
   cloneProjectFxBuses,
+  type ClipPlacement,
+  type LaneState,
   type ProjectFxBuses,
   type ProjectState,
   type ProjectSongState,

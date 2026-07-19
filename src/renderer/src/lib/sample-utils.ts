@@ -7,9 +7,7 @@ export function clamp(value: number, min: number, max: number): number {
 // against this tolerance instead of exact 0/±1.
 const PAN_EPSILON = 1e-6
 
-/** Right-click pan cycle (spec-007 AC-018): any freely-dragged position → C;
- *  C → 100% R; 100% R → 100% L; 100% L → C. Shared by ChannelStrip and
- *  LaneRow so the two pan controls can never drift out of sync. */
+/** Shared by ChannelStrip and LaneRow so their pan cycles cannot drift. */
 export function nextPanCycle(pan: number): number {
   if (Math.abs(pan) < PAN_EPSILON) return 1
   if (pan >= 1 - PAN_EPSILON) return -1

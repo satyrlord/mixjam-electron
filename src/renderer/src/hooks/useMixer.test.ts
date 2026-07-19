@@ -1,17 +1,16 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlaybackEngine, PlaybackReturnSnapshot } from '../engine/playback-engine'
-import { createDefaultLanes, type LaneState } from '../lib/arrangement'
+import { createDefaultLanes, type LaneState } from '../project/project-state'
 import { createEmptyReturnModule } from '../engine/return-effects'
 import { createDefaultFxBuses } from '../project/project-state'
-import { playbackChannelsFromLanes, useMixer } from './useMixer'
+import { useMixer } from './useMixer'
 
 function engineStub() {
   return {
     activeVoiceCount: 0,
-    applyChannelSnapshot: vi.fn(),
+    applyProjectGraphSnapshot: vi.fn(),
     applyReturnSnapshot: vi.fn(),
-    replaceReturnSnapshot: vi.fn(),
     getChannelAnalyser: vi.fn()
   }
 }
@@ -43,36 +42,6 @@ describe('useMixer', () => {
     vi.restoreAllMocks()
   })
 
-  it('derives the complete playback snapshot from lane-owned Mixer state', () => {
-    const lanes = createDefaultLanes().slice(0, 2)
-    lanes[0] = {
-      ...lanes[0]!,
-      gain: 0.42,
-      pan: -0.75,
-      muted: true,
-      solo: true,
-      sends: [0.1, 0.2, 0.3, 0.4]
-    }
-    expect(playbackChannelsFromLanes(lanes)).toEqual([
-      {
-        laneId: lanes[0]!.id,
-        channelIndex: 0,
-        gain: 0.42,
-        pan: 0,
-        muted: true,
-        solo: true,
-        effects: [],
-        sends: [0.1, 0.2, 0.3, 0.4]
-      },
-      expect.objectContaining({
-        channelIndex: 1,
-        gain: 0.8,
-        pan: 0,
-        sends: [0, 0, 0, 0]
-      })
-    ])
-  })
-
   it('applies lane-derived channels and four default Returns only in Player view', () => {
     const engine = engineStub()
     const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
@@ -82,16 +51,16 @@ describe('useMixer', () => {
         useMixer(playbackEngineRef, view, snapshot, createDefaultFxBuses()),
       { initialProps: { view: 'home', snapshot: lanes } }
     )
-    expect(engine.applyChannelSnapshot).not.toHaveBeenCalled()
+    expect(engine.applyProjectGraphSnapshot).not.toHaveBeenCalled()
 
     rerender({ view: 'player', snapshot: lanes })
-    expect(engine.applyChannelSnapshot).toHaveBeenLastCalledWith(
-      expect.arrayContaining([expect.objectContaining({ channelIndex: 0 })])
-    )
-    expect(engine.applyReturnSnapshot).toHaveBeenLastCalledWith(expect.arrayContaining([
-      expect.objectContaining({ index: 0 }),
-      expect.objectContaining({ index: 3 })
-    ]))
+    expect(engine.applyProjectGraphSnapshot).toHaveBeenLastCalledWith({
+      channels: expect.arrayContaining([expect.objectContaining({ channelIndex: 0 })]),
+      returns: expect.arrayContaining([
+        expect.objectContaining({ index: 0 }),
+        expect.objectContaining({ index: 3 })
+      ])
+    })
   })
 
   it('derives and previews Return snapshots without aliasing modules', () => {

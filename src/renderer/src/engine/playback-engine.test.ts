@@ -3,9 +3,9 @@ import { type EngineLane } from './lane-evaluation'
 import { PlaybackEngine } from './playback-engine'
 import { type SchedulerClock } from './scheduler'
 import { MockAudioContext, MockBufferSourceNode, createMockContext } from '../test/mockAudioContext'
-import { createDefaultEffect } from './effects'
 import type { ClipEdgeMicroFadeSettings } from './clip-edge-fades'
 import type { ClipEdgeBoundaryPolicy } from './clip-edge-boundary-policy'
+import { createEmptyReturnModule } from './return-effects'
 
 function mockClock(): SchedulerClock & { fire: () => void } {
   let pending: (() => void) | null = null
@@ -44,6 +44,34 @@ function makePlaybackEngine(opts: {
   })
   return { playbackEngine, context, clock }
 }
+
+describe('PlaybackEngine deferred graph hydration', () => {
+  it('retains a complete snapshot without creating AudioContext before start', async () => {
+    const context = createMockContext()
+    const createContext = vi.fn(() => context as unknown as AudioContext)
+    const playbackEngine = new PlaybackEngine({
+      createContext,
+      getLanes: () => [],
+      loadSampleBytes: async () => null,
+      bpm: 120
+    })
+    playbackEngine.applyProjectGraphSnapshot({
+      channels: [],
+      returns: Array.from({ length: 4 }, (_, index) => ({
+        index,
+        module: createEmptyReturnModule(`fx-${index + 1}`),
+        powered: true,
+        returnLevel: 1,
+        limiterEnabled: true
+      }))
+    })
+
+    expect(createContext).not.toHaveBeenCalled()
+    await playbackEngine.start(0)
+    expect(createContext).toHaveBeenCalledTimes(1)
+    await playbackEngine.close()
+  })
+})
 
 describe('PlaybackEngine.previewSample', () => {
   it('toggles off when the same sample is previewed again', async () => {
@@ -284,22 +312,7 @@ describe('PlaybackEngine.setBpm', () => {
   })
 })
 
-describe('PlaybackEngine.setChannelEffects', () => {
-  it('applies effects configured before a channel is lazily created', async () => {
-    const lanes: EngineLane[] = [
-      { index: 0, muted: false, solo: false, pan: 0, channelIndex: 2, placements: [{ startTick: 0, durationTicks: 8, samplePath: 'kick.wav' }] }
-    ]
-    const { playbackEngine, context } = makePlaybackEngine({ lanes })
-
-    playbackEngine.setChannelEffects(2, [createDefaultEffect('delay')])
-    expect(context.created.delays).toHaveLength(0)
-    await playbackEngine.start(0)
-    await flushAsync()
-
-    expect(context.created.delays).toHaveLength(1)
-    await playbackEngine.close()
-  })
-
+describe('PlaybackEngine preview tempo', () => {
   it('resamples preview audio from sample BPM to project BPM', async () => {
     const { playbackEngine, context } = makePlaybackEngine({})
 
@@ -310,8 +323,8 @@ describe('PlaybackEngine.setChannelEffects', () => {
   })
 })
 
-describe('PlaybackEngine.setChannelPan', () => {
-  it('pans the channel of a lane whose channel was created out of index order', async () => {
+describe('PlaybackEngine project-owned pan', () => {
+  it('pans the one lane-derived channel created out of index order', async () => {
     // Lane routing to channel 3 while it is the FIRST channel created — the
     // engine registry must key by the requested index, not creation order.
     const lanes: EngineLane[] = [
@@ -321,13 +334,12 @@ describe('PlaybackEngine.setChannelPan', () => {
     await playbackEngine.start(0)
     await flushAsync()
 
-    playbackEngine.setChannelPan(3, 0.5)
-    // Two panners exist: the per-lane panner (created on trigger) and the
-    // channel panner (created when channel 3 is lazily allocated).
-    // spec-007 lane pan and channel pan are independent.
-    expect(context.created.panners).toHaveLength(2)
-    // The channel panner (index 1) carries the channel pan value.
-    expect(context.created.panners[1]!.pan.value).toBe(0.5)
+    playbackEngine.applyChannelSnapshot([{
+      laneId: 'lane-0', channelIndex: 3, gain: 0.8, pan: 0.5,
+      muted: false, solo: false, sends: [0, 0, 0, 0]
+    }])
+    expect(context.created.panners).toHaveLength(1)
+    expect(context.created.panners[0]!.pan.value).toBe(0.5)
     await playbackEngine.close()
   })
 
@@ -337,17 +349,56 @@ describe('PlaybackEngine.setChannelPan', () => {
     ]
     const { playbackEngine, context } = makePlaybackEngine({ lanes })
 
-    // Pan the lane before playback ever starts — no channel exists yet.
-    playbackEngine.setChannelPan(2, -0.75)
+    playbackEngine.applyChannelSnapshot([{
+      laneId: 'lane-0', channelIndex: 2, gain: 0.8, pan: -0.75,
+      muted: false, solo: false, sends: [0, 0, 0, 0]
+    }])
     expect(context.created.panners).toHaveLength(0)
 
     await playbackEngine.start(0)
     await flushAsync()
 
-    // Two panners: per-lane panner + channel panner. The lazily-created
-    // channel panner picked up the stored pan.
-    expect(context.created.panners).toHaveLength(2)
-    expect(context.created.panners[1]!.pan.value).toBe(-0.75)
+    expect(context.created.panners).toHaveLength(1)
+    expect(context.created.panners[0]!.pan.value).toBe(-0.75)
+    await playbackEngine.close()
+  })
+})
+
+describe('PlaybackEngine lane identity', () => {
+  it('drops a pending trigger when its channel is reassigned during sample load', async () => {
+    let resolveBytes!: (bytes: ArrayBuffer) => void
+    const bytes = new Promise<ArrayBuffer>((resolve) => { resolveBytes = resolve })
+    const { playbackEngine } = makePlaybackEngine({ loadSampleBytes: async () => bytes })
+    playbackEngine.applyChannelSnapshot([{
+      laneId: 'lane-old', channelIndex: 1, gain: 0.8, pan: 0,
+      muted: false, solo: false, sends: [0, 0, 0, 0]
+    }])
+    const trigger = {
+      laneIndex: 1,
+      channelIndex: 1,
+      samplePath: 'pending.wav',
+      nativeBPM: null,
+      placement: { startTick: 0, durationTicks: 8, samplePath: 'pending.wav' },
+      effectiveDurationTicks: 8,
+      fadeInAtStart: true,
+      fadeOutAtEnd: true
+    }
+    const pending = (
+      playbackEngine as unknown as {
+        queueLaneTrigger(value: typeof trigger, bpm: number, when: number): Promise<void>
+      }
+    ).queueLaneTrigger(trigger, 120, 0)
+    await flushAsync()
+
+    playbackEngine.applyChannelSnapshot([{
+      laneId: 'lane-new', channelIndex: 1, gain: 0.8, pan: 0,
+      muted: false, solo: false, sends: [0, 0, 0, 0]
+    }])
+    resolveBytes(new ArrayBuffer(8))
+    await pending
+
+    expect(playbackEngine.activeVoiceCount).toBe(0)
+    expect(playbackEngine.getChannelAnalyser(1)).toBeUndefined()
     await playbackEngine.close()
   })
 })

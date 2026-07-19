@@ -9,7 +9,6 @@ const DEFAULT_PROPS = {
   gain: 0.8,
   pan: 0,
   muted: false,
-  solo: false,
   sends: [0, 0, 0, 0] as const,
   sendModuleNames: ['Empty', 'Delay', 'Empty', 'Empty'] as const,
   levelDb: -20,
@@ -101,9 +100,7 @@ describe('ChannelStrip', () => {
     expect(panSlider).toHaveAttribute('aria-valuenow', '0.5')
   })
 
-  // spec-007 AC-018 and AC-020 through AC-023
-
-  it('right-click on pan cycles C to 100% R to 100% L to C and suppresses the menu (AC-018)', () => {
+  it('right-click on pan cycles C to 100% R to 100% L to C and suppresses the menu', () => {
     const onSetPan = vi.fn()
     const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} pan={0.4} onSetPan={onSetPan} />)
     const panKnob = () => screen.getByRole('slider', { name: 'Channel 1 Pan' })
@@ -126,7 +123,7 @@ describe('ChannelStrip', () => {
     expect(onSetPan).toHaveBeenLastCalledWith(0, 0)
   })
 
-  it('pan knob is focusable and arrow keys adjust pan by 0.05 clamped (AC-021)', () => {
+  it('pan knob is focusable and arrow keys adjust pan by 0.05 clamped', () => {
     const onSetPan = vi.fn()
     const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} pan={0} onSetPan={onSetPan} />)
     const panKnob = () => screen.getByRole('slider', { name: 'Channel 1 Pan' })
@@ -160,7 +157,7 @@ describe('ChannelStrip', () => {
     expect(onSetPan).not.toHaveBeenCalled()
   })
 
-  it('mouse wheel adjusts the channel pan knob by 0.05 (AC-021)', () => {
+  it('mouse wheel adjusts the channel pan knob by 0.05', () => {
     const onSetPan = vi.fn()
     render(<ChannelStrip {...DEFAULT_PROPS} pan={0} onSetPan={onSetPan} />)
     const panKnob = screen.getByRole('slider', { name: 'Channel 1 Pan' })
@@ -172,7 +169,7 @@ describe('ChannelStrip', () => {
     expect(onSetPan).toHaveBeenLastCalledWith(0, -0.05)
   })
 
-  it('right-click cycles from key-step residue near center (AC-018 epsilon)', () => {
+  it('right-click cycles from key-step residue near center', () => {
     const onSetPan = vi.fn()
     // ArrowRight×3 then ArrowLeft×3 lands on ~1.4e-17, which reads as Center but
     // is not exactly 0; the first right-click must still step to 100% R.
@@ -182,7 +179,7 @@ describe('ChannelStrip', () => {
     expect(onSetPan).toHaveBeenLastCalledWith(0, 1)
   })
 
-  it('pan knob exposes aria-valuetext for its position (AC-021)', () => {
+  it('pan knob exposes aria-valuetext for its position', () => {
     const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} pan={0} />)
     const panKnob = () => screen.getByRole('slider', { name: 'Channel 1 Pan' })
 
@@ -193,13 +190,13 @@ describe('ChannelStrip', () => {
     expect(panKnob()).toHaveAttribute('aria-valuetext', '100% right')
   })
 
-  it('muted strip gets the dimming class on its root (AC-022)', () => {
+  it('muted strip gets the dimming class on its root', () => {
     render(<ChannelStrip {...DEFAULT_PROPS} muted />)
     expect(document.querySelector('.mixer-channel-strip')!.className)
       .toContain('mixer-channel-strip-muted')
   })
 
-  it('shows the gain readout only while the fader is being dragged (AC-023)', () => {
+  it('shows the gain readout only while the fader is being dragged', () => {
     render(<ChannelStrip {...DEFAULT_PROPS} gain={0.8} />)
     const volSlider = screen.getByRole('slider', { name: 'Channel 1 Volume' })
 
@@ -210,7 +207,7 @@ describe('ChannelStrip', () => {
     expect(document.querySelector('.mixer-channel-vol-readout')).not.toBeInTheDocument()
   })
 
-  it('renders the unity tick mark (AC-023)', () => {
+  it('renders the unity tick mark', () => {
     render(<ChannelStrip {...DEFAULT_PROPS} />)
     expect(document.querySelector('.mixer-channel-unity-tick')).toBeInTheDocument()
   })
@@ -228,8 +225,6 @@ describe('ChannelStrip', () => {
 
     addEventListenerSpy.mockRestore()
   })
-
-  // --- spec-010 effects integration ---
 
   it('select button fires onSelect with channel index', () => {
     const onSelect = vi.fn()

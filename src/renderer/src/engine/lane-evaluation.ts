@@ -18,7 +18,7 @@ export interface EngineLane {
   index: number
   muted: boolean
   solo: boolean
-  /** Lane-level pan (-1..1), independent of channel pan. */
+  /** Project lane pan. Playback applies it once in the lane-derived channel. */
   pan: number
   channelIndex: number
   placements: EnginePlacement[]
@@ -28,8 +28,6 @@ export interface LaneTrigger {
   laneIndex: number
   channelIndex: number
   samplePath: string
-  /** Lane-level pan value carried through to the per-lane panner node. */
-  pan: number
   nativeBPM: number | null
   placement: EnginePlacement
   /** Audible span after later same-lane placements apply monophonic precedence. */
@@ -100,7 +98,6 @@ function laneTrigger(
     laneIndex: lane.index,
     channelIndex: lane.channelIndex,
     samplePath: effective.placement.samplePath,
-    pan: lane.pan,
     nativeBPM: effective.placement.nativeBPM ?? null,
     placement: effective.placement,
     effectiveDurationTicks: effective.endTick - effective.startTick,

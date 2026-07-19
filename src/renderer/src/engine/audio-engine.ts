@@ -10,7 +10,6 @@ import { type Channel, createChannel } from './channel'
 import { type Voice, createVoice } from './voice'
 import { SampleCache, type SampleCacheOptions } from './sample-cache'
 import { clamp } from '../lib/sample-utils'
-import type { EffectSlot } from './effects'
 import {
   createEmptyReturnModule,
   createReturnModuleProcessor,
@@ -156,6 +155,11 @@ export class AudioEngine {
     return this.activeVoices.size
   }
 
+  /** Whether the deferred AudioContext and graph have been materialized. */
+  get hasContext(): boolean {
+    return this.nodes !== null
+  }
+
   private ensureReturnBuses(): ReturnBusNodes[] {
     const nodes = this.ctx
     if (nodes.returns.length > 0) return nodes.returns
@@ -221,11 +225,6 @@ export class AudioEngine {
     if (channel) channel.setGain(gain)
   }
 
-  setChannelEffects(channelIndex: number, effects: readonly EffectSlot[], bpm: number): void {
-    const channel = this.channels.get(channelIndex)
-    if (channel) channel.setEffects(effects, bpm)
-  }
-
   setChannelSends(channelIndex: number, sends: ChannelSendSnapshot): void {
     const channel = this.channels.get(channelIndex)
     if (!channel) return
@@ -285,10 +284,6 @@ export class AudioEngine {
 
   getChannelAnalyser(channelIndex: number): AnalyserNode | undefined {
     return this.channelAnalysers.get(channelIndex)
-  }
-
-  getChannelEffectReduction(channelIndex: number, effectId: string): number {
-    return this.channels.get(channelIndex)?.getEffectReduction(effectId) ?? 0
   }
 
   removeChannel(channelIndex: number): void {

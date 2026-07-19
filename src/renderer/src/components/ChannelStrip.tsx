@@ -12,7 +12,6 @@ interface ChannelStripProps {
   sends: readonly [number, number, number, number]
   sendModuleNames: readonly [string, string, string, string]
   muted?: boolean
-  solo?: boolean
   levelDb: number
   peakDb: number
   selected?: boolean

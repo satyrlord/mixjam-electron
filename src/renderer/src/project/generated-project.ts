@@ -1,6 +1,5 @@
 import type { MixJamGeneratorPlan } from '../../../shared/backend-api'
-import type { LaneState } from '../lib/arrangement'
-import { createDefaultProjectState } from './project-state'
+import { createDefaultProjectState, type LaneState } from './project-state'
 import type { ProjectData } from './project-file'
 
 export function materializeGeneratedProject(plan: MixJamGeneratorPlan): ProjectData {

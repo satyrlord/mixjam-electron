@@ -37,7 +37,6 @@
 .strip-utility-zone,
 .bottom-workspace-tabs,
 .song-control-system,
-.mixer-channel-buttons,
 .manage-list-item,
 .manage-create,
 .generator-actions,
@@ -78,8 +77,6 @@
 .master-loudness-reset,
 .manage-action,
 .manage-tag-color,
-.mixer-restore,
-.mixer-channel-remove,
 .mixer-channel-pan,
 .mixer-channel-m,
 .mixer-channel-s,
@@ -123,8 +120,7 @@
 .folder-card,
 .generator-dialog,
 .shortcuts-panel,
-.fx-modal,
-.error-fallback-panel {
+.fx-modal {
   padding: var(--ui-space-lg);
 }
 
@@ -142,15 +138,13 @@
 .home-workflow-copy,
 .home-library-status,
 .home-recent-path,
-.folder-card-copy,
 .tiles-empty,
 .manage-name,
 .manage-empty,
 .song-micro-fade-note,
 .context-menu-note,
 .generator-dialog p,
-.shortcuts-action,
-.fx-param {
+.shortcuts-action {
   font-size: var(--ui-font-md);
 }
 
@@ -158,7 +152,6 @@
 .home-themes-label,
 .home-workflow-title,
 .home-recent-title,
-.folder-card-title,
 .tracker-zone-title,
 .song-control-head,
 .mixer-column-title,
@@ -345,7 +338,6 @@
 }
 
 .vertical-control,
-.vertical-slider,
 .mixer-channel-vol {
   min-width: var(--ui-size);
 }
@@ -484,7 +476,6 @@
 
 .sample-bubble-hit-target,
 .category-tree-node,
-.subcategory-row,
 .category-tree-toggle {
   min-height: var(--ui-size);
 }
@@ -515,8 +506,7 @@
   padding-block: var(--ui-space-sm);
 }
 
-.mixjam-menu-item,
-.mixjam-context-menu-item {
+.mixjam-menu-item {
   min-height: var(--ui-size);
   padding: var(--ui-space-sm) var(--ui-space-lg);
   font-size: var(--ui-font-sm);
@@ -540,8 +530,7 @@
 .shortcuts-panel button,
 .fx-modal input,
 .fx-modal select,
-.fx-modal button,
-.error-fallback-panel button {
+.fx-modal button {
   min-height: var(--ui-size);
   font-size: var(--ui-font-sm);
 }

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultLanes } from '../lib/arrangement'
-import { createDefaultFxBuses, createDefaultProjectSongState } from './project-state'
+import { createDefaultFxBuses, createDefaultLanes, createDefaultProjectSongState } from './project-state'
 import {
   parseProject,
   serializeProject,
