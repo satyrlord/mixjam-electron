@@ -22,8 +22,9 @@ Implement view switching, the header bar, and the footer.
 
 ### Home Screen
 
-- **App icon:** the default Electron app icon is replaced with the app icon
-  from the `public/` folder.
+- **App icon:** the default Electron app icon is replaced with a bundled,
+  platform-decodable app icon from the `public/` folder: `app-icon.ico` on
+  Windows and `app-icon-512.png` on Linux and macOS.
 - Window, header, content-area, and footer layout, sizing, and positioning
   follow the [Style Guide](../style-guide.md#layout-architecture).
 - **Content area:** two primary columns, vertically and horizontally centered.
@@ -194,7 +195,10 @@ Implementation validation should be tracked in implementation PR/test evidence.
   height with no overflow scrollbar on the root. Below 1920 pixels wide or 1080
   pixels high, only the unsupported-resolution notice is mounted; no Home,
   Player, navigation, or project action remains operable.
-- [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
+- [x] **AC-012:** The app window uses a non-empty custom icon from the `public/`
+  folder, not the default Electron icon. The runtime selects `app-icon.ico` on
+  Windows and `app-icon-512.png` on Linux and macOS so Electron can decode the
+  selected asset on every supported platform.
 - [x] **AC-013:** The production renderer loads from `app://bundle`, requires
   the preload-provided `window.shellAPI`, and has no HTTP deployment or demo
   backend path.
@@ -223,6 +227,10 @@ unit suite separately verifies that the Home and Player navigation actions invok
 those shell capabilities.
 Linux CI uses a 2560x1440 virtual display so the framed Electron window has room
 for the required 1920x1080 renderer content area.
+
+The smoke test also asks Electron's `nativeImage` implementation to decode the
+same platform-specific asset passed to the live `BrowserWindow` and requires a
+non-empty result on Windows, Linux, and macOS.
 
 The Windows-only `scripts/inspect-window-icon.ps1` probe reads the icon from the
 live HWND and compares it with a 32 by 32 PNG rendered from `public/app-icon.ico`

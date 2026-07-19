@@ -36,8 +36,9 @@ export function enforceMinimumContentSize(window: WindowFrameControls): void {
   )
 }
 
-export function buildAppIconPath(baseDir: string): string {
-  return join(baseDir, '../../public/app-icon.ico')
+export function buildAppIconPath(baseDir: string, platform = process.platform): string {
+  const filename = platform === 'win32' ? 'app-icon.ico' : 'app-icon-512.png'
+  return join(baseDir, '../../public', filename)
 }
 
 export function buildPreloadPath(baseDir: string): string {

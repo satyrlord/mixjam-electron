@@ -15,7 +15,8 @@ import Header from '../components/Header'
 
 const REPO_ROOT = process.cwd()
 const INDEX_CSS_PATH = resolve(REPO_ROOT, 'src/renderer/src/index.css')
-const APP_ICON_PATH = resolve(REPO_ROOT, 'public/app-icon.ico')
+const WINDOWS_APP_ICON_PATH = resolve(REPO_ROOT, 'public/app-icon.ico')
+const CROSS_PLATFORM_APP_ICON_PATH = resolve(REPO_ROOT, 'public/app-icon-512.png')
 const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
 function readUtf8(absolutePath: string): string {
@@ -281,13 +282,16 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(css).toMatch(/\.app\s*\{[\s\S]*height:\s*100%;[\s\S]*overflow:\s*hidden;/m)
   })
 
-  it('AC-012: BrowserWindow uses custom icon from public/app-icon.ico', () => {
-    const iconPath = buildAppIconPath(resolve(REPO_ROOT, 'out/main'))
+  it('AC-012: BrowserWindow uses a platform-decodable custom icon from public', () => {
+    const mainOutputPath = resolve(REPO_ROOT, 'out/main')
     const icon = { kind: 'icon' } as never
     const options = createMainWindowOptions('D:/dev/mixjam-electron/out/preload/index.js', icon)
 
-    expect(existsSync(APP_ICON_PATH)).toBe(true)
-    expect(iconPath).toBe(APP_ICON_PATH)
+    expect(existsSync(WINDOWS_APP_ICON_PATH)).toBe(true)
+    expect(existsSync(CROSS_PLATFORM_APP_ICON_PATH)).toBe(true)
+    expect(buildAppIconPath(mainOutputPath, 'win32')).toBe(WINDOWS_APP_ICON_PATH)
+    expect(buildAppIconPath(mainOutputPath, 'linux')).toBe(CROSS_PLATFORM_APP_ICON_PATH)
+    expect(buildAppIconPath(mainOutputPath, 'darwin')).toBe(CROSS_PLATFORM_APP_ICON_PATH)
     expect(options.icon).toBe(icon)
   })
 })

@@ -5,13 +5,14 @@ import { join, resolve } from 'node:path'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
+import { buildAppIconPath } from '../../src/shared/window-config'
 
 const MAIN_ENTRY = resolve(__dirname, '..', '..', 'out', 'main', 'index.js')
 const PACKAGE_DIR = resolve(__dirname, '..', '..', 'dist-electron')
 const PACKAGE_VERSION = (JSON.parse(
   readFileSync(resolve(__dirname, '..', '..', 'package.json'), 'utf8')
 ) as { version: string }).version
-const APP_ICON = resolve(__dirname, '..', '..', 'public', 'app-icon.ico')
+const APP_ICON = buildAppIconPath(resolve(__dirname, '..', '..', 'out', 'main'))
 const ICON_PROBE = resolve(__dirname, '..', '..', 'scripts', 'inspect-window-icon.ps1')
 const EVIDENCE_DIR = resolve(__dirname, '..', '..', 'tmp', 'verify-electron-window-state')
 const execFileAsync = promisify(execFile)
