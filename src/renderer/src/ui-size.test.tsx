@@ -8,17 +8,17 @@ describe('UI Size geometry', () => {
     expect(UI_GEOMETRY[30]).toMatchObject({
       size: 30, headerHeight: 48, middleStripHeight: 80,
       laneHeight: 37, bubbleHeight: 24, browserRowPitch: 32,
-      mixerChannelWidth: 76, mixerReturnWidth: 120, mixerFxWidth: 160
+      mixerChannelWidth: 76, mixerFxWidth: 160
     })
     expect(UI_GEOMETRY[40]).toMatchObject({
       size: 40, headerHeight: 64, middleStripHeight: 107,
       laneHeight: 49, bubbleHeight: 33, browserRowPitch: 43,
-      mixerChannelWidth: 101, mixerReturnWidth: 160, mixerFxWidth: 213
+      mixerChannelWidth: 101, mixerFxWidth: 213
     })
     expect(UI_GEOMETRY[50]).toMatchObject({
       size: 50, headerHeight: 80, middleStripHeight: 133,
       laneHeight: 61, bubbleHeight: 41, browserRowPitch: 53,
-      mixerChannelWidth: 127, mixerReturnWidth: 200, mixerFxWidth: 267
+      mixerChannelWidth: 127, mixerFxWidth: 267
     })
   })
 

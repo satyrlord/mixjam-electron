@@ -6,6 +6,8 @@ import {
   type DelayReturnModule
 } from '../engine/return-effects'
 import DelayModal from './DelayModal'
+import { RotaryControl, RotaryDial } from './RotaryField'
+import { Tooltip } from './ui/Tooltip'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -14,40 +16,38 @@ import {
 } from './ui/DropdownMenu'
 
 interface MixerFxSlotProps {
-  slot: number
   bus: PlaybackReturnSnapshot
   onSet: (bus: PlaybackReturnSnapshot) => void
   onPreview: (bus: PlaybackReturnSnapshot) => void
+  onGestureStart: () => void
+  onGestureEnd: () => void
 }
 
-export default function MixerFxSlot({ slot, bus, onSet, onPreview }: MixerFxSlotProps) {
+const LIMITER_TOOLTIP = 'Limiter\nCaps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.'
+
+export default function MixerFxSlot({
+  bus,
+  onSet,
+  onPreview,
+  onGestureStart,
+  onGestureEnd
+}: MixerFxSlotProps) {
   const [editing, setEditing] = useState<{ module: DelayReturnModule; powered: boolean } | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const module = bus.module
+  const slot = bus.index + 1
 
   const chooseDelay = () => {
     const next = module.type === 'delay'
       ? { ...module }
       : createDefaultDelayReturnModule(`fx-${slot}`)
-    const nextBus = {
-      index: slot - 1,
-      module: next,
-      powered: bus.powered,
-      returnLevel: bus.returnLevel,
-      limiterEnabled: bus.limiterEnabled
-    }
+    const nextBus = { ...bus, module: next }
     onPreview(nextBus)
     setEditing({ module: next, powered: bus.powered })
   }
 
   const save = (next: DelayReturnModule, powered: boolean) => {
-    onSet({
-      index: slot - 1,
-      module: next,
-      powered,
-      returnLevel: bus.returnLevel,
-      limiterEnabled: bus.limiterEnabled
-    })
+    onSet({ ...bus, module: next, powered })
     setEditing(null)
   }
 
@@ -57,13 +57,7 @@ export default function MixerFxSlot({ slot, bus, onSet, onPreview }: MixerFxSlot
   }
 
   const clear = () => {
-    onSet({
-      index: slot - 1,
-      module: createEmptyReturnModule(`fx-${slot}`),
-      powered: bus.powered,
-      returnLevel: bus.returnLevel,
-      limiterEnabled: bus.limiterEnabled
-    })
+    onSet({ ...bus, module: createEmptyReturnModule(`fx-${slot}`) })
   }
 
   const summary = module.type === 'delay'
@@ -72,32 +66,74 @@ export default function MixerFxSlot({ slot, bus, onSet, onPreview }: MixerFxSlot
 
   return (
     <div className="mixer-fx-slot-wrap">
-      <DropdownMenuRoot>
-        <DropdownMenuTrigger asChild>
-          <button ref={triggerRef} type="button" className="mixer-fx-slot" aria-label={`FX ${slot}`}>
-            <span className="mixer-fx-slot-head"><strong>FX {slot}</strong><span>{module.type === 'delay' ? 'Delay' : 'Empty'}</span></span>
-            <span className="mixer-fx-power-state">Power {bus.powered ? 'On' : 'Off'}</span>
-            <span className="mixer-fx-summary">{summary}</span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="mixer-fx-menu" align="start">
-          <DropdownMenuItem onSelect={chooseDelay}>Delay...</DropdownMenuItem>
-          {module.type !== 'empty' && (
-            <DropdownMenuItem onSelect={clear}>Clear slot</DropdownMenuItem>
+      <section className="mixer-fx-card" aria-label={`FX Return ${slot}`}>
+        <div className="mixer-fx-module">
+          <DropdownMenuRoot>
+            <DropdownMenuTrigger asChild>
+              <button ref={triggerRef} type="button" className="mixer-fx-slot" aria-label={`FX ${slot}`}>
+                <span className="mixer-fx-slot-head"><strong>FX {slot}</strong><span>{module.type === 'delay' ? 'Delay' : 'Empty'}</span></span>
+                <span className="mixer-fx-power-state">Power {bus.powered ? 'On' : 'Off'}</span>
+                <span className="mixer-fx-summary">{summary}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="mixer-fx-menu" align="start">
+              <DropdownMenuItem onSelect={chooseDelay}>Delay...</DropdownMenuItem>
+              {module.type !== 'empty' && (
+                <DropdownMenuItem onSelect={clear}>Clear slot</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenuRoot>
+          {module.type === 'delay' && (
+            <button
+              type="button"
+              className="mixer-fx-power"
+              aria-label={`Power FX ${slot}`}
+              aria-pressed={bus.powered}
+              onClick={() => onSet({ ...bus, powered: !bus.powered })}
+            >
+              Power
+            </button>
           )}
-        </DropdownMenuContent>
-      </DropdownMenuRoot>
-      {module.type === 'delay' && (
-        <button
-          type="button"
-          className="mixer-fx-power"
-          aria-label={`Power FX ${slot}`}
-          aria-pressed={bus.powered}
-          onClick={() => onSet({ ...bus, powered: !bus.powered })}
-        >
-          Power
-        </button>
-      )}
+        </div>
+        <div className="mixer-fx-return-row">
+          <Tooltip content={`${module.type === 'delay' ? 'Delay' : 'Empty'}, Return ${slot}: ${Math.round(bus.returnLevel * 100)}%`}>
+            <span className="mixer-return-level-wrap">
+              <RotaryControl
+                className="mixer-return-level"
+                label={`FX Return ${slot} level`}
+                value={bus.returnLevel}
+                min={0}
+                max={1}
+                step={0.01}
+                valueText={`${Math.round(bus.returnLevel * 100)}%`}
+                defaultValue={1}
+                ariaMultiplier={100}
+                onGestureStart={onGestureStart}
+                onGestureEnd={onGestureEnd}
+                onChange={(returnLevel) => onSet({ ...bus, returnLevel })}
+              >
+                <RotaryDial
+                  className="mixer-compact-rotary"
+                  value={bus.returnLevel}
+                  defaultValue={1}
+                />
+                <span className="mixer-return-name" aria-hidden="true">
+                  Return {Math.round(bus.returnLevel * 100)}%
+                </span>
+              </RotaryControl>
+            </span>
+          </Tooltip>
+          <Tooltip content={<span className="mixer-limiter-tooltip">{LIMITER_TOOLTIP}</span>}>
+            <button
+              type="button"
+              className="mixer-limiter-toggle"
+              aria-label={`Limiter for FX Return ${slot}`}
+              aria-pressed={bus.limiterEnabled}
+              onClick={() => onSet({ ...bus, limiterEnabled: !bus.limiterEnabled })}
+            >L</button>
+          </Tooltip>
+        </div>
+      </section>
       {editing && (
         <DelayModal
           value={editing.module}
@@ -106,11 +142,9 @@ export default function MixerFxSlot({ slot, bus, onSet, onPreview }: MixerFxSlot
           onSave={save}
           onRestoreFocus={() => triggerRef.current?.focus()}
           onPreview={(next, nextPowered) => onPreview({
-            index: slot - 1,
+            ...bus,
             module: next,
-            powered: nextPowered,
-            returnLevel: bus.returnLevel,
-            limiterEnabled: bus.limiterEnabled
+            powered: nextPowered
           })}
         />
       )}

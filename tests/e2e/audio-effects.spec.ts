@@ -42,10 +42,54 @@ test('return controls stay contained at the supported viewport size', async ({ s
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
 
+  const fx1 = page.getByRole('button', { name: 'FX 1', exact: true })
+  await fx1.click()
+  await page.getByRole('menuitem', { name: 'Delay...' }).click()
+  await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
+
+  const cardGeometry = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll<HTMLElement>('.mixer-fx-card')]
+    const containmentErrors: string[] = []
+    let returnControlCount = 0
+    for (const [index, card] of cards.entries()) {
+      const cardBox = card.getBoundingClientRect()
+      const returnControls = [...card.querySelectorAll<HTMLElement>('.mixer-fx-return-row [role="slider"], .mixer-fx-return-row button')]
+      returnControlCount += returnControls.length
+      for (const control of returnControls) {
+        const box = control.getBoundingClientRect()
+        if (box.left < cardBox.left - 0.5 || box.right > cardBox.right + 0.5 ||
+          box.top < cardBox.top - 0.5 || box.bottom > cardBox.bottom + 0.5) {
+          containmentErrors.push(`FX ${index + 1}: ${control.getAttribute('aria-label') ?? control.className}`)
+        }
+      }
+    }
+
+    const trigger = cards[0]?.querySelector<HTMLElement>('.mixer-fx-slot')
+    const power = cards[0]?.querySelector<HTMLElement>('.mixer-fx-power')
+    if (!trigger || !power) throw new Error('Populated FX controls are unavailable')
+    const triggerBox = trigger.getBoundingClientRect()
+    const powerBox = power.getBoundingClientRect()
+    const xOverlap = Math.min(triggerBox.right, powerBox.right) - Math.max(triggerBox.left, powerBox.left)
+    const yOverlap = Math.min(triggerBox.bottom, powerBox.bottom) - Math.max(triggerBox.top, powerBox.top)
+    return {
+      cardCount: cards.length,
+      returnControlCount,
+      containmentErrors,
+      moduleControlsIntersect: xOverlap > 0.5 && yOverlap > 0.5
+    }
+  })
+  expect(cardGeometry.cardCount).toBe(4)
+  expect(cardGeometry.returnControlCount).toBe(8)
+  expect(cardGeometry.containmentErrors).toEqual([])
+  expect(cardGeometry.moduleControlsIntersect).toBe(false)
+
   await expect(page.getByRole('button', { name: 'FX 4' })).toBeVisible()
   const laneSends = page.getByRole('group', { name: 'Lane 1 Sends' })
   await expect(laneSends.getByRole('slider', { name: 'Lane 1 Send 1' })).toBeVisible()
+  const fxReturn4 = page.getByRole('region', { name: 'FX Return 4' })
+  await expect(fxReturn4.getByRole('slider', { name: 'FX Return 4 level' })).toBeVisible()
   const limiter = page.getByRole('button', { name: 'Limiter for FX Return 4' })
+  await expect(fxReturn4).toContainText('Return 100%')
   await expect(limiter).not.toHaveAttribute('title')
   await limiter.evaluate((element) => element.focus({ preventScroll: true }))
   await expect(limiter).toBeFocused()

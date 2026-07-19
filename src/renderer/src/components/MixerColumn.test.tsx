@@ -56,6 +56,10 @@ describe('MixerColumn', () => {
     render(<Harness onSet={onSet} onPreview={onPreview} />)
 
     expect(screen.getByRole('button', { name: 'Lane 1' })).toBeInTheDocument()
+    const firstFxReturn = screen.getByRole('region', { name: 'FX Return 1' })
+    expect(firstFxReturn).toContainElement(screen.getByRole('slider', { name: 'FX Return 1 level' }))
+    expect(firstFxReturn).toContainElement(screen.getByRole('button', { name: 'Limiter for FX Return 1' }))
+    expect(screen.queryByRole('region', { name: 'FX Returns' })).toBeNull()
     fireEvent.keyDown(screen.getByRole('slider', { name: 'FX Return 1 level' }), { key: 'Home' })
     fireEvent.click(screen.getByRole('button', { name: 'Limiter for FX Return 1' }))
 

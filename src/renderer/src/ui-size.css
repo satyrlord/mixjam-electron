@@ -379,19 +379,6 @@
   gap: var(--ui-space-sm);
 }
 
-.mixer-return-section {
-  width: var(--ui-mixer-return-width);
-  min-width: var(--ui-mixer-return-width);
-  padding: var(--ui-space-sm);
-  gap: var(--ui-space-sm);
-}
-
-.mixer-return-row {
-  grid-template-columns: var(--ui-size) minmax(0, 1fr) var(--ui-size);
-  gap: var(--ui-space-sm);
-  min-height: calc(var(--ui-size) * 1.7);
-}
-
 .mixer-return-name,
 .mixer-fx-menu .mixjam-menu-item {
   font-size: var(--ui-font-sm);
@@ -432,9 +419,24 @@
   gap: var(--ui-space-sm);
 }
 
+.mixer-fx-card {
+  padding: var(--ui-space-sm);
+  gap: var(--ui-space-sm);
+}
+
+.mixer-fx-module {
+  gap: var(--ui-space-sm);
+}
+
 .mixer-fx-slot {
-  gap: var(--ui-space-md);
+  gap: var(--ui-space-xs);
   font-size: var(--ui-font-sm);
+}
+
+.mixer-fx-return-row {
+  min-height: var(--ui-size);
+  gap: var(--ui-space-sm);
+  padding-top: var(--ui-space-sm);
 }
 
 .rotary-control,

@@ -1,10 +1,7 @@
 import type { LaneState } from '../lib/arrangement'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
-import { RETURN_BUS_COUNT } from '../engine/return-effects'
 import ChannelStrip from './ChannelStrip'
 import MixerFxSlot from './MixerFxSlot'
-import { RotaryControl, RotaryDial } from './RotaryField'
-import { Tooltip } from './ui/Tooltip'
 
 interface MixerColumnProps {
   lanes: LaneState[]
@@ -25,8 +22,6 @@ interface MixerColumnProps {
 function returnModuleName(bus: PlaybackReturnSnapshot): string {
   return bus.module.type === 'delay' ? 'Delay' : 'Empty'
 }
-
-const LIMITER_TOOLTIP = 'Limiter\nCaps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.'
 
 /** Full-width, horizontally scrollable Mixer workspace derived from lanes. */
 export default function MixerColumn({
@@ -97,88 +92,20 @@ export default function MixerColumn({
               />
             )
           })}
-          <ReturnSection
-            buses={returnBuses}
-            onSet={onSetReturnBus}
-            onGestureStart={onGestureStart}
-            onGestureEnd={onGestureEnd}
-          />
-          <section className="mixer-fx-grid" aria-label="FX slots">
-            {Array.from({ length: RETURN_BUS_COUNT }, (_, index) => (
+          <section className="mixer-fx-grid" aria-label="FX and Returns">
+            {returnBuses.map((bus) => (
               <MixerFxSlot
-                key={index}
-                slot={index + 1}
-                bus={returnBuses[index]!}
+                key={bus.index}
+                bus={bus}
                 onSet={onSetReturnBus}
                 onPreview={onPreviewReturnBus}
+                onGestureStart={onGestureStart}
+                onGestureEnd={onGestureEnd}
               />
             ))}
           </section>
         </div>
       </div>
     </div>
-  )
-}
-
-function ReturnSection({
-  buses,
-  onSet,
-  onGestureStart,
-  onGestureEnd
-}: {
-  buses: readonly [PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot]
-  onSet: (bus: PlaybackReturnSnapshot) => void
-  onGestureStart: () => void
-  onGestureEnd: () => void
-}) {
-  return (
-    <section className="mixer-return-section" aria-label="FX Returns">
-      <h3>RETURN</h3>
-      {Array.from({ length: RETURN_BUS_COUNT }, (_, index) => {
-        const slot = index + 1
-        const bus = buses[index]!
-        const returnLevel = bus.returnLevel
-        const moduleName = returnModuleName(bus)
-        return (
-          <div className="mixer-return-row" key={slot}>
-            <span>{slot}</span>
-            <Tooltip content={`${moduleName}, Return ${slot}: ${Math.round(returnLevel * 100)}%`}>
-              <span className="mixer-return-level-wrap">
-                <RotaryControl
-                  className="mixer-return-level"
-                  label={`FX Return ${slot} level`}
-                  value={returnLevel}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  valueText={`${Math.round(returnLevel * 100)}%`}
-                  defaultValue={1}
-                  ariaMultiplier={100}
-                  onGestureStart={onGestureStart}
-                  onGestureEnd={onGestureEnd}
-                  onChange={(value) => onSet({ ...bus, returnLevel: value })}
-                >
-                  <RotaryDial
-                    className="mixer-compact-rotary"
-                    value={returnLevel}
-                    defaultValue={1}
-                  />
-                  <span className="mixer-return-name" aria-hidden="true">{moduleName}</span>
-                </RotaryControl>
-              </span>
-            </Tooltip>
-            <Tooltip content={<span className="mixer-limiter-tooltip">{LIMITER_TOOLTIP}</span>}>
-              <button
-                type="button"
-                className="mixer-limiter-toggle"
-                aria-label={`Limiter for FX Return ${slot}`}
-                aria-pressed={bus.limiterEnabled}
-                onClick={() => onSet({ ...bus, limiterEnabled: !bus.limiterEnabled })}
-              >L</button>
-            </Tooltip>
-          </div>
-        )
-      })}
-    </section>
   )
 }

@@ -110,7 +110,7 @@ table is the single numeric source used by CSS and JavaScript geometry:
 | Song Progress row | 28px | 37px | 47px |
 | Bottom Workspace tab row | 44px | 59px | 73px |
 | Browser row pitch | 32px | 43px | 53px |
-| Mixer channel / Return / FX width | 76 / 120 / 160px | 101 / 160 / 213px | 127 / 200 / 267px |
+| Mixer channel / combined FX and Return width | 76 / 160px | 101 / 213px | 127 / 267px |
 | Mixer FX height | 112px | 149px | 187px |
 | Spacing xs / sm / md / lg | 2 / 4 / 8 / 12px | 3 / 5 / 11 / 16px | 3 / 7 / 13 / 20px |
 | Supporting type xs / sm / md / lg | 10 / 11 / 12 / 14px | 13 / 15 / 16 / 19px | 17 / 18 / 20 / 23px |

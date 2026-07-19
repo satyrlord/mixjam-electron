@@ -25,7 +25,6 @@ export interface UiGeometry {
   browserRowPitch: number
   browserHorizontalPadding: number
   mixerChannelWidth: number
-  mixerReturnWidth: number
   mixerFxWidth: number
   mixerFxHeight: number
   spaceXs: number
@@ -45,7 +44,7 @@ export const UI_GEOMETRY: Readonly<Record<UiSize, UiGeometry>> = Object.freeze({
     middleStripHeight: 80, middleMainHeight: 48, progressRowHeight: 28, tabRowHeight: 44,
     laneHeight: 37, bubbleHeight: 24,
     browserRowPitch: 32, browserHorizontalPadding: 10,
-    mixerChannelWidth: 76, mixerReturnWidth: 120, mixerFxWidth: 160, mixerFxHeight: 112,
+    mixerChannelWidth: 76, mixerFxWidth: 160, mixerFxHeight: 112,
     spaceXs: 2, spaceSm: 4, spaceMd: 8, spaceLg: 12,
     fontXs: 10, fontSm: 11, fontMd: 12, fontLg: 14
   }),
@@ -55,7 +54,7 @@ export const UI_GEOMETRY: Readonly<Record<UiSize, UiGeometry>> = Object.freeze({
     middleStripHeight: 107, middleMainHeight: 64, progressRowHeight: 37, tabRowHeight: 59,
     laneHeight: 49, bubbleHeight: 33,
     browserRowPitch: 43, browserHorizontalPadding: 13,
-    mixerChannelWidth: 101, mixerReturnWidth: 160, mixerFxWidth: 213, mixerFxHeight: 149,
+    mixerChannelWidth: 101, mixerFxWidth: 213, mixerFxHeight: 149,
     spaceXs: 3, spaceSm: 5, spaceMd: 11, spaceLg: 16,
     fontXs: 13, fontSm: 15, fontMd: 16, fontLg: 19
   }),
@@ -65,7 +64,7 @@ export const UI_GEOMETRY: Readonly<Record<UiSize, UiGeometry>> = Object.freeze({
     middleStripHeight: 133, middleMainHeight: 80, progressRowHeight: 47, tabRowHeight: 73,
     laneHeight: 61, bubbleHeight: 41,
     browserRowPitch: 53, browserHorizontalPadding: 17,
-    mixerChannelWidth: 127, mixerReturnWidth: 200, mixerFxWidth: 267, mixerFxHeight: 187,
+    mixerChannelWidth: 127, mixerFxWidth: 267, mixerFxHeight: 187,
     spaceXs: 3, spaceSm: 7, spaceMd: 13, spaceLg: 20,
     fontXs: 17, fontSm: 18, fontMd: 20, fontLg: 23
   })
@@ -107,7 +106,6 @@ const CSS_VARIABLES: Readonly<Record<keyof Omit<UiGeometry, 'size'>, string>> = 
   browserRowPitch: '--ui-browser-row-pitch',
   browserHorizontalPadding: '--ui-browser-horizontal-padding',
   mixerChannelWidth: '--ui-mixer-channel-width',
-  mixerReturnWidth: '--ui-mixer-return-width',
   mixerFxWidth: '--ui-mixer-fx-width',
   mixerFxHeight: '--ui-mixer-fx-height',
   spaceXs: '--ui-space-xs',

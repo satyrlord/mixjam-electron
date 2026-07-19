@@ -33,20 +33,6 @@ function centered(snapshot: NativeWindowSnapshot): boolean {
   return Math.abs(snapshot.bounds.x - expectedX) <= 1 && Math.abs(snapshot.bounds.y - expectedY) <= 1
 }
 
-// getNativeWindowHandle() returns an OS-native handle whose buffer length is
-// not guaranteed: on Windows it is an HWND pointer (4/8 bytes), but on Linux it
-// is an X11 window id which may serialize to fewer than 8 bytes. Reading with
-// readBigUInt64LE(0) throws RangeError when the buffer is shorter than 8 bytes,
-// so parse up to 8 little-endian bytes instead.
-function parseNativeWindowHandle(handle: Buffer): string {
-  let value = 0n
-  const byteLength = Math.min(handle.length, 8)
-  for (let index = byteLength - 1; index >= 0; index -= 1) {
-    value = (value << 8n) | BigInt(handle[index] ?? 0)
-  }
-  return value.toString()
-}
-
 function packagedExecutable(): string {
   if (process.platform === 'win32') {
     return resolve(PACKAGE_DIR, 'win-unpacked', 'MixJam Electron.exe')
@@ -112,8 +98,9 @@ test.describe('Electron smoke', () => {
           const bounds = nativeWindow.getBounds()
           const contentBounds = nativeWindow.getContentBounds()
           const handle = nativeWindow.getNativeWindowHandle()
-          // Inlined here because evaluate() runs in the Electron main process,
-          // not in the test's Node.js context.
+          // This must be inlined because evaluate() runs in Electron's main
+          // process. The native handle may contain fewer than eight bytes, so
+          // read only the available little-endian bytes.
           function parseNativeWindowHandle(h: Buffer): string {
             let value = 0n
             const byteLength = Math.min(h.length, 8)

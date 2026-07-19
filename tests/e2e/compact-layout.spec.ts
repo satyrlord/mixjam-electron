@@ -24,6 +24,7 @@ const BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout-v2'
 // Footer zoom buttons show percentage labels; the underlying UI Size values
 // remain 30/40/50.
 const UI_SIZE_BUTTON_LABELS: Record<number, string> = { 30: '75%', 40: '100%', 50: '125%' }
+const UI_SIZE_SUPPORTING_FONT: Record<number, string> = { 30: '10px', 40: '13px', 50: '17px' }
 
 async function settleLayout(page: import('@playwright/test').Page) {
   await page.evaluate(async () => {
@@ -352,6 +353,11 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   }
 
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  await page.getByRole('tab', { name: 'Mixer' }).click()
+  await page.getByRole('button', { name: 'FX 1', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Delay...' }).click()
+  await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
+  await page.getByRole('tab', { name: 'Song', exact: true }).click()
   for (const size of [30, 40, 50]) {
     await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
     await settleLayout(page)
@@ -366,7 +372,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
       const port = scrollport.getBoundingClientRect()
       const children = [...scrollport.querySelectorAll(':scope > .mixer-strips-row > *')]
       const controls = [...scrollport.querySelectorAll<HTMLElement>(
-        '.mixer-channel-strip button, .mixer-channel-strip [role="slider"], .mixer-return-section button, .mixer-return-section [role="slider"]'
+        '.mixer-channel-strip button, .mixer-channel-strip [role="slider"], .mixer-fx-card button, .mixer-fx-card [role="slider"]'
       )]
         .filter((control) => {
           const box = control.getBoundingClientRect()
@@ -418,6 +424,10 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
         })
       return {
         workspaceHeight: document.querySelector('.bottom-workspace')?.getBoundingClientRect().height ?? 0,
+        supportingFontSizes: [...new Set(
+          [...scrollport.querySelectorAll<HTMLElement>('.mixer-fx-power-state, .mixer-fx-summary')]
+            .map((element) => getComputedStyle(element).fontSize)
+        )],
         verticalContentFits: children.every((child) => child.getBoundingClientRect().bottom <= port.bottom + 1),
         controlIntersections,
         dialOverflow,
@@ -426,6 +436,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
       }
     })
     expect(mixerFit.workspaceHeight, `Player Mixer ${size} workspace height`).toBeGreaterThan(0)
+    expect(mixerFit.supportingFontSizes, `Player Mixer ${size} supporting font`).toEqual([UI_SIZE_SUPPORTING_FONT[size]])
     expect(mixerFit.verticalContentFits, `Player Mixer ${size} vertical fit`).toBe(true)
     expect(mixerFit.controlIntersections, `Player Mixer ${size} control intersections`).toEqual([])
     expect(mixerFit.dialOverflow, `Player Mixer ${size} rotary dial containment`).toEqual([])
@@ -491,15 +502,14 @@ test('Mixer and Tracker stay reachable with 1, 8, and 64 lanes at every UI Size'
       const mixer = await page.evaluate(() => {
         const scrollport = document.querySelector('.mixer-strips')
         const laneStrips = [...document.querySelectorAll('.mixer-channel-strip')]
-        const returnSection = document.querySelector('.mixer-return-section')
-        const fx4 = document.querySelector('.mixer-fx-slot:last-child')
+        const fxCards = [...document.querySelectorAll('.mixer-fx-card')]
+        const fx4 = fxCards[3]
         if (!(scrollport instanceof HTMLElement) ||
-          !(returnSection instanceof HTMLElement) ||
           !(fx4 instanceof HTMLElement)) {
           throw new Error('Mixer geometry is unavailable')
         }
 
-        const targets = [...laneStrips, returnSection, fx4]
+        const targets = [...laneStrips, ...fxCards]
         scrollport.scrollLeft = 0
         const initialPort = scrollport.getBoundingClientRect()
         const reachable = targets.every((target) => {
