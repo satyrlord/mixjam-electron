@@ -221,6 +221,8 @@ the current display, manual restore without re-maximization, and the return to
 Home (unmaximized to 1920x1080 content, still resizable and maximizable). The renderer
 unit suite separately verifies that the Home and Player navigation actions invoke
 those shell capabilities.
+Linux CI uses a 2560x1440 virtual display so the framed Electron window has room
+for the required 1920x1080 renderer content area.
 
 The Windows-only `scripts/inspect-window-icon.ps1` probe reads the icon from the
 live HWND and compares it with a 32 by 32 PNG rendered from `public/app-icon.ico`

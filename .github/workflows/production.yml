@@ -41,7 +41,7 @@ jobs:
 
       - name: Smoke test Electron app on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npx playwright test --project=electron-smoke
+        run: xvfb-run --auto-servernum --server-args="-screen 0 2560x1440x24" npx playwright test --project=electron-smoke
         env:
           MIXJAM_SMOKE_PACKAGED: 'true'
 
