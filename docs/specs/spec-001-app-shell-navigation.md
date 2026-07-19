@@ -80,6 +80,11 @@ Implement view switching, the header bar, and the footer.
 - When switching from Player to Home, the window unmaximizes and restores a
   1920x1080 renderer content area. The native frame is additional. The window
   remains resizable and maximizable in all views.
+- Every view requires both a renderer width of at least 1920 CSS pixels and a
+  renderer height of at least 1080 CSS pixels. Below either boundary, the
+  renderer mounts only an unsupported-resolution notice. It does not mount
+  Home, Player, navigation, project actions, or application hooks. Returning to
+  a supported size mounts the application again.
 
 ### Electron host
 
@@ -155,8 +160,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" and "Load MixJam" buttons.
 - [x] **AC-002a:** The right workflow column contains three independent sibling
   cards with no enclosing panel. Recent Projects remains outside that column,
-  aligns below the hero, and responds from four desktop columns to two columns
-  at 900px and below.
+  aligns below the hero, and uses four columns at the supported viewport size.
 - [x] **AC-002b:** The Home hero uses `public/app-icon-128.png` as the visible
   MixJam logo instead of a generated waveform mark.
 - [x] **AC-002c:** At the default 1920x1080 renderer content size, Home has no
@@ -186,10 +190,10 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-010:** The Player content area provides structural regions for the
   upper work band, full-width Middle Strip, and lower work band; spec-006 owns
   their detailed current layout and controls.
-- [x] **AC-011:** The app occupies the full viewport height with no overflow
-  scrollbar on the root. Home owns any required narrow-window vertical
-  scrolling internally with both content limits reachable; the default
-  1920x1080 Electron window has no Home overflow.
+- [x] **AC-011:** At or above 1920x1080, the app occupies the full viewport
+  height with no overflow scrollbar on the root. Below 1920 pixels wide or 1080
+  pixels high, only the unsupported-resolution notice is mounted; no Home,
+  Player, navigation, or project action remains operable.
 - [x] **AC-012:** The app window displays the custom app icon from the `public/` folder, not the default Electron icon.
 - [x] **AC-013:** The production renderer loads from `app://bundle`, requires
   the preload-provided `window.shellAPI`, and has no HTTP deployment or demo
@@ -226,10 +230,11 @@ confirming the live MixJam skull rather than only the source asset's existence.
 Raw bounds, display work area, frame states, icon metrics, and screenshots are
 stored under `tmp/verify-electron-window-state/`.
 
-`tests/e2e/compact-layout.spec.ts` verifies the full-width Recent Projects rail,
-responsive four/two-column geometry, and root-versus-Home overflow ownership
-with reachable scroll limits across representative themes in the production
-Chromium bundle.
+`tests/e2e/compact-layout.spec.ts` verifies the full-width four-column Recent
+Projects rail and root-versus-Home overflow ownership across representative
+themes in the production Chromium bundle. Its single below-minimum test checks
+both the width and height boundaries and proves that only the refusal surface
+is available.
 `tmp/verify-compact-layout/evidence.md` records the matching computed geometry
 and screenshots.
 
@@ -244,4 +249,4 @@ and screenshots.
 - No sample data, no sample-bubble rendering, no lane interaction. Tracker timeline is spec-006.
 - No settings persistence — the settings link in the footer is a placeholder.
 - No keyboard shortcuts.
-- No Player entry below the 1920x1080 CSS viewport minimum.
+- No functional application surface below the 1920x1080 CSS viewport minimum.

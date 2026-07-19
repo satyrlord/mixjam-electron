@@ -1,7 +1,7 @@
 import type { FooterSampleDetail } from '../lib/arrangement'
 import WaveformPreview from './WaveformPreview'
 import { Tooltip } from './ui/Tooltip'
-import { UI_SIZE_OPTIONS, type UiSize } from '../ui-size'
+import { UI_SIZE_LABELS, UI_SIZE_OPTIONS, type UiSize } from '../ui-size'
 
 interface FooterProps {
   view: 'home' | 'player'
@@ -50,7 +50,7 @@ export default function Footer({
               aria-pressed={uiSize === size}
               onClick={() => onUiSizeChange(size)}
             >
-              {size}
+              {UI_SIZE_LABELS[size]}
             </button>
           ))}
         </div>

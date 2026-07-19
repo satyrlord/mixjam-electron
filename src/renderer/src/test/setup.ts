@@ -13,6 +13,16 @@ if (typeof window !== 'undefined') {
     configurable: true,
     value: createBackendAPI()
   })
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: 1920
+  })
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    writable: true,
+    value: 1080
+  })
 
   // jsdom has no Web Audio API; provide the engine's mock so PlaybackEngine can be
   // constructed in component/hook tests without a real AudioContext.

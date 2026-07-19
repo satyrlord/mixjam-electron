@@ -338,7 +338,8 @@ shared dimensions.
 ## UI Size
 
 The app-wide visual scale selected in the footer: 30, 40, or 50, with 40 as
-the default. It scales controls, interaction targets, lane and sample-bubble
+the default. The footer buttons show the zoom labels 75%, 100%, and 125%.
+It scales controls, interaction targets, lane and sample-bubble
 height, Mixer components,
 spacing, and supporting type. It does not change musical time, pixels per tick,
 project data, audio, or sample-bubble width. UI Size is app state, not project

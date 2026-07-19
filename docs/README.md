@@ -28,7 +28,9 @@ requirements that drive every architectural choice.
 - Node.js latest LTS
 - Desktop work area large enough for a 1920x1080 renderer content area. The
   native window frame is additional, so a physical 1080p display may not expose
-  enough usable work area on every operating system.
+  enough usable work area on every operating system. Below that renderer size,
+  MixJam shows only an unsupported-resolution notice and does not mount the
+  functional application.
 
 There are no native modules — SQLite runs as WebAssembly
 (`@sqlite.org/sqlite-wasm`), so no build toolchain or ABI rebuilds are needed.

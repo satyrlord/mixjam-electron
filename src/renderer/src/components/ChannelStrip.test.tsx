@@ -259,6 +259,17 @@ describe('ChannelStrip', () => {
     expect(screen.queryByRole('button', { name: 'S' })).toBeNull()
   })
 
+  it('uses the shared SVG rotary visual for sends and bipolar pan', () => {
+    render(<ChannelStrip {...DEFAULT_PROPS} sends={[0, 0.3, 0.6, 1]} pan={-0.4} />)
+
+    for (const slot of [1, 2, 3, 4]) {
+      const send = screen.getByRole('slider', { name: `Kick Send ${slot}` })
+      expect(send.querySelector('svg.rotary-dial')).toHaveAttribute('data-rotary-mode', 'unipolar')
+    }
+    const pan = screen.getByRole('slider', { name: 'Channel 1 Pan' })
+    expect(pan.querySelector('svg.rotary-dial')).toHaveAttribute('data-rotary-mode', 'bipolar')
+  })
+
   it('wraps a multi-update pan drag in one Mixer gesture', () => {
     const onGestureStart = vi.fn()
     const onGestureEnd = vi.fn()

@@ -1,8 +1,9 @@
 import { join } from 'path'
 import type { BrowserWindowConstructorOptions, NativeImage } from 'electron'
+import { MINIMUM_VIEWPORT } from './viewport'
 
 /** Minimum window size for all views — 1080p (1920 x 1080). */
-const MIN_WINDOW_SIZE = Object.freeze({ width: 1920, height: 1080 })
+const MIN_WINDOW_SIZE = MINIMUM_VIEWPORT
 
 /** Both application views use the same 1080p minimum. */
 export const HOME_WINDOW_SIZE = MIN_WINDOW_SIZE

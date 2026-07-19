@@ -103,15 +103,14 @@ Home (1920x1080 renderer content minimum, resizable, maximizable)
 - The Home Screen has no timer and no home link.
 - The workflow cards have no enclosing outer panel. Headings, spacing, and
   surface contrast establish their grouping.
-- At 1920x1080, Home has no vertical overflow or scrollbar. At narrow widths,
-  internal scrolling is owned by Home, not the root.
+- At 1920x1080, Home has no vertical overflow or scrollbar.
 
 ### Player Layout
 
-- The Player requires a 1920x1080 CSS renderer. The native frame is additional.
-  Home may use its documented
-  internal narrow-width scrolling before a project is opened. A smaller Player
-  viewport shows the minimum-size message.
+- Every application view requires a 1920x1080 CSS renderer. The native frame is
+  additional. If either dimension is below that minimum, the renderer shows
+  only the unsupported-resolution notice. Home, Player, navigation, and project
+  actions are not mounted.
 - All views launch maximized on their current display. The user may restore,
   resize above the minimum, or maximize again at any time.
 - The root Player never scrolls vertically. At minimum size every layout keeps
@@ -153,8 +152,9 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
   version string (right).
 - **Player state:** "Select User Folder" link (left), version and UI Size
   control (right), center slot may show selected sample details.
-- The UI Size control is a segmented `[30][40][50]` selector. It is always
-  visible, defaults to 40, and is an app preference rather than project state.
+- The UI Size control is a segmented `[75%][100%][125%]` selector (values 30,
+  40, and 50). It is always visible, defaults to 40 (100%), and is an app
+  preference rather than project state.
 - Version string uses the semantic version from `package.json` and links to the
   GitHub repository.
 
@@ -499,10 +499,15 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Used for: lane channel Volume, Master Volume, and BPM slider (50-200).
 - Unity (100%) marked with a tick.
 
-### Rotary Controls (Pan, FX Parameters)
+### Rotary Controls (Sends, Returns, Pan, FX Parameters)
 
 - Shared project-owned SVG control: 270-degree range track, high-contrast
   value arc, inset cap, short pointer inside cap.
+- Compact Mixer dials and full FX parameter dials use the same SVG structure.
+  Size changes only the rendered dimensions; it does not replace the visual
+  with a CSS-only circle or pointer.
+- Unipolar Sends, Returns, and FX parameters fill from the minimum. Bipolar Pan
+  fills outward from its center point. A short outer marker shows the default.
 - Interaction: vertical pointer drag, mouse-wheel steps, Shift fine
   adjustment, Arrow keys, Home/End, double-click reset.
 - Wheel up increases, wheel down decreases. Handled wheel events do not
@@ -531,13 +536,15 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 - Compact 76px vertical stack at UI Size 30. Higher UI Sizes scale through
   shared tokens.
-- The header shows the lane number and inherited lane name. Long names use an
-  ellipsis and a tooltip. Renaming the lane updates the channel immediately.
+- The header shows the inherited lane name exactly, with no derived number or
+  channel prefix. Long names use an ellipsis and a tooltip. Renaming the lane
+  updates the channel immediately.
 - Four numbered Sends form a 2x2 group. Each tooltip shows the current module
   type and Send percentage. Sends remain adjustable when their bus is Empty.
 - A decorative EQ group contains a disabled power button, Treble, and Bass.
   It has no saved state, audio behavior, or tab stops. Its tooltip reads
-  "EQ controls are not available".
+  "EQ controls are not available". Its three cells divide the strip's inner
+  width and never inherit a minimum width that crosses a strip boundary.
 - Pan edits the lane-owned pan value. Volume defaults to 80 percent and sits
   beside the dry RMS dBFS meter and peak hold.
 - There are no Mute, Solo, remove, routing, or reorder controls in the Mixer.

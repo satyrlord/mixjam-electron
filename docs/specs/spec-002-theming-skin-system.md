@@ -86,7 +86,7 @@ height, including the minimum-width 12px browser bubble.
 ### Global UI Size
 
 UI Size is an app-wide presentation preference with three discrete values: 30,
-40, and 50. The footer shows the segmented `[30][40][50]` control on Home and
+40, and 50. The footer shows the segmented `[75%][100%][125%]` control on Home and
 Player, immediately before the version. New app state defaults to 40.
 
 The value selects one coherent token set for controls, interaction targets,

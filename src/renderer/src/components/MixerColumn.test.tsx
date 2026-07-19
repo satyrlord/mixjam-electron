@@ -123,6 +123,15 @@ describe('MixerColumn', () => {
     expect(onGestureEnd).toHaveBeenCalledOnce()
   })
 
+  it('uses the shared SVG rotary visual for Return levels', () => {
+    render(<Harness onSet={vi.fn()} onPreview={vi.fn()} />)
+
+    for (const slot of [1, 2, 3, 4]) {
+      const level = screen.getByRole('slider', { name: `FX Return ${slot} level` })
+      expect(level.querySelector('svg.rotary-dial')).toHaveAttribute('data-rotary-mode', 'unipolar')
+    }
+  })
+
   it('uses the shared tooltip for the exact limiter explanation', async () => {
     render(<Harness onSet={vi.fn()} onPreview={vi.fn()} />)
     const limiter = screen.getByRole('button', { name: 'Limiter for FX Return 1' })

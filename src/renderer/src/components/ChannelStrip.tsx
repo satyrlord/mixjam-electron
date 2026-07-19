@@ -1,6 +1,6 @@
 import { nextPanCycle } from '../lib/sample-utils'
 import { VerticalFader } from './VerticalControls'
-import { RotaryControl } from './RotaryField'
+import { RotaryControl, RotaryDial } from './RotaryField'
 import { Tooltip } from './ui/Tooltip'
 
 interface ChannelStripProps {
@@ -54,7 +54,7 @@ export default function ChannelStrip({
       <div className="mixer-channel-label">
         <Tooltip content={label}>
           <button type="button" className="mixer-channel-select" aria-pressed={selected} onClick={() => onSelect(laneId)}>
-            <span data-channel-number={channelIndex + 1}>{label}</span>
+            <span>{label}</span>
           </button>
         </Tooltip>
       </div>
@@ -79,10 +79,9 @@ export default function ChannelStrip({
                   ariaMultiplier={100}
                   onGestureStart={onGestureStart}
                   onGestureEnd={onGestureEnd}
-                  style={{ '--mixer-rotary-value': value } as React.CSSProperties}
                   onChange={(next) => onSetSend(channelIndex, index, next)}
                 >
-                  <span className="mixer-compact-rotary" aria-hidden="true" />
+                  <RotaryDial className="mixer-compact-rotary" value={value} />
                   <span className="mixer-send-label" aria-hidden="true">{slot}</span>
                 </RotaryControl>
               </span>
@@ -112,13 +111,19 @@ export default function ChannelStrip({
         dragAxis="horizontal"
         onGestureStart={onGestureStart}
         onGestureEnd={onGestureEnd}
-        style={{ '--pan-angle': `${pan * 135}deg` } as React.CSSProperties}
         onChange={(value) => onSetPan(channelIndex, value)}
         onContextMenu={(event) => {
           event.preventDefault()
           onSetPan(channelIndex, nextPanCycle(pan))
         }}
-      />
+      >
+        <RotaryDial
+          className="mixer-pan-rotary"
+          value={(pan + 1) / 2}
+          defaultValue={0.5}
+          mode="bipolar"
+        />
+      </RotaryControl>
 
       <VerticalFader
         className="mixer-channel-vol-wrap"

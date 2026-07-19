@@ -14,8 +14,8 @@ describe('Footer', () => {
       />
     )
     expect(screen.getByRole('button', { name: '1.2.3' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '40' })).toHaveAttribute('aria-pressed', 'true')
-    expect(() => fireEvent.click(screen.getByRole('button', { name: '30' }))).not.toThrow()
+    expect(screen.getByRole('button', { name: '100%' })).toHaveAttribute('aria-pressed', 'true')
+    expect(() => fireEvent.click(screen.getByRole('button', { name: '75%' }))).not.toThrow()
   })
 
   it('fires onSelectFolder when the settings link is clicked', () => {
@@ -62,9 +62,9 @@ describe('Footer', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: '40' })).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(screen.getByRole('button', { name: '30' }))
-    fireEvent.click(screen.getByRole('button', { name: '50' }))
+    expect(screen.getByRole('button', { name: '100%' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: '75%' }))
+    fireEvent.click(screen.getByRole('button', { name: '125%' }))
     expect(onUiSizeChange.mock.calls).toEqual([[30], [50]])
   })
 

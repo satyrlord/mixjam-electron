@@ -44,7 +44,13 @@ describe('RotaryField', () => {
 
   it('renders with the current value', () => {
     render(<RotaryField {...defaultProps} />)
-    expect(screen.getByRole('slider', { name: 'Time' })).toBeInTheDocument()
+    const slider = screen.getByRole('slider', { name: 'Time' })
+    expect(slider).toBeInTheDocument()
+    const dial = slider.querySelector('svg.rotary-dial')
+    expect(dial).toHaveAttribute('data-rotary-mode', 'unipolar')
+    for (const part of ['track', 'value', 'default-marker', 'cap', 'pointer']) {
+      expect(dial?.querySelector(`.rotary-dial-${part}`)).toBeInTheDocument()
+    }
     expect(screen.getByText('375 ms')).toBeInTheDocument()
     expect(screen.getByText('Controls how long the echo waits.')).toHaveClass('effect-control-help')
   })

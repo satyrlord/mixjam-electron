@@ -3,6 +3,14 @@ import { createContext, useContext, type ReactNode } from 'react'
 export const UI_SIZE_OPTIONS = [30, 40, 50] as const
 export type UiSize = (typeof UI_SIZE_OPTIONS)[number]
 
+// User-facing zoom labels. The internal size values (30/40/50) remain the
+// geometry tokens; only the button text changes.
+export const UI_SIZE_LABELS: Readonly<Record<UiSize, string>> = Object.freeze({
+  30: '75%',
+  40: '100%',
+  50: '125%'
+})
+
 export interface UiGeometry {
   size: UiSize
   scale: number

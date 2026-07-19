@@ -21,6 +21,9 @@ const ALL_THEMES = [
 ]
 const LEGACY_BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout'
 const BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout-v2'
+// Footer zoom buttons show percentage labels; the underlying UI Size values
+// remain 30/40/50.
+const UI_SIZE_BUTTON_LABELS: Record<number, string> = { 30: '75%', 40: '100%', 50: '125%' }
 
 async function settleLayout(page: import('@playwright/test').Page) {
   await page.evaluate(async () => {
@@ -29,34 +32,34 @@ async function settleLayout(page: import('@playwright/test').Page) {
   })
 }
 
-test('Home stays root-overflow-free across desktop and narrow renderer sizes', async ({ seededPage: page }) => {
+test('a viewport below 1920x1080 shows only the refusal screen', async ({ seededPage: page }) => {
   for (const viewport of [
-    {
-      width: 1920,
-      height: 1080,
-      expectedColumns: 4,
-      expectInternalScroll: false
-    },
-    {
-      width: 1920,
-      height: 1049,
-      expectedColumns: 4,
-      expectInternalScroll: false
-    },
-    {
-      width: 900,
-      height: 1080,
-      expectedColumns: 2,
-      expectInternalScroll: true
-    }
+    { width: 1919, height: 1080 },
+    { width: 1920, height: 1079 }
   ]) {
     await page.setViewportSize(viewport)
 
-    for (const theme of ALL_THEMES) {
-      await page.locator('.theme-selector').selectOption(theme)
-      await settleLayout(page)
+    await expect(page.getByRole('alert')).toContainText('Display resolution not supported')
+    await expect(page.getByRole('alert')).toContainText(
+      `Current viewport: ${viewport.width} × ${viewport.height} pixels.`
+    )
+    await expect(page.getByRole('button', { name: 'Start New MixJam' })).toHaveCount(0)
+    await expect(page.locator('.app')).toHaveCount(0)
+  }
 
-      const geometry = await page.evaluate(() => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await expect(page.getByRole('button', { name: 'Start New MixJam' })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+})
+
+test('Home stays root-overflow-free at the supported renderer size', async ({ seededPage: page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+
+  for (const theme of ALL_THEMES) {
+    await page.locator('.theme-selector').selectOption(theme)
+    await settleLayout(page)
+
+    const geometry = await page.evaluate(() => {
         const content = document.querySelector('.home-content')
         const hero = document.querySelector('.home-hero')
         const setup = document.querySelector('.home-setup')
@@ -103,36 +106,26 @@ test('Home stays root-overflow-free across desktop and narrow renderer sizes', a
           screenScrollHeight: screen.scrollHeight,
           screenOverflowY: getComputedStyle(screen).overflowY
         }
-      })
+    })
 
-      expect(geometry.recentInsideSetup).toBe(false)
-      expect(Math.abs(geometry.heroLeft - geometry.recentLeft)).toBeLessThanOrEqual(1)
-      expect(Math.abs(geometry.heroRight - geometry.recentRight)).toBeLessThanOrEqual(1)
-      if (viewport.width > 900) {
-        expect(geometry.recentRight).toBeLessThan(geometry.contentRight)
-      } else {
-        expect(Math.abs(geometry.contentLeft - geometry.recentLeft)).toBeLessThanOrEqual(1)
-        expect(Math.abs(geometry.contentRight - geometry.recentRight)).toBeLessThanOrEqual(1)
-      }
-      expect(geometry.recentCount).toBe(4)
-      expect(geometry.gridColumns).toBe(viewport.expectedColumns)
-      expect(geometry.recentRows).toBe(viewport.width > 900 ? 1 : 2)
-      expect(geometry.contentTopReachable).toBe(true)
-      expect(geometry.contentBottomReachable).toBe(true)
-      expect(geometry.rootScrollWidth).toBe(geometry.rootClientWidth)
-      expect(geometry.rootScrollHeight).toBe(geometry.rootClientHeight)
-      expect(geometry.screenOverflowY).toBe(viewport.width <= 1000 ? 'auto' : 'hidden')
-      if (viewport.expectInternalScroll) {
-        expect(geometry.screenScrollHeight).toBeGreaterThan(geometry.screenClientHeight)
-      } else {
-        expect(geometry.screenScrollHeight).toBeLessThanOrEqual(geometry.screenClientHeight + 1)
-      }
-    }
+    expect(geometry.recentInsideSetup).toBe(false)
+    expect(Math.abs(geometry.heroLeft - geometry.recentLeft)).toBeLessThanOrEqual(1)
+    expect(Math.abs(geometry.heroRight - geometry.recentRight)).toBeLessThanOrEqual(1)
+    expect(geometry.recentRight).toBeLessThan(geometry.contentRight)
+    expect(geometry.recentCount).toBe(4)
+    expect(geometry.gridColumns).toBe(4)
+    expect(geometry.recentRows).toBe(1)
+    expect(geometry.contentTopReachable).toBe(true)
+    expect(geometry.contentBottomReachable).toBe(true)
+    expect(geometry.rootScrollWidth).toBe(geometry.rootClientWidth)
+    expect(geometry.rootScrollHeight).toBe(geometry.rootClientHeight)
+    expect(geometry.screenOverflowY).toBe('hidden')
+    expect(geometry.screenScrollHeight).toBeLessThanOrEqual(geometry.screenClientHeight + 1)
   }
 })
 
 test('Home uses both desktop columns while library analysis is active', async ({ seededPage: page }) => {
-  await page.setViewportSize({ width: 1920, height: 1049 })
+  await page.setViewportSize({ width: 1920, height: 1080 })
   await setActivityState(page, 'analyzing', 'home-active-analysis')
 
   for (const theme of ALL_THEMES) {
@@ -353,14 +346,14 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   }
 
   for (const size of [30, 40, 50]) {
-    await page.getByRole('button', { name: String(size), exact: true }).click()
+    await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
     await settleLayout(page)
     await auditVisibleControls(size, `Home ${size}`)
   }
 
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   for (const size of [30, 40, 50]) {
-    await page.getByRole('button', { name: String(size), exact: true }).click()
+    await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
     await settleLayout(page)
     await auditVisibleControls(size, `Player Song ${size}`)
 
@@ -372,14 +365,71 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
       if (!(scrollport instanceof HTMLElement)) throw new Error('Mixer scrollport is unavailable')
       const port = scrollport.getBoundingClientRect()
       const children = [...scrollport.querySelectorAll(':scope > .mixer-strips-row > *')]
+      const controls = [...scrollport.querySelectorAll<HTMLElement>(
+        '.mixer-channel-strip button, .mixer-channel-strip [role="slider"], .mixer-return-section button, .mixer-return-section [role="slider"]'
+      )]
+        .filter((control) => {
+          const box = control.getBoundingClientRect()
+          const style = getComputedStyle(control)
+          return box.width > 0 && box.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
+        })
+      const controlIntersections: string[] = []
+      for (let leftIndex = 0; leftIndex < controls.length; leftIndex += 1) {
+        const left = controls[leftIndex]!
+        const leftBox = left.getBoundingClientRect()
+        for (let rightIndex = leftIndex + 1; rightIndex < controls.length; rightIndex += 1) {
+          const right = controls[rightIndex]!
+          if (left.contains(right) || right.contains(left)) continue
+          const rightBox = right.getBoundingClientRect()
+          const xOverlap = Math.min(leftBox.right, rightBox.right) - Math.max(leftBox.left, rightBox.left)
+          const yOverlap = Math.min(leftBox.bottom, rightBox.bottom) - Math.max(leftBox.top, rightBox.top)
+          if (xOverlap > 0.5 && yOverlap > 0.5) {
+            const leftName = left.getAttribute('aria-label') ?? left.className
+            const rightName = right.getAttribute('aria-label') ?? right.className
+            controlIntersections.push(`${leftName} intersects ${rightName}`)
+          }
+        }
+      }
+      const dialOverflow = [...scrollport.querySelectorAll<SVGElement>('.rotary-dial')]
+        .flatMap((dial) => {
+          const control = dial.closest<HTMLElement>('[role="slider"]')
+          if (!control) return ['Rotary dial has no slider owner']
+          const dialBox = dial.getBoundingClientRect()
+          const controlBox = control.getBoundingClientRect()
+          const contained = dialBox.left >= controlBox.left - 0.5
+            && dialBox.right <= controlBox.right + 0.5
+            && dialBox.top >= controlBox.top - 0.5
+            && dialBox.bottom <= controlBox.bottom + 0.5
+          return contained
+            ? []
+            : [`${control.getAttribute('aria-label') ?? control.className}: ${dialBox.width}x${dialBox.height} dial exceeds ${controlBox.width}x${controlBox.height} control`]
+        })
+      const eqOverflow = [...scrollport.querySelectorAll<HTMLButtonElement>('.mixer-channel-eq button')]
+        .flatMap((button) => {
+          const strip = button.closest<HTMLElement>('.mixer-channel-strip')
+          if (!strip) return ['EQ button has no channel strip owner']
+          const buttonBox = button.getBoundingClientRect()
+          const stripBox = strip.getBoundingClientRect()
+          const contained = buttonBox.left >= stripBox.left - 0.5
+            && buttonBox.right <= stripBox.right + 0.5
+          return contained
+            ? []
+            : [`${button.textContent ?? 'EQ button'} exceeds its channel strip`]
+        })
       return {
         workspaceHeight: document.querySelector('.bottom-workspace')?.getBoundingClientRect().height ?? 0,
         verticalContentFits: children.every((child) => child.getBoundingClientRect().bottom <= port.bottom + 1),
+        controlIntersections,
+        dialOverflow,
+        eqOverflow,
         rootVerticalOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight
       }
     })
     expect(mixerFit.workspaceHeight, `Player Mixer ${size} workspace height`).toBeGreaterThan(0)
     expect(mixerFit.verticalContentFits, `Player Mixer ${size} vertical fit`).toBe(true)
+    expect(mixerFit.controlIntersections, `Player Mixer ${size} control intersections`).toEqual([])
+    expect(mixerFit.dialOverflow, `Player Mixer ${size} rotary dial containment`).toEqual([])
+    expect(mixerFit.eqOverflow, `Player Mixer ${size} EQ containment`).toEqual([])
     expect(mixerFit.rootVerticalOverflow, `Player Mixer ${size} root overflow`).toBe(false)
 
     await page.getByRole('tab', { name: 'Samples' }).click()
@@ -405,7 +455,7 @@ test('Mixer and Tracker stay reachable with 1, 8, and 64 lanes at every UI Size'
 
   const auditCount = async (expectedLaneCount: number) => {
     for (const size of [30, 40, 50]) {
-      await page.getByRole('button', { name: String(size), exact: true }).click()
+      await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
       await page.getByRole('tab', { name: 'Song', exact: true }).click()
       await settleLayout(page)
 

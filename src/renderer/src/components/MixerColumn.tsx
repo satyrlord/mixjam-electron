@@ -3,7 +3,7 @@ import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import { RETURN_BUS_COUNT } from '../engine/return-effects'
 import ChannelStrip from './ChannelStrip'
 import MixerFxSlot from './MixerFxSlot'
-import { RotaryControl } from './RotaryField'
+import { RotaryControl, RotaryDial } from './RotaryField'
 import { Tooltip } from './ui/Tooltip'
 
 interface MixerColumnProps {
@@ -156,10 +156,13 @@ function ReturnSection({
                   ariaMultiplier={100}
                   onGestureStart={onGestureStart}
                   onGestureEnd={onGestureEnd}
-                  style={{ '--mixer-rotary-value': returnLevel } as React.CSSProperties}
                   onChange={(value) => onSet({ ...bus, returnLevel: value })}
                 >
-                  <span className="mixer-compact-rotary" aria-hidden="true" />
+                  <RotaryDial
+                    className="mixer-compact-rotary"
+                    value={returnLevel}
+                    defaultValue={1}
+                  />
                   <span className="mixer-return-name" aria-hidden="true">{moduleName}</span>
                 </RotaryControl>
               </span>

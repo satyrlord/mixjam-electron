@@ -546,8 +546,8 @@ window-level mouse listeners.
   Left/Right Arrow navigation, Home/End, roving tabindex, and correctly linked
   tab/tab-panel ARIA attributes.
 - [x] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
-  Song, and remains usable at narrow widths without targets below the selected
-  UI Size.
+  Song, and remains usable throughout the supported viewport range without
+  targets below the selected UI Size.
 - [x] **AC-004d:** The Song panel shows a vertical BPM slider beside one Master
   Volume module that contains its vertical slider, the related vertical Output
   Level meter, M/S/I in LUFS, TP in dBTP, and an explicit RMS dBFS fallback.
@@ -634,8 +634,8 @@ window-level mouse listeners.
   surfaces for one BPM value and always reflect the transport's current BPM.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-016a:** Dragging the Bottom Workspace separator changes its rendered
-  height at wide and narrow resolutions. Pointer, touch, and keyboard input all
-  work, separator ARIA reports the current value, and the layout persists.
+  height at supported resolutions. Pointer, touch, and keyboard input all work,
+  separator ARIA reports the current value, and the layout persists.
 - [x] **AC-016c:** An unversioned vertical layout from a prior format is ignored
   in favor of the fresh 24% Bottom Workspace default. The resulting v2 layout is
   stored, and later manual resizing persists across reloads.
@@ -728,7 +728,7 @@ contract.
   Chromium. Dense Sample Browser tiles and category-tree rows use the separate
   30px contract above.
 - `tmp/verify-vertical-controls/evidence.md` records production Chromium
-  geometry at desktop and narrow widths, vertical direction, 44px targets,
+  geometry at supported desktop widths, vertical direction, 44px targets,
   keyboard behavior, and focus indicators across every bundled theme.
 - `tmp/verify-ui-primitives/evidence.md` records production Chromium checks for
   pointer and keyboard resizing, menus, popovers, tabs, tooltips, dialog focus,

@@ -95,9 +95,10 @@ Rules of the process model:
   routing model. Renderer hooks own live editing behavior but do not define
   persistence types or reconstruct project defaults.
 - **Mixer channels are derived from lanes.** Adding a lane appends its channel;
-  deleting a lane removes it. Array order defines visible numbering while the
-  stable lane id preserves relationships. A channel name always reflects its
-  lane name. No Mixer command adds, removes, routes, or reorders channels.
+  deleting a lane removes it. Array order defines channel position while the
+  stable lane id preserves relationships. A channel label is exactly its lane
+  name, with no derived prefix. No Mixer command adds, removes, routes, or
+  reorders channels.
 - **Graph reconciliation belongs to playback.** Playback consumes one complete
   project snapshot and reconciles lane gain, pan, mute/solo gating, dry output,
   four post-fader/post-pan Sends, four modular Return processors, Return levels,

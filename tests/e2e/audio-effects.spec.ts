@@ -4,6 +4,12 @@ test('the Mixer edits, saves, clears, and resets a return Delay', async ({ seede
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
 
+  const firstLaneLabel = page.locator('.mixer-channel-select > span').first()
+  await expect(firstLaneLabel).toHaveText('Lane 1')
+  expect(await firstLaneLabel.evaluate((element) =>
+    getComputedStyle(element, '::before').content
+  )).toMatch(/^(none|normal|""|)$/)
+
   const fx1 = page.getByRole('button', { name: 'FX 1', exact: true })
   await expect(fx1).toContainText('Empty')
   await fx1.click()
@@ -31,8 +37,8 @@ test('the Mixer edits, saves, clears, and resets a return Delay', async ({ seede
   await expect(page.getByRole('button', { name: 'FX 1', exact: true })).toContainText('Empty')
 })
 
-test('return controls stay contained at narrow widths', async ({ seededPage: page }) => {
-  await page.setViewportSize({ width: 640, height: 720 })
+test('return controls stay contained at the supported viewport size', async ({ seededPage: page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
 
@@ -49,8 +55,15 @@ test('return controls stay contained at narrow widths', async ({ seededPage: pag
     const scrollport = document.querySelector('.mixer-column-scroll')
     const strips = document.querySelector('.mixer-strips')
     const fx = document.querySelector('.mixer-fx-grid')
-    return scrollport instanceof HTMLElement && strips instanceof HTMLElement && fx instanceof HTMLElement &&
-      strips.scrollWidth >= scrollport.clientWidth && fx.getBoundingClientRect().width > 0
+    if (!(scrollport instanceof HTMLElement) ||
+      !(strips instanceof HTMLElement) ||
+      !(fx instanceof HTMLElement)) return false
+    const scrollportBox = scrollport.getBoundingClientRect()
+    const stripsBox = strips.getBoundingClientRect()
+    const fxBox = fx.getBoundingClientRect()
+    return stripsBox.width > 0 &&
+      fxBox.width > 0 &&
+      fxBox.right <= scrollportBox.left + scrollport.scrollWidth + 1
   })
   expect(contained).toBe(true)
 })

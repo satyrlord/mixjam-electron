@@ -1877,10 +1877,11 @@ describe('PlayerView', () => {
     renderPlayer({ arrangement: { lanes: [LANES[0]!, LANES[2]!] } })
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
 
-    const labels = Array.from(
+    const labelElements = Array.from(
       document.querySelectorAll('.mixer-channel-select > span')
-    ).map((el) => el.textContent)
-    expect(labels).toEqual(['Lane 1', 'Lane 3'])
+    )
+    expect(labelElements.map((element) => element.textContent)).toEqual(['Lane 1', 'Lane 3'])
+    expect(labelElements.every((element) => !element.hasAttribute('data-channel-number'))).toBe(true)
     // The aria-labels agree with the visible labels.
     expect(screen.getByRole('slider', { name: 'Channel 1 Pan' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Channel 3 Pan' })).toBeInTheDocument()

@@ -2,6 +2,76 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent
 import { clamp } from '../lib/sample-utils'
 import { Tooltip } from './ui/Tooltip'
 
+type RotaryDialMode = 'unipolar' | 'bipolar'
+
+export function RotaryDial({
+  value,
+  defaultValue = 0,
+  mode = 'unipolar',
+  className = ''
+}: {
+  value: number
+  defaultValue?: number
+  mode?: RotaryDialMode
+  className?: string
+}) {
+  const normalizedValue = clamp(value, 0, 1)
+  const normalizedDefault = clamp(defaultValue, 0, 1)
+  const pointerAngle = -135 + normalizedValue * 270
+  const defaultAngle = -135 + normalizedDefault * 270
+  const bipolarLength = Math.abs(normalizedValue - 0.5) * 270
+  const activeArcLength = mode === 'bipolar' ? bipolarLength : normalizedValue * 270
+  const activeArcStart = mode === 'bipolar'
+    ? normalizedValue < 0.5 ? 135 - bipolarLength : 135
+    : 0
+
+  return (
+    <svg
+      className={`rotary-dial ${className}`.trim()}
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      data-rotary-mode={mode}
+    >
+      <circle
+        className="rotary-dial-track"
+        cx="32"
+        cy="32"
+        r="25"
+        pathLength="360"
+        transform="rotate(135 32 32)"
+      />
+      <circle
+        className="rotary-dial-value"
+        cx="32"
+        cy="32"
+        r="25"
+        pathLength="360"
+        strokeDasharray={`${activeArcLength} ${360 - activeArcLength}`}
+        strokeDashoffset={-activeArcStart}
+        transform="rotate(135 32 32)"
+      />
+      <line
+        className="rotary-dial-default-marker"
+        x1="32"
+        y1="5"
+        x2="32"
+        y2="9"
+        transform={`rotate(${defaultAngle} 32 32)`}
+      />
+      <circle className="rotary-dial-cap" cx="32" cy="32" r="17" />
+      <line
+        className="rotary-dial-pointer"
+        x1="32"
+        y1="17"
+        x2="32"
+        y2="25"
+        transform={`rotate(${pointerAngle} 32 32)`}
+      />
+      <circle className="rotary-dial-center" cx="32" cy="32" r="2" />
+    </svg>
+  )
+}
+
 export function ToggleField({ label, help, checked, onChange }: {
   label: string
   help: string
@@ -182,8 +252,7 @@ export function RotaryField({
     : Number(value.toFixed(step < 1 ? 1 : 0))
   const unit = percent ? '%' : suffix
   const normalizedValue = max === min ? 0 : clamp((value - min) / (max - min), 0, 1)
-  const angle = -135 + normalizedValue * 270
-  const activeArcLength = normalizedValue * 270
+  const normalizedDefault = max === min ? 0 : clamp((defaultValue - min) / (max - min), 0, 1)
   const interactionHint = `Adjust ${label}: drag up or down or use the mouse wheel. Hold Shift for fine control. Use arrow keys to step, Home or End for the range limits, and double-click to reset.`
   const commit = () => {
     const parsed = Number(draft)
@@ -208,35 +277,7 @@ export function RotaryField({
             describedBy={interactionHintId}
             onChange={onChange}
           >
-            <svg className="rotary-dial" viewBox="0 0 64 64" aria-hidden="true">
-              <circle
-                className="rotary-dial-track"
-                cx="32"
-                cy="32"
-                r="25"
-                pathLength="360"
-                transform="rotate(135 32 32)"
-              />
-              <circle
-                className="rotary-dial-value"
-                cx="32"
-                cy="32"
-                r="25"
-                pathLength="360"
-                strokeDasharray={`${activeArcLength} ${360 - activeArcLength}`}
-                transform="rotate(135 32 32)"
-              />
-              <circle className="rotary-dial-cap" cx="32" cy="32" r="17" />
-              <line
-                className="rotary-dial-pointer"
-                x1="32"
-                y1="17"
-                x2="32"
-                y2="25"
-                transform={`rotate(${angle} 32 32)`}
-              />
-              <circle className="rotary-dial-center" cx="32" cy="32" r="2" />
-            </svg>
+            <RotaryDial value={normalizedValue} defaultValue={normalizedDefault} />
           </RotaryControl>
         </span>
       </Tooltip>

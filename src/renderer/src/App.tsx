@@ -1,4 +1,5 @@
-import { useCallback, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { MINIMUM_VIEWPORT, supportsApplicationViewport } from '../../shared/viewport'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
@@ -12,7 +13,43 @@ import MixJamGeneratorDialog from './components/MixJamGeneratorDialog'
 import { useMixJamGenerator } from './hooks/useMixJamGenerator'
 import { applyUiSize, loadUiSize, saveUiSize, UiSizeProvider } from './ui-size'
 
+interface ViewportSize {
+  width: number
+  height: number
+}
+
+function readViewportSize(): ViewportSize {
+  return { width: window.innerWidth, height: window.innerHeight }
+}
+
 export default function App() {
+  const [viewport, setViewport] = useState(readViewportSize)
+
+  useEffect(() => {
+    const handleResize = () => setViewport(readViewportSize())
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  if (supportsApplicationViewport(viewport.width, viewport.height)) return <SupportedApp />
+
+  return (
+    <main className="minimum-viewport-notice" role="alert" aria-live="assertive">
+      <div className="minimum-viewport-notice-panel">
+        <h1>Display resolution not supported</h1>
+        <p>
+          MixJam requires a viewport of at least {MINIMUM_VIEWPORT.width} ×{' '}
+          {MINIMUM_VIEWPORT.height} pixels.
+        </p>
+        <p>
+          Current viewport: {viewport.width} × {viewport.height} pixels.
+        </p>
+      </div>
+    </main>
+  )
+}
+
+function SupportedApp() {
   const { userFolder, sampleFolder, canStart, pickUser, pickSample, restoreUser, restoreSample } =
     useFolderSetup(window.backendAPI)
 

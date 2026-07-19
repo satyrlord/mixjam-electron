@@ -415,8 +415,9 @@
   height: calc(var(--ui-size) * 0.8);
 }
 
-.mixer-channel-eq button {
-  min-height: calc(var(--ui-size) * 0.72);
+:root[data-ui-size] .mixer-channel-eq button {
+  min-width: 0;
+  min-height: var(--ui-size);
   font-size: var(--ui-font-xs);
 }
 
@@ -437,7 +438,7 @@
 }
 
 .rotary-control,
-.rotary-dial {
+.rotary-control > .rotary-dial {
   width: calc(var(--ui-size) * 1.7);
   height: calc(var(--ui-size) * 1.7);
 }

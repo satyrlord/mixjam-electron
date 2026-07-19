@@ -44,13 +44,14 @@ The Mixer also hosts four fixed send/return buses and four fixed FX containers.
 - Renaming a lane updates the Mixer label immediately because both surfaces
   display the same lane-owned name.
 
-### Stable identity and visible numbering
+### Stable identity and visible order
 
 Every lane has a project-owned stable ID that does not change when another lane
-is inserted or deleted. Visible lane numbers and Mixer positions are derived
-from current array order and remain contiguous from 1 through N. Deleting lane
-3 therefore makes the former lane 4 visible as lane 3 without changing its
-stable ID or its saved Mixer values.
+is inserted or deleted. Mixer positions are derived from current array order
+and remain contiguous from 1 through N. The visible Mixer strip label is exactly
+the lane-owned name; it never adds a position, number, or channel prefix.
+Deleting an earlier lane therefore compacts strip positions without changing a
+surviving lane's name, stable ID, or saved Mixer values.
 
 Adding a lane appends it after the final lane. It receives a new stable ID,
 the next visible default name, no placements, volume 80%, centered pan, mute
@@ -96,12 +97,18 @@ Lane strip 1 ... Lane strip N | Return | FX 1  FX 2
   Return section is 120 px wide, and each FX container is 160 px wide. These
   widths scale consistently at UI Size 40 and 50. At a selected UI Size each
   width is fixed; strips do not grow merely to consume spare width.
+- Lane-strip and Return control rectangles do not collide with adjacent controls
+  at UI Size 30, 40, and 50. Decorative EQ cells and rotary artwork remain
+  inside their owning control or strip at every size.
+- Sends, Returns, and Pan use the same project-owned SVG rotary visual as FX
+  parameters. Compact sizing does not replace the range track, value arc,
+  inset cap, default marker, or pointer with a separate CSS-only dial.
 
 ### Lane strip
 
 Each lane strip contains, from top to bottom:
 
-1. The derived lane number and lane name.
+1. The exact lane-owned name, with no derived prefix.
 2. Four rotary sends labelled 1 through 4.
 3. A visible two-band EQ area matching the compact Mixer grammar. EQ is
   decorative and disabled: its controls cannot receive focus or input, expose
@@ -199,7 +206,7 @@ missing or malformed lane-owned Mixer data.
 | Decision | Reason |
 | --- | --- |
 | Lane state owns Mixer values | Tracker and Mixer cannot drift or require routing reconciliation. |
-| Stable IDs, derived numbers | Deletion can compact visible order without changing lane identity. |
+| Stable IDs, derived positions | Deletion can compact order without changing lane identity or its visible name. |
 | Add appends | Structural editing stays predictable and does not require insertion UI. |
 | One structural undo entry | Lane content and its sound settings are restored together. |
 | Four post-fader, post-pan sends | A send follows the audible lane balance and stereo position. |
@@ -221,7 +228,8 @@ removed solo cannot keep the remaining lanes gated.
 ## Acceptance Criteria
 
 - [ ] **AC-001:** A new project shows eight lanes and eight matching Mixer
-  strips with stable IDs and contiguous visible numbers.
+  strips with stable IDs, contiguous positions, and labels exactly equal to
+  their lane-owned names.
 - [ ] **AC-002:** Adding appends one lane and strip with the documented
   defaults; Add is disabled at 64.
 - [ ] **AC-003:** Empty-lane deletion is immediate, non-empty deletion requires
@@ -229,8 +237,8 @@ removed solo cannot keep the remaining lanes gated.
   deletion, and Delete is disabled at one lane.
 - [ ] **AC-004:** One Undo or Redo restores the complete lane structure,
   placements, and Mixer state after add or delete.
-- [ ] **AC-005:** Deleting a middle lane compacts visible numbering while every
-  surviving lane retains its stable ID and saved sound values.
+- [ ] **AC-005:** Deleting a middle lane compacts Mixer positions while every
+  surviving lane retains its exact name, stable ID, and saved sound values.
 - [ ] **AC-006:** Mixer strips cannot be independently added, deleted,
   reordered, or routed, and no Mixer Mute or Solo controls are rendered.
 - [ ] **AC-007:** At UI Size 30 each compact strip is 76 px wide and exposes
@@ -252,6 +260,13 @@ removed solo cannot keep the remaining lanes gated.
 - [ ] **AC-014:** Format-version-4 roundtrip preserves all lane-bound Mixer,
   return, FX, and limiter state; invalid lane counts and malformed lane-owned
   Mixer values are rejected; version 3 is rejected without migration.
+- [ ] **AC-015:** Lane-strip and Return buttons, sliders, and rotary hit
+  rectangles do not collide with adjacent controls at UI Size 30, 40, and 50;
+  each decorative EQ cell remains inside its channel strip, and each rotary SVG
+  remains inside its owning slider.
+- [ ] **AC-016:** Sends, Returns, Pan, and FX parameters render the shared SVG
+  rotary structure; Pan uses a bipolar center arc and other Mixer dials use a
+  unipolar minimum-to-value arc.
 
 ## Non-Goals
 

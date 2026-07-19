@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { applyUiSize, normalizeUiSize, UI_GEOMETRY, UI_SIZE_OPTIONS } from './ui-size'
+import { applyUiSize, normalizeUiSize, UI_GEOMETRY, UI_SIZE_LABELS, UI_SIZE_OPTIONS } from './ui-size'
 
 describe('UI Size geometry', () => {
   it('owns the complete 30, 40, and 50 preset table', () => {
     expect(UI_SIZE_OPTIONS).toEqual([30, 40, 50])
+    expect(UI_SIZE_LABELS).toEqual({ 30: '75%', 40: '100%', 50: '125%' })
     expect(UI_GEOMETRY[30]).toMatchObject({
       size: 30, headerHeight: 48, middleStripHeight: 80,
       laneHeight: 37, bubbleHeight: 24, browserRowPitch: 32,
