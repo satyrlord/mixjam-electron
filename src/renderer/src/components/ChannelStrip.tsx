@@ -1,27 +1,27 @@
 import { nextPanCycle } from '../lib/sample-utils'
-import ChannelEffects from './ChannelEffects'
-import type { EffectSlot } from '../engine/effects'
 import { VerticalFader } from './VerticalControls'
 import { RotaryControl } from './RotaryField'
+import { Tooltip } from './ui/Tooltip'
 
 interface ChannelStripProps {
+  laneId: string
   channelIndex: number
   label: string
   gain: number
   pan: number
-  muted: boolean
-  solo: boolean
+  sends: readonly [number, number, number, number]
+  sendModuleNames: readonly [string, string, string, string]
+  muted?: boolean
+  solo?: boolean
   levelDb: number
   peakDb: number
-  effects: EffectSlot[]
   selected?: boolean
   onSetGain: (channelIndex: number, gain: number) => void
   onSetPan: (channelIndex: number, pan: number) => void
-  onToggleMute: (channelIndex: number) => void
-  onToggleSolo: (channelIndex: number) => void
-  onRemove: (channelIndex: number) => void
-  onSelect?: (channelIndex: number) => void
-  onOpenEffects?: (channelIndex: number) => void
+  onSetSend: (channelIndex: number, sendIndex: number, value: number) => void
+  onSelect: (laneId: string) => void
+  onGestureStart: () => void
+  onGestureEnd: () => void
 }
 
 function panValueText(pan: number): string {
@@ -31,39 +31,94 @@ function panValueText(pan: number): string {
 }
 
 export default function ChannelStrip({
+  laneId,
   channelIndex,
   label,
   gain,
   pan,
+  sends,
+  sendModuleNames,
   muted,
-  solo,
   levelDb,
   peakDb,
-  effects,
   selected = false,
   onSetGain,
   onSetPan,
-  onToggleMute,
-  onToggleSolo,
-  onRemove,
-  onSelect = () => undefined,
-  onOpenEffects = () => undefined
+  onSetSend,
+  onSelect,
+  onGestureStart,
+  onGestureEnd
 }: ChannelStripProps) {
   return (
     <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}${selected ? ' mixer-channel-strip-selected' : ''}`}>
       <div className="mixer-channel-label">
-        <button type="button" className="mixer-channel-select" aria-pressed={selected} onClick={() => onSelect(channelIndex)}>
-          <span>{label}</span>
-        </button>
-        <button
-          type="button"
-          className="mixer-channel-remove"
-          aria-label={`Remove channel ${channelIndex + 1}`}
-          onClick={() => onRemove(channelIndex)}
-        >
-          ×
-        </button>
+        <Tooltip content={label}>
+          <button type="button" className="mixer-channel-select" aria-pressed={selected} onClick={() => onSelect(laneId)}>
+            <span data-channel-number={channelIndex + 1}>{label}</span>
+          </button>
+        </Tooltip>
       </div>
+
+      <div className="mixer-channel-sends" role="group" aria-label={`${label} Sends`}>
+        {[1, 2, 3, 4].map((slot) => {
+          const index = slot - 1
+          const value = sends[index] ?? 0
+          const valueText = `${Math.round(value * 100)}%`
+          return (
+            <Tooltip key={slot} content={`${sendModuleNames[index] ?? 'Empty'}, Send ${slot}: ${valueText}`}>
+              <span className="mixer-send-tooltip-trigger">
+                <RotaryControl
+                  className="mixer-send-control"
+                  label={`${label} Send ${slot}`}
+                  value={value}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  valueText={valueText}
+                  defaultValue={0}
+                  ariaMultiplier={100}
+                  onGestureStart={onGestureStart}
+                  onGestureEnd={onGestureEnd}
+                  style={{ '--mixer-rotary-value': value } as React.CSSProperties}
+                  onChange={(next) => onSetSend(channelIndex, index, next)}
+                >
+                  <span className="mixer-compact-rotary" aria-hidden="true" />
+                  <span className="mixer-send-label" aria-hidden="true">{slot}</span>
+                </RotaryControl>
+              </span>
+            </Tooltip>
+          )
+        })}
+      </div>
+
+      <Tooltip content="EQ controls are not available">
+        <div className="mixer-channel-eq" aria-label="EQ controls are not available">
+          <button type="button" disabled tabIndex={-1} aria-label="EQ Power unavailable">EQ</button>
+          <button type="button" disabled tabIndex={-1} aria-label="Treble unavailable">T</button>
+          <button type="button" disabled tabIndex={-1} aria-label="Bass unavailable">B</button>
+        </div>
+      </Tooltip>
+
+      <RotaryControl
+        className="mixer-channel-pan"
+        label={`Channel ${channelIndex + 1} Pan`}
+        value={pan}
+        min={-1}
+        max={1}
+        step={0.05}
+        valueText={panValueText(pan)}
+        defaultValue={0}
+        homeValue={0}
+        dragAxis="horizontal"
+        onGestureStart={onGestureStart}
+        onGestureEnd={onGestureEnd}
+        style={{ '--pan-angle': `${pan * 135}deg` } as React.CSSProperties}
+        onChange={(value) => onSetPan(channelIndex, value)}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          onSetPan(channelIndex, nextPanCycle(pan))
+        }}
+      />
 
       <VerticalFader
         className="mixer-channel-vol-wrap"
@@ -82,52 +137,9 @@ export default function ChannelStrip({
         meterDb={levelDb}
         peakDb={peakDb}
         showDragValue
+        onGestureStart={onGestureStart}
+        onGestureEnd={onGestureEnd}
         onChange={(value) => onSetGain(channelIndex, value / 100)}
-      />
-
-      <RotaryControl
-        className="mixer-channel-pan"
-        label={`Channel ${channelIndex + 1} Pan`}
-        value={pan}
-        min={-1}
-        max={1}
-        step={0.05}
-        valueText={panValueText(pan)}
-        defaultValue={0}
-        homeValue={0}
-        dragAxis="horizontal"
-        style={{ '--pan-angle': `${pan * 135}deg` } as React.CSSProperties}
-        onChange={(value) => onSetPan(channelIndex, value)}
-        onContextMenu={(event) => {
-          event.preventDefault()
-          onSetPan(channelIndex, nextPanCycle(pan))
-        }}
-      />
-
-      <div className="mixer-channel-buttons">
-        <button
-          type="button"
-          className={`mixer-channel-m ${muted ? 'mixer-channel-m-active' : ''}`}
-          aria-label={`Mute channel ${channelIndex + 1}`}
-          aria-pressed={muted}
-          onClick={() => onToggleMute(channelIndex)}
-        >
-          M
-        </button>
-        <button
-          type="button"
-          className={`mixer-channel-s ${solo ? 'mixer-channel-s-active' : ''}`}
-          aria-label={`Solo channel ${channelIndex + 1}`}
-          aria-pressed={solo}
-          onClick={() => onToggleSolo(channelIndex)}
-        >
-          S
-        </button>
-      </div>
-      <ChannelEffects
-        channelIndex={channelIndex}
-        effects={effects}
-        onOpen={onOpenEffects}
       />
     </div>
   )

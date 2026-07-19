@@ -94,6 +94,27 @@ Mixer components, lane heads, tabs, menus, toolbars, footer and header chrome,
 spacing, supporting type, lanes, and sample bubbles. Components must not mix
 magic dimensions from different size sets.
 
+Square controls and swatches use the selected UI Size as both dimensions.
+Text-bearing controls use it as their minimum cross-axis target while width
+remains content-driven. Borders, meter tracks, resize-seam visuals, the 240px
+lane head, 33px ruler, and musical x-axis geometry remain invariant. The preset
+table is the single numeric source used by CSS and JavaScript geometry:
+
+| Token | Size 30 | Size 40 | Size 50 |
+| --- | ---: | ---: | ---: |
+| Scale | 1 | 1.333333 | 1.666667 |
+| Control target | 30px | 40px | 50px |
+| Header / Footer | 48px | 64px | 80px |
+| Middle Strip total | 80px | 107px | 133px |
+| Middle Strip main row | 48px | 64px | 80px |
+| Song Progress row | 28px | 37px | 47px |
+| Bottom Workspace tab row | 44px | 59px | 73px |
+| Browser row pitch | 32px | 43px | 53px |
+| Mixer channel / Return / FX width | 76 / 120 / 160px | 101 / 160 / 213px | 127 / 200 / 267px |
+| Mixer FX height | 112px | 149px | 187px |
+| Spacing xs / sm / md / lg | 2 / 4 / 8 / 12px | 3 / 5 / 11 / 16px | 3 / 7 / 13 / 20px |
+| Supporting type xs / sm / md / lg | 10 / 11 / 12 / 14px | 13 / 15 / 16 / 19px | 17 / 18 / 20 / 23px |
+
 UI Size does not alter musical time, pixels per tick, project data, audio, clip
 placement, or sample-bubble width. It is app state and is not written to a
 `.mixjam` file. Bubble and lane heights are:
@@ -364,6 +385,11 @@ root_id = ? AND scan_state = 2`), refreshed when the library loads and after
 every completed scan. Missing-sample visual treatment follows the
 [Style Guide](../style-guide.md#sample-bubbles).
 
+The typed UI Size preset values live in `src/renderer/src/ui-size.tsx`. Their
+global geometry rules live in the separately owned
+`src/renderer/src/ui-size.css`, loaded after base and Mixer styles so the
+preset layer has one clear cascade boundary.
+
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
@@ -393,15 +419,15 @@ every completed scan. Missing-sample visual treatment follows the
   use the required `#RRGGBB` form.
 - [x] **AC-019:** Soft theme `--text-muted` maintains at least 4.5:1 contrast
   against its normal text-bearing base, panel, lane, chrome, and pill surfaces.
-- [ ] **AC-020:** The footer exposes one global UI Size selector with values 30,
+- [x] **AC-020:** The footer exposes one global UI Size selector with values 30,
   40, and 50 on both Home and Player. The app defaults to 40 and persists the
   choice outside project files.
-- [ ] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
+- [x] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
   controls, targets, panels, Mixer components, spacing, and supporting type.
-- [ ] **AC-022:** Sample bubbles and lanes use the documented 24/37, 33/49, and
+- [x] **AC-022:** Sample bubbles and lanes use the documented 24/37, 33/49, and
   41/61 pixel height pairs. Tracker, browser, and drag-image bubble rectangles
   match at each size, while bubble width and musical placement do not change.
-- [ ] **AC-023:** Built Chromium proof at 1920x1080, UI Size 50, and an open Mixer
+- [x] **AC-023:** Built Chromium proof at 1920x1080, UI Size 50, and an open Mixer
   shows the full ruler and one complete lane with no vertical scrollbar,
   clipping, overlap, or shrunken interaction targets.
 

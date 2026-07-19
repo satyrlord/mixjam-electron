@@ -97,6 +97,7 @@ export function usePlayerShortcuts(handlers: PlayerShortcutHandlers): void {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (document.body.dataset.mixjamModalBlocking === '1') return
       if (isEditableTarget(event.target)) return
       const current = handlersRef.current
       const primaryModifier = event.ctrlKey || event.metaKey

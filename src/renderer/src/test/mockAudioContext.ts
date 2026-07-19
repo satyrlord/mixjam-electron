@@ -68,6 +68,11 @@ class MockDynamicsCompressorNode extends MockAudioNode {
   reduction = 0
 }
 
+class MockWaveShaperNode extends MockAudioNode {
+  curve: Float32Array | null = null
+  oversample: OverSampleType = 'none'
+}
+
 interface CreatedAudioNodes {
   sources: MockBufferSourceNode[]
   gains: MockGainNode[]
@@ -76,6 +81,7 @@ interface CreatedAudioNodes {
   delays: MockDelayNode[]
   convolvers: MockConvolverNode[]
   compressors: MockDynamicsCompressorNode[]
+  waveShapers: MockWaveShaperNode[]
 }
 
 function createEffectContextSurface(created: CreatedAudioNodes) {
@@ -94,6 +100,11 @@ function createEffectContextSurface(created: CreatedAudioNodes) {
     createDynamicsCompressor(): MockDynamicsCompressorNode {
       const node = new MockDynamicsCompressorNode()
       created.compressors.push(node)
+      return node
+    },
+    createWaveShaper(): MockWaveShaperNode {
+      const node = new MockWaveShaperNode()
+      created.waveShapers.push(node)
       return node
     },
     createBuffer(numberOfChannels: number, length: number, sampleRate: number): AudioBuffer {
@@ -182,7 +193,8 @@ class MockAudioContextBase {
     analysers: [],
     delays: [],
     convolvers: [],
-    compressors: []
+    compressors: [],
+    waveShapers: []
   }
 
   constructor() {

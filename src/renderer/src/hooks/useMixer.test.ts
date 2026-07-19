@@ -1,659 +1,178 @@
 import { act, renderHook } from '@testing-library/react'
-import { createElement, StrictMode, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useMixer } from './useMixer'
-import type { PlaybackEngine } from '../engine/playback-engine'
+import type { PlaybackEngine, PlaybackReturnSnapshot } from '../engine/playback-engine'
+import { createDefaultLanes, type LaneState } from '../lib/arrangement'
+import { createEmptyReturnModule } from '../engine/return-effects'
+import { createDefaultFxBuses } from '../project/project-state'
+import { playbackChannelsFromLanes, useMixer } from './useMixer'
 
-/** Creates a minimal mock PlaybackEngine with only the methods useMixer touches. */
-function createMockPlaybackEngine() {
-  const analyser = {
-    fftSize: 2048,
-    getFloatTimeDomainData: vi.fn((buf: Float32Array) => {
-      buf.fill(0)
-    })
-  }
-
+function engineStub() {
   return {
     activeVoiceCount: 0,
-    getChannelAnalyser: vi.fn().mockReturnValue(analyser),
-    getChannelEffectReduction: vi.fn().mockReturnValue(0),
     applyChannelSnapshot: vi.fn(),
-    setChannelGain: vi.fn(),
-    setChannelPan: vi.fn(),
-    setChannelMute: vi.fn(),
-    setChannelSolo: vi.fn(),
-    setChannelEffects: vi.fn(),
-    removeChannel: vi.fn(),
-    restoreChannel: vi.fn(),
-    replayRemovedChannels: vi.fn()
+    applyReturnSnapshot: vi.fn(),
+    replaceReturnSnapshot: vi.fn(),
+    getChannelAnalyser: vi.fn()
   }
 }
 
-function createPlaybackEngineRef(mock = createMockPlaybackEngine()) {
-  return { current: mock } as unknown as React.RefObject<PlaybackEngine | null>
-}
-
-/**
- * rAF mock that captures the most recently registered callback without
- * re-entering (the tick callback calls requestAnimationFrame again, which
- * would loop forever if we iterated over stored callbacks).
- */
-let rafCallback: FrameRequestCallback | null = null
-let rafIdCounter = 0
-
-function setupRafMock() {
-  rafCallback = null
-  rafIdCounter = 0
-  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-    rafCallback = cb
-    return ++rafIdCounter
-  })
-  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
-    rafCallback = null
-  })
-}
-
-function tickOnce(time = 1000) {
-  const cb = rafCallback
-  rafCallback = null
-  if (cb) cb(time)
+function returnBus(index: number, returnLevel = 1): PlaybackReturnSnapshot {
+  return {
+    index,
+    module: createEmptyReturnModule(`fx-${index + 1}`),
+    powered: true,
+    returnLevel,
+    limiterEnabled: true
+  }
 }
 
 describe('useMixer', () => {
+  let callbacks: FrameRequestCallback[]
+
   beforeEach(() => {
-    localStorage.clear()
+    callbacks = []
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      callbacks.push(callback)
+      return callbacks.length
+    }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
-  it('returns 16 channels with default gain 0.8, pan 0, muted false, solo false', () => {
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(result.current.channels).toHaveLength(16)
-    for (const ch of result.current.channels) {
-      expect(ch.gain).toBe(0.8)
-      expect(ch.pan).toBe(0)
-      expect(ch.muted).toBe(false)
-      expect(ch.solo).toBe(false)
-    }
-  })
-
-  it('initializes channelLevels and channelPeaks as empty maps', () => {
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(result.current.channelLevels.size).toBe(0)
-    expect(result.current.channelPeaks.size).toBe(0)
-  })
-
-  it('setChannelGain updates project state outside the Player', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.setChannelGain(0, 0.5) })
-
-    expect(result.current.channels[0]!.gain).toBe(0.5)
-    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
-  })
-
-  it('setChannelPan updates project state outside the Player', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.setChannelPan(2, -0.3) })
-
-    expect(result.current.channels[2]!.pan).toBe(-0.3)
-    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
-  })
-
-  it('toggleChannelMute updates project state', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.toggleChannelMute(1) })
-    expect(result.current.channels[1]!.muted).toBe(true)
-
-    act(() => { result.current.toggleChannelMute(1) })
-    expect(result.current.channels[1]!.muted).toBe(false)
-  })
-
-  it('toggleChannelSolo updates project state', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.toggleChannelSolo(3) })
-    expect(result.current.channels[3]!.solo).toBe(true)
-
-    act(() => { result.current.toggleChannelSolo(3) })
-    expect(result.current.channels[3]!.solo).toBe(false)
-  })
-
-  it('removeChannel encodes removal in project state', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.removeChannel(0) })
-    expect(result.current.channels).toHaveLength(15)
-    expect(result.current.channels.find((ch) => ch.channelIndex === 0)).toBeUndefined()
-    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
-  })
-
-  it('does not persist project-owned channel state and cleans up the app-level storage key', () => {
-    localStorage.setItem('mixjam-mixer-channels', '[{"gain":0.1}]')
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.setChannelGain(0, 0.3) })
-
-    expect(result.current.channels[0]!.gain).toBe(0.3)
-    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
-  })
-
-  it('adds, updates, bypasses, reorders, and removes up to four effects in project state', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'))
-
-    act(() => {
-      result.current.addChannelEffect(0, 'delay')
-      result.current.addChannelEffect(0, 'reverb')
-      result.current.addChannelEffect(0, 'compressor')
-      result.current.addChannelEffect(0, 'delay')
-      result.current.addChannelEffect(0, 'reverb')
-    })
-    expect(result.current.channels[0]!.effects).toHaveLength(4)
-
-    const delay = result.current.channels[0]!.effects[0]!
-    if (delay.type !== 'delay') throw new Error('expected delay')
-    act(() => result.current.updateChannelEffect(0, { ...delay, timeMs: 900 }))
-    expect(result.current.channels[0]!.effects[0]).toMatchObject({ timeMs: 900 })
-
-    act(() => result.current.toggleChannelEffectBypass(0, delay.id))
-    expect(result.current.channels[0]!.effects[0]!.bypassed).toBe(true)
-    act(() => result.current.moveChannelEffect(0, delay.id, 2))
-    expect(result.current.channels[0]!.effects[2]!.id).toBe(delay.id)
-    act(() => result.current.removeChannelEffect(0, delay.id))
-    expect(result.current.channels[0]!.effects).toHaveLength(3)
-    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalled()
-    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
-  })
-
-  it('replaces the complete project-owned mixer snapshot', () => {
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'player'))
-    act(() => result.current.replaceChannels([{
-      channelIndex: 3,
-      gain: 0.4,
-      pan: -0.2,
+  it('derives the complete playback snapshot from lane-owned Mixer state', () => {
+    const lanes = createDefaultLanes().slice(0, 2)
+    lanes[0] = {
+      ...lanes[0]!,
+      gain: 0.42,
+      pan: -0.75,
       muted: true,
-      solo: false,
-      effects: []
-    }]))
-    expect(result.current.channels).toEqual([expect.objectContaining({ channelIndex: 3, gain: 0.4 })])
-  })
-
-  it('commits one engine update and one effect identity under StrictMode', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const randomUuid = vi.spyOn(crypto, 'randomUUID')
-    const wrapper = ({ children }: { children: ReactNode }) => createElement(StrictMode, null, children)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'), { wrapper })
-    mockPlaybackEngine.applyChannelSnapshot.mockClear()
-    randomUuid.mockClear()
-
-    act(() => result.current.addChannelEffect(0, 'delay'))
-
-    expect(randomUuid).toHaveBeenCalledTimes(1)
-    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledTimes(1)
-    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledWith(result.current.channels, 16)
-  })
-
-  it('restores a removed effect snapshot at its original position', () => {
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'player'))
-    act(() => {
-      result.current.addChannelEffect(0, 'delay')
-      result.current.addChannelEffect(0, 'reverb')
-    })
-    const removed = result.current.channels[0]!.effects[0]!
-    act(() => result.current.removeChannelEffect(0, removed.id))
-    let restored = false
-    act(() => { restored = result.current.restoreChannelEffect(0, removed, 0) })
-    expect(restored).toBe(true)
-    expect(result.current.channels[0]!.effects[0]).toEqual(removed)
-  })
-
-  it('publishes compressor reduction through the existing meter frame', () => {
-    setupRafMock()
-    const playback = createMockPlaybackEngine()
-    playback.activeVoiceCount = 1
-    playback.getChannelEffectReduction.mockReturnValue(4.2)
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
-    act(() => result.current.setVisualTelemetryActive(true))
-    act(() => result.current.addChannelEffect(0, 'compressor'))
-    const compressor = result.current.channels[0]!.effects[0]!
-    act(() => { tickOnce(16) })
-    expect(result.current.effectReductions.get(compressor.id)).toBe(4.2)
-    act(() => result.current.removeChannelEffect(0, compressor.id))
-    act(() => { tickOnce(32) })
-    expect(result.current.effectReductions.has(compressor.id)).toBe(false)
-  })
-
-  it('does not import pre-011 effect state from the app-level storage key', () => {
-    localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{ channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false }]))
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'home'))
-    expect(result.current.channels[0]!.effects).toEqual([])
-  })
-
-  it('ignores malformed effect slots from the app-level storage key and removes it', () => {
-    localStorage.setItem('mixjam-mixer-channels', JSON.stringify([{
-      channelIndex: 0,
-      gain: 0.5,
-      pan: 0,
-      muted: false,
-      solo: false,
-      effects: [{ id: 'broken-delay', type: 'delay', bypassed: false }]
-    }]))
-
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'home'))
-
-    expect(result.current.channels[0]!.effects).toEqual([])
-    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
-  })
-
-  it('starts from defaults even when the app-level storage key has a saved snapshot', () => {
-    const savedChannels = Array.from({ length: 16 }, (_, i) => ({
-      channelIndex: i,
-      gain: 0.5,
-      pan: i % 2 === 0 ? -0.5 : 0.5,
-      muted: i % 3 === 0,
-      solo: i % 5 === 0
-    }))
-    localStorage.setItem('mixjam-mixer-channels', JSON.stringify(savedChannels))
-
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(result.current.channels).toHaveLength(16)
-    expect(result.current.channels[0]!.gain).toBe(0.8)
-    expect(result.current.channels[0]!.pan).toBe(0)
-    expect(result.current.channels[0]!.muted).toBe(false)
-    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
-  })
-
-  it('removes corrupt legacy storage and keeps defaults', () => {
-    localStorage.setItem('mixjam-mixer-channels', 'not-json')
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(result.current.channels).toHaveLength(16)
-    expect(result.current.channels[0]!.gain).toBe(0.8)
-    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
-  })
-
-  it('applies channel state to PlaybackEngine when view switches to the Player', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result, rerender } = renderHook(
-      ({ view }: { view: string }) => useMixer(playbackEngineRef, view),
-      { initialProps: { view: 'home' } }
-    )
-
-    act(() => {
-      result.current.setChannelGain(0, 0.3)
-      result.current.setChannelPan(1, -0.5)
-      result.current.toggleChannelMute(2)
-      result.current.toggleChannelSolo(3)
-    })
-
-    rerender({ view: 'player' })
-
-    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledTimes(1)
-    expect(mockPlaybackEngine.applyChannelSnapshot).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ channelIndex: 0, gain: 0.3 }),
-        expect.objectContaining({ channelIndex: 1, pan: -0.5 }),
-        expect.objectContaining({ channelIndex: 2, muted: true }),
-        expect.objectContaining({ channelIndex: 3, solo: true })
-      ]),
-      16
-    )
-  })
-
-  it('rAF loop does not call getChannelAnalyser when activeVoiceCount is 0', () => {
-    setupRafMock()
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    mockPlaybackEngine.activeVoiceCount = 0
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-    act(() => result.current.setVisualTelemetryActive(true))
-
-    act(() => { tickOnce() })
-
-    expect(mockPlaybackEngine.getChannelAnalyser).not.toHaveBeenCalled()
-  })
-
-  it('runs the visual telemetry frame loop only while its workspace is active', () => {
-    setupRafMock()
-    const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame')
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(), 'player'))
-
-    expect(rafCallback).toBeNull()
-    act(() => result.current.setVisualTelemetryActive(true))
-    expect(rafCallback).not.toBeNull()
-    act(() => result.current.setVisualTelemetryActive(false))
-    expect(cancelSpy).toHaveBeenCalled()
-    expect(rafCallback).toBeNull()
-  })
-
-  it('rAF loop reads analyser data when playbackEngine has active voices', () => {
-    setupRafMock()
-    const analyser = {
-      fftSize: 2048,
-      getFloatTimeDomainData: vi.fn((buf: Float32Array) => { buf.fill(0.1) })
+      solo: true,
+      sends: [0.1, 0.2, 0.3, 0.4]
     }
-    const mockPlaybackEngine = {
-      ...createMockPlaybackEngine(),
-      activeVoiceCount: 5,
-      getChannelAnalyser: vi.fn().mockReturnValue(analyser)
-    }
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-    act(() => result.current.setVisualTelemetryActive(true))
-
-    act(() => { tickOnce() })
-
-    expect(mockPlaybackEngine.getChannelAnalyser).toHaveBeenCalled()
-    expect(analyser.getFloatTimeDomainData).toHaveBeenCalled()
-    expect(result.current.channelLevels.size).toBeGreaterThan(0)
+    expect(playbackChannelsFromLanes(lanes)).toEqual([
+      {
+        laneId: lanes[0]!.id,
+        channelIndex: 0,
+        gain: 0.42,
+        pan: 0,
+        muted: true,
+        solo: true,
+        effects: [],
+        sends: [0.1, 0.2, 0.3, 0.4]
+      },
+      expect.objectContaining({
+        channelIndex: 1,
+        gain: 0.8,
+        pan: 0,
+        sends: [0, 0, 0, 0]
+      })
+    ])
   })
 
-  it('rAF loop handles channels with no analyser (sets SILENCE_DB)', () => {
-    setupRafMock()
-    // Return analyser for even channels, undefined for odd channels
-    const getChannelAnalyser = vi.fn().mockImplementation((idx: number) => {
-      if (idx % 2 === 0) {
-        return {
-          fftSize: 2048,
-          getFloatTimeDomainData: vi.fn((buf: Float32Array) => { buf.fill(0.1) })
-        }
-      }
-      return undefined
-    })
-    const mockPlaybackEngine = {
-      ...createMockPlaybackEngine(),
-      activeVoiceCount: 5,
-      getChannelAnalyser
-    }
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-    act(() => result.current.setVisualTelemetryActive(true))
-
-    act(() => { tickOnce() })
-
-    // Odd channels should have SILENCE_DB (-100)
-    expect(result.current.channelLevels.get(1)).toBe(-100)
-    // Even channels should have a measured level
-    const level0 = result.current.channelLevels.get(0)
-    expect(level0).toBeDefined()
-    expect(level0).toBeGreaterThan(-100)
-  })
-
-  it('cancels rAF on unmount', () => {
-    setupRafMock()
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result, unmount } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-    const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame')
-    act(() => result.current.setVisualTelemetryActive(true))
-
-    unmount()
-
-    expect(cancelSpy).toHaveBeenCalled()
-  })
-
-  it('setChannelGain does not crash when playbackEngine is null', () => {
-    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(() => {
-      act(() => { result.current.setChannelGain(0, 0.5) })
-    }).not.toThrow()
-    expect(result.current.channels[0]!.gain).toBe(0.5)
-  })
-
-  it('toggleChannelMute does not crash when playbackEngine is null', () => {
-    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(() => {
-      act(() => { result.current.toggleChannelMute(0) })
-    }).not.toThrow()
-    expect(result.current.channels[0]!.muted).toBe(true)
-  })
-
-  it('toggleChannelSolo does not crash when playbackEngine is null', () => {
-    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(() => {
-      act(() => { result.current.toggleChannelSolo(0) })
-    }).not.toThrow()
-    expect(result.current.channels[0]!.solo).toBe(true)
-  })
-
-  it('removeChannel twice does not duplicate removed index', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    // Remove channel 0 twice
-    act(() => { result.current.removeChannel(0) })
-    act(() => { result.current.removeChannel(0) })
-
-    expect(result.current.channels).toHaveLength(15)
-    expect(mockPlaybackEngine.applyChannelSnapshot).not.toHaveBeenCalled()
-  })
-
-  it('toggleChannelSolo no-ops gracefully when channel already removed', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    // Remove channel 5, then toggle solo on it (it's gone from state)
-    act(() => { result.current.removeChannel(5) })
-    act(() => { result.current.toggleChannelSolo(5) })
-
-    // Channel 5 is gone, no crash
-    expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
-  })
-
-  it('switching to the Player with null PlaybackEngine does not crash', () => {
-    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
+  it('applies lane-derived channels and four default Returns only in Player view', () => {
+    const engine = engineStub()
+    const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
+    const lanes = createDefaultLanes().slice(0, 2)
     const { rerender } = renderHook(
-      ({ view }: { view: string }) => useMixer(playbackEngineRef, view),
-      { initialProps: { view: 'home' } }
+      ({ view, snapshot }: { view: string; snapshot: LaneState[] }) =>
+        useMixer(playbackEngineRef, view, snapshot, createDefaultFxBuses()),
+      { initialProps: { view: 'home', snapshot: lanes } }
     )
+    expect(engine.applyChannelSnapshot).not.toHaveBeenCalled()
 
-    expect(() => {
-      rerender({ view: 'player' })
-    }).not.toThrow()
+    rerender({ view: 'player', snapshot: lanes })
+    expect(engine.applyChannelSnapshot).toHaveBeenLastCalledWith(
+      expect.arrayContaining([expect.objectContaining({ channelIndex: 0 })])
+    )
+    expect(engine.applyReturnSnapshot).toHaveBeenLastCalledWith(expect.arrayContaining([
+      expect.objectContaining({ index: 0 }),
+      expect.objectContaining({ index: 3 })
+    ]))
   })
 
-  it('rAF loop does not call setLevels when levels are unchanged across ticks', () => {
-    setupRafMock()
-    // First tick: non-zero sample -> anyChanged = true -> setLevels called
-    // Second tick: all zeros -> anyChanged = false -> setLevels skipped
-    let sampleVal = 0.1
+  it('derives and previews Return snapshots without aliasing modules', () => {
+    const engine = engineStub()
+    const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
+    const fxBuses = createDefaultFxBuses()
+    fxBuses.forEach((bus) => { bus.returnLevel = 0.5 })
+    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player', [], fxBuses))
+    expect(result.current.returnBuses.every((bus) => bus.returnLevel === 0.5)).toBe(true)
+    expect(result.current.returnBuses[0].module).not.toBe(fxBuses[0].module)
+
+    const updated = { ...returnBus(2, 0.7) }
+
+    act(() => result.current.previewReturnBus(updated))
+    expect(engine.applyReturnSnapshot).toHaveBeenLastCalledWith([
+      expect.objectContaining({ index: 2, returnLevel: 0.7 })
+    ])
+  })
+
+  it('runs telemetry only while active and publishes analyser levels and peaks', () => {
+    const engine = engineStub()
+    engine.activeVoiceCount = 1
     const analyser = {
-      fftSize: 2048,
-      getFloatTimeDomainData: vi.fn((buf: Float32Array) => { buf.fill(sampleVal) })
+      fftSize: 4,
+      getFloatTimeDomainData: vi.fn((buffer: Float32Array) => buffer.fill(0.5))
     }
-    const mockPlaybackEngine = {
-      ...createMockPlaybackEngine(),
-      activeVoiceCount: 5,
-      getChannelAnalyser: vi.fn().mockReturnValue(analyser)
-    }
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
+    engine.getChannelAnalyser.mockReturnValue(analyser)
+    const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
+    const { result, unmount } = renderHook(() => useMixer(
+      playbackEngineRef,
+      'player',
+      createDefaultLanes().slice(0, 1),
+      createDefaultFxBuses()
+    ))
+
+    expect(callbacks).toHaveLength(0)
     act(() => result.current.setVisualTelemetryActive(true))
+    expect(callbacks).toHaveLength(1)
+    act(() => callbacks.shift()!(100))
+    expect(result.current.channelLevels.get(0)).toBeCloseTo(-6.0206, 3)
+    expect(result.current.channelPeaks.get(0)).toBeCloseTo(-6.0206, 3)
 
-    // Tick 1: non-zero sample, levels should be populated
-    act(() => { tickOnce(1000) })
-    expect(result.current.channelLevels.size).toBeGreaterThan(0)
-
-    // Tick 2: silence, anyChanged = false (all channels already at SILENCE_DB)
-    sampleVal = 0 // next tick reads silence
-    // Re-fill the buffer reference since the mock captures `sampleVal` by reference
-    analyser.getFloatTimeDomainData = vi.fn((buf: Float32Array) => { buf.fill(0) })
-    act(() => { tickOnce(2000) })
-
-    // Levels from previous tick should still be set
-    expect(result.current.channelLevels.size).toBeGreaterThan(0)
+    act(() => callbacks.shift()!(200))
+    expect(analyser.getFloatTimeDomainData).toHaveBeenCalledTimes(2)
+    unmount()
+    expect(cancelAnimationFrame).toHaveBeenCalled()
   })
 
-  it('removeChannel tracks removed indices for replay on reload', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => {
-      result.current.removeChannel(0)
-      result.current.removeChannel(5)
+  it('handles missing engines, missing analysers, silence decay, and storage failure', () => {
+    const remove = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('storage unavailable')
     })
+    const playbackEngineRef = { current: null as PlaybackEngine | null }
+    const lanes = createDefaultLanes().slice(0, 1)
+    const { result } = renderHook(() => useMixer(
+      playbackEngineRef,
+      'player',
+      lanes,
+      createDefaultFxBuses()
+    ))
+    act(() => result.current.setVisualTelemetryActive(true))
+    act(() => callbacks.shift()!(0))
 
-    expect(result.current.channels).toHaveLength(14)
-    expect(result.current.channels.find((ch) => ch.channelIndex === 0)).toBeUndefined()
-    expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
-    expect(result.current.channels[0]!.channelIndex).toBe(1)
-  })
+    const engine = engineStub()
+    engine.activeVoiceCount = 1
+    playbackEngineRef.current = engine as unknown as PlaybackEngine
+    act(() => callbacks.shift()!(100))
+    expect(result.current.channelLevels.get(0)).toBe(-100)
 
-  // spec-007 AC-016 and AC-017
-
-  it('canRestoreChannel is false at full 16 channels and true after a removal', () => {
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    expect(result.current.canRestoreChannel).toBe(false)
-    act(() => { result.current.removeChannel(3) })
-    expect(result.current.canRestoreChannel).toBe(true)
-  })
-
-  it('restoreChannel re-adds the lowest removed channel at default state (AC-017)', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    // Player view so the apply-state effect pushes channel state to PlaybackEngine.
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player'))
-
-    act(() => {
-      result.current.removeChannel(5)
-      result.current.removeChannel(2)
-    })
-    act(() => { result.current.restoreChannel() })
-
-    const restored = result.current.channels.find((ch) => ch.channelIndex === 2)
-    expect(restored).toEqual({ channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false, effects: [] })
-    expect(result.current.channels.find((ch) => ch.channelIndex === 5)).toBeUndefined()
-    const latestSnapshot = mockPlaybackEngine.applyChannelSnapshot.mock.calls.at(-1)
-    expect(latestSnapshot?.[0]).toEqual(result.current.channels)
-    expect(latestSnapshot?.[1]).toBe(16)
-    // Channels stay sorted by channelIndex after restore.
-    const indices = result.current.channels.map((ch) => ch.channelIndex)
-    expect(indices).toEqual([...indices].sort((a, b) => a - b))
-  })
-
-  it('restore encodes removal by channel absence in the in-memory project state', () => {
-    const playbackEngineRef = createPlaybackEngineRef()
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.removeChannel(4) })
-    act(() => { result.current.restoreChannel() })
-
-    expect(result.current.channels.some((ch) => ch.channelIndex === 4)).toBe(true)
-    expect(result.current.canRestoreChannel).toBe(false)
-    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
-    expect(localStorage.getItem('mixjam-mixer-removed')).toBeNull()
-  })
-
-  it('restoreChannel no-ops at the 16 channel cap', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.restoreChannel() })
-
-    expect(result.current.channels).toHaveLength(16)
-    expect(mockPlaybackEngine.restoreChannel).not.toHaveBeenCalled()
-  })
-
-  it('restoreChannel does not crash when playbackEngine is null', () => {
-    const playbackEngineRef = { current: null } as unknown as React.RefObject<PlaybackEngine | null>
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    act(() => { result.current.removeChannel(0) })
-    expect(() => {
-      act(() => { result.current.restoreChannel() })
-    }).not.toThrow()
-    expect(result.current.channels).toHaveLength(16)
-  })
-
-  it('silent rAF path clears effect reductions and decays audible levels to silence', () => {
-    setupRafMock()
-    const playback = createMockPlaybackEngine()
     const analyser = {
-      fftSize: 2048,
-      getFloatTimeDomainData: vi.fn((buf: Float32Array) => { buf.fill(0.1) })
+      fftSize: 2,
+      getFloatTimeDomainData: (buffer: Float32Array) => buffer.fill(1)
     }
-    playback.activeVoiceCount = 1
-    playback.getChannelAnalyser.mockReturnValue(analyser)
-    playback.getChannelEffectReduction.mockReturnValue(3.5)
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
-    act(() => result.current.setVisualTelemetryActive(true))
-    act(() => { result.current.addChannelEffect(0, 'compressor') })
-    const compressorId = result.current.channels[0]!.effects[0]!.id
-    act(() => { tickOnce(1000) })
-    expect(result.current.channelLevels.size).toBeGreaterThan(0)
-    expect(result.current.effectReductions.get(compressorId)).toBe(3.5)
+    engine.getChannelAnalyser.mockReturnValue(analyser)
+    act(() => callbacks.shift()!(200))
+    expect(result.current.channelLevels.get(0)).toBe(0)
 
-    playback.activeVoiceCount = 0
-    act(() => { tickOnce(2000) })
-    expect(result.current.effectReductions.get(compressorId)).toBe(0)
-    for (const ch of result.current.channels) {
-      expect(result.current.channelLevels.get(ch.channelIndex)).toBe(-100)
-      expect(result.current.channelPeaks.get(ch.channelIndex)).toBe(-100)
-    }
-  })
-
-  it('silent rAF path does not re-set state when already silent', () => {
-    setupRafMock()
-    const playback = createMockPlaybackEngine()
-    playback.activeVoiceCount = 0
-    const { result } = renderHook(() => useMixer(createPlaybackEngineRef(playback), 'player'))
-    act(() => result.current.setVisualTelemetryActive(true))
-    act(() => { result.current.addChannelEffect(0, 'compressor') })
-    act(() => { tickOnce(1000) })
-    expect(result.current.channelLevels.size).toBe(0)
-    const compressorId = result.current.channels[0]!.effects[0]!.id
-    expect(result.current.effectReductions.get(compressorId)).toBe(0)
-  })
-
-  it('allows a project to remove every channel without resurrecting defaults', () => {
-    const mockPlaybackEngine = createMockPlaybackEngine()
-    const playbackEngineRef = createPlaybackEngineRef(mockPlaybackEngine)
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'home'))
-
-    // Remove channels by their actual channelIndex in reverse order
-    for (let i = 15; i >= 0; i--) {
-      act(() => { result.current.removeChannel(i) })
-    }
-    expect(result.current.channels).toHaveLength(0)
-    expect(localStorage.getItem('mixjam-mixer-channels')).toBeNull()
-    expect(result.current.canRestoreChannel).toBe(true)
+    engine.activeVoiceCount = 0
+    act(() => callbacks.shift()!(300))
+    expect(result.current.channelLevels.get(0)).toBe(-100)
+    expect(result.current.channelPeaks.get(0)).toBe(-100)
+    expect(remove).toHaveBeenCalledWith('mixjam-mixer-channels')
   })
 })

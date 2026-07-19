@@ -345,9 +345,7 @@ export function useLibraryData(
       await hydrateActiveJob(result.identity)
       return
     }
-    if (result.disposition === 'suppressed') {
-      applyRootState(await backendAPI.getLibraryRootState(folder))
-    }
+    applyRootState(await backendAPI.getLibraryRootState(folder))
   }, [applyRootState, backendAPI, hydrateActiveJob])
 
   const refreshMissingSamplePaths = useCallback(async () => {
@@ -656,16 +654,16 @@ export function useLibraryData(
       if (item.dbId !== sample.dbId) return item
       const next = { ...item }
       if (Object.prototype.hasOwnProperty.call(patch, 'bpm')) {
-        next.bpm = patch.bpm ?? null
-        next.bpmSource = patch.bpm === null ? null : 'manual'
+        next.bpm = patch.bpm!
+        next.bpmSource = 'manual'
       }
       if (Object.prototype.hasOwnProperty.call(patch, 'musicalKey')) {
-        next.musicalKey = patch.musicalKey ?? null
-        next.musicalKeySource = patch.musicalKey === null ? null : 'manual'
+        next.musicalKey = patch.musicalKey!
+        next.musicalKeySource = 'manual'
       }
       if (Object.prototype.hasOwnProperty.call(patch, 'sampleType')) {
-        next.sampleType = patch.sampleType ?? null
-        next.sampleTypeSource = patch.sampleType === null ? null : 'manual'
+        next.sampleType = patch.sampleType!
+        next.sampleTypeSource = 'manual'
       }
       return next
     }))

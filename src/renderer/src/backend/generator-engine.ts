@@ -1,7 +1,5 @@
 import {
   MIXJAM_GENERATOR_VERSION,
-  type MixJamGeneratorChannelPlan,
-  type MixJamGeneratorEffectPlan,
   type MixJamGeneratorLanePlan,
   type MixJamGeneratorParameters,
   type MixJamGeneratorPhrasePlan,
@@ -301,21 +299,6 @@ function ensureSectionLaneCoverage(
     const target = candidates[0]?.section
     if (target) target.activeLanes = [...target.activeLanes, laneIndex].sort((a, b) => a - b)
   }
-}
-
-function effectPlans(
-  profile: GeneratorProfile, laneIndex: number, seed: string,
-  intensity: MixJamGeneratorParameters['intensity']
-): MixJamGeneratorEffectPlan[] {
-  const wetMultiplier = intensity === 'low' ? 0.8 : intensity === 'high' ? 1.15 : 1
-  return profile.lanes[laneIndex]!.effects.map((effect, ordinal) => ({
-    ...effect,
-    id: stableId('fx', `${seed}:${profile.id}:${profile.version}:lane-${laneIndex}:${ordinal}`),
-    values: Object.fromEntries(Object.entries(effect.values).map(([key, value]) => [
-      key,
-      key === 'mix' && typeof value === 'number' ? Math.min(1, value * wetMultiplier) : value
-    ]))
-  }))
 }
 
 function phraseLanes(
@@ -809,7 +792,7 @@ export function createMixJamGeneratorPlan(
   const repetition = Array.from({ length: 16 }, () => ({ signature: '', run: 0 }))
   const nextOrdinal = (laneIndex: number): number => ordinals[laneIndex]++
   const lanes: MixJamGeneratorLanePlan[] = profile.lanes.map((lane, laneIndex) => ({
-    index: laneIndex, name: lane.name, pan: lane.pan, muted: false, solo: false, placements: []
+    index: laneIndex, name: lane.name, gain: lane.gain, pan: lane.pan, muted: false, solo: false, placements: []
   }))
 
   for (let phraseOrdinal = 0; phraseOrdinal < phrases.length; phraseOrdinal++) {
@@ -881,14 +864,13 @@ export function createMixJamGeneratorPlan(
   const allSelected = selections.flatMap((selection) => selection?.candidates ?? [])
   const rmsValues = allSelected.flatMap((candidate) => candidate.rms && candidate.rms > 0 ? [candidate.rms] : []).sort((a, b) => a - b)
   const targetRms = rmsValues.length > 0 ? rmsValues[Math.floor(rmsValues.length / 2)]! : null
-  const channels: MixJamGeneratorChannelPlan[] = profile.lanes.map((lane, laneIndex) => ({
-    channelIndex: laneIndex,
-    gain: compensatedGain(lane.gain, selections[laneIndex]?.candidates ?? [], targetRms),
-    pan: lane.pan,
-    muted: false,
-    solo: false,
-    effects: effectPlans(profile, laneIndex, parameters.seed, parameters.intensity)
-  }))
+  for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
+    lanes[laneIndex]!.gain = compensatedGain(
+      profile.lanes[laneIndex]!.gain,
+      selections[laneIndex]?.candidates ?? [],
+      targetRms
+    )
+  }
   const selectionPlans = selections.flatMap((selection, laneIndex) => selection ? [{
     laneIndex,
     requestedType: selection.requestedType,
@@ -925,7 +907,6 @@ export function createMixJamGeneratorPlan(
       : []),
     sections,
     phrases,
-    lanes,
-    channels
+    lanes
   }
 }

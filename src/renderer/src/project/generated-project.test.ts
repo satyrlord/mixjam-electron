@@ -21,22 +21,19 @@ const plan: MixJamGeneratorPlan = {
   sections: [],
   phrases: [],
   lanes: Array.from({ length: 16 }, (_, index) => ({
-    index, name: index === 0 ? 'Kick' : `Lane ${index + 1}`, pan: 0, muted: false, solo: false,
+    index, name: index === 0 ? 'Kick' : `Lane ${index + 1}`, gain: index === 0 ? 0.8 : 0.5, pan: 0, muted: false, solo: false,
     placements: index === 0 ? [{ id: 'p1', sampleRef: 'Kick/k.wav', sampleName: 'k.wav', startTick: 3328, durationTicks: 32, durationSeconds: 1, nativeBpm: 140, slot: 2 }] : []
-  })),
-  channels: Array.from({ length: 16 }, (_, channelIndex) => ({
-    channelIndex, gain: channelIndex === 0 ? 0.8 : 0.5, pan: 0, muted: false, solo: false,
-    effects: channelIndex === 0 ? [{ id: 'fx1', type: 'reverb' as const, presetName: 'Room', values: { roomSize: 0.5, decay: 0.4, mix: 0.2 } }] : []
   }))
 }
 
 describe('materializeGeneratedProject', () => {
-  it('maps a neutral worker plan into a strict v3 project', () => {
+  it('maps a neutral worker plan into a strict format-4 project', () => {
     const project = materializeGeneratedProject(plan)
     expect(project.song.bpm).toBe(140)
     expect(project.lanes[0]?.placements[0]).toMatchObject({ samplePath: 'Kick/k.wav', nativeBPM: 140 })
     expect(project.lanes[0]?.placements[0]?.slot).toBe(2)
-    expect(project.channels[0]?.effects[0]).toMatchObject({ type: 'reverb', bypassed: false })
+    expect(project.lanes[0]).toMatchObject({ gain: 0.8, sends: [0, 0, 0, 0] })
+    expect(project.fxBuses.every((bus) => bus.module.type === 'empty')).toBe(true)
     expect(project.generator).toMatchObject({ profileId: 'techno', corpusFingerprint: 'abc123' })
 
     const parsed = parseProject(serializeProject(project, {
@@ -44,28 +41,19 @@ describe('materializeGeneratedProject', () => {
       createdAt: '2026-07-17T00:00:00.000Z',
       modifiedAt: '2026-07-17T00:00:00.000Z'
     }))
-    expect(parsed.lanes).toHaveLength(16)
-    expect(parsed.channels).toHaveLength(16)
+    expect(parsed.lanes).toHaveLength(1)
     expect(parsed.generator).toEqual(project.generator)
     expect(parsed.lanes[0]?.placements[0]?.slot).toBe(2)
     expect(parsed.lanes[0]?.placements[0]?.startTick + parsed.lanes[0]!.placements[0]!.durationTicks)
       .toBe(plan.targetTicks)
   })
 
-  it('rejects an effect plan that does not satisfy the audio engine contract', () => {
+  it('materializes lane-owned Mixer values from generator plans', () => {
     const invalidPlan: MixJamGeneratorPlan = {
       ...plan,
-      channels: [{
-        channelIndex: 0,
-        gain: 0.8,
-        pan: 0,
-        muted: false,
-        solo: false,
-        effects: [{ id: 'invalid', type: 'reverb', presetName: 'Broken', values: {} }]
-      }]
+      lanes: plan.lanes.map((lane, index) => ({ ...lane, gain: index === 0 ? 0.65 : lane.gain }))
     }
 
-    expect(() => materializeGeneratedProject(invalidPlan))
-      .toThrow('Generator produced an invalid reverb effect.')
+    expect(materializeGeneratedProject(invalidPlan).lanes[0]).toMatchObject({ gain: 0.65, sends: [0, 0, 0, 0] })
   })
 })

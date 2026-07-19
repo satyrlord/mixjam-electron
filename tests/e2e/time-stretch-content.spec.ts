@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { TRACKER_TOTAL_TICKS } from '../../src/renderer/src/lib/arrangement'
 
 declare global {
@@ -68,7 +68,7 @@ test('project tempo changes resample the source at the placement playback rate',
       })();`
   })
 
-  await page.goto('/')
+  await page.goto(new URL('/', page.url()).href)
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
 
   const bpmInput = page.getByRole('textbox', { name: 'BPM value' })

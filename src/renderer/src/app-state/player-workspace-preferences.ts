@@ -1,4 +1,4 @@
-export const BOTTOM_WORKSPACE_TABS = ['song', 'mixer', 'fx', 'samples'] as const
+export const BOTTOM_WORKSPACE_TABS = ['song', 'mixer', 'samples'] as const
 export type BottomWorkspaceTab = (typeof BOTTOM_WORKSPACE_TABS)[number]
 
 interface WorkspacePanelLayout {
@@ -10,10 +10,13 @@ interface BottomWorkspaceExpansionState {
   previousBottomSize: number
 }
 
+type BottomWorkspaceTabSizes = Record<BottomWorkspaceTab, number>
+
 interface PlayerWorkspacePreferences {
   upperLayout: WorkspacePanelLayout
   verticalLayout: WorkspacePanelLayout
   bottomTab: BottomWorkspaceTab
+  bottomTabSizes: BottomWorkspaceTabSizes
   bottomExpansion: BottomWorkspaceExpansionState
   mixJamBrowserCollapsed: boolean
 }
@@ -24,6 +27,7 @@ const STORAGE_KEYS = Object.freeze({
   verticalLayout: 'mixjam:bottom-workspace-layout-v2',
   bottomExpansion: 'mixjam:bottom-workspace-expansion-v2',
   bottomTab: 'mixjam:bottom-workspace-tab',
+  bottomTabSizes: 'mixjam:bottom-workspace-tab-sizes-v1',
   mixJamBrowserCollapsed: 'mixjam:recents-rail-collapsed'
 })
 
@@ -82,6 +86,27 @@ function loadExpansion(fallbackSize: number): BottomWorkspaceExpansionState {
   }
 }
 
+function loadBottomTabSizes(fallbackSize: number): BottomWorkspaceTabSizes {
+  const fallback: BottomWorkspaceTabSizes = {
+    song: fallbackSize,
+    mixer: 60,
+    samples: fallbackSize
+  }
+  const stored = readStorage(STORAGE_KEYS.bottomTabSizes)
+  if (!stored) return fallback
+  try {
+    const parsed = JSON.parse(stored) as Partial<BottomWorkspaceTabSizes>
+    if (BOTTOM_WORKSPACE_TABS.some((tab) =>
+      typeof parsed[tab] !== 'number' ||
+      !Number.isFinite(parsed[tab]) ||
+      parsed[tab] <= 0 ||
+      parsed[tab] > 100)) return fallback
+    return parsed as BottomWorkspaceTabSizes
+  } catch {
+    return fallback
+  }
+}
+
 export function loadPlayerWorkspacePreferences(
   viewportWidth: number,
   legacyBrowserMinimumPx: number
@@ -100,11 +125,17 @@ export function loadPlayerWorkspacePreferences(
   })
   const initialBottomSize = verticalLayout.bottom ?? DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT
   const storedTab = readStorage(STORAGE_KEYS.bottomTab)
+  const bottomTab = isBottomWorkspaceTab(storedTab) ? storedTab : 'song'
+  const bottomTabSizes = loadBottomTabSizes(initialBottomSize)
 
   return {
     upperLayout,
-    verticalLayout,
-    bottomTab: isBottomWorkspaceTab(storedTab) ? storedTab : 'song',
+    verticalLayout: {
+      upper: 100 - bottomTabSizes[bottomTab],
+      bottom: bottomTabSizes[bottomTab]
+    },
+    bottomTab,
+    bottomTabSizes,
     bottomExpansion: loadExpansion(initialBottomSize),
     mixJamBrowserCollapsed: readStorage(STORAGE_KEYS.mixJamBrowserCollapsed) === '1'
   }
@@ -122,6 +153,9 @@ export const playerWorkspacePreferences = Object.freeze({
   },
   saveBottomTab(tab: BottomWorkspaceTab): void {
     writeStorage(STORAGE_KEYS.bottomTab, tab)
+  },
+  saveBottomTabSizes(sizes: BottomWorkspaceTabSizes): void {
+    writeStorage(STORAGE_KEYS.bottomTabSizes, JSON.stringify(sizes))
   },
   saveMixJamBrowserCollapsed(collapsed: boolean): void {
     writeStorage(STORAGE_KEYS.mixJamBrowserCollapsed, collapsed ? '1' : null)

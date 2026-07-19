@@ -137,6 +137,9 @@ or replay individual fields in order. Removing a lane disconnects every node it
 owns. Clearing an FX bus immediately replaces it with Empty and cuts its active
 tail. Powering a populated module off blocks new input but lets its existing tail
 finish.
+The snapshot may arrive before playback creates any lane channels. Playback
+therefore retains each lane's four Send values and replays them, including the
+Return connections, when the first voice lazily creates that channel.
 
 ## Modular FX processors
 
@@ -159,6 +162,9 @@ other module in this phase. It is wet-only and has no Mix parameter:
   reaches drive factor 5, and the loop's small-signal gain does not increase.
   Processing uses 2x oversampling and applies the same curve to both stereo
   channels without changing pan.
+- At exactly zero Tape Distortion, the live WaveShaper curve is `null`. This is
+  the Web Audio identity path and preserves over-unity Return input instead of
+  clamping it to the finite curve domain.
 - Tape Distortion follows the delay and precedes wet output and feedback. It
   therefore colors both the first echo and accumulated repeats.
 - Ping-Pong defaults off and uses a stereo feedback loop when enabled.

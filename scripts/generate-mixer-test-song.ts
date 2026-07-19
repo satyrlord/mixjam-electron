@@ -22,15 +22,11 @@ import {
   type ProjectData,
   type ProjectDocument
 } from '../src/renderer/src/project/project-file'
-import {
-  applyEffectPreset,
-  createDefaultEffect,
-  type EffectSlot,
-  type EffectType
-} from '../src/renderer/src/engine/effects'
 import { TICKS_PER_BAR, tickDurationSeconds } from '../src/renderer/src/engine/transport'
-import type { ChannelState } from '../src/renderer/src/project/project-state'
-import { createDefaultProjectSongState } from '../src/renderer/src/project/project-state'
+import {
+  createDefaultFxBuses,
+  createDefaultProjectSongState
+} from '../src/renderer/src/project/project-state'
 
 export const SONG_BPM = 140
 export const TOTAL_BARS = 70
@@ -85,6 +81,9 @@ const LANE_NAMES = [
   'Transition FX L',
   'Transition FX R'
 ] as const
+
+const LANE_GAINS = [0.78, 0.58, 0.46, 0.52, 0.68, 0.44, 0.5, 0.36, 0.36, 0.34, 0.34, 0.52, 0.48, 0.34, 0.5, 0.5] as const
+const LANE_PANS = [0, 0.04, -0.12, 0.08, 0, -0.16, 0.14, -0.62, 0.62, -0.5, 0.5, -0.06, 0.12, -0.22, -0.7, 0.7] as const
 
 const SINGLE_SAMPLE_ROLE_DEFINITIONS = [
   { key: 'kickPrimary', name: 'primary kick phrase', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
@@ -435,50 +434,16 @@ async function selectSamples(
   }
 }
 
-function createEffect(
-  id: string,
-  type: EffectType,
-  presetName: string
-): EffectSlot {
-  return { ...applyEffectPreset(createDefaultEffect(type), presetName), id }
-}
-
-function createMixerChannels(): ChannelState[] {
-  const gains = [0.78, 0.58, 0.46, 0.52, 0.68, 0.44, 0.5, 0.36, 0.36, 0.34, 0.34, 0.52, 0.48, 0.34, 0.5, 0.5]
-  const pans = [0, 0.04, -0.16, 0.1, 0, -0.2, 0.18, -0.72, 0.72, -0.58, 0.58, -0.08, 0.14, -0.28, -0.82, 0.82]
-  const effects = new Map<number, EffectSlot[]>([
-    [0, [createEffect('fx-mixer-test-01-compressor', 'compressor', 'Gentle Glue')]],
-    [3, [createEffect('fx-mixer-test-04-compressor', 'compressor', 'Classic Control')]],
-    [4, [createEffect('fx-mixer-test-05-compressor', 'compressor', 'Leveler')]],
-    [5, [createEffect('fx-mixer-test-06-delay', 'delay', 'Classic Echo')]],
-    [6, [createEffect('fx-mixer-test-07-delay', 'delay', 'Ping-Pong Eighths'), createEffect('fx-mixer-test-07-reverb', 'reverb', 'Studio Room')]],
-    [7, [createEffect('fx-mixer-test-08-reverb', 'reverb', 'Long Hall')]],
-    [8, [createEffect('fx-mixer-test-09-reverb', 'reverb', 'Long Hall')]],
-    [9, [createEffect('fx-mixer-test-10-reverb', 'reverb', 'Long Hall')]],
-    [10, [createEffect('fx-mixer-test-11-reverb', 'reverb', 'Long Hall')]],
-    [11, [createEffect('fx-mixer-test-12-delay', 'delay', 'Classic Echo'), createEffect('fx-mixer-test-12-compressor', 'compressor', 'Gentle Glue')]],
-    [12, [createEffect('fx-mixer-test-13-delay', 'delay', 'Slapback')]],
-    [14, [createEffect('fx-mixer-test-15-reverb', 'reverb', 'Long Hall')]],
-    [15, [createEffect('fx-mixer-test-16-reverb', 'reverb', 'Long Hall')]]
-  ])
-
-  return gains.map((gain, channelIndex) => ({
-    channelIndex,
-    gain,
-    pan: pans[channelIndex]!,
-    muted: false,
-    solo: false,
-    effects: effects.get(channelIndex) ?? []
-  }))
-}
-
 function buildArrangement(samples: SelectedSamples, variationNumber: number): LaneState[] {
   const variation = ARRANGEMENT_VARIATIONS[variationNumber - 1]!
-  const lanePans = [0, 0.04, -0.12, 0.08, 0, -0.16, 0.14, -0.62, 0.62, -0.5, 0.5, -0.06, 0.12, -0.22, -0.7, 0.7]
-  let lanes: LaneState[] = createDefaultLanes().map((lane, index) => ({
+  let lanes: LaneState[] = Array.from({ length: 16 }, (_, index) => createDefaultLanes()[index % 8]!).map((lane, index) => ({
     ...lane,
+    id: `mixer-test-lane-${index + 1}`,
+    index,
     name: LANE_NAMES[index]!,
-    pan: lanePans[index]!
+    gain: LANE_GAINS[index]!,
+    pan: LANE_PANS[index]!,
+    sends: [0, 0, 0, 0]
   }))
 
   const place = (laneIndex: number, sample: SelectedSample, startTick: number): void => {
@@ -649,7 +614,7 @@ export async function generateMixerTestSong(options: GeneratorOptions = {}): Pro
   const project: ProjectData = {
     song: createDefaultProjectSongState({ bpm: SONG_BPM, masterGain: 0.82 }),
     lanes: buildArrangement(samples, variation),
-    channels: createMixerChannels()
+    fxBuses: createDefaultFxBuses()
   }
   const timestamp = new Date().toISOString()
   const contents = serializeProject(project, {
@@ -703,9 +668,7 @@ export function parseCliArgs(args: readonly string[]): CliOptions {
 }
 
 function printSummary(result: GeneratorResult): void {
-  const effectTypes = new Set(result.project.channels.flatMap((channel) =>
-    channel.effects.map((effect) => effect.type)
-  ))
+  const effectTypes = new Set((result.project.fxBuses ?? []).map((bus) => bus.module.type))
   console.log(`Created ${result.filePath}`)
   console.log(
     `Seed: ${result.seed} (arrangement variation ${result.variation}/${ARRANGEMENT_VARIATIONS.length}: ` +

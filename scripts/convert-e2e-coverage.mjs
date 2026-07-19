@@ -38,15 +38,19 @@ for (const rawFile of rawFiles) {
     if (!entry.url) continue
     const url = entry.url.replace(/\\/g, '/')
 
-    // Extract the file path from the URL. The static server serves files
-    // from out/renderer/, so URLs look like:
-    //   http://localhost:4173/assets/index-xxx.js
-    //   http://localhost:4173/index.html
+    // Extract the file path from the app:// URL served by Electron. URLs look
+    // like app://bundle/assets/index-xxx.js or app://bundle/index.html.
     let filePath = null
 
-    // Strip protocol and host, keep the pathname.
-    const pathMatch = url.match(/https?:\/\/[^/]+(\/.+)/)
-    const pathname = pathMatch ? pathMatch[1] : url
+    let pathname = null
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol === 'app:' && parsed.hostname === 'bundle') {
+        pathname = parsed.pathname
+      }
+    } catch {
+      // V8 may report anonymous or internal scripts that are not URLs.
+    }
 
     if (pathname) {
       filePath = resolve(ROOT, 'out', 'renderer', ...pathname.split('/').filter(Boolean))
@@ -65,13 +69,23 @@ for (const rawFile of rawFiles) {
           // Merge statement/fn/branch hit counts.
           const existing = merged[key]
           const incoming = value
-          const sExisting = existing.s ?? {}
-          const sIncoming = incoming.s ?? {}
-          for (const [k, v] of Object.entries(sIncoming)) {
-            sExisting[k] = (sExisting[k] ?? 0) + v
+          for (const counterName of ['s', 'f', 'b']) {
+            const existingCounters = existing[counterName] ?? {}
+            const incomingCounters = incoming[counterName] ?? {}
+            for (const [counterId, incomingValue] of Object.entries(incomingCounters)) {
+              if (Array.isArray(incomingValue)) {
+                const existingValue = existingCounters[counterId] ?? []
+                existingCounters[counterId] = incomingValue.map(
+                  (hitCount, branchIndex) => (existingValue[branchIndex] ?? 0) + hitCount
+                )
+              } else {
+                existingCounters[counterId] = (existingCounters[counterId] ?? 0) + incomingValue
+              }
+            }
+            existing[counterName] = existingCounters
           }
-          existing.s = sExisting
-          // For simplicity, keep the first set of maps (they don't change).
+          // Keep the first set of maps; a bundle and its source map do not
+          // change between tests in one coverage run.
         } else {
           merged[key] = value
         }

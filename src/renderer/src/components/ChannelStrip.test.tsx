@@ -3,33 +3,31 @@ import { describe, expect, it, vi } from 'vitest'
 import ChannelStrip from './ChannelStrip'
 
 const DEFAULT_PROPS = {
+  laneId: 'lane-kick',
   channelIndex: 0,
   label: 'Kick',
   gain: 0.8,
   pan: 0,
   muted: false,
   solo: false,
+  sends: [0, 0, 0, 0] as const,
+  sendModuleNames: ['Empty', 'Delay', 'Empty', 'Empty'] as const,
   levelDb: -20,
   peakDb: -15,
-  effects: [],
   onSetGain: vi.fn(),
   onSetPan: vi.fn(),
-  onToggleMute: vi.fn(),
-  onToggleSolo: vi.fn(),
-  onRemove: vi.fn(),
+  onSetSend: vi.fn(),
   onSelect: vi.fn(),
-  onOpenEffects: vi.fn()
+  onGestureStart: vi.fn(),
+  onGestureEnd: vi.fn()
 }
 
 describe('ChannelStrip', () => {
-  it('renders label, volume slider, pan slider, mute/solo/remove buttons', () => {
+  it('renders label, volume slider, and pan slider', () => {
     render(<ChannelStrip {...DEFAULT_PROPS} />)
     expect(screen.getByText('Kick')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kick' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Channel 1 Pan' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Mute channel 1' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Solo channel 1' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove channel 1' })).toBeInTheDocument()
   })
 
   it('volume slider fires onSetGain with normalized values', () => {
@@ -71,42 +69,10 @@ describe('ChannelStrip', () => {
     fireEvent.pointerUp(panSlider, { pointerId: 1, pointerType: 'mouse' })
   })
 
-  it('mute button fires onToggleMute', () => {
-    const onToggleMute = vi.fn()
-    render(<ChannelStrip {...DEFAULT_PROPS} onToggleMute={onToggleMute} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mute channel 1' }))
-    expect(onToggleMute).toHaveBeenCalledWith(0)
-  })
-
-  it('solo button fires onToggleSolo', () => {
-    const onToggleSolo = vi.fn()
-    render(<ChannelStrip {...DEFAULT_PROPS} onToggleSolo={onToggleSolo} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Solo channel 1' }))
-    expect(onToggleSolo).toHaveBeenCalledWith(0)
-  })
-
-  it('remove button fires onRemove', () => {
-    const onRemove = vi.fn()
-    render(<ChannelStrip {...DEFAULT_PROPS} onRemove={onRemove} />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Remove channel 1' }))
-    expect(onRemove).toHaveBeenCalledWith(0)
-  })
-
-  it('shows muted state with active CSS class when muted is true', () => {
+  it('shows muted state with dimming CSS class on the strip root', () => {
     render(<ChannelStrip {...DEFAULT_PROPS} muted />)
-    const muteBtn = screen.getByRole('button', { name: 'Mute channel 1' })
-    expect(muteBtn.className).toContain('mixer-channel-m-active')
-    expect(muteBtn).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('shows soloed state with active CSS class when solo is true', () => {
-    render(<ChannelStrip {...DEFAULT_PROPS} solo />)
-    const soloBtn = screen.getByRole('button', { name: 'Solo channel 1' })
-    expect(soloBtn.className).toContain('mixer-channel-s-active')
-    expect(soloBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(document.querySelector('.mixer-channel-strip')!.className)
+      .toContain('mixer-channel-strip-muted')
   })
 
   it('renders meter fill with green color when level is below -12 dB', () => {
@@ -269,7 +235,7 @@ describe('ChannelStrip', () => {
     const onSelect = vi.fn()
     render(<ChannelStrip {...DEFAULT_PROPS} onSelect={onSelect} />)
     fireEvent.click(screen.getByRole('button', { name: 'Kick' }))
-    expect(onSelect).toHaveBeenCalledWith(0)
+    expect(onSelect).toHaveBeenCalledWith('lane-kick')
   })
 
   it('select button has aria-pressed matching selected prop', () => {
@@ -279,21 +245,68 @@ describe('ChannelStrip', () => {
     expect(screen.getByRole('button', { name: 'Kick' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('renders the FX button and opens effects on click', () => {
-    const onOpenEffects = vi.fn()
-    render(<ChannelStrip {...DEFAULT_PROPS} onOpenEffects={onOpenEffects} />)
-    const fxButton = screen.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' })
-    expect(fxButton).toBeInTheDocument()
-    fireEvent.click(fxButton)
-    expect(onOpenEffects).toHaveBeenCalledWith(0)
+  it('renders rotary controls for all four sends and disabled decorative EQ', () => {
+    render(<ChannelStrip {...DEFAULT_PROPS} sends={[0, 0.3, 0, 0]} />)
+    expect(screen.getByRole('group', { name: 'Kick Sends' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Kick Send 1' })).toHaveAttribute('aria-valuenow', '0')
+    expect(screen.getByRole('slider', { name: 'Kick Send 2' })).toHaveAttribute('aria-valuenow', '30')
+    expect(screen.getByRole('slider', { name: 'Kick Send 3' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Kick Send 4' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'EQ Power unavailable' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Treble unavailable' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Bass unavailable' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'M' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'S' })).toBeNull()
   })
 
-  it('FX button shows effect count and all-bypassed state', () => {
-    const delay = { id: 'fx-1', type: 'delay' as const, bypassed: true, timeMs: 375, feedback: 0.35, mix: 0.3, pingPong: false, tempoSync: false, noteDivision: '1/8' as const }
-    const reverb = { id: 'fx-2', type: 'reverb' as const, bypassed: true, roomSize: 0.55, decay: 0.45, mix: 0.25 }
-    render(<ChannelStrip {...DEFAULT_PROPS} effects={[delay, reverb]} />)
-    const fxButton = screen.getByRole('button', { name: 'Open channel 1 effects, 2 of 4 used' })
-    expect(fxButton).toBeInTheDocument()
-    expect(fxButton.className).toContain('channel-fx-button-bypassed')
+  it('wraps a multi-update pan drag in one Mixer gesture', () => {
+    const onGestureStart = vi.fn()
+    const onGestureEnd = vi.fn()
+    const onSetPan = vi.fn()
+    render(
+      <ChannelStrip
+        {...DEFAULT_PROPS}
+        onGestureStart={onGestureStart}
+        onGestureEnd={onGestureEnd}
+        onSetPan={onSetPan}
+      />
+    )
+    const pan = screen.getByRole('slider', { name: 'Channel 1 Pan' })
+    fireEvent.pointerDown(pan, { button: 0, pointerId: 4, clientX: 100 })
+    fireEvent.pointerMove(pan, { pointerId: 4, clientX: 130 })
+    fireEvent.pointerMove(pan, { pointerId: 4, clientX: 160 })
+    fireEvent.pointerUp(pan, { pointerId: 4 })
+
+    expect(onSetPan).toHaveBeenCalledTimes(2)
+    expect(onGestureStart).toHaveBeenCalledOnce()
+    expect(onGestureEnd).toHaveBeenCalledOnce()
+  })
+
+  it('adjusts send levels through the shared rotary keyboard contract', () => {
+    const onSetSend = vi.fn()
+    render(
+      <ChannelStrip
+        {...DEFAULT_PROPS}
+        sends={[0, 1, 0, 0]}
+        onSetSend={onSetSend}
+      />
+    )
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Kick Send 1' }), { key: 'ArrowUp' })
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Kick Send 2' }), { key: 'Home' })
+    expect(onSetSend.mock.calls).toEqual([[0, 0, 0.01], [0, 1, 0]])
+  })
+
+  it('renders controls in the documented order', () => {
+    const { container } = render(<ChannelStrip {...DEFAULT_PROPS} />)
+    const classes = Array.from(container.querySelector('.mixer-channel-strip')!.children)
+      .map((element) => element.className)
+    expect(classes).toEqual([
+      'mixer-channel-label',
+      'mixer-channel-sends',
+      'mixer-channel-eq',
+      'mixer-channel-pan',
+      'vertical-fader vertical-fader-has-meter mixer-channel-vol-wrap'
+    ])
   })
 })

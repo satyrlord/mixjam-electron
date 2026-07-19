@@ -10,7 +10,6 @@ export type { BottomWorkspaceTab } from '../app-state/player-workspace-preferenc
 const TAB_LABELS: Record<BottomWorkspaceTab, string> = {
   song: 'Song',
   mixer: 'Mixer',
-  fx: 'FX',
   samples: 'Samples'
 }
 
@@ -20,7 +19,6 @@ interface BottomWorkspaceProps {
   masterGain: number
   song: ReactNode
   mixer: ReactNode
-  fx: ReactNode
   samples: ReactNode
   expanded: boolean
   onTabChange: (tab: BottomWorkspaceTab) => void
@@ -33,13 +31,12 @@ export default function BottomWorkspace({
   masterGain,
   song,
   mixer,
-  fx,
   samples,
   expanded,
   onTabChange,
   onToggleExpanded
 }: BottomWorkspaceProps) {
-  const panels: Record<BottomWorkspaceTab, ReactNode> = { song, mixer, fx, samples }
+  const panels: Record<BottomWorkspaceTab, ReactNode> = { song, mixer, samples }
 
   const masterPercent = Math.round(masterGain * 100)
 

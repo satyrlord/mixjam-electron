@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import {
   LANE_HEAD_WIDTH_PX,
-  SAMPLE_BUBBLE_HEIGHT_PX,
   sampleBubbleScreenRect,
   type ClipPlacement
 } from '../lib/arrangement'
@@ -14,6 +13,7 @@ import {
   resolveSampleBubbleCanvasVisual,
   roundSampleBubbleRect
 } from '../theme/sample-bubble-style'
+import { useUiGeometry } from '../ui-size'
 
 interface LaneSampleBubbleCanvasProps {
   placements: ClipPlacement[]
@@ -35,7 +35,6 @@ interface LaneSampleBubbleCanvasProps {
   }) => void
 }
 
-const CLIP_TOP = 6
 const SELECTION_BORDER_WIDTH = 2
 const GHOST_MIN_WIDTH = 48
 const GHOST_BADGE_WIDTH = 22
@@ -58,6 +57,7 @@ function drawSampleBubble(
   x: number,
   y: number,
   w: number,
+  height: number,
   flashing = false,
   missing = false
 ): void {
@@ -73,7 +73,8 @@ function drawSampleBubble(
     y,
     w,
     flashing,
-    window.devicePixelRatio || 1
+    window.devicePixelRatio || 1,
+    height
   )
 }
 
@@ -86,6 +87,8 @@ interface SampleBubbleDragGhost {
 function buildSampleBubbleDragGhost(
   placement: ClipPlacement,
   width: number,
+  height: number,
+  fontSize: number,
   count: number,
   missing: boolean
 ): SampleBubbleDragGhost | null {
@@ -96,7 +99,7 @@ function buildSampleBubbleDragGhost(
   const badgeSpace = count > 1 ? GHOST_BADGE_GAP + GHOST_BADGE_WIDTH : 0
   const contentWidth = Math.max(width + badgeSpace, GHOST_MIN_WIDTH)
   const canvasWidth = contentWidth + shadowPadding * 2
-  const canvasHeight = SAMPLE_BUBBLE_HEIGHT_PX + shadowPadding * 2
+  const canvasHeight = height + shadowPadding * 2
   const bubbleOffsetX = shadowPadding
   const bubbleOffsetY = shadowPadding
   const dpr = window.devicePixelRatio || 1
@@ -116,7 +119,7 @@ function buildSampleBubbleDragGhost(
   if (!ctx) return null
 
   ctx.scale(dpr, dpr)
-  ctx.font = `${themeTokenCache.fontWeight} 12px ${themeTokenCache.fontLabel}`
+  ctx.font = `${themeTokenCache.fontWeight} ${fontSize}px ${themeTokenCache.fontLabel}`
   ctx.textBaseline = 'middle'
   drawSampleBubble(
     ctx,
@@ -124,13 +127,14 @@ function buildSampleBubbleDragGhost(
     bubbleOffsetX,
     bubbleOffsetY,
     width,
+    height,
     false,
     missing
   )
 
   if (count > 1) {
     const bx = bubbleOffsetX + width + GHOST_BADGE_GAP
-    const by = bubbleOffsetY + (SAMPLE_BUBBLE_HEIGHT_PX - GHOST_BADGE_HEIGHT) / 2
+    const by = bubbleOffsetY + (height - GHOST_BADGE_HEIGHT) / 2
     const badge = getComputedSelectColor()
     roundSampleBubbleRect(ctx, bx, by, GHOST_BADGE_WIDTH, GHOST_BADGE_HEIGHT, GHOST_BADGE_HEIGHT / 2)
     ctx.fillStyle = badge
@@ -153,6 +157,7 @@ function LaneSampleBubbleCanvas({
   onPlacementDragStart,
   onPlacementContextMenu
 }: LaneSampleBubbleCanvasProps) {
+  const uiGeometry = useUiGeometry()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const hitRectsRef = useRef<SampleBubbleHitRect[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
@@ -171,6 +176,8 @@ function LaneSampleBubbleCanvas({
       : fullWidth
     const canvasWidth = Math.min(fullWidth, availableWidth)
     const canvasHeight = rect.height
+    const bubbleHeight = uiGeometry.bubbleHeight
+    const bubbleTop = Math.max(0, (canvasHeight - bubbleHeight) / 2)
     const maximumViewportLeft = Math.max(0, fullWidth - canvasWidth)
     const viewportLeft = scrollport
       ? Math.min(Math.max(0, scrollport.scrollLeft), maximumViewportLeft)
@@ -224,7 +231,7 @@ function LaneSampleBubbleCanvas({
     }
 
     const hitRects: SampleBubbleHitRect[] = []
-    ctx.font = `${themeTokenCache.fontWeight} 12px ${themeTokenCache.fontLabel}`
+    ctx.font = `${themeTokenCache.fontWeight} ${uiGeometry.fontMd}px ${themeTokenCache.fontLabel}`
     ctx.textBaseline = 'middle'
 
     for (const placement of placements) {
@@ -233,7 +240,7 @@ function LaneSampleBubbleCanvas({
       if (x + w < viewportLeft || x > viewportLeft + canvasWidth) continue
 
       drawSampleBubble(
-        ctx, placement, x - viewportLeft, CLIP_TOP, w,
+        ctx, placement, x - viewportLeft, bubbleTop, w, bubbleHeight,
         flashSamplePath === placement.samplePath,
         missingSamplePaths?.has(placement.samplePath) ?? false
       )
@@ -244,9 +251,9 @@ function LaneSampleBubbleCanvas({
         roundSampleBubbleRect(
           ctx,
           x - viewportLeft + inset,
-          CLIP_TOP + inset,
+          bubbleTop + inset,
           w - SELECTION_BORDER_WIDTH,
-          SAMPLE_BUBBLE_HEIGHT_PX - SELECTION_BORDER_WIDTH,
+          bubbleHeight - SELECTION_BORDER_WIDTH,
           themeTokenCache.radius
         )
         ctx.strokeStyle = getComputedSelectColor()
@@ -257,7 +264,7 @@ function LaneSampleBubbleCanvas({
     }
 
     hitRectsRef.current = hitRects
-  }, [placements, totalTicks, flashSamplePath, selectedPlacementIds, missingSamplePaths])
+  }, [placements, totalTicks, flashSamplePath, selectedPlacementIds, missingSamplePaths, uiGeometry])
 
   useEffect(() => {
     draw()
@@ -363,14 +370,22 @@ function LaneSampleBubbleCanvas({
         ? selectedPlacementIds.size
         : 1
       const missing = missingSamplePaths?.has(hr.placement.samplePath) ?? false
-      const ghost = buildSampleBubbleDragGhost(hr.placement, hr.width, count, missing)
+      const bubbleHeight = uiGeometry.bubbleHeight
+      const ghost = buildSampleBubbleDragGhost(
+        hr.placement,
+        hr.width,
+        bubbleHeight,
+        uiGeometry.fontMd,
+        count,
+        missing
+      )
       if (ghost) {
         document.body.appendChild(ghost.canvas)
         const grabX = Math.min(Number(container!.dataset.dragGrabX ?? '0'), hr.width)
         e.dataTransfer.setDragImage(
           ghost.canvas,
           ghost.bubbleOffsetX + grabX,
-          ghost.bubbleOffsetY + SAMPLE_BUBBLE_HEIGHT_PX / 2
+          ghost.bubbleOffsetY + bubbleHeight / 2
         )
         window.setTimeout(() => ghost.canvas.remove(), 0)
       }
@@ -379,7 +394,7 @@ function LaneSampleBubbleCanvas({
     onPlacementDragStart(placementId, e)
     delete container!.dataset.dragPlacementId
     delete container!.dataset.dragGrabX
-  }, [onPlacementDragStart, selectedPlacementIds, missingSamplePaths])
+  }, [onPlacementDragStart, selectedPlacementIds, missingSamplePaths, uiGeometry.bubbleHeight, uiGeometry.fontMd])
 
   return (
     <div

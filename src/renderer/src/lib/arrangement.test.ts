@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
   DEFAULT_LANE_COUNT,
+  MAX_LANE_COUNT,
+  MIN_LANE_COUNT,
   TRACKER_BAR_COUNT,
   TRACKER_BEAT_WIDTH_PX,
   TRACKER_GEOMETRY_SCALE,
@@ -14,6 +16,10 @@ import {
   sampleBubbleScreenRect,
   timelinePixelsPerSecond,
   createDefaultLanes,
+  addLane,
+  deleteLane,
+  deleteEmptyLanes,
+  isEmptyLane,
   duplicatePlacementGroup,
   duplicatePlacement,
   laneShouldDim,
@@ -58,8 +64,10 @@ describe('sampleBubbleScreenRect', () => {
 })
 
 describe('arrangement lane constants', () => {
-  it('has 16 default lanes', () => {
-    expect(DEFAULT_LANE_COUNT).toBe(16)
+  it('has eight default lanes and a 1-64 hard limit', () => {
+    expect(DEFAULT_LANE_COUNT).toBe(8)
+    expect(MIN_LANE_COUNT).toBe(1)
+    expect(MAX_LANE_COUNT).toBe(64)
   })
 
   it('has expected lane dimensions', () => {
@@ -82,18 +90,52 @@ describe('arrangement lane constants', () => {
 })
 
 describe('createDefaultLanes', () => {
-  it('creates 16 lanes with sequential names, all unmuted and unsoloed', () => {
+  it('creates eight lanes with sequential names, all unmuted and unsoloed', () => {
     const lanes = createDefaultLanes()
 
-    expect(lanes).toHaveLength(16)
+    expect(lanes).toHaveLength(8)
     expect(lanes[0]?.name).toBe('Lane 1')
-    expect(lanes[15]?.name).toBe('Lane 16')
+    expect(lanes[7]?.name).toBe('Lane 8')
 
     for (const lane of lanes) {
       expect(lane.muted).toBe(false)
       expect(lane.solo).toBe(false)
+      expect(lane.id).toBeTruthy()
+      expect(lane.gain).toBe(0.8)
+      expect(lane.sends).toEqual([0, 0, 0, 0])
       expect(lane.placements).toEqual([])
     }
+  })
+
+  it('adds at the end and renumbers only visible indexes after deletion', () => {
+    const original = createDefaultLanes()
+    const added = addLane(original)
+    expect(added).toHaveLength(9)
+    expect(added[8]?.name).toBe('Lane 9')
+    const removedId = added[2]!.id
+    const deleted = deleteLane(added, 2)
+    expect(deleted).toHaveLength(8)
+    expect(deleted.map((lane) => lane.index)).toEqual([...Array(8).keys()])
+    expect(deleted.some((lane) => lane.id === removedId)).toBe(false)
+    expect(deleted[2]?.id).toBe(added[3]?.id)
+  })
+
+  it('never exceeds 64 lanes or deletes the final lane', () => {
+    let lanes = createDefaultLanes()
+    while (lanes.length < MAX_LANE_COUNT) lanes = addLane(lanes)
+    expect(addLane(lanes)).toHaveLength(MAX_LANE_COUNT)
+    while (lanes.length > MIN_LANE_COUNT) lanes = deleteLane(lanes, lanes.length - 1)
+    expect(deleteLane(lanes, 0)).toHaveLength(MIN_LANE_COUNT)
+  })
+
+  it('removes all empty lanes without confirmation but preserves one lane', () => {
+    const lanes = createDefaultLanes()
+    expect(isEmptyLane(lanes[0]!)).toBe(true)
+    const withContent = placeSampleOnLane(lanes, 2, 'kick.wav', 'kick.wav', 0)
+    const pruned = deleteEmptyLanes(withContent)
+    expect(pruned).toHaveLength(1)
+    expect(pruned[0]?.placements).toHaveLength(1)
+    expect(deleteEmptyLanes(lanes)).toHaveLength(1)
   })
 })
 
@@ -219,7 +261,7 @@ describe('toggleLaneMute', () => {
 
     expect(next[3]?.muted).toBe(true)
     expect(next[0]?.muted).toBe(false)
-    expect(next[15]?.muted).toBe(false)
+    expect(next[7]?.muted).toBe(false)
 
     const reverted = toggleLaneMute(next, 3)
     expect(reverted[3]?.muted).toBe(false)
@@ -234,7 +276,7 @@ describe('toggleLaneSolo', () => {
 
     expect(next[5]?.solo).toBe(true)
     expect(next[0]?.solo).toBe(false)
-    expect(next[10]?.solo).toBe(false)
+    expect(next[7]?.solo).toBe(false)
 
     const reverted = toggleLaneSolo(next, 5)
     expect(reverted[5]?.solo).toBe(false)
@@ -384,7 +426,7 @@ describe('toEngineLanes', () => {
     const withPlacement = placeSampleOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0, 32, 0.5, 0, 124)
     const engineLanes = toEngineLanes(withPlacement)
 
-    expect(engineLanes).toHaveLength(16)
+    expect(engineLanes).toHaveLength(8)
     expect(engineLanes[0]!.placements).toHaveLength(1)
     expect(engineLanes[0]!.placements[0]!.samplePath).toBe('Drums/kick.wav')
     expect(engineLanes[0]!.placements[0]!.startTick).toBe(0)

@@ -238,6 +238,11 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   TanStack Virtual; only rows intersecting the scroll viewport are mounted. A
   visible unmeasured viewport may render only a bounded first-paint window;
   hidden viewports mount no rows and never request another result page.
+- `tests/e2e/ui-performance.spec.ts` proves the bound with fewer than 40
+  mounted rows and fewer than 400 sample bubbles while scrolling through exact
+  `0`, `500`, and `1000` backend offsets. It also proves that each page mounts
+  distinct samples; repeatedly fetching offset zero or fully rendering a
+  500-row page cannot satisfy the test.
 - No current 100k-row latency claim has been measured. Any throughput or query
   latency claim must be recorded with the real fixture/library subset and the
   exact measurement procedure.

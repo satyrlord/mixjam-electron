@@ -33,7 +33,7 @@ describe('App tag filter', () => {
     fireEvent.click(start)
 
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     const chip = screen.getByText(/Cool/)

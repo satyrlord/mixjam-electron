@@ -1,6 +1,5 @@
-// IPC surface of the thin Electron shell. Everything data-related lives in the
-// renderer-side backend (src/shared/backend-api.ts); the shell only provides
-// the host capabilities a plain browser cannot.
+// IPC surface of the Electron host. Everything data-related lives in the
+// renderer-side backend; the shell provides native host capabilities only.
 
 export const SHELL_IPC_CHANNELS = {
   appGetVersion: 'app:get-version',
@@ -9,9 +8,7 @@ export const SHELL_IPC_CHANNELS = {
   shellOpenUrl: 'shell:open-url'
 } as const
 
-/** Host capabilities exposed by the Electron preload as window.shellAPI.
- *  Absent in the plain browser, where the renderer uses browser-native
- *  equivalents. */
+/** Native host capabilities exposed by the Electron preload as window.shellAPI. */
 export interface ShellAPI {
   getVersion: () => Promise<string>
   resizeToPlayer: () => Promise<void>

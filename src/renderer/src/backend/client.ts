@@ -1,8 +1,7 @@
 // Main-thread BackendAPI facade. DB/scan calls go promise-per-message to the
 // backend worker; folder access, app state, and project discovery run on the main
 // thread (they need user gestures and the DOM); host capabilities (resize,
-// openExternal, version) delegate to the Electron shellAPI when present and
-// fall back to browser behaviour otherwise.
+// openExternal, version) delegate to the required Electron shellAPI.
 
 import type { BackendAPI, FolderSelections } from '../../../shared/backend-api'
 import type { ShellAPI } from '../../../shared/ipc'
@@ -28,14 +27,7 @@ import {
   writeMixJamFile
 } from './project-files'
 
-// Inlined from package.json/git at build time (see electron.vite.config.ts).
-declare const __APP_VERSION__: string | undefined
-
-function appVersion(): string {
-  return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev'
-}
-
-export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
+export function createBackendAPI(shell: ShellAPI): BackendAPI {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
   const workerProxy = createWorkerProxy(worker)
 
@@ -44,13 +36,13 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
   let cachedVersion: string | null = null
   async function getVersionCached(): Promise<string> {
     if (cachedVersion !== null) return cachedVersion
-    cachedVersion = shell ? await shell.getVersion() : appVersion()
+    cachedVersion = await shell.getVersion()
     return cachedVersion
   }
 
   const call = workerProxy.call
 
-  // Ask the browser to protect OPFS/IndexedDB from storage-pressure eviction.
+  // Ask Chromium to protect OPFS/IndexedDB from storage-pressure eviction.
   // Fire-and-forget on first scan: that is the moment the index starts being
   // worth keeping (it stays rebuildable by rescan regardless).
   let persistRequested = false
@@ -62,13 +54,9 @@ export function createBackendAPI(shell: ShellAPI | null): BackendAPI {
 
   return {
     getVersion: () => getVersionCached(),
-    resizeToPlayer: () => shell?.resizeToPlayer() ?? Promise.resolve(),
-    resizeToHome: () => shell?.resizeToHome() ?? Promise.resolve(),
-    openExternal: (url) => {
-      if (shell) return shell.openExternal(url)
-      window.open(url, '_blank', 'noopener,noreferrer')
-      return Promise.resolve()
-    },
+    resizeToPlayer: () => shell.resizeToPlayer(),
+    resizeToHome: () => shell.resizeToHome(),
+    openExternal: (url) => shell.openExternal(url),
 
     loadFolderSelections: () => Promise.resolve(loadFolderSelections()),
     saveFolderSelections: async (selections: FolderSelections) => {

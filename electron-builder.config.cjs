@@ -13,13 +13,16 @@ module.exports = {
   asar: true,
   linux: {
     target: ['AppImage'],
-    category: 'Audio'
+    category: 'Audio',
+    icon: 'public/app-icon.svg'
   },
   win: {
-    target: ['portable']
+    target: ['portable'],
+    icon: 'public/app-icon.ico'
   },
   mac: {
-    target: ['dmg']
+    target: ['dmg'],
+    icon: 'public/app-icon.svg'
   },
   npmRebuild: false,
   extraMetadata: {

@@ -1,6 +1,6 @@
 {
   "name": "mixjam-electron",
-  "version": "0.43",
+  "version": "0.43.0",
   "description": "MixJam Electron — sample-library browser and tracker",
   "main": "out/main/index.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "npm run build && npx playwright test --project=browser-e2e",
+    "test:e2e": "npm run build && npx playwright test --project=electron-e2e --project=electron-smoke",
     "test:e2e:coverage": "npm run test:e2e && node scripts/convert-e2e-coverage.mjs",
     "test:e2e:electron": "npm run build && npx playwright test --project=electron-smoke",
     "test:all": "npm run test && npm run test:e2e",

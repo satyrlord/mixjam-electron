@@ -4,7 +4,7 @@ test('collapsed MixJam Browser does not overlap the Tracker lane heads', async (
   const start = page.getByRole('button', { name: 'Start New MixJam' })
   await expect(start).toBeEnabled()
   await start.click()
-  await expect(page.getByText('Lane 1', { exact: true })).toBeVisible()
+  await expect(page.locator('.tracker-lane-name').first()).toHaveText('Lane 1')
 
   await page.getByRole('button', { name: 'Collapse MixJam Browser' }).click()
 

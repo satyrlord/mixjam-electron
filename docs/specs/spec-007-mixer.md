@@ -208,6 +208,16 @@ missing or malformed lane-owned Mixer data.
 | EQ is decorative and disabled | The reference hierarchy is retained without inventing unsupported DSP. |
 | Song Master is unchanged | The overhaul ends at the existing Master input boundary. |
 
+Implementation ownership follows the same model. `LaneState` is the only
+mutable source for lane volume, pan, mute, solo, and sends. The project command
+history owns lanes and the four Return buses in one atomic edit snapshot.
+`useMixer` derives audio-graph snapshots and meter indices from that project
+state and owns only live visual telemetry. It does not store project data or a
+parallel channel array.
+Complete snapshot reconciliation also removes every graph channel absent from
+the new lane list, including channels above a shortened list's new length, so a
+removed solo cannot keep the remaining lanes gated.
+
 ## Acceptance Criteria
 
 - [ ] **AC-001:** A new project shows eight lanes and eight matching Mixer

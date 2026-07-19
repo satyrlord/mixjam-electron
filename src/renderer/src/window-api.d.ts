@@ -5,8 +5,8 @@ declare global {
   interface Window {
     /** Installed by main.tsx (real backend) or test/setup.ts (mock). */
     backendAPI: BackendAPI
-    /** Present only inside the Electron shell (exposed by the preload). */
-    shellAPI?: ShellAPI
+    /** Required Electron host capabilities exposed by the preload. */
+    shellAPI: ShellAPI
   }
 }
 

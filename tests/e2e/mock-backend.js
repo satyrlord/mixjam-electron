@@ -4,7 +4,7 @@
 // Must be plain ES5-compatible JavaScript (no imports, no TypeScript,
 // no arrow functions in object methods where `this` matters).
 // Structured-clone cannot serialize functions, so the entire mock must
-// be a string that executes in the browser context.
+// be a string that executes in the Electron renderer context.
 // This is the SOURCE file; tests/e2e/fixtures.ts reads and inlines it.
 // Keep the IIFE wrapper so variables stay local.
 (function () {
@@ -103,11 +103,11 @@
     var bars = Math.max(1, Math.floor(parameters.durationSeconds * bpm / 240 + 0.5))
     var targetTicks = bars * 32
     var lanes = []
-    var channels = []
     for (var index = 0; index < 16; index++) {
       lanes.push({
         index: index,
         name: index === 0 ? 'Kick' : 'Generator ' + (index + 1),
+        gain: index === 0 ? 0.78 : 0.5,
         pan: 0,
         muted: false,
         solo: false,
@@ -115,14 +115,6 @@
           { id: 'generator-kick-start', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: 0, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 0 },
           { id: 'generator-kick-end', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: targetTicks - 8, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 0 }
         ] : []
-      })
-      channels.push({
-        channelIndex: index,
-        gain: index === 0 ? 0.78 : 0.5,
-        pan: 0,
-        muted: false,
-        solo: false,
-        effects: index === 0 ? [{ id: 'generator-compressor', type: 'compressor', presetName: 'Gentle Glue', values: { threshold: -18, ratio: 2, attackMs: 30, releaseMs: 250, makeupGain: 1.5 } }] : []
       })
     }
     return {
@@ -142,8 +134,7 @@
       substitutions: [],
       sections: [{ name: 'Intro', startBar: 0, endBar: bars, activeLanes: [0] }],
       phrases: [{ sectionIndex: 0, startBar: 0, endBar: Math.min(8, bars), activeLanes: [0], motif: 'A' }],
-      lanes: lanes,
-      channels: channels
+      lanes: lanes
     }
   }
 
@@ -167,15 +158,15 @@
 
   function makeProject(name, bpm) {
     var lanes = []
-    var channels = []
-    for (var i = 0; i < 16; i += 1) {
+    for (var i = 0; i < 8; i += 1) {
       lanes.push({
-        index: i,
+        id: 'lane-' + (i + 1),
         name: 'Lane ' + (i + 1),
+        gain: i === 0 ? 0.64 : 0.8,
         muted: false,
         solo: false,
         pan: 0,
-        channelId: 'ch-' + (i + 1),
+        sends: [0, 0, 0, 0],
         placements: i === 0 ? [{
           id: 'placement-' + name,
           sampleRef: 'Drums/Kicks/kick_808.wav',
@@ -187,35 +178,27 @@
           slot: 2
         }] : []
       })
-      channels.push({
-        id: 'ch-' + (i + 1),
-        index: i,
-        name: 'Channel ' + (i + 1),
-        gain: i === 0 ? 0.64 : 0.8,
-        pan: 0,
-        muted: false,
-        solo: false,
-        fx: i === 0 ? [{
-          id: 'fx-' + name,
-          type: 'delay',
-          bypassed: false,
-          timeMs: 375,
-          feedback: 0.35,
-          mix: 0.3,
-          pingPong: false,
-          tempoSync: false,
-          noteDivision: '1/8'
-        }] : []
-      })
     }
     return JSON.stringify({
-      formatVersion: 1,
+      formatVersion: 4,
       appVersion: 'v0.test.0',
       createdAt: '2026-06-28T12:00:00.000Z',
       modifiedAt: '2026-06-28T12:00:00.000Z',
-      song: { bpm: bpm, masterGain: 0.7 },
+      song: { bpm: bpm, masterGain: 0.7, clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 } },
       lanes: lanes,
-      channels: channels
+      fxBuses: [1, 2, 3, 4].map(function (slot) {
+        return {
+          id: 'fx-' + slot,
+          index: slot - 1,
+          name: 'FX' + slot,
+          module: slot === 1
+            ? { type: 'delay', mode: 'free', timeMs: 375, noteDivision: '1/8', feedback: 35, tapeDistortion: 0, pingPong: false }
+            : { type: 'empty' },
+          powered: true,
+          returnLevel: 1,
+          limiterEnabled: true
+        }
+      })
     }, null, 2) + '\n'
   }
 

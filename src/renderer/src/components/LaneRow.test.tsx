@@ -5,11 +5,14 @@ import type { LaneState } from '../lib/arrangement'
 
 function makeLane(overrides: Partial<LaneState> = {}): LaneState {
   return {
+    id: 'lane-1',
     index: 0,
     name: 'Lane 1',
     muted: false,
     solo: false,
     pan: 0,
+    gain: 0.8,
+    sends: [0, 0, 0, 0],
     placements: [],
     ...overrides
   }

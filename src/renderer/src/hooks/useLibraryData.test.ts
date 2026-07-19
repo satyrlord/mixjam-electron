@@ -876,6 +876,20 @@ describe('useLibraryData', () => {
     expect(result.current.samples[0]!.category).toBe('Bass')
   })
 
+  it('maps an unknown DB category to Unsorted', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    setRootState(api, true)
+    vi.mocked(api.querySamples).mockResolvedValue({
+      rows: [makeDbRow({ categoryId: 999 })],
+      total: 1
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+
+    await waitFor(() => expect(result.current.samples).toHaveLength(1))
+    expect(result.current.samples[0]!.category).toBe('Unsorted')
+  })
+
   it('assignTagToSample returns early when tag is already assigned', async () => {
     vi.useRealTimers()
     const api = makeApi()
@@ -1516,5 +1530,18 @@ describe('useLibraryData', () => {
       message: 'Unable to start library sync.'
     })
     consoleSpy.mockRestore()
+  })
+
+  it('does not cancel when no library job is active', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    setRootState(api, true)
+    vi.mocked(api.startLibrarySync)
+      .mockResolvedValue({ identity: AUTO_JOB, disposition: 'suppressed' })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.librarySyncState.status).toBe('ready'))
+
+    await act(async () => { await result.current.cancelLibrarySync() })
+    expect(api.cancelLibrarySync).not.toHaveBeenCalled()
   })
 })

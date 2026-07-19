@@ -1,22 +1,18 @@
 import type { MixJamGeneratorPlan } from '../../../shared/backend-api'
-import { isEffectSlot, type EffectSlot } from '../engine/effects'
 import type { LaneState } from '../lib/arrangement'
-import { createDefaultProjectState, type ChannelState } from './project-state'
+import { createDefaultProjectState } from './project-state'
 import type { ProjectData } from './project-file'
 
-function materializeEffect(plan: MixJamGeneratorPlan['channels'][number]['effects'][number]): EffectSlot {
-  const effect = { id: plan.id, type: plan.type, bypassed: false, ...plan.values }
-  if (!isEffectSlot(effect)) throw new Error(`Generator produced an invalid ${plan.type} effect.`)
-  return effect
-}
-
 export function materializeGeneratedProject(plan: MixJamGeneratorPlan): ProjectData {
-  const lanes: LaneState[] = plan.lanes.map((lane) => ({
+  const materialized: LaneState[] = plan.lanes.map((lane) => ({
+    id: `lane-${lane.index + 1}`,
     index: lane.index,
     name: lane.name,
     pan: lane.pan,
     muted: lane.muted,
     solo: lane.solo,
+    gain: lane.gain,
+    sends: [0, 0, 0, 0],
     placements: lane.placements.map((placement) => ({
       id: placement.id,
       samplePath: placement.sampleRef,
@@ -28,20 +24,12 @@ export function materializeGeneratedProject(plan: MixJamGeneratorPlan): ProjectD
       slot: placement.slot
     }))
   }))
-  const channels: ChannelState[] = plan.channels.map((channel) => ({
-    channelIndex: channel.channelIndex,
-    gain: channel.gain,
-    pan: channel.pan,
-    muted: channel.muted,
-    solo: channel.solo,
-    effects: channel.effects.map(materializeEffect)
-  }))
-
+  const nonEmpty = materialized.filter((lane) => lane.placements.length > 0)
+  const lanes = (nonEmpty.length > 0 ? nonEmpty : materialized.slice(0, 1)).map((lane, index) => ({ ...lane, index }))
   return {
     ...createDefaultProjectState({
       song: { bpm: plan.parameters.resolvedBpm },
-      lanes,
-      channels
+      lanes
     }),
     generator: {
       generatorVersion: plan.generatorVersion,

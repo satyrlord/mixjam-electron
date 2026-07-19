@@ -220,8 +220,8 @@ export function useMixJamGenerator(
           `samples: ${plan.selections.flatMap((selection) => selection.sampleRefs).join(', ')}`,
           `substitutions: ${plan.substitutions.map((entry) => `${entry.requestedType} to ${entry.selectedType}`).join(', ') || 'none'}`,
           `sections: ${plan.sections.map((section) => section.name).join(', ')}`,
-          `mixer: ${plan.channels.map((channel) => `${channel.channelIndex + 1}=${channel.gain.toFixed(2)}/${channel.pan.toFixed(2)}`).join(', ')}`,
-          `FX: ${plan.channels.flatMap((channel) => channel.effects.map((effect) => effect.presetName)).join(', ') || 'none'}`
+          `mixer: ${plan.lanes.map((lane) => `${lane.index + 1}=${lane.gain.toFixed(2)}/${lane.pan.toFixed(2)}`).join(', ')}`,
+          'FX: generators leave all four return slots Empty'
         ].join('; ') + '.'
       })
     } catch (err) {

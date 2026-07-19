@@ -1,6 +1,7 @@
 import type { FooterSampleDetail } from '../lib/arrangement'
 import WaveformPreview from './WaveformPreview'
 import { Tooltip } from './ui/Tooltip'
+import { UI_SIZE_OPTIONS, type UiSize } from '../ui-size'
 
 interface FooterProps {
   view: 'home' | 'player'
@@ -9,6 +10,8 @@ interface FooterProps {
   onSelectFolder: () => void
   onOpenRepo: () => void
   getSampleBuffer?: (samplePath: string) => Promise<AudioBuffer | null>
+  uiSize?: UiSize
+  onUiSizeChange?: (size: UiSize) => void
 }
 
 export default function Footer({
@@ -17,7 +20,9 @@ export default function Footer({
   sampleDetail,
   onSelectFolder,
   onOpenRepo,
-  getSampleBuffer
+  getSampleBuffer,
+  uiSize = 40,
+  onUiSizeChange = () => undefined
 }: FooterProps) {
   return (
     <footer className="footer">
@@ -36,9 +41,23 @@ export default function Footer({
           </>
         ) : null}
       </div>
-      <button type="button" className="footer-link" onClick={onOpenRepo}>
-        {version}
-      </button>
+      <div className="footer-preferences">
+        <div className="footer-ui-size" role="group" aria-label="UI Size">
+          {UI_SIZE_OPTIONS.map((size) => (
+            <button
+              type="button"
+              key={size}
+              aria-pressed={uiSize === size}
+              onClick={() => onUiSizeChange(size)}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="footer-link" onClick={onOpenRepo}>
+          {version}
+        </button>
+      </div>
     </footer>
   )
 }

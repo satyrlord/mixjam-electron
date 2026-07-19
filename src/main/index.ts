@@ -1,8 +1,7 @@
-// Thin Electron shell. The entire backend (SQLite, indexing, app state, folder
-// access) lives in the renderer bundle and runs identically in a plain
-// Chromium browser; this process only provides what a browser cannot: a
-// window, a stable privileged origin for storage, auto-granted File System
-// Access permissions, and an allowlisted openExternal.
+// Electron host. The backend (SQLite, indexing, app state, folder access)
+// stays in the sandboxed renderer. This process owns the native window, the
+// stable app:// origin, File System Access permissions, and allowlisted
+// external navigation.
 
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, protocol, session, shell } from 'electron'
 import { join, normalize, sep } from 'path'
@@ -12,6 +11,7 @@ import {
   buildAppIconPath,
   buildPreloadPath,
   createMainWindowOptions,
+  enforceMinimumContentSize,
   resizeWindowToHome,
   resizeWindowToPlayer
 } from '../shared/window-config'
@@ -20,8 +20,8 @@ let mainWindow: BrowserWindow | null = null
 const ALLOWED_EXTERNAL_HOSTS = new Set(['github.com', 'www.github.com'])
 
 // app.getVersion() returns Electron's own version in an unpackaged run rather
-// than this app's. __APP_VERSION__ is inlined from git/package.json at build
-// time (see electron.vite.config.ts).
+// than this app's. __APP_VERSION__ is inlined from package.json at build time
+// (see electron.vite.config.ts).
 declare const __APP_VERSION__: string | undefined
 function appVersion(): string {
   return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : app.getVersion()
@@ -81,6 +81,7 @@ function createWindow(): void {
 
   const icon = nativeImage.createFromPath(buildAppIconPath(__dirname))
   const window = new BrowserWindow(createMainWindowOptions(buildPreloadPath(__dirname), icon))
+  enforceMinimumContentSize(window)
   mainWindow = window
 
   window.once('ready-to-show', () => {

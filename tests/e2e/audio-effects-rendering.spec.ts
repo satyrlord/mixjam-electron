@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import { expect, prepareHarnessPage, test } from './fixtures'
+import type { Page } from '@playwright/test'
 import { resolve } from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { build } from 'vite'
@@ -11,6 +12,11 @@ interface EffectHarnessWindow extends Window {
     createEffectProcessor(
       context: BaseAudioContext,
       effect: Record<string, unknown>,
+      bpm: number
+    ): { input: AudioNode; output: AudioNode; dispose(): void }
+    createReturnModuleProcessor(
+      context: BaseAudioContext,
+      module: Record<string, unknown>,
       bpm: number
     ): { input: AudioNode; output: AudioNode; dispose(): void }
   }
@@ -35,6 +41,7 @@ interface EffectHarnessWindow extends Window {
 
 async function installEffectHarness(page: Page): Promise<void> {
   const effectsPath = resolve(process.cwd(), 'src/renderer/src/engine/effects.ts').replaceAll('\\', '/')
+  const returnEffectsPath = resolve(process.cwd(), 'src/renderer/src/engine/return-effects.ts').replaceAll('\\', '/')
   const runtimePath = resolve(process.cwd(), 'src/renderer/src/hooks/useTransportRuntime.ts').replaceAll('\\', '/')
   const result = await build({
     configFile: false,
@@ -50,9 +57,10 @@ async function installEffectHarness(page: Page): Promise<void> {
           import React, { useEffect } from 'react'
           import { createRoot } from 'react-dom/client'
           import { createEffectProcessor } from ${JSON.stringify(effectsPath)}
+          import { createReturnModuleProcessor } from ${JSON.stringify(returnEffectsPath)}
           import { useTransportRuntime } from ${JSON.stringify(runtimePath)}
 
-          window.mixjamEffects = { createEffectProcessor }
+          window.mixjamEffects = { createEffectProcessor, createReturnModuleProcessor }
           let root = null
 
           window.mountMixjamTransportHarness = ({ wavBytes, songEndTick, effects }) => {
@@ -120,13 +128,13 @@ async function installEffectHarness(page: Page): Promise<void> {
     build: {
       write: false,
       target: 'es2022',
-      rollupOptions: { input: VIRTUAL_ENTRY }
+      rollupOptions: { input: VIRTUAL_ENTRY, output: { format: 'iife' } }
     }
   })
   if (Array.isArray(result) || !('output' in result)) throw new Error('Expected one Vite build output')
   const chunk = result.output.find((output) => output.type === 'chunk')
   if (!chunk) throw new Error('Effect harness bundle was not emitted')
-  await page.addScriptTag({ content: chunk.code, type: 'module' })
+  await page.evaluate(chunk.code)
 }
 
 function createImpulseWav(durationSeconds = 1, sampleRate = 44_100): number[] {
@@ -176,13 +184,47 @@ async function samplePostStopOutput(page: Page, durationMs = 600) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.route('**/audio-effects-harness.html', (route) => route.fulfill({
-    contentType: 'text/html',
-    body: '<!doctype html><html><head></head><body></body></html>'
-  }))
-  await page.goto('/audio-effects-harness.html')
-  await page.unroute('**/audio-effects-harness.html')
+  await prepareHarnessPage(page)
   await installEffectHarness(page)
+})
+
+test('zero tape distortion preserves over-unity samples in OfflineAudioContext', async ({ page }) => {
+  const maximumError = await page.evaluate(async () => {
+    const { createReturnModuleProcessor } = (window as unknown as EffectHarnessWindow).mixjamEffects
+    const sampleRate = 44_100
+    const frameCount = 128
+    const context = new OfflineAudioContext(2, frameCount, sampleRate)
+    const source = context.createBufferSource()
+    const input = context.createBuffer(2, frameCount, sampleRate)
+    for (let channel = 0; channel < input.numberOfChannels; channel += 1) {
+      input.getChannelData(channel).fill(1.5)
+    }
+    source.buffer = input
+    const processor = createReturnModuleProcessor(context, {
+      id: 'identity-delay',
+      type: 'delay',
+      mode: 'free',
+      timeMs: 0,
+      noteDivision: '1/8',
+      feedback: 0,
+      tapeDistortion: 0,
+      pingPong: false
+    }, 120)
+    source.connect(processor.input)
+    processor.output.connect(context.destination)
+    source.start()
+    const rendered = await context.startRendering()
+    let error = 0
+    for (let channel = 0; channel < rendered.numberOfChannels; channel += 1) {
+      const samples = rendered.getChannelData(channel)
+      for (let frame = 8; frame < samples.length; frame += 1) {
+        error = Math.max(error, Math.abs((samples[frame] ?? 0) - 1.5))
+      }
+    }
+    return error
+  })
+
+  expect(maximumError).toBeLessThan(1e-6)
 })
 
 test('real DSP renders delay, reverb, and compression in Chromium', async ({ page }) => {

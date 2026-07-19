@@ -89,7 +89,7 @@ App (full viewport, no root overflow scrollbar)
 ### Home Screen Layout
 
 ```text
-Home (1920x1080 minimum, resizable, maximizable)
+Home (1920x1080 renderer content minimum, resizable, maximizable)
   ├── Content (centered two-column layout)
   │   ├── Hero column (left): logo, wordmark, tagline, steps, theme grid
   │   ├── Workflow column (right): three independent sibling cards
@@ -108,15 +108,17 @@ Home (1920x1080 minimum, resizable, maximizable)
 
 ### Player Layout
 
-- The minimum window size for all views is 1920x1080 (1080p). A smaller renderer
-  viewport cannot enter any view and shows a clear minimum-size message.
+- The Player requires a 1920x1080 CSS renderer. The native frame is additional.
+  Home may use its documented
+  internal narrow-width scrolling before a project is opened. A smaller Player
+  viewport shows the minimum-size message.
 - All views launch maximized on their current display. The user may restore,
   resize above the minimum, or maximize again at any time.
 - The root Player never scrolls vertically. At minimum size every layout keeps
   the full ruler and at least one complete lane visible.
 
 ```text
-Player (minimum 1920x1080, resizable, starts maximized in Electron)
+Player (minimum 1920x1080 renderer content, resizable, starts maximized in Electron)
   ├── Header: home link (left), brand (left-of-center), timer (absolute center),
   │           theme selector (right)
   ├── Upper Work Band (flex row)
@@ -255,20 +257,23 @@ Three typographic roles, each defined per theme via CSS custom properties:
 
 - **Primary rhythm:** 8px spacing grid.
 - **Micro-spacing:** 4px allowed only for icon/group internal spacing.
-- **Control hit targets:** use the selected UI Size token: 30x30, 40x40, or
-  50x50 CSS pixels. Do not mix target sizes within one UI Size.
-- **Group padding:** must not increase rendered group beyond its container
-  height (e.g. 48px Middle Strip main row).
+- **Control hit targets:** square controls and swatches use the selected UI Size
+  token exactly: 30x30, 40x40, or 50x50 CSS pixels. Text-bearing controls use
+  the selected value as their minimum cross-axis size and keep content-driven
+  width. Do not mix target sets within one UI Size.
+- **Group padding:** must not increase a rendered group beyond the selected
+  Middle Strip main-row token.
 
 ### Key Measurements
 
 | Element | Measurement |
 | --------- | ------------- |
-| Header height | 48px base; scales with UI Size |
-| Footer height | 48px base; scales with UI Size |
-| Middle Strip total | 80px base border-box; scales with UI Size |
-| Song Progress Bar row | 28px |
-| Middle Strip main row | 48px base; scales with UI Size |
+| Header height | 48 / 64 / 80px at size 30 / 40 / 50 |
+| Footer height | 48 / 64 / 80px at size 30 / 40 / 50 |
+| Middle Strip total | 80 / 107 / 133px at size 30 / 40 / 50 |
+| Song Progress Bar row | 28 / 37 / 47px at size 30 / 40 / 50 |
+| Middle Strip main row | 48 / 64 / 80px at size 30 / 40 / 50 |
+| Bottom Workspace tab row | 44 / 59 / 73px at size 30 / 40 / 50 |
 | Lane height | 37px at size 30; 49px at size 40; 61px at size 50 |
 | Lane head width | 240px (exact, including rendered border box) |
 | Sample bubble height | 24px at size 30; 33px at size 40; 41px at size 50 |
@@ -276,9 +281,9 @@ Three typographic roles, each defined per theme via CSS custom properties:
 | Ruler beat/bar model | Beat tick lines at each beat; stronger tick every bar |
 | Bar number interval | Every 4 bars: 1, 5, 9, 13... |
 | Playhead width | 2px |
-| Mixer channel strip | 76px at size 30; scales by UI Size tokens |
-| Mixer Return section | 120px at size 30; scales by UI Size tokens |
-| Mixer FX container | 160px at size 30; scales by UI Size tokens |
+| Mixer channel strip | 76 / 101 / 127px at size 30 / 40 / 50 |
+| Mixer Return section | 120 / 160 / 200px at size 30 / 40 / 50 |
+| Mixer FX container | 160 / 213 / 267px at size 30 / 40 / 50 |
 | Lane Mute/Solo controls | selected UI Size target |
 | BPM numeric input | scales inside the selected UI Size target |
 | Vertical fader minimum width | selected UI Size target |
@@ -550,8 +555,8 @@ present. Native light Windows scrollbars never appear on dark themes.
   ```
 
 - Four FX containers follow the Return section in a fixed 2x2 grid. Each is
-  136px wide by 112px high at UI Size 30. Width scales with the selected UI
-  Size while the compact height keeps both rows inside the 720p Mixer without
+  160px wide by 112px high at UI Size 30. Width scales with the selected UI
+  Size while the compact height keeps both rows inside the 1080p Mixer without
   a vertical scrollbar. Each shows its number, Empty or Delay name, power state, and a compact
   summary of time/division, feedback, Tape Distortion, and Ping-Pong.
 - Left-click opens a dropdown. Empty offers `Delay...`. A configured slot offers
@@ -651,7 +656,8 @@ present. Native light Windows scrollbars never appear on dark themes.
 ## Accessibility Foundations
 
 - Every icon-only control has an accessible name and visible focus indicator.
-- Interactive targets use the selected 30x30, 40x40, or 50x50 UI Size token.
+- Square interactive targets use the selected 30x30, 40x40, or 50x50 UI Size
+  token. Text-bearing targets use the selected value as their minimum height.
 - No overlapping interactive rectangles; every target's center hit-tests to
   that target or a descendant.
 - Menus use the shared Radix-backed primitive and return focus to trigger on

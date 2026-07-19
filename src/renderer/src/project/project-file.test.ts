@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultLanes, TRACKER_TOTAL_TICKS } from '../lib/arrangement'
-import { createDefaultChannels } from './project-state'
 import {
   NEWER_PROJECT_VERSION_MESSAGE,
   ProjectFileError,
@@ -12,6 +11,7 @@ import {
   type ProjectGeneratorMetadata
 } from './project-file'
 import { supportsExactGeneratorRegeneration } from './generator-support'
+import { createDefaultFxBuses, type ProjectFxBuses } from './project-state'
 
 const CREATED_AT = '2026-07-13T10:00:00.000Z'
 const MODIFIED_AT = '2026-07-13T11:00:00.000Z'
@@ -38,6 +38,8 @@ function makeProject(): ProjectData {
     name: 'Kick Phrase',
     muted: true,
     pan: -0.25,
+    gain: 0.63,
+    solo: true,
     placements: [{
       id: 'placement-kick-1',
       samplePath: 'Drums/Kicks/kick.wav',
@@ -49,24 +51,6 @@ function makeProject(): ProjectData {
       slot: 3
     }]
   }
-  const channels = createDefaultChannels()
-  channels[0] = {
-    ...channels[0]!,
-    gain: 0.63,
-    pan: 0.4,
-    solo: true,
-    effects: [{
-      id: 'fx-delay-1',
-      type: 'delay',
-      bypassed: false,
-      timeMs: 420,
-      feedback: 0.45,
-      mix: 0.3,
-      pingPong: true,
-      tempoSync: false,
-      noteDivision: '1/8'
-    }]
-  }
   return {
     song: {
       bpm: 126,
@@ -74,7 +58,7 @@ function makeProject(): ProjectData {
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     },
     lanes,
-    channels
+    fxBuses: createDefaultFxBuses()
   }
 }
 
@@ -87,6 +71,11 @@ function serialize(project = makeProject(), modifiedAt = MODIFIED_AT): string {
 }
 
 describe('project file format', () => {
+  it('rejects serialization when the in-memory Return bus count is invalid', () => {
+    const project = makeProject()
+    project.fxBuses = [] as unknown as ProjectFxBuses
+    expect(() => serialize(project)).toThrow('exactly 4 return buses')
+  })
   it('supports regeneration only for the current generator and profile versions', () => {
     expect(supportsExactGeneratorRegeneration(GENERATOR)).toBe(true)
     expect(supportsExactGeneratorRegeneration({ ...GENERATOR, profileVersion: 1 })).toBe(false)
@@ -133,13 +122,7 @@ describe('project file format', () => {
         slot: 3
       }]
     })
-    expect(parsed.channels[0]).toMatchObject({
-      channelIndex: 0,
-      gain: 0.63,
-      pan: 0.4,
-      solo: true,
-      effects: [{ id: 'fx-delay-1', type: 'delay', pingPong: true }]
-    })
+    expect(parsed.lanes[0]).toMatchObject({ gain: 0.63, solo: true, sends: [0, 0, 0, 0] })
   })
 
   it('save-load-save is identical except for modifiedAt', () => {
@@ -160,7 +143,7 @@ describe('project file format', () => {
     const project = { ...makeProject(), generator: GENERATOR }
     const parsed = parseProject(serialize(project))
 
-    expect(parsed.formatVersion).toBe(3)
+    expect(parsed.formatVersion).toBe(4)
     expect(parsed.generator).toEqual(GENERATOR)
 
     const serialized = JSON.parse(serializeProject(parsed, {
@@ -171,21 +154,12 @@ describe('project file format', () => {
     expect(serialized.generator).toEqual(GENERATOR)
   })
 
-  it('migrates version 2 without inventing generator metadata or changing project state', () => {
+  it('rejects version 2 projects (migration removed)', () => {
     const versionTwo = JSON.parse(serialize()) as Record<string, unknown>
     versionTwo.formatVersion = 2
     delete versionTwo.generator
 
-    const migrated = parseProject(JSON.stringify(versionTwo))
-    const reparsed = parseProject(serializeProject(migrated, {
-      appVersion: migrated.appVersion,
-      createdAt: migrated.createdAt,
-      modifiedAt: migrated.modifiedAt
-    }))
-
-    expect(migrated.formatVersion).toBe(3)
-    expect(migrated).not.toHaveProperty('generator')
-    expect(reparsed).toEqual(migrated)
+    expect(() => parseProject(JSON.stringify(versionTwo))).toThrowError(ProjectFileError)
   })
 
   it.each([
@@ -296,53 +270,14 @@ describe('project file format', () => {
     )
   })
 
-  it('migrates the pre-v1 draft shape in memory and is idempotent afterward', () => {
-    const raw = JSON.parse(serialize()) as Record<string, unknown> & {
-      song?: { bpm: number; masterGain: number }
-      bpm?: number
-      lanes: Array<Record<string, unknown> & { placements: Array<Record<string, unknown>> }>
-      channels: Array<Record<string, unknown>>
-    }
+  it('rejects pre-v1 draft format (migration removed)', () => {
+    const raw = JSON.parse(serialize()) as Record<string, unknown>
     raw.formatVersion = 0
-    raw.bpm = raw.song!.bpm
-    delete raw.song
-    for (const lane of raw.lanes) {
-      delete lane.pan
-      delete lane.channelId
-      for (const placement of lane.placements) {
-        delete placement.id
-        delete placement.sampleName
-        delete placement.durationSeconds
-        delete placement.slot
-      }
-    }
-    for (const channel of raw.channels) {
-      delete channel.index
-      delete channel.name
-    }
 
-    const migrated = parseProject(JSON.stringify(raw))
-    const reparsed = parseProject(serializeProject(migrated, {
-      appVersion: migrated.appVersion,
-      createdAt: migrated.createdAt,
-      modifiedAt: migrated.modifiedAt
-    }))
-
-    expect(migrated.formatVersion).toBe(3)
-    expect(migrated.song).toEqual({
-      bpm: 126,
-      masterGain: 0.8,
-      clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
-    })
-    expect(migrated.lanes[0]!.placements[0]).toMatchObject({
-      id: 'placement-0-0',
-      sampleName: 'kick.wav',
-      durationSeconds: null
-    })
-    expect(reparsed).toEqual(migrated)
+    expect(() => parseProject(JSON.stringify(raw))).toThrowError(ProjectFileError)
   })
 
-  it('migrates version 1 projects to the default clip-edge micro-fades', () => {
+  it('rejects version 1 projects (migration removed)', () => {
     const raw = JSON.parse(serialize()) as {
       formatVersion: number
       song: Record<string, unknown>
@@ -350,11 +285,7 @@ describe('project file format', () => {
     raw.formatVersion = 1
     delete raw.song.clipEdgeMicroFades
 
-    expect(parseProject(JSON.stringify(raw)).song.clipEdgeMicroFades).toEqual({
-      enabled: true,
-      fadeInMs: 2,
-      fadeOutMs: 4
-    })
+    expect(() => parseProject(JSON.stringify(raw))).toThrowError(ProjectFileError)
   })
 
   it('rejects clip-edge micro-fade settings outside the project range', () => {
@@ -382,28 +313,17 @@ describe('project file format', () => {
     })).not.toBe(baseline)
     expect(projectFingerprint({
       ...project,
-      lanes: project.lanes.map((lane, index) => index === 0 ? { ...lane, solo: true } : lane)
+      lanes: project.lanes.map((lane, index) => index === 0 ? { ...lane, solo: false } : lane)
+    })).not.toBe(baseline)
+    // Channels are derived from lanes, not serialized independently.
+    // Fingerprint changes only through lane-level mutations that affect derived mixer state.
+    expect(projectFingerprint({
+      ...project,
+      lanes: project.lanes.map((lane, index) => index === 0 ? { ...lane, gain: 0.5 } : lane)
     })).not.toBe(baseline)
     expect(projectFingerprint({
       ...project,
-      channels: project.channels.map((channel, index) => index === 0
-        ? { ...channel, gain: 0.5 }
-        : channel)
-    })).not.toBe(baseline)
-    expect(projectFingerprint({
-      ...project,
-      channels: project.channels.map((channel, index) => index === 0
-        ? {
-            ...channel,
-            effects: channel.effects.map((effect) => effect.type === 'delay'
-              ? { ...effect, feedback: 0.2 }
-              : effect)
-          }
-        : channel)
-    })).not.toBe(baseline)
-    expect(projectFingerprint({
-      ...project,
-      channels: project.channels.slice(1)
+      lanes: project.lanes.slice(1)
     })).not.toBe(baseline)
     expect(projectFingerprint({ ...project, generator: GENERATOR })).not.toBe(baseline)
   })

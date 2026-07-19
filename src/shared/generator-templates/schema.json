@@ -68,79 +68,10 @@
         "phraseMode": { "enum": ["sparse", "steady", "build", "breakdown", "return", "peak", "outro"] }
       }
     },
-    "effect": {
-      "oneOf": [
-        { "$ref": "#/$defs/delayEffect" },
-        { "$ref": "#/$defs/reverbEffect" },
-        { "$ref": "#/$defs/compressorEffect" }
-      ]
-    },
-    "delayEffect": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "presetName", "values"],
-      "properties": {
-        "type": { "const": "delay" },
-        "presetName": { "type": "string", "minLength": 1 },
-        "values": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["timeMs", "feedback", "mix", "pingPong", "tempoSync", "noteDivision"],
-          "properties": {
-            "timeMs": { "type": "number", "minimum": 0, "maximum": 2000 },
-            "feedback": { "type": "number", "minimum": 0, "maximum": 1 },
-            "mix": { "type": "number", "minimum": 0, "maximum": 1 },
-            "pingPong": { "type": "boolean" },
-            "tempoSync": { "type": "boolean" },
-            "noteDivision": { "enum": ["1/4", "1/8", "1/16", "1/8T", "1/16T"] }
-          }
-        }
-      }
-    },
-    "reverbEffect": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "presetName", "values"],
-      "properties": {
-        "type": { "const": "reverb" },
-        "presetName": { "type": "string", "minLength": 1 },
-        "values": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["roomSize", "decay", "mix"],
-          "properties": {
-            "roomSize": { "type": "number", "minimum": 0, "maximum": 1 },
-            "decay": { "type": "number", "minimum": 0, "maximum": 1 },
-            "mix": { "type": "number", "minimum": 0, "maximum": 1 }
-          }
-        }
-      }
-    },
-    "compressorEffect": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "presetName", "values"],
-      "properties": {
-        "type": { "const": "compressor" },
-        "presetName": { "type": "string", "minLength": 1 },
-        "values": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["threshold", "ratio", "attackMs", "releaseMs", "makeupGain"],
-          "properties": {
-            "threshold": { "type": "number", "minimum": -60, "maximum": 0 },
-            "ratio": { "type": "number", "minimum": 1, "maximum": 20 },
-            "attackMs": { "type": "number", "minimum": 0, "maximum": 200 },
-            "releaseMs": { "type": "number", "minimum": 5, "maximum": 3000 },
-            "makeupGain": { "type": "number", "minimum": 0, "maximum": 24 }
-          }
-        }
-      }
-    },
     "lane": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "types", "maxBars", "role", "gain", "pan", "effects"],
+      "required": ["name", "types", "maxBars", "role", "gain", "pan"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "types": {
@@ -158,12 +89,7 @@
         "preferLong": { "type": "boolean" },
         "transitionKind": { "enum": ["riser", "impact"] },
         "gain": { "type": "number", "minimum": 0, "maximum": 1 },
-        "pan": { "type": "number", "minimum": -1, "maximum": 1 },
-        "effects": {
-          "type": "array",
-          "maxItems": 4,
-          "items": { "$ref": "#/$defs/effect" }
-        }
+        "pan": { "type": "number", "minimum": -1, "maximum": 1 }
       }
     }
   },

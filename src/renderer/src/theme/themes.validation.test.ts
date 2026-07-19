@@ -41,19 +41,19 @@ describe('theme validation boundary', () => {
     expect(root.style.getPropertyValue('--sample-bubble-border-color')).not.toBe('')
   })
 
-  it('publishes shared compact Tracker geometry tokens, not theme colors', async () => {
+  it('publishes only UI-size-invariant Tracker geometry tokens', async () => {
     const themes = await import('./themes')
     const root = document.createElement('div')
 
     themes.applyTrackerGeometry(root)
 
     expect(root.style.getPropertyValue('--tracker-geometry-scale')).toBe('0.75')
-    expect(root.style.getPropertyValue('--tracker-lane-height')).toBe('39px')
     expect(root.style.getPropertyValue('--tracker-lane-head-width')).toBe('240px')
     expect(root.style.getPropertyValue('--tracker-ruler-height')).toBe('33px')
-    expect(root.style.getPropertyValue('--tracker-lane-control-size')).toBe('32px')
     expect(root.style.getPropertyValue('--tracker-beat-width')).toBe('32px')
-    expect(root.style.getPropertyValue('--sample-bubble-height')).toBe('26px')
+    expect(root.style.getPropertyValue('--tracker-lane-height')).toBe('')
+    expect(root.style.getPropertyValue('--tracker-lane-control-size')).toBe('')
+    expect(root.style.getPropertyValue('--sample-bubble-height')).toBe('')
     // Geometry tokens are independent of theme; no color token should be set.
     expect(root.style.getPropertyValue('--accent')).toBe('')
   })

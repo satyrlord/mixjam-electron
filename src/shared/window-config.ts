@@ -1,14 +1,38 @@
 import { join } from 'path'
 import type { BrowserWindowConstructorOptions, NativeImage } from 'electron'
 
-export const HOME_WINDOW_SIZE = Object.freeze({ width: 1280, height: 720 })
-export const PLAYER_WINDOW_SIZE = Object.freeze({ width: 1920, height: 1080 })
+/** Minimum window size for all views — 1080p (1920 x 1080). */
+const MIN_WINDOW_SIZE = Object.freeze({ width: 1920, height: 1080 })
+
+/** Both application views use the same 1080p minimum. */
+export const HOME_WINDOW_SIZE = MIN_WINDOW_SIZE
+export const PLAYER_WINDOW_SIZE = MIN_WINDOW_SIZE
 
 export interface WindowFrameControls {
   setResizable(value: boolean): void
   setMaximizable(value: boolean): void
   setSize(width: number, height: number): void
+  setContentSize?(width: number, height: number): void
+  setMinimumSize?(width: number, height: number): void
+  getBounds?(): { width: number; height: number }
+  getContentBounds?(): { width: number; height: number }
   center(): void
+  maximize?(): void
+  unmaximize?(): void
+}
+
+/** BrowserWindow minimum sizes use native-frame bounds. Convert the renderer
+ * content contract to the matching outer size for the current platform. */
+export function enforceMinimumContentSize(window: WindowFrameControls): void {
+  if (!window.setMinimumSize) return
+  const bounds = window.getBounds?.()
+  const content = window.getContentBounds?.()
+  const frameWidth = bounds && content ? Math.max(0, bounds.width - content.width) : 0
+  const frameHeight = bounds && content ? Math.max(0, bounds.height - content.height) : 0
+  window.setMinimumSize(
+    MIN_WINDOW_SIZE.width + frameWidth,
+    MIN_WINDOW_SIZE.height + frameHeight
+  )
 }
 
 export function buildAppIconPath(baseDir: string): string {
@@ -21,10 +45,13 @@ export function buildPreloadPath(baseDir: string): string {
 
 export function createMainWindowOptions(preloadPath: string, icon: NativeImage): BrowserWindowConstructorOptions {
   return {
-    ...HOME_WINDOW_SIZE,
+    ...MIN_WINDOW_SIZE,
+    useContentSize: true,
+    minWidth: MIN_WINDOW_SIZE.width,
+    minHeight: MIN_WINDOW_SIZE.height,
     center: true,
-    resizable: false,
-    maximizable: false,
+    resizable: true,
+    maximizable: true,
     icon,
     show: false,
     webPreferences: {
@@ -37,18 +64,22 @@ export function createMainWindowOptions(preloadPath: string, icon: NativeImage):
 }
 
 export function resizeWindowToPlayer(window: WindowFrameControls): void {
-  window.setResizable(true)
-  window.setMaximizable(true)
-  window.setSize(PLAYER_WINDOW_SIZE.width, PLAYER_WINDOW_SIZE.height)
+  if (window.setContentSize) {
+    window.setContentSize(PLAYER_WINDOW_SIZE.width, PLAYER_WINDOW_SIZE.height)
+  } else {
+    window.setSize(PLAYER_WINDOW_SIZE.width, PLAYER_WINDOW_SIZE.height)
+  }
+  enforceMinimumContentSize(window)
   window.center()
+  window.maximize?.()
 }
 
 export function resizeWindowToHome(window: WindowFrameControls): void {
-  // setSize must come before setResizable(false) — on Windows, a non-resizable
-  // window ignores setSize calls.
-  window.setResizable(true)
-  window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+  window.unmaximize?.()
+  if (window.setContentSize) {
+    window.setContentSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+  } else {
+    window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+  }
   window.center()
-  window.setResizable(false)
-  window.setMaximizable(false)
 }

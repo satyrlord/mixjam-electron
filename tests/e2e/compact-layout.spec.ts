@@ -32,20 +32,20 @@ async function settleLayout(page: import('@playwright/test').Page) {
 test('Home stays root-overflow-free across desktop and narrow renderer sizes', async ({ seededPage: page }) => {
   for (const viewport of [
     {
-      width: 1280,
-      height: 720,
+      width: 1920,
+      height: 1080,
       expectedColumns: 4,
       expectInternalScroll: false
     },
     {
-      width: 1280,
-      height: 681,
+      width: 1920,
+      height: 1049,
       expectedColumns: 4,
       expectInternalScroll: false
     },
     {
       width: 900,
-      height: 720,
+      height: 1080,
       expectedColumns: 2,
       expectInternalScroll: true
     }
@@ -132,7 +132,7 @@ test('Home stays root-overflow-free across desktop and narrow renderer sizes', a
 })
 
 test('Home uses both desktop columns while library analysis is active', async ({ seededPage: page }) => {
-  await page.setViewportSize({ width: 1280, height: 681 })
+  await page.setViewportSize({ width: 1920, height: 1049 })
   await setActivityState(page, 'analyzing', 'home-active-analysis')
 
   for (const theme of ALL_THEMES) {
@@ -225,19 +225,21 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
       if (!(player instanceof HTMLElement) ||
         !(lanes instanceof HTMLElement) ||
         !(handle instanceof HTMLElement) ||
-        laneBoxes.length !== 16) {
+        laneBoxes.length !== 8) {
         throw new Error('Player geometry elements are unavailable')
       }
       const lanesBox = lanes.getBoundingClientRect()
       const playerBox = player.getBoundingClientRect()
       const handleBox = handle.getBoundingClientRect()
       const bottomBox = box('.bottom-workspace')
-      const rootStyles = getComputedStyle(document.documentElement)
+      const app = document.querySelector('.app')
+      if (!(app instanceof HTMLElement)) throw new Error('App root is unavailable')
+      const appStyles = getComputedStyle(app)
       return {
         laneCount: laneBoxes.length,
         laneHeights: [...new Set(laneBoxes.map((lane) => lane.height))],
         firstLaneTop: laneBoxes[0]?.top,
-        lastLaneBottom: laneBoxes[15]?.bottom,
+        lastLaneBottom: laneBoxes[7]?.bottom,
         lanesTop: lanesBox.top,
         lanesBottom: lanesBox.bottom,
         laneClientHeight: lanes.clientHeight,
@@ -249,12 +251,12 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
         bottomPercent: bottomBox
           ? bottomBox.height / (playerBox.height - handleBox.height) * 100
           : undefined,
-        geometryScale: rootStyles.getPropertyValue('--tracker-geometry-scale').trim(),
-        laneHeightToken: rootStyles.getPropertyValue('--tracker-lane-height').trim(),
-        laneHeadToken: rootStyles.getPropertyValue('--tracker-lane-head-width').trim(),
-        rulerToken: rootStyles.getPropertyValue('--tracker-ruler-height').trim(),
-        controlToken: rootStyles.getPropertyValue('--tracker-lane-control-size').trim(),
-        bubbleToken: rootStyles.getPropertyValue('--sample-bubble-height').trim(),
+        geometryScale: appStyles.getPropertyValue('--tracker-geometry-scale').trim(),
+        laneHeightToken: appStyles.getPropertyValue('--ui-lane-height').trim(),
+        laneHeadToken: appStyles.getPropertyValue('--tracker-lane-head-width').trim(),
+        rulerToken: appStyles.getPropertyValue('--tracker-ruler-height').trim(),
+        controlToken: appStyles.getPropertyValue('--ui-size').trim(),
+        bubbleToken: appStyles.getPropertyValue('--sample-bubble-height').trim(),
         rootClientWidth: document.documentElement.clientWidth,
         rootScrollWidth: document.documentElement.scrollWidth,
         rootClientHeight: document.documentElement.clientHeight,
@@ -262,23 +264,23 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
       }
     })
 
-    expect(geometry.laneCount).toBe(16)
-    expect(geometry.laneHeights).toEqual([39])
+    expect(geometry.laneCount).toBe(8)
+    expect(geometry.laneHeights).toEqual([49])
     expect(geometry.firstLaneTop).toBeGreaterThanOrEqual(geometry.lanesTop - 1)
     expect(geometry.lastLaneBottom).toBeLessThanOrEqual(geometry.lanesBottom + 1)
     expect(geometry.laneScrollHeight).toBeLessThanOrEqual(geometry.laneClientHeight + 1)
     expect(geometry.laneHeadWidth).toBe(240)
-    expect(geometry.laneControlWidth).toBe(32)
+    expect(geometry.laneControlWidth).toBe(40)
     expect(geometry.rulerHeight).toBe(33)
-    expect(geometry.middleHeight).toBe(80)
+    expect(geometry.middleHeight).toBe(107)
     expect(geometry.bottomPercent).toBeGreaterThan(23)
     expect(geometry.bottomPercent).toBeLessThan(25)
     expect(geometry.geometryScale).toBe('0.75')
-    expect(geometry.laneHeightToken).toBe('39px')
+    expect(geometry.laneHeightToken).toBe('49px')
     expect(geometry.laneHeadToken).toBe('240px')
     expect(geometry.rulerToken).toBe('33px')
-    expect(geometry.controlToken).toBe('32px')
-    expect(geometry.bubbleToken).toBe('26px')
+    expect(geometry.controlToken).toBe('40px')
+    expect(geometry.bubbleToken).toBe('33px')
     expect(geometry.rootScrollWidth).toBe(geometry.rootClientWidth)
     expect(geometry.rootScrollHeight).toBe(geometry.rootClientHeight)
   }
@@ -287,6 +289,212 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
     const stored = localStorage.getItem(key)
     return stored ? JSON.parse(stored).bottom : null
   }, BOTTOM_LAYOUT_KEY)).toBeCloseTo(24, 0)
+})
+
+test('UI Size scales controls across the app without breaking the 1080p frame', async ({ seededPage: page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+
+  const auditVisibleControls = async (size: number, surface: string) => {
+    const audit = await page.evaluate(({ expectedSize, surfaceName }) => {
+      const isVisible = (element: Element): element is HTMLElement => {
+        if (!(element instanceof HTMLElement)) return false
+        const box = element.getBoundingClientRect()
+        const style = getComputedStyle(element)
+        return box.width > 0 && box.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+      }
+      const controls = [...document.querySelectorAll(
+        'button, select, input:not([type="range"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), [role="button"], [role="tab"], [role="menuitem"]'
+      )].filter(isVisible)
+      const undersized = controls.flatMap((control) => {
+        const box = control.getBoundingClientRect()
+        return box.height + 0.5 < expectedSize
+          ? [`${control.tagName}.${control.className}: ${box.width}x${box.height}`]
+          : []
+      })
+      const exactSquares = [...document.querySelectorAll(
+        '.footer-ui-size button, .home-theme-swatch, .strip-command-button, .strip-more-trigger, ' +
+        '.tracker-lane-controls button, .master-loudness-reset, .mixer-restore, ' +
+        '.mixer-channel-remove, .mixer-channel-pan, .manage-action'
+      )].filter(isVisible)
+      const incorrectSquares = exactSquares.flatMap((control) => {
+        const box = control.getBoundingClientRect()
+        return Math.abs(box.width - expectedSize) > 0.5 || Math.abs(box.height - expectedSize) > 0.5
+          ? [`${control.className}: ${box.width}x${box.height}`]
+          : []
+      })
+      const incorrectFaders = [...document.querySelectorAll('.vertical-fader-input')]
+        .filter(isVisible)
+        .flatMap((control) => {
+          const width = control.getBoundingClientRect().width
+          return Math.abs(width - expectedSize) > 0.5 ? [`${control.className}: ${width}`] : []
+        })
+      const root = document.documentElement
+      return {
+        surfaceName,
+        preset: root.dataset.uiSize,
+        token: getComputedStyle(root).getPropertyValue('--ui-size').trim(),
+        controlCount: controls.length,
+        undersized,
+        incorrectSquares,
+        incorrectFaders,
+        horizontalOverflow: root.scrollWidth > root.clientWidth,
+        verticalOverflow: root.scrollHeight > root.clientHeight
+      }
+    }, { expectedSize: size, surfaceName: surface })
+
+    expect(audit.preset, `${surface} preset`).toBe(String(size))
+    expect(audit.token, `${surface} token`).toBe(`${size}px`)
+    expect(audit.controlCount, `${surface} controls`).toBeGreaterThan(0)
+    expect(audit.undersized, `${surface} undersized controls`).toEqual([])
+    expect(audit.incorrectSquares, `${surface} square controls`).toEqual([])
+    expect(audit.incorrectFaders, `${surface} vertical faders`).toEqual([])
+    expect(audit.horizontalOverflow, `${surface} horizontal overflow`).toBe(false)
+    expect(audit.verticalOverflow, `${surface} vertical overflow`).toBe(false)
+  }
+
+  for (const size of [30, 40, 50]) {
+    await page.getByRole('button', { name: String(size), exact: true }).click()
+    await settleLayout(page)
+    await auditVisibleControls(size, `Home ${size}`)
+  }
+
+  await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  for (const size of [30, 40, 50]) {
+    await page.getByRole('button', { name: String(size), exact: true }).click()
+    await settleLayout(page)
+    await auditVisibleControls(size, `Player Song ${size}`)
+
+    await page.getByRole('tab', { name: 'Mixer' }).click()
+    await settleLayout(page)
+    await auditVisibleControls(size, `Player Mixer ${size}`)
+    const mixerFit = await page.evaluate(() => {
+      const scrollport = document.querySelector('.mixer-strips')
+      if (!(scrollport instanceof HTMLElement)) throw new Error('Mixer scrollport is unavailable')
+      const port = scrollport.getBoundingClientRect()
+      const children = [...scrollport.querySelectorAll(':scope > .mixer-strips-row > *')]
+      return {
+        workspaceHeight: document.querySelector('.bottom-workspace')?.getBoundingClientRect().height ?? 0,
+        verticalContentFits: children.every((child) => child.getBoundingClientRect().bottom <= port.bottom + 1),
+        rootVerticalOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight
+      }
+    })
+    expect(mixerFit.workspaceHeight, `Player Mixer ${size} workspace height`).toBeGreaterThan(0)
+    expect(mixerFit.verticalContentFits, `Player Mixer ${size} vertical fit`).toBe(true)
+    expect(mixerFit.rootVerticalOverflow, `Player Mixer ${size} root overflow`).toBe(false)
+
+    await page.getByRole('tab', { name: 'Samples' }).click()
+    await settleLayout(page)
+    await auditVisibleControls(size, `Player Samples ${size}`)
+
+    await page.locator('.strip-more-trigger').click()
+    await expect(page.locator('[role="menu"]')).toBeVisible()
+    await auditVisibleControls(size, `Player menu ${size}`)
+    await page.keyboard.press('Escape')
+  }
+})
+
+test('Mixer and Tracker stay reachable with 1, 8, and 64 lanes at every UI Size', async ({ seededPage: page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.getByRole('button', { name: 'Start New MixJam' }).click()
+
+  const addLanes = async (count: number) => {
+    await page.getByRole('tab', { name: 'Song', exact: true }).click()
+    const addLane = page.getByRole('button', { name: 'Add lane' })
+    for (let index = 0; index < count; index += 1) await addLane.click()
+  }
+
+  const auditCount = async (expectedLaneCount: number) => {
+    for (const size of [30, 40, 50]) {
+      await page.getByRole('button', { name: String(size), exact: true }).click()
+      await page.getByRole('tab', { name: 'Song', exact: true }).click()
+      await settleLayout(page)
+
+      const tracker = await page.evaluate(() => {
+        const scrollport = document.querySelector('.tracker-lanes')
+        const ruler = document.querySelector('.tracker-ruler')
+        const firstLane = document.querySelector('.tracker-lane')
+        if (!(scrollport instanceof HTMLElement) ||
+          !(ruler instanceof HTMLElement) ||
+          !(firstLane instanceof HTMLElement)) {
+          throw new Error('Tracker geometry is unavailable')
+        }
+        scrollport.scrollTop = 0
+        const port = scrollport.getBoundingClientRect()
+        const rulerBox = ruler.getBoundingClientRect()
+        const laneBox = firstLane.getBoundingClientRect()
+        return {
+          laneCount: document.querySelectorAll('.tracker-lane').length,
+          rulerVisible: rulerBox.width > 0 && rulerBox.height > 0,
+          completeFirstLane: laneBox.top >= port.top - 1 && laneBox.bottom <= port.bottom + 1,
+          rootHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+          rootVerticalOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight
+        }
+      })
+      expect(tracker.laneCount, `Tracker lane count at UI Size ${size}`).toBe(expectedLaneCount)
+      expect(tracker.rulerVisible, `Tracker ruler at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(true)
+      expect(tracker.completeFirstLane, `Tracker lane at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(true)
+      expect(tracker.rootHorizontalOverflow, `Tracker horizontal root overflow at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(false)
+      expect(tracker.rootVerticalOverflow, `Tracker vertical root overflow at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(false)
+
+      await page.getByRole('tab', { name: 'Mixer', exact: true }).click()
+      await settleLayout(page)
+      const mixer = await page.evaluate(() => {
+        const scrollport = document.querySelector('.mixer-strips')
+        const laneStrips = [...document.querySelectorAll('.mixer-channel-strip')]
+        const returnSection = document.querySelector('.mixer-return-section')
+        const fx4 = document.querySelector('.mixer-fx-slot:last-child')
+        if (!(scrollport instanceof HTMLElement) ||
+          !(returnSection instanceof HTMLElement) ||
+          !(fx4 instanceof HTMLElement)) {
+          throw new Error('Mixer geometry is unavailable')
+        }
+
+        const targets = [...laneStrips, returnSection, fx4]
+        scrollport.scrollLeft = 0
+        const initialPort = scrollport.getBoundingClientRect()
+        const reachable = targets.every((target) => {
+          const box = target.getBoundingClientRect()
+          const contentLeft = box.left - initialPort.left
+          const contentRight = contentLeft + box.width
+          return box.width <= scrollport.clientWidth + 1 &&
+            contentLeft >= -1 && contentRight <= scrollport.scrollWidth + 1
+        })
+        scrollport.scrollLeft = scrollport.scrollWidth
+        const endPort = scrollport.getBoundingClientRect()
+        const fx4AtEnd = fx4.getBoundingClientRect()
+        const endReachable = fx4AtEnd.left >= endPort.left - 1 && fx4AtEnd.right <= endPort.right + 1
+        const port = scrollport.getBoundingClientRect()
+        const verticallyFits = targets.every((target) => {
+          const box = target.getBoundingClientRect()
+          return box.top >= port.top - 1 && box.bottom <= port.bottom + 1
+        })
+        return {
+          laneCount: laneStrips.length,
+          reachable,
+          endReachable,
+          verticallyFits,
+          verticalOverflowExposed: getComputedStyle(scrollport).overflowY !== 'hidden' &&
+            scrollport.scrollHeight > scrollport.clientHeight + 1,
+          rootHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+          rootVerticalOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight
+        }
+      })
+      expect(mixer.laneCount, `Mixer lane count at UI Size ${size}`).toBe(expectedLaneCount)
+      expect(mixer.reachable, `Mixer reachability at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(true)
+      expect(mixer.endReachable, `Mixer FX 4 reachability at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(true)
+      expect(mixer.verticallyFits, `Mixer vertical fit at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(true)
+      expect(mixer.verticalOverflowExposed, `Mixer vertical overflow at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(false)
+      expect(mixer.rootHorizontalOverflow, `Mixer horizontal root overflow at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(false)
+      expect(mixer.rootVerticalOverflow, `Mixer vertical root overflow at ${expectedLaneCount} lanes / UI Size ${size}`).toBe(false)
+    }
+  }
+
+  await page.getByRole('button', { name: /Delete \d+ empty lanes/ }).click()
+  await auditCount(1)
+  await addLanes(7)
+  await auditCount(8)
+  await addLanes(56)
+  await auditCount(64)
 })
 
 type ActivityState = 'idle' | 'syncing' | 'analyzing' | 'error'
@@ -360,7 +568,6 @@ async function setActivityState(
 }
 
 const MIDDLE_STRIP_VIEWPORTS = [
-  { width: 1280, height: 720 },
   { width: 1920, height: 1080 }
 ]
 const MIDDLE_STRIP_ACTIVITY_STATES: ActivityState[] = ['syncing', 'analyzing', 'idle', 'error']
@@ -450,9 +657,9 @@ for (const viewport of MIDDLE_STRIP_VIEWPORTS) {
           }
         })
 
-        expect(geometry.stripHeight).toBe(80)
-        expect(geometry.progressHeight).toBe(28)
-        expect(geometry.mainHeight).toBe(48)
+        expect(geometry.stripHeight).toBe(107)
+        expect(geometry.progressHeight).toBe(37)
+        expect(geometry.mainHeight).toBe(64)
         expect(geometry.dockCenterDelta).toBeLessThanOrEqual(1)
         expect(geometry.targetsInside).toBe(true)
         expect(geometry.centersHit).toBe(true)

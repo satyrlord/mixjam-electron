@@ -784,6 +784,15 @@ select option:disabled {
   min-width: 0;
 }
 
+.footer-preferences {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-ui-size { display: inline-flex; gap: 2px; margin-left: auto; }
+.footer-ui-size button { min-width: 40px; min-height: 28px; border: var(--edge-pill); background: var(--pill-bg); color: var(--text-muted); font: 11px var(--font-label); }
+.footer-ui-size button[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
 .home-workflow-card {
   min-width: 0;
   padding: 12px;
@@ -2705,293 +2714,6 @@ select option:disabled {
   background: var(--text);
 }
 
-/* ── Mixer Column ── */
-.mixer-column {
-  flex: 1;
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--chrome);
-}
-
-.mixer-empty-text {
-  font-family: var(--font-label);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.mixer-column-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  min-height: 52px;
-  padding-right: 8px;
-}
-
-.mixer-column-title {
-  padding: 8px 8px 4px;
-  flex-shrink: 0;
-}
-
-.mixer-restore {
-  width: 44px;
-  height: 44px;
-  border: var(--edge-pill);
-  border-radius: 2px;
-  background: var(--pill-bg);
-  color: var(--text-muted);
-  font-size: 18px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mixer-restore:hover {
-  color: var(--text);
-  border-color: var(--accent);
-}
-
-/* Horizontal scroll keeps every strip reachable at any column width
-   (spec-007 AC-015). */
-.mixer-strips {
-  flex: 1;
-  display: flex;
-  gap: 4px;
-  padding: 0 4px 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-
-.mixer-strips-empty {
-  align-items: center;
-  justify-content: center;
-}
-
-/* ── Channel Strip (responsive 96-124px) ── */
-.mixer-channel-strip {
-  width: auto;
-  min-width: 96px;
-  max-width: 124px;
-  flex: 1 0 96px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 4px;
-  border: var(--edge);
-  border-radius: var(--radius);
-  position: relative;
-}
-
-.mixer-channel-strip:last-child {
-  /* last-child margin handled by the parent .mixer-strips gap */
-}
-
-.mixer-channel-remove:hover {
-  color: var(--highlight);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.mixer-channel-label {
-  font-family: var(--font-label);
-  font-size: 13px;
-  color: var(--text-muted);
-  width: 100%;
-  display: grid;
-  grid-template-columns: minmax(44px, 1fr) 44px;
-  align-items: center;
-  height: 44px;
-  line-height: 1;
-}
-
-.mixer-channel-select {
-  position: static;
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  color: inherit;
-  font: 600 13px/1 var(--font-label);
-  cursor: pointer;
-}
-
-.mixer-channel-strip-selected {
-  box-shadow: inset 0 0 0 1px var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.mixer-channel-select > span { pointer-events: none; }
-
-.mixer-channel-select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.mixer-channel-remove {
-  position: static;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  opacity: 1;
-  z-index: 2;
-}
-
-.mixer-channel-remove:hover {
-  color: var(--highlight);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-/* ── Channel gain fader + dB meter ── */
-.mixer-channel-vol-wrap {
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-}
-
-.mixer-channel-vol {
-  opacity: 0.82;
-}
-
-/* ── Channel Pan knob (44px) ── */
-.mixer-channel-pan {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      circle at 50% 32%,
-      color-mix(in srgb, var(--text) 10%, transparent),
-      transparent 62%
-    ),
-    var(--pill-bg);
-  border: 1.5px solid var(--pill-border);
-  box-shadow: var(--shadow-pill, none);
-  cursor: ew-resize;
-  position: relative;
-  user-select: none;
-}
-
-.mixer-channel-pan:hover {
-  border-color: var(--accent);
-}
-
-.mixer-channel-pan:focus-visible {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.mixer-channel-pan::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 2px;
-  height: 8px;
-  margin-left: -1px;
-  margin-top: -9px;
-  background: var(--highlight);
-  border-radius: 1px;
-  transform-origin: 1px 9px;
-  transform: rotate(var(--pan-angle, 0deg));
-}
-
-.mixer-channel-pan:hover::before {
-  background: var(--text);
-}
-
-.mixer-channel-pan::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  margin-left: -2px;
-  margin-top: -2px;
-  background: color-mix(in srgb, var(--highlight) 55%, var(--pill-border));
-  border-radius: 50%;
-}
-
-/* ── Channel M/S buttons (responsive, 44px min) ── */
-.mixer-channel-buttons {
-  display: flex;
-  width: 100%;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.mixer-channel-m,
-.mixer-channel-s {
-  width: auto;
-  min-width: 44px;
-  height: 44px;
-  flex: 1;
-  border: var(--edge-pill);
-  border-radius: 2px;
-  background: var(--pill-bg);
-  box-shadow: var(--shadow-pill, none);
-  color: var(--text-muted);
-  font-family: var(--font-chrome);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mixer-channel-m:hover,
-.mixer-channel-s:hover {
-  color: var(--text);
-  border-color: var(--accent);
-}
-
-/* --meter-red, not --accent: the accent fill fails the 3:1 non-text contrast
-   minimum against --pill-bg in some themes (spec-007 AC-022). */
-.mixer-channel-m-active {
-  background: var(--meter-red);
-  color: var(--on-meter-red);
-  border-color: var(--meter-red);
-}
-
-/* Dim a muted strip's controls; M/S buttons and the drag readout stay at
-   full strength so the active mute state and live value remain readable. */
-.mixer-channel-strip-muted .mixer-channel-select,
-.mixer-channel-strip-muted .mixer-channel-vol,
-.mixer-channel-strip-muted .vertical-meter-track,
-.mixer-channel-strip-muted .mixer-channel-unity-tick,
-.mixer-channel-strip-muted .mixer-channel-pan {
-  opacity: 0.4;
-}
-
-.mixer-channel-s-active {
-  background: var(--highlight);
-  color: var(--on-highlight);
-  border-color: var(--accent-dark);
-}
 
 /* ── Upper MixJam Browser resize seam ── */
 .upper-work-resize {
@@ -4378,6 +4100,17 @@ select option:disabled {
   align-items: center;
   gap: 12px;
 }
+
+
+.tracker-lane-actions { position: sticky; left: 0; z-index: 8; display: flex; align-items: center; justify-content: flex-end; width: var(--tracker-lane-head-width, 240px); gap: 8px; padding: 4px 8px; border-bottom: var(--edge); background: var(--chrome); box-sizing: border-box; }
+.lane-add-button, .lane-empty-delete { min-height: 28px; border: var(--edge-pill); border-radius: 3px; background: var(--pill-bg); color: var(--text-muted); font: 600 12px var(--font-label); padding: 0 8px; }
+.lane-add-button:hover, .lane-empty-delete:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.lane-add-button:disabled, .lane-empty-delete:disabled { opacity: .45; cursor: not-allowed; }
+.lane-action-tooltip-trigger { display: inline-flex; }
+.tracker-lane-add-row { display: flex; min-width: 100%; min-height: 44px; border-top: var(--edge); }
+.tracker-lane-add-head { position: sticky; left: 0; z-index: 7; display: flex; align-items: center; width: var(--tracker-lane-head-width, 240px); flex: 0 0 var(--tracker-lane-head-width, 240px); padding: 4px 8px; background: var(--chrome); border-right: var(--edge); box-sizing: border-box; }
+.tracker-lane-add-head .lane-add-button { width: 100%; }
+.tracker-lane-add-canvas { flex: 1; min-width: 0; background: var(--bg-panel); }
 
 .home-generator-copy {
   display: flex;

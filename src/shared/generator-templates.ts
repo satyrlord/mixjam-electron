@@ -1,25 +1,19 @@
 import { SAMPLE_TYPE_VALUES, type SampleType } from './sample-types'
 import { isGeneratorProfileId } from './generator-profile-id'
+import type { MixJamGeneratorProfileId } from './backend-api'
 
-export const GENERATOR_TEMPLATE_SCHEMA_VERSION = 1 as const
-export const GENERATOR_LANE_COUNT = 16 as const
+const GENERATOR_TEMPLATE_SCHEMA_VERSION = 1 as const
+const GENERATOR_LANE_COUNT = 16 as const
 
 const SAMPLE_TYPES = new Set<string>(SAMPLE_TYPE_VALUES)
 const LANE_ROLES = ['percussion', 'motif', 'vocal', 'atmosphere', 'transition'] as const
 const PHRASE_MODES = ['sparse', 'steady', 'build', 'breakdown', 'return', 'peak', 'outro'] as const
 const TRANSITION_KINDS = ['riser', 'impact'] as const
-const NOTE_DIVISIONS = ['1/4', '1/8', '1/16', '1/8T', '1/16T'] as const
 
-export type MixJamGeneratorProfileId = string
+export type { MixJamGeneratorProfileId }
 export type GeneratorLaneRole = (typeof LANE_ROLES)[number]
 export type GeneratorPhraseMode = (typeof PHRASE_MODES)[number]
 export type GeneratorTransitionKind = (typeof TRANSITION_KINDS)[number]
-
-export interface GeneratorEffectProfile {
-  type: 'delay' | 'reverb' | 'compressor'
-  presetName: string
-  values: Record<string, number | boolean | string>
-}
 
 export interface GeneratorLaneProfile {
   name: string
@@ -34,7 +28,6 @@ export interface GeneratorLaneProfile {
   transitionKind?: GeneratorTransitionKind
   gain: number
   pan: number
-  effects: readonly GeneratorEffectProfile[]
 }
 
 export interface GeneratorSectionProfile {
@@ -177,59 +170,11 @@ function readBeatOffsets(value: unknown, source: string, path: string): number[]
   return offsets
 }
 
-function readEffectValues(
-  type: GeneratorEffectProfile['type'], value: unknown, source: string, path: string
-): Record<string, number | boolean | string> {
-  const values = readRecord(value, source, path)
-  if (type === 'delay') {
-    rejectUnknownKeys(values, ['timeMs', 'feedback', 'mix', 'pingPong', 'tempoSync', 'noteDivision'], source, path)
-    const pingPong = values.pingPong
-    const tempoSync = values.tempoSync
-    if (typeof pingPong !== 'boolean') fail(source, `${path}.pingPong`, 'must be a boolean')
-    if (typeof tempoSync !== 'boolean') fail(source, `${path}.tempoSync`, 'must be a boolean')
-    return {
-      timeMs: readNumber(values, 'timeMs', source, path, 0, 2000),
-      feedback: readNumber(values, 'feedback', source, path, 0, 1),
-      mix: readNumber(values, 'mix', source, path, 0, 1),
-      pingPong,
-      tempoSync,
-      noteDivision: readEnum(values, 'noteDivision', NOTE_DIVISIONS, source, path)
-    }
-  }
-  if (type === 'reverb') {
-    rejectUnknownKeys(values, ['roomSize', 'decay', 'mix'], source, path)
-    return {
-      roomSize: readNumber(values, 'roomSize', source, path, 0, 1),
-      decay: readNumber(values, 'decay', source, path, 0, 1),
-      mix: readNumber(values, 'mix', source, path, 0, 1)
-    }
-  }
-  rejectUnknownKeys(values, ['threshold', 'ratio', 'attackMs', 'releaseMs', 'makeupGain'], source, path)
-  return {
-    threshold: readNumber(values, 'threshold', source, path, -60, 0),
-    ratio: readNumber(values, 'ratio', source, path, 1, 20),
-    attackMs: readNumber(values, 'attackMs', source, path, 0, 200),
-    releaseMs: readNumber(values, 'releaseMs', source, path, 5, 3000),
-    makeupGain: readNumber(values, 'makeupGain', source, path, 0, 24)
-  }
-}
-
-function parseEffect(value: unknown, source: string, path: string): GeneratorEffectProfile {
-  const effect = readRecord(value, source, path)
-  rejectUnknownKeys(effect, ['type', 'presetName', 'values'], source, path)
-  const type = readEnum(effect, 'type', ['delay', 'reverb', 'compressor'] as const, source, path)
-  return {
-    type,
-    presetName: readString(effect, 'presetName', source, path),
-    values: readEffectValues(type, effect.values, source, `${path}.values`)
-  }
-}
-
 function parseLane(value: unknown, source: string, path: string): GeneratorLaneProfile {
   const lane = readRecord(value, source, path)
   rejectUnknownKeys(lane, [
     'name', 'types', 'maxBars', 'maxBeats', 'role', 'beatPattern', 'beatMutation',
-    'intentionalAnchor', 'preferLong', 'transitionKind', 'gain', 'pan', 'effects'
+    'intentionalAnchor', 'preferLong', 'transitionKind', 'gain', 'pan'
   ], source, path)
   const types = readArray(lane, 'types', source, path).map((type, index) => {
     if (typeof type !== 'string' || !SAMPLE_TYPES.has(type)) {
@@ -257,8 +202,6 @@ function parseLane(value: unknown, source: string, path: string): GeneratorLaneP
   if (role === 'transition' && !transitionKind) fail(source, `${path}.transitionKind`, 'is required for a transition lane')
   if (role !== 'transition' && transitionKind) fail(source, `${path}.transitionKind`, 'is supported only for transition lanes')
 
-  const effects = readArray(lane, 'effects', source, path)
-  if (effects.length > 4) fail(source, `${path}.effects`, 'must contain at most four effects')
   const maxBeats = readOptionalNumber(lane, 'maxBeats', source, path, 1, 4, true)
   return {
     name: readString(lane, 'name', source, path),
@@ -276,8 +219,7 @@ function parseLane(value: unknown, source: string, path: string): GeneratorLaneP
     }),
     ...(transitionKind ? { transitionKind } : {}),
     gain: readNumber(lane, 'gain', source, path, 0, 1),
-    pan: readNumber(lane, 'pan', source, path, -1, 1),
-    effects: effects.map((effect, index) => parseEffect(effect, source, `${path}.effects[${index}]`))
+    pan: readNumber(lane, 'pan', source, path, -1, 1)
   }
 }
 

@@ -107,7 +107,7 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
     expect(screen.queryByText(LAUNCH_HINT)).not.toBeInTheDocument()
 
     fireEvent.click(start)
-    await waitFor(() => expect(screen.getByText('Lane 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0))
     expect(vi.mocked(api().resizeToPlayer)).toHaveBeenCalledTimes(1)
   })
 

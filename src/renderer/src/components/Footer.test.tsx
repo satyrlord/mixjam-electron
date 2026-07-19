@@ -14,6 +14,8 @@ describe('Footer', () => {
       />
     )
     expect(screen.getByRole('button', { name: '1.2.3' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '40' })).toHaveAttribute('aria-pressed', 'true')
+    expect(() => fireEvent.click(screen.getByRole('button', { name: '30' }))).not.toThrow()
   })
 
   it('fires onSelectFolder when the settings link is clicked', () => {
@@ -44,6 +46,26 @@ describe('Footer', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: '1.2.3' }))
     expect(onOpenRepo).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers every UI size and reports the selected size', () => {
+    const onUiSizeChange = vi.fn()
+    render(
+      <Footer
+        view="home"
+        version="1.2.3"
+        sampleDetail={null}
+        onSelectFolder={vi.fn()}
+        onOpenRepo={vi.fn()}
+        uiSize={40}
+        onUiSizeChange={onUiSizeChange}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: '40' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: '30' }))
+    fireEvent.click(screen.getByRole('button', { name: '50' }))
+    expect(onUiSizeChange.mock.calls).toEqual([[30], [50]])
   })
 
   it('renders selected sample details in the Player', () => {

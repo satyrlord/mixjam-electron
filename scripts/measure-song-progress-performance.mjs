@@ -1,13 +1,11 @@
-import { spawn } from 'node:child_process'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { arch, cpus, platform, release, totalmem } from 'node:os'
-import { resolve } from 'node:path'
-import { chromium } from 'playwright'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { arch, cpus, platform, release, tmpdir, totalmem } from 'node:os'
+import { join, resolve } from 'node:path'
+import { _electron as electron } from 'playwright'
 
-const PORT = 4174
-const BASE_URL = `http://127.0.0.1:${PORT}`
 const EVIDENCE_DIR = resolve('tmp/verify-song-progress-performance')
 const MOCK_BACKEND_PATH = resolve('tests/e2e/mock-backend.js')
+const MAIN_ENTRY = resolve('out/main/index.js')
 const RUNS_PER_MODE = 3
 const CPU_THROTTLE_MODES = [
   { name: 'native', rate: 1 },
@@ -27,20 +25,6 @@ function summarize(values) {
     p95: percentile(values, 0.95),
     max: values.length > 0 ? Math.max(...values) : null
   }
-}
-
-async function waitForServer() {
-  const deadline = Date.now() + 15_000
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(BASE_URL)
-      if (response.ok) return
-    } catch {
-      // The server is still starting.
-    }
-    await new Promise((resolveWait) => setTimeout(resolveWait, 100))
-  }
-  throw new Error(`Static server did not become ready at ${BASE_URL}`)
 }
 
 async function readTraceStream(session, stream) {
@@ -320,28 +304,24 @@ function summarizeRun(raw, mode, run, traceBytes) {
 
 async function main() {
   await mkdir(EVIDENCE_DIR, { recursive: true })
-  const server = spawn(process.execPath, ['scripts/serve-static.mjs', String(PORT)], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
-  })
-  let serverError = ''
-  server.stderr.on('data', (chunk) => { serverError += chunk.toString() })
-
-  let browser
+  const env = { ...process.env }
+  delete env.ELECTRON_RUN_AS_NODE
+  const userDataDir = await mkdtemp(join(tmpdir(), 'mixjam-performance-'))
+  let electronApp
   try {
-    await waitForServer()
-    browser = await chromium.launch({ headless: true })
-    const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } })
-    const page = await context.newPage()
+    electronApp = await electron.launch({
+      args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+      env
+    })
+    const page = await electronApp.firstWindow()
     const mockBackend = await readFile(MOCK_BACKEND_PATH, 'utf8')
     await page.addInitScript(mockBackend)
-    await page.goto(BASE_URL)
+    await page.reload()
     await page.waitForSelector('#root > *', { timeout: 15_000 })
     await seedFullCapacityProject(page)
     await installCanvasCounter(page)
 
-    const session = await context.newCDPSession(page)
+    const session = await page.context().newCDPSession(page)
     const runs = []
     for (const mode of CPU_THROTTLE_MODES) {
       await session.send('Emulation.setCPUThrottlingRate', { rate: mode.rate })
@@ -369,11 +349,14 @@ async function main() {
     await session.send('Emulation.setCPUThrottlingRate', { rate: 1 })
     await page.screenshot({ path: resolve(EVIDENCE_DIR, 'full-capacity-end.png'), fullPage: false })
 
+    const electronVersion = await electronApp.evaluate(({ app }) => app.getVersion())
+    const chromeVersion = await electronApp.evaluate(() => process.versions.chrome)
     const evidence = {
       generatedAt: new Date().toISOString(),
       status: 'characterization-only-no-approved-budget',
       environment: {
-        browser: browser.version(),
+        electron: electronVersion,
+        chromium: chromeVersion,
         platform: platform(),
         release: release(),
         arch: arch(),
@@ -389,7 +372,7 @@ async function main() {
     await writeFile(resolve(EVIDENCE_DIR, 'evidence.md'), `# Song Progress Bar Full-Capacity Performance Characterization
 
 - Status: characterization only; the repository has no approved numeric frame-time budget.
-- Surface: built Chromium, 999 bars, 16 lanes, 15,984 placements, 999 ruler cells.
+- Surface: built Electron renderer, 999 bars, 16 lanes, 15,984 placements, 999 ruler cells.
 - Gesture: ${evidence.gesture}
 - Repetitions: three native-speed runs and three runs with 4x CPU slowdown.
 - Structural result: every run reached the capacity end, kept all lane canvas backing stores viewport-bounded, and stayed within one redraw per animation frame per lane.
@@ -402,11 +385,9 @@ Raw Chrome DevTools Protocol traces are stored beside this summary. These
 measurements are not labeled a performance pass until the project approves a
 numeric budget.
 `)
-    await context.close()
   } finally {
-    await browser?.close()
-    server.kill()
-    if (serverError) console.error(serverError)
+    await electronApp?.close()
+    await rm(userDataDir, { recursive: true, force: true })
   }
 }
 

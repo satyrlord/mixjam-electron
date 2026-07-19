@@ -1,13 +1,13 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import {
   LANE_HEAD_WIDTH_PX,
-  LANE_HEIGHT_PX,
   type LaneState
 } from '../lib/arrangement'
 import { nextPanCycle } from '../lib/sample-utils'
 import LaneSampleBubbleCanvas from './LaneSampleBubbleCanvas'
 import { RotaryControl } from './RotaryField'
 import { Tooltip } from './ui/Tooltip'
+import { useUiGeometry } from '../ui-size'
 
 interface LaneRowProps {
   lane: LaneState
@@ -50,6 +50,7 @@ function LaneRow({
   onDragOver,
   onDrop
 }: LaneRowProps) {
+  const uiGeometry = useUiGeometry()
   const [renameValue, setRenameValue] = useState(lane.name)
   const renameInputRef = useRef<HTMLInputElement>(null)
 
@@ -77,7 +78,7 @@ function LaneRow({
   return (
     <div
       className={`tracker-lane${dimmed ? ' tracker-lane-dimmed' : ''}`}
-      style={{ height: LANE_HEIGHT_PX }}
+      style={{ height: uiGeometry.laneHeight }}
     >
       <div
         className="tracker-lane-head"

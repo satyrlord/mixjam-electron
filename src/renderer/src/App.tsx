@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useLayoutEffect, useState } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
@@ -10,6 +10,7 @@ import { createPlayerViewModel } from './hooks/playerViewModel'
 import { selectTheme } from './theme/themes'
 import MixJamGeneratorDialog from './components/MixJamGeneratorDialog'
 import { useMixJamGenerator } from './hooks/useMixJamGenerator'
+import { applyUiSize, loadUiSize, saveUiSize, UiSizeProvider } from './ui-size'
 
 export default function App() {
   const { userFolder, sampleFolder, canStart, pickUser, pickSample, restoreUser, restoreSample } =
@@ -23,22 +24,33 @@ export default function App() {
   const generator = useMixJamGenerator(app, window.backendAPI, resolvedSampleFolder)
 
   const [activeTheme, setActiveTheme] = useState('emerald')
+  const [uiSize, setUiSize] = useState(loadUiSize)
+
+  useLayoutEffect(() => {
+    applyUiSize(document.documentElement, uiSize)
+  }, [uiSize])
+
+  const handleUiSizeChange = useCallback((size: typeof uiSize) => {
+    setUiSize(size)
+    saveUiSize(size)
+  }, [])
 
   const handleThemeChange = useCallback((requestedThemeKey: string) => {
     setActiveTheme(selectTheme(requestedThemeKey))
   }, [])
 
   return (
-    <TooltipProvider>
-      <div className="app">
-      <Header
+    <UiSizeProvider size={uiSize}>
+      <TooltipProvider>
+        <div className="app" data-ui-size={uiSize}>
+          <Header
         view={app.view}
         timer={app.timerText}
         theme={activeTheme}
         onHome={app.goToHome}
         onThemeChange={handleThemeChange}
-      />
-      {(app.projectError || app.projectWarning) && (
+          />
+          {(app.projectError || app.projectWarning) && (
         <div
           className={`project-notice${app.projectError ? ' project-notice-error' : ''}`}
           role="alert"
@@ -52,8 +64,8 @@ export default function App() {
             ×
           </button>
         </div>
-      )}
-      <main className="content">
+          )}
+          <main className="content">
         {app.view === 'home' ? (
           <HomeScreen
             userFolder={userFolder}
@@ -90,16 +102,18 @@ export default function App() {
             }}
           />
         )}
-      </main>
-      <Footer
+          </main>
+          <Footer
         view={app.view}
         version={app.version}
         sampleDetail={app.selectedSampleDetail}
         onSelectFolder={pickUser}
         onOpenRepo={app.openRepo}
         getSampleBuffer={app.getSampleBuffer}
-      />
-      <MixJamGeneratorDialog
+        uiSize={uiSize}
+        onUiSizeChange={handleUiSizeChange}
+          />
+          <MixJamGeneratorDialog
         open={generator.open}
         readiness={generator.readiness}
         initialParameters={generator.initialParameters}
@@ -111,8 +125,9 @@ export default function App() {
         onClose={generator.close}
         onGenerate={generator.onGenerate}
         onOpenResult={generator.onOpenResult}
-      />
-      </div>
-    </TooltipProvider>
+          />
+        </div>
+      </TooltipProvider>
+    </UiSizeProvider>
   )
 }

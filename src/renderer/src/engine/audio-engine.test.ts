@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AudioEngine } from './audio-engine'
 import { MockAudioContext, MockAudioWorkletNode, createMockContext } from '../test/mockAudioContext'
 import { createClipEdgeFadePlan } from './clip-edge-fades'
+import { createDefaultDelayReturnModule } from './return-effects'
 
 function makeBuffer(): AudioBuffer {
   return { duration: 1, length: 44100, numberOfChannels: 2, sampleRate: 44100 } as AudioBuffer
@@ -14,6 +15,30 @@ function makeEngine(): { engine: AudioEngine; context: MockAudioContext } {
 }
 
 describe('AudioEngine', () => {
+  it('rebuilds same-type Return processors at project replacement boundaries', () => {
+    const context = createMockContext() as MockAudioContext & {
+      createChannelSplitter: () => ChannelSplitterNode
+      createChannelMerger: () => ChannelMergerNode
+    }
+    context.createChannelSplitter = () => context.createGain() as unknown as ChannelSplitterNode
+    context.createChannelMerger = () => context.createGain() as unknown as ChannelMergerNode
+    const engine = new AudioEngine({ createContext: () => context as unknown as AudioContext })
+    const snapshot = {
+      index: 0,
+      module: { ...createDefaultDelayReturnModule('fx-1'), pingPong: false },
+      powered: true,
+      returnLevel: 1,
+      limiterEnabled: true
+    }
+    engine.setReturnBus(0, snapshot, 120)
+    const delayCountBeforeReplacement = context.created.delays.length
+    engine.replaceReturnBuses([{ ...snapshot, module: { ...snapshot.module, timeMs: 600 } }], 120)
+
+    expect(context.created.delays).toHaveLength(delayCountBeforeReplacement + 2)
+    expect(context.created.delays.at(-2)!.delayTime.value).toBe(0.6)
+    expect(context.created.delays.at(-1)!.delayTime.value).toBe(0.6)
+  })
+
   it('test AudioWorklet mock exposes the message-port surface used by the engine', () => {
     const worklet = new MockAudioWorkletNode()
     expect(worklet.port.onmessage).toBeNull()
@@ -50,7 +75,7 @@ describe('AudioEngine', () => {
     await engine.resume()
     await Promise.resolve()
 
-    const [masterGain, bypassGain, silentSink] = context.created.gains
+    const [masterGain, silentSink] = context.created.gains
     const [analyser] = context.created.analysers
     const worklet = masterGain.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
     expect(masterGain.connectedTo).toContain(analyser)
@@ -60,7 +85,6 @@ describe('AudioEngine', () => {
     expect(worklet?.connectedTo).toContain(silentSink)
     expect(silentSink.gain.value).toBe(0)
     expect(silentSink.connectedTo).toContain(context.destination)
-    expect(bypassGain.gain.value).toBe(1)
   })
 
   // AC-006
@@ -71,10 +95,10 @@ describe('AudioEngine', () => {
 
     const source = context.created.sources[0]
     // Signal flow: source -> channel gain -> channel pan -> stable channel output -> analyser -> master.
-    // Gains: [masterGain, bypassGain, channelGain, channelOutput]
+    // Gains: [masterGain, channelGain, channelOutput]
     const masterGain = context.created.gains[0]
-    const channelGain = context.created.gains[2]
-    const channelOutput = context.created.gains[3]
+    const channelGain = context.created.gains[1]
+    const channelOutput = context.created.gains[2]
     const channelPan = context.created.panners[0]
     const channelAnalyser = context.created.analysers[1] // per-channel analyser
     expect(source.connectedTo).toContain(channelGain)
@@ -126,7 +150,7 @@ describe('AudioEngine', () => {
     const edgeGain = context.created.gains.find((gain) => gain.gain.events.length > 0)
     expect(edgeGain).toBeDefined()
     expect(context.created.sources[0].connectedTo).toContain(edgeGain)
-    expect(edgeGain?.connectedTo).toContain(context.created.gains[2])
+    expect(edgeGain?.connectedTo).toContain(context.created.gains[1])
     expect(edgeGain?.gain.events).toEqual([
       { type: 'set', value: 0, time: 3 },
       { type: 'linear', value: 1, time: 3 + 87 / 44_100 },
@@ -250,9 +274,9 @@ describe('AudioEngine', () => {
     expect(voice.laneIndex).toBe(-1)
     expect(engine.activeVoiceCount).toBe(1)
 
-    // Gains: [masterGain, bypassGain, previewGain]
+    // Gains: [masterGain, previewGain]
     const masterGain = context.created.gains[0]
-    const previewGain = context.created.gains[2]
+    const previewGain = context.created.gains[1]
     expect(previewGain.gain.value).toBe(0.8)
     expect(previewGain.connectedTo).toContain(masterGain)
 

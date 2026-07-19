@@ -5,7 +5,6 @@ import { TRACKER_TOTAL_TICKS } from '../../src/renderer/src/lib/arrangement'
 const TRACKER_LAST_GRID_TICK = Math.floor((TRACKER_TOTAL_TICKS - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
 
 for (const viewport of [
-  { width: 1280, height: 720 },
   { width: 1920, height: 1080 }
 ]) {
   test(`Song Progress Bar stays fixed in the Middle Strip at ${viewport.width}x${viewport.height}`, async ({ seededPage: page }) => {
@@ -60,7 +59,7 @@ for (const viewport of [
 
 test('ruler clicks and the playhead share the musical origin at zero and nonzero scroll', async ({ seededPage: page }) => {
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
-  await expect(page.getByText('Lane 1', { exact: true })).toBeVisible()
+  await expect(page.locator('.tracker-lane-name').first()).toHaveText('Lane 1')
 
   const scrollport = page.locator('.tracker-lanes')
   const track = page.locator('.tracker-ruler-track')
@@ -96,7 +95,7 @@ test('ruler clicks and the playhead share the musical origin at zero and nonzero
 
 test('Skip Back moves the playhead and Tracker view to the start', async ({ seededPage: page }) => {
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
-  await expect(page.getByText('Lane 1', { exact: true })).toBeVisible()
+  await expect(page.locator('.tracker-lane-name').first()).toHaveText('Lane 1')
 
   const scrollport = page.locator('.tracker-lanes')
   const slider = page.getByRole('slider', { name: 'Tracker timeline' })

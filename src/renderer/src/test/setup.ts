@@ -2,7 +2,8 @@ export {}
 
 if (typeof window !== 'undefined') {
   const { createBackendAPI } = await import('./backendApi')
-  const { applyTrackerGeometry, bootstrapTheme } = await import('../theme/themes')
+  const { bootstrapTheme } = await import('../theme/themes')
+  const { applyUiSize } = await import('../ui-size')
   const { cleanup } = await import('@testing-library/react')
   const { afterEach } = await import('vitest')
   const { MockAudioContext, MockAudioWorkletNode } = await import('./mockAudioContext')
@@ -65,7 +66,7 @@ if (typeof window !== 'undefined') {
     }) as unknown as CanvasRenderingContext2D
   } as unknown as typeof HTMLCanvasElement.prototype.getContext
 
-  applyTrackerGeometry()
+  applyUiSize(document.documentElement, 40)
   bootstrapTheme()
 
   afterEach(() => {

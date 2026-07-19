@@ -1,7 +1,5 @@
-import type { EffectSlot } from '../engine/effects'
-import { isEffectSlot } from '../engine/effects'
+import { isReturnModule, RETURN_BUS_COUNT, type ReturnModule } from '../engine/return-effects'
 import {
-  DEFAULT_LANE_COUNT,
   TRACKER_TOTAL_TICKS,
   type ClipPlacement,
   type LaneState
@@ -12,8 +10,8 @@ import {
 } from '../engine/clip-edge-fades'
 import {
   cloneProjectSongState,
-  createDefaultProjectSongState,
-  type ChannelState,
+  cloneProjectFxBuses,
+  type ProjectFxBuses,
   type ProjectState,
   type ProjectSongState,
 } from './project-state'
@@ -28,12 +26,12 @@ import {
 } from '../../../shared/backend-api'
 import { isGeneratorProfileId } from '../../../shared/generator-profile-id'
 
-const PROJECT_FORMAT_VERSION = 3
+const PROJECT_FORMAT_VERSION = 4
 export const NEWER_PROJECT_VERSION_MESSAGE =
   'This project was created with a newer version of MixJam. Please update the app.'
 
-const MAX_CHANNEL_COUNT = 16
-const MAX_EFFECTS_PER_CHANNEL = 4
+const MIN_LANES = 1
+const MAX_LANES = 64
 
 export type GeneratorProfileId = MixJamGeneratorProfileId
 export type GeneratorBpmMode = MixJamGeneratorBpmMode
@@ -62,6 +60,7 @@ export interface ProjectData extends ProjectState {
 }
 
 export interface ProjectDocument extends ProjectData {
+  fxBuses: ProjectFxBuses
   formatVersion: typeof PROJECT_FORMAT_VERSION
   appVersion: string
   createdAt: string
@@ -87,24 +86,24 @@ interface ProjectPlacementRecord {
 }
 
 interface ProjectLaneRecord {
-  index: number
+  id: string
   name: string
+  gain: number
   muted: boolean
   solo: boolean
   pan: number
-  channelId: string | null
+  sends: [number, number, number, number]
   placements: ProjectPlacementRecord[]
 }
 
-interface ProjectChannelRecord {
-  id: string
-  index: number
-  name: string
-  gain: number
-  pan: number
-  muted: boolean
-  solo: boolean
-  fx: EffectSlot[]
+interface ProjectFxBusRecord {
+  id: `fx-${1 | 2 | 3 | 4}`
+  index: 0 | 1 | 2 | 3
+  name: `FX${1 | 2 | 3 | 4}`
+  module: ReturnModule
+  powered: boolean
+  returnLevel: number
+  limiterEnabled: boolean
 }
 
 interface ProjectDocumentRecord {
@@ -114,7 +113,7 @@ interface ProjectDocumentRecord {
   modifiedAt: string
   song: ProjectSongState
   lanes: ProjectLaneRecord[]
-  channels: ProjectChannelRecord[]
+  fxBuses: [ProjectFxBusRecord, ProjectFxBusRecord, ProjectFxBusRecord, ProjectFxBusRecord]
   generator?: ProjectGeneratorMetadata
 }
 
@@ -128,7 +127,7 @@ function fail(path: string, expectation: string): never {
 
 function readString(record: Record<string, unknown>, key: string, path: string): string {
   const value = record[key]
-  if (typeof value !== 'string' || value.length === 0) fail(`${path}.${key}`, 'must be a non-empty string')
+  if (typeof value !== 'string' || value.trim().length === 0 || value.trim() !== value) fail(`${path}.${key}`, 'must be a non-empty trimmed string')
   return value
 }
 
@@ -208,6 +207,13 @@ function readGeneratorSeed(record: Record<string, unknown>, path: string): strin
   return seed
 }
 
+function assertKeys(record: Record<string, unknown>, path: string, allowed: readonly string[]): void {
+  const allowedSet = new Set(allowed)
+  for (const key of Object.keys(record)) {
+    if (!allowedSet.has(key)) fail(`${path}.${key}`, 'is not supported')
+  }
+}
+
 function readGeneratorProfileId(record: Record<string, unknown>, path: string): GeneratorProfileId {
   const value = record.profileId
   if (!isGeneratorProfileId(value)) {
@@ -227,7 +233,9 @@ function readAnalysisGroupKey(record: Record<string, unknown>, path: string): st
 function parseGenerator(value: unknown): ProjectGeneratorMetadata {
   const path = 'project.generator'
   if (!isRecord(value)) fail(path, 'must be an object')
+  assertKeys(value, path, ['generatorVersion', 'profileId', 'profileVersion', 'seed', 'parameters', 'corpusFingerprint', 'sampleFolderKey'])
   if (!isRecord(value.parameters)) fail(`${path}.parameters`, 'must be an object')
+  assertKeys(value.parameters, `${path}.parameters`, ['bpmMode', 'resolvedBpm', 'tempoClusterPrefix', 'intensity', 'durationSeconds'])
 
   return {
     generatorVersion: readInteger(value, 'generatorVersion', path, 1, Number.MAX_SAFE_INTEGER),
@@ -267,60 +275,6 @@ function readSampleRef(record: Record<string, unknown>, path: string): string {
   return value
 }
 
-function cloneEffect(effect: EffectSlot): EffectSlot {
-  if (effect.type === 'delay') {
-    return {
-      id: effect.id,
-      type: effect.type,
-      bypassed: effect.bypassed,
-      timeMs: effect.timeMs,
-      feedback: effect.feedback,
-      mix: effect.mix,
-      pingPong: effect.pingPong,
-      tempoSync: effect.tempoSync,
-      noteDivision: effect.noteDivision
-    }
-  }
-  if (effect.type === 'reverb') {
-    return {
-      id: effect.id,
-      type: effect.type,
-      bypassed: effect.bypassed,
-      roomSize: effect.roomSize,
-      decay: effect.decay,
-      mix: effect.mix
-    }
-  }
-  return {
-    id: effect.id,
-    type: effect.type,
-    bypassed: effect.bypassed,
-    threshold: effect.threshold,
-    ratio: effect.ratio,
-    attackMs: effect.attackMs,
-    releaseMs: effect.releaseMs,
-    makeupGain: effect.makeupGain
-  }
-}
-
-function effectParametersAreInRange(effect: EffectSlot): boolean {
-  if (effect.type === 'delay') {
-    return effect.timeMs >= 0 && effect.timeMs <= 2000 &&
-      effect.feedback >= 0 && effect.feedback <= 1 &&
-      effect.mix >= 0 && effect.mix <= 1
-  }
-  if (effect.type === 'reverb') {
-    return effect.roomSize >= 0 && effect.roomSize <= 1 &&
-      effect.decay >= 0 && effect.decay <= 1 &&
-      effect.mix >= 0 && effect.mix <= 1
-  }
-  return effect.threshold >= -60 && effect.threshold <= 0 &&
-    effect.ratio >= 1 && effect.ratio <= 20 &&
-    effect.attackMs >= 0 && effect.attackMs <= 200 &&
-    effect.releaseMs >= 5 && effect.releaseMs <= 3000 &&
-    effect.makeupGain >= 0 && effect.makeupGain <= 24
-}
-
 function serializePlacement(placement: ClipPlacement): ProjectPlacementRecord {
   return {
     id: placement.id,
@@ -334,27 +288,29 @@ function serializePlacement(placement: ClipPlacement): ProjectPlacementRecord {
   }
 }
 
-function channelId(channelIndex: number): string {
-  return `ch-${channelIndex + 1}`
-}
-
 function toDocumentRecord(
   project: ProjectData,
   metadata: Pick<ProjectDocument, 'appVersion' | 'createdAt' | 'modifiedAt'>
 ): ProjectDocumentRecord {
-  const channels = [...project.channels]
-    .sort((left, right) => left.channelIndex - right.channelIndex)
-    .map((channel): ProjectChannelRecord => ({
-      id: channelId(channel.channelIndex),
-      index: channel.channelIndex,
-      name: `Channel ${channel.channelIndex + 1}`,
-      gain: channel.gain,
-      pan: channel.pan,
-      muted: channel.muted,
-      solo: channel.solo,
-      fx: channel.effects.map(cloneEffect)
-    }))
-  const presentChannels = new Set(channels.map((channel) => channel.index))
+  if (project.fxBuses.length !== RETURN_BUS_COUNT) {
+    throw new Error(`Project state must contain exactly ${RETURN_BUS_COUNT} return buses.`)
+  }
+  const lanes = [...project.lanes]
+    .sort((left, right) => left.index - right.index)
+    .map((lane): ProjectLaneRecord => {
+      return {
+        id: lane.id,
+        name: lane.name,
+        gain: lane.gain,
+        muted: lane.muted,
+        solo: lane.solo,
+        pan: lane.pan,
+        sends: [...lane.sends],
+        placements: [...lane.placements]
+          .sort((left, right) => left.startTick - right.startTick || left.id.localeCompare(right.id))
+          .map(serializePlacement)
+      }
+    })
 
   return {
     formatVersion: PROJECT_FORMAT_VERSION,
@@ -362,20 +318,18 @@ function toDocumentRecord(
     createdAt: metadata.createdAt,
     modifiedAt: metadata.modifiedAt,
     song: cloneProjectSongState(project.song),
-    lanes: [...project.lanes]
-      .sort((left, right) => left.index - right.index)
-      .map((lane): ProjectLaneRecord => ({
-        index: lane.index,
-        name: lane.name,
-        muted: lane.muted,
-        solo: lane.solo,
-        pan: lane.pan,
-        channelId: presentChannels.has(lane.index) ? channelId(lane.index) : null,
-        placements: [...lane.placements]
-          .sort((left, right) => left.startTick - right.startTick || left.id.localeCompare(right.id))
-          .map(serializePlacement)
-      })),
-    channels,
+    lanes,
+    fxBuses: cloneProjectFxBuses(project.fxBuses).map((bus) => ({
+      id: bus.id,
+      index: bus.index,
+      name: bus.name,
+      module: bus.module.type === 'empty'
+        ? { type: 'empty' as const }
+        : { ...bus.module, id: undefined },
+      powered: bus.powered,
+      returnLevel: bus.returnLevel,
+      limiterEnabled: bus.limiterEnabled
+    })) as ProjectDocumentRecord['fxBuses'],
     ...(project.generator === undefined ? {} : { generator: cloneGenerator(project.generator) })
   }
 }
@@ -395,100 +349,16 @@ export function serializeProject(
   return `${JSON.stringify(toDocumentRecord(project, metadata), null, 2)}\n`
 }
 
-function baseName(relpath: string): string {
-  return relpath.split('/').pop() ?? relpath
-}
-
-function migrateVersionZero(document: Record<string, unknown>): Record<string, unknown> {
-  const defaultSong = createDefaultProjectSongState()
-  const rawChannels = Array.isArray(document.channels) ? document.channels : []
-  const channelIds = new Set(
-    rawChannels.flatMap((value, index) => isRecord(value)
-      ? [typeof value.id === 'string' ? value.id : channelId(index)]
-      : [])
-  )
-  const rawLanes = Array.isArray(document.lanes) ? document.lanes : []
-
-  return {
-    ...document,
-    formatVersion: 1,
-    song: isRecord(document.song)
-      ? document.song
-      : { ...defaultSong, bpm: document.bpm ?? defaultSong.bpm },
-    lanes: rawLanes.map((value, laneIndex) => {
-      if (!isRecord(value)) return value
-      const placements = Array.isArray(value.placements) ? value.placements : []
-      const expectedChannelId = channelId(laneIndex)
-      return {
-        ...value,
-        index: value.index ?? laneIndex,
-        pan: value.pan ?? 0,
-        channelId: value.channelId ?? (channelIds.has(expectedChannelId) ? expectedChannelId : null),
-        placements: placements.map((placement, placementIndex) => {
-          if (!isRecord(placement)) return placement
-          const sampleRef = typeof placement.sampleRef === 'string' ? placement.sampleRef : ''
-          return {
-            ...placement,
-            id: placement.id ?? `placement-${laneIndex}-${placementIndex}`,
-            sampleName: placement.sampleName ?? baseName(sampleRef),
-            durationSeconds: placement.durationSeconds ?? null,
-            slot: placement.slot ?? null
-          }
-        })
-      }
-    }),
-    channels: rawChannels.map((value, index) => isRecord(value)
-      ? {
-          ...value,
-          id: value.id ?? channelId(index),
-          index: value.index ?? index,
-          name: value.name ?? `Channel ${index + 1}`,
-          fx: value.fx ?? []
-        }
-      : value)
-  }
-}
-
-function migrateVersionOne(document: Record<string, unknown>): Record<string, unknown> {
-  const song = isRecord(document.song) ? document.song : {}
-  return {
-    ...document,
-    formatVersion: 2,
-    song: {
-      ...song,
-      clipEdgeMicroFades: song.clipEdgeMicroFades ??
-        createDefaultProjectSongState().clipEdgeMicroFades
-    }
-  }
-}
-
-function migrateVersionTwo(document: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...document,
-    formatVersion: 3
-  }
-}
-
 function migrateToCurrent(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) fail('project', 'must be a JSON object')
   const rawVersion = value.formatVersion
-  if (!Number.isInteger(rawVersion) || (rawVersion as number) < 0) {
-    fail('project.formatVersion', 'must be a non-negative integer')
+  if (rawVersion !== PROJECT_FORMAT_VERSION) {
+    if (typeof rawVersion === 'number' && rawVersion > PROJECT_FORMAT_VERSION) {
+      throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
+    }
+    throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 4 is supported.')
   }
-  if ((rawVersion as number) > PROJECT_FORMAT_VERSION) {
-    throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
-  }
-
-  let current = value
-  let version = rawVersion as number
-  while (version < PROJECT_FORMAT_VERSION) {
-    if (version === 0) current = migrateVersionZero(current)
-    else if (version === 1) current = migrateVersionOne(current)
-    else if (version === 2) current = migrateVersionTwo(current)
-    else fail('project.formatVersion', `has no migration from version ${version}`)
-    version += 1
-  }
-  return current
+  return value
 }
 
 function parsePlacement(
@@ -498,6 +368,7 @@ function parsePlacement(
   sampleDurationTicks: Map<string, number>
 ): ClipPlacement {
   if (!isRecord(value)) fail(path, 'must be an object')
+  assertKeys(value, path, ['id', 'sampleRef', 'sampleName', 'nativeBPM', 'startTick', 'durationTicks', 'durationSeconds', 'slot'])
   const id = readString(value, 'id', path)
   if (placementIds.has(id)) fail(`${path}.id`, 'must be unique')
   placementIds.add(id)
@@ -540,43 +411,6 @@ function parsePlacement(
   }
 }
 
-function parseChannel(
-  value: unknown,
-  path: string,
-  channelIds: Set<string>,
-  channelIndices: Set<number>,
-  effectIds: Set<string>
-): ChannelState {
-  if (!isRecord(value)) fail(path, 'must be an object')
-  const id = readString(value, 'id', path)
-  const index = readInteger(value, 'index', path, 0, MAX_CHANNEL_COUNT - 1)
-  if (channelIds.has(id)) fail(`${path}.id`, 'must be unique')
-  if (channelIndices.has(index)) fail(`${path}.index`, 'must be unique')
-  if (id !== channelId(index)) fail(`${path}.id`, `must be ${channelId(index)}`)
-  channelIds.add(id)
-  channelIndices.add(index)
-  readString(value, 'name', path)
-  const effectsValue = value.fx
-  if (!Array.isArray(effectsValue) || effectsValue.length > MAX_EFFECTS_PER_CHANNEL) {
-    fail(`${path}.fx`, `must be an array of at most ${MAX_EFFECTS_PER_CHANNEL} effects`)
-  }
-  const effects = effectsValue.map((effect, effectIndex) => {
-    const effectPath = `${path}.fx[${effectIndex}]`
-    if (!isEffectSlot(effect) || !effectParametersAreInRange(effect)) {
-      fail(effectPath, 'must be a supported effect with in-range parameters')
-    }
-    if (effectIds.has(effect.id)) fail(`${effectPath}.id`, 'must be unique')
-    effectIds.add(effect.id)
-    return cloneEffect(effect)
-  })
-  const gain = readNumber(value, 'gain', path, 0, 1)
-  const pan = readNumber(value, 'pan', path, -1, 1)
-  const muted = readBoolean(value, 'muted', path)
-  const solo = readBoolean(value, 'solo', path)
-
-  return { channelIndex: index, gain, pan, muted, solo, effects }
-}
-
 export function parseProject(text: string): ProjectDocument {
   let parsed: unknown
   try {
@@ -586,12 +420,14 @@ export function parseProject(text: string): ProjectDocument {
   }
 
   const record = migrateToCurrent(parsed)
+  assertKeys(record, 'project', ['formatVersion', 'appVersion', 'createdAt', 'modifiedAt', 'song', 'lanes', 'fxBuses', 'generator'])
   const appVersion = readString(record, 'appVersion', 'project')
   const createdAt = readIsoTimestamp(record, 'createdAt')
   const modifiedAt = readIsoTimestamp(record, 'modifiedAt')
   const generator = record.generator === undefined ? undefined : parseGenerator(record.generator)
 
   if (!isRecord(record.song)) fail('project.song', 'must be an object')
+  assertKeys(record.song, 'project.song', ['bpm', 'masterGain', 'clipEdgeMicroFades'])
   if (!isRecord(record.song.clipEdgeMicroFades)) {
     fail('project.song.clipEdgeMicroFades', 'must be an object')
   }
@@ -621,39 +457,39 @@ export function parseProject(text: string): ProjectDocument {
     }
   }
 
-  if (!Array.isArray(record.channels) || record.channels.length > MAX_CHANNEL_COUNT) {
-    fail('project.channels', `must be an array of at most ${MAX_CHANNEL_COUNT} channels`)
+  if (!Array.isArray(record.lanes) || record.lanes.length < MIN_LANES || record.lanes.length > MAX_LANES) {
+    fail('project.lanes', `must contain ${MIN_LANES} through ${MAX_LANES} lanes`)
   }
-  const channelIds = new Set<string>()
-  const channelIndices = new Set<number>()
-  const effectIds = new Set<string>()
-  const channels = record.channels.map((channel, index) =>
-    parseChannel(channel, `project.channels[${index}]`, channelIds, channelIndices, effectIds)
-  ).sort((left, right) => left.channelIndex - right.channelIndex)
-
-  if (!Array.isArray(record.lanes) || record.lanes.length !== DEFAULT_LANE_COUNT) {
-    fail('project.lanes', `must contain exactly ${DEFAULT_LANE_COUNT} lanes`)
-  }
-  const laneIndices = new Set<number>()
+  assertKeys(record.song.clipEdgeMicroFades, 'project.song.clipEdgeMicroFades', ['enabled', 'fadeInMs', 'fadeOutMs'])
+  const laneIds = new Set<string>()
   const placementIds = new Set<string>()
   const sampleDurationTicks = new Map<string, number>()
   const lanes = record.lanes.map((value, arrayIndex): LaneState => {
     const path = `project.lanes[${arrayIndex}]`
     if (!isRecord(value)) fail(path, 'must be an object')
-    const index = readInteger(value, 'index', path, 0, DEFAULT_LANE_COUNT - 1)
-    if (laneIndices.has(index)) fail(`${path}.index`, 'must be unique')
-    laneIndices.add(index)
-    const expectedChannelId = channelIndices.has(index) ? channelId(index) : null
-    if (value.channelId !== expectedChannelId) {
-      fail(`${path}.channelId`, `must be ${expectedChannelId === null ? 'null' : expectedChannelId}`)
-    }
+    assertKeys(value, path, ['id', 'name', 'gain', 'muted', 'solo', 'pan', 'sends', 'placements'])
+    const id = readString(value, 'id', path)
+    if (laneIds.has(id)) fail(`${path}.id`, 'must be unique')
+    laneIds.add(id)
     if (!Array.isArray(value.placements)) fail(`${path}.placements`, 'must be an array')
+    const sendsValue = value.sends
+    if (!Array.isArray(sendsValue) || sendsValue.length !== RETURN_BUS_COUNT) {
+      fail(`${path}.sends`, 'must contain exactly four values')
+    }
     return {
-      index,
+      id,
+      index: arrayIndex,
       name: readString(value, 'name', path),
+      gain: readNumber(value, 'gain', path, 0, 1),
       muted: readBoolean(value, 'muted', path),
       solo: readBoolean(value, 'solo', path),
       pan: readNumber(value, 'pan', path, -1, 1),
+      sends: sendsValue.map((send, sendIndex) => {
+        if (typeof send !== 'number' || !Number.isFinite(send) || send < 0 || send > 1) {
+          fail(`${path}.sends[${sendIndex}]`, 'must be a finite number from 0 to 1')
+        }
+        return send
+      }) as [number, number, number, number],
       placements: value.placements
         .map((placement, placementIndex) =>
           parsePlacement(
@@ -665,7 +501,48 @@ export function parseProject(text: string): ProjectDocument {
         )
         .sort((left, right) => left.startTick - right.startTick || left.id.localeCompare(right.id))
     }
-  }).sort((left, right) => left.index - right.index)
+  })
+
+  if (!Array.isArray(record.fxBuses) || record.fxBuses.length !== RETURN_BUS_COUNT) {
+    fail('project.fxBuses', 'must contain exactly four return buses')
+  }
+  const effectIds = new Set<string>()
+  const fxBuses = record.fxBuses.map((value, index): ProjectFxBusRecord => {
+    const path = `project.fxBuses[${index}]`
+    if (!isRecord(value)) fail(path, 'must be an object')
+    assertKeys(value, path, ['id', 'index', 'name', 'module', 'powered', 'returnLevel', 'limiterEnabled'])
+    const expectedId = `fx-${index + 1}` as ProjectFxBusRecord['id']
+    const expectedIndex = index as ProjectFxBusRecord['index']
+    const expectedName = `FX${index + 1}` as ProjectFxBusRecord['name']
+    if (value.id !== expectedId) fail(`${path}.id`, `must be ${expectedId}`)
+    if (value.index !== expectedIndex) fail(`${path}.index`, `must be ${expectedIndex}`)
+    if (value.name !== expectedName) fail(`${path}.name`, `must be ${expectedName}`)
+    if (!isRecord(value.module)) fail(`${path}.module`, 'must be an object')
+    assertKeys(value.module, `${path}.module`, value.module.type === 'empty'
+      ? ['type']
+      : ['type', 'mode', 'timeMs', 'noteDivision', 'feedback', 'tapeDistortion', 'pingPong'])
+    let module: ProjectFxBusRecord['module']
+    if (value.module.type === 'empty') {
+      module = { id: expectedId, type: 'empty' }
+    } else {
+      if (!isReturnModule(value.module)) {
+        fail(`${path}.module`, 'must be Empty or a supported effect with in-range parameters')
+      }
+      const moduleId = value.module.id ?? expectedId
+      if (effectIds.has(moduleId)) fail(`${path}.module.id`, 'must be unique')
+      effectIds.add(moduleId)
+      module = { ...value.module, id: moduleId }
+    }
+    return {
+      id: expectedId,
+      index: expectedIndex,
+      name: expectedName,
+      module,
+      powered: readBoolean(value, 'powered', path),
+      returnLevel: readNumber(value, 'returnLevel', path, 0, 1),
+      limiterEnabled: readBoolean(value, 'limiterEnabled', path)
+    }
+  }) as ProjectFxBuses
 
   return {
     formatVersion: PROJECT_FORMAT_VERSION,
@@ -674,7 +551,7 @@ export function parseProject(text: string): ProjectDocument {
     modifiedAt,
     song,
     lanes,
-    channels,
+    fxBuses,
     ...(generator === undefined ? {} : { generator })
   }
 }

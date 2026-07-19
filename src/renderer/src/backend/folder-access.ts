@@ -52,8 +52,8 @@ export async function validateFolder(ref: FolderRef, role: FolderRole): Promise<
 
   const permission = await handle.queryPermission({ mode: permissionMode(role) })
   if (permission !== 'granted') {
-    // Regaining access needs a user gesture (browser host); the Electron shell
-    // auto-grants, so this state is browser-only in practice.
+    // Keep a recovery state if Chromium reports a prompt despite Electron's
+    // normal file-system auto-grant.
     return 'needs-permission'
   }
 

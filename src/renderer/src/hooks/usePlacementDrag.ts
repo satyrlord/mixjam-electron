@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FooterSampleDetail, LaneState, PlacementGroupEntry } from '../lib/arrangement'
 import {
   LANE_HEAD_WIDTH_PX,
-  LANE_HEIGHT_PX,
   RULER_HEIGHT_PX,
   placementDurationTicks,
   sampleBubbleScreenRect
@@ -10,6 +9,7 @@ import {
 import { clamp, nearestTick } from '../lib/sample-utils'
 import { TICKS_PER_BEAT } from '../engine/transport'
 import { safeJsonParse } from '../lib/safeJsonParse'
+import { useUiGeometry } from '../ui-size'
 
 // ---------------------------------------------------------------------------
 // Drag payload validators
@@ -78,6 +78,7 @@ export interface UsePlacementDragParams {
 }
 
 export function usePlacementDrag(params: UsePlacementDragParams) {
+  const uiGeometry = useUiGeometry()
   const {
     lanes, totalTicks, bpm, sampleDurationTicksByPath, selectedPlacementIds,
     pixelsPerTick,
@@ -138,6 +139,11 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
     e.preventDefault()
     const startX = localX + container.scrollLeft
     const startY = localY + container.scrollTop
+    const measuredLaneHeight = container.querySelector<HTMLElement>('.tracker-lane')
+      ?.getBoundingClientRect().height
+    const renderedLaneHeight = measuredLaneHeight && measuredLaneHeight > 0
+      ? measuredLaneHeight
+      : uiGeometry.laneHeight
     setSelectionRect({ startX, startY, currentX: startX, currentY: startY })
 
     // Return cleanup function. The caller registers it with their drag-cleanup
@@ -154,8 +160,8 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
       const y1 = Math.min(startY, cy) - RULER_HEIGHT_PX
       const y2 = Math.max(startY, cy) - RULER_HEIGHT_PX
 
-      const minLane = Math.max(0, Math.floor(y1 / LANE_HEIGHT_PX))
-      const maxLane = Math.min(lanes.length - 1, Math.floor(y2 / LANE_HEIGHT_PX))
+      const minLane = Math.max(0, Math.floor(y1 / renderedLaneHeight))
+      const maxLane = Math.min(lanes.length - 1, Math.floor(y2 / renderedLaneHeight))
 
       const ids = new Set<string>()
       for (let li = minLane; li <= maxLane; li++) {
@@ -185,7 +191,7 @@ export function usePlacementDrag(params: UsePlacementDragParams) {
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return onUp
-  }, [onClearSelection, lanes, pixelsPerTick])
+  }, [onClearSelection, lanes, pixelsPerTick, uiGeometry.laneHeight])
 
   // ──────────────── Sample drag start ────────────────
 

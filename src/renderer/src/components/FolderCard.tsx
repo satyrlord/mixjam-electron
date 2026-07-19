@@ -14,8 +14,7 @@ interface FolderCardProps {
   emptyPrompt: string
   children?: ReactNode
   onPick: () => void
-  /** Re-requests permission on the stored handle (browser host; the Electron
-   *  shell auto-grants so this affordance never shows there). */
+  /** Re-requests permission if Chromium reports an unexpected prompt state. */
   onRestore: () => void
 }
 

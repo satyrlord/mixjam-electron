@@ -6,6 +6,7 @@ import { initSchema } from './schema'
 import {
   applyAnalysisResult,
   applyContextualAnalysisResult,
+  analysisGroupContainsRelpath,
   getCanonicalRootAnalysisSummary,
   listStoredAnalysisEvidence,
   reconcileAnalysisGroups,
@@ -133,6 +134,21 @@ describe('analysis persistence', () => {
     })
   })
 
+  it('removes stale groups and handles cohort paths and an empty root summary', () => {
+    const rootId = db.prepare('SELECT root_id FROM samples WHERE id = ?')
+      .get<{ root_id: number }>(sampleId)!.root_id
+    reconcileAnalysisGroups(db, rootId, [{
+      relpathPrefix: 'Drums', depth: 1, sampleCount: 1, state: 'resolved',
+      bpm: 120, musicalKey: 'C', bpmSupport: 1, keySupport: 1, confidence: 1
+    }])
+    reconcileAnalysisGroups(db, rootId, [])
+    expect(getCanonicalRootAnalysisSummary(db, 'analysis-root')).toBeNull()
+    expect(analysisGroupContainsRelpath('@cohort/Drums/kick', 'Drums/kick_01.wav')).toBe(true)
+    expect(analysisGroupContainsRelpath('@cohort/Drums/kick', 'Bass/kick_01.wav')).toBe(false)
+    expect(analysisGroupContainsRelpath('@cohort', 'kick.wav')).toBe(false)
+    expect(analysisGroupContainsRelpath('Drums', 'Drums/Kicks/kick.wav')).toBe(true)
+  })
+
   it('replaces prior automatic values, including newly absent results', () => {
     applyAnalysisResult(db, sampleId, { bpm: 90, musicalKey: 'C', sampleType: 'Kick' })
     applyAnalysisResult(db, sampleId, { bpm: null, musicalKey: null, sampleType: 'Bass' })
@@ -199,5 +215,9 @@ describe('analysis persistence', () => {
   it('rejects invalid sample type values', () => {
     expect(() => updateSampleAnalysis(db, sampleId, { sampleType: 'Guitar' as never }))
       .toThrow('Invalid sample type')
+  })
+
+  it('accepts an empty manual-analysis patch as a no-op', () => {
+    expect(() => updateSampleAnalysis(db, sampleId, {})).not.toThrow()
   })
 })

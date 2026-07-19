@@ -1,13 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FolderRef } from '../../../shared/backend-api'
 import { createBackendAPI } from '../test/backendApi'
 import { createDefaultLanes, type LaneState } from '../lib/arrangement'
-import { createDefaultChannels, type ChannelState } from '../project/project-state'
 import { useProjectPersistence } from './useProjectPersistence'
 import { parseProject, serializeProject, type ProjectData } from '../project/project-file'
-import type { ProjectTransportState } from '../project/project-state'
+import { createDefaultFxBuses, createDefaultProjectState, type ProjectState } from '../project/project-state'
 
 const USER_FOLDER: FolderRef = { id: 'user-folder', name: 'MixJam' }
 const SAMPLE_FOLDER: FolderRef = { id: 'sample-folder', name: 'Samples' }
@@ -18,7 +17,8 @@ function makeProject(bpm = 128, masterGain = 0.67): ProjectData {
   lanes[0] = {
     ...lanes[0]!,
     muted: true,
-    pan: -0.3,
+    gain: 0.55,
+    pan: 0.2,
     placements: [{
       id: `placement-${bpm}`,
       samplePath: 'Loops/beat.wav',
@@ -30,20 +30,6 @@ function makeProject(bpm = 128, masterGain = 0.67): ProjectData {
       slot: 4
     }]
   }
-  const channels = createDefaultChannels()
-  channels[0] = {
-    ...channels[0]!,
-    gain: 0.55,
-    pan: 0.2,
-    effects: [{
-      id: `fx-${bpm}`,
-      type: 'reverb',
-      bypassed: false,
-      roomSize: 0.6,
-      decay: 0.4,
-      mix: 0.25
-    }]
-  }
   return {
     song: {
       bpm,
@@ -51,7 +37,7 @@ function makeProject(bpm = 128, masterGain = 0.67): ProjectData {
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     },
     lanes,
-    channels
+    fxBuses: createDefaultFxBuses()
   }
 }
 
@@ -69,47 +55,28 @@ function useHarness(
   userFolder: FolderRef | null = USER_FOLDER,
   sampleFolder: FolderRef | null = SAMPLE_FOLDER
 ) {
-  const [lanes, setLanes] = useState<LaneState[]>(createDefaultLanes)
-  const [bpm, setBpm] = useState(120)
-  const [masterGain, setMasterGain] = useState(0.8)
-  const [clipEdgeMicroFades, setClipEdgeMicroFades] = useState({
-    enabled: true,
-    fadeInMs: 2,
-    fadeOutMs: 4
-  })
-  const [channels, setChannels] = useState<ChannelState[]>(createDefaultChannels)
-
-  const replaceTransportProject = useCallback((state: ProjectTransportState) => {
-    setLanes(state.lanes)
-    setBpm(state.song.bpm)
-    setMasterGain(state.song.masterGain)
-    setClipEdgeMicroFades(state.song.clipEdgeMicroFades)
-  }, [])
-  const replaceChannels = useCallback((next: ChannelState[]) => setChannels(next), [])
+  const [activeProject, setActiveProject] = useState<ProjectState>(createDefaultProjectState)
   const project = useProjectPersistence({
     backendAPI: api,
     userFolder,
     sampleFolder,
-    lanes,
-    song: { bpm, masterGain, clipEdgeMicroFades },
-    channels,
-    replaceTransportProject,
-    replaceChannels,
+    project: activeProject,
+    replaceProject: setActiveProject,
     reloadMixJamFiles
   })
 
   return {
     project,
-    lanes,
-    bpm,
-    masterGain,
-    clipEdgeMicroFades,
-    channels,
-    setLanes,
-    setBpm,
-    setMasterGain,
-    setClipEdgeMicroFades,
-    setChannels
+    lanes: activeProject.lanes,
+    fxBuses: activeProject.fxBuses,
+    bpm: activeProject.song.bpm,
+    masterGain: activeProject.song.masterGain,
+    clipEdgeMicroFades: activeProject.song.clipEdgeMicroFades,
+    setLanes: (lanes: LaneState[]) => setActiveProject((current) => ({ ...current, lanes })),
+    setBpm: (bpm: number) => setActiveProject((current) => ({ ...current, song: { ...current.song, bpm } })),
+    setMasterGain: (masterGain: number) => setActiveProject((current) => ({ ...current, song: { ...current.song, masterGain } })),
+    setClipEdgeMicroFades: (clipEdgeMicroFades: ProjectState['song']['clipEdgeMicroFades']) =>
+      setActiveProject((current) => ({ ...current, song: { ...current.song, clipEdgeMicroFades } }))
   }
 }
 
@@ -245,16 +212,29 @@ describe('useProjectPersistence', () => {
       fadeInMs: 1,
       fadeOutMs: 6.5
     })
-    expect(result.current.lanes[0]).toMatchObject({ muted: true, pan: -0.3 })
-    expect(result.current.channels[0]).toMatchObject({
-      gain: 0.55,
-      pan: 0.2,
-      effects: [{ id: 'fx-140', type: 'reverb' }]
-    })
+    expect(result.current.lanes[0]).toMatchObject({ muted: true, gain: 0.55, pan: 0.2 })
     expect(result.current.project.projectDirty).toBe(false)
     expect(result.current.project.projectMissingSamplePaths.has('Loops/beat.wav')).toBe(true)
     expect(result.current.project.projectWarning).toContain('1 referenced sample')
     expect(api.recordRecentProject).toHaveBeenCalledWith('sets/loaded.mixjam')
+  })
+
+  it('replaces return buses on load and when starting a new project', async () => {
+    const loaded = makeProject()
+    loaded.fxBuses[0].returnLevel = 0.45
+    vi.mocked(api.readMixJamFile).mockResolvedValue({
+      path: 'sets/returns.mixjam',
+      contents: projectText(loaded)
+    })
+    const { result } = renderHook(() => useHarness(api, undefined, USER_FOLDER, SAMPLE_FOLDER))
+
+    await act(async () => { await result.current.project.openProjectPath('sets/returns.mixjam') })
+    expect(result.current.fxBuses[0].returnLevel).toBe(0.45)
+    expect(result.current.project.projectDirty).toBe(false)
+    expect(result.current.project.projectBusy).toBe(false)
+    act(() => result.current.project.beginNewProject())
+    expect(result.current.fxBuses[0].returnLevel).toBe(1)
+    expect(result.current.project.projectName).toBe('Untitled')
   })
 
   it('saves an opened project back to its current path', async () => {
@@ -314,9 +294,8 @@ describe('useProjectPersistence', () => {
 
   it('loading project B after project A does not merge state from A', async () => {
     const projectA = makeProject(128)
-    projectA.channels = projectA.channels.slice(0, 2)
+    projectA.lanes = projectA.lanes.slice(0, 2)
     const projectB = makeProject(96)
-    projectB.channels = createDefaultChannels()
     projectB.lanes[0] = { ...projectB.lanes[0]!, placements: [] }
     vi.mocked(api.readMixJamFile).mockImplementation(async (_folder, path) => ({
       path,
@@ -325,12 +304,12 @@ describe('useProjectPersistence', () => {
     const { result } = renderHook(() => useHarness(api))
 
     await act(async () => { await result.current.project.openProjectPath('a.mixjam') })
-    expect(result.current.channels).toHaveLength(2)
+    expect(result.current.lanes).toHaveLength(2)
     expect(result.current.lanes[0]!.placements).toHaveLength(1)
 
     await act(async () => { await result.current.project.openProjectPath('b.mixjam') })
     expect(result.current.bpm).toBe(96)
-    expect(result.current.channels).toHaveLength(16)
+    expect(result.current.lanes).toHaveLength(8)
     expect(result.current.lanes[0]!.placements).toHaveLength(0)
     expect(result.current.project.projectDirty).toBe(false)
   })
@@ -347,7 +326,7 @@ describe('useProjectPersistence', () => {
     await act(async () => { await result.current.project.openProjectPath('future.mixjam') })
 
     expect(result.current.bpm).toBe(120)
-    expect(result.current.channels).toHaveLength(16)
+    expect(result.current.lanes).toHaveLength(8)
     expect(result.current.project.projectError).toBe(
       'This project was created with a newer version of MixJam. Please update the app.'
     )
@@ -381,7 +360,6 @@ describe('useProjectPersistence', () => {
         fadeInMs: 0.5,
         fadeOutMs: 8
       })
-      result.current.setChannels([])
     })
 
     act(() => result.current.project.beginNewProject())
@@ -394,7 +372,7 @@ describe('useProjectPersistence', () => {
       fadeInMs: 2,
       fadeOutMs: 4
     })
-    expect(result.current.channels).toHaveLength(16)
+    expect(result.current.lanes).toHaveLength(8)
     expect(result.current.lanes.every((lane) => lane.placements.length === 0)).toBe(true)
     expect(result.current.project.projectName).toBe('Untitled')
     expect(result.current.project.projectDirty).toBe(false)

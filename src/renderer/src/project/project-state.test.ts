@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultEffect } from '../engine/effects'
 import {
   cloneProjectState,
   cloneProjectSongState,
@@ -41,24 +40,22 @@ describe('project state', () => {
     const second = createDefaultProjectState()
 
     expect(first.song.bpm).toBe(120)
-    expect(first.lanes).toHaveLength(16)
-    expect(first.channels).toHaveLength(16)
-    expect(first.channels[0]).toEqual({
-      channelIndex: 0,
+    expect(first.lanes).toHaveLength(8)
+    expect(first.lanes[0]).toEqual(expect.objectContaining({
+      index: 0,
       gain: 0.8,
       pan: 0,
       muted: false,
       solo: false,
-      effects: []
-    })
+      sends: [0, 0, 0, 0]
+    }))
 
-    first.channels[0]!.gain = 0.2
-    expect(second.channels[0]!.gain).toBe(0.8)
+    first.lanes[0]!.gain = 0.2
+    expect(second.lanes[0]!.gain).toBe(0.8)
   })
 
   it('clones every nested project replacement boundary', () => {
     const original = createDefaultProjectState()
-    original.channels[0]!.effects = [createDefaultEffect('delay')]
     const clone = cloneProjectState(original)
 
     expect(clone).toEqual(original)
@@ -66,24 +63,47 @@ describe('project state', () => {
     expect(clone.song.clipEdgeMicroFades).not.toBe(original.song.clipEdgeMicroFades)
     expect(clone.lanes).not.toBe(original.lanes)
     expect(clone.lanes[0]).not.toBe(original.lanes[0])
-    expect(clone.channels).not.toBe(original.channels)
-    expect(clone.channels[0]).not.toBe(original.channels[0])
-    expect(clone.channels[0]!.effects).not.toBe(original.channels[0]!.effects)
-    expect(clone.channels[0]!.effects[0]).not.toBe(original.channels[0]!.effects[0])
+    expect(clone.lanes[0]!.placements).not.toBe(original.lanes[0]!.placements)
   })
 
-  it('clones supplied lanes and channels instead of retaining caller-owned values', () => {
+  it('clones supplied lanes instead of retaining caller-owned values', () => {
     const source = createDefaultProjectState()
     const project = createDefaultProjectState({
-      lanes: source.lanes,
-      channels: source.channels
+      lanes: source.lanes
     })
 
     expect(project.lanes).toEqual(source.lanes)
-    expect(project.channels).toEqual(source.channels)
     expect(project.lanes).not.toBe(source.lanes)
     expect(project.lanes[0]).not.toBe(source.lanes[0])
-    expect(project.channels).not.toBe(source.channels)
-    expect(project.channels[0]).not.toBe(source.channels[0])
+  })
+
+  it('deep-clones lane-owned send values', () => {
+    const source = createDefaultProjectState()
+    source.lanes[0]!.sends = [0.1, 0.2, 0.3, 0.4]
+    const clone = cloneProjectState(source)
+    expect(clone.lanes[0]!.sends).toEqual([0.1, 0.2, 0.3, 0.4])
+    expect(clone.lanes[0]!.sends).not.toBe(source.lanes[0]!.sends)
+  })
+
+  it('clones supplied FX buses without creating a second Mixer state model', () => {
+    const source = createDefaultProjectState()
+    source.fxBuses[0]!.module = {
+      id: 'fx-1', type: 'delay', mode: 'sync', timeMs: 500,
+      noteDivision: '1/4', feedback: 40, tapeDistortion: 5, pingPong: true
+    }
+    const created = createDefaultProjectState({
+      lanes: source.lanes,
+      fxBuses: source.fxBuses
+    })
+    const cloned = cloneProjectState(created)
+
+    expect(created.lanes[0]!.sends).toEqual([0, 0, 0, 0])
+    expect(created.fxBuses[0]).not.toBe(source.fxBuses[0])
+    expect(created.fxBuses[0]!.module).not.toBe(source.fxBuses[0]!.module)
+    expect(cloned.fxBuses[0]!.module).not.toBe(created.fxBuses[0]!.module)
+  })
+
+  it('rejects project state with a non-canonical return bus count', () => {
+    expect(() => createDefaultProjectState({ fxBuses: [] })).toThrow('exactly 4 return buses')
   })
 })

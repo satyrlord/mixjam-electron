@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
@@ -32,19 +32,10 @@ function injectCspPlugin(): Plugin {
   }
 }
 
-// The app version is derived from the git commit count at build time.
-// Format: 0.<commit-count> (e.g. 0.43). Falls back to package.json version
-// when git is unavailable (e.g. in CI without a full clone).
-function deriveAppVersion(): string {
-  try {
-    const count = execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()
-    return `0.${count}`
-  } catch {
-    const { version } = JSON.parse(require('fs').readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
-    return version
-  }
-}
-const appVersion = deriveAppVersion()
+// Runtime UI and packaged metadata share one version authority.
+const { version: appVersion } = JSON.parse(
+  readFileSync(resolve(__dirname, 'package.json'), 'utf8')
+) as { version: string }
 
 export default defineConfig({
   main: {

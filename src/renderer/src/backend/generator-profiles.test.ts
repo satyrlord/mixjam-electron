@@ -12,14 +12,8 @@ import {
   parseGeneratorTemplate
 } from './generator-profiles'
 
-interface MutableEffect {
-  values: Record<string, unknown>
-  [key: string]: unknown
-}
-
 interface MutableLane {
   types: unknown[]
-  effects: MutableEffect[]
   transitionKind?: unknown
   [key: string]: unknown
 }
@@ -76,11 +70,9 @@ describe('bundled generator templates', () => {
         { name: 'Outro', weight: 8, phraseMode: 'outro' }
       ]
     })
-    expect(GENERATOR_PROFILES.trance.lanes[0]!.effects.map((effect) => effect.presetName)).toEqual(['Classic Control'])
-    expect(GENERATOR_PROFILES.trance.lanes[6]!.effects.map((effect) => effect.presetName)).toEqual(['Ping-Pong Eighths', 'Long Hall'])
-    expect(GENERATOR_PROFILES.house.lanes[5]!.effects.map((effect) => effect.presetName)).toEqual(['Gentle Glue'])
-    expect(GENERATOR_PROFILES.house.lanes[6]!.effects.map((effect) => effect.presetName)).toEqual(['Slapback'])
-    expect(GENERATOR_PROFILES.house.lanes[12]!.effects.map((effect) => effect.presetName)).toEqual(['Gentle Glue'])
+    expect(GENERATOR_PROFILES.trance.lanes[0]).toMatchObject({ gain: 0.78, pan: 0 })
+    expect(GENERATOR_PROFILES.trance.lanes[6]).toMatchObject({ gain: 0.46, pan: -0.18 })
+    expect(GENERATOR_PROFILES.house.lanes[5]).toMatchObject({ gain: 0.46, pan: 0 })
   })
 
   it('ships an editor schema aligned with the runtime schema version and lane count', () => {
@@ -103,7 +95,7 @@ describe('parseGeneratorTemplate', () => {
     ['wrong lane count', (value: MutableTemplate) => { value.lanes.pop() }, 'template.lanes'],
     ['duplicate active lane', (value: MutableTemplate) => { value.sections[0]!.activeLanes.push(value.sections[0]!.activeLanes[0]!) }, 'template.sections[0].activeLanes'],
     ['invalid section total', (value: MutableTemplate) => { value.sections[0]!.weight = 9 }, 'template.sections'],
-    ['invalid effect value', (value: MutableTemplate) => { value.lanes[0]!.effects[0]!.values.ratio = 21 }, 'template.lanes[0].effects[0].values.ratio'],
+    ['obsolete effect field', (value: MutableTemplate) => { value.lanes[0]!.effects = [] }, 'template.lanes[0].effects'],
     ['missing transition kind', (value: MutableTemplate) => { delete value.lanes[14]!.transitionKind }, 'template.lanes[14].transitionKind'],
     ['unsupported schema version', (value: MutableTemplate) => { value.schemaVersion = 2 }, 'template.schemaVersion'],
     ['unsupported stereo pairing', (value: MutableTemplate) => { value.stereoPairRules = [] }, 'template.stereoPairRules'],

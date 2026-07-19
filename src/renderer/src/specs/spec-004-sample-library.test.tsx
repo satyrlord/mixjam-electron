@@ -17,16 +17,20 @@ import type {
 } from '../../../shared/backend-api'
 import type { LaneState } from '../lib/arrangement'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
+import { createDefaultFxBuses } from '../project/project-state'
 
 const noop = () => undefined
 const asyncNoop = async () => { /* empty */ }
 
 const LANES: LaneState[] = Array.from({ length: 4 }, (_, index) => ({
+  id: `lane-${index + 1}`,
   index,
   name: `Lane ${index + 1}`,
   muted: false,
   solo: false,
   pan: 0,
+  gain: 0.8,
+  sends: [0, 0, 0, 0],
   placements: []
 }))
 
@@ -129,7 +133,10 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   onSetLanePan: noop,
   onRenameLane: noop,
   onToggleLaneMute: noop,
-  onToggleLaneSolo: noop
+  onToggleLaneSolo: noop,
+  onAddLane: noop,
+  onDeleteLane: noop,
+  onDeleteEmptyLanes: noop
 }
 
 const DEFAULT_TRANSPORT: PlayerTransportProps = {
@@ -156,35 +163,31 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
 }
 
 const DEFAULT_MIXER: PlayerMixerProps = {
-  channels: [],
+  returnBuses: createDefaultFxBuses(),
   channelLevels: new Map(),
   channelPeaks: new Map(),
-  effectReductions: new Map(),
-  canRestoreChannel: false,
   onSetVisualTelemetryActive: noop,
+  onBeginMixerGesture: noop,
+  onCommitMixerGesture: noop,
   onSetChannelGain: noop,
   onSetChannelPan: noop,
-  onToggleChannelMute: noop,
-  onToggleChannelSolo: noop,
-  onRemoveChannel: noop,
-  onRestoreChannel: noop,
-  onAddChannelEffect: () => null,
-  onUpdateChannelEffect: noop,
-  onToggleChannelEffectBypass: noop,
-  onRemoveChannelEffect: noop,
-  onRestoreChannelEffect: () => false,
-  onMoveChannelEffect: noop
+  onSetChannelSend: noop,
+  onSetReturnBus: noop,
+  onPreviewReturnBus: noop
 }
 
 const DEFAULT_PROJECT: PlayerProjectProps = {
   name: 'Untitled',
   dirty: false,
   busy: false,
+  canRegenerate: false,
   onNew: async () => undefined,
   onOpen: async () => false,
   onOpenPath: async () => false,
   onSave: async () => false,
-  onSaveAs: async () => false
+  onSaveAs: async () => false,
+  onRegenerateExact: noop,
+  onRegenerateCurrent: noop
 }
 
 function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {

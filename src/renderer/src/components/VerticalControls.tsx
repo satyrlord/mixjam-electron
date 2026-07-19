@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type PointerEvent, type WheelEvent } from 'react'
+import { useRef, useState, type CSSProperties, type PointerEvent, type WheelEvent } from 'react'
 import { clamp, meterFillPct } from '../lib/sample-utils'
 import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
 import { Tooltip } from './ui/Tooltip'
@@ -57,6 +57,8 @@ interface VerticalFaderProps {
   step: number
   valueText: string
   onChange: (value: number) => void
+  onGestureStart?: () => void
+  onGestureEnd?: () => void
   className?: string
   inputClassName?: string
   readoutClassName?: string
@@ -81,6 +83,8 @@ export function VerticalFader({
   step,
   valueText,
   onChange,
+  onGestureStart,
+  onGestureEnd,
   className,
   inputClassName,
   readoutClassName,
@@ -97,6 +101,7 @@ export function VerticalFader({
   showDragValue = false
 }: VerticalFaderProps) {
   const [dragging, setDragging] = useState(false)
+  const draggingRef = useRef(false)
   const valuePct = ((value - min) / (max - min)) * 100
   const unityPct = unityValue === undefined ? null : ((unityValue - min) / (max - min)) * 100
 
@@ -108,9 +113,16 @@ export function VerticalFader({
   }
   const beginDrag = (event: PointerEvent<HTMLElement>) => {
     if (event.button > 0) return
+    draggingRef.current = true
     setDragging(true)
+    onGestureStart?.()
   }
-  const endDrag = () => setDragging(false)
+  const endDrag = () => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    setDragging(false)
+    onGestureEnd?.()
+  }
 
   return (
     <div

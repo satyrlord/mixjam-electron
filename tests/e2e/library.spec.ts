@@ -22,7 +22,7 @@ test.describe('Library', () => {
     await expect(seededPage.locator('.bubble-category').filter({ hasText: 'FX' })).toBeVisible()
   })
 
-  test('sample filtering and management actions keep 44px interaction targets', async ({ seededPage }) => {
+  test('sample filtering and management actions use the selected UI Size targets', async ({ seededPage }) => {
     await seededPage.getByRole('button', { name: /Manage tags/ }).click()
 
     const actions = seededPage.locator('.subcat, .sort-btn, .manage-action')
@@ -31,11 +31,15 @@ test.describe('Library', () => {
       const rect = element.getBoundingClientRect()
       return { width: rect.width, height: rect.height }
     }))
+    const selectedSize = await seededPage.evaluate(() => Number.parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--ui-size'),
+      10
+    ))
 
     expect(boxes.length).toBeGreaterThan(0)
     for (const box of boxes) {
-      expect(box.width).toBeGreaterThanOrEqual(44)
-      expect(box.height).toBeGreaterThanOrEqual(44)
+      expect(box.width).toBeGreaterThanOrEqual(selectedSize)
+      expect(box.height).toBeGreaterThanOrEqual(selectedSize)
     }
   })
 

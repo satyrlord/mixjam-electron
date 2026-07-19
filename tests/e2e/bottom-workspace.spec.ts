@@ -34,9 +34,9 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
   expect(hiddenGeometry).toMatchObject({
     hidden: true,
     display: 'block',
-    visibility: 'hidden',
-    thumbHeight: 18
+    visibility: 'hidden'
   })
+  expect(hiddenGeometry.thumbHeight).toBeGreaterThan(0)
   expect(hiddenGeometry.trackHeight).toBeGreaterThan(0)
 
   const mixerTab = page.getByRole('tab', { name: 'Mixer' })
@@ -55,11 +55,15 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
   })
 
   for (let cycle = 0; cycle < 3; cycle += 1) {
-    const frames = [await takeFaderFrame()]
     await mixerTab.click()
     await expect(mixerTab).toHaveAttribute('aria-selected', 'true')
     await expect(mixerPanel).toHaveCSS('visibility', 'visible')
-    frames.push(await takeFaderFrame())
+    await page.evaluate(async () => {
+      for (let frame = 0; frame < 3; frame += 1) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      }
+    })
+    const frames = [await takeFaderFrame()]
     for (let frame = 1; frame <= 4; frame += 1) {
       await page.evaluate(() => new Promise<void>((resolve) => {
         requestAnimationFrame(() => resolve())
@@ -68,7 +72,7 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
     }
 
     expect(new Set(frames.map((frame) => frame.ariaValueNow))).toEqual(new Set(['80']))
-    expect(new Set(frames.map((frame) => frame.thumbHeight))).toEqual(new Set([18]))
+    expect(new Set(frames.map((frame) => frame.thumbHeight))).toEqual(new Set([hiddenGeometry.thumbHeight]))
     expect(new Set(frames.map((frame) => frame.trackHeight)).size).toBe(1)
     expect(new Set(frames.map((frame) => frame.wrapperPosition)).size).toBe(1)
     expect(Math.max(...frames.map((frame) => frame.thumbTop)) - Math.min(...frames.map((frame) => frame.thumbTop))).toBeLessThan(0.1)

@@ -18,6 +18,7 @@ describe('player workspace preferences', () => {
     expect(preferences.upperLayout).toEqual({ browser: 20, tracker: 80 })
     expect(preferences.verticalLayout).toEqual({ upper: 76, bottom: 24 })
     expect(preferences.bottomTab).toBe('song')
+    expect(preferences.bottomTabSizes).toEqual({ song: 24, mixer: 60, samples: 24 })
     expect(preferences.bottomExpansion).toEqual({ expanded: false, previousBottomSize: 24 })
     expect(preferences.mixJamBrowserCollapsed).toBe(false)
   })
@@ -35,6 +36,7 @@ describe('player workspace preferences', () => {
 
     expect(preferences.upperLayout).toEqual({ browser: 18, tracker: 82 })
     expect(preferences.verticalLayout).toEqual({ upper: 76, bottom: 24 })
+    expect(preferences.bottomTabSizes).toEqual({ song: 24, mixer: 60, samples: 24 })
     expect(preferences.bottomExpansion).toEqual({ expanded: false, previousBottomSize: 24 })
     expect(preferences.bottomTab).toBe('song')
   })
@@ -44,11 +46,13 @@ describe('player workspace preferences', () => {
     playerWorkspacePreferences.saveVerticalLayout({ upper: 60, bottom: 40 })
     playerWorkspacePreferences.saveBottomExpansion({ expanded: true, previousBottomSize: 40 })
     playerWorkspacePreferences.saveBottomTab('samples')
+    playerWorkspacePreferences.saveBottomTabSizes({ song: 40, mixer: 62, samples: 52 })
     playerWorkspacePreferences.saveMixJamBrowserCollapsed(true)
 
     expect(loadPlayerWorkspacePreferences(1000, 200)).toMatchObject({
       upperLayout: { browser: 25, tracker: 75 },
-      verticalLayout: { upper: 60, bottom: 40 },
+      verticalLayout: { upper: 48, bottom: 52 },
+      bottomTabSizes: { song: 40, mixer: 62, samples: 52 },
       bottomExpansion: { expanded: true, previousBottomSize: 40 },
       bottomTab: 'samples',
       mixJamBrowserCollapsed: true

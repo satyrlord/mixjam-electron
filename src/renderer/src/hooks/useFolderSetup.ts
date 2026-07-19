@@ -6,8 +6,8 @@ export type FolderCardStatus =
   | 'set'
   | 'pick-error'
   | 'restore-error'
-  // The stored handle exists but needs a user-gesture permission re-grant
-  // (browser host only — the Electron shell auto-grants file system access).
+  // Defensive recovery when a stored handle unexpectedly needs a user-gesture
+  // permission re-grant despite the Electron host's normal auto-grant.
   | 'needs-permission'
 
 export interface FolderView {

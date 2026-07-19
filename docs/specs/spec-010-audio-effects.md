@@ -3,9 +3,9 @@
 **Spec Validation Status:** VALIDATED
 
 **Spec Implementation Status:** PARTIAL — four send/return buses, Empty and Delay
-modules, modal editing with live draft audition, limiter toggles, and persistence
-are implemented. Unified undo integration and rendered hard-ceiling verification
-remain.
+modules, modal editing with live draft audition, limiter toggles, persistence,
+and unified project undo are implemented. Rendered hard-ceiling verification
+remains.
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-007 (Lane-Bound Mixer)
 
@@ -117,7 +117,8 @@ delay tap -> tape waveshaper -> wet output
 ```
 
 - Tape Distortion 0% is an exact identity path; it must not approximate identity with a
-  near-linear curve.
+  near-linear curve. The live WaveShaper curve is `null` at zero so over-unity
+  input is preserved instead of clamped to the finite curve domain.
 - Let `a = tapeDistortion / 100` and `d = 1 + 4a`. The stereo-symmetric curve
   is `y = (1 - a)x + a * tanh(d * x) / d`. Tape Distortion blends smoothly from
   exact identity at 0% to drive factor 5 at 100%.
@@ -216,6 +217,9 @@ audition continues against the resulting transport position.
 - Clear cuts the selected module's tail immediately.
 - Project replacement, engine close, or AudioContext close disposes all return
   graphs and cuts all tails.
+- Project replacement rebuilds a Return processor even when the incoming slot
+  uses the same module type; parameter updates inside one project keep the
+  existing processor.
 - Reopening playback reuses each current module graph without duplicate
   connections. It may intentionally overlap a tail that is still audible.
 
@@ -237,6 +241,13 @@ Parsing rejects:
 
 Project format version 4 is breaking. Version-3 per-channel insert effects are
 not migrated, imported, or interpreted.
+
+Return modules, Power, Return level, and limiter state live in the same project
+command history as lanes. Saving a modal draft, clearing a slot, toggling Power,
+changing Return level, or toggling the limiter creates one complete project edit.
+Undo and Redo restore the whole bus record without a second FX state owner.
+Project command-history tests cover complete Return-bus Undo and Redo, while
+persistence tests cover complete bus replacement on load and New.
 
 ## Black-Box Verification Contract
 

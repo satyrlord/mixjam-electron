@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, prepareHarnessPage, test } from './fixtures'
 import { build } from 'vite'
 
 const VIRTUAL_ENTRY = 'virtual:mixjam-clip-fades-test'
@@ -170,7 +170,7 @@ async function installClipFadeHarness(page: import('@playwright/test').Page): Pr
     build: {
       write: false,
       target: 'es2022',
-      rollupOptions: { input: VIRTUAL_ENTRY }
+      rollupOptions: { input: VIRTUAL_ENTRY, output: { format: 'iife' } }
     }
   })
   if (Array.isArray(result) || !('output' in result)) {
@@ -178,7 +178,7 @@ async function installClipFadeHarness(page: import('@playwright/test').Page): Pr
   }
   const chunk = result.output.find((output) => output.type === 'chunk')
   if (!chunk) throw new Error('Clip fade harness bundle was not emitted')
-  await page.addScriptTag({ content: chunk.code, type: 'module' })
+  await page.evaluate(chunk.code)
 }
 
 function createConstantPcm16Wav(durationSeconds: number, sampleRate = 8_000): Buffer {
@@ -235,7 +235,7 @@ test('project clip-edge settings schedule sample-rounded Chromium gain automatio
       })();`
   })
 
-  await page.goto('/')
+  await page.goto(new URL('/', page.url()).href)
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
 
   const enabled = page.getByRole('checkbox', {
@@ -301,12 +301,7 @@ test('project clip-edge settings schedule sample-rounded Chromium gain automatio
 })
 
 test('Chromium renders zero endpoints and preserves channel ratios', async ({ page }) => {
-  await page.route('**/clip-fades-harness.html', (route) => route.fulfill({
-    contentType: 'text/html',
-    body: '<!doctype html><html><head></head><body></body></html>'
-  }))
-  await page.goto('/clip-fades-harness.html')
-  await page.unroute('**/clip-fades-harness.html')
+  await prepareHarnessPage(page)
   await installClipFadeHarness(page)
 
   const results = await page.evaluate(async () => {
@@ -383,12 +378,7 @@ test('Chromium renders zero endpoints and preserves channel ratios', async ({ pa
 })
 
 test('PlaybackEngine renders ready and failed overlaps at the scheduled cutoff', async ({ page }) => {
-  await page.route('**/clip-fades-overlap-harness.html', (route) => route.fulfill({
-    contentType: 'text/html',
-    body: '<!doctype html><html><head></head><body></body></html>'
-  }))
-  await page.goto('/clip-fades-overlap-harness.html')
-  await page.unroute('**/clip-fades-overlap-harness.html')
+  await prepareHarnessPage(page)
   await installClipFadeHarness(page)
 
   const wavBase64 = createConstantPcm16Wav(1).toString('base64')

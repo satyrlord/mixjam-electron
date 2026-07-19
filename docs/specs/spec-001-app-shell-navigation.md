@@ -77,8 +77,9 @@ Implement view switching, the header bar, and the footer.
   contains it. The app does not force a size or maximize state again after
   entry, so the user may restore, resize above the minimum, or move the Player
   window normally.
-- When switching from Player to Home, the window unmaximizes and resizes to
-  1920x1080. The window remains resizable and maximizable in all views.
+- When switching from Player to Home, the window unmaximizes and restores a
+  1920x1080 renderer content area. The native frame is additional. The window
+  remains resizable and maximizable in all views.
 
 ### Electron host
 
@@ -148,7 +149,8 @@ as signed, notarized, or warning-free.
 Spec validation confirms these criteria are complete and testable as requirements.
 Implementation validation should be tracked in implementation PR/test evidence.
 
-- [x] **AC-001:** App launches at 1920x1080 centered on screen (Home Screen), with maximize and resize enabled.
+- [x] **AC-001:** App launches with a 1920x1080 renderer content area centered
+  on screen (Home Screen), with maximize and resize enabled.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" and "Load MixJam" buttons.
 - [x] **AC-002a:** The right workflow column contains three independent sibling
@@ -157,8 +159,8 @@ Implementation validation should be tracked in implementation PR/test evidence.
   at 900px and below.
 - [x] **AC-002b:** The Home hero uses `public/app-icon-128.png` as the visible
   MixJam logo instead of a generated waveform mark.
-- [x] **AC-002c:** At the default 1920x1080 window size, including its shorter
-  Electron renderer viewport, Home has no vertical overflow or scrollbar in
+- [x] **AC-002c:** At the default 1920x1080 renderer content size, Home has no
+  vertical overflow or scrollbar in
   idle, sync, analysis, error, or ready states. The Library Setup scanner
   expands for active work and collapses when ready. Any number of available
   recent projects keeps the same layout because only the first four are rendered.
@@ -210,9 +212,9 @@ Implementation validation should be tracked in implementation PR/test evidence.
 
 `tests/electron/smoke.spec.ts` must query the live Windows `BrowserWindow`
 through Playwright's Electron main-process bridge. It must verify the centered
-1920x1080 resizable/maximizable Home state, the once-maximized Player state on
+1920x1080 renderer content bounds in the resizable/maximizable Home state, the once-maximized Player state on
 the current display, manual restore without re-maximization, and the return to
-Home (unmaximized to 1920x1080, still resizable and maximizable). The renderer
+Home (unmaximized to 1920x1080 content, still resizable and maximizable). The renderer
 unit suite separately verifies that the Home and Player navigation actions invoke
 those shell capabilities.
 

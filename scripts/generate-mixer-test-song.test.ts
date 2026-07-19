@@ -109,8 +109,7 @@ function normalizedArrangement(project: ReturnType<typeof parseProject>): unknow
         nativeBPM: placement.nativeBPM,
         slot: placement.slot
       }))
-    })),
-    channels: project.channels
+    }))
   }
 }
 
@@ -148,7 +147,7 @@ describe('generateMixerTestSong', () => {
     expect(bpmFromMetadataOrName(126, 'kick 128 BPM.wav')).toBe(126)
   })
 
-  it('writes a production-parseable two-minute Ibiza melodic-techno arrangement with all categories and FX types', async () => {
+  it('writes a production-parseable two-minute Ibiza melodic-techno arrangement with all categories and empty return FX', async () => {
     const { samplesDir, outputDir } = await createFixture()
     const result = await generateMixerTestSong({ samplesDir, outputDir, seed: 'fixture-seed' })
     const project = parseProject(await readFile(result.filePath, 'utf8'))
@@ -213,13 +212,11 @@ describe('generateMixerTestSong', () => {
       /beach|tribal|sun|summer|water|sunny/i.test(sample.sampleName)
     )).toBe(true)
 
-    const effectTypes = new Set(project.channels.flatMap((channel) =>
-      channel.effects.map((effect) => effect.type)
-    ))
-    expect(effectTypes).toEqual(new Set(['delay', 'reverb', 'compressor']))
-    expect(new Set(project.channels.map((channel) => channel.gain)).size).toBeGreaterThan(4)
-    expect(project.channels.some((channel) => channel.pan < 0)).toBe(true)
-    expect(project.channels.some((channel) => channel.pan > 0)).toBe(true)
+    expect(project.lanes.every((lane) => lane.sends?.every((send) => send === 0))).toBe(true)
+    expect(project.fxBuses?.every((bus) => bus.module.type === 'empty')).toBe(true)
+    expect(new Set(project.lanes.map((lane) => lane.gain)).size).toBeGreaterThan(4)
+    expect(project.lanes.some((lane) => lane.pan < 0)).toBe(true)
+    expect(project.lanes.some((lane) => lane.pan > 0)).toBe(true)
   })
 
   it('uses a selected sample native BPM when establishing its generated placement span', async () => {

@@ -2,11 +2,9 @@ import type { SampleType } from './sample-types'
 
 export { SAMPLE_TYPE_VALUES, type SampleType } from './sample-types'
 
-// The renderer-facing backend contract. One real implementation exists — the
-// browser backend (sqlite-wasm over OPFS + File System Access API) in
-// src/renderer/src/backend — and it runs identically in any Chromium browser
-// and inside the Electron shell. Host-specific capabilities (window sizing,
-// openExternal) live in the separate ShellAPI (src/shared/ipc.ts).
+// The renderer-facing backend contract. Its implementation uses sqlite-wasm
+// over OPFS and the File System Access API inside Electron's renderer. Native
+// window and external-navigation capabilities live in ShellAPI.
 
 export type FolderRole = 'user' | 'sample'
 
@@ -20,9 +18,9 @@ export interface FolderRef {
   name: string
 }
 
-/** Result of validating a stored folder grant. `needs-permission` means the
- *  handle exists but re-using it requires a user-gesture permission request
- *  (browser host only — the Electron shell auto-grants). */
+/** Result of validating a stored folder grant. `needs-permission` is a
+ *  defensive recovery state when a handle unexpectedly requires a
+ *  user-gesture permission request. */
 export type FolderValidation = 'ok' | 'needs-permission' | 'invalid'
 
 export interface FolderSelections {
@@ -232,13 +230,6 @@ export interface MixJamGeneratorProgress {
   error?: string
 }
 
-export interface MixJamGeneratorEffectPlan {
-  id: string
-  type: 'delay' | 'reverb' | 'compressor'
-  presetName: string
-  values: Record<string, number | boolean | string>
-}
-
 export interface MixJamGeneratorPlacementPlan {
   id: string
   sampleRef: string
@@ -253,19 +244,11 @@ export interface MixJamGeneratorPlacementPlan {
 export interface MixJamGeneratorLanePlan {
   index: number
   name: string
-  pan: number
-  muted: boolean
-  solo: boolean
-  placements: MixJamGeneratorPlacementPlan[]
-}
-
-export interface MixJamGeneratorChannelPlan {
-  channelIndex: number
   gain: number
   pan: number
   muted: boolean
   solo: boolean
-  effects: MixJamGeneratorEffectPlan[]
+  placements: MixJamGeneratorPlacementPlan[]
 }
 
 export interface MixJamGeneratorSectionPlan {
@@ -318,7 +301,6 @@ export interface MixJamGeneratorPlan {
   sections: MixJamGeneratorSectionPlan[]
   phrases: MixJamGeneratorPhrasePlan[]
   lanes: MixJamGeneratorLanePlan[]
-  channels: MixJamGeneratorChannelPlan[]
 }
 
 /** Browser list item -- the renderer-facing projection of a DB sample row. */
@@ -451,8 +433,7 @@ export interface LibraryScanDone {
 }
 
 export interface BackendAPI {
-  // Host capabilities — delegated to the ShellAPI in Electron, browser
-  // fallbacks (no-op resize, window.open) otherwise.
+  // Native host capabilities delegated to the Electron ShellAPI.
   getVersion: () => Promise<string>
   resizeToPlayer: () => Promise<void>
   resizeToHome: () => Promise<void>

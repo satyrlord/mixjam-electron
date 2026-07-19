@@ -4,7 +4,6 @@ export {
   parseGeneratorTemplate
 } from '../../../shared/generator-templates'
 export type {
-  GeneratorEffectProfile,
   GeneratorLaneProfile,
   GeneratorProfile,
   GeneratorSectionProfile

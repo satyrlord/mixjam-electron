@@ -161,7 +161,8 @@ export function drawSampleBubbleCanvas(
   y: number,
   width: number,
   flashing = false,
-  devicePixelRatio = 1
+  devicePixelRatio = 1,
+  height = SAMPLE_BUBBLE_HEIGHT_PX
 ): void {
   const { color, radius, shadow, outline, gloss, missing } = visual
 
@@ -171,45 +172,45 @@ export function drawSampleBubbleCanvas(
     ctx.shadowOffsetY = shadow.y * devicePixelRatio
     ctx.shadowBlur = shadow.blur * devicePixelRatio
     ctx.shadowColor = shadow.color
-    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    roundSampleBubbleRect(ctx, x, y, width, height, radius)
     ctx.fillStyle = color
     ctx.fill()
     ctx.restore()
   }
 
-  roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+  roundSampleBubbleRect(ctx, x, y, width, height, radius)
   ctx.fillStyle = color
   ctx.fill()
 
   if (missing) {
     ctx.save()
-    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    roundSampleBubbleRect(ctx, x, y, width, height, radius)
     ctx.clip()
     ctx.strokeStyle = mixTowardBlack(color, 0.55)
     ctx.lineWidth = 5
     const step = 5 * Math.SQRT2 * 2
     for (
-      let stripeX = x - SAMPLE_BUBBLE_HEIGHT_PX;
-      stripeX < x + width + SAMPLE_BUBBLE_HEIGHT_PX;
+      let stripeX = x - height;
+      stripeX < x + width + height;
       stripeX += step
     ) {
       ctx.beginPath()
       ctx.moveTo(stripeX, y)
-      ctx.lineTo(stripeX + SAMPLE_BUBBLE_HEIGHT_PX, y + SAMPLE_BUBBLE_HEIGHT_PX)
+      ctx.lineTo(stripeX + height, y + height)
       ctx.stroke()
     }
     ctx.restore()
   } else if (gloss) {
-    const glossFill = ctx.createLinearGradient(0, y, 0, y + SAMPLE_BUBBLE_HEIGHT_PX)
+    const glossFill = ctx.createLinearGradient(0, y, 0, y + height)
     glossFill.addColorStop(0, gloss.top)
     glossFill.addColorStop(1, gloss.bottom)
-    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    roundSampleBubbleRect(ctx, x, y, width, height, radius)
     ctx.fillStyle = glossFill
     ctx.fill()
   }
 
   if (flashing) {
-    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    roundSampleBubbleRect(ctx, x, y, width, height, radius)
     ctx.globalAlpha = 0.4
     ctx.fillStyle = '#ffffff'
     ctx.fill()
@@ -223,13 +224,13 @@ export function drawSampleBubbleCanvas(
       x + inset,
       y + inset,
       width - outline.width,
-      SAMPLE_BUBBLE_HEIGHT_PX - outline.width,
+      height - outline.width,
       Math.max(0, radius - inset)
     )
     ctx.strokeStyle = outline.color
     ctx.lineWidth = outline.width
   } else {
-    roundSampleBubbleRect(ctx, x, y, width, SAMPLE_BUBBLE_HEIGHT_PX, radius)
+    roundSampleBubbleRect(ctx, x, y, width, height, radius)
     ctx.strokeStyle = color
     ctx.lineWidth = 1
   }
@@ -237,7 +238,7 @@ export function drawSampleBubbleCanvas(
 
   ctx.save()
   ctx.beginPath()
-  ctx.rect(x + 8, y, Math.max(0, width - 16), SAMPLE_BUBBLE_HEIGHT_PX)
+  ctx.rect(x + 8, y, Math.max(0, width - 16), height)
   ctx.clip()
   if (visual.textShadow && visual.ink === '#FFFFFF') {
     ctx.shadowOffsetX = visual.textShadow.x * devicePixelRatio
@@ -246,7 +247,7 @@ export function drawSampleBubbleCanvas(
     ctx.shadowColor = visual.textShadow.color
   }
   ctx.fillStyle = visual.ink
-  ctx.fillText(visual.label, x + 8, y + SAMPLE_BUBBLE_HEIGHT_PX / 2)
+  ctx.fillText(visual.label, x + 8, y + height / 2)
   ctx.restore()
 }
 
@@ -268,8 +269,10 @@ export function refreshSampleBubbleThemeTokens(): void {
   sampleBubbleThemeTokens.fontWeight = style.getPropertyValue('--sample-bubble-font-weight').trim() || '400'
   sampleBubbleThemeTokens.uppercase = style.getPropertyValue('--sample-bubble-case').trim() === 'uppercase'
   const radius = Number.parseFloat(style.getPropertyValue('--radius-sample-bubble'))
+  const configuredBubbleHeight = Number.parseFloat(style.getPropertyValue('--ui-bubble-height'))
+  const bubbleHeight = configuredBubbleHeight > 0 ? configuredBubbleHeight : SAMPLE_BUBBLE_HEIGHT_PX
   sampleBubbleThemeTokens.radius = Number.isFinite(radius)
-    ? Math.max(0, Math.min(radius, SAMPLE_BUBBLE_HEIGHT_PX / 2))
+    ? Math.max(0, Math.min(radius, bubbleHeight / 2))
     : RADIUS_FALLBACK
   sampleBubbleThemeTokens.shadow = parseSampleBubbleShadow(style.getPropertyValue('--shadow-sample-bubble'))
   sampleBubbleThemeTokens.outline = parseSampleBubbleBorder(style.getPropertyValue('--border-sample-bubble'))

@@ -1,0 +1,544 @@
+/* ── Global UI Size geometry ──────────────────
+   The typed preset table in ui-size.tsx publishes these tokens on <html>.
+   Structural hairlines, meters, resize-seam visuals, the 240px lane head,
+   33px ruler, and musical x-axis geometry intentionally remain invariant. */
+:root[data-ui-size] :is(
+  button,
+  select,
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option']
+) {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}
+
+:root[data-ui-size] :is(button, [role='button'], [role='tab'], [role='menuitem']) {
+  min-width: var(--ui-size);
+}
+
+.header {
+  height: var(--ui-header-height);
+  padding-inline: var(--ui-space-lg);
+}
+
+.header-left,
+.header-right,
+.footer-preferences,
+.home-brand,
+.home-steps,
+.home-themes-head,
+.mixjam-browser-header,
+.strip-command-dock,
+.strip-edit-group,
+.transport-ribbon,
+.strip-utility-zone,
+.bottom-workspace-tabs,
+.song-control-system,
+.mixer-channel-buttons,
+.manage-list-item,
+.manage-create,
+.generator-actions,
+.fx-modal-actions {
+  gap: var(--ui-space-sm);
+}
+
+.home-link,
+.theme-selector,
+.footer-link {
+  min-height: var(--ui-size);
+  padding-inline: var(--ui-space-md);
+  font-size: var(--ui-font-sm);
+}
+
+.brand,
+.header-timer {
+  font-size: var(--ui-font-lg);
+}
+
+.footer {
+  height: var(--ui-footer-height);
+  gap: var(--ui-space-lg);
+  padding-inline: var(--ui-space-lg);
+  font-size: var(--ui-font-md);
+}
+
+.footer-ui-size {
+  gap: var(--ui-space-xs);
+}
+
+.footer-ui-size button,
+.home-theme-swatch,
+.strip-command-button,
+.strip-more-trigger,
+.strip-activity-action,
+.tracker-lane-controls button,
+.master-loudness-reset,
+.manage-action,
+.manage-tag-color,
+.mixer-restore,
+.mixer-channel-remove,
+.mixer-channel-pan,
+.mixer-channel-m,
+.mixer-channel-s,
+.mixer-limiter-toggle,
+.shortcuts-close,
+.generator-close {
+  box-sizing: border-box;
+  width: var(--ui-size);
+  min-width: var(--ui-size);
+  height: var(--ui-size);
+  min-height: var(--ui-size);
+  padding: 0;
+}
+
+.strip-more-trigger,
+.strip-activity-action {
+  flex: 0 0 var(--ui-size);
+}
+
+.home-screen {
+  padding: var(--ui-space-lg);
+}
+
+.home-content,
+.home-hero,
+.home-setup,
+.home-folder-grid,
+.home-recent-list,
+.home-workflow-card,
+.folder-card,
+.home-launch,
+.home-project-actions,
+.generator-fields,
+.shortcuts-sections {
+  gap: var(--ui-space-md);
+}
+
+.home-hero,
+.home-setup,
+.home-workflow-card,
+.folder-card,
+.generator-dialog,
+.shortcuts-panel,
+.fx-modal,
+.error-fallback-panel {
+  padding: var(--ui-space-lg);
+}
+
+.home-logo {
+  width: calc(72px * var(--ui-scale));
+  height: calc(72px * var(--ui-scale));
+}
+
+.home-wordmark {
+  font-size: calc(34px * var(--ui-scale));
+}
+
+.home-tagline,
+.home-step-text,
+.home-workflow-copy,
+.home-library-status,
+.home-recent-path,
+.folder-card-copy,
+.tiles-empty,
+.manage-name,
+.manage-empty,
+.song-micro-fade-note,
+.context-menu-note,
+.generator-dialog p,
+.shortcuts-action,
+.fx-param {
+  font-size: var(--ui-font-md);
+}
+
+.home-step-num,
+.home-themes-label,
+.home-workflow-title,
+.home-recent-title,
+.folder-card-title,
+.tracker-zone-title,
+.song-control-head,
+.mixer-column-title,
+.mixer-channel-label,
+.manage-tab,
+.shortcuts-section-title,
+.generator-dialog label {
+  font-size: var(--ui-font-sm);
+}
+
+.home-theme-swatches {
+  grid-template-columns: repeat(8, var(--ui-size));
+  gap: var(--ui-space-sm);
+}
+
+.upper-middle-work {
+  grid-template-rows: minmax(0, 1fr) var(--ui-middle-strip-height);
+}
+
+.mixjam-browser {
+  padding: var(--ui-space-md) var(--ui-space-sm);
+  gap: var(--ui-space-sm);
+}
+
+.mixjam-browser-toggle,
+.mixjam-browser-open,
+.tracker-lane-name-input,
+.tracker-first-sample-cue button,
+.lane-add-button,
+.lane-empty-delete {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}
+
+.tracker-lane {
+  height: var(--ui-lane-height);
+}
+
+.tracker-lane-controls {
+  gap: var(--ui-space-xs);
+  margin-left: var(--ui-space-xs);
+}
+
+.tracker-lane-mute,
+.tracker-lane-solo,
+.tracker-lane-pan {
+  width: var(--ui-size);
+  height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}
+
+.tracker-lane-name,
+.tracker-ruler-bar {
+  font-size: var(--ui-font-sm);
+}
+
+.middle-strip {
+  height: var(--ui-middle-strip-height);
+  min-height: var(--ui-middle-strip-height);
+}
+
+.middle-strip-main {
+  height: var(--ui-middle-main-height);
+  min-height: var(--ui-middle-main-height);
+  gap: var(--ui-space-lg);
+  padding-inline: var(--ui-space-md);
+}
+
+.middle-strip > .song-progress-bar {
+  height: var(--ui-progress-row-height);
+  min-height: var(--ui-progress-row-height);
+}
+
+.strip-command-dock,
+.strip-edit-group,
+.transport-ribbon {
+  height: var(--ui-middle-main-height);
+}
+
+.strip-project-trigger,
+.strip-search-field,
+.strip-activity {
+  height: var(--ui-size);
+  gap: var(--ui-space-md);
+  padding-inline: var(--ui-space-md);
+  font-size: var(--ui-font-sm);
+}
+
+.strip-search-field input {
+  height: calc(var(--ui-size) - 2px);
+  font-size: var(--ui-font-sm);
+}
+
+.strip-activity-label,
+.strip-menu-hint,
+.strip-rescan-menu-item small {
+  font-size: var(--ui-font-xs);
+}
+
+.strip-rescan-menu-item strong {
+  font-size: var(--ui-font-sm);
+}
+
+.project-notice {
+  top: var(--ui-header-height);
+  gap: var(--ui-space-lg);
+  padding: var(--ui-space-md) var(--ui-space-lg);
+  font-size: var(--ui-font-md);
+}
+
+.bottom-workspace {
+  grid-template-rows: var(--ui-tab-row-height) minmax(0, 1fr);
+}
+
+.bottom-workspace-tabs {
+  padding-inline: var(--ui-space-md);
+}
+
+.bottom-workspace-tab,
+.bottom-workspace-song-status,
+.bottom-workspace-expand {
+  min-height: var(--ui-size);
+  padding-inline: var(--ui-space-lg);
+  font-size: var(--ui-font-sm);
+}
+
+.song-controls-main,
+.song-control-system,
+.song-control-module,
+.song-micro-fade-module {
+  padding: var(--ui-space-md);
+  gap: var(--ui-space-md);
+}
+
+.song-control-module {
+  width: calc(124px * var(--ui-scale));
+  min-width: calc(112px * var(--ui-scale));
+}
+
+.master-control-module {
+  width: calc(340px * var(--ui-scale));
+  min-width: calc(320px * var(--ui-scale));
+}
+
+.song-micro-fade-module {
+  width: calc(230px * var(--ui-scale));
+  min-width: calc(210px * var(--ui-scale));
+}
+
+.song-control-head,
+.song-bpm-value {
+  min-height: var(--ui-size);
+}
+
+.master-loudness-track {
+  flex-basis: var(--ui-size);
+}
+
+.master-loudness-data {
+  min-width: calc(142px * var(--ui-scale));
+  gap: var(--ui-space-md);
+  font-size: var(--ui-font-sm);
+}
+
+.song-bpm-value input,
+.song-micro-fade-input input,
+.analysis-editor input,
+.analysis-editor select {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}
+
+.song-micro-fade-toggle,
+.manage-tag-color-toggle {
+  min-height: var(--ui-size);
+  gap: var(--ui-space-sm);
+  font-size: var(--ui-font-sm);
+}
+
+.song-micro-fade-toggle input,
+.manage-tag-color-toggle input[type='checkbox'] {
+  width: calc(var(--ui-size) * 0.5333);
+  height: calc(var(--ui-size) * 0.5333);
+}
+
+.vertical-control,
+.vertical-slider,
+.mixer-channel-vol {
+  min-width: var(--ui-size);
+}
+
+.vertical-fader,
+.vertical-fader-track,
+.vertical-fader-input {
+  width: var(--ui-size);
+  min-width: var(--ui-size);
+}
+
+.vertical-fader-thumb {
+  width: calc(18px * var(--ui-scale));
+  height: calc(18px * var(--ui-scale));
+}
+
+.mixer-column {
+  padding: var(--ui-space-md);
+  gap: var(--ui-space-md);
+}
+
+.mixer-strips-row {
+  gap: var(--ui-space-sm);
+}
+
+.mixer-channel-strip {
+  width: var(--ui-mixer-channel-width);
+  min-width: var(--ui-mixer-channel-width);
+  flex-basis: var(--ui-mixer-channel-width);
+  padding: var(--ui-space-sm);
+  gap: var(--ui-space-sm);
+}
+
+.mixer-return-section {
+  width: var(--ui-mixer-return-width);
+  min-width: var(--ui-mixer-return-width);
+  padding: var(--ui-space-sm);
+  gap: var(--ui-space-sm);
+}
+
+.mixer-return-row {
+  grid-template-columns: var(--ui-size) minmax(0, 1fr) var(--ui-size);
+  gap: var(--ui-space-sm);
+  min-height: calc(var(--ui-size) * 1.7);
+}
+
+.mixer-return-name,
+.mixer-fx-menu .mixjam-menu-item {
+  font-size: var(--ui-font-sm);
+}
+
+.mixer-column-head {
+  min-height: calc(var(--ui-size) + var(--ui-space-md));
+}
+
+.mixer-channel-label {
+  height: var(--ui-size);
+}
+
+.mixer-channel-select {
+  min-width: var(--ui-size);
+  min-height: var(--ui-size);
+}
+
+.mixer-compact-rotary {
+  width: calc(var(--ui-size) * 0.8);
+  height: calc(var(--ui-size) * 0.8);
+}
+
+.mixer-channel-eq button {
+  min-height: calc(var(--ui-size) * 0.72);
+  font-size: var(--ui-font-xs);
+}
+
+.mixer-fx-power {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-xs);
+}
+
+.mixer-fx-grid {
+  --mixer-fx-slot-width: var(--ui-mixer-fx-width);
+  --mixer-fx-slot-height: var(--ui-mixer-fx-height);
+  gap: var(--ui-space-sm);
+}
+
+.mixer-fx-slot {
+  gap: var(--ui-space-md);
+  font-size: var(--ui-font-sm);
+}
+
+.rotary-control,
+.rotary-dial {
+  width: calc(var(--ui-size) * 1.7);
+  height: calc(var(--ui-size) * 1.7);
+}
+
+.rotary-value,
+.rotary-value-input,
+.effect-toggle-state {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}
+
+.effect-control-help {
+  min-height: calc(var(--ui-size) * 0.8);
+  font-size: var(--ui-font-xs);
+}
+
+.effect-toggle-control {
+  width: calc(var(--ui-size) * 1.75);
+  height: var(--ui-size);
+  margin-block: var(--ui-space-lg);
+  padding: calc(var(--ui-size) * 0.1);
+}
+
+.effect-toggle-thumb {
+  width: calc(var(--ui-size) * 0.8);
+  height: calc(var(--ui-size) * 0.8);
+}
+
+.effect-toggle-input:checked + .effect-toggle-control .effect-toggle-thumb {
+  transform: translateX(calc(var(--ui-size) * 0.75));
+}
+
+.tiles {
+  padding: var(--ui-space-md) var(--ui-browser-horizontal-padding);
+}
+
+.tiles-row {
+  gap: var(--ui-space-xs);
+  height: var(--ui-size);
+}
+
+.sample-bubble-hit-target,
+.category-tree-node,
+.subcategory-row,
+.category-tree-toggle {
+  min-height: var(--ui-size);
+}
+
+.category-tree .sample-bubble,
+.tiles .sample-bubble,
+.sample-bubble-hit-target > .sample-bubble {
+  height: var(--ui-bubble-height);
+}
+
+.manage-tab,
+.manage-action,
+.manage-tag-color,
+.manage-tag-color-toggle,
+.manage-create-btn,
+.manage-input,
+.manage-select {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}
+
+.manage-list-item,
+.manage-create {
+  padding: var(--ui-space-sm) var(--ui-space-md);
+}
+
+.mixjam-menu-content {
+  padding-block: var(--ui-space-sm);
+}
+
+.mixjam-menu-item,
+.mixjam-context-menu-item {
+  min-height: var(--ui-size);
+  padding: var(--ui-space-sm) var(--ui-space-lg);
+  font-size: var(--ui-font-sm);
+}
+
+.mixjam-tooltip-content {
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  font-size: var(--ui-font-xs);
+}
+
+.generator-dialog,
+.shortcuts-panel,
+.fx-modal {
+  gap: var(--ui-space-md);
+  font-size: var(--ui-font-md);
+}
+
+.generator-dialog input,
+.generator-dialog select,
+.generator-dialog button,
+.shortcuts-panel button,
+.fx-modal input,
+.fx-modal select,
+.fx-modal button,
+.error-fallback-panel button {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}

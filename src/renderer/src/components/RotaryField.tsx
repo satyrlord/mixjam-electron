@@ -42,6 +42,8 @@ export function RotaryControl({
   describedBy,
   style,
   onChange,
+  onGestureStart,
+  onGestureEnd,
   onContextMenu,
   children
 }: {
@@ -60,6 +62,8 @@ export function RotaryControl({
   describedBy?: string
   style?: CSSProperties
   onChange: (value: number) => void
+  onGestureStart?: () => void
+  onGestureEnd?: () => void
   onContextMenu?: (event: MouseEvent<HTMLElement>) => void
   children?: React.ReactNode
 }) {
@@ -105,6 +109,7 @@ export function RotaryControl({
       onPointerDown={(event) => {
         if (event.button !== 0) return
         dragRef.current = { coordinate: coordinate(event), value }
+        onGestureStart?.()
         event.currentTarget.setPointerCapture(event.pointerId)
       }}
       onPointerMove={(event) => {
@@ -114,12 +119,18 @@ export function RotaryControl({
         onChange(quantize(next, event.shiftKey ? step / 10 : step))
       }}
       onPointerUp={(event) => {
+        const gestureActive = dragRef.current !== null
         dragRef.current = null
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.releasePointerCapture(event.pointerId)
         }
+        if (gestureActive) onGestureEnd?.()
       }}
-      onPointerCancel={() => { dragRef.current = null }}
+      onPointerCancel={() => {
+        const gestureActive = dragRef.current !== null
+        dragRef.current = null
+        if (gestureActive) onGestureEnd?.()
+      }}
       onKeyDown={(event) => {
         let next: number | null = null
         const increment = step * (event.shiftKey ? 0.1 : 1)

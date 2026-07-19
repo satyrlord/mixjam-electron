@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultLanes } from '../lib/arrangement'
-import { createDefaultChannels, createDefaultProjectSongState } from './project-state'
+import { createDefaultFxBuses, createDefaultProjectSongState } from './project-state'
 import {
   parseProject,
   serializeProject,
@@ -10,7 +10,6 @@ import {
 type RawProject = Record<string, unknown> & {
   song: Record<string, unknown>
   lanes: Array<Record<string, unknown> & { placements: Array<Record<string, unknown>> }>
-  channels: Array<Record<string, unknown> & { fx: Array<Record<string, unknown>> }>
   generator?: Record<string, unknown> & { parameters?: Record<string, unknown> }
 }
 
@@ -40,7 +39,7 @@ function projectWithPlacements(): ProjectData {
   return {
     song: createDefaultProjectSongState(),
     lanes,
-    channels: createDefaultChannels()
+    fxBuses: createDefaultFxBuses()
   }
 }
 
@@ -59,26 +58,8 @@ function expectInvalid(mutate: (raw: RawProject) => void): void {
 }
 
 describe('project file validation coverage', () => {
-  it('round-trips reverb and compressor state', () => {
+  it('round-trips lane-owned Mixer state and sorted placements', () => {
     const project = projectWithPlacements()
-    project.channels[0]!.effects = [{
-      id: 'reverb',
-      type: 'reverb',
-      bypassed: false,
-      roomSize: 0.5,
-      decay: 0.4,
-      mix: 0.3
-    }]
-    project.channels[1]!.effects = [{
-      id: 'compressor',
-      type: 'compressor',
-      bypassed: true,
-      threshold: -24,
-      ratio: 4,
-      attackMs: 10,
-      releaseMs: 250,
-      makeupGain: 2
-    }]
 
     const parsed = parseProject(serializeProject(project, {
       appVersion: 'coverage',
@@ -86,8 +67,7 @@ describe('project file validation coverage', () => {
       modifiedAt: '2026-07-18T00:00:00.000Z'
     }))
 
-    expect(parsed.channels[0]!.effects[0]).toMatchObject({ type: 'reverb', roomSize: 0.5 })
-    expect(parsed.channels[1]!.effects[0]).toMatchObject({ type: 'compressor', ratio: 4 })
+    expect(parsed.lanes[0]).toMatchObject({ gain: 0.8, sends: [0, 0, 0, 0] })
     expect(parsed.lanes[0]!.placements.map((placement) => placement.id)).toEqual([
       'placement-b',
       'placement-a'
@@ -113,34 +93,17 @@ describe('project file validation coverage', () => {
   })
 
   it('rejects malformed channel records and effects', () => {
-    expectInvalid((raw) => { raw.channels = null as unknown as RawProject['channels'] })
-    expectInvalid((raw) => { raw.channels = [...raw.channels, ...raw.channels] })
-    expectInvalid((raw) => { raw.channels[0] = null as unknown as RawProject['channels'][number] })
-    expectInvalid((raw) => { raw.channels[1]!.id = raw.channels[0]!.id })
-    expectInvalid((raw) => { raw.channels[1]!.index = raw.channels[0]!.index })
-    expectInvalid((raw) => { raw.channels[0]!.id = 'wrong-channel' })
-    expectInvalid((raw) => { raw.channels[0]!.fx = null as unknown as RawProject['channels'][number]['fx'] })
-    expectInvalid((raw) => {
-      raw.channels[0]!.fx = [{
-        id: 'bad-reverb', type: 'reverb', bypassed: false,
-        roomSize: 2, decay: 0.5, mix: 0.5
-      }]
-    })
-    expectInvalid((raw) => {
-      const effect = {
-        id: 'duplicate-effect', type: 'reverb', bypassed: false,
-        roomSize: 0.5, decay: 0.5, mix: 0.5
-      }
-      raw.channels[0]!.fx = [effect]
-      raw.channels[1]!.fx = [effect]
-    })
+    // Channels are derived from lanes in the current format.
+    // Channel records are no longer stored in the serialized document.
+    // Verify malformed lanes propagate to derived channel validation.
+    expectInvalid((raw) => { raw.lanes[0]!.gain = 99 })
+    expectInvalid((raw) => { raw.lanes[0]!.sends = 'bad' })
   })
 
   it('rejects malformed lane and placement records', () => {
     expectInvalid((raw) => { raw.lanes = null as unknown as RawProject['lanes'] })
     expectInvalid((raw) => { raw.lanes[0] = null as unknown as RawProject['lanes'][number] })
-    expectInvalid((raw) => { raw.lanes[1]!.index = raw.lanes[0]!.index })
-    expectInvalid((raw) => { raw.lanes[0]!.channelId = null })
+    expectInvalid((raw) => { raw.lanes[1]!.id = raw.lanes[0]!.id })
     expectInvalid((raw) => { raw.lanes[0]!.placements = null as unknown as RawProject['lanes'][number]['placements'] })
     expectInvalid((raw) => { raw.lanes[0]!.placements[0] = null as unknown as Record<string, unknown> })
     expectInvalid((raw) => {

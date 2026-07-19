@@ -4,6 +4,8 @@ import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
 import { useTransportEngine, type TransportEngine } from './useTransportEngine'
 import { PlaybackEngine } from '../engine/playback-engine'
 import { createDefaultLanes } from '../lib/arrangement'
+import { createDefaultFxBuses } from '../project/project-state'
+import { createDefaultDelayReturnModule } from '../engine/return-effects'
 
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
 const PLAYABLE_SAMPLE = {
@@ -40,11 +42,83 @@ describe('useTransportEngine', () => {
       clipEdgeMicroFades: { enabled: false, fadeInMs: 1.5, fadeOutMs: 7 }
     }
 
-    act(() => result.current.replaceProjectState({ lanes, song }))
+    act(() => result.current.replaceProjectState({ lanes, song, fxBuses: createDefaultFxBuses() }))
 
     expect(result.current.song).toEqual(song)
     expect(result.current.lanes[0]!.name).toBe('Replacement lane')
     expect(result.current.lanes).not.toBe(lanes)
+  })
+
+  it('restores the minimum lane when replacement is empty and will not delete it', () => {
+    const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
+    act(() => result.current.replaceProjectState({
+      lanes: [],
+      fxBuses: createDefaultFxBuses(),
+      song: {
+        bpm: 120,
+        masterGain: 0.8,
+        clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
+      }
+    }))
+    expect(result.current.lanes).toHaveLength(1)
+    act(() => result.current.deleteLane(0))
+    expect(result.current.lanes).toHaveLength(1)
+  })
+
+  it('undoes and redoes a committed Return FX edit in the project command history', () => {
+    const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
+    act(() => result.current.setReturnBus({
+      index: 0,
+      module: createDefaultDelayReturnModule('fx-1'),
+      powered: true,
+      returnLevel: 0.65,
+      limiterEnabled: false
+    }))
+    expect(result.current.fxBuses[0]).toMatchObject({
+      module: { type: 'delay' },
+      returnLevel: 0.65,
+      limiterEnabled: false
+    })
+    act(() => result.current.undo())
+    expect(result.current.fxBuses[0]).toMatchObject({ module: { type: 'empty' }, returnLevel: 1 })
+    act(() => result.current.redo())
+    expect(result.current.fxBuses[0]).toMatchObject({ module: { type: 'delay' }, returnLevel: 0.65 })
+  })
+
+  it('collapses live lane Mixer updates into one committed gesture', () => {
+    const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
+
+    act(() => {
+      result.current.beginMixerGesture()
+      result.current.setLaneGain(0, 0.75)
+      result.current.setLaneGain(0, 0.6)
+      result.current.setLaneSend(0, 2, 0.25)
+      result.current.setLaneSend(0, 2, 0.5)
+      result.current.commitMixerGesture()
+    })
+
+    expect(result.current.lanes[0]).toMatchObject({ gain: 0.6, sends: [0, 0, 0.5, 0] })
+    expect(result.current.canUndo).toBe(true)
+    act(() => result.current.undo())
+    expect(result.current.lanes[0]).toMatchObject({ gain: 0.8, sends: [0, 0, 0, 0] })
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('collapses live Return-level updates into one committed gesture', () => {
+    const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
+    const original = result.current.fxBuses[0]
+
+    act(() => {
+      result.current.beginMixerGesture()
+      result.current.setReturnBus({ ...original, returnLevel: 0.8 })
+      result.current.setReturnBus({ ...original, returnLevel: 0.45 })
+      result.current.commitMixerGesture()
+    })
+
+    expect(result.current.fxBuses[0].returnLevel).toBe(0.45)
+    act(() => result.current.undo())
+    expect(result.current.fxBuses[0].returnLevel).toBe(1)
+    expect(result.current.canUndo).toBe(false)
   })
 
   it('setLanePan updates lane pan without affecting channel pan (independent, spec-007)', async () => {
@@ -409,6 +483,7 @@ describe('useTransportEngine', () => {
     await act(async () => {
       result.current.replaceProjectState({
         lanes,
+        fxBuses: createDefaultFxBuses(),
         song: {
           bpm: 120,
           masterGain: 0.8,

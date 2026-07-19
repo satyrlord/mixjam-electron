@@ -1,8 +1,4 @@
-import { defineConfig, devices } from '@playwright/test'
-import { resolve } from 'node:path'
-
-const PORT = 4173
-const BASE_URL = `http://localhost:${PORT}`
+import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
@@ -16,33 +12,19 @@ export default defineConfig({
     ['list']
   ],
 
-  webServer: {
-    command: `node scripts/serve-static.mjs ${PORT}`,
-    url: BASE_URL,
-    reuseExistingServer: !process.env['CI'],
-    timeout: 15_000
-  },
-
   use: {
-    baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure'
   },
 
   projects: [
     {
-      name: 'browser-e2e',
-      use: {
-        ...devices['Desktop Chrome']
-      },
+      name: 'electron-e2e',
       testMatch: 'e2e/**/*.spec.ts'
     },
 
     {
       name: 'electron-smoke',
-      use: {
-        ...devices['Desktop Chrome']
-      },
       testMatch: 'electron/**/*.spec.ts'
     }
   ]

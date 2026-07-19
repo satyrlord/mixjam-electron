@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import App from '../App'
 import { mountApp } from '../bootstrapApp'
 import Header from '../components/Header'
+import { UI_GEOMETRY } from '../ui-size'
 import {
   THEME_OPTIONS,
   bootstrapTheme,
@@ -17,6 +18,7 @@ import {
 
 const REPO_ROOT = process.cwd()
 const INDEX_CSS_PATH = resolve(REPO_ROOT, 'src/renderer/src/index.css')
+const UI_SIZE_CSS_PATH = resolve(REPO_ROOT, 'src/renderer/src/ui-size.css')
 const EMERALD_JSON_PATH = resolve(REPO_ROOT, 'public/themes/emerald.json')
 const PUBLIC_FONTS_PATH = resolve(REPO_ROOT, 'src/renderer/public/fonts')
 
@@ -331,7 +333,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     fireEvent.click(start)
 
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     fireEvent.click(screen.getByRole('button', { name: /Return to Main Menu/ }))
@@ -373,6 +375,19 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
         `Soft muted text on ${surface}`
       ).toBeGreaterThanOrEqual(4.5)
     }
+  })
+
+  it('AC-020 through AC-022: UI Size publishes the 30, 40, and 50 geometry sets', () => {
+    const css = readUtf8(UI_SIZE_CSS_PATH)
+
+    expect(UI_GEOMETRY[30]).toMatchObject({ laneHeight: 37, bubbleHeight: 24 })
+    expect(UI_GEOMETRY[40]).toMatchObject({ laneHeight: 49, bubbleHeight: 33 })
+    expect(UI_GEOMETRY[50]).toMatchObject({ laneHeight: 61, bubbleHeight: 41 })
+    expect(css).toContain('height: var(--ui-header-height)')
+    expect(css).toContain('height: var(--ui-middle-strip-height)')
+    expect(css).toContain('grid-template-rows: var(--ui-tab-row-height)')
+    expect(css).toContain('width: var(--ui-mixer-channel-width)')
+    expect(css).toContain('min-height: var(--ui-size)')
   })
 
   it('AC-010: Emerald theme JSON is parseable and has no duplicate keys in the declared schema', () => {

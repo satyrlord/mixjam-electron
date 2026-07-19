@@ -80,6 +80,9 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       onRenameLane: app.renameLane,
       onToggleLaneMute: app.toggleLaneMute,
       onToggleLaneSolo: app.toggleLaneSolo
+      ,onAddLane: app.addLane
+      ,onDeleteLane: app.deleteLane
+      ,onDeleteEmptyLanes: app.deleteEmptyLanes
     },
     transport: {
       transportState: app.transportState,
@@ -104,24 +107,17 @@ export function createPlayerViewModel(app: AppState): PlayerViewModel {
       onTransportSeek: app.transportSeek
     },
     mixer: {
-      channels: app.channels,
+      returnBuses: app.returnBuses,
       channelLevels: app.channelLevels,
       channelPeaks: app.channelPeaks,
-      effectReductions: app.effectReductions,
-      canRestoreChannel: app.canRestoreChannel,
       onSetVisualTelemetryActive: app.setVisualTelemetryActive,
+      onBeginMixerGesture: app.beginMixerGesture,
+      onCommitMixerGesture: app.commitMixerGesture,
       onSetChannelGain: app.setChannelGain,
       onSetChannelPan: app.setChannelPan,
-      onToggleChannelMute: app.toggleChannelMute,
-      onToggleChannelSolo: app.toggleChannelSolo,
-      onRemoveChannel: app.removeChannel,
-      onRestoreChannel: app.restoreChannel,
-      onAddChannelEffect: app.addChannelEffect,
-      onUpdateChannelEffect: app.updateChannelEffect,
-      onToggleChannelEffectBypass: app.toggleChannelEffectBypass,
-      onRemoveChannelEffect: app.removeChannelEffect,
-      onRestoreChannelEffect: app.restoreChannelEffect,
-      onMoveChannelEffect: app.moveChannelEffect
+      onSetChannelSend: app.setChannelSend,
+      onSetReturnBus: app.setReturnBus,
+      onPreviewReturnBus: app.previewReturnBus
     },
     project: {
       name: app.projectName,

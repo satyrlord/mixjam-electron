@@ -7,9 +7,7 @@ import type {
 } from '../../../shared/backend-api'
 import {
   createDefaultProjectState,
-  type ChannelState,
-  type ProjectSongState,
-  type ProjectTransportState
+  type ProjectState
 } from '../project/project-state'
 import {
   parseProject,
@@ -55,11 +53,8 @@ interface UseProjectPersistenceParams {
   backendAPI: BackendAPI
   userFolder: FolderRef | null
   sampleFolder: FolderRef | null
-  song: ProjectSongState
-  lanes: ProjectTransportState['lanes']
-  channels: ChannelState[]
-  replaceTransportProject: (state: ProjectTransportState) => void
-  replaceChannels: (channels: ChannelState[]) => void
+  project: ProjectState
+  replaceProject: (state: ProjectState) => void
   reloadMixJamFiles: () => Promise<void>
 }
 
@@ -82,20 +77,15 @@ export function useProjectPersistence({
   backendAPI,
   userFolder,
   sampleFolder,
-  lanes,
-  song,
-  channels,
-  replaceTransportProject,
-  replaceChannels,
+  project,
+  replaceProject,
   reloadMixJamFiles
 }: UseProjectPersistenceParams): ProjectPersistence {
   const [projectGenerator, setProjectGenerator] = useState<ProjectGeneratorMetadata | null>(null)
   const currentProject = useMemo<ProjectData>(() => ({
-    song,
-    lanes,
-    channels,
+    ...project,
     ...(projectGenerator === null ? {} : { generator: projectGenerator })
-  }), [channels, lanes, projectGenerator, song])
+  }), [project, projectGenerator])
   const currentFingerprint = useMemo(
     () => projectFingerprint(currentProject),
     [currentProject]
@@ -136,11 +126,7 @@ export function useProjectPersistence({
     const fingerprint = projectFingerprint(document)
     setReplacementTarget(fingerprint)
     setBaselineFingerprint(fingerprint)
-    replaceTransportProject({
-      lanes: document.lanes,
-      song: document.song
-    })
-    replaceChannels(document.channels)
+    replaceProject(document)
     setMetadata({
       path,
       displayName,
@@ -148,7 +134,7 @@ export function useProjectPersistence({
       modifiedAt: document.modifiedAt
     })
     setProjectGenerator(document.generator ?? null)
-  }, [replaceChannels, replaceTransportProject])
+  }, [replaceProject])
 
   const finishOpen = useCallback(async (
     selection: MixJamFileContents | OpenedMixJamFileContents
@@ -342,11 +328,7 @@ export function useProjectPersistence({
     const fingerprint = projectFingerprint(project)
     setReplacementTarget(fingerprint)
     setBaselineFingerprint(fingerprint)
-    replaceTransportProject({
-      lanes: project.lanes,
-      song: project.song
-    })
-    replaceChannels(project.channels)
+    replaceProject(project)
     setMetadata({
       path: null,
       displayName: 'Untitled',
@@ -357,7 +339,7 @@ export function useProjectPersistence({
     setProjectMissingSamplePaths(new Set())
     setProjectError(null)
     setProjectWarning(null)
-  }, [replaceChannels, replaceTransportProject])
+  }, [replaceProject])
 
   return {
     projectPath: metadata.path,

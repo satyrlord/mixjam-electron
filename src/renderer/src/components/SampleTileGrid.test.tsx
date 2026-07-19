@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SampleTileGrid from './SampleTileGrid'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
+import { UiSizeProvider } from '../ui-size'
 
 const CATEGORIES: CategoryItem[] = [
   { id: 1, name: 'Bass', parentId: null },
@@ -66,6 +67,33 @@ describe('SampleTileGrid', () => {
     expect((buttons[1] as HTMLElement).style.width).toBe('240px')
     expect(container.querySelectorAll('button.sample-bubble-hit-target')).toHaveLength(2)
     expect(buttons[0]?.closest('button')).toHaveClass('sample-bubble-hit-target')
+  })
+
+  it('uses the selected UI Size for virtual row pitch and minimum hit width', () => {
+    const { container } = render(
+      <UiSizeProvider size={50}>
+        <SampleTileGrid
+          samples={[makeSample({ durationSeconds: 0 })]}
+          bubblePixelsPerSecond={1}
+          selectedSamplePath={null}
+          flashSamplePath={null}
+          activeCategorySlot={undefined}
+          categories={CATEGORIES}
+          loading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          onSelectSampleDetail={vi.fn()}
+          onPreviewSample={vi.fn()}
+          onSampleDragStart={vi.fn()}
+          onSampleContextMenuOpen={vi.fn()}
+          renderSampleContextMenu={() => null}
+        />
+      </UiSizeProvider>
+    )
+
+    expect((container.querySelector('.sample-bubble-hit-target') as HTMLElement).style.width).toBe('50px')
+    expect((container.querySelector('.tiles-virtual-canvas') as HTMLElement).style.height).toBe('53px')
   })
 
   it('uses a placed sample musical span instead of remapping its width at the current BPM', () => {

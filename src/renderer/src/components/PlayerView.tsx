@@ -26,7 +26,6 @@ import MixerColumn from './MixerColumn'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
 import ShortcutsOverlay from './ShortcutsOverlay'
-import EffectsWorkspace from './EffectsWorkspace'
 import BottomWorkspace, {
   type BottomWorkspaceTab
 } from './BottomWorkspace'
@@ -37,23 +36,22 @@ import {
 import { ContextMenuContent, ContextMenuItem, ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 import { Panel, PanelGroup, PanelResizeHandle, usePanelRef, type PanelLayout } from './ui/ResizablePanels'
 import { SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
+import { Tooltip } from './ui/Tooltip'
+import { useUiGeometry } from '../ui-size'
 
 const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
 
 const BOTTOM_WORKSPACE_EXPANDED_PERCENT = 60
 const BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT = 50
 
-export function reconcileSelectedChannelIndex(
-  channels: ReadonlyArray<{ channelIndex: number }>,
-  selectedChannelIndex: number | null
-): number | null {
-  if (selectedChannelIndex !== null && channels.some((channel) => channel.channelIndex === selectedChannelIndex)) {
-    return selectedChannelIndex
+export function reconcileSelectedLaneId(
+  lanes: ReadonlyArray<{ id: string }>,
+  selectedLaneId: string | null
+): string | null {
+  if (selectedLaneId !== null && lanes.some((lane) => lane.id === selectedLaneId)) {
+    return selectedLaneId
   }
-  if (selectedChannelIndex === null) return channels[0]?.channelIndex ?? null
-  return channels.find((channel) => channel.channelIndex > selectedChannelIndex)?.channelIndex ??
-    [...channels].reverse().find((channel) => channel.channelIndex < selectedChannelIndex)?.channelIndex ??
-    null
+  return lanes[0]?.id ?? null
 }
 
 export interface PlayerViewProps {
@@ -76,6 +74,7 @@ export default function PlayerView({
   const { lanes, laneShouldDim, currentTick } = arrangement
   const { transportState, onTransportSeek } = transport
   const hasPlacedSamples = lanes.some((lane) => lane.placements.length > 0)
+  const emptyLaneCount = Math.max(0, lanes.filter((lane) => lane.placements.length === 0).length - (lanes.every((lane) => lane.placements.length === 0) ? 1 : 0))
 
   const totalTicks = TRACKER_TOTAL_TICKS
 
@@ -202,6 +201,10 @@ export default function PlayerView({
   const [workspaceDefaults] = useState(() =>
     loadPlayerWorkspacePreferences(window.innerWidth, LEFT_COL_MIN_PX)
   )
+  const uiGeometry = useUiGeometry()
+  const mixerMinimumHeight = uiGeometry.tabRowHeight +
+    (4 * uiGeometry.spaceMd) + uiGeometry.size +
+    (2 * uiGeometry.mixerFxHeight) + uiGeometry.spaceSm + 14
   const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(
     workspaceDefaults.mixJamBrowserCollapsed
   )
@@ -210,11 +213,11 @@ export default function PlayerView({
   const verticalDefaultLayout: PanelLayout = workspaceDefaults.verticalLayout
   const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(workspaceDefaults.bottomTab)
   const bottomPanelRef = usePanelRef()
+  const bottomTabSizesRef = useRef({ ...workspaceDefaults.bottomTabSizes })
   const initialExpansionState = workspaceDefaults.bottomExpansion
   const previousBottomSizeRef = useRef(initialExpansionState.previousBottomSize)
   const [bottomWorkspaceExpanded, setBottomWorkspaceExpanded] = useState(initialExpansionState.expanded)
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null)
-  const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null)
+  const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
   const { onSetVisualTelemetryActive } = mixer
   const {
     busy: projectBusy,
@@ -223,7 +226,7 @@ export default function PlayerView({
   } = project
 
   useEffect(() => {
-    onSetVisualTelemetryActive(bottomTab === 'mixer' || bottomTab === 'fx')
+    onSetVisualTelemetryActive(bottomTab === 'mixer')
   }, [bottomTab, onSetVisualTelemetryActive])
 
   useEffect(() => () => {
@@ -231,13 +234,29 @@ export default function PlayerView({
   }, [onSetVisualTelemetryActive])
 
   const setBottomTab = useCallback((tab: BottomWorkspaceTab) => {
+    if (tab === bottomTab) return
+    const currentSize = bottomPanelRef.current!.getSize().asPercentage
+    bottomTabSizesRef.current = { ...bottomTabSizesRef.current, [bottomTab]: currentSize }
+    playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
     setBottomTabState(tab)
     playerWorkspacePreferences.saveBottomTab(tab)
-  }, [])
+  }, [bottomPanelRef, bottomTab])
+
+  useEffect(() => {
+    const panel = bottomPanelRef.current!
+    const targetPercentage = bottomTabSizesRef.current[bottomTab]
+    if (bottomTab !== 'mixer') {
+      panel.resize(`${targetPercentage}%`)
+      return
+    }
+    const current = panel.getSize()
+    const groupHeight = current.inPixels * 100 / current.asPercentage
+    const rememberedHeight = groupHeight * targetPercentage / 100
+    panel.resize(`${Math.max(mixerMinimumHeight, rememberedHeight)}px`)
+  }, [bottomPanelRef, bottomTab, mixerMinimumHeight])
 
   const toggleBottomWorkspaceExpanded = useCallback(() => {
-    const panel = bottomPanelRef.current
-    if (!panel) return
+    const panel = bottomPanelRef.current!
     if (bottomWorkspaceExpanded) {
       playerWorkspacePreferences.saveBottomExpansion({
         expanded: false,
@@ -257,12 +276,16 @@ export default function PlayerView({
   }, [bottomPanelRef, bottomWorkspaceExpanded])
 
   const openSamplesFromCue = useCallback(() => {
-    setBottomTab('samples')
-    const panel = bottomPanelRef.current
-    if (panel && panel.getSize().asPercentage < BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT) {
-      panel.resize(`${BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT}%`)
+    bottomTabSizesRef.current = {
+      ...bottomTabSizesRef.current,
+      samples: Math.max(
+        bottomTabSizesRef.current.samples,
+        BOTTOM_WORKSPACE_CUE_MINIMUM_PERCENT
+      )
     }
-  }, [bottomPanelRef, setBottomTab])
+    playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
+    setBottomTab('samples')
+  }, [setBottomTab])
 
   const handleMixJamBrowserCollapsedChange = useCallback((collapsed: boolean) => {
     setMixJamBrowserCollapsed(collapsed)
@@ -272,11 +295,10 @@ export default function PlayerView({
   }, [browserPanelRef])
 
   useEffect(() => {
-    const nextChannelIndex = reconcileSelectedChannelIndex(mixer.channels, selectedChannelIndex)
-    if (nextChannelIndex === selectedChannelIndex) return
-    setSelectedChannelIndex(nextChannelIndex)
-    setSelectedEffectId(null)
-  }, [mixer.channels, selectedChannelIndex])
+    const nextLaneId = reconcileSelectedLaneId(arrangement.lanes, selectedLaneId)
+    if (nextLaneId === selectedLaneId) return
+    setSelectedLaneId(nextLaneId)
+  }, [arrangement.lanes, selectedLaneId])
 
   // Refs for values read by the global keyboard shortcut handler so the
   // listener subscribes once instead of on every selection / transport change.
@@ -366,6 +388,15 @@ export default function PlayerView({
     setLaneContextMenu(null)
   }, [laneContextMenu])
 
+  const handleDeleteLane = useCallback(() => {
+    if (!laneContextMenu) return
+    const lane = lanes.find((candidate) => candidate.index === laneContextMenu.laneIndex)
+    if (!lane) return
+    if (lane.placements.length > 0 && !window.confirm(`Delete ${lane.name} and its ${lane.placements.length} sample event${lane.placements.length === 1 ? '' : 's'}?`)) return
+    arrangement.onDeleteLane(lane.index)
+    setLaneContextMenu(null)
+  }, [arrangement, laneContextMenu, lanes])
+
   const onRenameLane = arrangement.onRenameLane
   const handleCommitLaneName = useCallback((laneIndex: number, name: string) => {
     onRenameLane(laneIndex, name)
@@ -385,7 +416,10 @@ export default function PlayerView({
       onLayoutChanged={(layout, meta) => {
         playerWorkspacePreferences.saveVerticalLayout(layout)
         const bottomSize = layout.bottom
-        if (!meta.isUserInteraction || bottomSize === undefined) return
+        if (bottomSize === undefined) return
+        bottomTabSizesRef.current = { ...bottomTabSizesRef.current, [bottomTab]: bottomSize }
+        playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
+        if (!meta.isUserInteraction || bottomTab === 'mixer') return
         previousBottomSizeRef.current = bottomSize
         setBottomWorkspaceExpanded(false)
         playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: bottomSize })
@@ -457,6 +491,15 @@ export default function PlayerView({
             ref={timelineRef}
             style={{ minWidth: TRACKER_TIMELINE_MIN_WIDTH_PX }}
           >
+          <div className="tracker-lane-actions" style={{ minHeight: 36 }}>
+            <Tooltip content="Delete all empty lanes. An Empty Lane has no sample events anywhere in the song. This action does not ask for confirmation.">
+              <span className="lane-action-tooltip-trigger">
+                <button type="button" className="lane-empty-delete" onClick={arrangement.onDeleteEmptyLanes} disabled={emptyLaneCount === 0 || lanes.length <= 1} aria-label={`Delete ${emptyLaneCount} empty lanes`}>
+                  <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14"><path d="M3 4h10M6 4V2h4v2m-6 0 1 10h6l1-10M7 7v4m2-4v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg> {emptyLaneCount}
+                </button>
+              </span>
+            </Tooltip>
+          </div>
           {currentTick < totalTicks && (
             <div
               className="tracker-playhead"
@@ -504,7 +547,7 @@ export default function PlayerView({
             const dimmed = laneShouldDim(lane)
             return (
               <LaneRow
-                key={lane.index}
+                key={lane.id}
                 lane={lane}
                 dimmed={dimmed}
                 totalTicks={totalTicks}
@@ -525,6 +568,16 @@ export default function PlayerView({
               />
             )
           })}
+          <div className="tracker-lane-add-row">
+            <div className="tracker-lane-add-head">
+              <Tooltip content={lanes.length >= 64 ? 'The 64 lane limit has been reached.' : 'Add a lane after the final lane.'}>
+                <span className="lane-action-tooltip-trigger">
+                  <button type="button" className="lane-add-button" onClick={arrangement.onAddLane} disabled={lanes.length >= 64} aria-label="Add lane">+ Add Lane</button>
+                </span>
+              </Tooltip>
+            </div>
+            <div className="tracker-lane-add-canvas" aria-hidden="true" />
+          </div>
           </div>
             </div>
           </ContextMenuTrigger>
@@ -537,6 +590,7 @@ export default function PlayerView({
           {laneContextMenu && (
             <ContextMenuContent aria-label={`Lane actions for ${laneContextMenu.laneName}`}>
               <ContextMenuItem onSelect={handleRenameLane}>Rename lane</ContextMenuItem>
+              <ContextMenuItem disabled={lanes.length <= 1} onSelect={handleDeleteLane}>Delete lane</ContextMenuItem>
             </ContextMenuContent>
           )}
         </ContextMenuRoot>
@@ -550,13 +604,13 @@ export default function PlayerView({
         projectName={project.name}
         projectDirty={project.dirty}
         projectBusy={project.busy}
-        canRegenerate={project.canRegenerate ?? false}
+        canRegenerate={project.canRegenerate}
         onNewProject={() => void project.onNew()}
         onOpenProject={() => void project.onOpen()}
         onSaveProject={() => void project.onSave()}
         onSaveProjectAs={() => void project.onSaveAs()}
-        onRegenerateExact={project.onRegenerateExact ?? (() => {})}
-        onRegenerateCurrent={project.onRegenerateCurrent ?? (() => {})}
+        onRegenerateExact={project.onRegenerateExact}
+        onRegenerateCurrent={project.onRegenerateCurrent}
         transportState={transportState}
         canUndo={transport.canUndo}
         canRedo={transport.canRedo}
@@ -584,7 +638,12 @@ export default function PlayerView({
         aria-label="Resize bottom workspace"
       />
 
-      <Panel id="bottom" panelRef={bottomPanelRef} minSize="60px" maxSize="60%">
+      <Panel
+        id="bottom"
+        panelRef={bottomPanelRef}
+        minSize={bottomTab === 'mixer' ? `${mixerMinimumHeight}px` : '60px'}
+        maxSize="75%"
+      >
         <BottomWorkspace
         activeTab={bottomTab}
         bpm={transport.bpm}
@@ -606,38 +665,19 @@ export default function PlayerView({
         )}
         mixer={(
           <MixerColumn
-            channels={mixer.channels}
+            lanes={arrangement.lanes}
+            returnBuses={mixer.returnBuses}
             channelLevels={mixer.channelLevels}
             channelPeaks={mixer.channelPeaks}
-            canRestoreChannel={mixer.canRestoreChannel}
-            selectedChannelIndex={selectedChannelIndex}
+            selectedLaneId={selectedLaneId}
+            onGestureStart={mixer.onBeginMixerGesture}
+            onGestureEnd={mixer.onCommitMixerGesture}
             onSetChannelGain={mixer.onSetChannelGain}
             onSetChannelPan={mixer.onSetChannelPan}
-            onToggleChannelMute={mixer.onToggleChannelMute}
-            onToggleChannelSolo={mixer.onToggleChannelSolo}
-            onRemoveChannel={mixer.onRemoveChannel}
-            onRestoreChannel={mixer.onRestoreChannel}
-            onSelectChannel={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null) }}
-            onOpenChannelEffects={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null); setBottomTab('fx') }}
-          />
-        )}
-        fx={(
-          <EffectsWorkspace
-            channels={mixer.channels}
-            selectedChannelIndex={selectedChannelIndex}
-            selectedEffectId={selectedEffectId}
-            effectReductions={mixer.effectReductions}
-            canRestoreChannel={mixer.canRestoreChannel}
-            onOpenMixer={() => setBottomTab('mixer')}
-            onRestoreChannel={mixer.onRestoreChannel}
-            onSelectChannel={(channelIndex) => { setSelectedChannelIndex(channelIndex); setSelectedEffectId(null) }}
-            onSelectEffect={setSelectedEffectId}
-            onAdd={mixer.onAddChannelEffect}
-            onUpdate={mixer.onUpdateChannelEffect}
-            onToggleBypass={mixer.onToggleChannelEffectBypass}
-            onRemove={mixer.onRemoveChannelEffect}
-            onRestore={mixer.onRestoreChannelEffect}
-            onMove={mixer.onMoveChannelEffect}
+            onSetChannelSend={mixer.onSetChannelSend}
+            onSetReturnBus={mixer.onSetReturnBus}
+            onPreviewReturnBus={mixer.onPreviewReturnBus}
+            onSelectLane={setSelectedLaneId}
           />
         )}
         samples={(

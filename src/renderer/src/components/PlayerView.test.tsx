@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import PlayerView, { reconcileSelectedChannelIndex } from './PlayerView'
+import PlayerView, { reconcileSelectedLaneId } from './PlayerView'
 import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
@@ -13,6 +13,7 @@ import type {
 import type { LibrarySyncState, MixJamFileItem, SampleListItem } from '../../../shared/backend-api'
 import type { LaneState } from '../lib/arrangement'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
+import { createDefaultFxBuses } from '../project/project-state'
 
 const INDEX_CSS_PATH = resolve(process.cwd(), 'src/renderer/src/index.css')
 
@@ -48,11 +49,14 @@ const SAMPLES: SampleListItem[] = [
 ]
 
 const LANES: LaneState[] = Array.from({ length: 16 }, (_, index) => ({
+  id: `lane-${index + 1}`,
   index,
   name: `Lane ${index + 1}`,
   muted: false,
   solo: false,
   pan: 0,
+  gain: 0.8,
+  sends: [0, 0, 0, 0],
   placements: []
 }))
 
@@ -131,7 +135,10 @@ const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   onSetLanePan: noop,
   onRenameLane: noop,
   onToggleLaneMute: noop,
-  onToggleLaneSolo: noop
+  onToggleLaneSolo: noop,
+  onAddLane: noop,
+  onDeleteLane: noop,
+  onDeleteEmptyLanes: noop
 }
 
 const DEFAULT_TRANSPORT: PlayerTransportProps = {
@@ -158,35 +165,31 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
 }
 
 const DEFAULT_MIXER: PlayerMixerProps = {
-  channels: [],
+  returnBuses: createDefaultFxBuses(),
   channelLevels: new Map(),
   channelPeaks: new Map(),
-  effectReductions: new Map(),
-  canRestoreChannel: false,
   onSetVisualTelemetryActive: noop,
+  onBeginMixerGesture: noop,
+  onCommitMixerGesture: noop,
   onSetChannelGain: noop,
   onSetChannelPan: noop,
-  onToggleChannelMute: noop,
-  onToggleChannelSolo: noop,
-  onRemoveChannel: noop,
-  onRestoreChannel: noop,
-  onAddChannelEffect: () => null,
-  onUpdateChannelEffect: noop,
-  onToggleChannelEffectBypass: noop,
-  onRemoveChannelEffect: noop,
-  onRestoreChannelEffect: () => false,
-  onMoveChannelEffect: noop
+  onSetChannelSend: noop,
+  onSetReturnBus: noop,
+  onPreviewReturnBus: noop
 }
 
 const DEFAULT_PROJECT: PlayerProjectProps = {
   name: 'Untitled',
   dirty: false,
   busy: false,
+  canRegenerate: false,
   onNew: async () => undefined,
   onOpen: asyncFalse,
   onOpenPath: asyncFalse,
   onSave: asyncFalse,
-  onSaveAs: asyncFalse
+  onSaveAs: asyncFalse,
+  onRegenerateExact: noop,
+  onRegenerateCurrent: noop
 }
 
 interface TrackerOverrides {
@@ -198,8 +201,8 @@ interface TrackerOverrides {
   project?: Partial<PlayerProjectProps>
 }
 
-function renderPlayer(overrides: TrackerOverrides = {}) {
-  return render(
+function playerView(overrides: TrackerOverrides = {}) {
+  return (
     <PlayerView
       mixJamFiles={overrides.mixJamFiles ?? []}
       browser={{ ...DEFAULT_BROWSER, ...overrides.browser }}
@@ -209,6 +212,10 @@ function renderPlayer(overrides: TrackerOverrides = {}) {
       project={{ ...DEFAULT_PROJECT, ...overrides.project }}
     />
   )
+}
+
+function renderPlayer(overrides: TrackerOverrides = {}) {
+  return render(playerView(overrides))
 }
 
 describe('PlayerView', () => {
@@ -222,6 +229,7 @@ describe('PlayerView', () => {
     localStorage.removeItem('mixjam:upper-work-layout')
     localStorage.removeItem('mixjam:bottom-workspace-layout-v2')
     localStorage.removeItem('mixjam:bottom-workspace-expansion-v2')
+    localStorage.removeItem('mixjam:bottom-workspace-tab-sizes-v1')
   })
 
   it('renders the Player regions and MixJam Browser', () => {
@@ -232,7 +240,7 @@ describe('PlayerView', () => {
 
     expect(screen.getByText('MixJam Browser')).toBeInTheDocument()
     expect(screen.getByText('club-night')).toBeInTheDocument()
-    expect(screen.getByText('Lane 1')).toBeInTheDocument()
+    expect(screen.getAllByText('Lane 1')).not.toHaveLength(0)
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     expect(screen.getByText('Song Controls')).toBeInTheDocument()
     expect(screen.getByRole('tree', { name: /sample categories/i })).toBeInTheDocument()
@@ -553,13 +561,40 @@ describe('PlayerView', () => {
     const onRenameLane = vi.fn()
     renderPlayer({ arrangement: { onRenameLane } })
 
-    fireEvent.contextMenu(screen.getByText('Lane 1'))
+    fireEvent.contextMenu(document.querySelectorAll('.tracker-lane-name')[0]!)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename lane' }))
     const input = screen.getByRole('textbox', { name: 'Rename Lane 1' })
     fireEvent.change(input, { target: { value: 'Kick Phrase' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(onRenameLane).toHaveBeenCalledWith(0, 'Kick Phrase')
+  })
+
+  it('confirms deletion of a populated lane and deletes an empty lane directly', () => {
+    const onDeleteLane = vi.fn()
+    const confirm = vi.spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+    const lanes = LANES.map((lane, index) => index === 0 ? {
+      ...lane,
+      placements: [{
+        id: 'placed', samplePath: 'kick.wav', sampleName: 'kick.wav',
+        startTick: 0, durationTicks: 32, durationSeconds: 1
+      }]
+    } : lane)
+    renderPlayer({ arrangement: { lanes, onDeleteLane } })
+
+    fireEvent.contextMenu(document.querySelector('.tracker-lane-name')!)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete lane' }))
+    expect(onDeleteLane).not.toHaveBeenCalled()
+    fireEvent.contextMenu(document.querySelector('.tracker-lane-name')!)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete lane' }))
+    expect(onDeleteLane).toHaveBeenCalledWith(0)
+
+    fireEvent.contextMenu(document.querySelectorAll('.tracker-lane-name')[1]!)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete lane' }))
+    expect(onDeleteLane).toHaveBeenLastCalledWith(1)
+    expect(confirm).toHaveBeenCalledTimes(2)
   })
 
   it('calls onMovePlacement when a sample bubble is dragged to another lane', () => {
@@ -745,17 +780,16 @@ describe('PlayerView', () => {
     expect(onSetBpm).toHaveBeenLastCalledWith(200)
   })
 
-  it('defaults to four ordered Bottom Workspace tabs with mounted peer panels', () => {
+  it('defaults to three ordered Bottom Workspace tabs with mounted peer panels', () => {
     renderPlayer({})
 
     const tabs = screen.getAllByRole('tab')
-    expect(tabs.map((tab) => tab.textContent)).toEqual(['Song', 'Mixer', 'FX', 'Samples'])
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Song', 'Mixer', 'Samples'])
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     expect(tabs[0]).toHaveAttribute('tabindex', '0')
-    expect(document.querySelectorAll('.bottom-workspace-panel')).toHaveLength(4)
+    expect(document.querySelectorAll('.bottom-workspace-panel')).toHaveLength(3)
     expect(document.querySelector('.bottom-workspace-song')).not.toHaveAttribute('hidden')
     expect(document.querySelector('.bottom-workspace-mixer')).toHaveAttribute('hidden')
-    expect(document.querySelector('.bottom-workspace-fx')).toHaveAttribute('hidden')
     expect(document.querySelector('.bottom-workspace-samples')).toHaveAttribute('hidden')
   })
 
@@ -837,12 +871,46 @@ describe('PlayerView', () => {
     expect(screen.getByRole('button', { name: 'Expand Samples' })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('keeps FX channel selection stable, then falls forward and backward after removal', () => {
-    const channels = [{ channelIndex: 0 }, { channelIndex: 2 }, { channelIndex: 4 }]
-    expect(reconcileSelectedChannelIndex(channels, 2)).toBe(2)
-    expect(reconcileSelectedChannelIndex([{ channelIndex: 0 }, { channelIndex: 4 }], 2)).toBe(4)
-    expect(reconcileSelectedChannelIndex([{ channelIndex: 0 }], 4)).toBe(0)
-    expect(reconcileSelectedChannelIndex([], 0)).toBeNull()
+  it('owns Mixer selection by stable lane ID', () => {
+    const lanes = [{ id: 'lane-a' }, { id: 'lane-b' }, { id: 'lane-c' }]
+    expect(reconcileSelectedLaneId(lanes, 'lane-c')).toBe('lane-c')
+    expect(reconcileSelectedLaneId([{ id: 'lane-b' }, { id: 'lane-c' }], 'lane-c')).toBe('lane-c')
+    expect(reconcileSelectedLaneId([{ id: 'lane-b' }], 'lane-c')).toBe('lane-b')
+    expect(reconcileSelectedLaneId([], 'lane-c')).toBeNull()
+    expect(reconcileSelectedLaneId([], null)).toBeNull()
+  })
+
+  it('keeps lane C selected when deleting and compacting lane A', () => {
+    const lanes = LANES.slice(0, 3).map((lane, index) => ({
+      ...lane,
+      id: ['lane-a', 'lane-b', 'lane-c'][index]!,
+      name: ['A', 'B', 'C'][index]!
+    }))
+    const { rerender } = renderPlayer({ arrangement: { lanes } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'C' }))
+    expect(screen.getByRole('button', { name: 'C' })).toHaveAttribute('aria-pressed', 'true')
+
+    const compacted = [
+      { ...lanes[1]!, index: 0 },
+      { ...lanes[2]!, index: 1 }
+    ]
+    rerender(playerView({ arrangement: { lanes: compacted } }))
+
+    expect(screen.getByRole('button', { name: 'C' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('slider', { name: 'Channel 2 Pan' })).toBeInTheDocument()
+  })
+
+  it('disables Add Lane at the 64-lane limit', () => {
+    const lanes = Array.from({ length: 64 }, (_, index) => ({
+      ...LANES[0]!,
+      id: `limit-lane-${index + 1}`,
+      index,
+      name: `Lane ${index + 1}`
+    }))
+    renderPlayer({ arrangement: { lanes } })
+
+    expect(screen.getByRole('button', { name: 'Add lane' })).toBeDisabled()
   })
 
   it('restores and persists the active Bottom Workspace tab', () => {
@@ -854,14 +922,12 @@ describe('PlayerView', () => {
     expect(localStorage.getItem('mixjam:bottom-workspace-tab')).toBe('mixer')
   })
 
-  it('runs visual telemetry only while Mixer or FX is active', () => {
+  it('runs visual telemetry only while Mixer is active', () => {
     const onSetVisualTelemetryActive = vi.fn()
     const { unmount } = renderPlayer({ mixer: { onSetVisualTelemetryActive } })
 
     expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(false)
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
-    expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(true)
-    fireEvent.click(screen.getByRole('tab', { name: 'FX' }))
     expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(true)
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     expect(onSetVisualTelemetryActive).toHaveBeenLastCalledWith(false)
@@ -903,17 +969,17 @@ describe('PlayerView', () => {
     expect(input).toHaveAttribute('aria-valuenow', '120')
   })
 
-  // --- AC-005: 16 lanes render ---
-  it('AC-005: renders 16 lanes with M, S buttons and pan knob', () => {
-    renderPlayer({})
+  // --- AC-005: 8 lanes render ---
+  it('AC-005: renders 8 lanes with M, S buttons and pan knob', () => {
+    renderPlayer({ arrangement: { lanes: LANES.slice(0, 8) } })
 
     const laneElements = document.querySelectorAll('.tracker-lane')
-    expect(laneElements).toHaveLength(16)
+    expect(laneElements).toHaveLength(8)
 
     // Each lane has M, S, and pan
     expect(screen.getByRole('button', { name: 'Mute Lane 1' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Solo Lane 16' })).toBeInTheDocument()
-    expect(screen.getByRole('slider', { name: 'Pan Lane 16' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Solo Lane 8' })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Pan Lane 8' })).toBeInTheDocument()
   })
 
   // --- AC-010: Playhead visible during playback ---
@@ -1780,17 +1846,8 @@ describe('PlayerView', () => {
 
   // spec-007 mixer behavior
 
-  const CHANNEL = (channelIndex: number) => ({
-    channelIndex,
-    gain: 0.8,
-    pan: 0,
-    muted: false,
-    solo: false,
-    effects: []
-  })
-
   it('AC-002d: resizable panels expose stable IDs for persisted layouts', () => {
-    renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
+    renderPlayer({})
 
     expect(document.querySelector('[data-group="true"]#upper-work-split')).toBeInTheDocument()
     expect(document.querySelector('[data-panel="true"]#browser')).toBeInTheDocument()
@@ -1799,43 +1856,31 @@ describe('PlayerView', () => {
 
   it('AC-002d: a persisted browser width is applied on mount', () => {
     localStorage.setItem('mixjam-left-col-w', '200')
-    renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
+    renderPlayer({})
 
     const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
     expect(Number(seam.getAttribute('aria-valuenow'))).toBeGreaterThan(0)
   })
 
   it('AC-004: Mixer is a peer tab instead of a reveal toggle', () => {
-    renderPlayer({ mixer: { channels: [CHANNEL(0)] } })
+    renderPlayer({})
     expect(screen.getByRole('tab', { name: 'Mixer' })).toBeInTheDocument()
   })
 
-  it('AC-017: restore button shows only when a channel can be restored and fires onRestoreChannel', () => {
-    const onRestoreChannel = vi.fn()
-    renderPlayer({
-      mixer: { channels: [CHANNEL(0)], canRestoreChannel: true, onRestoreChannel }
-    })
-
+  it('does not expose independent channel restore controls', () => {
+    renderPlayer({})
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
-    const restore = screen.getByRole('button', { name: 'Restore removed channel' })
-    fireEvent.click(restore)
-    expect(onRestoreChannel).toHaveBeenCalled()
-  })
-
-  it('AC-017: restore button is absent at the full channel count', () => {
-    renderPlayer({ mixer: { channels: [CHANNEL(0)], canRestoreChannel: false } })
     expect(screen.queryByRole('button', { name: 'Restore removed channel' })).toBeNull()
   })
 
-  it('AC-020: strip labels are stable channelIndex + 1 with gaps after removal', () => {
-    // Channels 0 and 2 present, channel 1 removed: labels must read 1 and 3.
-    renderPlayer({ mixer: { channels: [CHANNEL(0), CHANNEL(2)], canRestoreChannel: true } })
+  it('uses lane-owned names for Mixer strip labels', () => {
+    renderPlayer({ arrangement: { lanes: [LANES[0]!, LANES[2]!] } })
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
 
     const labels = Array.from(
       document.querySelectorAll('.mixer-channel-select > span')
     ).map((el) => el.textContent)
-    expect(labels).toEqual(['1', '3'])
+    expect(labels).toEqual(['Lane 1', 'Lane 3'])
     // The aria-labels agree with the visible labels.
     expect(screen.getByRole('slider', { name: 'Channel 1 Pan' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Channel 3 Pan' })).toBeInTheDocument()

@@ -13,7 +13,13 @@ export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags
   slot?: number
 }
 
-export const DEFAULT_LANE_COUNT = 16
+/** A blank project starts compact, while saved projects may grow to this hard cap. */
+export const DEFAULT_LANE_COUNT = 8
+export const MIN_LANE_COUNT = 1
+export const MAX_LANE_COUNT = 64
+const DEFAULT_LANE_GAIN = 0.8
+const DEFAULT_LANE_SENDS = [0, 0, 0, 0] as const
+export type LaneSendLevels = [number, number, number, number]
 export const TRACKER_GEOMETRY_SCALE = 0.75
 
 function compactTrackerPixels(basePixels: number, gridPixels = 1): number {
@@ -83,11 +89,16 @@ export interface ClipPlacement {
 }
 
 export interface LaneState {
+  /** Stable project identity. It is intentionally independent of visible index. */
+  id: string
   index: number
   name: string
   muted: boolean
   solo: boolean
   pan: number
+  /** Lane-owned Mixer state. */
+  gain: number
+  sends: LaneSendLevels
   placements: ClipPlacement[]
 }
 
@@ -137,14 +148,52 @@ export function sampleBubbleScreenRect(
 }
 
 export function createDefaultLanes(): LaneState[] {
-  return Array.from({ length: DEFAULT_LANE_COUNT }, (_, index) => ({
+  return Array.from({ length: DEFAULT_LANE_COUNT }, (_, index) => createLane(index))
+}
+
+let laneIdSequence = 0
+
+function createLane(index: number, id = `lane-${index + 1}-${++laneIdSequence}`): LaneState {
+  return {
+    id,
     index,
     name: `Lane ${index + 1}`,
     muted: false,
     solo: false,
     pan: 0,
+    gain: DEFAULT_LANE_GAIN,
+    sends: [...DEFAULT_LANE_SENDS],
     placements: []
-  }))
+  }
+}
+
+/** Add one lane after the current last lane. Returns the same array at 64 lanes. */
+export function addLane(lanes: readonly LaneState[]): LaneState[] {
+  if (lanes.length >= MAX_LANE_COUNT) return [...lanes]
+  const next = lanes.map((lane, index) => ({ ...lane, index }))
+  return [...next, createLane(next.length)]
+}
+
+/** Delete a lane by visible index. The caller is responsible for confirming
+ * deletion when the lane contains placements. The final lane cannot be removed. */
+export function deleteLane(lanes: readonly LaneState[], laneIndex: number): LaneState[] {
+  if (lanes.length <= MIN_LANE_COUNT) return [...lanes]
+  const remaining = lanes.filter((lane) => lane.index !== laneIndex)
+  if (remaining.length === lanes.length || remaining.length < MIN_LANE_COUNT) return [...lanes]
+  return remaining.map((lane, index) => ({ ...lane, index }))
+}
+
+/** A lane is empty when no sample event is placed anywhere on it. */
+export function isEmptyLane(lane: Pick<LaneState, 'placements'>): boolean {
+  return lane.placements.length === 0
+}
+
+/** Remove every empty lane without confirmation, preserving at least one lane. */
+export function deleteEmptyLanes(lanes: readonly LaneState[]): LaneState[] {
+  if (lanes.length <= MIN_LANE_COUNT) return [...lanes]
+  const nonEmpty = lanes.filter((lane) => !isEmptyLane(lane))
+  const kept = nonEmpty.length > 0 ? nonEmpty : [lanes[0]!]
+  return kept.map((lane, index) => ({ ...lane, index }))
 }
 
 // Maps the UI lane model onto the engine's lane model. Default routing: lane N
@@ -481,6 +530,21 @@ export function setLanePan(lanes: LaneState[], laneIndex: number, pan: number): 
   return lanes.map((lane) =>
     lane.index === laneIndex ? { ...lane, pan: clamp(pan, -1, 1) } : lane
   )
+}
+
+export function setLaneGain(lanes: LaneState[], laneIndex: number, gain: number): LaneState[] {
+  const bounded = clamp(gain, 0, 1)
+  return lanes.map((lane) => lane.index === laneIndex ? { ...lane, gain: bounded } : lane)
+}
+
+export function setLaneSend(lanes: LaneState[], laneIndex: number, sendIndex: number, value: number): LaneState[] {
+  if (sendIndex < 0 || sendIndex > 3) return lanes
+  return lanes.map((lane) => {
+    if (lane.index !== laneIndex) return lane
+    const sends: LaneSendLevels = [...lane.sends]
+    sends[sendIndex] = clamp(value, 0, 1)
+    return { ...lane, sends }
+  })
 }
 
 export function renameLane(lanes: LaneState[], laneIndex: number, name: string): LaneState[] {

@@ -149,6 +149,9 @@ is:
   serialization, New, load, and the
   MixJam Generator consume that model rather than importing persistence types
   or defaults from renderer hooks.
+- The in-memory model requires all four return buses. Its construction, cloning,
+  and serialization boundaries reject any other bus count before producing a
+  project file.
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
 
@@ -462,6 +465,10 @@ generator, its tests, and this contract are the durable repository assets.
   `channels`/`channelId`/routing/insert-FX fields, and unknown object keys.
 
 ## Required version-4 evidence
+
+The in-memory `ProjectState` matches the physical version-4 model: Song, lanes,
+and four Return buses. Parsing, generation, dirty fingerprints, and persistence
+do not synthesize or replace a second top-level channel array.
 
 - Project-file unit tests cover exact format-version acceptance, rejection of
   version 3, unknown-key rejection, 1/64 lane boundaries, stable IDs, lane array

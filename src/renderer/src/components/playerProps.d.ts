@@ -8,8 +8,7 @@ import type {
 } from '../../../shared/backend-api'
 import type { PlacementGroupEntry, FooterSampleDetail, LaneState } from '../lib/arrangement'
 import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryData'
-import type { ChannelState } from '../project/project-state'
-import type { EffectSlot, EffectType } from '../engine/effects'
+import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
 import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
@@ -77,6 +76,9 @@ export interface TrackerArrangementProps {
   onRenameLane: (laneIndex: number, name: string) => void
   onToggleLaneMute: (laneIndex: number) => void
   onToggleLaneSolo: (laneIndex: number) => void
+  onAddLane: () => void
+  onDeleteLane: (laneIndex: number) => void
+  onDeleteEmptyLanes: () => void
 }
 
 export interface PlayerTransportProps {
@@ -103,36 +105,29 @@ export interface PlayerTransportProps {
 }
 
 export interface PlayerMixerProps {
-  channels: ChannelState[]
+  returnBuses: readonly [PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot]
   channelLevels: ReadonlyMap<number, number>
   channelPeaks: ReadonlyMap<number, number>
-  effectReductions: ReadonlyMap<string, number>
-  canRestoreChannel: boolean
   onSetVisualTelemetryActive: (active: boolean) => void
+  onBeginMixerGesture: () => void
+  onCommitMixerGesture: () => void
   onSetChannelGain: (channelIndex: number, gain: number) => void
   onSetChannelPan: (channelIndex: number, pan: number) => void
-  onToggleChannelMute: (channelIndex: number) => void
-  onToggleChannelSolo: (channelIndex: number) => void
-  onRemoveChannel: (channelIndex: number) => void
-  onRestoreChannel: () => void
-  onAddChannelEffect: (channelIndex: number, type: EffectType) => EffectSlot | null
-  onUpdateChannelEffect: (channelIndex: number, effect: EffectSlot) => void
-  onToggleChannelEffectBypass: (channelIndex: number, effectId: string) => void
-  onRemoveChannelEffect: (channelIndex: number, effectId: string) => void
-  onRestoreChannelEffect: (channelIndex: number, effect: EffectSlot, index: number) => boolean
-  onMoveChannelEffect: (channelIndex: number, effectId: string, toIndex: number) => void
+  onSetChannelSend: (channelIndex: number, sendIndex: number, value: number) => void
+  onSetReturnBus: (bus: PlaybackReturnSnapshot) => void
+  onPreviewReturnBus: (bus: PlaybackReturnSnapshot) => void
 }
 
 export interface PlayerProjectProps {
   name: string
   dirty: boolean
   busy: boolean
-  canRegenerate?: boolean
+  canRegenerate: boolean
   onNew: () => Promise<void>
   onOpen: () => Promise<boolean>
   onOpenPath: (projectRelpath: string) => Promise<boolean>
   onSave: () => Promise<boolean>
   onSaveAs: () => Promise<boolean>
-  onRegenerateExact?: () => void
-  onRegenerateCurrent?: () => void
+  onRegenerateExact: () => void
+  onRegenerateCurrent: () => void
 }

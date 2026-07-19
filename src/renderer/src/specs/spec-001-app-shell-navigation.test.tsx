@@ -33,15 +33,16 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     vi.clearAllMocks()
   })
 
-  it('AC-001: app launches in Home at 1280x720 centered with maximize disabled', () => {
+  it('AC-001: app launches in Home at 1920x1080 centered with maximize and resize enabled', () => {
     const options = createMainWindowOptions('D:/dev/mixjam-electron/out/preload/index.js', {} as never)
 
-    expect(HOME_WINDOW_SIZE).toEqual({ width: 1280, height: 720 })
-    expect(options.width).toBe(1280)
-    expect(options.height).toBe(720)
+    expect(HOME_WINDOW_SIZE).toEqual({ width: 1920, height: 1080 })
+    expect(options.width).toBe(1920)
+    expect(options.height).toBe(1080)
+    expect(options.useContentSize).toBe(true)
     expect(options.center).toBe(true)
-    expect(options.resizable).toBe(false)
-    expect(options.maximizable).toBe(false)
+    expect(options.resizable).toBe(true)
+    expect(options.maximizable).toBe(true)
 
     render(<App />)
     expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeInTheDocument()
@@ -83,7 +84,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     await clickStartNewMixJam()
 
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
@@ -104,23 +105,29 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       setResizable: vi.fn(),
       setMaximizable: vi.fn(),
       setSize: vi.fn(),
-      center: vi.fn()
+      setContentSize: vi.fn(),
+      setMinimumSize: vi.fn(),
+      getBounds: vi.fn(() => ({ width: 1936, height: 1119 })),
+      getContentBounds: vi.fn(() => ({ width: 1920, height: 1080 })),
+      center: vi.fn(),
+      maximize: vi.fn()
     }
 
     resizeWindowToPlayer(windowControls)
 
     expect(PLAYER_WINDOW_SIZE).toEqual({ width: 1920, height: 1080 })
-    expect(windowControls.setResizable).toHaveBeenCalledWith(true)
-    expect(windowControls.setMaximizable).toHaveBeenCalledWith(true)
-    expect(windowControls.setSize).toHaveBeenCalledWith(1920, 1080)
+    expect(windowControls.setMinimumSize).toHaveBeenCalledWith(1936, 1119)
+    expect(windowControls.setContentSize).toHaveBeenCalledWith(1920, 1080)
+    expect(windowControls.setSize).not.toHaveBeenCalled()
     expect(windowControls.center).toHaveBeenCalledTimes(1)
+    expect(windowControls.maximize).toHaveBeenCalledTimes(1)
 
     render(<App />)
 
     await clickStartNewMixJam()
 
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     expect(vi.mocked(window.backendAPI.resizeToPlayer)).toHaveBeenCalledTimes(1)
@@ -193,24 +200,24 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       setResizable: vi.fn((value: boolean) => callOrder.push(`setResizable:${String(value)}`)),
       setMaximizable: vi.fn((value: boolean) => callOrder.push(`setMaximizable:${String(value)}`)),
       setSize: vi.fn((width: number, height: number) => callOrder.push(`setSize:${width}x${height}`)),
-      center: vi.fn(() => callOrder.push('center'))
+      setContentSize: vi.fn((width: number, height: number) => callOrder.push(`setContentSize:${width}x${height}`)),
+      center: vi.fn(() => callOrder.push('center')),
+      unmaximize: vi.fn(() => callOrder.push('unmaximize'))
     }
 
     resizeWindowToHome(windowControls)
 
     expect(callOrder).toEqual([
-      'setResizable:true',
-      'setSize:1280x720',
-      'center',
-      'setResizable:false',
-      'setMaximizable:false'
+      'unmaximize',
+      'setContentSize:1920x1080',
+      'center'
     ])
 
     render(<App />)
 
     await clickStartNewMixJam()
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     fireEvent.click(screen.getByRole('button', { name: /Return to Main Menu/ }))
@@ -227,7 +234,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     await clickStartNewMixJam()
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     fireEvent.click(screen.getByRole('button', { name: /Return to Main Menu/ }))
@@ -237,7 +244,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     await clickStartNewMixJam()
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     expect(vi.mocked(window.backendAPI.resizeToPlayer)).toHaveBeenCalledTimes(2)
@@ -252,7 +259,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     // Wait for the Player to mount first: the Home screen also shows a
     // project list, so anchoring on the Tracker avoids grabbing
     // the Home node mid-navigation.
-    const tracker = await screen.findByText('Lane 1')
+    const tracker = (await screen.findAllByText('Lane 1'))[0]
     const mixJamFiles = screen.getByText('MixJam Browser')
     const middleStrip = screen.getByText('Untitled')
     const bottomWorkspace = screen.getByRole('region', { name: 'Bottom Workspace' })
@@ -262,7 +269,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(middleStrip).toBeInTheDocument()
     expect(bottomWorkspace).toBeInTheDocument()
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-      'Song', 'Mixer', 'FX', 'Samples'
+      'Song', 'Mixer', 'Samples'
     ])
   })
 

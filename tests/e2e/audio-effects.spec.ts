@@ -1,86 +1,56 @@
 import { test, expect } from './fixtures'
 
-test('the FX workspace edits, bypasses, reorders, removes, undoes, and does not leak into a new session', async ({ seededPage: page }) => {
+test('the Mixer edits, saves, clears, and resets a return Delay', async ({ seededPage: page }) => {
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
-  await page.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' }).click()
-  await expect(page.getByRole('tab', { name: 'FX' })).toHaveAttribute('aria-selected', 'true')
 
-  await page.getByText('Add effect', { exact: false }).click()
-  await page.getByRole('menuitem', { name: /Delay.*repeating echoes/i }).click()
-  await page.getByText('Add effect', { exact: false }).click()
-  await page.getByRole('menuitem', { name: /Reverb.*room, studio/i }).click()
+  const fx1 = page.getByRole('button', { name: 'FX 1', exact: true })
+  await expect(fx1).toContainText('Empty')
+  await fx1.click()
+  await page.getByRole('menuitem', { name: 'Delay...' }).click()
 
-  await page.getByText('Delay', { exact: true }).first().click()
-  await page.getByRole('button', { name: '375 ms' }).click()
-  const timeValue = page.getByRole('textbox', { name: 'Time value' })
-  await timeValue.fill('640')
-  await timeValue.press('Enter')
-  await page.getByRole('button', { name: 'Bypass Delay' }).click()
-  await page.getByLabel('Delay order actions').click()
-  await page.getByRole('menuitem', { name: 'Move right' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Delay' })
+  await expect(dialog).toBeVisible()
+  const time = dialog.getByRole('slider', { name: 'Free time' })
+  const feedback = dialog.getByRole('slider', { name: 'Feedback' })
+  await expect(time).toHaveAttribute('aria-valuetext', '375 ms')
+  await time.press('ArrowUp')
+  await feedback.press('ArrowUp')
+  await dialog.getByRole('button', { name: 'OK' }).click()
+  await expect(fx1).toContainText('Delay')
+  await expect(fx1).toContainText('385 ms')
+  await expect(fx1).toContainText('Feedback 36%')
 
-  const cards = page.locator('.effect-card')
-  await expect(cards).toHaveCount(2)
-  await expect(cards.first()).toContainText('Reverb')
-  await expect(cards.nth(1)).toContainText('Delay')
-  await expect(cards.nth(1)).toHaveClass(/effect-card-bypassed/)
-
-  await page.getByText('Delay', { exact: true }).first().click()
-  await page.getByText('Actions', { exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Remove effect' }).click()
-  await expect(page.locator('.effect-card')).toHaveCount(1)
-  await page.locator('.effect-undo-toast').getByRole('button', { name: 'Undo' }).click()
-  await expect(page.locator('.effect-card')).toHaveCount(2)
+  await fx1.click()
+  await page.getByRole('menuitem', { name: 'Clear slot' }).click()
+  await expect(fx1).toContainText('Empty')
 
   await page.reload()
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
-  await page.getByRole('button', { name: 'Open channel 1 effects, 0 of 4 used' }).click()
-  await expect(page.locator('.effect-card')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'FX 1', exact: true })).toContainText('Empty')
 })
 
-test('FX keeps reordered selection visible and contains the compressor meter at narrow widths', async ({ seededPage: page }) => {
+test('return controls stay contained at narrow widths', async ({ seededPage: page }) => {
   await page.setViewportSize({ width: 640, height: 720 })
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
-  await page.getByRole('tab', { name: 'FX' }).click()
+  await page.getByRole('tab', { name: 'Mixer' }).click()
 
-  for (let index = 0; index < 4; index++) {
-    await page.getByRole('button', { name: 'Add effect' }).click()
-    await page.getByRole('menuitem', { name: /Delay.*repeating echoes/i }).click()
-  }
-
-  await page.locator('.effect-card-main').first().click()
-  for (let index = 0; index < 3; index++) {
-    await page.locator('.effect-card-selected .effect-card-main').press('Alt+ArrowRight')
-  }
-
-  await expect.poll(async () => page.evaluate(() => {
-    const chain = document.querySelector('.effects-chain')
-    const selected = document.querySelector('.effect-card-selected')
-    if (!chain || !selected) return false
-    const chainRect = chain.getBoundingClientRect()
-    const selectedRect = selected.getBoundingClientRect()
-    return selectedRect.left >= chainRect.left + 12 && selectedRect.right <= chainRect.right - 12
-  })).toBe(true)
-
-  await page.reload()
-  await page.getByRole('button', { name: 'Start New MixJam' }).click()
-  await page.getByRole('tab', { name: 'FX' }).click()
-  await page.getByRole('button', { name: 'Add effect' }).click()
-  await page.getByRole('menuitem', { name: /Compressor.*loud and quiet/i }).click()
-
-  const meterIsContained = await page.evaluate(() => {
-    const editor = document.querySelector('.effect-detail')
-    const controls = document.querySelector('.effect-controls')
-    const meter = document.querySelector('.reduction-meter')
-    if (!editor || !controls || !meter) return false
-    const editorRect = editor.getBoundingClientRect()
-    const controlsRect = controls.getBoundingClientRect()
-    const meterRect = meter.getBoundingClientRect()
-    return meterRect.left >= controlsRect.left &&
-      meterRect.right <= controlsRect.right &&
-      meterRect.right <= editorRect.right
+  await expect(page.getByRole('button', { name: 'FX 4' })).toBeVisible()
+  const laneSends = page.getByRole('group', { name: 'Lane 1 Sends' })
+  await expect(laneSends.getByRole('slider', { name: 'Lane 1 Send 1' })).toBeVisible()
+  const limiter = page.getByRole('button', { name: 'Limiter for FX Return 4' })
+  await expect(limiter).not.toHaveAttribute('title')
+  await limiter.evaluate((element) => element.focus({ preventScroll: true }))
+  await expect(limiter).toBeFocused()
+  await expect(limiter).toHaveAttribute('data-state', 'instant-open')
+  await expect(page.getByRole('tooltip')).toContainText('Caps this FX Return at −1 dBFS')
+  const contained = await page.evaluate(() => {
+    const scrollport = document.querySelector('.mixer-column-scroll')
+    const strips = document.querySelector('.mixer-strips')
+    const fx = document.querySelector('.mixer-fx-grid')
+    return scrollport instanceof HTMLElement && strips instanceof HTMLElement && fx instanceof HTMLElement &&
+      strips.scrollWidth >= scrollport.clientWidth && fx.getBoundingClientRect().width > 0
   })
-  expect(meterIsContained).toBe(true)
+  expect(contained).toBe(true)
 })

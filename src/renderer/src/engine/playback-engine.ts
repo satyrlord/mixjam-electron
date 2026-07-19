@@ -18,6 +18,7 @@ import {
 import { type Voice } from './voice'
 import { stretchRatio, stretchRatioForDuration } from './time-stretch'
 import type { EffectSlot } from './effects'
+import type { ChannelSendSnapshot, ReturnBusSnapshot } from './audio-engine'
 import type { MasterMeterSnapshot } from './master-meter'
 import { tickDurationSeconds } from './transport'
 import {
@@ -28,8 +29,6 @@ import {
 } from './clip-edge-fades'
 import { ClipEdgeBoundaryPolicy } from './clip-edge-boundary-policy'
 
-// Default per-channel gain (matches the mixer's createDefaultChannel).
-const DEFAULT_CHANNEL_GAIN = 0.8
 const PRELOAD_CONCURRENCY = 4
 type SamplePreparation = 'ready' | 'failed'
 
@@ -49,12 +48,18 @@ export interface PlaybackEngineOptions extends AudioEngineOptions {
 }
 
 export interface PlaybackChannelSnapshot {
+  laneId: string
   channelIndex: number
   gain: number
   pan: number
   muted: boolean
   solo: boolean
   effects: readonly EffectSlot[]
+  sends: ChannelSendSnapshot
+}
+
+export interface PlaybackReturnSnapshot extends ReturnBusSnapshot {
+  index: number
 }
 
 export class PlaybackEngine {
@@ -66,12 +71,14 @@ export class PlaybackEngine {
   private readonly channelMutes = new Map<number, boolean>()
   private readonly channelSolos = new Map<number, boolean>()
   private readonly channelEffects = new Map<number, readonly EffectSlot[]>()
+  private readonly channelSends = new Map<number, ChannelSendSnapshot>()
+  private readonly channelLaneIds = new Map<number, string>()
+  private readonly returnSnapshots = new Map<number, PlaybackReturnSnapshot>()
   // Persistent lane panners let live pan updates affect sounding voices.
   private readonly lanePanners = new Map<number, StereoPannerNode>()
   // The single voice currently sounding on each lane (monophonic): a new
   // trigger cuts off the previous one.
   private readonly laneVoices = new Map<number, Voice>()
-  private readonly removedChannels = new Set<number>()
   private currentBpm: number
   private lastScheduledTick = -1
   // Bumped on every stop()/pause()/close() so a trigger whose async buffer load
@@ -127,6 +134,7 @@ export class PlaybackEngine {
     for (const channelIndex of this.channelEffects.keys()) {
       this.engine.getChannel(channelIndex)?.setBpm(bpm)
     }
+    for (const snapshot of this.returnSnapshots.values()) this.engine.setReturnBus(snapshot.index, snapshot, bpm)
   }
 
   setMasterGain(value: number): void {
@@ -168,27 +176,42 @@ export class PlaybackEngine {
     this.engine.setChannelEffects(channelIndex, effects, this.currentBpm)
   }
 
+  applyReturnSnapshot(returns: readonly PlaybackReturnSnapshot[]): void {
+    for (const snapshot of returns) {
+      this.returnSnapshots.set(snapshot.index, { ...snapshot, module: { ...snapshot.module } })
+      this.engine.setReturnBus(snapshot.index, snapshot, this.currentBpm)
+    }
+  }
+
+  // fallow-ignore-next-line unused-class-member -- invoked through the renderer-owned engine ref.
+  replaceReturnSnapshot(returns: readonly PlaybackReturnSnapshot[]): void {
+    this.returnSnapshots.clear()
+    for (const snapshot of returns) {
+      this.returnSnapshots.set(snapshot.index, { ...snapshot, module: { ...snapshot.module } })
+    }
+    this.engine.replaceReturnBuses(returns, this.currentBpm)
+  }
+
   /**
    * Reconciles the complete project-owned channel state into the audio graph.
-   * Callers provide data, while this graph-owning module owns removal,
-   * restoration, effect ordering, and final solo/mute gating.
+   * Callers provide data, while this graph-owning module disposes removed or
+   * replaced lane identities and owns effect ordering and solo/mute gating.
    */
-  applyChannelSnapshot(
-    channels: readonly PlaybackChannelSnapshot[],
-    channelCount: number
-  ): void {
+  applyChannelSnapshot(channels: readonly PlaybackChannelSnapshot[]): void {
     const nextByIndex = new Map(
       channels.map((channel) => [channel.channelIndex, channel] as const)
     )
 
-    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
-      if (!nextByIndex.has(channelIndex) && !this.removedChannels.has(channelIndex)) {
-        this.removeChannel(channelIndex)
+    for (const [channelIndex, laneId] of [...this.channelLaneIds]) {
+      const next = nextByIndex.get(channelIndex)
+      if (!next || next.laneId !== laneId) {
+        this.disposeLaneChannel(channelIndex)
       }
     }
 
     for (const channel of channels) {
-      const { channelIndex } = channel
+      const { channelIndex, laneId } = channel
+      this.channelLaneIds.set(channelIndex, laneId)
       this.channelPans.set(channelIndex, channel.pan)
       this.channelGains.set(channelIndex, channel.gain)
       this.channelMutes.set(channelIndex, channel.muted)
@@ -197,17 +220,18 @@ export class PlaybackEngine {
         channelIndex,
         channel.effects.map((effect) => ({ ...effect }))
       )
+      const sends = channel.sends
+      this.channelSends.set(channelIndex, [sends[0], sends[1], sends[2], sends[3]])
 
-      if (this.removedChannels.has(channelIndex)) this.restoreChannel(channelIndex)
       this.engine.setChannelPan(channelIndex, channel.pan)
       this.engine.setChannelEffects(channelIndex, channel.effects, this.currentBpm)
+      this.engine.setChannelSends(channelIndex, sends)
     }
 
     this.applyChannelSoloMuteGating()
   }
 
   private isChannelGated(channelIndex: number): boolean {
-    if (this.removedChannels.has(channelIndex)) return false
     const muted = this.channelMutes.get(channelIndex) ?? false
     const solo = this.channelSolos.get(channelIndex) ?? false
     const anySoloed = this.hasAnySolo()
@@ -232,57 +256,30 @@ export class PlaybackEngine {
     this.applyChannelSoloMuteGating()
   }
 
-  removeChannel(channelIndex: number): void {
+  private disposeLaneChannel(channelIndex: number): void {
+    const voice = this.laneVoices.get(channelIndex)
+    if (voice) {
+      voice.stop(this.engine.currentTime)
+      this.laneVoices.delete(channelIndex)
+    }
     const lanePanner = this.lanePanners.get(channelIndex)
     if (lanePanner) {
       lanePanner.disconnect()
-      lanePanner.connect(this.engine.masterBypass)
+      this.lanePanners.delete(channelIndex)
     }
 
     this.engine.removeChannel(channelIndex)
-    this.removedChannels.add(channelIndex)
+    this.channelLaneIds.delete(channelIndex)
     this.channelPans.delete(channelIndex)
     this.channelGains.delete(channelIndex)
     this.channelMutes.delete(channelIndex)
     this.channelSolos.delete(channelIndex)
     this.channelEffects.delete(channelIndex)
+    this.channelSends.delete(channelIndex)
+    this.laneTriggerQueues.delete(channelIndex)
     // Re-apply gating: removing a soloed channel changes hasAnySolo(), so the
     // remaining channels' gains must be recomputed or they stay stuck at 0.
     this.applyChannelSoloMuteGating()
-  }
-
-  restoreChannel(channelIndex: number): void {
-    this.removedChannels.delete(channelIndex)
-    // Reseed the state maps removeChannel wiped so the channel is self-consistent
-    // without relying on the caller to re-push every value; a bare restore would
-    // otherwise leave the fresh channel at the Web Audio default gain (1.0) and
-    // invisible to solo/mute gating (which iterates channelGains).
-    if (!this.channelGains.has(channelIndex)) {
-      this.channelGains.set(channelIndex, DEFAULT_CHANNEL_GAIN)
-    }
-    if (!this.channelPans.has(channelIndex)) this.channelPans.set(channelIndex, 0)
-    if (!this.channelMutes.has(channelIndex)) this.channelMutes.set(channelIndex, false)
-    if (!this.channelSolos.has(channelIndex)) this.channelSolos.set(channelIndex, false)
-    // Re-route the lane (1:1 routing: lane N → channel N) from the master
-    // bypass back into the channel strip chain so already-sounding voices
-    // regain channel processing immediately, not just on the next trigger.
-    const lanePanner = this.lanePanners.get(channelIndex)
-    if (lanePanner) {
-      const channel = this.channelFor(channelIndex)
-      lanePanner.disconnect()
-      lanePanner.connect(channel.input)
-    }
-    this.applyChannelSoloMuteGating()
-  }
-
-  replayRemovedChannels(indices: number[]): void {
-    const next = new Set(indices)
-    for (const idx of [...this.removedChannels]) {
-      if (!next.has(idx)) this.restoreChannel(idx)
-    }
-    for (const idx of next) {
-      if (!this.removedChannels.has(idx)) this.removeChannel(idx)
-    }
   }
 
   getChannelAnalyser(channelIndex: number): AnalyserNode | undefined {
@@ -450,7 +447,10 @@ export class PlaybackEngine {
     this.channelGains.clear()
     this.channelMutes.clear()
     this.channelSolos.clear()
-    this.removedChannels.clear()
+    this.channelEffects.clear()
+    this.channelSends.clear()
+    this.channelLaneIds.clear()
+    this.returnSnapshots.clear()
     this.laneVoices.clear()
     this.clipEdgeBoundaryPolicy.reset()
     this.laneTriggerQueues.clear()
@@ -470,6 +470,8 @@ export class PlaybackEngine {
     }
     const effects = this.channelEffects.get(channelIndex)
     if (effects) channel.setEffects(effects, this.currentBpm)
+    const sends = this.channelSends.get(channelIndex)
+    if (sends) this.engine.setChannelSends(channelIndex, sends)
     return channel
   }
 
@@ -481,12 +483,6 @@ export class PlaybackEngine {
     }
     lanePanner.pan.value = lanePan
 
-    if (this.removedChannels.has(channelIndex)) {
-      lanePanner.disconnect()
-      lanePanner.connect(this.engine.masterBypass)
-      return lanePanner
-    }
-
     const channel = this.channelFor(channelIndex)
     lanePanner.disconnect()
     lanePanner.connect(channel.input)
@@ -496,11 +492,10 @@ export class PlaybackEngine {
   private applyChannelSoloMuteGating(): void {
     const anySoloed = this.hasAnySolo()
     for (const [index] of this.channelGains) {
-      if (this.removedChannels.has(index)) continue
       const muted = this.channelMutes.get(index) ?? false
       const solo = this.channelSolos.get(index) ?? false
       const gated = anySoloed ? !solo : muted
-      const storedGain = this.channelGains.get(index) ?? 0.8
+      const storedGain = this.channelGains.get(index)!
       this.engine.setChannelGain(index, gated ? 0 : storedGain)
     }
   }
@@ -628,9 +623,11 @@ export class PlaybackEngine {
     elapsedTicks = 0
   ): Promise<void> {
     const scheduledGeneration = this.playGeneration
+    const scheduledLaneId = this.channelLaneIds.get(trigger.channelIndex)
     const previous = this.laneTriggerQueues.get(trigger.laneIndex) ?? Promise.resolve()
     const queued = previous.then(() => {
       if (scheduledGeneration !== this.playGeneration) return
+      if (this.channelLaneIds.get(trigger.channelIndex) !== scheduledLaneId) return
       return this.triggerLane(trigger, projectBpm, when, elapsedTicks)
     })
     this.laneTriggerQueues.set(trigger.laneIndex, queued.catch(() => undefined))

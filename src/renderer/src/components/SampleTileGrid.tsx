@@ -12,13 +12,7 @@ import { categorySlot, formatDuration } from '../lib/sample-utils'
 import { sampleBubbleDomStyle } from '../theme/sample-bubble-style'
 import { Tooltip } from './ui/Tooltip'
 import { ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
-
-// The visible bubble stays 26px tall everywhere. The browser uses a denser 30px
-// hit target for sample and category rows so they pack tightly.
-const SAMPLE_BUBBLE_TARGET_PX = 30
-const TILE_GAP_PX = 2
-const ROW_PITCH_PX = SAMPLE_BUBBLE_TARGET_PX + TILE_GAP_PX
-const TILES_H_PADDING_PX = 10
+import { useUiGeometry } from '../ui-size'
 
 // Request the next windowed page when the scroll position is within this many
 // rows of the end of the loaded prefix.
@@ -112,6 +106,7 @@ function SampleTileGrid({
   onSampleContextMenuOpen,
   renderSampleContextMenu
 }: SampleTileGridProps) {
+  const uiGeometry = useUiGeometry()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ width: 0, height: 0, hidden: false })
 
@@ -162,24 +157,28 @@ function SampleTileGrid({
           : sampleBubbleWidth(sample.durationSeconds, bubblePixelsPerSecond)
         const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
         const slot = activeCategorySlot ?? (catName ? categorySlot(catName) : undefined)
-        return { sample, width, hitWidth: Math.max(width, SAMPLE_BUBBLE_TARGET_PX), slot }
+        return { sample, width, hitWidth: Math.max(width, uiGeometry.size), slot }
       }),
-    [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, activeCategorySlot, categoryNames]
+    [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, activeCategorySlot, categoryNames, uiGeometry.size]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.
-  const rowWidth = Math.max(0, viewport.width - TILES_H_PADDING_PX * 2)
+  const rowWidth = Math.max(0, viewport.width - uiGeometry.browserHorizontalPadding * 2)
   const rows = useMemo(
-    () => packTileRows(tiles.map((t) => t.hitWidth), rowWidth, TILE_GAP_PX),
-    [tiles, rowWidth]
+    () => packTileRows(tiles.map((t) => t.hitWidth), rowWidth, uiGeometry.spaceXs),
+    [tiles, rowWidth, uiGeometry.spaceXs]
   )
 
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_PITCH_PX,
+    estimateSize: () => uiGeometry.browserRowPitch,
     overscan: 6
   })
+
+  useEffect(() => {
+    virtualizer.measure()
+  }, [uiGeometry.browserRowPitch, virtualizer])
 
   // Keep first paint useful without ever expanding a hidden or unmeasured
   // result set into the full DOM. Hidden tabs mount no rows; a visible viewport
@@ -190,7 +189,7 @@ function SampleTileGrid({
       : viewport.height > 0
       ? virtualizer.getVirtualItems().map((item) => ({ index: item.index, start: item.start }))
       : rows.slice(0, UNMEASURED_FALLBACK_ROW_LIMIT)
-        .map((_, index) => ({ index, start: index * ROW_PITCH_PX }))
+        .map((_, index) => ({ index, start: index * uiGeometry.browserRowPitch }))
 
   // Windowed paging: pull the next page once the viewport nears the end of the
   // loaded rows.
@@ -204,7 +203,7 @@ function SampleTileGrid({
 
   return (
     <div className="tiles" ref={scrollRef} data-active={active ? 'true' : 'false'}>
-      <div className="tiles-virtual-canvas" style={{ height: rows.length * ROW_PITCH_PX }}>
+      <div className="tiles-virtual-canvas" style={{ height: rows.length * uiGeometry.browserRowPitch }}>
         {virtualRows.map(({ index, start }) => {
           const row = rows[index]
           if (!row) return null

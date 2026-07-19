@@ -12,6 +12,15 @@ import { SampleCache, type SampleCacheOptions } from './sample-cache'
 import { clamp } from '../lib/sample-utils'
 import type { EffectSlot } from './effects'
 import {
+  createEmptyReturnModule,
+  createReturnModuleProcessor,
+  createSafetyLimiter,
+  RETURN_BUS_COUNT,
+  type ReturnModule,
+  type ReturnModuleProcessor,
+  type SafetyLimiter
+} from './return-effects'
+import {
   MasterMeter,
   type MasterMeterOptions,
   type MasterMeterSnapshot
@@ -57,8 +66,27 @@ interface AudioNodes {
   masterGain: GainNode
   analyser: AnalyserNode
   meterBuffer: Float32Array<ArrayBuffer>
-  bypassNode: GainNode
+  returns: ReturnBusNodes[]
 }
+
+interface ReturnBusNodes {
+  readonly input: GainNode
+  readonly poweredInput: GainNode
+  readonly returnGain: GainNode
+  readonly limiter: SafetyLimiter
+  module: ReturnModule
+  processor: ReturnModuleProcessor
+  powered: boolean
+}
+
+export interface ReturnBusSnapshot {
+  module: ReturnModule
+  powered: boolean
+  returnLevel: number
+  limiterEnabled: boolean
+}
+
+export type ChannelSendSnapshot = readonly [number, number, number, number]
 
 export class AudioEngine {
   private nodes: AudioNodes | null = null
@@ -69,6 +97,7 @@ export class AudioEngine {
   private masterGainValue = 1
   private channelCount = 0
   private readonly channels = new Map<number, Channel>()
+  private readonly returnConnectedChannels = new Set<number>()
   // Per-channel analyser nodes inserted after the channel pan node, before master.
   private readonly channelAnalysers = new Map<number, AnalyserNode>()
   // Per-channel meter read buffers (reused across frames).
@@ -101,18 +130,12 @@ export class AudioEngine {
     masterGain.connect(analyser)
     analyser.connect(context.destination)
 
-    // Master bypass bus for orphan lanes: unity-gain node feeding directly into
-    // the master gain.
-    const bypassNode = context.createGain()
-    bypassNode.gain.value = 1
-    bypassNode.connect(masterGain)
-
     const nodes: AudioNodes = {
       context,
       masterGain,
       analyser,
       meterBuffer: new Float32Array(analyser.fftSize),
-      bypassNode
+      returns: []
     }
     this.nodes = nodes
     return nodes
@@ -131,6 +154,29 @@ export class AudioEngine {
 
   get activeVoiceCount(): number {
     return this.activeVoices.size
+  }
+
+  private ensureReturnBuses(): ReturnBusNodes[] {
+    const nodes = this.ctx
+    if (nodes.returns.length > 0) return nodes.returns
+    const { context, masterGain } = nodes
+    nodes.returns = Array.from({ length: RETURN_BUS_COUNT }, (_, index) => {
+      const input = context.createGain()
+      const poweredInput = context.createGain()
+      const returnGain = context.createGain()
+      const module = createEmptyReturnModule(`fx-${index + 1}`)
+      const processor = createReturnModuleProcessor(context, module, 120)
+      const limiter = createSafetyLimiter(context, true)
+      input.connect(poweredInput)
+      poweredInput.connect(processor.input)
+      processor.output.connect(returnGain)
+      returnGain.connect(limiter.input)
+      limiter.output.connect(masterGain)
+      poweredInput.gain.value = 0
+      returnGain.gain.value = 1
+      return { input, poweredInput, returnGain, limiter, module, processor, powered: true }
+    })
+    return nodes.returns
   }
 
   /** Resume the AudioContext after a user gesture (autoplay policy). */
@@ -180,6 +226,63 @@ export class AudioEngine {
     if (channel) channel.setEffects(effects, bpm)
   }
 
+  setChannelSends(channelIndex: number, sends: ChannelSendSnapshot): void {
+    const channel = this.channels.get(channelIndex)
+    if (!channel) return
+    if (!this.returnConnectedChannels.has(channelIndex)) {
+      const returns = this.ensureReturnBuses()
+      for (let sendIndex = 0; sendIndex < RETURN_BUS_COUNT; sendIndex += 1) {
+        channel.sendOutputs[sendIndex]!.connect(returns[sendIndex]!.input)
+      }
+      this.returnConnectedChannels.add(channelIndex)
+    }
+    for (let index = 0; index < RETURN_BUS_COUNT; index += 1) channel.setSend(index, sends[index]!)
+  }
+
+  setReturnBus(index: number, snapshot: ReturnBusSnapshot, bpm: number): void {
+    const bus = this.ensureReturnBuses()[index]
+    if (!bus) return
+    const sameType = bus.module.type === snapshot.module.type
+    if (!sameType) {
+      bus.processor.dispose()
+      bus.processor = createReturnModuleProcessor(this.ctx.context, snapshot.module, bpm)
+      bus.poweredInput.disconnect()
+      bus.poweredInput.connect(bus.processor.input)
+      bus.processor.output.connect(bus.returnGain)
+    } else {
+      bus.processor.update(snapshot.module, bpm)
+    }
+    bus.module = { ...snapshot.module }
+    bus.powered = snapshot.powered
+    bus.poweredInput.gain.value = snapshot.powered && snapshot.module.type !== 'empty' ? 1 : 0
+    bus.returnGain.gain.value = clamp(snapshot.returnLevel, 0, 1)
+    bus.limiter.setEnabled(snapshot.limiterEnabled)
+  }
+
+  /** Replace project-owned Return graphs even when the module type is unchanged.
+   * This cuts buffered tails at project replacement boundaries. */
+  replaceReturnBuses(
+    snapshots: readonly (ReturnBusSnapshot & { index: number })[],
+    bpm: number
+  ): void {
+    const byIndex = new Map(snapshots.map((snapshot) => [snapshot.index, snapshot] as const))
+    for (let index = 0; index < RETURN_BUS_COUNT; index += 1) {
+      const snapshot = byIndex.get(index)
+      if (!snapshot) continue
+      const bus = this.ensureReturnBuses()[index]!
+      bus.processor.dispose()
+      bus.poweredInput.disconnect()
+      bus.processor = createReturnModuleProcessor(this.ctx.context, snapshot.module, bpm)
+      bus.poweredInput.connect(bus.processor.input)
+      bus.processor.output.connect(bus.returnGain)
+      bus.module = { ...snapshot.module }
+      bus.powered = snapshot.powered
+      bus.poweredInput.gain.value = snapshot.powered && snapshot.module.type !== 'empty' ? 1 : 0
+      bus.returnGain.gain.value = clamp(snapshot.returnLevel, 0, 1)
+      bus.limiter.setEnabled(snapshot.limiterEnabled)
+    }
+  }
+
   getChannelAnalyser(channelIndex: number): AnalyserNode | undefined {
     return this.channelAnalysers.get(channelIndex)
   }
@@ -194,18 +297,13 @@ export class AudioEngine {
     if (channel) {
       channel.disconnect()
       this.channels.delete(channelIndex)
+      this.returnConnectedChannels.delete(channelIndex)
     }
     if (analyser) {
       analyser.disconnect()
       this.channelAnalysers.delete(channelIndex)
       this.channelMeterBuffers.delete(channelIndex)
     }
-  }
-
-  /** The master bypass bus — a unity-gain GainNode that orphan lanes connect
-   *  to. Lazily created on first access. */
-  get masterBypass(): GainNode {
-    return this.ctx.bypassNode
   }
 
   /** Preview a buffer as a one-shot through a temporary gain node connected
@@ -345,11 +443,19 @@ export class AudioEngine {
     this.stopAllVoices()
     this.samples.clear()
     this.channels.clear()
+    this.returnConnectedChannels.clear()
     this.channelAnalysers.clear()
     this.channelMeterBuffers.clear()
     this.channelCount = 0
     this.masterMeter.close()
     if (this.nodes) {
+      for (const bus of this.nodes.returns) {
+        bus.processor.dispose()
+        bus.limiter.dispose()
+        bus.input.disconnect()
+        bus.poweredInput.disconnect()
+        bus.returnGain.disconnect()
+      }
       await this.nodes.context.close()
       this.nodes = null
     }

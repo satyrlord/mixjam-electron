@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -25,7 +25,7 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByText('MixJam Browser')).toBeInTheDocument()
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
     expect(vi.mocked(window.backendAPI.resizeToPlayer)).toHaveBeenCalledTimes(1)
   })
@@ -65,6 +65,34 @@ describe('App', () => {
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#2F81F7')
   })
 
+  it('defaults UI Size to 40 and persists only the supported 30, 40, and 50 levels', () => {
+    localStorage.removeItem('mixjam:ui-size')
+
+    try {
+      const initial = render(<App />)
+      const sizeGroup = screen.getByRole('group', { name: 'UI Size' })
+
+      expect(within(sizeGroup).getAllByRole('button').map((button) => button.textContent)).toEqual(['30', '40', '50'])
+      expect(initial.container.querySelector('.app')).toHaveAttribute('data-ui-size', '40')
+      expect(document.documentElement).toHaveAttribute('data-ui-size', '40')
+      expect(document.documentElement.style.getPropertyValue('--ui-header-height')).toBe('64px')
+
+      fireEvent.click(within(sizeGroup).getByRole('button', { name: '50' }))
+      expect(initial.container.querySelector('.app')).toHaveAttribute('data-ui-size', '50')
+      expect(document.documentElement).toHaveAttribute('data-ui-size', '50')
+      expect(document.documentElement.style.getPropertyValue('--ui-header-height')).toBe('80px')
+      expect(localStorage.getItem('mixjam:ui-size')).toBe('50')
+
+      initial.unmount()
+      localStorage.setItem('mixjam:ui-size', '44')
+
+      const withObsoletePreference = render(<App />)
+      expect(withObsoletePreference.container.querySelector('.app')).toHaveAttribute('data-ui-size', '40')
+    } finally {
+      localStorage.removeItem('mixjam:ui-size')
+    }
+  })
+
   it('creates a clip placement when a sample bubble is dragged onto a Tracker lane', async () => {
     render(<App />)
 
@@ -73,7 +101,7 @@ describe('App', () => {
     fireEvent.click(start)
 
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
     const detail = JSON.stringify({

@@ -26,7 +26,9 @@ requirements that drive every architectural choice.
 ## Prerequisites
 
 - Node.js latest LTS
-- Display resolution of at least 1920x1080 (1080p)
+- Desktop work area large enough for a 1920x1080 renderer content area. The
+  native window frame is additional, so a physical 1080p display may not expose
+  enough usable work area on every operating system.
 
 There are no native modules — SQLite runs as WebAssembly
 (`@sqlite.org/sqlite-wasm`), so no build toolchain or ABI rebuilds are needed.
@@ -63,6 +65,10 @@ npm run test:all      # run vitest, then Electron Playwright tests
 npm run coverage:all  # collect unit and Electron e2e coverage
 npm run coverage:report # merge collected coverage reports
 ```
+
+Electron E2E commands build first, then launch `out/main/index.js` directly
+through Playwright with a temporary user-data directory. They exercise the
+packaged-style `app://bundle` renderer; no static HTTP test server is used.
 
 The SQL-layer and indexer suites run against sqlite-wasm with an in-memory
 database in a plain Node vitest project; everything else runs under jsdom.

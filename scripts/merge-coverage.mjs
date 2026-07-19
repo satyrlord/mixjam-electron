@@ -8,7 +8,7 @@
  * Usage: node scripts/merge-coverage.mjs
  */
 import { readFileSync, existsSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -103,12 +103,20 @@ if (!unitSummary) {
   process.exit(1)
 }
 
-const cells = [
-  { name: 'Statements', value: parseFloat(unitSummary.statements.pct) },
-  { name: 'Branches', value: parseFloat(unitSummary.branches.pct) },
-  { name: 'Functions', value: parseFloat(unitSummary.functions.pct) },
-  { name: 'Lines', value: parseFloat(unitSummary.lines.pct) }
-]
+function coverageCells(summary, prefix = '') {
+  return [
+    { name: `${prefix}Statements`, value: parseFloat(summary.statements.pct) },
+    { name: `${prefix}Branches`, value: parseFloat(summary.branches.pct) },
+    { name: `${prefix}Functions`, value: parseFloat(summary.functions.pct) },
+    { name: `${prefix}Lines`, value: parseFloat(summary.lines.pct) }
+  ]
+}
+
+const cells = coverageCells(unitSummary, 'Global: ')
+for (const [filePath, fileCoverage] of Object.entries(unit)) {
+  const fileName = relative(ROOT, filePath)
+  cells.push(...coverageCells(computeSummary({ [filePath]: fileCoverage }, fileName), `${fileName}: `))
+}
 
 const failures = cells.filter((c) => c.value < THRESHOLD)
 if (failures.length > 0) {

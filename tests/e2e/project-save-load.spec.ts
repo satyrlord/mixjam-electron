@@ -5,7 +5,7 @@ interface ProjectFileHarness {
 }
 
 test.describe('Project save and load', () => {
-  test('loads Song, Mixer, FX, and lane state from a recent project', async ({ seededPage }) => {
+  test('loads Song, Mixer, return FX, and lane state from a recent project', async ({ seededPage }) => {
     await seededPage.getByRole('button', { name: /club-night/ }).click()
 
     await expect(seededPage.locator('.player-view')).toBeVisible()
@@ -16,8 +16,7 @@ test.describe('Project save and load', () => {
     await seededPage.getByRole('tab', { name: 'Mixer' }).click()
     await expect(seededPage.getByRole('slider', { name: 'Channel 1 Volume' })).toHaveAttribute('aria-valuenow', '64')
 
-    await seededPage.getByRole('tab', { name: 'FX' }).click()
-    await expect(seededPage.locator('.effect-card-name', { hasText: 'Delay' })).toBeVisible()
+    await expect(seededPage.getByRole('button', { name: 'FX 1', exact: true })).toContainText('Delay')
   })
 
   test('marks edits dirty and Save As writes the complete current project', async ({ seededPage }) => {
@@ -35,27 +34,28 @@ test.describe('Project save and load', () => {
       return JSON.parse(harness.__mixjamProjectFiles['saved-project.mixjam'])
     })
 
-    expect(saved.formatVersion).toBe(3)
+    expect(saved.formatVersion).toBe(4)
     expect(saved.song).toEqual({
       bpm: 126,
       masterGain: 0.8,
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     })
-    expect(saved.lanes).toHaveLength(16)
-    expect(saved.channels).toHaveLength(16)
-    expect(saved.channels[0].fx).toEqual([])
+    expect(saved.lanes).toHaveLength(8)
+    expect(saved.channels).toBeUndefined()
+    expect(saved.fxBuses).toHaveLength(4)
+    expect(saved.fxBuses.every((bus: { module: { type: string } }) => bus.module.type === 'empty')).toBe(true)
   })
 
   test('renames a lane from its context menu and saves the edited name', async ({ seededPage }) => {
     await seededPage.getByRole('button', { name: 'Start New MixJam' }).click()
 
-    await seededPage.getByText('Lane 1', { exact: true }).click({ button: 'right' })
+    await seededPage.locator('.tracker-lane-name').first().click({ button: 'right' })
     await seededPage.getByRole('menuitem', { name: 'Rename lane' }).click()
     const renameInput = seededPage.getByRole('textbox', { name: 'Rename Lane 1' })
     await renameInput.fill('Kick Phrase')
     await renameInput.press('Enter')
 
-    await expect(seededPage.getByText('Kick Phrase', { exact: true })).toBeVisible()
+    await expect(seededPage.locator('.tracker-lane-name').first()).toHaveText('Kick Phrase')
     await expect(seededPage.getByRole('button', { name: 'Mute Kick Phrase' })).toBeVisible()
     await expect(seededPage.getByLabel('Untitled, unsaved changes')).toBeVisible()
 
@@ -78,8 +78,7 @@ test.describe('Project save and load', () => {
     await expect(seededPage.getByRole('button', { name: '120 BPM, Master 80%' })).toBeVisible()
     await seededPage.getByRole('tab', { name: 'Mixer' }).click()
     await expect(seededPage.getByRole('slider', { name: 'Channel 1 Volume' })).toHaveAttribute('aria-valuenow', '80')
-    await seededPage.getByRole('tab', { name: 'FX' }).click()
-    await expect(seededPage.locator('.effect-card')).toHaveCount(0)
+    await expect(seededPage.getByRole('button', { name: 'FX 1' })).toContainText('Empty')
   })
 
   test('loads a project with missing samples and marks the affected lane', async ({ seededPage }) => {

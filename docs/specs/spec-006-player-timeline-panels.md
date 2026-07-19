@@ -1,8 +1,8 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIAL — existing Player baseline implemented;
-dynamic lane controls, three-tab workspace, and UI Size layout not implemented
+**Spec Implementation Status:** PARTIAL — the Player baseline and app-wide UI
+Size layout are implemented; other unchecked acceptance criteria remain open
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
@@ -546,8 +546,8 @@ window-level mouse listeners.
   Left/Right Arrow navigation, Home/End, roving tabindex, and correctly linked
   tab/tab-panel ARIA attributes.
 - [x] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
-  Song, and remains usable at narrow widths without targets below 44 by 44 CSS
-  pixels.
+  Song, and remains usable at narrow widths without targets below the selected
+  UI Size.
 - [x] **AC-004d:** The Song panel shows a vertical BPM slider beside one Master
   Volume module that contains its vertical slider, the related vertical Output
   Level meter, M/S/I in LUFS, TP in dBTP, and an explicit RMS dBFS fallback.
@@ -577,7 +577,7 @@ window-level mouse listeners.
 - [ ] **AC-005d:** The empty-lane macro reports the removable-empty count,
   removes those lanes without confirmation as one undo step, preserves the first
   lane when all are empty, and is disabled at zero removable lanes.
-- [ ] **AC-005e:** At the supported 1920x1080 CSS minimum, UI Size 50 with Mixer
+- [x] **AC-005e:** At the supported 1920x1080 CSS minimum, UI Size 50 with Mixer
   open leaves the ruler and one complete lane visible without a root vertical
   scrollbar.
 - [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
@@ -647,7 +647,7 @@ window-level mouse listeners.
 - [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; placements whose bounds intersect the rectangle are selected (highlighted with a white border).
 - [x] **AC-020:** Pressing Delete removes all selected placements. Clicking empty space without Ctrl deselects all.
 - [x] **AC-021:** Dragging a sample bubble that is part of a multi-selection moves the entire placement group, maintaining relative offsets. Shift-dragging the group duplicates all members.
-- [ ] **AC-022:** Ctrl+Z undoes the last placement, lane-structure, Mixer,
+- [x] **AC-022:** Ctrl+Z undoes the last placement, lane-structure, Mixer,
   Return, limiter, or FX edit; Ctrl+Y or Ctrl+Shift+Z redoes it. A continuous
   adjustment is one history entry.
   The Middle Strip Undo/Redo buttons mirror the shortcuts and disable when their history stack is empty. A multi-placement delete undoes as a single step.
@@ -673,7 +673,7 @@ window-level mouse listeners.
   cue in the Tracker; its Open Samples action activates Samples and grows the
   Bottom Workspace to at least 50% when needed. The cue disappears after the
   first placement.
-- [ ] **AC-028:** Transport, Mixer, theme, header, footer, management, browser,
+- [x] **AC-028:** Transport, Mixer, theme, header, footer, management, browser,
   and Tracker controls use one coherent selected 30px, 40px, or 50px target set.
   Sample bubbles and lanes use the matching geometry from spec-002. Every size
   remains keyboard-operable with visible focus and readable labels.
@@ -690,7 +690,7 @@ window-level mouse listeners.
 - [x] **AC-032:** Play/Pause is the only filled accent command. Related quiet
   controls share restrained group surfaces, and the strip uses semantic theme
   tokens consistently across all shipped themes.
-- [ ] **AC-033:** Built Chromium verification exercises 1, 8, and 64 lanes at
+- [x] **AC-033:** Built Chromium verification exercises 1, 8, and 64 lanes at
   every UI Size, including 1920x1080 with Mixer open. It proves the full ruler
   plus one complete lane remain visible, the root and Mixer have no vertical
   scrollbar, every lane and fixed Mixer section remains reachable, and visual
@@ -698,8 +698,8 @@ window-level mouse listeners.
 
 ## Bottom Workspace Validation Evidence
 
-The evidence below proves the implemented baseline only. It does not satisfy
-the unchecked dynamic-lane, UI Size, three-tab, Mixer, or 64-lane criteria.
+The evidence below proves the implemented baseline and app-wide UI Size
+contract.
 
 - `src/renderer/src/components/PlayerView.test.tsx` verifies ordered peer tabs,
   first-launch and persisted selection, mounted panels, automatic keyboard
@@ -742,8 +742,14 @@ the unchecked dynamic-lane, UI Size, three-tab, Mixer, or 64-lane criteria.
 - `tests/e2e/compact-layout.spec.ts` verifies the 75% shared Tracker geometry,
   all-lane visibility, the 80px Middle Strip, fresh 24% Bottom Workspace,
   v1-to-v2 one-time reset, later manual persistence, and root overflow across
-  representative stress themes. Its Middle Strip matrix covers all 16 shipped
-  themes at 1920×1080 in idle, syncing, analyzing, and error states.
+  every UI Size. Its lane-count matrix verifies Tracker and Mixer fit plus
+  horizontal reachability with 1, 8, and 64 lanes. Its Middle Strip matrix
+  covers all 16 shipped themes at 1920×1080 in idle, syncing, analyzing, and
+  error states.
+- `src/renderer/src/hooks/useTransportEngine.test.ts` verifies that continuous
+  lane gain, Send, and Return adjustments commit as one project-history entry,
+  while `src/renderer/src/components/PlayerView.test.tsx` verifies stable-ID
+  Mixer selection after lane deletion and compaction.
 - `tmp/verify-compact-layout/evidence.md` records the matching computed
   geometry and screenshots.
 - `npm run measure:song-progress-performance` reproduces the full-capacity

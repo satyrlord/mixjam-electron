@@ -1,12 +1,14 @@
 import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 import { DEFAULT_CLIP_EDGE_MICRO_FADES } from '../engine/clip-edge-fades'
-import type { EffectSlot } from '../engine/effects'
+import {
+  createEmptyReturnModule,
+  RETURN_BUS_COUNT,
+  type ReturnModule
+} from '../engine/return-effects'
 import { createDefaultLanes, type LaneState } from '../lib/arrangement'
 
 const DEFAULT_BPM = 120
 const DEFAULT_MASTER_GAIN = 0.8
-export const DEFAULT_PROJECT_CHANNEL_COUNT = 16
-const DEFAULT_CHANNEL_GAIN = 0.8
 
 export interface ProjectSongState {
   bpm: number
@@ -19,19 +21,26 @@ export interface ProjectTransportState {
   lanes: LaneState[]
 }
 
-export interface ChannelState {
-  /** The channel index in the audio graph (lane N -> channel N for 1:1 routing). */
-  channelIndex: number
-  gain: number
-  pan: number
-  muted: boolean
-  solo: boolean
-  effects: EffectSlot[]
+export interface ProjectFxBusState {
+  id: `fx-${1 | 2 | 3 | 4}`
+  index: 0 | 1 | 2 | 3
+  name: `FX${1 | 2 | 3 | 4}`
+  module: ReturnModule
+  powered: boolean
+  returnLevel: number
+  limiterEnabled: boolean
 }
+
+export type ProjectFxBuses = [
+  ProjectFxBusState,
+  ProjectFxBusState,
+  ProjectFxBusState,
+  ProjectFxBusState
+]
 
 /** Complete project-owned state shared by New, load, save, and generation. */
 export interface ProjectState extends ProjectTransportState {
-  channels: ChannelState[]
+  fxBuses: ProjectFxBuses
 }
 
 export function createDefaultProjectSongState(
@@ -60,33 +69,39 @@ export function cloneProjectSongState(song: ProjectSongState): ProjectSongState 
   }
 }
 
-export function createDefaultChannel(channelIndex: number): ChannelState {
-  return {
-    channelIndex,
-    gain: DEFAULT_CHANNEL_GAIN,
-    pan: 0,
-    muted: false,
-    solo: false,
-    effects: []
+export function createDefaultFxBuses(): ProjectFxBuses {
+  return Array.from({ length: RETURN_BUS_COUNT }, (_, index) => ({
+    id: `fx-${index + 1}` as ProjectFxBusState['id'],
+    index: index as ProjectFxBusState['index'],
+    name: `FX${index + 1}` as ProjectFxBusState['name'],
+    module: createEmptyReturnModule(`fx-${index + 1}`),
+    powered: true,
+    returnLevel: 1,
+    limiterEnabled: true
+  })) as ProjectFxBuses
+}
+
+export function cloneProjectFxBuses(buses: readonly ProjectFxBusState[]): ProjectFxBuses {
+  if (buses.length !== RETURN_BUS_COUNT) {
+    throw new Error(`Project state must contain exactly ${RETURN_BUS_COUNT} return buses.`)
   }
-}
-
-export function createDefaultChannels(): ChannelState[] {
-  return Array.from({ length: DEFAULT_PROJECT_CHANNEL_COUNT }, (_, index) =>
-    createDefaultChannel(index)
-  )
-}
-
-function cloneProjectChannels(channels: readonly ChannelState[]): ChannelState[] {
-  return channels.map((channel) => ({
-    ...channel,
-    effects: channel.effects.map((effect) => ({ ...effect }))
-  }))
+  return buses.map((bus, index) => {
+    const expectedId = `fx-${index + 1}`
+    const expectedName = `FX${index + 1}`
+    if (bus.id !== expectedId || bus.index !== index || bus.name !== expectedName) {
+      throw new Error(`Return bus ${index + 1} must use identity ${expectedId}/${index}/${expectedName}.`)
+    }
+    return {
+      ...bus,
+      module: { ...bus.module } as ProjectFxBusState['module']
+    }
+  }) as ProjectFxBuses
 }
 
 function cloneProjectLanes(lanes: readonly LaneState[]): LaneState[] {
   return lanes.map((lane) => ({
     ...lane,
+    sends: [...lane.sends],
     placements: lane.placements.map((placement) => ({ ...placement }))
   }))
 }
@@ -95,15 +110,13 @@ export function createDefaultProjectState(
   overrides: {
     song?: Partial<ProjectSongState>
     lanes?: readonly LaneState[]
-    channels?: readonly ChannelState[]
+    fxBuses?: readonly ProjectFxBusState[]
   } = {}
 ): ProjectState {
   return {
     song: createDefaultProjectSongState(overrides.song),
     lanes: overrides.lanes ? cloneProjectLanes(overrides.lanes) : createDefaultLanes(),
-    channels: overrides.channels
-      ? cloneProjectChannels(overrides.channels)
-      : createDefaultChannels()
+    fxBuses: overrides.fxBuses ? cloneProjectFxBuses(overrides.fxBuses) : createDefaultFxBuses()
   }
 }
 
@@ -113,6 +126,6 @@ export function cloneProjectState(project: ProjectState): ProjectState {
   return {
     song: cloneProjectSongState(project.song),
     lanes: cloneProjectLanes(project.lanes),
-    channels: cloneProjectChannels(project.channels)
+    fxBuses: cloneProjectFxBuses(project.fxBuses)
   }
 }

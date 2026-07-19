@@ -410,7 +410,10 @@ The backend worker owns database access, cluster-scoped candidate filtering,
 corpus snapshot creation, bounded planner scoring, and deterministic planning. The renderer never
 pulls the full sample library into the UI. A generator-specific BackendAPI
 operation returns a bounded, neutral `MixJamGeneratorPlan` DTO. Shared API types
-must not import renderer project, lane, or audio-processor types.
+must not import renderer project, lane, or audio-processor types. Each lane plan
+contains its final lane gain and arrangement data. The DTO does not plan a
+separate channel array or insert effects that the renderer would discard; the
+renderer supplies the fixed four zero Sends and four Empty project FX buses.
 
 The validated-template registry is shared by parameter validation, the worker,
 and the profile picker. The picker renders registry metadata in `order`,

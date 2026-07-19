@@ -44,8 +44,7 @@ const PLAN: MixJamGeneratorPlan = {
   substitutions: [],
   sections: [],
   phrases: [],
-  lanes: [],
-  channels: []
+  lanes: []
 }
 
 const DETAILED_PLAN: MixJamGeneratorPlan = {
@@ -58,18 +57,14 @@ const DETAILED_PLAN: MixJamGeneratorPlan = {
   }],
   substitutions: [{ laneIndex: 0, requestedType: 'Percussion', selectedType: 'Snare' }],
   sections: [{ name: 'Intro', startBar: 0, endBar: 1, activeLanes: [0] }],
-  channels: [{
-    channelIndex: 0,
+  lanes: [{
+    index: 0,
+    name: 'Snare',
     gain: 0.8,
     pan: 0,
     muted: false,
     solo: false,
-    effects: [{
-      id: 'fx-1',
-      type: 'reverb',
-      presetName: 'Room',
-      values: { roomSize: 0.5, decay: 0.4, mix: 0.2 }
-    }]
+    placements: []
   }]
 }
 
@@ -385,7 +380,6 @@ describe('useMixJamGenerator', () => {
     await waitFor(() => expect(result.current.generating).toBe(false))
     expect(result.current.result?.summary).toContain('1 selected samples')
     expect(result.current.result?.summary).toContain('Percussion to Snare')
-    expect(result.current.result?.summary).toContain('FX: Room')
 
     await act(async () => result.current.onOpenResult('generated.mixjam'))
     expect(result.current.open).toBe(false)

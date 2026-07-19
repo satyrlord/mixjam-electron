@@ -182,7 +182,7 @@ describe('MixJam generator engine', () => {
     expect(plan.profileId).toBe('custom-profile')
     expect(plan.lanes).toHaveLength(16)
     expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
-    expect(plan.channels.flatMap((channel) => channel.effects).length).toBeGreaterThan(0)
+    expect(plan.lanes.every((lane) => lane.gain >= 0 && lane.gain <= 1)).toBe(true)
   })
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
@@ -320,11 +320,6 @@ describe('MixJam generator engine', () => {
       fillOffsets.has(placement.startTick % TICKS_PER_BAR)
     )).toBe(true)
 
-    const wetMix = (plan: MixJamGeneratorPlan): number =>
-      plan.channels[6]!.effects.find((effect) => effect.type === 'delay')!.values.mix as number
-    expect(wetMix(plans.low)).toBeCloseTo(0.28)
-    expect(wetMix(plans.medium)).toBeCloseTo(0.35)
-    expect(wetMix(plans.high)).toBeCloseTo(0.4025)
   })
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
@@ -342,7 +337,7 @@ describe('MixJam generator engine', () => {
       expect(first.targetBars).toBe(105)
       expect(first.targetTicks).toBe(3360)
       expect(first.lanes).toHaveLength(16)
-      expect(first.channels).toHaveLength(16)
+      expect(first.lanes.every((lane) => Number.isFinite(lane.gain))).toBe(true)
       expect(first.phrases.every((phrase) =>
         phrase.endBar > phrase.startBar && phrase.endBar - phrase.startBar <= 8
       )).toBe(true)
@@ -526,9 +521,9 @@ describe('MixJam generator engine', () => {
       parameters('techno')
     )
 
-    expect(plan.channels[3]!.gain).toBeCloseTo(0.42 * 10 ** (6 / 20))
-    expect(plan.channels[9]!.gain).toBeCloseTo(0.34 * 10 ** (-6 / 20))
-    expect(plan.channels.every((channel) => channel.gain >= 0 && channel.gain <= 1)).toBe(true)
+    expect(plan.lanes[3]!.gain).toBeCloseTo(0.42 * 10 ** (6 / 20))
+    expect(plan.lanes[9]!.gain).toBeCloseTo(0.34 * 10 ** (-6 / 20))
+    expect(plan.lanes.every((lane) => lane.gain >= 0 && lane.gain <= 1)).toBe(true)
   })
 
   it('changes selections or phrases across seeds without changing section boundaries', () => {
