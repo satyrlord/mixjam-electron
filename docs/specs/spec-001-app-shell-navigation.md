@@ -225,8 +225,10 @@ the current display, manual restore without re-maximization, and the return to
 Home (unmaximized to 1920x1080 content, still resizable and maximizable). The renderer
 unit suite separately verifies that the Home and Player navigation actions invoke
 those shell capabilities.
-Linux CI uses a 2560x1440 virtual display so the framed Electron window has room
-for the required 1920x1080 renderer content area.
+Linux CI uses a 2560x1440 virtual display with Openbox registered as its X11
+window manager. The framed Electron window therefore has room for the required
+1920x1080 renderer content area, and maximize and unmaximize requests exercise
+the same window-manager contract as a desktop session.
 
 The smoke test also asks Electron's `nativeImage` implementation to decode the
 same platform-specific asset passed to the live `BrowserWindow` and requires a

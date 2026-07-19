@@ -71,8 +71,9 @@ npm run coverage:report # merge collected coverage reports
 Electron E2E commands build first, then launch `out/main/index.js` directly
 through Playwright with a temporary user-data directory. They exercise the
 packaged-style `app://bundle` renderer; no static HTTP test server is used.
-Linux CI provides a 2560x1440 virtual display so the framed Electron window can
-contain the required 1920x1080 renderer content area.
+Linux CI provides a 2560x1440 virtual display and an Openbox window manager so
+the framed Electron window can contain the required 1920x1080 renderer content
+area and exercise real maximize and unmaximize transitions.
 
 The SQL-layer and indexer suites run against sqlite-wasm with an in-memory
 database in a plain Node vitest project; everything else runs under jsdom.
