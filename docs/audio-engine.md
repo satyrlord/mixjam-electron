@@ -154,32 +154,45 @@ tests. The Return host provides input, output, level, limiter, lifecycle, and
 persistence. A module cannot reach another bus or the Master directly.
 
 `Empty` is the identity processor with no latency. The host gates an Empty bus
-to silence so a nonzero Send cannot duplicate the dry signal. Delay is the only
-other module in this phase. It is wet-only and has no Mix parameter:
+to silence so a nonzero Send cannot duplicate the dry signal. The Echoform Delay
+(`echoform-delay`) is the only other module. It renders 100% wet; Mix is the
+FX-return level, not an in-module parameter. See spec-010 for the full contract.
 
-- Free time is 0 through 2000 ms. Tempo-sync divisions are `1/4`, `1/8`,
-  `1/16`, `1/8T`, and `1/16T`. Switching modes preserves the last value in
-  each mode.
-- Feedback is 0 through 75 percent and defaults to 35 percent.
-- Tape Distortion is 0 through 100 percent and defaults to zero. With
-  `a = tapeDistortion / 100` and `d = 1 + 4a`, it uses
-  `y = (1 - a)x + a * tanh(d * x) / d`. Zero is exact identity, 100 percent
-  reaches drive factor 5, and the loop's small-signal gain does not increase.
-  Processing uses 2x oversampling and applies the same curve to both stereo
-  channels without changing pan.
-- At exactly zero Tape Distortion, the live WaveShaper curve is `null`. This is
-  the Web Audio identity path and preserves over-unity Return input instead of
-  clamping it to the finite curve domain.
-- Tape Distortion follows the delay and precedes wet output and feedback. It
-  therefore colors both the first echo and accumulated repeats.
-- Ping-Pong defaults off and uses a stereo feedback loop when enabled.
-- A new Delay defaults to Free mode at 375 ms, with `1/8` retained as its saved
-  sync division, and is powered on.
+The Echoform Delay runs in an `AudioWorkletProcessor` (`echoform-delay-processor`)
+backed by an allocation-free DSP core (`EchoformDelayCore`). The renderer sends
+the full parameter state via `port.postMessage`; the audio thread smooths toward
+those targets. Contexts without worklet support fall back to identity passthrough.
 
-The Web Audio `WaveShaperNode` contract defines the distortion curve and
-oversampling behavior. The `tanh` transfer is the basic saturating nonlinearity
-used here; see the [Web Audio specification](https://webaudio.github.io/web-audio-api/#WaveShaperNode)
-and the [DAFx soft-clipping reference](https://dafx12.york.ac.uk/papers/dafx12_submission_45.pdf).
+Real-time-safety and DSP notes worth recording at the point of confusion:
+
+- Two independently timed delay lines. Fractional reads use 4-point cubic
+  (Lagrange) interpolation and are always wrapped in bounds. Digital time changes
+  use a dual read-head crossfade (no pitch glide); Analog/Tape slew the read time
+  for a controlled glide.
+- Buffers preallocate for the longest synchronized value (1/1 dotted at the
+  lowest BPM) plus modulation depth and interpolation margin — at least 10 s per
+  line (the core uses 12 s). Nothing allocates in the render callback.
+- Feedback maps 0–110% → loop gain 0.0–1.10. A bounded soft limiter inside the
+  loop keeps over-unity feedback finite without hard-clipping ordinary repeats.
+- Low-cut (high-pass) and high-cut (low-pass) are two cascaded TPT one-pole
+  filters (≈12 dB/oct) **inside** the feedback loop, so tone accumulates across
+  repeats. TPT is chosen over a Chamberlin SVF because it is unconditionally
+  stable at any cutoff and under fast automation (a Chamberlin SVF blows up near
+  Nyquist — this was a real bug caught by the DSP tests).
+- Character changes the algorithm: Digital is clean; Analog adds mild soft
+  saturation and gentle HF softening; Tape adds stronger asymmetric saturation
+  (DC-blocked) plus wow/flutter/drift scaled from Mod depth. Mod depth 0 disables
+  all time modulation, including any tape drift.
+- Ducking keys from the unprocessed input (stereo-linked, ~7 ms attack,
+  50–2500 ms release) and attenuates the wet output only, with a soft knee.
+- Freeze/Hold ramps input injection to zero and loop gain toward unity while
+  preserving the buffer; Bypass crossfades the audible return to silence while the
+  loop keeps running (tail-preserving). Neither clears the buffers.
+- Stereo width is applied post-loop via mid/side (0% mono, 100% unchanged,
+  200% doubled side), then Output level.
+
+The `tanh` transfer is the saturating nonlinearity used for character; see the
+[DAFx soft-clipping reference](https://dafx12.york.ac.uk/papers/dafx12_submission_45.pdf).
 
 ## Master loudness metering
 

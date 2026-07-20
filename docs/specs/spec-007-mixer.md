@@ -152,9 +152,10 @@ intentionally absent here.
 There are exactly four global return buses. Each FX container exposes the level
 and limiter controls for its matching return bus. There is no separate Return
 section. The container also shows the current module display name, Empty or
-Delay. The Return level presents as the container's Mix rotary; power state
-presents as a slot-accent LED toggle in the container header; a dedicated Edit
-control opens the module editor.
+Echoform Delay. The Return level presents as the container's Mix rotary — the
+same shared Mix parameter the editor exposes; power state presents as a
+slot-accent LED toggle in the container header; a dedicated Edit control opens
+the module editor.
 
 - Each return is wet-only. Dry audio remains on the lane's normal path.
 - Return level ranges from 0% to 100%, defaults to 100%, and resets to 100%.

@@ -123,18 +123,18 @@ function toNormalized(spec: KnobSpec, value: number): number {
   return (v - spec.min) / (spec.max - spec.min)
 }
 
-function quantize(spec: KnobSpec, value: number): number {
-  const stepped = Math.round((value - spec.min) / spec.step) * spec.step + spec.min
-  const decimals = spec.step < 1 ? (String(spec.step).split('.')[1]?.length ?? 0) : 0
+function quantize(spec: KnobSpec, value: number, step = spec.step): number {
+  const stepped = Math.round((value - spec.min) / step) * step + spec.min
+  const decimals = step < 1 ? (String(step).split('.')[1]?.length ?? 0) : 0
   return clamp(Number(stepped.toFixed(decimals + 2)), spec.min, spec.max)
 }
 
-function fromNormalized(spec: KnobSpec, normalized: number): number {
+function fromNormalized(spec: KnobSpec, normalized: number, step = spec.step): number {
   const n = clamp(normalized, 0, 1)
   const value = spec.curve === 'log'
     ? Math.exp(Math.log(Math.max(1e-4, spec.min)) + n * (Math.log(spec.max) - Math.log(Math.max(1e-4, spec.min))))
     : spec.min + n * (spec.max - spec.min)
-  return quantize(spec, value)
+  return quantize(spec, value, step)
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +157,8 @@ function Knob({ id, spec, label, value, onChange, onGestureStart, onGestureEnd }
   const angle = -135 + normalized * 270
   const fillDeg = normalized * 270
 
-  const commit = (next: number) => onChange(clamp(quantize(spec, next), spec.min, spec.max))
+  const commit = (next: number, step = spec.step) =>
+    onChange(clamp(quantize(spec, next, step), spec.min, spec.max))
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
@@ -173,8 +174,9 @@ function Knob({ id, spec, label, value, onChange, onGestureStart, onGestureEnd }
     const vertical = dragRef.current.startY - event.clientY
     const horizontal = event.clientX - dragRef.current.startX
     const movement = vertical + horizontal * 0.55
+    const fineStep = event.shiftKey ? spec.step / 10 : spec.step
     const sensitivity = event.shiftKey ? 0.0012 : 0.006
-    commit(fromNormalized(spec, dragRef.current.startNorm + movement * sensitivity))
+    commit(fromNormalized(spec, dragRef.current.startNorm + movement * sensitivity, fineStep), fineStep)
   }
 
   const endDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -185,18 +187,18 @@ function Knob({ id, spec, label, value, onChange, onGestureStart, onGestureEnd }
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const fine = event.shiftKey ? 0.1 : 1
+    const fineStep = event.shiftKey ? spec.step / 10 : spec.step
     let next: number | null = null
-    if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + spec.step * fine
-    else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - spec.step * fine
-    else if (event.key === 'PageUp') next = value + spec.step * 10 * fine
-    else if (event.key === 'PageDown') next = value - spec.step * 10 * fine
+    if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + fineStep
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - fineStep
+    else if (event.key === 'PageUp') next = value + fineStep * 10
+    else if (event.key === 'PageDown') next = value - fineStep * 10
     else if (event.key === 'Home') next = spec.min
     else if (event.key === 'End') next = spec.max
     if (next === null) return
     event.preventDefault()
     onGestureStart()
-    commit(next)
+    commit(next, fineStep)
     onGestureEnd()
   }
 
