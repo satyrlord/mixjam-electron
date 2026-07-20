@@ -1,8 +1,8 @@
-import opusDelayProcessorUrl from './worklets/opus-delay.worklet.ts?worker&url'
-import type { OpusDelayModule, ReturnModuleProcessor } from './return-effects'
-import type { OpusDelayState } from './opus-delay-types'
+import echoformDelayProcessorUrl from './worklets/echoform-delay.worklet.ts?worker&url'
+import type { EchoformDelayModule, ReturnModuleProcessor } from './return-effects'
+import type { EchoformDelayState } from './echoform-delay-types'
 
-const PROCESSOR_NAME = 'opus-delay-processor'
+const PROCESSOR_NAME = 'echoform-delay-processor'
 
 type WorkletFactory = (
   context: BaseAudioContext,
@@ -21,14 +21,13 @@ function defaultCreateNode(
   return new AudioWorkletNode(context, name, options)
 }
 
-function toState(module: OpusDelayModule): OpusDelayState {
+function toState(module: EchoformDelayModule): EchoformDelayState {
   return {
     mode: module.mode,
     divisionL: module.divisionL,
     divisionR: module.divisionR,
     timeMsL: module.timeMsL,
     timeMsR: module.timeMsR,
-    link: module.link,
     feedback: module.feedback,
     pingPong: module.pingPong,
     width: module.width,
@@ -39,7 +38,6 @@ function toState(module: OpusDelayModule): OpusDelayState {
     character: module.character,
     duckAmount: module.duckAmount,
     duckRelease: module.duckRelease,
-    mix: module.mix,
     outputDb: module.outputDb,
     freeze: module.freeze,
     bypass: module.bypass
@@ -47,13 +45,13 @@ function toState(module: OpusDelayModule): OpusDelayState {
 }
 
 /** Register the custom processor before a Return graph needs to instantiate it. */
-export function prepareOpusDelayWorklet(context: BaseAudioContext): Promise<boolean> {
+export function prepareEchoformDelayWorklet(context: BaseAudioContext): Promise<boolean> {
   if (readyContexts.has(context)) return Promise.resolve(true)
   const existing = registrations.get(context)
   if (existing) return existing
   const worklet = (context as AudioContext).audioWorklet
   if (!worklet?.addModule) return Promise.resolve(false)
-  const registration = worklet.addModule(opusDelayProcessorUrl)
+  const registration = worklet.addModule(echoformDelayProcessorUrl)
     .then(() => {
       readyContexts.add(context)
       return true
@@ -83,10 +81,10 @@ function createIdentityFallback(
   }
 }
 
-/** Create the worklet-backed black-box processor for the Opus Delay module. */
-export function createOpusDelayProcessor(
+/** Create the worklet-backed black-box processor for the Echoform Delay module. */
+export function createEchoformDelayProcessor(
   context: BaseAudioContext,
-  module: OpusDelayModule,
+  module: EchoformDelayModule,
   bpm: number,
   createNode: WorkletFactory = defaultCreateNode
 ): ReturnModuleProcessor {
@@ -112,7 +110,7 @@ export function createOpusDelayProcessor(
     input,
     output,
     update(next, nextBpm): void {
-      if (next.type !== 'opus-delay') return
+      if (next.type !== 'echoform-delay') return
       node.port.postMessage({ type: 'state', state: toState(next), bpm: nextBpm })
     },
     dispose(): void {

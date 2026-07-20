@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PROCESSOR_ORDER, PROCESSOR_IDS } from '../engine/masterbus/params'
+import { createDefaultEchoformDelayReturnModule } from '../engine/return-effects'
 import {
   applyMasterBusPreset,
   cloneMasterBusState,
@@ -97,10 +98,7 @@ describe('project state', () => {
 
   it('clones supplied FX buses without creating a second Mixer state model', () => {
     const source = createDefaultProjectState()
-    source.fxBuses[0]!.module = {
-      id: 'fx-1', type: 'delay', mode: 'sync', timeMs: 500,
-      noteDivision: '1/4', feedback: 40, tapeDistortion: 5, pingPong: true
-    }
+    source.fxBuses[0]!.module = createDefaultEchoformDelayReturnModule('fx-1')
     const created = createDefaultProjectState({
       lanes: source.lanes,
       fxBuses: source.fxBuses

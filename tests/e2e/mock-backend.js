@@ -180,7 +180,7 @@
       })
     }
     return JSON.stringify({
-      formatVersion: 5,
+      formatVersion: 6,
       appVersion: 'v0.test.0',
       createdAt: '2026-06-28T12:00:00.000Z',
       modifiedAt: '2026-06-28T12:00:00.000Z',
@@ -208,7 +208,12 @@
           index: slot - 1,
           name: 'FX' + slot,
           module: slot === 1
-            ? { type: 'delay', mode: 'free', timeMs: 375, noteDivision: '1/8', feedback: 35, tapeDistortion: 0, pingPong: false }
+            ? {
+                type: 'echoform-delay', mode: 'sync', divisionL: '1/4', divisionR: '1/8.',
+                timeMsL: 420, timeMsR: 610, feedback: 68, pingPong: true, width: 142,
+                lowCut: 160, highCut: 7800, modRate: 0.38, modDepth: 5.4, character: 'tape',
+                duckAmount: 34, duckRelease: 620, outputDb: -1.5, freeze: false, bypass: false
+              }
             : { type: 'empty' },
           powered: true,
           returnLevel: 1,

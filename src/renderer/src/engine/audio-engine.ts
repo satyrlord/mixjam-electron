@@ -13,7 +13,7 @@ import { clamp } from '../lib/sample-utils'
 import {
   createEmptyReturnModule,
   createReturnModuleProcessor,
-  prepareOpusDelayWorklet,
+  prepareEchoformDelayWorklet,
   createSafetyLimiter,
   RETURN_BUS_COUNT,
   type ReturnModule,
@@ -195,11 +195,11 @@ export class AudioEngine {
   async resume(): Promise<void> {
     const { context, masterGain, analyser } = this.ctx
     await context.resume()
-    // The Opus Delay processor must be registered before a populated Return
+    // The Echoform Delay processor must be registered before a populated Return
     // snapshot is materialized. Unsupported test contexts use its identity
     // fallback; Electron's production AudioContext loads the same-origin
     // worklet emitted by Vite.
-    await prepareOpusDelayWorklet(context)
+    await prepareEchoformDelayWorklet(context)
     // The master bus strip inserts between masterGain and the analyser tap
     // (spec-012 signal position); the loudness meter then taps the chain
     // output so all master readouts are post-chain and delivery-accurate.

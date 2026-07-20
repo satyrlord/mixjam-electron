@@ -1,16 +1,20 @@
 import { clamp } from '../lib/sample-utils'
-import { createOpusDelayProcessor } from './opus-delay-processor'
-import type { OpusDelayState } from './opus-delay-types'
-import { isOpusDelayDivision } from './opus-delay-core'
+import { createEchoformDelayProcessor } from './echoform-delay-processor'
+import type { EchoformDelayState } from './echoform-delay-types'
+import { isEchoformDelayDivision } from './echoform-delay-core'
 
-export type { OpusDelayCharacter, OpusDelayDivision, OpusDelayMode, OpusDelayState } from './opus-delay-types'
-export { prepareOpusDelayWorklet } from './opus-delay-processor'
+export type { EchoformDelayCharacter, EchoformDelayDivision, EchoformDelayMode, EchoformDelayState } from './echoform-delay-types'
+export { prepareEchoformDelayWorklet } from './echoform-delay-processor'
 
 /** The project and audio graph always expose exactly four parallel Return buses. */
 export const RETURN_BUS_COUNT = 4
 
-/** Return modules are black boxes hosted by the four fixed FX buses. */
-export type ReturnModule = EmptyReturnModule | DelayReturnModule | OpusDelayModule
+/**
+ * Return modules are black boxes hosted by the four fixed FX buses. The only
+ * effect module is the Echoform Delay (`echoform-delay`); the legacy native
+ * `delay` was replaced by it and is migrated on project load.
+ */
+export type ReturnModule = EmptyReturnModule | EchoformDelayModule
 
 export interface EmptyReturnModule {
   readonly type: 'empty'
@@ -18,25 +22,8 @@ export interface EmptyReturnModule {
   readonly id?: string
 }
 
-export type DelayMode = 'free' | 'sync'
-export type ReturnNoteDivision = '1/4' | '1/8' | '1/16' | '1/8T' | '1/16T'
-
-export interface DelayReturnModule {
-  readonly type: 'delay'
-  /** Optional runtime identity; project files identify modules by bus slot. */
-  readonly id?: string
-  readonly mode: DelayMode
-  readonly timeMs: number
-  readonly noteDivision: ReturnNoteDivision
-  /** Normalized percentage, 0..75. */
-  readonly feedback: number
-  /** Normalized percentage, 0..100. */
-  readonly tapeDistortion: number
-  readonly pingPong: boolean
-}
-
-export interface OpusDelayModule extends OpusDelayState {
-  readonly type: 'opus-delay'
+export interface EchoformDelayModule extends EchoformDelayState {
+  readonly type: 'echoform-delay'
   /** Optional runtime identity; project files identify modules by bus slot. */
   readonly id?: string
 }
@@ -48,42 +35,10 @@ export interface ReturnModuleProcessor {
   dispose(): void
 }
 
-const DIVISIONS: Record<ReturnNoteDivision, number> = {
-  '1/4': 1,
-  '1/8': 0.5,
-  '1/16': 0.25,
-  '1/8T': 1 / 3,
-  '1/16T': 1 / 6
-}
-
-function delaySeconds(module: DelayReturnModule, bpm: number): number {
-  if (module.mode === 'free') return clamp(module.timeMs, 0, 2000) / 1000
-  return (60 / clamp(bpm, 20, 400)) * DIVISIONS[module.noteDivision]
-}
-
 function disconnectAll(nodes: readonly AudioNode[]): void {
   for (const node of new Set(nodes)) {
     try { node.disconnect() } catch { /* already disconnected */ }
   }
-}
-
-function tapeCurve(amount: number): Float32Array<ArrayBuffer> {
-  const a = clamp(amount, 0, 100) / 100
-  const curve = new Float32Array(new ArrayBuffer(2048 * Float32Array.BYTES_PER_ELEMENT))
-  // At zero this is deliberately an exact identity. At 100% the drive is 5.
-  const d = 1 + 4 * a
-  for (let i = 0; i < curve.length; i += 1) {
-    const x = (i / (curve.length - 1)) * 2 - 1
-    curve[i] = (1 - a) * x + a * Math.tanh(d * x) / d
-  }
-  return curve
-}
-
-/** Reference scalar form used by OfflineAudioContext assertions and DSP docs. */
-export function applyTapeDistortion(sample: number, amount: number): number {
-  const a = clamp(amount, 0, 100) / 100
-  const d = 1 + 4 * a
-  return (1 - a) * sample + a * Math.tanh(d * sample) / d
 }
 
 function createEmptyProcessor(context: BaseAudioContext): ReturnModuleProcessor {
@@ -100,93 +55,12 @@ function createEmptyProcessor(context: BaseAudioContext): ReturnModuleProcessor 
   }
 }
 
-function createDelayProcessor(
-  context: BaseAudioContext,
-  initial: DelayReturnModule,
-  bpm: number
-): ReturnModuleProcessor {
-  const input = context.createGain()
-  const output = context.createGain()
-  const splitter = context.createChannelSplitter(2)
-  const merger = context.createChannelMerger(2)
-  const leftDelay = context.createDelay(2)
-  const rightDelay = context.createDelay(2)
-  const leftFeedback = context.createGain()
-  const rightFeedback = context.createGain()
-  const leftShaper = context.createWaveShaper()
-  const rightShaper = context.createWaveShaper()
-  const nodes: AudioNode[] = [input, output, splitter, merger, leftDelay, rightDelay,
-    leftFeedback, rightFeedback, leftShaper, rightShaper]
-
-  input.connect(splitter)
-  splitter.connect(leftDelay, 0)
-  splitter.connect(rightDelay, 1)
-  leftDelay.connect(leftShaper)
-  rightDelay.connect(rightShaper)
-  leftShaper.connect(merger, 0, 0)
-  rightShaper.connect(merger, 0, 1)
-  merger.connect(output)
-
-  const configure = (module: DelayReturnModule, currentBpm: number): void => {
-    const seconds = delaySeconds(module, currentBpm)
-    leftDelay.delayTime.value = seconds
-    rightDelay.delayTime.value = seconds
-    // Feedback is deliberately capped to 75%, with a small extra safety
-    // margin for floating point and browser implementation differences.
-    const feedback = clamp(module.feedback, 0, 75) / 100 * 0.99
-    leftFeedback.gain.value = feedback
-    rightFeedback.gain.value = feedback
-    // A WaveShaper curve only covers [-1, 1], so even an identity-shaped
-    // curve clamps over-unity input. Null is the Web Audio identity path.
-    const curve = module.tapeDistortion === 0 ? null : tapeCurve(module.tapeDistortion)
-    leftShaper.curve = curve
-    rightShaper.curve = curve
-    leftShaper.oversample = '2x'
-    rightShaper.oversample = '2x'
-  }
-
-  const connectFeedback = (pingPong: boolean): void => {
-    // Reconnect only the two feedback edges when ping-pong changes.
-    try { leftShaper.disconnect(leftFeedback) } catch { /* edge absent */ }
-    try { leftShaper.disconnect(rightFeedback) } catch { /* edge absent */ }
-    try { rightShaper.disconnect(leftFeedback) } catch { /* edge absent */ }
-    try { rightShaper.disconnect(rightFeedback) } catch { /* edge absent */ }
-    try { leftFeedback.disconnect() } catch { /* edge absent */ }
-    try { rightFeedback.disconnect() } catch { /* edge absent */ }
-    if (pingPong) {
-      leftShaper.connect(rightFeedback)
-      rightFeedback.connect(leftDelay)
-      rightShaper.connect(leftFeedback)
-      leftFeedback.connect(rightDelay)
-    } else {
-      leftShaper.connect(leftFeedback)
-      leftFeedback.connect(leftDelay)
-      rightShaper.connect(rightFeedback)
-      rightFeedback.connect(rightDelay)
-    }
-  }
-
-  connectFeedback(initial.pingPong)
-  configure(initial, bpm)
-  return {
-    input,
-    output,
-    update(module: ReturnModule, currentBpm: number): void {
-      if (module.type !== 'delay') return
-      configure(module, currentBpm)
-      connectFeedback(module.pingPong)
-    },
-    dispose(): void { disconnectAll(nodes) }
-  }
-}
-
 export function createReturnModuleProcessor(
   context: BaseAudioContext,
   module: ReturnModule,
   bpm: number
 ): ReturnModuleProcessor {
-  if (module.type === 'delay') return createDelayProcessor(context, module, bpm)
-  if (module.type === 'opus-delay') return createOpusDelayProcessor(context, module, bpm)
+  if (module.type === 'echoform-delay') return createEchoformDelayProcessor(context, module, bpm)
   return createEmptyProcessor(context)
 }
 
@@ -194,130 +68,173 @@ export function createEmptyReturnModule(id = `fx-${crypto.randomUUID()}`): Empty
   return { id, type: 'empty' }
 }
 
-export function createDefaultDelayReturnModule(id = `fx-${crypto.randomUUID()}`): DelayReturnModule {
+/**
+ * Default state is the "Wide Tape Echo" preset (spec §8 / §22). At 120 BPM the
+ * synchronized readouts are L 500 ms (1/4) and R 375 ms (1/8 dotted).
+ */
+export function createDefaultEchoformDelayReturnModule(id = `fx-${crypto.randomUUID()}`): EchoformDelayModule {
   return {
     id,
-    type: 'delay',
-    mode: 'free',
-    timeMs: 375,
-    noteDivision: '1/8',
-    feedback: 35,
-    tapeDistortion: 0,
-    pingPong: false
-  }
-}
-
-export function createDefaultOpusDelayReturnModule(id = `fx-${crypto.randomUUID()}`): OpusDelayModule {
-  return {
-    id,
-    type: 'opus-delay',
+    type: 'echoform-delay',
     mode: 'sync',
-    divisionL: '1/8',
-    divisionR: '1/4',
-    timeMsL: 350,
-    timeMsR: 500,
-    link: true,
-    feedback: 38,
+    divisionL: '1/4',
+    divisionR: '1/8.',
+    timeMsL: 420,
+    timeMsR: 610,
+    feedback: 68,
     pingPong: true,
-    width: 62,
-    lowCut: 120,
-    highCut: 7500,
-    modRate: 0.35,
-    modDepth: 18,
+    width: 142,
+    lowCut: 160,
+    highCut: 7800,
+    modRate: 0.38,
+    modDepth: 5.4,
     character: 'tape',
-    duckAmount: 0,
-    duckRelease: 220,
-    mix: 100,
-    outputDb: 0,
+    duckAmount: 34,
+    duckRelease: 620,
+    outputDb: -1.5,
     freeze: false,
     bypass: false
   }
 }
 
-export type OpusDelayPresetName =
-  | 'Init'
-  | 'Slapback'
-  | 'Dub Echo'
-  | 'Ambient Wash'
-  | 'Ping-Pong'
-  | 'Tape Wobble'
+export type EchoformDelayPresetName =
+  | 'Wide Tape Echo'
+  | 'Clean Slap'
+  | 'Dotted Motion'
+  | 'Dub Feedback'
+  | 'Ducked Eighths'
+  | 'Frozen Wash'
 
-export const OPUS_DELAY_PRESET_NAMES: readonly OpusDelayPresetName[] = [
-  'Init', 'Slapback', 'Dub Echo', 'Ambient Wash', 'Ping-Pong', 'Tape Wobble'
+export const ECHOFORM_DELAY_PRESET_NAMES: readonly EchoformDelayPresetName[] = [
+  'Wide Tape Echo', 'Clean Slap', 'Dotted Motion', 'Dub Feedback', 'Ducked Eighths', 'Frozen Wash'
 ]
 
-export function applyOpusDelayPreset(
-  module: OpusDelayModule,
-  preset: OpusDelayPresetName
-): OpusDelayModule {
-  const base = createDefaultOpusDelayReturnModule(module.id)
+/**
+ * Apply a built-in preset. Every field is set explicitly (spread over the
+ * default so retained Sync/Free values are complete). The preset BPM reference
+ * is *not* applied here — host tempo ownership is honored by the caller.
+ */
+export function applyEchoformDelayPreset(
+  module: EchoformDelayModule,
+  preset: EchoformDelayPresetName
+): EchoformDelayModule {
+  const base = createDefaultEchoformDelayReturnModule(module.id)
   switch (preset) {
-    case 'Slapback':
+    case 'Wide Tape Echo':
+      return base
+    case 'Clean Slap':
       return {
         ...base,
         mode: 'free',
-        timeMsL: 110,
-        timeMsR: 110,
-        link: true,
-        feedback: 8,
-        width: 20,
+        divisionL: '1/16',
+        divisionR: '1/16',
+        timeMsL: 96,
+        timeMsR: 124,
+        feedback: 18,
+        pingPong: false,
+        width: 118,
+        lowCut: 90,
+        highCut: 17200,
+        modRate: 0.12,
+        modDepth: 0.6,
+        character: 'digital',
+        duckAmount: 12,
+        duckRelease: 180,
+        outputDb: -2.2,
+        freeze: false
+      }
+    case 'Dotted Motion':
+      return {
+        ...base,
+        mode: 'sync',
+        divisionL: '1/8.',
+        divisionR: '1/4T',
+        timeMsL: 430,
+        timeMsR: 350,
+        feedback: 54,
+        pingPong: true,
+        width: 168,
+        lowCut: 240,
+        highCut: 9600,
+        modRate: 0.74,
+        modDepth: 2.8,
         character: 'analog',
-        mix: 50,
-        pingPong: false
+        duckAmount: 46,
+        duckRelease: 480,
+        outputDb: -1.8,
+        freeze: false
       }
-    case 'Dub Echo':
+    case 'Dub Feedback':
       return {
         ...base,
-        divisionL: '1/4',
-        divisionR: '1/4',
-        feedback: 72,
-        width: 80,
+        mode: 'sync',
+        divisionL: '1/4.',
+        divisionR: '1/2T',
+        timeMsL: 680,
+        timeMsR: 870,
+        feedback: 94,
+        pingPong: true,
+        width: 136,
+        lowCut: 310,
+        highCut: 4400,
+        modRate: 0.24,
+        modDepth: 7.6,
         character: 'tape',
-        mix: 100
+        duckAmount: 18,
+        duckRelease: 980,
+        outputDb: -4.1,
+        freeze: false
       }
-    case 'Ambient Wash':
+    case 'Ducked Eighths':
       return {
         ...base,
-        divisionL: '1/2',
-        divisionR: '1/2',
-        feedback: 65,
-        width: 95,
-        character: 'digital',
-        modDepth: 42,
-        mix: 100
-      }
-    case 'Ping-Pong':
-      return {
-        ...base,
+        mode: 'sync',
         divisionL: '1/8',
-        divisionR: '1/8',
-        feedback: 55,
-        width: 100,
+        divisionR: '1/8.',
+        timeMsL: 234,
+        timeMsR: 351,
+        feedback: 47,
+        pingPong: true,
+        width: 152,
+        lowCut: 190,
+        highCut: 11200,
+        modRate: 0.18,
+        modDepth: 1.2,
         character: 'digital',
-        mix: 100,
-        pingPong: true
+        duckAmount: 72,
+        duckRelease: 340,
+        outputDb: -1.0,
+        freeze: false
       }
-    case 'Tape Wobble':
+    case 'Frozen Wash':
       return {
         ...base,
-        feedback: 46,
-        width: 70,
+        mode: 'free',
+        divisionL: '1/2',
+        divisionR: '1/2.',
+        timeMsL: 980,
+        timeMsR: 1330,
+        feedback: 102,
+        pingPong: true,
+        width: 188,
+        lowCut: 420,
+        highCut: 5200,
+        modRate: 0.11,
+        modDepth: 9.8,
         character: 'tape',
-        modRate: 1.2,
-        modDepth: 60,
-        mix: 90
+        duckAmount: 6,
+        duckRelease: 1900,
+        outputDb: -7.5,
+        freeze: true
       }
-    case 'Init':
-      return base
   }
 }
 
 const EMPTY_KEYS = ['id', 'type'] as const
-const DELAY_KEYS = ['id', 'type', 'mode', 'timeMs', 'noteDivision', 'feedback', 'tapeDistortion', 'pingPong'] as const
-const OPUS_DELAY_KEYS = [
-  'id', 'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR', 'link',
+const ECHOFORM_DELAY_KEYS = [
+  'id', 'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR',
   'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
-  'character', 'duckAmount', 'duckRelease', 'mix', 'outputDb', 'freeze', 'bypass'
+  'character', 'duckAmount', 'duckRelease', 'outputDb', 'freeze', 'bypass'
 ] as const
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
@@ -333,34 +250,23 @@ export function isReturnModule(value: unknown): value is ReturnModule {
   const module = value as Record<string, unknown>
   if (module.id !== undefined && (typeof module.id !== 'string' || module.id.length === 0)) return false
   if (module.type === 'empty') return hasOnlyKeys(module, EMPTY_KEYS)
-  if (module.type === 'delay') {
-    return hasOnlyKeys(module, DELAY_KEYS) &&
-      (module.mode === 'free' || module.mode === 'sync') &&
-      numberInRange(module.timeMs, 0, 2000) &&
-      typeof module.noteDivision === 'string' && module.noteDivision in DIVISIONS &&
-      numberInRange(module.feedback, 0, 75) &&
-      numberInRange(module.tapeDistortion, 0, 100) &&
-      typeof module.pingPong === 'boolean'
-  }
-  if (module.type !== 'opus-delay') return false
-  return hasOnlyKeys(module, OPUS_DELAY_KEYS) &&
+  if (module.type !== 'echoform-delay') return false
+  return hasOnlyKeys(module, ECHOFORM_DELAY_KEYS) &&
     (module.mode === 'free' || module.mode === 'sync') &&
-    isOpusDelayDivision(module.divisionL) &&
-    isOpusDelayDivision(module.divisionR) &&
-    numberInRange(module.timeMsL, 0, 2000) &&
-    numberInRange(module.timeMsR, 0, 2000) &&
-    typeof module.link === 'boolean' &&
-    numberInRange(module.feedback, 0, 100) &&
+    isEchoformDelayDivision(module.divisionL) &&
+    isEchoformDelayDivision(module.divisionR) &&
+    numberInRange(module.timeMsL, 1, 2000) &&
+    numberInRange(module.timeMsR, 1, 2000) &&
+    numberInRange(module.feedback, 0, 110) &&
     typeof module.pingPong === 'boolean' &&
-    numberInRange(module.width, 0, 100) &&
+    numberInRange(module.width, 0, 200) &&
     numberInRange(module.lowCut, 20, 2000) &&
-    numberInRange(module.highCut, 200, 20000) &&
-    numberInRange(module.modRate, 0.02, 10) &&
-    numberInRange(module.modDepth, 0, 100) &&
+    numberInRange(module.highCut, 1000, 20000) &&
+    numberInRange(module.modRate, 0.05, 8) &&
+    numberInRange(module.modDepth, 0, 20) &&
     (module.character === 'digital' || module.character === 'analog' || module.character === 'tape') &&
     numberInRange(module.duckAmount, 0, 100) &&
-    numberInRange(module.duckRelease, 20, 1000) &&
-    numberInRange(module.mix, 0, 100) &&
+    numberInRange(module.duckRelease, 50, 2500) &&
     numberInRange(module.outputDb, -24, 6) &&
     typeof module.freeze === 'boolean' &&
     typeof module.bypass === 'boolean'

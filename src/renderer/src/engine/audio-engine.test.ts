@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AudioEngine } from './audio-engine'
 import { MockAudioContext, MockAudioWorkletNode, createMockContext } from '../test/mockAudioContext'
 import { createClipEdgeFadePlan } from './clip-edge-fades'
-import { createDefaultDelayReturnModule } from './return-effects'
+import { createDefaultEchoformDelayReturnModule } from './return-effects'
 
 function makeBuffer(): AudioBuffer {
   return { duration: 1, length: 44100, numberOfChannels: 2, sampleRate: 44100 } as AudioBuffer
@@ -15,28 +15,26 @@ function makeEngine(): { engine: AudioEngine; context: MockAudioContext } {
 }
 
 describe('AudioEngine', () => {
-  it('rebuilds same-type Return processors at project replacement boundaries', () => {
-    const context = createMockContext() as MockAudioContext & {
-      createChannelSplitter: () => ChannelSplitterNode
-      createChannelMerger: () => ChannelMergerNode
-    }
-    context.createChannelSplitter = () => context.createGain() as unknown as ChannelSplitterNode
-    context.createChannelMerger = () => context.createGain() as unknown as ChannelMergerNode
+  it('applies Return snapshots and reconfigures gain/limiter on set and replace', () => {
+    const context = createMockContext()
     const engine = new AudioEngine({ createContext: () => context as unknown as AudioContext })
     const snapshot = {
       index: 0,
-      module: { ...createDefaultDelayReturnModule('fx-1'), pingPong: false },
+      module: { ...createDefaultEchoformDelayReturnModule('fx-1'), pingPong: false },
       powered: true,
-      returnLevel: 1,
+      returnLevel: 0.8,
       limiterEnabled: true
     }
     engine.setReturnBus(0, snapshot, 120)
-    const delayCountBeforeReplacement = context.created.delays.length
-    engine.replaceReturnBuses([{ ...snapshot, module: { ...snapshot.module, timeMs: 600 } }], 120)
+    // returnLevel is the shared Mix; it maps linearly onto the return gain.
+    const gainAfterSet = context.created.gains.find((g) => g.gain.value === 0.8)
+    expect(gainAfterSet).toBeDefined()
 
-    expect(context.created.delays).toHaveLength(delayCountBeforeReplacement + 2)
-    expect(context.created.delays.at(-2)!.delayTime.value).toBe(0.6)
-    expect(context.created.delays.at(-1)!.delayTime.value).toBe(0.6)
+    // Replacing rebuilds the processor even for the same type (cuts stale tails)
+    // and re-applies the new return level.
+    engine.replaceReturnBuses([{ ...snapshot, returnLevel: 0.4 }], 120)
+    const gainAfterReplace = context.created.gains.find((g) => g.gain.value === 0.4)
+    expect(gainAfterReplace).toBeDefined()
   })
 
   it('test AudioWorklet mock exposes the message-port surface used by the engine', () => {

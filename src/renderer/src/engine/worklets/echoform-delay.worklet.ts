@@ -1,5 +1,5 @@
-import { OpusDelayCore } from '../opus-delay-core'
-import type { OpusDelayState } from '../opus-delay-types'
+import { EchoformDelayCore } from '../echoform-delay-core'
+import type { EchoformDelayState } from '../echoform-delay-types'
 
 declare const sampleRate: number
 declare function registerProcessor(name: string, ctor: unknown): void
@@ -10,24 +10,24 @@ declare class AudioWorkletProcessor {
 
 interface ProcessorOptions {
   processorOptions?: {
-    state?: OpusDelayState
+    state?: EchoformDelayState
     bpm?: number
   }
 }
 
-type OpusDelayWorkletMessage =
-  | { type: 'state'; state: OpusDelayState; bpm: number }
+type EchoformDelayWorkletMessage =
+  | { type: 'state'; state: EchoformDelayState; bpm: number }
   | { type: 'reset' }
 
-class OpusDelayProcessor extends AudioWorkletProcessor {
-  private readonly core: OpusDelayCore
+class EchoformDelayProcessor extends AudioWorkletProcessor {
+  private readonly core: EchoformDelayCore
 
   constructor(options?: ProcessorOptions) {
     super(options)
     const state = options?.processorOptions?.state
-    if (!state) throw new Error('Opus Delay worklet requires initial state')
-    this.core = new OpusDelayCore(sampleRate, state, options?.processorOptions?.bpm ?? 120)
-    this.port.onmessage = (event: MessageEvent<OpusDelayWorkletMessage>) => {
+    if (!state) throw new Error('Echoform Delay worklet requires initial state')
+    this.core = new EchoformDelayCore(sampleRate, state, options?.processorOptions?.bpm ?? 120)
+    this.port.onmessage = (event: MessageEvent<EchoformDelayWorkletMessage>) => {
       const message = event.data
       if (message.type === 'state') this.core.update(message.state, message.bpm)
       else this.core.reset()
@@ -53,4 +53,4 @@ class OpusDelayProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor('opus-delay-processor', OpusDelayProcessor)
+registerProcessor('echoform-delay-processor', EchoformDelayProcessor)

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBackendAPI } from '../test/backendApi'
 import { useTransportRuntime } from './useTransportRuntime'
 import { PlaybackEngine, type PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
-import { createDefaultDelayReturnModule } from '../engine/return-effects'
+import { createDefaultEchoformDelayReturnModule } from '../engine/return-effects'
 
 const EMPTY_GRAPH: PlaybackProjectGraphSnapshot = { channels: [], returns: [] }
 
@@ -110,7 +110,7 @@ describe('useTransportRuntime', () => {
       }],
       returns: [{
         index: 0,
-        module: createDefaultDelayReturnModule('fx-1'),
+        module: createDefaultEchoformDelayReturnModule('fx-1'),
         powered: false,
         returnLevel: 0.55,
         limiterEnabled: false

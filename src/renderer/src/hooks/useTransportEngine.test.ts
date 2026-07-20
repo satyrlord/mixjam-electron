@@ -11,7 +11,7 @@ import {
   createDefaultProjectSongState,
   MAX_LANE_COUNT
 } from '../project/project-state'
-import { createDefaultDelayReturnModule } from '../engine/return-effects'
+import { createDefaultEchoformDelayReturnModule } from '../engine/return-effects'
 
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
 const PLAYABLE_SAMPLE = {
@@ -81,20 +81,20 @@ describe('useTransportEngine', () => {
     const { result } = renderHook(() => useTransportEngine(createBackendAPI(), SAMPLE_FOLDER, 'home'))
     act(() => result.current.setReturnBus({
       index: 0,
-      module: createDefaultDelayReturnModule('fx-1'),
+      module: createDefaultEchoformDelayReturnModule('fx-1'),
       powered: true,
       returnLevel: 0.65,
       limiterEnabled: false
     }))
     expect(result.current.fxBuses[0]).toMatchObject({
-      module: { type: 'delay' },
+      module: { type: 'echoform-delay' },
       returnLevel: 0.65,
       limiterEnabled: false
     })
     act(() => result.current.undo())
     expect(result.current.fxBuses[0]).toMatchObject({ module: { type: 'empty' }, returnLevel: 1 })
     act(() => result.current.redo())
-    expect(result.current.fxBuses[0]).toMatchObject({ module: { type: 'delay' }, returnLevel: 0.65 })
+    expect(result.current.fxBuses[0]).toMatchObject({ module: { type: 'echoform-delay' }, returnLevel: 0.65 })
   })
 
   it('collapses live lane Mixer updates into one committed gesture', () => {
@@ -155,7 +155,7 @@ describe('useTransportEngine', () => {
       result.current.resolvePendingPlacementBpms(new Map())
       result.current.setReturnBus({
         index: 4,
-        module: createDefaultDelayReturnModule('invalid-return'),
+        module: createDefaultEchoformDelayReturnModule('invalid-return'),
         powered: true,
         returnLevel: 0.5,
         limiterEnabled: false

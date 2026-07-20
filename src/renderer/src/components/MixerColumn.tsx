@@ -20,8 +20,7 @@ interface MixerColumnProps {
 }
 
 function returnModuleName(bus: PlaybackReturnSnapshot): string {
-  if (bus.module.type === 'delay') return 'Delay'
-  if (bus.module.type === 'opus-delay') return 'Opus Delay'
+  if (bus.module.type === 'echoform-delay') return 'Echoform Delay'
   return 'Empty'
 }
 

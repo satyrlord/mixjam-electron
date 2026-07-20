@@ -38,7 +38,7 @@ import {
 } from '../../../shared/backend-api'
 import { isGeneratorProfileId } from '../../../shared/generator-profile-id'
 
-const PROJECT_FORMAT_VERSION = 5
+const PROJECT_FORMAT_VERSION = 6
 export const NEWER_PROJECT_VERSION_MESSAGE =
   'This project was created with a newer version of MixJam. Please update the app.'
 
@@ -378,16 +378,119 @@ export function serializeProject(
   return `${JSON.stringify(toDocumentRecord(project, metadata), null, 2)}\n`
 }
 
+const ECHOFORM_DELAY_NOTE_DIVISIONS = new Set([
+  '1/1', '1/1.', '1/1T', '1/2', '1/2.', '1/2T', '1/4', '1/4.', '1/4T',
+  '1/8', '1/8.', '1/8T', '1/16', '1/16.', '1/16T'
+])
+
+/** Map a legacy native-delay note division onto the Echoform division set. */
+function migrateDelayDivision(value: unknown): string {
+  // Legacy set was 1/4 1/8 1/16 1/8T 1/16T. Triplets used the `T` suffix,
+  // which the new set keeps; straight values are already valid.
+  return typeof value === 'string' && ECHOFORM_DELAY_NOTE_DIVISIONS.has(value) ? value : '1/4'
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, value))
+    : fallback
+}
+
+/**
+ * Convert a legacy native `delay` FX module into an Echoform `echoform-delay`
+ * module, mapping semantically equivalent values and applying Echoform
+ * defaults for fields the old module never had (spec §23). A single old time
+ * seeds both L and R; feedback/mode/timing/ping-pong carry over.
+ */
+function migrateLegacyDelayModule(module: Record<string, unknown>): Record<string, unknown> {
+  const mode = module.mode === 'sync' ? 'sync' : 'free'
+  const timeMs = clampNumber(module.timeMs, 1, 2000, 420)
+  const division = migrateDelayDivision(module.noteDivision)
+  // Old feedback was 0–75%; Echoform feedback is 0–110%. Preserve the value.
+  const feedback = clampNumber(module.feedback, 0, 110, 68)
+  return {
+    type: 'echoform-delay',
+    mode,
+    divisionL: division,
+    divisionR: division,
+    timeMsL: timeMs,
+    timeMsR: timeMs,
+    feedback,
+    pingPong: typeof module.pingPong === 'boolean' ? module.pingPong : true,
+    width: 142,
+    lowCut: 160,
+    highCut: 7800,
+    modRate: 0.38,
+    // Old "tapeDistortion" implied a tape character but wasn't a mod depth.
+    modDepth: 5.4,
+    character: 'tape',
+    duckAmount: 34,
+    duckRelease: 620,
+    outputDb: -1.5,
+    freeze: false,
+    bypass: false
+  }
+}
+
+/**
+ * Normalize a pre-release `opus-delay` sketch module onto the current Echoform
+ * shape: rename the type, drop the removed `link`/`mix` fields, and re-clamp
+ * ranges that widened. This shape never shipped, but keeping the migration
+ * total means any stray sketch file still loads cleanly.
+ */
+function migrateSketchEchoformDelayModule(module: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...module, type: 'echoform-delay' }
+  delete next.link
+  delete next.mix
+  next.divisionL = typeof module.divisionL === 'string' && ECHOFORM_DELAY_NOTE_DIVISIONS.has(module.divisionL)
+    ? module.divisionL : '1/4'
+  next.divisionR = typeof module.divisionR === 'string' && ECHOFORM_DELAY_NOTE_DIVISIONS.has(module.divisionR)
+    ? module.divisionR : '1/8.'
+  next.timeMsL = clampNumber(module.timeMsL, 1, 2000, 420)
+  next.timeMsR = clampNumber(module.timeMsR, 1, 2000, 610)
+  next.feedback = clampNumber(module.feedback, 0, 110, 68)
+  next.width = clampNumber(module.width, 0, 200, 142)
+  next.lowCut = clampNumber(module.lowCut, 20, 2000, 160)
+  next.highCut = clampNumber(module.highCut, 1000, 20000, 7800)
+  next.modRate = clampNumber(module.modRate, 0.05, 8, 0.38)
+  next.modDepth = clampNumber(module.modDepth, 0, 20, 5.4)
+  next.duckRelease = clampNumber(module.duckRelease, 50, 2500, 620)
+  next.outputDb = clampNumber(module.outputDb, -24, 6, -1.5)
+  return next
+}
+
+/** Transform a v5 FX-bus record's module in place, returning a new record. */
+function migrateFxBusV5ToV6(bus: unknown): unknown {
+  if (!isRecord(bus) || !isRecord(bus.module)) return bus
+  const module = bus.module
+  if (module.type === 'delay') {
+    return { ...bus, module: migrateLegacyDelayModule(module) }
+  }
+  // Pre-release sketch used the `opus-delay` type string with link/mix fields.
+  if (module.type === 'opus-delay') {
+    return { ...bus, module: migrateSketchEchoformDelayModule(module) }
+  }
+  return bus
+}
+
+function migrateV5ToV6(value: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...value, formatVersion: PROJECT_FORMAT_VERSION }
+  if (Array.isArray(value.fxBuses)) {
+    next.fxBuses = value.fxBuses.map(migrateFxBusV5ToV6)
+  }
+  return next
+}
+
 function migrateToCurrent(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) fail('project', 'must be a JSON object')
   const rawVersion = value.formatVersion
-  if (rawVersion !== PROJECT_FORMAT_VERSION) {
-    if (typeof rawVersion === 'number' && rawVersion > PROJECT_FORMAT_VERSION) {
-      throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
-    }
-    throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 5 is supported.')
+  if (rawVersion === PROJECT_FORMAT_VERSION) return value
+  if (typeof rawVersion === 'number' && rawVersion > PROJECT_FORMAT_VERSION) {
+    throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
   }
-  return value
+  // v5 introduced the FX-return modules; upgrade its delay modules to Echoform.
+  if (rawVersion === 5) return migrateV5ToV6(value)
+  throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 6 is supported.')
 }
 
 function parsePlacement(
@@ -583,17 +686,13 @@ export function parseProject(text: string): ProjectDocument {
     if (value.index !== expectedIndex) fail(`${path}.index`, `must be ${expectedIndex}`)
     if (value.name !== expectedName) fail(`${path}.name`, `must be ${expectedName}`)
     if (!isRecord(value.module)) fail(`${path}.module`, 'must be an object')
-    const moduleKeys = value.module.type === 'empty'
-      ? ['type']
-      : value.module.type === 'delay'
-        ? ['type', 'mode', 'timeMs', 'noteDivision', 'feedback', 'tapeDistortion', 'pingPong']
-        : value.module.type === 'opus-delay'
-          ? [
-              'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR', 'link',
-              'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
-              'character', 'duckAmount', 'duckRelease', 'mix', 'outputDb', 'freeze', 'bypass'
-            ]
-          : ['type']
+    const moduleKeys = value.module.type === 'echoform-delay'
+      ? [
+          'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR',
+          'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
+          'character', 'duckAmount', 'duckRelease', 'outputDb', 'freeze', 'bypass'
+        ]
+      : ['type']
     assertKeys(value.module, `${path}.module`, moduleKeys)
     let module: ProjectFxBusRecord['module']
     if (value.module.type === 'empty') {

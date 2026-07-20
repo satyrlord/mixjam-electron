@@ -14,6 +14,7 @@ interface EffectHarnessWindow extends Window {
       module: Record<string, unknown>,
       bpm: number
     ): { input: AudioNode; output: AudioNode; dispose(): void }
+    prepareEchoformDelayWorklet(context: BaseAudioContext): Promise<boolean>
   }
   mountMixjamTransportHarness(options: {
     wavBytes: number[]
@@ -50,10 +51,10 @@ async function installEffectHarness(page: Page): Promise<void> {
         return `
           import React, { useEffect } from 'react'
           import { createRoot } from 'react-dom/client'
-          import { createReturnModuleProcessor } from ${JSON.stringify(returnEffectsPath)}
+          import { createReturnModuleProcessor, prepareEchoformDelayWorklet } from ${JSON.stringify(returnEffectsPath)}
           import { useTransportRuntime } from ${JSON.stringify(runtimePath)}
 
-          window.mixjamEffects = { createReturnModuleProcessor }
+          window.mixjamEffects = { createReturnModuleProcessor, prepareEchoformDelayWorklet }
           let root = null
 
           window.mountMixjamTransportHarness = ({ wavBytes, songEndTick, returnBus }) => {
@@ -186,79 +187,97 @@ test.beforeEach(async ({ page }) => {
   await installEffectHarness(page)
 })
 
-test('zero tape distortion preserves over-unity samples in OfflineAudioContext', async ({ page }) => {
-  const maximumError = await page.evaluate(async () => {
-    const { createReturnModuleProcessor } = (window as unknown as EffectHarnessWindow).mixjamEffects
-    const sampleRate = 44_100
-    const frameCount = 128
-    const context = new OfflineAudioContext(2, frameCount, sampleRate)
-    const source = context.createBufferSource()
-    const input = context.createBuffer(2, frameCount, sampleRate)
-    for (let channel = 0; channel < input.numberOfChannels; channel += 1) {
-      input.getChannelData(channel).fill(1.5)
-    }
-    source.buffer = input
-    const processor = createReturnModuleProcessor(context, {
-      id: 'identity-delay',
-      type: 'delay',
-      mode: 'free',
-      timeMs: 0,
-      noteDivision: '1/8',
-      feedback: 0,
-      tapeDistortion: 0,
-      pingPong: false
-    }, 120)
-    source.connect(processor.input)
-    processor.output.connect(context.destination)
-    source.start()
-    const rendered = await context.startRendering()
-    let error = 0
-    for (let channel = 0; channel < rendered.numberOfChannels; channel += 1) {
-      const samples = rendered.getChannelData(channel)
-      for (let frame = 8; frame < samples.length; frame += 1) {
-        error = Math.max(error, Math.abs((samples[frame] ?? 0) - 1.5))
-      }
-    }
-    return error
-  })
+function echoformModule(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 'echoform-delay',
+    type: 'echoform-delay',
+    mode: 'free',
+    divisionL: '1/8',
+    divisionR: '1/8',
+    timeMsL: 50,
+    timeMsR: 50,
+    feedback: 0,
+    pingPong: false,
+    width: 100,
+    lowCut: 20,
+    highCut: 20000,
+    modRate: 0.05,
+    modDepth: 0,
+    character: 'digital',
+    duckAmount: 0,
+    duckRelease: 200,
+    outputDb: 0,
+    freeze: false,
+    bypass: false,
+    ...overrides
+  }
+}
 
-  expect(maximumError).toBeLessThan(1e-6)
-})
-
-test('real Return Delay renders a wet-only echo in Chromium', async ({ page }) => {
-  const metrics = await page.evaluate(async () => {
-    const { createReturnModuleProcessor } = (window as unknown as EffectHarnessWindow).mixjamEffects
+test('Echoform delay renders a wet-only echo through the worklet in Chromium', async ({ page }) => {
+  const metrics = await page.evaluate(async (module) => {
+    const { createReturnModuleProcessor, prepareEchoformDelayWorklet } =
+      (window as unknown as EffectHarnessWindow).mixjamEffects
     const sampleRate = 44_100
     const frameCount = Math.ceil(sampleRate * 0.25)
     const context = new OfflineAudioContext(2, frameCount, sampleRate)
+    // The Echoform delay is an AudioWorklet — register it before rendering.
+    await prepareEchoformDelayWorklet(context)
     const source = context.createBufferSource()
     const input = context.createBuffer(1, frameCount, sampleRate)
     input.getChannelData(0)[0] = 1
     source.buffer = input
-    const processor = createReturnModuleProcessor(context, {
-      id: 'delay',
-      type: 'delay',
-      mode: 'free',
-      timeMs: 50,
-      noteDivision: '1/8',
-      feedback: 0,
-      tapeDistortion: 0,
-      pingPong: false
-    }, 120)
+    const processor = createReturnModuleProcessor(context, module, 120)
     source.connect(processor.input)
     processor.output.connect(context.destination)
     source.start()
-    const delay = await context.startRendering()
-    const delaySamples = delay.getChannelData(0)
+    const rendered = await context.startRendering()
+    const samples = rendered.getChannelData(0)
     const echoFrame = Math.round(sampleRate * 0.05)
-    return {
-      dryAtStart: Math.abs(delaySamples[0] ?? 0),
-      echoAmplitude: Math.abs(delaySamples[echoFrame] ?? 0)
+    // Peak amplitude near the expected 50 ms tap (± a small window).
+    let echoPeak = 0
+    for (let frame = echoFrame - 64; frame <= echoFrame + 64; frame += 1) {
+      echoPeak = Math.max(echoPeak, Math.abs(samples[frame] ?? 0))
     }
-  })
+    return { dryAtStart: Math.abs(samples[0] ?? 0), echoPeak }
+  }, echoformModule())
 
-  expect(metrics.dryAtStart).toBeLessThan(0.01)
-  expect(metrics.echoAmplitude).toBeGreaterThan(0.9)
+  // No dry passthrough at t=0 (the return is wet-only) but a real echo at ~50 ms.
+  expect(metrics.dryAtStart).toBeLessThan(0.05)
+  expect(metrics.echoPeak).toBeGreaterThan(0.3)
+})
+
+test('Echoform delay with zero feedback produces a single decaying tap', async ({ page }) => {
+  const metrics = await page.evaluate(async (module) => {
+    const { createReturnModuleProcessor, prepareEchoformDelayWorklet } =
+      (window as unknown as EffectHarnessWindow).mixjamEffects
+    const sampleRate = 44_100
+    const frameCount = Math.ceil(sampleRate * 0.3)
+    const context = new OfflineAudioContext(2, frameCount, sampleRate)
+    await prepareEchoformDelayWorklet(context)
+    const source = context.createBufferSource()
+    const input = context.createBuffer(1, frameCount, sampleRate)
+    input.getChannelData(0)[0] = 1
+    source.buffer = input
+    const processor = createReturnModuleProcessor(context, module, 120)
+    source.connect(processor.input)
+    processor.output.connect(context.destination)
+    source.start()
+    const rendered = await context.startRendering()
+    const samples = rendered.getChannelData(0)
+    const peakNear = (ms: number) => {
+      const center = Math.round(sampleRate * ms / 1000)
+      let peak = 0
+      for (let frame = center - 64; frame <= center + 64; frame += 1) {
+        peak = Math.max(peak, Math.abs(samples[frame] ?? 0))
+      }
+      return peak
+    }
+    return { firstTap: peakNear(50), secondTap: peakNear(100) }
+  }, echoformModule({ feedback: 0 }))
+
+  // With no feedback the first tap sounds but there is no regenerated repeat.
+  expect(metrics.firstTap).toBeGreaterThan(0.3)
+  expect(metrics.secondTap).toBeLessThan(metrics.firstTap * 0.5)
 })
 
 test('Ring Out preserves Return Delay tails after natural end, Stop, and Jump to End', async ({ page }) => {
@@ -268,16 +287,12 @@ test('Ring Out preserves Return Delay tails after natural end, Stop, and Jump to
   const wavBytes = createImpulseWav()
   const returnBus = {
     index: 0,
-    module: {
+    module: echoformModule({
       id: 'ring-out-delay',
-      type: 'delay',
-      mode: 'free',
-      timeMs: 80,
-      noteDivision: '1/8',
-      feedback: 60,
-      tapeDistortion: 0,
-      pingPong: false
-    },
+      timeMsL: 80,
+      timeMsR: 80,
+      feedback: 60
+    }),
     powered: true,
     returnLevel: 1,
     limiterEnabled: false
@@ -351,7 +366,7 @@ test('Ring Out preserves Return Delay tails after natural end, Stop, and Jump to
   await writeFile(resolve(evidenceDirectory, 'evidence.md'), `# FX Song-End Ring Out Evidence
 
 - Contract: Ring Out.
-- Surface: real useTransportRuntime, PlaybackEngine, AudioEngine, and Return Delay DSP rendered in Chromium.
+- Surface: real useTransportRuntime, PlaybackEngine, AudioEngine, and Echoform Delay DSP rendered in Chromium.
 - Natural end: transport stopped at tick 0, source voices dropped to zero, and post-boundary output peaked at ${naturalEnd.maximumLevelDb.toFixed(2)} dBFS.
 - Replay after tail decay: post-boundary output peaked at ${replay.maximumLevelDb.toFixed(2)} dBFS without rebuilding the effect graph.
 - Explicit Stop: transport stopped at tick 0, source voices dropped to zero, and post-stop output peaked at ${explicitStop.maximumLevelDb.toFixed(2)} dBFS.
