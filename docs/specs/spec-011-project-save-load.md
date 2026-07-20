@@ -1,7 +1,7 @@
 # Spec 011 — Project Save & Load
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED for breaking format version 5.
+**Spec Implementation Status:** IMPLEMENTED for format version 6.
 **Depends on:** spec-006 (Player Timeline & Panel Layout), spec-007 (Mixer),
 spec-010 (Audio Effects)
 
@@ -35,12 +35,12 @@ path, never embedded.
 ### Project File Format
 
 A project is a JSON file with a `.mixjam` extension, saved to the User Folder
-(spec-003). The version-5 schema without the optional generator object
+(spec-003). The version-6 schema without the optional generator object
 is:
 
 ```json
 {
-  "formatVersion": 5,
+  "formatVersion": 6,
   "appVersion": "v0.1.0",
   "createdAt": "2026-06-28T...",
   "modifiedAt": "2026-06-28T...",
@@ -171,18 +171,19 @@ is:
   project file.
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
-- Version 5 adds the required `masterBus` record from spec-012 (Master Bus
+- Version 6 adds the required `masterBus` record from spec-012 (Master Bus
   Strip): slot order (a permutation of the eleven processor ids),
   per-processor power flags, every strip parameter value, and the selected
   preset name or null. Spec-012 lists the record's rejection rules; this
   spec owns the wire format.
 
-### Strict version-5 validation
+### Strict version-6 validation
 
-- Version 5 is a breaking boundary. The parser accepts `formatVersion: 5` only.
-  It does not migrate format 4, 3, or any other older format. An older file is
-  rejected without changing active project state and reports that the file uses
-  an unsupported project format and must be recreated in the current MixJam.
+- Version 6 is a breaking boundary. The parser accepts `formatVersion: 6` and
+  migrates `formatVersion: 5` projects. It does not migrate format 4, 3, or any
+  other older format. An older file is rejected without changing active project
+  state and reports that the file uses an unsupported project format and must be
+  recreated in the current MixJam.
 - Objects reject unknown keys. Required arrays and fields may not be omitted,
   duplicated, inferred, or repaired from array order.
 - `lanes` must contain 1 through 64 entries. Stable lane IDs must be non-empty
@@ -201,10 +202,10 @@ is:
   placement IDs, finite timing, arrangement capacity, and one consistent
   `durationTicks` for each `sampleRef`.
 
-### Format version 5 generator metadata extension
+### Format version 6 generator metadata extension
 
-Version 4 retains the optional project-owned `generator` object for generated
-projects. Projects created or saved without it remain valid version-5 projects.
+Version 6 retains the optional project-owned `generator` object for generated
+projects. Projects created or saved without it remain valid version-6 projects.
 
 The object contains the generator version, stable profile ID and profile schema
 version, safe seed, generation parameters, the indexed-corpus fingerprint, and
@@ -212,7 +213,7 @@ the Sample Folder key used for exact regeneration:
 
 ```json
 {
-  "formatVersion": 4,
+  "formatVersion": 6,
   "generator": {
     "generatorVersion": 1,
     "profileId": "techno",
