@@ -438,12 +438,13 @@
   display: inline-grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
+  gap: 2px;
   padding: 2px;
   border: 1px solid var(--ef-line);
   border-radius: 8px;
   background: var(--ef-control-pressed);
 }
-.ef-character-group { display: grid; margin-bottom: 8px; }
+.ef-character-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-bottom: 8px; text-align: center; }
 .ef-segmented button, .ef-character-group button {
   min-width: 42px;
   height: 24px;
