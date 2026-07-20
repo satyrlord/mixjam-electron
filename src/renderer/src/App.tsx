@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MINIMUM_VIEWPORT, supportsApplicationViewport } from '../../shared/viewport'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import HomeScreen from './components/HomeScreen'
 import PlayerView from './components/PlayerView'
+import SettingsModal from './components/SettingsModal'
 import { TooltipProvider } from './components/ui/Tooltip'
 import { useAppState } from './hooks/useAppState'
 import { useFolderSetup } from './hooks/useFolderSetup'
@@ -61,6 +62,9 @@ function SupportedApp() {
 
   const [activeTheme, setActiveTheme] = useState('emerald')
   const [uiSize, setUiSize] = useState(loadUiSize)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  const generatorRestoreFocusTargetRef = useRef<HTMLElement | null>(null)
 
   useLayoutEffect(() => {
     applyUiSize(document.documentElement, uiSize)
@@ -121,7 +125,12 @@ function SupportedApp() {
             onStart={app.startNewProject}
             onLoad={app.openProjectPicker}
             onOpenProject={app.openProjectPath}
-            onOpenGenerator={generator.openNew}
+            onOpenGenerator={() => {
+              generatorRestoreFocusTargetRef.current = document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null
+              generator.openNew()
+            }}
             generatorReadiness={generator.readiness}
           />
         ) : (
@@ -160,10 +169,10 @@ function SupportedApp() {
             }}
             transport={{
               transportState: app.transportState, songEndTick: app.songEndTick, bpm: app.bpm,
-              masterGain: app.masterGain, clipEdgeMicroFades: app.clipEdgeMicroFades,
+              masterGain: app.masterGain,
               masterMeter: app.masterMeter, canUndo: app.canUndo, canRedo: app.canRedo,
               onSetBpm: app.setBpm, onSetMasterGain: app.setMasterGain,
-              onSetClipEdgeMicroFades: app.setClipEdgeMicroFades, onResetMasterMeter: app.resetMasterMeter,
+              onResetMasterMeter: app.resetMasterMeter,
               onUndo: app.undo, onRedo: app.redo, onTransportPlay: app.transportPlay,
               onTransportPause: app.transportPause, onTransportStop: app.transportStop,
               onTransportSkipBack: app.transportSkipBack, onTransportJumpToEnd: app.transportJumpToEnd,
@@ -182,34 +191,52 @@ function SupportedApp() {
               canRegenerate: app.projectGenerator != null && supportsExactGeneratorRegeneration(app.projectGenerator),
               onNew: app.startNewProject, onOpen: app.openProjectPicker, onOpenPath: app.openProjectPath,
               onSave: app.saveProject, onSaveAs: app.saveProjectAs,
-              onRegenerateExact: generator.openRegenerateExact,
-              onRegenerateCurrent: generator.openRegenerateCurrent
+              onRegenerateExact: (opener) => {
+                generatorRestoreFocusTargetRef.current = opener ?? null
+                generator.openRegenerateExact()
+              },
+              onRegenerateCurrent: (opener) => {
+                generatorRestoreFocusTargetRef.current = opener ?? null
+                generator.openRegenerateCurrent()
+              }
             }}
           />
         )}
           </main>
           <Footer
-        view={app.view}
-        version={app.version}
-        sampleDetail={app.selectedSampleDetail}
-        onSelectFolder={pickUser}
-        onOpenRepo={app.openRepo}
-        getSampleBuffer={app.getSampleBuffer}
-        uiSize={uiSize}
-        onUiSizeChange={handleUiSizeChange}
+            view={app.view}
+            version={app.version}
+            sampleDetail={app.selectedSampleDetail}
+            onOpenSettings={() => setSettingsOpen(true)}
+            settingsButtonRef={settingsButtonRef}
+            onOpenRepo={app.openRepo}
+            getSampleBuffer={app.getSampleBuffer}
           />
+          {settingsOpen && app.view === 'player' && (
+            <SettingsModal
+              userFolder={userFolder}
+              uiSize={uiSize}
+              clipEdgeMicroFades={app.clipEdgeMicroFades}
+              onSelectUserFolder={pickUser}
+              onUiSizeChange={handleUiSizeChange}
+              onSetClipEdgeMicroFades={app.setClipEdgeMicroFades}
+              onClose={() => setSettingsOpen(false)}
+              onRestoreFocus={() => settingsButtonRef.current?.focus()}
+            />
+          )}
           <MixJamGeneratorDialog
-        open={generator.open}
-        readiness={generator.readiness}
-        initialParameters={generator.initialParameters}
-        generating={generator.generating}
-        saving={generator.saving}
-        progress={generator.progress}
-        result={generator.result}
-        error={generator.error}
-        onClose={generator.close}
-        onGenerate={generator.onGenerate}
-        onOpenResult={generator.onOpenResult}
+            open={generator.open}
+            readiness={generator.readiness}
+            initialParameters={generator.initialParameters}
+            generating={generator.generating}
+            saving={generator.saving}
+            progress={generator.progress}
+            result={generator.result}
+            error={generator.error}
+            restoreFocus={() => generatorRestoreFocusTargetRef.current?.focus()}
+            onClose={generator.close}
+            onGenerate={generator.onGenerate}
+            onOpenResult={generator.onOpenResult}
           />
         </div>
       </TooltipProvider>

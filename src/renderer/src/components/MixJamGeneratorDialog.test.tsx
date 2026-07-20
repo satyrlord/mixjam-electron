@@ -36,6 +36,33 @@ function renderDialog(overrides: Partial<Parameters<typeof MixJamGeneratorDialog
 }
 
 describe('MixJamGeneratorDialog', () => {
+  it('blocks Player shortcuts while open and restores focus when closed', () => {
+    const opener = document.createElement('button')
+    opener.textContent = 'Open generator'
+    document.body.append(opener)
+    opener.focus()
+
+    const { rerender } = renderDialog()
+    expect(document.body.dataset.mixjamModalBlocking).toBe('1')
+
+    rerender(
+      <MixJamGeneratorDialog
+        open={false}
+        readiness={READY}
+        generating={false}
+        result={null}
+        error={null}
+        onClose={vi.fn()}
+        onGenerate={vi.fn()}
+        onOpenResult={vi.fn()}
+      />
+    )
+
+    expect(document.body.dataset.mixjamModalBlocking).toBeUndefined()
+    expect(opener).toHaveFocus()
+    opener.remove()
+  })
+
   it('renders all profile options from constants', () => {
     renderDialog()
     const select = screen.getByLabelText('Profile')

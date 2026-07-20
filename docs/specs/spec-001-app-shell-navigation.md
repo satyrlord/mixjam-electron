@@ -8,6 +8,7 @@
 
 Establish the two-view application shell: a **Home Screen** (displayed when no
 project is loaded) and a **MixJam Player** (displayed when a project is active).
+The Player owns an exclusive **Settings** modal opened from its footer.
 Implement view switching, the header bar, and the footer.
 
 ## User Stories
@@ -17,6 +18,9 @@ Implement view switching, the header bar, and the footer.
 - **US-003:** As a user, I see the app brand and a timer in the header while working in the Player so I know what app I'm using and how long I've been working.
 - **US-004:** As a user, I can return to the Home Screen from the Player via a home link so I can start over.
 - **US-005:** As a user, I see a version string in the footer so I know which build I'm running.
+- **US-006:** As a user, I can open Settings from the Player footer so app
+  preferences, folder selection, and project audio settings have one
+  predictable modal without leaving the Tracker.
 
 ## Scope
 
@@ -62,7 +66,26 @@ Implement view switching, the header bar, and the footer.
   the upper work band, a full-width Middle Strip, and a full-width Bottom
   Workspace. The Bottom Workspace contains Master, Mixer, and Samples tabs;
   its detailed behavior belongs to spec-006.
-- **Footer** is unchanged from Home Screen.
+- **Footer** adds Settings on the left and may show selected sample detail in
+  the center. The version remains on the right.
+
+### Settings Modal
+
+- The Player footer Settings link replaces the former User Folder and UI Size
+  footer controls. Home does not expose Settings because no project is active.
+- Settings is an exclusive modal over the mounted Player/Tracker, not a view or
+  content replacement. Existing playback may continue, while background
+  pointer input and ordinary app hotkeys are blocked.
+- The modal traps focus, focuses its Close control on open, closes with Close or
+  Escape, ignores outside pointer interaction, and restores focus to the footer
+  Settings trigger.
+- Settings contains three sections:
+  - **User Folder** uses the same picker, validation, and persistence flow as
+    the Home Screen Library Setup card (spec-003).
+  - **Zoom Level** exposes the app-wide UI Size preference as the segmented
+    `75%`, `100%`, and `125%` control owned by spec-002.
+  - **Clip Edge Fades** exposes the active project's sound setting owned by
+    specs 005, 006, and 011.
 
 ### View Switching
 
@@ -160,12 +183,11 @@ as signed, notarized, or warning-free.
 ### Footer (both views)
 
 - Sizing and positioning follow the [Style Guide](../style-guide.md#layout-architecture).
-- **Home Screen state:** left "Select User Folder" link (opens the User Folder
-  picker and persists a valid selection to app state through the same flow
-  as the Home Screen folder card), right version string.
-- **Player state:** left "Select User Folder" link, right version string,
-  and a center detail slot that may be populated by the Sample Browser
-  selection model (spec-004).
+- Home shows only the version string on the right; its left and center slots are
+  empty. User Folder selection remains in Home Library Setup.
+- Player shows Settings on the left, the version on the right, and a center
+  detail slot that may be populated by the Sample Browser selection model
+  (spec-004).
 - The center footer slot is empty when no sample is selected.
 - Version string uses the semantic version from `package.json`, matching the
   packaged application metadata. Clicking the version link opens the default
@@ -191,10 +213,15 @@ Implementation validation should be tracked in implementation PR/test evidence.
   expands for active work and collapses when ready. Any number of available
   recent projects keeps the same layout because only the first four are rendered.
 - [x] **AC-003:** At base UI Size 30, footer and header are 48px high. The footer
-  shows "Select User Folder" left and the clickable version string right on both
-  views. Spec-002 owns higher UI Size scaling and the footer size selector.
+  shows the clickable version string right on Home and Player. Player also shows
+  Settings on the left. Spec-002 owns higher UI Size scaling.
 - [x] **AC-003a:** Clicking the version string in the footer opens the default system browser to `https://github.com/satyrlord/mixjam-electron`.
 - [x] **AC-003b:** In Player state, selecting a sample may populate the center footer slot with sample details while the left settings link and right version string remain visible.
+- [x] **AC-003c:** Player Settings is an exclusive modal over the mounted
+  Tracker. It traps focus, blocks background app input, closes with Close or
+  Escape, ignores outside pointer input, and restores focus to its footer link.
+- [x] **AC-003d:** The Settings modal contains Select User Folder, Zoom Level,
+  and project-owned Clip Edge Fades. Home has no Settings link.
 - [x] **AC-004:** Clicking "Start New MixJam" sets a 1920x1080 content minimum,
   maximizes the Electron window once on its current display, and switches to
   Player. Restoring or resizing above the minimum afterward is not overridden by
@@ -295,6 +322,5 @@ and screenshots.
 - Project file format and persistence behavior belong to spec-011.
 - No folder selection for sample libraries. Folder management is spec-003.
 - No sample data, no sample-bubble rendering, no lane interaction. Tracker timeline is spec-006.
-- No settings persistence — the settings link in the footer is a placeholder.
 - No keyboard shortcuts.
 - No functional application surface below the 1920x1080 CSS viewport minimum.

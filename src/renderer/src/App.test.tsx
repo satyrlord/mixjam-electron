@@ -65,12 +65,16 @@ describe('App', () => {
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#2F81F7')
   })
 
-  it('defaults UI Size to 40 and persists only the supported 30, 40, and 50 levels', () => {
+  it('defaults UI Size to 40 and persists only the supported 30, 40, and 50 levels', async () => {
     localStorage.removeItem('mixjam:ui-size')
 
     try {
       const initial = render(<App />)
-      const sizeGroup = screen.getByRole('group', { name: 'UI Size' })
+      const start = await screen.findByRole('button', { name: 'Start New MixJam' })
+      await waitFor(() => expect(start).toBeEnabled())
+      fireEvent.click(start)
+      fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+      const sizeGroup = screen.getByRole('group', { name: 'Zoom Level' })
 
       expect(within(sizeGroup).getAllByRole('button').map((button) => button.textContent)).toEqual(['75%', '100%', '125%'])
       expect(initial.container.querySelector('.app')).toHaveAttribute('data-ui-size', '40')
@@ -91,6 +95,42 @@ describe('App', () => {
     } finally {
       localStorage.removeItem('mixjam:ui-size')
     }
+  })
+
+  it('exposes Settings only in the Player footer', async () => {
+    render(<App />)
+
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
+    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
+    await waitFor(() => expect(start).toBeEnabled())
+    fireEvent.click(start)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument())
+  })
+
+  it('opens an exclusive Player Settings modal without moving Clip Edge Fades back into Master', async () => {
+    render(<App />)
+    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
+    await waitFor(() => expect(start).toBeEnabled())
+    fireEvent.click(start)
+
+    await waitFor(() => expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0))
+    const trigger = screen.getByRole('button', { name: 'Settings' })
+    fireEvent.click(trigger)
+
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toHaveAttribute('aria-modal', 'true')
+    expect(document.querySelector('.player-view')).toBeInTheDocument()
+    expect(document.body).toHaveAttribute('data-mixjam-modal-blocking', '1')
+    const enabled = screen.getByRole('checkbox', {
+      name: 'Enable automatic clip-edge fades'
+    })
+    expect(enabled).toBeEnabled()
+    fireEvent.click(enabled)
+    expect(screen.getByText('Off')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Settings' }))
+    expect(screen.getByText('Master Controls')).toBeInTheDocument()
+    expect(screen.queryByText('Clip Edge Fades')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 
   it('creates a clip placement when a sample bubble is dragged onto a Tracker lane', async () => {

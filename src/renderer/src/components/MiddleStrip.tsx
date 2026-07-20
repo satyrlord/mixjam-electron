@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import { useRef, type RefObject } from 'react'
 import type { LibrarySyncState } from '../../../shared/backend-api'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import SongProgressBar from './SongProgressBar'
@@ -148,8 +148,8 @@ interface MiddleStripProps {
   onOpenProject: () => void
   onSaveProject: () => void
   onSaveProjectAs: () => void
-  onRegenerateExact?: () => void
-  onRegenerateCurrent?: () => void
+  onRegenerateExact?: (opener?: HTMLElement) => void
+  onRegenerateCurrent?: (opener?: HTMLElement) => void
   transportState: RuntimeTransportState
   canUndo: boolean
   canRedo: boolean
@@ -206,6 +206,7 @@ export default function MiddleStrip({
   bpm,
   onSetBpm
 }: MiddleStripProps) {
+  const projectMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const isPlaying = transportState === 'playing'
   const isPreparing = transportState === 'preparing'
   const librarySyncPresentation = getLibrarySyncPresentation(librarySyncState)
@@ -221,6 +222,7 @@ export default function MiddleStrip({
           <DropdownMenuRoot>
             <DropdownMenuTrigger asChild>
               <button
+                ref={projectMenuTriggerRef}
                 type="button"
                 className="strip-project-trigger"
                 aria-label={`${projectName}${projectDirty ? ', unsaved changes' : ''}, project menu`}
@@ -251,10 +253,22 @@ export default function MiddleStrip({
               {canRegenerate && (
                 <>
                   <DropdownMenuSeparator className="strip-menu-separator" />
-                  <DropdownMenuItem disabled={projectBusy} onSelect={onRegenerateExact} aria-label="Regenerate exact">
+                  <DropdownMenuItem
+                    disabled={projectBusy}
+                    onSelect={() => {
+                      onRegenerateExact(projectMenuTriggerRef.current ?? undefined)
+                    }}
+                    aria-label="Regenerate exact"
+                  >
                     <span>Regenerate exact</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled={projectBusy} onSelect={onRegenerateCurrent} aria-label="Regenerate with current library">
+                  <DropdownMenuItem
+                    disabled={projectBusy}
+                    onSelect={() => {
+                      onRegenerateCurrent(projectMenuTriggerRef.current ?? undefined)
+                    }}
+                    aria-label="Regenerate with current library"
+                  >
                     <span>Regenerate with current library</span>
                   </DropdownMenuItem>
                 </>

@@ -91,3 +91,30 @@ test('generator saves, opens, plays, and keeps Sample Browser and Tracker colors
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
   await page.screenshot({ path: 'tmp/verify-generator-structure/generator-player-beton.png', fullPage: true })
 })
+
+test('Player regeneration blocks shortcuts and returns focus to the project menu trigger', async ({ seededPage: page }) => {
+  await page.getByRole('button', { name: 'Generate MixJam' }).click()
+  const homeDialog = page.getByRole('dialog', { name: 'Generate MixJam' })
+  await homeDialog.getByLabel('Seed').fill('e2e-modal-proof')
+  await homeDialog.getByRole('button', { name: 'Generate and Save' }).click()
+  await expect(homeDialog.getByRole('heading', { name: 'MixJam created' })).toBeVisible()
+  await homeDialog.getByRole('button', { name: 'Open in Player' }).click()
+
+  const projectMenuTrigger = page.locator('.strip-project-trigger')
+  await expect(projectMenuTrigger).toBeVisible()
+  await projectMenuTrigger.click()
+  await page.getByRole('menuitem', { name: 'Regenerate with current library' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Generate MixJam' })
+  await expect(dialog).toBeVisible()
+  await expect(page.locator('body')).toHaveAttribute('data-mixjam-modal-blocking', '1')
+
+  await page.keyboard.press('?')
+  await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toHaveCount(0)
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(projectMenuTrigger).toBeFocused()
+})

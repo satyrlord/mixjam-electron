@@ -19,10 +19,12 @@ individually. The chain is calibrated so that a nominal mix at -18 dBFS RMS
 lands at -14 LUFS integrated with true peak at or below -1 dBTP using the
 default preset, matching Spotify's published loudness guidance.
 
-The approved UI mockup (`master-bus-strip.html`, kept outside the repo as a
-design input) is the source of truth for layout, module set, control ranges,
-defaults, faceplate finishes, and interactions. This spec restates every
-durable fact from it because the mockup file itself is not repo-facing.
+This checked-in spec is the authoritative contract for the layout, module set,
+control ranges, defaults, faceplate finishes, and interactions. The optional
+machine-local mockup at
+`tmp/master bus design ideas/master-bus-strip.html` is non-normative design
+provenance. It can help explain the visual direction, but implementation and
+review must follow this spec when the two differ or the mockup is unavailable.
 
 DSP algorithms, threading, oversampling, latency, and crossfade design live
 in [audio-engine.md](../audio-engine.md#master-bus-strip). Visual rules live
@@ -51,8 +53,9 @@ functional contract and acceptance criteria.
   renders as one horizontal rack inside a horizontal scrollport, following
   the Mixer's scroll conventions (Shift+wheel, trackpad horizontal, Left and
   Right keys, focus reveal, themed always-visible horizontal scrollbar).
-- The existing Master Volume fader and Clip Edge Fades controls (spec-006)
-  remain in the Master tab, in a compact fixed cluster before slot 01. The
+- The existing Master Volume fader remains in the Master tab, in a compact fixed
+  cluster before slot 01. Clip Edge Fades move to the Player Settings modal
+  (spec-001). The
   previous Output Level meter block is superseded by the strip's pinned
   output meter, which shows the same Momentary, Short-term, Integrated, and
   true-peak data.
@@ -265,14 +268,14 @@ These suites gate the DSP phase and the integration phase:
 
 | Decision | Reason |
 | --- | --- |
-| Architecture lives in audio-engine.md, not a new native-architecture.md | The repository doc map has no native-architecture.md; audio-engine.md owns audio engine decisions. The feature request's file name was adapted to the repo's documentation separation. |
-| One AudioWorkletProcessor hosts the whole chain | AGENTS.md keeps audio in the renderer's Web Audio graph; audio-engine.md names AudioWorklet as the first custom-DSP choice. A single processor gives sample-accurate module ordering, one crossfade engine, and one latency total. |
+| Architecture lives in audio-engine.md | The doc map has no native-architecture.md; audio-engine.md owns audio engine decisions. |
+| One AudioWorkletProcessor hosts the whole chain | AudioWorklet is the repo's first custom-DSP choice. One processor gives exact ordering, one crossfade engine, one latency total. |
 | Chain sits after masterGain | Master Volume becomes the trim into the chain, and the Limiter ceiling protects the real output. |
 | Output meter reuses the loudness measurement engine | One BS.1770 implementation serves the Middle Strip readouts and the strip meter; no duplicate gated-LUFS DSP. |
 | No auto-makeup on the Bus Compressor | Makeup would silently shift the calibrated loudness budget; the Maximizer and Limiter Gain own loudness recovery. |
 | Format version 5, no migration | Follows the repository's explicit no-backward-compatibility rule and the version-4 precedent. |
 | Fixed hardware finishes, not theme tokens | The rack reads as physical gear; finishes are module identity, like the sample palette's fixed slots. Sanctioned in the Style Guide. |
-| Rack hit targets use UI Size boxes over compact painted controls | Mockup control sizes (20 px power LED) are below the repo minimum; the Mixer FX LED precedent paints a compact dot inside a UI Size hit box. |
+| Rack hit targets are UI Size boxes around compact painted controls | Mockup control sizes are below the repo minimum; the Mixer FX LED precedent applies. |
 | Latency is reported, not compensated in the playhead | Total chain latency is a few milliseconds at 48 kHz, below the 10 ms threshold the project already accepts for timing. |
 
 ## Acceptance Criteria

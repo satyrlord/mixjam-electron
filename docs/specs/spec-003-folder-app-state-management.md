@@ -73,6 +73,9 @@ Each card shows:
 - Role: read-write. The app writes projects, exports, and app config into
   this folder.
 - The picker is hinted to start in the OS Documents folder (`startIn`).
+- The Player Settings modal also exposes a **Select User Folder** action. It
+  uses this same picker, validation, and persisted `FolderRef` flow. The Home
+  Library Setup card remains the primary onboarding surface.
 
 **Sample Folder card:**
 
@@ -159,6 +162,9 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-009:** Each "Pick Folder" button opens the directory picker with the mode matching its folder role.
 - [x] **AC-010:** Selected folder names are displayed on their respective cards after successful validation.
 - [x] **AC-010b:** The User Folder picker is hinted to start in the OS Documents folder.
+- [x] **AC-010c:** Select User Folder in the Player Settings modal uses the same
+  validated picker and persisted app state as the Home User Folder card;
+  neither surface stores an absolute path.
 - [x] **AC-010a:** If a selected folder is not accessible (permissions error), the card shows: "Cannot access this folder. Check permissions and try again."
 - [x] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
 - [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.

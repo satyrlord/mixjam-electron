@@ -6,10 +6,8 @@ import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 describe('MasterControlsMain', () => {
   const defaultProps = {
     masterGain: 0.8,
-    clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 },
     masterMeter: emptyMasterMeterSnapshot(-3),
     onSetMasterGain: vi.fn(),
-    onSetClipEdgeMicroFades: vi.fn(),
     onResetMasterMeter: vi.fn()
   } as const
 
@@ -84,77 +82,8 @@ describe('MasterControlsMain', () => {
     expect(onSetMasterGain).toHaveBeenCalledWith(0.81)
   })
 
-  it('edits project-owned automatic clip-edge fade settings', () => {
-    const onSetClipEdgeMicroFades = vi.fn()
-    render(
-      <MasterControlsMain
-        {...defaultProps}
-        onSetClipEdgeMicroFades={onSetClipEdgeMicroFades}
-      />
-    )
-
-    fireEvent.click(screen.getByRole('checkbox', {
-      name: 'Enable automatic clip-edge fades'
-    }))
-    expect(onSetClipEdgeMicroFades).toHaveBeenCalledWith({
-      enabled: false,
-      fadeInMs: 2,
-      fadeOutMs: 4
-    })
-
-    fireEvent.change(
-      screen.getByRole('spinbutton', { name: 'Automatic clip fade-in milliseconds' }),
-      { target: { value: '0.5' } }
-    )
-    expect(onSetClipEdgeMicroFades).toHaveBeenLastCalledWith({
-      enabled: true,
-      fadeInMs: 0.5,
-      fadeOutMs: 4
-    })
-  })
-
-  it('clamps fade durations, ignores empty numeric input, and disables fields when off', () => {
-    const onSetClipEdgeMicroFades = vi.fn()
-    const { rerender } = render(
-      <MasterControlsMain
-        {...defaultProps}
-        onSetClipEdgeMicroFades={onSetClipEdgeMicroFades}
-      />
-    )
-    const fadeIn = screen.getByRole('spinbutton', {
-      name: 'Automatic clip fade-in milliseconds'
-    })
-    const fadeOut = screen.getByRole('spinbutton', {
-      name: 'Automatic clip fade-out milliseconds'
-    })
-
-    fireEvent.change(fadeIn, { target: { value: '-1' } })
-    expect(onSetClipEdgeMicroFades).toHaveBeenLastCalledWith({
-      enabled: true,
-      fadeInMs: 0,
-      fadeOutMs: 4
-    })
-
-    fireEvent.change(fadeOut, { target: { value: '21' } })
-    expect(onSetClipEdgeMicroFades).toHaveBeenLastCalledWith({
-      enabled: true,
-      fadeInMs: 2,
-      fadeOutMs: 20
-    })
-
-    const callCount = onSetClipEdgeMicroFades.mock.calls.length
-    fireEvent.change(fadeOut, { target: { value: '' } })
-    expect(onSetClipEdgeMicroFades).toHaveBeenCalledTimes(callCount)
-
-    rerender(
-      <MasterControlsMain
-        {...defaultProps}
-        clipEdgeMicroFades={{ enabled: false, fadeInMs: 2, fadeOutMs: 4 }}
-        onSetClipEdgeMicroFades={onSetClipEdgeMicroFades}
-      />
-    )
-    expect(screen.getByText('Off')).toBeInTheDocument()
-    expect(fadeIn).toBeDisabled()
-    expect(fadeOut).toBeDisabled()
+  it('does not render Clip Edge Fades in Master', () => {
+    render(<MasterControlsMain {...defaultProps} />)
+    expect(screen.queryByText('Clip Edge Fades')).not.toBeInTheDocument()
   })
 })

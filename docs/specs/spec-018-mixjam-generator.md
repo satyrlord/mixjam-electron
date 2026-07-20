@@ -77,7 +77,7 @@ Its states are:
 
 ### Wizard flow
 
-The wizard is a modal with two steps:
+The wizard is a blocking modal with two steps:
 
 1. **Parameters** — choose analysis cluster when needed, profile, BPM,
    intensity, duration, and seed.
@@ -85,6 +85,9 @@ The wizard is a modal with two steps:
    then show the saved artifact and an **Open in Player** action.
 
 There is no preview step. Planning happens once when the user clicks Generate.
+While the wizard is open, focus stays inside it and ordinary Player and
+transport hotkeys do not run. Closing it returns focus to the Home generator
+action or the Player project-menu trigger that opened regeneration.
 The worker returns a neutral, corpus-bound generator DTO from the shared
 BackendAPI contract. The renderer adapts that DTO to `ProjectData` and commits
 the exact plan through the production serializer and User Folder save path.
@@ -624,8 +627,9 @@ command.
   has a visible readiness reason linked through `aria-describedby`; progress is
   shown only in Library Setup. Readiness loads independently of opening the
   dialog and refreshes as library preparation changes state.
-- [x] **AC-002:** The wizard has exactly two steps: Parameters and Generate; no
-  preview step is present.
+- [x] **AC-002:** The wizard is a blocking modal with exactly two steps:
+  Parameters and Generate. It traps focus, suppresses ordinary Player and
+  transport hotkeys, restores focus to its opener, and has no preview step.
 - [x] **AC-003:** The Parameters step exposes every validated bundled template
   in deterministic registry order, selected-cluster BPM, medium intensity,
   editable 30–600 second duration, and a validated safe-token seed. A mixed

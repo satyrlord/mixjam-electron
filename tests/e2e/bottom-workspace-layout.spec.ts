@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures'
+import { setZoomLevelAndClose } from './settings-helpers'
 
 const UI_SIZE_BUTTON_LABELS: Record<number, string> = { 30: '75%', 40: '100%', 50: '125%' }
 const BOTTOM_WORKSPACE_MINIMUM_HEIGHTS = {
@@ -65,7 +66,7 @@ test('each Bottom Workspace tab keeps its content inside the active minimum heig
         ? [...panel.querySelectorAll('.cat-manage-btn, .subcats-row button')].filter(isVisible)
         : [...panel.querySelectorAll(
             'button, input, select, [role="slider"], [role="meter"], ' +
-            '.master-micro-fade-note, .vertical-control-endpoint, .mixer-channel-db'
+            '.vertical-control-endpoint, .mixer-channel-db'
           )].filter(isVisible)
       const verticalEscapes = protectedElements.flatMap((element) => {
         const box = element.getBoundingClientRect()
@@ -181,7 +182,7 @@ test('each Bottom Workspace tab keeps its content inside the active minimum heig
   }
 
   for (const size of [30, 40, 50] as const) {
-    await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
+    await setZoomLevelAndClose(page, UI_SIZE_BUTTON_LABELS[size])
     if (size !== 30) {
       await expect.poll(async () => page.locator('.bottom-workspace').evaluate((element) =>
         element.getBoundingClientRect().height

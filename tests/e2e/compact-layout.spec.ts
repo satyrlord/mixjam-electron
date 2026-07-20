@@ -1,4 +1,10 @@
 import { test, expect } from './fixtures'
+import {
+  closeSettings,
+  openSettings,
+  selectZoomLevel,
+  setZoomLevelAndClose
+} from './settings-helpers'
 
 const STRESS_THEMES = ['emerald', 'beton', 'mono', 'arcade']
 const ALL_THEMES = [
@@ -21,8 +27,7 @@ const ALL_THEMES = [
 ]
 const LEGACY_BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout'
 const BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout-v2'
-// Footer zoom buttons show percentage labels; the underlying UI Size values
-// remain 30/40/50.
+// Settings shows percentage labels; the underlying UI Size values remain 30/40/50.
 const UI_SIZE_BUTTON_LABELS: Record<number, string> = { 30: '75%', 40: '100%', 50: '125%' }
 const UI_SIZE_SUPPORTING_FONT: Record<number, string> = { 30: '10px', 40: '13px', 50: '17px' }
 async function settleLayout(page: import('@playwright/test').Page) {
@@ -309,7 +314,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
           : []
       })
       const exactSquares = [...document.querySelectorAll(
-        '.footer-ui-size button, .home-theme-swatch, .strip-command-button, .strip-more-trigger, ' +
+        '.home-theme-swatch, .strip-command-button, .strip-more-trigger, ' +
         '.tracker-lane-controls button, .master-loudness-reset, .mixer-restore, ' +
         '.mixer-channel-remove, .mixer-channel-pan, .manage-action'
       )].filter(isVisible)
@@ -388,7 +393,13 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   }
 
   for (const size of [30, 40, 50]) {
-    await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
+    await page.getByRole('button', { name: 'Start New MixJam' }).click()
+    await openSettings(page)
+    await selectZoomLevel(page, UI_SIZE_BUTTON_LABELS[size]!)
+    await settleLayout(page)
+    await auditVisibleControls(size, `Settings ${size}`)
+    await closeSettings(page)
+    await page.getByRole('button', { name: /Return to Main Menu/ }).click()
     await settleLayout(page)
     await auditVisibleControls(size, `Home ${size}`)
   }
@@ -400,7 +411,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
   await page.getByRole('tab', { name: 'Master', exact: true }).click()
   for (const size of [30, 40, 50]) {
-    await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
+    await setZoomLevelAndClose(page, UI_SIZE_BUTTON_LABELS[size]!)
     await settleLayout(page)
     await auditVisibleControls(size, `Player Master ${size}`)
 
@@ -494,7 +505,7 @@ test('Mixer and Tracker stay reachable with 1, 8, and 64 lanes at every UI Size'
 
   const auditCount = async (expectedLaneCount: number) => {
     for (const size of [30, 40, 50]) {
-      await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
+      await setZoomLevelAndClose(page, UI_SIZE_BUTTON_LABELS[size])
       await page.getByRole('tab', { name: 'Master', exact: true }).click()
       await settleLayout(page)
 

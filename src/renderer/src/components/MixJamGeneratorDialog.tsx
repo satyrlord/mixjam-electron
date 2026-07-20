@@ -12,7 +12,7 @@ import {
   MIXJAM_GENERATOR_PROFILE_IDS,
   MIXJAM_GENERATOR_PROFILE_LABELS
 } from '../../../shared/generator-templates'
-import { DialogClose, DialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
+import { BlockingDialogContent, DialogClose, DialogRoot, DialogTitle } from './ui/Dialog'
 
 export interface GeneratorResult {
   path: string
@@ -28,6 +28,7 @@ interface MixJamGeneratorDialogProps {
   progress?: MixJamGeneratorProgress | null
   result: GeneratorResult | null
   error: string | null
+  restoreFocus?: () => void
   onClose: () => void
   onGenerate: (parameters: MixJamGeneratorParameters) => void
   onOpenResult: (path: string) => void
@@ -57,6 +58,7 @@ export default function MixJamGeneratorDialog({
   progress = null,
   result,
   error,
+  restoreFocus,
   onClose,
   onGenerate,
   onOpenResult
@@ -95,9 +97,10 @@ export default function MixJamGeneratorDialog({
 
   return (
     <DialogRoot open={open} onOpenChange={(next) => { if (!next && !saving) onClose() }}>
-      <DialogContent
+      {open && <BlockingDialogContent
         className="generator-dialog"
         aria-describedby="generator-description"
+        restoreFocus={restoreFocus}
         onOverlayClick={() => { if (!saving) onClose() }}
       >
         <header className="generator-dialog-head">
@@ -219,7 +222,7 @@ export default function MixJamGeneratorDialog({
             </div>
           </form>
         )}
-      </DialogContent>
+      </BlockingDialogContent>}
     </DialogRoot>
   )
 }

@@ -3,7 +3,7 @@ import {
   createDefaultDelayReturnModule,
   type DelayReturnModule
 } from '../engine/return-effects'
-import { DialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
+import { BlockingDialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -50,17 +50,6 @@ export default function DelayModal({
   const [draft, setDraft] = useState(value)
   const [powerOn, setPowerOn] = useState(powered)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const restoreFocusRef = useRef(onRestoreFocus)
-  restoreFocusRef.current = onRestoreFocus
-
-  useEffect(() => {
-    document.body.dataset.mixjamModalBlocking = '1'
-    return () => {
-      delete document.body.dataset.mixjamModalBlocking
-      restoreFocusRef.current?.()
-    }
-  }, [])
-
   useEffect(() => {
     onPreview?.(draft, powerOn)
   }, [draft, onPreview, powerOn])
@@ -159,9 +148,10 @@ export default function DelayModal({
 
   return (
     <DialogRoot open modal>
-      <DialogContent
+      <BlockingDialogContent
         ref={dialogRef}
         className="fx-modal"
+        restoreFocus={onRestoreFocus}
         aria-label="Delay parameters"
         onKeyDown={handleModalKeyDown}
         onEscapeKeyDown={(event) => event.preventDefault()}
@@ -170,9 +160,6 @@ export default function DelayModal({
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           dialogRef.current?.focus()
-        }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault()
         }}
         tabIndex={-1}
       >
@@ -275,7 +262,7 @@ export default function DelayModal({
           <button type="button" onClick={onCancel}>Cancel</button>
           <button type="button" onClick={() => onSave(draft, powerOn)}>OK</button>
         </div>
-      </DialogContent>
+      </BlockingDialogContent>
     </DialogRoot>
   )
 }

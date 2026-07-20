@@ -24,9 +24,22 @@ vi.mock('./components/Header', () => ({ default: (props: { onHome: () => void; o
 vi.mock('./components/HomeScreen', () => ({ default: (props: {
   onRetryLibrarySync: () => void; onCancelLibrarySync: () => void; onOpenGenerator: () => void
 }) => <div>Home screen mock<button onClick={props.onRetryLibrarySync}>Retry mock</button><button onClick={props.onCancelLibrarySync}>Cancel mock</button><button onClick={props.onOpenGenerator}>Generator mock</button></div> }))
-vi.mock('./components/PlayerView', () => ({ default: () => <div>Player view mock</div> }))
+vi.mock('./components/PlayerView', () => ({ default: (props: {
+  project: {
+    onRegenerateExact: (opener?: HTMLElement) => void
+    onRegenerateCurrent: (opener?: HTMLElement) => void
+  }
+}) => (
+  <div>
+    Player view mock
+    <button onClick={(event) => props.project.onRegenerateExact(event.currentTarget)}>Exact regeneration mock</button>
+    <button onClick={(event) => props.project.onRegenerateCurrent(event.currentTarget)}>Current regeneration mock</button>
+  </div>
+) }))
 vi.mock('./components/Footer', () => ({ default: () => <div>Footer mock</div> }))
-vi.mock('./components/MixJamGeneratorDialog', () => ({ default: () => <div>Generator dialog mock</div> }))
+vi.mock('./components/MixJamGeneratorDialog', () => ({ default: (props: { restoreFocus: () => void }) => (
+  <div>Generator dialog mock<button onClick={props.restoreFocus}>Restore generator focus mock</button></div>
+) }))
 
 import App from './App'
 
@@ -59,13 +72,17 @@ describe('App wiring coverage', () => {
     fireEvent.click(screen.getByLabelText('Dismiss project message'))
     fireEvent.click(screen.getByText('Retry mock'))
     fireEvent.click(screen.getByText('Cancel mock'))
-    fireEvent.click(screen.getByText('Generator mock'))
+    const generatorOpener = screen.getByText('Generator mock')
+    generatorOpener.focus()
+    fireEvent.click(generatorOpener)
+    fireEvent.click(screen.getByText('Restore generator focus mock'))
     fireEvent.click(screen.getByText('Theme mock'))
     fireEvent.click(screen.getByText('Home mock'))
     expect(mocks.app.clearProjectNotice).toHaveBeenCalled()
     expect(mocks.app.retryLibrarySync).toHaveBeenCalled()
     expect(mocks.app.cancelLibrarySync).toHaveBeenCalled()
     expect(mocks.generator.openNew).toHaveBeenCalled()
+    expect(generatorOpener).toHaveFocus()
     expect(screen.getByText('enterprise')).toBeInTheDocument()
     expect(mocks.app.goToHome).toHaveBeenCalled()
   })
@@ -80,6 +97,18 @@ describe('App wiring coverage', () => {
     expect(screen.getByText('Player view mock')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveClass('project-notice-error')
     expect(screen.getByText('Load failed')).toBeInTheDocument()
+
+    const exactOpener = screen.getByText('Exact regeneration mock')
+    fireEvent.click(exactOpener)
+    fireEvent.click(screen.getByText('Restore generator focus mock'))
+    expect(mocks.generator.openRegenerateExact).toHaveBeenCalledOnce()
+    expect(exactOpener).toHaveFocus()
+
+    const currentOpener = screen.getByText('Current regeneration mock')
+    fireEvent.click(currentOpener)
+    fireEvent.click(screen.getByText('Restore generator focus mock'))
+    expect(mocks.generator.openRegenerateCurrent).toHaveBeenCalledOnce()
+    expect(currentOpener).toHaveFocus()
   })
 
   it('renders without a project notice', () => {

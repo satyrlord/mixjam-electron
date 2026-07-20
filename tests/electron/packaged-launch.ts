@@ -8,7 +8,12 @@ const MAIN_ENTRY = resolve(REPOSITORY_ROOT, 'out', 'main', 'index.js')
 const MOCK_BACKEND_PATH = resolve(REPOSITORY_ROOT, 'tests', 'e2e', 'mock-backend.js')
 
 export const PACKAGED_EXECUTABLE_ENV = 'MIXJAM_PACKAGED_EXECUTABLE'
-const NO_SANDBOX_ENV = 'MIXJAM_ELECTRON_NO_SANDBOX'
+export const NO_SANDBOX_ENV = 'MIXJAM_ELECTRON_NO_SANDBOX'
+
+export interface ElectronSandboxPolicy {
+  chromiumSandbox: boolean
+  launchArguments: string[]
+}
 
 export interface ElectronLaunch {
   app: ElectronApplication
@@ -28,10 +33,29 @@ function packagedExecutablePath(): string | undefined {
   return resolve(executablePath)
 }
 
-function launchArguments(executablePath: string | undefined, userDataDir: string): string[] {
-  return executablePath
+export function electronSandboxPolicy(
+  executablePath: string | undefined,
+  userDataDir: string,
+  env: NodeJS.ProcessEnv = process.env
+): ElectronSandboxPolicy {
+  const bypassRequested = env[NO_SANDBOX_ENV] === 'true'
+  if (executablePath && bypassRequested) {
+    throw new Error(
+      `${NO_SANDBOX_ENV}=true cannot be used with a native packaged application. ` +
+      'Packaged release proof must run with the Chromium sandbox enabled.'
+    )
+  }
+
+  const base = executablePath
     ? [`--user-data-dir=${userDataDir}`]
     : [MAIN_ENTRY, `--user-data-dir=${userDataDir}`]
+  const bypassSandbox = !executablePath && bypassRequested
+  if (bypassSandbox) base.push('--no-sandbox')
+
+  return {
+    chromiumSandbox: !bypassSandbox,
+    launchArguments: base
+  }
 }
 
 /**
@@ -50,10 +74,11 @@ export async function launchMixJamElectron(): Promise<ElectronLaunch> {
   const userDataDir = mkdtempSync(join(tmpdir(), 'mixjam-electron-'))
   let app: ElectronApplication | undefined
   try {
+    const sandboxPolicy = electronSandboxPolicy(executablePath, userDataDir)
     app = await electron.launch({
       executablePath,
-      args: launchArguments(executablePath, userDataDir),
-      chromiumSandbox: process.env[NO_SANDBOX_ENV] !== 'true',
+      args: sandboxPolicy.launchArguments,
+      chromiumSandbox: sandboxPolicy.chromiumSandbox,
       env
     })
     const page = await app.firstWindow()

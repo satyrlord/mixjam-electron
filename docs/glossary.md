@@ -337,8 +337,9 @@ shared dimensions.
 
 ## UI Size
 
-The app-wide visual scale selected in the footer: 30, 40, or 50, with 40 as
-the default. The footer buttons show the zoom labels 75%, 100%, and 125%.
+The app-wide visual scale selected under Zoom Level in the Player Settings
+modal: 30, 40, or 50, with 40 as the default. The buttons show 75%, 100%, and
+125%.
 It scales controls, interaction targets, lane and sample-bubble
 height, Mixer components,
 spacing, and supporting type. It does not change musical time, pixels per tick,

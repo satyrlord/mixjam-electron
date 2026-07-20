@@ -64,11 +64,6 @@
   font-size: var(--ui-font-md);
 }
 
-.footer-ui-size {
-  gap: var(--ui-space-xs);
-}
-
-.footer-ui-size button,
 .home-theme-swatch,
 .strip-command-button,
 .strip-more-trigger,
@@ -101,6 +96,7 @@
 }
 
 .home-content,
+.settings-content,
 .home-hero,
 .home-setup,
 .home-folder-grid,
@@ -116,12 +112,71 @@
 
 .home-hero,
 .home-setup,
+.settings-modal,
+.settings-card,
 .home-workflow-card,
 .folder-card,
 .generator-dialog,
 .shortcuts-panel,
 .fx-modal {
   padding: var(--ui-space-lg);
+}
+
+.settings-card {
+  gap: calc(2 * var(--ui-space-lg));
+}
+
+.settings-heading h2 {
+  font-size: calc(30px * var(--ui-scale));
+}
+
+.settings-close {
+  width: var(--ui-size);
+  min-width: var(--ui-size);
+  height: var(--ui-size);
+  min-height: var(--ui-size);
+}
+
+.settings-card h2 {
+  font-size: var(--ui-font-lg);
+}
+
+.settings-heading > div > p:last-child,
+.settings-card p,
+.settings-current-value,
+.settings-clip-edge-fields > label {
+  font-size: var(--ui-font-md);
+}
+
+.settings-zoom-level,
+.settings-clip-edge-controls,
+.settings-clip-edge-fields {
+  gap: var(--ui-space-sm);
+}
+
+.settings-zoom-level button {
+  min-width: calc(64px * var(--ui-scale));
+}
+
+.settings-clip-edge-toggle {
+  min-height: var(--ui-size);
+  gap: var(--ui-space-sm);
+  font-size: var(--ui-font-sm);
+}
+
+.settings-clip-edge-toggle input {
+  width: calc(var(--ui-size) * 0.5333);
+  height: calc(var(--ui-size) * 0.5333);
+}
+
+.settings-number-input {
+  min-height: var(--ui-size);
+  padding-inline: var(--ui-space-md);
+  font-size: var(--ui-font-sm);
+}
+
+.settings-number-input input {
+  width: calc(72px * var(--ui-scale));
 }
 
 .home-logo {
@@ -141,7 +196,6 @@
 .tiles-empty,
 .manage-name,
 .manage-empty,
-.master-micro-fade-note,
 .context-menu-note,
 .generator-dialog p,
 .shortcuts-action {
@@ -307,8 +361,7 @@
 
 .master-controls-main,
 .master-controls-system,
-.master-controls-module,
-.master-micro-fade-module {
+.master-controls-module {
   padding: var(--ui-space-md);
   gap: var(--ui-space-md);
 }
@@ -321,11 +374,6 @@
 .master-control-module {
   width: calc(340px * var(--ui-scale));
   min-width: calc(320px * var(--ui-scale));
-}
-
-.master-micro-fade-module {
-  width: calc(230px * var(--ui-scale));
-  min-width: calc(210px * var(--ui-scale));
 }
 
 .master-controls-head {
@@ -342,21 +390,18 @@
   font-size: var(--ui-font-sm);
 }
 
-.master-micro-fade-input input,
 .analysis-editor input,
 .analysis-editor select {
   min-height: var(--ui-size);
   font-size: var(--ui-font-sm);
 }
 
-.master-micro-fade-toggle,
 .manage-tag-color-toggle {
   min-height: var(--ui-size);
   gap: var(--ui-space-sm);
   font-size: var(--ui-font-sm);
 }
 
-.master-micro-fade-toggle input,
 .manage-tag-color-toggle input[type='checkbox'] {
   width: calc(var(--ui-size) * 0.5333);
   height: calc(var(--ui-size) * 0.5333);

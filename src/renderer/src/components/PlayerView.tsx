@@ -351,10 +351,8 @@ export default function PlayerView({
         master={(
           <MasterControlsMain
             masterGain={transport.masterGain}
-            clipEdgeMicroFades={transport.clipEdgeMicroFades}
             masterMeter={transport.masterMeter}
             onSetMasterGain={transport.onSetMasterGain}
-            onSetClipEdgeMicroFades={transport.onSetClipEdgeMicroFades}
             onResetMasterMeter={transport.onResetMasterMeter}
           />
         )}

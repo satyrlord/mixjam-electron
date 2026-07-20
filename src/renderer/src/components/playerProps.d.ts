@@ -12,7 +12,6 @@ import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryD
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
-import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 
 export interface PlayerBrowserProps {
   samples: SampleListItem[]
@@ -87,13 +86,11 @@ export interface PlayerTransportProps {
   songEndTick: number
   bpm: number
   masterGain: number
-  clipEdgeMicroFades: ClipEdgeMicroFadeSettings
   masterMeter: MasterMeterSnapshot
   canUndo: boolean
   canRedo: boolean
   onSetBpm: (bpm: number) => void
   onSetMasterGain: (value: number) => void
-  onSetClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   onResetMasterMeter: () => void
   onUndo: () => void
   onRedo: () => void
@@ -129,6 +126,6 @@ export interface PlayerProjectProps {
   onOpenPath: (projectRelpath: string) => Promise<boolean>
   onSave: () => Promise<boolean>
   onSaveAs: () => Promise<boolean>
-  onRegenerateExact: () => void
-  onRegenerateCurrent: () => void
+  onRegenerateExact: (opener?: HTMLElement) => void
+  onRegenerateCurrent: (opener?: HTMLElement) => void
 }

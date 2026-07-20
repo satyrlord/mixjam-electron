@@ -69,7 +69,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(screen.getByRole('button', { name: 'Load MixJam' })).toBeInTheDocument()
   })
 
-  it('AC-003: header and footer are 48px and show settings/version links on both Home and Player', async () => {
+  it('AC-003: header and footer are 48px and Player shows Settings plus version', async () => {
     const css = readUtf8(INDEX_CSS_PATH)
 
     expect(css).toMatch(/\.header\s*\{[\s\S]*height:\s*48px;/m)
@@ -80,7 +80,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'v0.test.0' })).toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
 
     await clickStartNewMixJam()
 
@@ -88,8 +88,25 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
-    expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'v0.test.0' })).toBeInTheDocument()
+  })
+
+  it('AC-003c/d: Player Settings is an exclusive modal with the three requested sections', async () => {
+    render(<App />)
+    await clickStartNewMixJam()
+    await waitFor(() => expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toHaveAttribute('aria-modal', 'true')
+    expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Zoom Level' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Clip Edge Fades' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', {
+      name: 'Enable automatic clip-edge fades'
+    })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Close Settings' }))
+    expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
   })
 
   it('AC-003a: clicking version opens the GitHub URL via backendAPI', async () => {

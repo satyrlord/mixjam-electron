@@ -1,8 +1,8 @@
 # Spec 002 — Theming & Skin System
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIAL — theme system implemented; global UI
-Size overhaul not implemented
+**Spec Implementation Status:** PARTIAL — theme system and global UI Size
+implemented; remaining unchecked criteria require their listed proof
 **Depends on:** spec-001 (App Shell & Navigation)
 
 ## Objective
@@ -87,8 +87,9 @@ height, including the minimum-width 12px browser bubble.
 ### Global UI Size
 
 UI Size is an app-wide presentation preference with three discrete values: 30,
-40, and 50. The footer shows the segmented `[75%][100%][125%]` control on Home and
-Player, immediately before the version. New app state defaults to 40.
+40, and 50. The Player Settings modal presents it under the user-facing label
+**Zoom Level** as the segmented `[75%][100%][125%]` control. New app state
+defaults to 40.
 
 The value selects one coherent token set for controls, interaction targets,
 Mixer components, lane heads, tabs, menus, toolbars, footer and header chrome,
@@ -449,9 +450,9 @@ preset layer has one clear cascade boundary.
   use the required `#RRGGBB` form.
 - [x] **AC-019:** Soft theme `--text-muted` maintains at least 4.5:1 contrast
   against its normal text-bearing base, panel, lane, chrome, and pill surfaces.
-- [x] **AC-020:** The footer exposes one global UI Size selector with values 30,
-  40, and 50 on both Home and Player. The app defaults to 40 and persists the
-  choice outside project files.
+- [x] **AC-020:** The Player Settings modal exposes one global UI Size selector,
+  labeled Zoom Level, with values 30, 40, and 50 rendered as 75%, 100%, and
+  125%. The app defaults to 40 and persists the choice outside project files.
 - [x] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
   controls, targets, panels, Mixer components, spacing, and supporting type.
   Every numeric linear slider retains a 30/40/50px cross-axis target while its

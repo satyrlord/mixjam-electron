@@ -4,7 +4,11 @@ import { resolve } from 'node:path'
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { promisify } from 'node:util'
 import { buildAppIconPath } from '../../src/shared/window-config'
-import { launchMixJamElectron } from './packaged-launch'
+import {
+  NO_SANDBOX_ENV,
+  PACKAGED_EXECUTABLE_ENV,
+  launchMixJamElectron
+} from './packaged-launch'
 
 const PACKAGE_VERSION = (JSON.parse(
   readFileSync(resolve(__dirname, '..', '..', 'package.json'), 'utf8')
@@ -43,7 +47,11 @@ test.describe('Electron smoke', () => {
 
       const sandboxBypassed = await electronApp.evaluate(({ app }) =>
         app.commandLine.hasSwitch('no-sandbox'))
-      expect(sandboxBypassed).toBe(process.env['MIXJAM_ELECTRON_NO_SANDBOX'] === 'true')
+      const packagedArtifactRequested = PACKAGED_EXECUTABLE_ENV in process.env
+      expect(sandboxBypassed).toBe(
+        !packagedArtifactRequested && process.env[NO_SANDBOX_ENV] === 'true'
+      )
+      if (packagedArtifactRequested) expect(sandboxBypassed).toBe(false)
 
       await expect(window.locator('header')).toBeVisible({ timeout: 5_000 })
       await expect(window.locator('.home-wordmark')).toBeVisible()

@@ -9,28 +9,29 @@ describe('Footer', () => {
         view="home"
         version="1.2.3"
         sampleDetail={null}
-        onSelectFolder={vi.fn()}
+        onOpenSettings={vi.fn()}
         onOpenRepo={vi.fn()}
       />
     )
     expect(screen.getByRole('button', { name: '1.2.3' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '100%' })).toHaveAttribute('aria-pressed', 'true')
-    expect(() => fireEvent.click(screen.getByRole('button', { name: '75%' }))).not.toThrow()
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Select User Folder' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Zoom Level' })).not.toBeInTheDocument()
   })
 
-  it('fires onSelectFolder when the settings link is clicked', () => {
-    const onSelectFolder = vi.fn()
+  it('fires onOpenSettings when the settings link is clicked', () => {
+    const onOpenSettings = vi.fn()
     render(
       <Footer
-        view="home"
+        view="player"
         version="1.2.3"
         sampleDetail={null}
-        onSelectFolder={onSelectFolder}
+        onOpenSettings={onOpenSettings}
         onOpenRepo={vi.fn()}
       />
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Select User Folder' }))
-    expect(onSelectFolder).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
   })
 
   it('fires onOpenRepo when the version is clicked', () => {
@@ -40,32 +41,12 @@ describe('Footer', () => {
         view="home"
         version="1.2.3"
         sampleDetail={null}
-        onSelectFolder={vi.fn()}
+        onOpenSettings={vi.fn()}
         onOpenRepo={onOpenRepo}
       />
     )
     fireEvent.click(screen.getByRole('button', { name: '1.2.3' }))
     expect(onOpenRepo).toHaveBeenCalledTimes(1)
-  })
-
-  it('offers every UI size and reports the selected size', () => {
-    const onUiSizeChange = vi.fn()
-    render(
-      <Footer
-        view="home"
-        version="1.2.3"
-        sampleDetail={null}
-        onSelectFolder={vi.fn()}
-        onOpenRepo={vi.fn()}
-        uiSize={40}
-        onUiSizeChange={onUiSizeChange}
-      />
-    )
-
-    expect(screen.getByRole('button', { name: '100%' })).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(screen.getByRole('button', { name: '75%' }))
-    fireEvent.click(screen.getByRole('button', { name: '125%' }))
-    expect(onUiSizeChange.mock.calls).toEqual([[30], [50]])
   })
 
   it('renders selected sample details in the Player', () => {
@@ -80,7 +61,7 @@ describe('Footer', () => {
           bpm: null,
           duration: null
         }}
-        onSelectFolder={vi.fn()}
+        onOpenSettings={vi.fn()}
         onOpenRepo={vi.fn()}
       />
     )
@@ -103,7 +84,7 @@ describe('Footer', () => {
           bpm: null,
           duration: 0.8
         }}
-        onSelectFolder={vi.fn()}
+        onOpenSettings={vi.fn()}
         onOpenRepo={vi.fn()}
       />
     )
@@ -113,8 +94,22 @@ describe('Footer', () => {
     expect(screen.getByText('Percussion')).toBeInTheDocument()
 
     // Left settings link still visible
-    expect(screen.getByRole('button', { name: 'Select User Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
     // Right version string still visible
     expect(screen.getByRole('button', { name: '1.2.3' })).toBeInTheDocument()
+  })
+
+  it('does not expose Settings outside the Player', () => {
+    render(
+      <Footer
+        view="home"
+        version="1.2.3"
+        sampleDetail={null}
+        onOpenSettings={vi.fn()}
+        onOpenRepo={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
   })
 })

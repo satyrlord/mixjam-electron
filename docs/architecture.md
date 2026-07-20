@@ -126,8 +126,11 @@ Rules of the process model:
   module validates and persists panel layouts, the active Bottom Workspace tab,
   UI Size, expansion state, and MixJam Browser collapse. One shortcut module
   owns global matching, modal suppression, dispatch, and displayed command
-  text. The Media Session API owns OS media actions; the shell does not register
-  invasive system-wide shortcuts.
+  text. The project Dialog/blocking-modal abstraction owns the shared global
+  hotkey-block lifecycle and return-focus restoration. Feature dialogs own
+  feature-specific dismissal rules and initial-focus selection when their
+  owning specifications require them. The Media Session API owns OS media
+  actions; the shell does not register invasive system-wide shortcuts.
 - **Player regions own their live behavior.** The Tracker interaction module
   owns selection, drag, scrolling, lane menus, and sample location. The Bottom
   Workspace module owns live panel refs, tab changes, expansion, and layout

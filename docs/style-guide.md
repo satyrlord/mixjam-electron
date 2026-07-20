@@ -77,7 +77,8 @@ spec-002 defines the *token mechanics*.
 
 ### Shell Structure
 
-The app has two views sharing a common header/footer shell:
+The app has Home and Player views sharing a common header/footer shell. Player
+may open Settings as an exclusive modal over its mounted Tracker:
 
 ```text
 App (full viewport, no root overflow scrollbar)
@@ -97,7 +98,7 @@ Home (1920x1080 renderer content minimum, resizable, maximizable)
   │   │   ├── Create or Open: primary Start + secondary Load
   │   │   └── Generate a MixJam: readiness copy + secondary action
   │   └── Recent Projects rail (full-width, below hero, up to 4 entries)
-  └── Footer: "Select User Folder" (left), version (right)
+  └── Footer: version (right)
 ```
 
 - The Home Screen has no timer and no home link.
@@ -146,17 +147,26 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
   (right).
 - Home link appears only in Player.
 
+### Settings Modal
+
+- Player Settings uses a centered blocking modal with three bordered cards:
+  User Folder, Zoom Level, and Clip Edge Fades.
+- Cards use theme tokens, the 8px spacing grid, and the selected UI Size targets.
+  They do not introduce a new palette or control grammar.
+- The Tracker stays mounted behind a non-blurring backdrop. Background pointer
+  input and ordinary app hotkeys are blocked; existing playback may continue.
+- Focus starts on Close, remains trapped, and returns to the Player footer
+  Settings link after Close or Escape. Outside pointer input does not dismiss it.
+
 ### Footer (both views)
 
 - Its base height is 48px and scales with UI Size enough to preserve each
   selected interaction target.
-- **Home state:** "Select User Folder" link (left), UI Size control before the
-  version string (right).
-- **Player state:** "Select User Folder" link (left), version and UI Size
-  control (right), center slot may show selected sample details.
-- The UI Size control is a segmented `[75%][100%][125%]` selector (values 30,
-  40, and 50). It is always visible, defaults to 40 (100%), and is an app
-  preference rather than project state.
+- Home shows only the version on the right. Player shows Settings on the left,
+  retains the center sample-detail slot, and shows version on the right.
+- Zoom Level is a segmented `[75%][100%][125%]` selector (UI Size values 30,
+  40, and 50) in the Player Settings modal. It defaults to 40 (100%) and is app
+  state rather than project state.
 - Version string uses the semantic version from `package.json` and links to the
   GitHub repository.
 
@@ -802,7 +812,11 @@ Bottom Workspace expansion shows the rack full-height.
 ### Blocking Modals
 
 - A blocking modal disables the Tracker, transport controls, and ordinary app
-  hotkeys. It traps focus and restores focus to its opener.
+  hotkeys. It traps focus.
+- The project Dialog/blocking-modal abstraction owns the shared global
+  hotkey-block lifecycle and return-focus restoration. Each feature dialog owns
+  its feature-specific dismissal rules and initial-focus selection, as defined
+  by its owning specification.
 - Enter confirms and Esc cancels unless the owning specification says the
   focused control consumes that key.
 - OS media keys handled through the Media Session API remain available.

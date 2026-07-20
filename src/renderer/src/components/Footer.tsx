@@ -1,34 +1,41 @@
+import type { Ref } from 'react'
 import type { FooterSampleDetail } from '../lib/arrangement'
 import WaveformPreview from './WaveformPreview'
 import { Tooltip } from './ui/Tooltip'
-import { UI_SIZE_LABELS, UI_SIZE_OPTIONS, type UiSize } from '../ui-size'
 
 interface FooterProps {
   view: 'home' | 'player'
   version: string
   sampleDetail: FooterSampleDetail | null
-  onSelectFolder: () => void
+  onOpenSettings: () => void
+  settingsButtonRef?: Ref<HTMLButtonElement>
   onOpenRepo: () => void
   getSampleBuffer?: (samplePath: string) => Promise<AudioBuffer | null>
-  uiSize?: UiSize
-  onUiSizeChange?: (size: UiSize) => void
 }
 
 export default function Footer({
   view,
   version,
   sampleDetail,
-  onSelectFolder,
+  onOpenSettings,
+  settingsButtonRef,
   onOpenRepo,
-  getSampleBuffer,
-  uiSize = 40,
-  onUiSizeChange = () => undefined
+  getSampleBuffer
 }: FooterProps) {
   return (
     <footer className="footer">
-      <Tooltip content="Choose where MixJam saves your projects and app settings">
-        <button type="button" className="footer-link" onClick={onSelectFolder}>Select User Folder</button>
-      </Tooltip>
+      {view === 'player' ? (
+        <Tooltip content="Open application and project settings">
+          <button
+            ref={settingsButtonRef}
+            type="button"
+            className="footer-link"
+            onClick={onOpenSettings}
+          >
+            Settings
+          </button>
+        </Tooltip>
+      ) : <span aria-hidden="true" />}
       <div className="footer-detail" aria-live="polite">
         {view === 'player' && sampleDetail ? (
           <>
@@ -42,18 +49,6 @@ export default function Footer({
         ) : null}
       </div>
       <div className="footer-preferences">
-        <div className="footer-ui-size" role="group" aria-label="UI Size">
-          {UI_SIZE_OPTIONS.map((size) => (
-            <button
-              type="button"
-              key={size}
-              aria-pressed={uiSize === size}
-              onClick={() => onUiSizeChange(size)}
-            >
-              {UI_SIZE_LABELS[size]}
-            </button>
-          ))}
-        </div>
         <button type="button" className="footer-link" onClick={onOpenRepo}>
           {version}
         </button>

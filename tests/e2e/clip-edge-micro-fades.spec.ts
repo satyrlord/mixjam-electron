@@ -237,6 +237,7 @@ test('project clip-edge settings schedule sample-rounded Chromium gain automatio
 
   await page.goto(new URL('/', page.url()).href)
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
 
   const enabled = page.getByRole('checkbox', {
     name: 'Enable automatic clip-edge fades'
@@ -257,6 +258,7 @@ test('project clip-edge settings schedule sample-rounded Chromium gain automatio
   await enabled.check()
   await fadeIn.fill('0.5')
   await fadeOut.fill('3.5')
+  await page.getByRole('button', { name: 'Close Settings' }).click()
 
   const lane = page.locator('.tracker-lane-canvas').first()
   await lane.evaluate((element) => {

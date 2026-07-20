@@ -73,8 +73,8 @@ browser adjacencies.
   └── .bottom-workspace — full-width tabbed work band
       ├── .bottom-workspace-tabs — Master | Mixer | Samples + Master status
       └── .bottom-workspace-panel — active peer panel
-          ├── Master    — Master Volume, Clip Edge Fades, 13-slot Master Bus
-          │               Strip with pinned input/output meters (spec-012)
+          ├── Master    — Master Volume and 13-slot Master Bus Strip with
+          │               pinned input/output meters (spec-012)
           ├── Mixer     — lane strips + Return + FX1..FX4 (specs 007 and 010)
           └── Samples   — category tree + virtualized sample list (spec-004)
 ```
@@ -180,11 +180,11 @@ browser adjacencies.
   value placement and unity indication. Output Level sits beside that fader in
   the same bordered module. Meter styling follows the
   [Style Guide](../style-guide.md#meter-bars).
-- The Master panel exposes project-owned automatic clip-edge micro-fade controls:
-  one enabled checkbox plus fractional fade-in and fade-out millisecond fields.
-  Both fields accept 0 through 20 ms and default to 2 ms and 4 ms. These
-  controls change project sound, mark the project dirty, and are not stored as
-  app-level UI preferences.
+- The Player Settings modal exposes the project-owned automatic clip-edge
+  micro-fade controls: one enabled checkbox plus fractional fade-in and fade-out
+  millisecond fields. Both fields accept 0 through 20 ms and default to 2 ms and
+  4 ms. The move out of Master does not change sound, dirty-state, or project
+  persistence behavior.
 - Output Level shows compact M, S, I, and TP values with explicit LUFS and dBTP
   units. When the standards-based processor is unavailable it identifies the
   fallback value as dBFS. A keyboard-reachable icon button starts a new
@@ -506,6 +506,8 @@ infrequent commands out of the permanent button row.
   - **Master Volume module** — global output level slider plus the related LUFS
     loudness meter, Momentary fill, M/S/I LUFS and true-peak dBTP readouts, and
     an explicitly labeled RMS dBFS fallback.
+- Clip Edge Fades are not rendered in Master; their project-owned editor is in
+  the Player Settings modal.
 - Changing the BPM slider updates the engine's transport BPM immediately.
 - Owns project-wide sound controls only. Mixer visibility is controlled by the
   Bottom Workspace tabs, not by resizing the Master panel.

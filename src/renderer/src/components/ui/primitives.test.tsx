@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { DialogContent, DialogRoot, DialogTitle } from './Dialog'
+import { BlockingDialogContent, DialogContent, DialogRoot, DialogTitle } from './Dialog'
 import { TabsList, TabsRoot, TabsTrigger } from './Tabs'
 
 describe('Dialog primitives', () => {
@@ -34,7 +34,46 @@ describe('Dialog primitives', () => {
     )
 
     expect(screen.getByRole('dialog')).toHaveClass('mixjam-dialog-content')
+    expect(document.body.dataset.mixjamModalBlocking).toBeUndefined()
     fireEvent.pointerDown(document.querySelector('.mixjam-dialog-overlay')!)
+  })
+
+  it('owns global shortcut blocking and restores focus for blocking dialogs', () => {
+    const opener = document.createElement('button')
+    document.body.append(opener)
+    opener.focus()
+    const { unmount } = render(
+      <DialogRoot open>
+        <BlockingDialogContent>
+          <DialogTitle>Blocking dialog</DialogTitle>
+        </BlockingDialogContent>
+      </DialogRoot>
+    )
+
+    expect(document.body.dataset.mixjamModalBlocking).toBe('1')
+    unmount()
+    expect(document.body.dataset.mixjamModalBlocking).toBeUndefined()
+    expect(opener).toHaveFocus()
+    opener.remove()
+  })
+
+  it('keeps the global shortcut block until every dialog closes', () => {
+    const first = render(
+      <DialogRoot open>
+        <BlockingDialogContent><DialogTitle>First dialog</DialogTitle></BlockingDialogContent>
+      </DialogRoot>
+    )
+    const second = render(
+      <DialogRoot open>
+        <BlockingDialogContent><DialogTitle>Second dialog</DialogTitle></BlockingDialogContent>
+      </DialogRoot>
+    )
+
+    expect(document.body.dataset.mixjamModalBlocking).toBe('1')
+    first.unmount()
+    expect(document.body.dataset.mixjamModalBlocking).toBe('1')
+    second.unmount()
+    expect(document.body.dataset.mixjamModalBlocking).toBeUndefined()
   })
 })
 

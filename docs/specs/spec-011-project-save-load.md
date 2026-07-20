@@ -135,7 +135,7 @@ is:
   therefore add no project-file size.
 - `song` contains every saved project-wide sound setting: project BPM from the
   Middle Strip, plus Master Volume (`masterGain`) and automatic clip-edge
-  micro-fade settings from the Master panel. Live meter
+  micro-fade settings edited in the Player Settings modal. Live meter
   readings and transport position are runtime telemetry, not saved Song settings.
 - `lanes` contains 1 through 64 entries. Each entry owns an immutable stable ID,
   arrangement data, gain, pan, mute, solo, and
@@ -450,7 +450,7 @@ generator, its tests, and this contract are the durable repository assets.
   eight-lane blank project used by the Home Screen.
 - [ ] **AC-027:** Saving and loading version 4 preserves the automatic clip-edge
   micro-fade enabled state and fractional 0-20 ms fade durations without
-  changing the existing Master contract.
+  changing the Settings modal editor contract.
 - [x] **AC-028:** New, load, save, transport replacement, and the generated test
   project use one complete nested Song-state contract and canonical default
   factory rather than independently listing Song fields.

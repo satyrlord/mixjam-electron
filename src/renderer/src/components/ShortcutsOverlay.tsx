@@ -1,5 +1,4 @@
-import { DialogClose, DialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
-import { useRef } from 'react'
+import { BlockingDialogContent, DialogClose, DialogRoot, DialogTitle } from './ui/Dialog'
 import { PLAYER_SHORTCUT_SECTIONS } from '../hooks/usePlayerShortcuts'
 
 interface ShortcutsOverlayProps {
@@ -10,21 +9,14 @@ interface ShortcutsOverlayProps {
  *  Strip More menu or the "?" key; closed by Esc, the close button, or a
  *  click on the backdrop. */
 export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
-  const returnFocusRef = useRef<HTMLElement>(
-    document.activeElement instanceof HTMLElement ? document.activeElement : document.body
-  )
   return (
     <DialogRoot open onOpenChange={onClose}>
-      <DialogContent
+      <BlockingDialogContent
         className="shortcuts-panel"
         aria-label="Keyboard shortcuts"
         aria-modal="true"
         aria-describedby={undefined}
         onOverlayClick={onClose}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault()
-          returnFocusRef.current.focus()
-        }}
       >
         <div className="shortcuts-head">
           <DialogTitle asChild><h2 className="shortcuts-title">Keyboard Shortcuts</h2></DialogTitle>
@@ -47,7 +39,7 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
             </section>
           ))}
         </div>
-      </DialogContent>
+      </BlockingDialogContent>
     </DialogRoot>
   )
 }

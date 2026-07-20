@@ -1,37 +1,20 @@
 import { VerticalFader } from './VerticalControls'
 import MasterLoudnessMeter from './MasterLoudnessMeter'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
-import {
-  MAX_CLIP_EDGE_FADE_MS,
-  MIN_CLIP_EDGE_FADE_MS,
-  type ClipEdgeMicroFadeSettings
-} from '../engine/clip-edge-fades'
 
 interface MasterControlsMainProps {
   masterGain: number
-  clipEdgeMicroFades: ClipEdgeMicroFadeSettings
   masterMeter: MasterMeterSnapshot
   onSetMasterGain: (value: number) => void
-  onSetClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   onResetMasterMeter: () => void
 }
 
 export default function MasterControlsMain({
   masterGain,
-  clipEdgeMicroFades,
   masterMeter,
   onSetMasterGain,
-  onSetClipEdgeMicroFades,
   onResetMasterMeter
 }: MasterControlsMainProps) {
-  const setFadeDuration = (edge: 'fadeInMs' | 'fadeOutMs', value: number) => {
-    if (!Number.isFinite(value)) return
-    onSetClipEdgeMicroFades({
-      ...clipEdgeMicroFades,
-      [edge]: Math.max(MIN_CLIP_EDGE_FADE_MS, Math.min(MAX_CLIP_EDGE_FADE_MS, value))
-    })
-  }
-
   return (
     <div className="master-controls-main">
       <h2 className="tracker-zone-title">Master Controls</h2>
@@ -62,58 +45,6 @@ export default function MasterControlsMain({
             />
             <MasterLoudnessMeter snapshot={masterMeter} onReset={onResetMasterMeter} />
           </div>
-        </section>
-        <section className="master-controls-module master-micro-fade-module">
-          <header className="master-controls-head">
-            <span>Clip Edge Fades</span>
-            <label className="master-micro-fade-toggle">
-              <input
-                type="checkbox"
-                aria-label="Enable automatic clip-edge fades"
-                checked={clipEdgeMicroFades.enabled}
-                onChange={(event) => onSetClipEdgeMicroFades({
-                  ...clipEdgeMicroFades,
-                  enabled: event.currentTarget.checked
-                })}
-              />
-              <span>{clipEdgeMicroFades.enabled ? 'On' : 'Off'}</span>
-            </label>
-          </header>
-          <div className="master-micro-fade-fields">
-            <label>
-              <span>Fade in</span>
-              <span className="master-micro-fade-input">
-                <input
-                  type="number"
-                  aria-label="Automatic clip fade-in milliseconds"
-                  min={MIN_CLIP_EDGE_FADE_MS}
-                  max={MAX_CLIP_EDGE_FADE_MS}
-                  step={0.1}
-                  value={clipEdgeMicroFades.fadeInMs}
-                  disabled={!clipEdgeMicroFades.enabled}
-                  onChange={(event) => setFadeDuration('fadeInMs', event.currentTarget.valueAsNumber)}
-                />
-                <span>ms</span>
-              </span>
-            </label>
-            <label>
-              <span>Fade out</span>
-              <span className="master-micro-fade-input">
-                <input
-                  type="number"
-                  aria-label="Automatic clip fade-out milliseconds"
-                  min={MIN_CLIP_EDGE_FADE_MS}
-                  max={MAX_CLIP_EDGE_FADE_MS}
-                  step={0.1}
-                  value={clipEdgeMicroFades.fadeOutMs}
-                  disabled={!clipEdgeMicroFades.enabled}
-                  onChange={(event) => setFadeDuration('fadeOutMs', event.currentTarget.valueAsNumber)}
-                />
-                <span>ms</span>
-              </span>
-            </label>
-          </div>
-          <p className="master-micro-fade-note">Applied only at boundaries next to silence.</p>
         </section>
       </div>
     </div>
