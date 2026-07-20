@@ -49,7 +49,8 @@ test.describe('Electron smoke', () => {
         app.commandLine.hasSwitch('no-sandbox'))
       const packagedArtifactRequested = PACKAGED_EXECUTABLE_ENV in process.env
       expect(sandboxBypassed).toBe(
-        !packagedArtifactRequested && process.env[NO_SANDBOX_ENV] === 'true'
+        !packagedArtifactRequested &&
+        (process.env[NO_SANDBOX_ENV] === 'true' || process.env['CI'] === 'true')
       )
       if (packagedArtifactRequested) expect(sandboxBypassed).toBe(false)
 

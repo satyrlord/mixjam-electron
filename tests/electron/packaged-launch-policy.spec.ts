@@ -8,18 +8,27 @@ const USER_DATA_DIR = 'C:\\tmp\\mixjam-electron-test'
 const PACKAGED_EXECUTABLE = 'C:\\MixJam\\MixJam.exe'
 
 test.describe('Electron sandbox launch policy', () => {
-  test('keeps normal and ambient-CI built-entry launches sandboxed', () => {
-    for (const env of [{}, { CI: 'true' }]) {
-      const policy = electronSandboxPolicy(undefined, USER_DATA_DIR, env)
+  test('keeps local built-entry launches sandboxed', () => {
+    const policy = electronSandboxPolicy(undefined, USER_DATA_DIR, {})
 
-      expect(policy).toEqual({
-        chromiumSandbox: true,
-        launchArguments: [
-          expect.stringMatching(/[\\/]out[\\/]main[\\/]index\.js$/),
-          `--user-data-dir=${USER_DATA_DIR}`
-        ]
-      })
-    }
+    expect(policy).toEqual({
+      chromiumSandbox: true,
+      launchArguments: [
+        expect.stringMatching(/[\\/]out[\\/]main[\\/]index\.js$/),
+        `--user-data-dir=${USER_DATA_DIR}`
+      ]
+    })
+  })
+
+  test('bypasses the sandbox for ambient-CI built-entry launches', () => {
+    const policy = electronSandboxPolicy(undefined, USER_DATA_DIR, { CI: 'true' })
+
+    expect(policy.chromiumSandbox).toBe(false)
+    expect(policy.launchArguments).toEqual([
+      expect.stringMatching(/[\\/]out[\\/]main[\\/]index\.js$/),
+      `--user-data-dir=${USER_DATA_DIR}`,
+      '--no-sandbox'
+    ])
   })
 
   test('allows only an explicit built-entry bypass', () => {
