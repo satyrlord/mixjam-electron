@@ -39,6 +39,7 @@ export function electronSandboxPolicy(
   env: NodeJS.ProcessEnv = process.env
 ): ElectronSandboxPolicy {
   const bypassRequested = env[NO_SANDBOX_ENV] === 'true'
+  const ambientCiBypass = !executablePath && env['CI'] === 'true'
   if (executablePath && bypassRequested) {
     throw new Error(
       `${NO_SANDBOX_ENV}=true cannot be used with a native packaged application. ` +
@@ -49,7 +50,7 @@ export function electronSandboxPolicy(
   const base = executablePath
     ? [`--user-data-dir=${userDataDir}`]
     : [MAIN_ENTRY, `--user-data-dir=${userDataDir}`]
-  const bypassSandbox = !executablePath && bypassRequested
+  const bypassSandbox = !executablePath && (bypassRequested || ambientCiBypass)
   if (bypassSandbox) base.push('--no-sandbox')
 
   return {
