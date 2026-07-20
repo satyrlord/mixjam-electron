@@ -49,41 +49,32 @@ function Harness({ onSet, onPreview, onGestureStart = vi.fn(), onGestureEnd = vi
 }
 
 describe('MixerColumn', () => {
-  it('edits real Return controls, previews and saves Delay, and clears it', () => {
+  it('edits real Return controls, previews and saves an Echoform Delay, and clears it', () => {
     const onSet = vi.fn()
     const onPreview = vi.fn()
     render(<Harness onSet={onSet} onPreview={onPreview} />)
 
     expect(screen.getByRole('button', { name: 'Lane 1' })).toBeInTheDocument()
     const firstFxReturn = screen.getByRole('region', { name: 'FX Return 1' })
-    expect(firstFxReturn).toContainElement(screen.getByRole('slider', { name: 'FX Return 1 level' }))
+    expect(firstFxReturn).toContainElement(screen.getByRole('slider', { name: 'FX Return 1 Mix' }))
     expect(firstFxReturn).toContainElement(screen.getByRole('button', { name: 'Limiter for FX Return 1' }))
     expect(screen.queryByRole('region', { name: 'FX Returns' })).toBeNull()
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'FX Return 1 level' }), { key: 'Home' })
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'FX Return 1 Mix' }), { key: 'Home' })
     fireEvent.click(screen.getByRole('button', { name: 'Limiter for FX Return 1' }))
 
     fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Empty' }), { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delay...' }))
-    const dialog = screen.getByRole('dialog', { name: 'Delay' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Echoform Delay...' }))
+    expect(screen.getByRole('dialog', { name: 'Echoform Delay' })).toBeInTheDocument()
     expect(document.body.dataset.mixjamModalBlocking).toBe('1')
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'Free time' }), { key: 'ArrowUp' })
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'Feedback' }), { key: 'ArrowDown' })
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'Tape Distortion' }), { key: 'End' })
-    fireEvent.click(screen.getByRole('button', { name: 'Sync' }))
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Sync division' }), { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: '1/4' }))
-    fireEvent.click(screen.getByRole('button', { name: 'On' }))
-    fireEvent.keyDown(dialog, { key: ' ' })
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Feedback' }), { key: 'ArrowUp' })
+    fireEvent.click(screen.getByRole('button', { name: 'Digital' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close Echoform Delay editor' }))
 
     expect(onPreview).toHaveBeenCalled()
     expect(onSet).toHaveBeenCalled()
     expect(document.body.dataset.mixjamModalBlocking).toBeUndefined()
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Delay bypassed' }), { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delay...' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Delay bypassed' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Echoform Delay' }), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Clear slot' }))
     expect(onSet).toHaveBeenLastCalledWith(expect.objectContaining({
       index: 0,
@@ -128,7 +119,7 @@ describe('MixerColumn', () => {
         onGestureEnd={onGestureEnd}
       />
     )
-    const level = screen.getByRole('slider', { name: 'FX Return 1 level' })
+    const level = screen.getByRole('slider', { name: 'FX Return 1 Mix' })
     fireEvent.pointerDown(level, { button: 0, pointerId: 8, clientY: 120 })
     fireEvent.pointerMove(level, { pointerId: 8, clientY: 100 })
     fireEvent.pointerMove(level, { pointerId: 8, clientY: 80 })
@@ -142,7 +133,7 @@ describe('MixerColumn', () => {
     render(<Harness onSet={vi.fn()} onPreview={vi.fn()} />)
 
     for (const slot of [1, 2, 3, 4]) {
-      const level = screen.getByRole('slider', { name: `FX Return ${slot} level` })
+      const level = screen.getByRole('slider', { name: `FX Return ${slot} Mix` })
       expect(level.querySelector('svg.rotary-dial')).toHaveAttribute('data-rotary-mode', 'unipolar')
     }
   })
@@ -163,8 +154,8 @@ describe('MixerColumn', () => {
     const slot = screen.getByRole('button', { name: 'FX 2 Empty' })
     slot.focus()
     fireEvent.keyDown(slot, { key: 'Enter' })
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delay...' }))
-    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Delay' }), { key: 'Escape' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Echoform Delay...' }))
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Echoform Delay' }), { key: 'Escape' })
     expect(slot).toHaveFocus()
     expect(onPreview).toHaveBeenCalled()
   })

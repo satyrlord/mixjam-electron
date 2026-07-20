@@ -488,7 +488,8 @@ describe('v5 -> v6 Echoform delay migration', () => {
     expect('mix' in module).toBe(false)
     expect(module.feedback).toBe(38)
     expect(module.divisionL).toBe('1/8')
-    expect(module.modDepth).toBe(18 > 20 ? 5.4 : 18) // clamped only if out of range
+    // Sketch modDepth 18 is already within the 0..20 range, so it is preserved.
+    expect(module.modDepth).toBe(18)
     expect(module.modDepth).toBeLessThanOrEqual(20)
   })
 

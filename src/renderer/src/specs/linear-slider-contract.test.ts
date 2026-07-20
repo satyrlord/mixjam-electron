@@ -18,7 +18,7 @@ describe('shared linear-slider source boundary', () => {
   it('keeps Radix assembly inside the project-owned LinearSlider', () => {
     const owners = [
       'BpmControl.tsx',
-      'DelayModal.tsx',
+      'EchoformDelayModal.tsx',
       'PlayerView.tsx',
       'VerticalControls.tsx'
     ]

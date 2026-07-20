@@ -592,7 +592,7 @@
 }
 .ef-range-field { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
 .ef-range-field span { color: var(--ef-text-muted); font-family: var(--ef-mono); font-size: 8px; text-transform: uppercase; }
-.ef-range-field input { height: 20px; accent-color: var(--ef-accent); cursor: pointer; }
+.ef-range-field .ef-width-slider { min-width: 0; }
 .ef-range-field output { color: var(--ef-text); font-family: var(--ef-mono); font-size: 10px; }
 
 /* Performance buttons */

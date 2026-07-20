@@ -18,6 +18,7 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger
 } from './ui/DropdownMenu'
+import { LinearSlider } from './ui/Slider'
 
 /**
  * The Echoform Delay editor. Renders the module's real state; every control
@@ -492,20 +493,20 @@ export default function EchoformDelayModal({
                   aria-pressed={draft.pingPong}
                   onClick={() => setField('pingPong', !draft.pingPong)}
                 >Ping-pong</button>
-                <label className="ef-range-field">
-                  <span>Stereo width</span>
-                  <input
-                    type="range"
+                <div className="ef-range-field">
+                  <span aria-hidden="true">Stereo width</span>
+                  <LinearSlider
+                    className="ef-width-slider"
+                    value={draft.width}
                     min={0}
                     max={200}
                     step={1}
-                    value={draft.width}
-                    aria-label="Stereo width"
-                    aria-valuetext={`${draft.width}%`}
-                    onChange={(e) => setField('width', Number(e.target.value))}
+                    ariaLabel="Stereo width"
+                    ariaValueText={`${draft.width}%`}
+                    onValueChange={(next) => setField('width', next)}
                   />
                   <output>{draft.width}%</output>
-                </label>
+                </div>
               </section>
 
               <section className="ef-card" aria-label="Feedback Tone">
