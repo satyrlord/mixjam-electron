@@ -46,6 +46,12 @@
   --ef-mono: var(--font-mono, "SFMono-Regular", Consolas, "Liberation Mono", monospace);
   --ef-font: var(--font-label, Inter, system-ui, sans-serif);
 
+  /* Centered overlay, above the dialog backdrop — not an inline panel. */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 201;
   width: min(760px, calc(100vw - 28px));
   height: min(680px, calc(100vh - 28px));
   max-width: none;

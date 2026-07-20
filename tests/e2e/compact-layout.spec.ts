@@ -407,8 +407,9 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
   await page.getByRole('button', { name: 'FX 1 Empty', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delay...' }).click()
-  await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
+  await page.getByRole('menuitem', { name: 'Echoform Delay...' }).click()
+  await page.getByRole('dialog', { name: 'Echoform Delay' })
+    .getByRole('button', { name: 'Close Echoform Delay editor' }).click()
   await page.getByRole('tab', { name: 'Master', exact: true }).click()
   for (const size of [30, 40, 50]) {
     await setZoomLevelAndClose(page, UI_SIZE_BUTTON_LABELS[size]!)

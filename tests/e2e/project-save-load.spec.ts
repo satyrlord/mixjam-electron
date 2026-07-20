@@ -16,7 +16,7 @@ test.describe('Project save and load', () => {
     await seededPage.getByRole('tab', { name: 'Mixer' }).click()
     await expect(seededPage.getByRole('slider', { name: 'Channel 1 Volume' })).toHaveAttribute('aria-valuenow', '64')
 
-    await expect(seededPage.getByRole('button', { name: 'FX 1 Delay', exact: true })).toContainText('Delay')
+    await expect(seededPage.getByRole('button', { name: 'FX 1 Echoform Delay', exact: true })).toContainText('Echoform Delay')
   })
 
   test('marks edits dirty and Save As writes the complete current project', async ({ seededPage }) => {
@@ -34,7 +34,7 @@ test.describe('Project save and load', () => {
       return JSON.parse(harness.__mixjamProjectFiles['saved-project.mixjam'])
     })
 
-    expect(saved.formatVersion).toBe(5)
+    expect(saved.formatVersion).toBe(6)
     expect(saved.song).toEqual({
       bpm: 126,
       masterGain: 1,
