@@ -1,10 +1,16 @@
 import { clamp } from '../lib/sample-utils'
+import { createOpusDelayProcessor } from './opus-delay-processor'
+import type { OpusDelayState } from './opus-delay-types'
+import { isOpusDelayDivision } from './opus-delay-core'
+
+export type { OpusDelayCharacter, OpusDelayDivision, OpusDelayMode, OpusDelayState } from './opus-delay-types'
+export { prepareOpusDelayWorklet } from './opus-delay-processor'
 
 /** The project and audio graph always expose exactly four parallel Return buses. */
 export const RETURN_BUS_COUNT = 4
 
-/** The only module records currently accepted by the fixed return buses. */
-export type ReturnModule = EmptyReturnModule | DelayReturnModule
+/** Return modules are black boxes hosted by the four fixed FX buses. */
+export type ReturnModule = EmptyReturnModule | DelayReturnModule | OpusDelayModule
 
 export interface EmptyReturnModule {
   readonly type: 'empty'
@@ -27,6 +33,12 @@ export interface DelayReturnModule {
   /** Normalized percentage, 0..100. */
   readonly tapeDistortion: number
   readonly pingPong: boolean
+}
+
+export interface OpusDelayModule extends OpusDelayState {
+  readonly type: 'opus-delay'
+  /** Optional runtime identity; project files identify modules by bus slot. */
+  readonly id?: string
 }
 
 export interface ReturnModuleProcessor {
@@ -173,9 +185,9 @@ export function createReturnModuleProcessor(
   module: ReturnModule,
   bpm: number
 ): ReturnModuleProcessor {
-  return module.type === 'delay'
-    ? createDelayProcessor(context, module, bpm)
-    : createEmptyProcessor(context)
+  if (module.type === 'delay') return createDelayProcessor(context, module, bpm)
+  if (module.type === 'opus-delay') return createOpusDelayProcessor(context, module, bpm)
+  return createEmptyProcessor(context)
 }
 
 export function createEmptyReturnModule(id = `fx-${crypto.randomUUID()}`): EmptyReturnModule {
@@ -195,18 +207,163 @@ export function createDefaultDelayReturnModule(id = `fx-${crypto.randomUUID()}`)
   }
 }
 
+export function createDefaultOpusDelayReturnModule(id = `fx-${crypto.randomUUID()}`): OpusDelayModule {
+  return {
+    id,
+    type: 'opus-delay',
+    mode: 'sync',
+    divisionL: '1/8',
+    divisionR: '1/4',
+    timeMsL: 350,
+    timeMsR: 500,
+    link: true,
+    feedback: 38,
+    pingPong: true,
+    width: 62,
+    lowCut: 120,
+    highCut: 7500,
+    modRate: 0.35,
+    modDepth: 18,
+    character: 'tape',
+    duckAmount: 0,
+    duckRelease: 220,
+    mix: 100,
+    outputDb: 0,
+    freeze: false,
+    bypass: false
+  }
+}
+
+export type OpusDelayPresetName =
+  | 'Init'
+  | 'Slapback'
+  | 'Dub Echo'
+  | 'Ambient Wash'
+  | 'Ping-Pong'
+  | 'Tape Wobble'
+
+export const OPUS_DELAY_PRESET_NAMES: readonly OpusDelayPresetName[] = [
+  'Init', 'Slapback', 'Dub Echo', 'Ambient Wash', 'Ping-Pong', 'Tape Wobble'
+]
+
+export function applyOpusDelayPreset(
+  module: OpusDelayModule,
+  preset: OpusDelayPresetName
+): OpusDelayModule {
+  const base = createDefaultOpusDelayReturnModule(module.id)
+  switch (preset) {
+    case 'Slapback':
+      return {
+        ...base,
+        mode: 'free',
+        timeMsL: 110,
+        timeMsR: 110,
+        link: true,
+        feedback: 8,
+        width: 20,
+        character: 'analog',
+        mix: 50,
+        pingPong: false
+      }
+    case 'Dub Echo':
+      return {
+        ...base,
+        divisionL: '1/4',
+        divisionR: '1/4',
+        feedback: 72,
+        width: 80,
+        character: 'tape',
+        mix: 100
+      }
+    case 'Ambient Wash':
+      return {
+        ...base,
+        divisionL: '1/2',
+        divisionR: '1/2',
+        feedback: 65,
+        width: 95,
+        character: 'digital',
+        modDepth: 42,
+        mix: 100
+      }
+    case 'Ping-Pong':
+      return {
+        ...base,
+        divisionL: '1/8',
+        divisionR: '1/8',
+        feedback: 55,
+        width: 100,
+        character: 'digital',
+        mix: 100,
+        pingPong: true
+      }
+    case 'Tape Wobble':
+      return {
+        ...base,
+        feedback: 46,
+        width: 70,
+        character: 'tape',
+        modRate: 1.2,
+        modDepth: 60,
+        mix: 90
+      }
+    case 'Init':
+      return base
+  }
+}
+
+const EMPTY_KEYS = ['id', 'type'] as const
+const DELAY_KEYS = ['id', 'type', 'mode', 'timeMs', 'noteDivision', 'feedback', 'tapeDistortion', 'pingPong'] as const
+const OPUS_DELAY_KEYS = [
+  'id', 'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR', 'link',
+  'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
+  'character', 'duckAmount', 'duckRelease', 'mix', 'outputDb', 'freeze', 'bypass'
+] as const
+
+function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return Object.keys(value).every((key) => keys.includes(key))
+}
+
+function numberInRange(value: unknown, minimum: number, maximum: number): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+}
+
 export function isReturnModule(value: unknown): value is ReturnModule {
   if (!value || typeof value !== 'object') return false
   const module = value as Record<string, unknown>
   if (module.id !== undefined && (typeof module.id !== 'string' || module.id.length === 0)) return false
-  if (module.type === 'empty') return Object.keys(module).every((key) => ['id', 'type'].includes(key))
-  return module.type === 'delay' &&
+  if (module.type === 'empty') return hasOnlyKeys(module, EMPTY_KEYS)
+  if (module.type === 'delay') {
+    return hasOnlyKeys(module, DELAY_KEYS) &&
+      (module.mode === 'free' || module.mode === 'sync') &&
+      numberInRange(module.timeMs, 0, 2000) &&
+      typeof module.noteDivision === 'string' && module.noteDivision in DIVISIONS &&
+      numberInRange(module.feedback, 0, 75) &&
+      numberInRange(module.tapeDistortion, 0, 100) &&
+      typeof module.pingPong === 'boolean'
+  }
+  if (module.type !== 'opus-delay') return false
+  return hasOnlyKeys(module, OPUS_DELAY_KEYS) &&
     (module.mode === 'free' || module.mode === 'sync') &&
-    typeof module.timeMs === 'number' && Number.isFinite(module.timeMs) && module.timeMs >= 0 && module.timeMs <= 2000 &&
-    typeof module.noteDivision === 'string' && module.noteDivision in DIVISIONS &&
-    typeof module.feedback === 'number' && Number.isFinite(module.feedback) && module.feedback >= 0 && module.feedback <= 75 &&
-    typeof module.tapeDistortion === 'number' && Number.isFinite(module.tapeDistortion) && module.tapeDistortion >= 0 && module.tapeDistortion <= 100 &&
-    typeof module.pingPong === 'boolean'
+    isOpusDelayDivision(module.divisionL) &&
+    isOpusDelayDivision(module.divisionR) &&
+    numberInRange(module.timeMsL, 0, 2000) &&
+    numberInRange(module.timeMsR, 0, 2000) &&
+    typeof module.link === 'boolean' &&
+    numberInRange(module.feedback, 0, 100) &&
+    typeof module.pingPong === 'boolean' &&
+    numberInRange(module.width, 0, 100) &&
+    numberInRange(module.lowCut, 20, 2000) &&
+    numberInRange(module.highCut, 200, 20000) &&
+    numberInRange(module.modRate, 0.02, 10) &&
+    numberInRange(module.modDepth, 0, 100) &&
+    (module.character === 'digital' || module.character === 'analog' || module.character === 'tape') &&
+    numberInRange(module.duckAmount, 0, 100) &&
+    numberInRange(module.duckRelease, 20, 1000) &&
+    numberInRange(module.mix, 0, 100) &&
+    numberInRange(module.outputDb, -24, 6) &&
+    typeof module.freeze === 'boolean' &&
+    typeof module.bypass === 'boolean'
 }
 
 export interface SafetyLimiter {

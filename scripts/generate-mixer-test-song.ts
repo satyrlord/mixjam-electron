@@ -24,6 +24,7 @@ import { TICKS_PER_BAR, tickDurationSeconds } from '../src/renderer/src/engine/t
 import {
   createDefaultFxBuses,
   createDefaultLanes,
+  createDefaultMasterBusState,
   createDefaultProjectSongState,
   type LaneState
 } from '../src/renderer/src/project/project-state'
@@ -614,7 +615,8 @@ export async function generateMixerTestSong(options: GeneratorOptions = {}): Pro
   const project: ProjectData = {
     song: createDefaultProjectSongState({ bpm: SONG_BPM, masterGain: 0.82 }),
     lanes: buildArrangement(samples, variation),
-    fxBuses: createDefaultFxBuses()
+    fxBuses: createDefaultFxBuses(),
+    masterBus: createDefaultMasterBusState()
   }
   const timestamp = new Date().toISOString()
   const contents = serializeProject(project, {

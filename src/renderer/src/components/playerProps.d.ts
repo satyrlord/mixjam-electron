@@ -12,6 +12,9 @@ import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryD
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
+import type { MasterBusMeterSnapshot } from '../engine/masterbus/dsp/core'
+import type { MasterBusParamId, ProcessorId } from '../engine/masterbus/params'
+import type { MasterBusPresetName, MasterBusState } from '../engine/masterbus/presets'
 
 export interface PlayerBrowserProps {
   samples: SampleListItem[]
@@ -90,8 +93,6 @@ export interface PlayerTransportProps {
   canUndo: boolean
   canRedo: boolean
   onSetBpm: (bpm: number) => void
-  onSetMasterGain: (value: number) => void
-  onResetMasterMeter: () => void
   onUndo: () => void
   onRedo: () => void
   onTransportPlay: () => void
@@ -100,6 +101,15 @@ export interface PlayerTransportProps {
   onTransportSkipBack: () => void
   onTransportJumpToEnd: () => void
   onTransportSeek: (tick: number) => void
+}
+
+export interface PlayerMasterBusProps {
+  state: MasterBusState
+  getMeterSnapshot: () => MasterBusMeterSnapshot | null
+  onSetParam: (id: MasterBusParamId, value: number) => void
+  onTogglePower: (id: ProcessorId) => void
+  onReorder: (order: ProcessorId[]) => void
+  onApplyPreset: (name: MasterBusPresetName) => void
 }
 
 export interface PlayerMixerProps {

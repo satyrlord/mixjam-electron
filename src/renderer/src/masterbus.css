@@ -1,0 +1,860 @@
+/* ── Master Bus Strip (spec-012) ──
+   Visual grammar follows tmp/master bus design ideas/master-bus-strip.html.
+   Hardware palette exception (style-guide.md "Master Bus Strip"): faceplate
+   finishes, family chip colors, and meter face colors are fixed constants
+   scoped to .mbs-* classes. Chrome around the rack (scrollbars, focus ring)
+   uses theme tokens, and all text uses the theme font roles. */
+
+.mbs-strip {
+  --mbs-amber: #f4c14f;
+  --mbs-green: #6fd98f;
+  --mbs-red: #ff5347;
+  --mbs-lcd-bg: #101512;
+  --mbs-lcd-ink: #bfe8c8;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+/* ── Header: preset chips ── */
+.mbs-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.mbs-header-label {
+  font: 700 10px var(--font-label);
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+.mbs-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mbs-chip {
+  padding: 0 13px;
+  border: var(--edge-pill);
+  border-radius: min(calc(var(--radius) * 1.4), 8px);
+  background: var(--pill-bg);
+  color: var(--text);
+  font-family: var(--font-label);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.mbs-chip:hover {
+  border-color: var(--accent);
+}
+
+.mbs-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mbs-chip-active {
+  color: #141414;
+  background: linear-gradient(#ffd98a, var(--mbs-amber));
+  border-color: #b98f2f;
+  font-weight: 700;
+}
+
+/* ── Scrollport (Mixer conventions: Shift+wheel, arrows, themed thin bar) ── */
+.mbs-scroll {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 8px 8px;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  outline: none;
+}
+
+.mbs-scroll:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* ── Rack shell ── */
+.mbs-rack {
+  width: max-content;
+  min-width: max-content;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(#23252c, #17181d 12%, #14151a 88%, #0c0d10);
+  border: 1px solid #040506;
+  box-shadow:
+    0 24px 60px rgb(0 0 0 / 55%),
+    0 1px 0 rgb(255 255 255 / 6%) inset;
+}
+
+.mbs-slots {
+  display: flex;
+  align-items: stretch;
+  gap: 9px;
+}
+
+.mbs-drop-ind {
+  flex: 0 0 4px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--mbs-amber);
+  box-shadow: 0 0 10px var(--mbs-amber);
+}
+
+/* ── Module faceplate ── */
+.mbs-module {
+  --mbs-face1: #33363d;
+  --mbs-face2: #2a2d33;
+  --mbs-ink: #e7e7e3;
+  --mbs-ink-dim: rgb(231 231 227 / 55%);
+  --mbs-cap1: #1c1d22;
+  --mbs-cap2: #101114;
+  --mbs-ptr: #eceae4;
+  --mbs-fam: #c9ccd4;
+  position: relative;
+  flex: 0 0 auto;
+  width: 152px;
+  height: 420px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  background: linear-gradient(160deg, var(--mbs-face1), var(--mbs-face2));
+  border: 1px solid rgb(0 0 0 / 65%);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 14%) inset,
+    0 -1px 0 rgb(0 0 0 / 35%) inset,
+    0 6px 14px rgb(0 0 0 / 40%);
+  padding: 14px 8px 12px;
+  color: var(--mbs-ink);
+}
+
+.mbs-module-wide {
+  width: 184px;
+}
+
+.mbs-module-meter {
+  width: 196px;
+  cursor: default;
+}
+
+/* Screw-head decorations in the module corners. */
+.mbs-module::before,
+.mbs-module::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 14px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle 4.5px at 11px 7px, #6a6d74 0 2px, #26272c 2.6px, transparent 5px),
+    radial-gradient(circle 4.5px at calc(100% - 11px) 7px, #6a6d74 0 2px, #26272c 2.6px, transparent 5px);
+}
+
+.mbs-module::before {
+  top: 1px;
+}
+
+.mbs-module::after {
+  bottom: 1px;
+}
+
+.mbs-module-dragging {
+  opacity: 0.35;
+}
+
+/* ── Finishes (style-guide.md fixed table) ── */
+.mbs-finish-cream {
+  --mbs-face1: #ded6c2;
+  --mbs-face2: #cdc4ac;
+  --mbs-ink: #2c2921;
+  --mbs-ink-dim: rgb(44 41 33 / 60%);
+  --mbs-cap1: #3b372d;
+  --mbs-cap2: #232019;
+  --mbs-ptr: #efe8d3;
+}
+
+.mbs-finish-graphite {
+  --mbs-face1: #33363d;
+  --mbs-face2: #2a2d33;
+  --mbs-ink: #e7e7e3;
+  --mbs-ink-dim: rgb(231 231 227 / 55%);
+  --mbs-cap1: #1c1d22;
+  --mbs-cap2: #101114;
+  --mbs-ptr: #eceae4;
+}
+
+.mbs-finish-oxblood {
+  --mbs-face1: #71413a;
+  --mbs-face2: #5c332d;
+  --mbs-ink: #f4e8de;
+  --mbs-ink-dim: rgb(244 232 222 / 60%);
+  --mbs-cap1: #2e1d1a;
+  --mbs-cap2: #1e1210;
+  --mbs-ptr: #f2dcc9;
+}
+
+.mbs-finish-steel {
+  --mbs-face1: #4e6b79;
+  --mbs-face2: #405865;
+  --mbs-ink: #eaf1f4;
+  --mbs-ink-dim: rgb(234 241 244 / 62%);
+  --mbs-cap1: #233541;
+  --mbs-cap2: #16242d;
+  --mbs-ptr: #d8edf6;
+}
+
+.mbs-finish-sand {
+  --mbs-face1: #c7ae86;
+  --mbs-face2: #b39a72;
+  --mbs-ink: #332a1b;
+  --mbs-ink-dim: rgb(51 42 27 / 62%);
+  --mbs-cap1: #40372a;
+  --mbs-cap2: #292317;
+  --mbs-ptr: #f4e7c8;
+}
+
+.mbs-finish-sage {
+  --mbs-face1: #68755f;
+  --mbs-face2: #57634d;
+  --mbs-ink: #eef2e8;
+  --mbs-ink-dim: rgb(238 242 232 / 60%);
+  --mbs-cap1: #293024;
+  --mbs-cap2: #1a1f17;
+  --mbs-ptr: #e3edd5;
+}
+
+.mbs-finish-night {
+  --mbs-face1: #26272e;
+  --mbs-face2: #1c1d23;
+  --mbs-ink: #efecf1;
+  --mbs-ink-dim: rgb(239 236 241 / 55%);
+  --mbs-cap1: #131317;
+  --mbs-cap2: #0a0a0d;
+  --mbs-ptr: #f2e4e4;
+}
+
+.mbs-finish-meter {
+  --mbs-face1: #2c2d33;
+  --mbs-face2: #212227;
+  --mbs-ink: #e7e7e3;
+  --mbs-ink-dim: rgb(231 231 227 / 55%);
+  --mbs-cap1: #1c1d22;
+  --mbs-cap2: #101114;
+  --mbs-ptr: #eceae4;
+}
+
+/* ── Family chip colors (style-guide.md fixed constants) ── */
+.mbs-fam-gain {
+  --mbs-fam: #c9ccd4;
+}
+
+.mbs-fam-sat {
+  --mbs-fam: #ff8a4e;
+}
+
+.mbs-fam-eq {
+  --mbs-fam: #62aee0;
+}
+
+.mbs-fam-dyn {
+  --mbs-fam: #f4c14f;
+}
+
+.mbs-fam-img {
+  --mbs-fam: #7fd69b;
+}
+
+.mbs-fam-meter {
+  --mbs-fam: #9aa0ab;
+}
+
+/* ── Module header row ── */
+.mbs-mod-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.mbs-module-meter .mbs-mod-top {
+  justify-content: space-between;
+  min-height: var(--ui-size, 30px);
+}
+
+/* Grip: UI-Size hit box painting a compact 20x18 four-dot handle. */
+.mbs-grip {
+  flex: none;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+}
+
+.mbs-grip::before {
+  content: '';
+  width: 20px;
+  height: 18px;
+  border-radius: 4px;
+  background:
+    radial-gradient(circle 1.6px at 6px 5px, var(--mbs-ink-dim) 55%, transparent 60%),
+    radial-gradient(circle 1.6px at 13px 5px, var(--mbs-ink-dim) 55%, transparent 60%),
+    radial-gradient(circle 1.6px at 6px 12px, var(--mbs-ink-dim) 55%, transparent 60%),
+    radial-gradient(circle 1.6px at 13px 12px, var(--mbs-ink-dim) 55%, transparent 60%);
+}
+
+.mbs-grip:active {
+  cursor: grabbing;
+}
+
+.mbs-grip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -4px;
+  border-radius: 6px;
+}
+
+.mbs-ordinal {
+  font: 11px var(--font-mono);
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--mbs-ink-dim);
+  border: 1px solid rgb(0 0 0 / 25%);
+  background: rgb(0 0 0 / 14%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 8%) inset;
+}
+
+/* Power: UI-Size hit box painting a compact 20px LED (Mixer FX pattern). */
+.mbs-power {
+  position: relative;
+  flex: none;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.mbs-power::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3d4048, #17181c);
+  border: 1px solid rgb(0 0 0 / 60%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 12%) inset;
+}
+
+.mbs-power::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #54565d;
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+.mbs-power[aria-pressed='true']::after {
+  background: var(--mbs-amber);
+  box-shadow: 0 0 9px var(--mbs-amber);
+}
+
+.mbs-power:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -4px;
+  border-radius: 50%;
+}
+
+/* ── Name block ── */
+.mbs-mod-name {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.mbs-fam-chip {
+  display: inline-block;
+  font: 700 9px var(--font-label);
+  letter-spacing: 0.2em;
+  padding: 2.5px 7px;
+  border-radius: 3px;
+  color: #15161a;
+  background: var(--mbs-fam);
+}
+
+.mbs-mod-title {
+  font: 700 13px var(--font-label);
+  letter-spacing: 0.1em;
+}
+
+/* ── Body ── */
+.mbs-mod-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+.mbs-module-off .mbs-mod-body {
+  opacity: 0.4;
+  filter: grayscale(0.75);
+}
+
+.mbs-module-off .mbs-fam-chip {
+  background: #7c7f86;
+}
+
+.mbs-ctl-grid {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  column-gap: 8px;
+  row-gap: 8px;
+}
+
+/* ── Knobs (shared rotary primitive, rack skin) ── */
+.mbs-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 62px;
+}
+
+.mbs-knob-big {
+  width: 100%;
+}
+
+.mbs-knob-control {
+  position: relative;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.mbs-knob-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mbs-knob-inert {
+  cursor: default;
+}
+
+.mbs-module .rotary-dial-track {
+  stroke: rgb(0 0 0 / 28%);
+}
+
+.mbs-module .rotary-dial-value {
+  stroke: var(--mbs-fam);
+}
+
+.mbs-module .rotary-dial-default-marker {
+  stroke: var(--mbs-ink-dim);
+}
+
+.mbs-module .rotary-dial-cap {
+  fill: var(--mbs-cap1);
+  stroke: rgb(0 0 0 / 75%);
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 50%));
+}
+
+.mbs-module .rotary-dial-pointer {
+  stroke: var(--mbs-ptr);
+}
+
+.mbs-module .rotary-dial-center {
+  fill: var(--mbs-ptr);
+}
+
+.mbs-knob-label {
+  font: 700 9.5px var(--font-label);
+  letter-spacing: 0.14em;
+  color: var(--mbs-ink-dim);
+  text-align: center;
+}
+
+.mbs-knob-value {
+  font: 11px var(--font-mono);
+  color: var(--mbs-ink);
+  background: rgb(0 0 0 / 22%);
+  border-radius: 4px;
+  padding: 1.5px 7px;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 7%) inset;
+  white-space: nowrap;
+}
+
+/* ── Speed switch (Tape): UI-Size box with compact painted plate ── */
+.mbs-switch {
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  padding: 0 9px;
+  border-radius: 5px;
+  color: var(--mbs-ink);
+  background: rgb(0 0 0 / 26%);
+  border: 1px solid rgb(0 0 0 / 45%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 8%) inset;
+  cursor: pointer;
+}
+
+.mbs-switch:disabled {
+  cursor: default;
+}
+
+.mbs-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── GR LED row ── */
+.mbs-gr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.mbs-gr-lbl {
+  font: 700 9px var(--font-label);
+  letter-spacing: 0.16em;
+  color: var(--mbs-ink-dim);
+}
+
+.mbs-gr-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 35%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 8%);
+}
+
+.mbs-gr-led-lit {
+  background: var(--mbs-fam);
+  box-shadow: 0 0 7px var(--mbs-fam);
+}
+
+/* ── Description ── */
+.mbs-mod-desc {
+  margin-top: 8px;
+  font: 10px/1.4 var(--font-label);
+  color: var(--mbs-ink-dim);
+  letter-spacing: 0.02em;
+  border-top: 1px solid rgb(0 0 0 / 20%);
+  padding-top: 7px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Input meter ── */
+.mbs-vu-window {
+  position: relative;
+  height: 124px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: radial-gradient(140% 120% at 50% 10%, #f6e5bd 0%, #e8d19a 55%, #c9ad74 100%);
+  border: 1px solid #0a0a0c;
+  box-shadow:
+    0 0 0 3px #17181c,
+    0 2px 5px rgb(0 0 0 / 60%) inset,
+    0 0 26px rgb(244 193 79 / 12%);
+}
+
+.mbs-vu-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mbs-vu-tick {
+  stroke: #3a3020;
+  stroke-width: 1.4;
+}
+
+.mbs-vu-tick.mbs-vu-red {
+  stroke: #a3271d;
+  stroke-width: 2;
+}
+
+.mbs-vu-red-arc {
+  fill: none;
+  stroke: #a3271d;
+  stroke-width: 3;
+}
+
+.mbs-vu-txt {
+  font: 700 9px var(--font-mono);
+  fill: #3a3020;
+  text-anchor: middle;
+}
+
+.mbs-vu-txt.mbs-vu-red {
+  fill: #a3271d;
+}
+
+.mbs-needle {
+  position: absolute;
+  left: calc(50% - 1px);
+  bottom: 6px;
+  width: 2px;
+  height: 90px;
+  background: linear-gradient(#1c1712, #4a3c22);
+  transform-origin: 50% 100%;
+  border-radius: 2px;
+}
+
+.mbs-needle::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  bottom: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #241d12;
+}
+
+.mbs-vu-legend {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  text-align: center;
+  font: 700 8.5px var(--font-mono);
+  letter-spacing: 0.1em;
+  color: #4a3c22;
+}
+
+.mbs-lcd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--mbs-lcd-bg);
+  color: var(--mbs-lcd-ink);
+  border-radius: 5px;
+  border: 1px solid #000;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 55%) inset;
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.mbs-mtr-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mbs-in-db {
+  min-width: 96px;
+}
+
+.mbs-pk {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 9px var(--font-label);
+  letter-spacing: 0.14em;
+  color: var(--mbs-ink-dim);
+}
+
+.mbs-pk-led {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 40%);
+}
+
+.mbs-pk-led-lit {
+  background: var(--mbs-red);
+  box-shadow: 0 0 8px var(--mbs-red);
+}
+
+.mbs-module-meter .mbs-mod-desc {
+  margin-top: auto;
+}
+
+/* ── Output meter ── */
+.mbs-lufs-wrap {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 2px;
+}
+
+.mbs-bar {
+  position: relative;
+  width: 30px;
+  height: 140px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: linear-gradient(#0c0f0d, #131714);
+  border: 1px solid #000;
+  box-shadow: 0 0 0 3px #17181c;
+}
+
+.mbs-bar-tp {
+  width: 16px;
+}
+
+.mbs-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to top, #2e7d4f, var(--mbs-green));
+}
+
+.mbs-bar-tp .mbs-fill {
+  background: linear-gradient(to top, #7a5c23, var(--mbs-amber));
+}
+
+.mbs-fill-hot,
+.mbs-bar-tp .mbs-fill-hot {
+  background: linear-gradient(to top, #7a2a23, var(--mbs-red));
+}
+
+.mbs-t-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgb(111 217 143 / 16%);
+  border-top: 1px dashed rgb(111 217 143 / 50%);
+  border-bottom: 1px dashed rgb(111 217 143 / 50%);
+}
+
+.mbs-t-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--mbs-red);
+  box-shadow: 0 0 6px var(--mbs-red);
+}
+
+.mbs-scale {
+  position: relative;
+  width: 30px;
+  height: 140px;
+  font: 700 8.5px var(--font-mono);
+  color: var(--mbs-ink-dim);
+}
+
+.mbs-scale span {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.mbs-scale .mbs-scale-hi {
+  color: var(--mbs-green);
+}
+
+.mbs-bar-lbl {
+  font: 700 8.5px var(--font-label);
+  letter-spacing: 0.12em;
+  color: var(--mbs-ink-dim);
+  text-align: center;
+  margin-top: 5px;
+}
+
+.mbs-big-read {
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  margin-top: 8px;
+}
+
+.mbs-big-read small {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  opacity: 0.75;
+  display: block;
+  margin-top: 2px;
+}
+
+.mbs-big-read-ok {
+  color: var(--mbs-green);
+}
+
+.mbs-big-read-quiet {
+  color: #7fa8c8;
+}
+
+.mbs-big-read-hot {
+  color: var(--mbs-amber);
+}
+
+.mbs-big-read-over {
+  color: var(--mbs-red);
+}
+
+.mbs-big-read-dim {
+  color: #5a5d64;
+}
+
+.mbs-tp-read {
+  margin-top: 6px;
+}
+
+.mbs-over-led {
+  margin-top: 6px;
+  width: 100%;
+  font: 700 10px var(--font-mono);
+  letter-spacing: 0.2em;
+  padding: 4px 0;
+  border-radius: 5px;
+  color: #5a5d64;
+  background: rgb(0 0 0 / 30%);
+  border: 1px solid rgb(0 0 0 / 50%);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.mbs-over-led-lit {
+  color: #fff;
+  background: var(--mbs-red);
+  box-shadow: 0 0 14px rgb(255 83 71 / 60%);
+  border-color: #7c1710;
+}
+
+.mbs-over-led:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .mbs-strip *,
+  .mbs-strip *::before,
+  .mbs-strip *::after {
+    transition: none !important;
+  }
+}

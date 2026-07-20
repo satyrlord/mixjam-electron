@@ -139,7 +139,8 @@ class MockAnalyserNode extends MockAudioNode {
 export class MockAudioWorkletNode extends MockAudioNode {
   readonly port = {
     onmessage: null as ((event: MessageEvent<unknown>) => void) | null,
-    close: vi.fn()
+    close: vi.fn(),
+    postMessage: vi.fn()
   }
 
   constructor() {

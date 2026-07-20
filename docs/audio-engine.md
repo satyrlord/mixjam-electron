@@ -277,7 +277,8 @@ bypass toggle, preset recall):
 2. Both instances run for the 30 ms crossfade window, mixed with an
    equal-power curve from old to new.
 3. The old instance stops; the new one becomes active. Changes arriving
-   mid-fade restart the fade toward the newest topology.
+   mid-fade are queued and coalesce to the newest topology, which fades in
+   as soon as the running fade completes.
 
 Running both instances doubles CPU only during the 30 ms window. Warm-up
 transients from cleared states are inaudible because the new chain fades in
@@ -291,16 +292,27 @@ active instance.
 ### Oversampling and latency
 
 - One shared oversampler implementation: 4x via two cascaded 2x half-band
-  linear-phase FIR polyphase stages (up and down). Soft Clip, Tube,
-  Maximizer, and the Limiter's true-peak sidechain use 4x; Tape uses one 2x
-  stage (its nonlinearity is gentler and pre-emphasis already tilts the
-  spectrum).
+  linear-phase FIR polyphase stages (up and down). Soft Clip, Tube, and
+  Maximizer use 4x; Tape uses one 2x stage (its nonlinearity is gentler and
+  pre-emphasis already tilts the spectrum). The Limiter's true-peak
+  sidechain uses a 4x up-only path per signed channel.
+- Tap counts: 63 (outer stage, Kaiser beta 9) and 45 (inner stage, running
+  at the doubled rate). They are chosen so every round trip is an INTEGER
+  base-rate delay: 2x = 31 samples, 4x = 31 + 11 = 42 samples. A half-band
+  kernel's trivial polyphase half (the single ~0.5 center tap) is exploited
+  as a pure delay, halving the FIR work.
+- Exact-identity neutral path: a nonlinear stage whose drive is zero
+  bypasses the oversampler through a plain integer delay of the same
+  length, so the -100 dBFS null tests pass bit-exactly. On a
+  neutral-to-engaged switch the stage primes the engaged path by replaying
+  256 samples of recent raw input, keeping the switch error at the FIR
+  reconstruction floor (about -85 dB, under the glitch gate).
 - Each stage exposes `latencySamples`. The chain total is the sum over the
   active order plus the Limiter lookahead (2.5 ms). The total is reported in
-  every meter snapshot. At 48 kHz the default chain totals a few
-  milliseconds; the playhead is not compensated (below the project's 10 ms
-  timing threshold), but the reported value keeps a later compensation or
-  export alignment (spec-019) honest.
+  every meter snapshot; the default chain is 277 samples (~5.8 ms) at
+  48 kHz. The playhead is not compensated (below the project's 10 ms timing
+  threshold), but the reported value keeps a later compensation or export
+  alignment (spec-019) honest.
 - Numerical hygiene: module outputs pass a guard that flushes denormals
   (add/subtract a tiny DC dither constant in feedback states) and replaces
   NaN/Inf with 0 while latching a per-module fault flag into the snapshot.
@@ -314,26 +326,26 @@ against bypass below -100 dBFS.
 
 **Gain Stage** — one smoothed linear gain. Latency 0.
 
-**Soft Clip** — 4x oversampled cubic soft-knee waveshaper
-(`y = x - x^3/3` inside the knee, hard at the knee edge), scaled to the
-Ceiling. Amount sets the drive so that nominal program (-18 dBFS RMS,
-about -8 dBFS peaks) loses Amount dB of peak. Cubic over tanh: an odd
-polynomial's harmonic series is finite (third only below the knee), so 4x
-oversampling is alias-clean by construction. A one-pole DC blocker (5 Hz)
-follows the shaper.
+**Soft Clip** — 4x oversampled quadratic soft-knee clipper: exact identity
+below Ceiling/2, a C1-continuous knee from Ceiling/2 to 1.5x Ceiling,
+saturation at Ceiling. Amount drives the signal `Amount` dB into the
+clipper and attenuates by the same amount after it, so small signals pass
+exactly unchanged while peaks land about `Amount` dB lower. The curve is
+odd, so it generates no DC by construction.
 
 ```text
-in -> up 4x -> drive -> cubic knee -> ceiling scale -> down 4x -> DC block -> out
+in -> up 4x -> gain(+Amount dB) -> knee clip at Ceiling -> gain(-Amount dB) -> down 4x -> out
 ```
 
-**Tube Saturation** — asymmetric shaper
-`y = x + k2 * x^2` (k2 from Drive) saturated by tanh at high drive,
-producing predominantly even harmonics; 4x oversampled; DC blocker after
-the nonlinearity (the x^2 term rectifies); equal-loudness compensation
-gain derived from the Drive-dependent RMS gain measured at -18 dBFS RMS
-pink noise (table baked at build time), so loudness stays approximately
-constant across Drive; then dry/wet Mix. Asymmetry is the classic
-single-ended triode transfer characteristic.
+**Tube Saturation** — asymmetric shaper `y = tanh(u) - 0.5 * tanh(u)^2`
+with `u = x * (1 + 0.4 * Drive)`, normalized to unity small-signal gain.
+The even-order `tanh^2` term produces the predominantly even harmonic
+profile; a one-pole DC blocker (5 Hz) follows because that term rectifies.
+4x oversampled. Loudness compensation is fitted analytically whenever
+Drive changes: the module measures the shaper's RMS gain over one cycle of
+a -18 dBFS RMS reference sine (the chain's nominal level) and inverts it,
+so loudness stays approximately constant across Drive; then dry/wet Mix
+against a latency-aligned dry path.
 
 **Subtractive EQ** — 2nd-order Butterworth high-pass (12 dB/oct). Chosen
 over 24 dB/oct: half the low-frequency group delay and phase rotation on a
@@ -351,50 +363,63 @@ one-pole smoothers on the gain-reduction envelope. No auto-makeup
 L,R -> max -> RMS(5 ms) -> dB -> knee/ratio -> attack/release -> gain -> L,R
 ```
 
-**Maximizer** — input drive `driveDb = 0.4 * Boost%` (25 % = 10 dB) into a
-4x oversampled cubic soft clipper with a fixed -1.0 dBFS ceiling. The
-ceiling never moves, so Boost adds density, not peak level. The linear
-0.4 dB/% mapping keeps the knob musically even: each 2.5 % is 1 dB more
-drive.
+**Maximizer** — input drive `driveDb = 0.25 * Boost%` (25 % = 6.25 dB)
+into the shared 4x oversampled soft-knee clipper with a fixed -1.0 dBFS
+ceiling. The ceiling never moves, so Boost adds density, not peak level.
+The linear mapping keeps the knob musically even (each 4 % is 1 dB more
+drive); its slope is the constant that calibrates the Cheat Sheet defaults
+to -14 LUFS-I from a -18 dBFS RMS reference program.
 
 **Additive EQ** — RBJ low shelf at 90 Hz and high shelf at 12 kHz, shelf
 slope S = 0.6 (wide and musical, inside the 0.5 to 0.7 window). Latency 0.
 
-**Tape Saturation** — pre-emphasis shelf (+ tilt above 2 kHz), symmetric
-tanh stage (odd harmonics) at 2x oversampling, matching de-emphasis, then
+**Tape Saturation** — pre-emphasis high shelf (+4 dB above 4.5 kHz),
+symmetric tanh stage (odd harmonics, drive `1 + 0.45 * Drive`) at 2x
+oversampling, matching de-emphasis, then
 the speed-dependent head model: a low peaking "head bump" (55 Hz at
 15 IPS, 35 Hz at 30 IPS, up to +1.5 dB scaled by Drive) and a first-order
 HF roll-off (corner 11 kHz at 15 IPS, 16 kHz at 30 IPS). Pre/de-emphasis
 around the shaper is the standard simplified tape model; the lookup-table
 hysteresis model remains a stretch goal and is not required.
 
-**Stereo Imaging** — Linkwitz-Riley 4th-order crossover at Mono Below.
-Low band: mid only (mono sum). High band: M unchanged, S scaled by
-Width %. Recombination of an LR4 split is allpass-flat, so the module at
-Width 100 % nulls against the same input passed through the LR4 allpass
-reference, and nulls fully on mono material. This is the mono-compatible,
-phase-coherent proof required by the spec.
+**Stereo Imaging** — mid/side where the mid signal passes through
+UNTOUCHED and only the side signal is filtered: a Linkwitz-Riley
+4th-order high-pass at Mono Below on S discards the low side band (mono
+below the crossover), and Width scales the remaining high side band.
+Because L + R = 2M at every sample, mono compatibility is exact by
+construction — the mono-sum null test is bit-identical — and mono input
+nulls bit-exactly at any setting. This is stronger than the
+allpass-recombination proof originally sketched, so that design was
+dropped.
 
 ```text
-in -> M/S -> LR4 low  -> M only ----+
-          -> LR4 high -> M, S*width +-> M/S^-1 -> out
+in -> M ------------------------> M   +-> L = M + S', R = M - S'
+   -> S -> LR4 highpass -> * width -> S'
 ```
 
 **Multiband Comp** — LR4 crossovers at 120 Hz and 2 kHz (three bands, sum
 is allpass-flat when all bands are unity). Per band, the amount macro maps
 to a coupled pair: `ratio = 1 + amount/50` (0 % = 1:1, transparent;
-100 % = 3:1) and `thresholdDb = -16 - 0.14 * amount` relative to full
-scale. Fixed per-band time constants: low 30/200 ms, mid 15/150 ms, high
-5/80 ms. At amount 0 the ratio is exactly 1:1, so the band applies unity
-gain and the module nulls against its crossover allpass reference.
+100 % = 3:1) and `thresholdDb = -22 - 0.14 * amount` relative to full
+scale (the -22 base sits under the per-band RMS of nominal -18 dBFS
+program so the default amounts apply gentle leveling). Fixed per-band time
+constants: low 30/200 ms, mid 15/150 ms, high 5/80 ms. The low band passes
+through the 2 kHz crossover's allpass so the three bands sum
+allpass-flat. At amount 0 the ratio is exactly 1:1, so the band applies
+unity gain and the module nulls against its crossover allpass reference.
 
-**Limiter** — 2.5 ms lookahead delay on the audio path; the sidechain
-upsamples 4x and takes the true-peak envelope; gain computer holds the
-minimum gain over the lookahead window (running-minimum deque,
-preallocated) with instant attack and 100 ms dual-stage release;
-stereo-linked. Ceiling is enforced on the 4x true-peak estimate, so output
-true peak never exceeds Ceiling. Latency = lookahead + oversampler group
-delay, reported. GR dB is written to the snapshot.
+**Limiter** — 2.5 ms lookahead delay on the audio path. The sidechain
+upsamples each SIGNED channel 4x (rectifying before upsampling would
+flatten inter-sample peaks) and rectifies at the high rate; its 23-sample
+lag leaves a 97-sample lead inside the lookahead. The gain computer takes
+the sliding minimum of the required gain over a 98-sample window
+(monotonic deque, preallocated), descends with a slope limit of 1/64 per
+sample (guaranteed to reach the required gain before the peak plays, and
+C0-continuous so the attack itself cannot click), and releases through a
+100 ms one-pole; stereo-linked. The enforced ceiling sits 0.1 dB under the
+knob value so the 4x estimate's residual error cannot poke above the
+documented ceiling. Latency = the lookahead (the sidechain adds none to
+the audio path), reported. GR dB is written to the snapshot.
 
 **Input VU** — 300 ms integration one-pole on the mono sum RMS, displayed
 against 0 VU = -18 dBFS; per-channel sample-peak flags with 1.5 s hold.

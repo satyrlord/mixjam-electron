@@ -59,6 +59,11 @@ function SupportedApp() {
 
   const app = useAppState(window.backendAPI, resolvedUserFolder, resolvedSampleFolder)
   const generator = useMixJamGenerator(app, window.backendAPI, resolvedSampleFolder)
+  const { playbackEngineRef } = app
+  const getMasterBusMeterSnapshot = useCallback(
+    () => playbackEngineRef.current?.getMasterBusMeterSnapshot() ?? null,
+    [playbackEngineRef]
+  )
 
   const [activeTheme, setActiveTheme] = useState('emerald')
   const [uiSize, setUiSize] = useState(loadUiSize)
@@ -171,12 +176,19 @@ function SupportedApp() {
               transportState: app.transportState, songEndTick: app.songEndTick, bpm: app.bpm,
               masterGain: app.masterGain,
               masterMeter: app.masterMeter, canUndo: app.canUndo, canRedo: app.canRedo,
-              onSetBpm: app.setBpm, onSetMasterGain: app.setMasterGain,
-              onResetMasterMeter: app.resetMasterMeter,
+              onSetBpm: app.setBpm,
               onUndo: app.undo, onRedo: app.redo, onTransportPlay: app.transportPlay,
               onTransportPause: app.transportPause, onTransportStop: app.transportStop,
               onTransportSkipBack: app.transportSkipBack, onTransportJumpToEnd: app.transportJumpToEnd,
               onTransportSeek: app.transportSeek
+            }}
+            masterBus={{
+              state: app.masterBus,
+              getMeterSnapshot: getMasterBusMeterSnapshot,
+              onSetParam: app.setMasterBusParam,
+              onTogglePower: app.toggleMasterBusPower,
+              onReorder: app.reorderMasterBus,
+              onApplyPreset: app.applyMasterBusPreset
             }}
             mixer={{
               returnBuses: app.returnBuses, channelLevels: app.channelLevels, channelPeaks: app.channelPeaks,

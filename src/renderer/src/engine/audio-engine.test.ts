@@ -70,19 +70,25 @@ describe('AudioEngine', () => {
     expect(analyser.connectedTo).toContain(context.destination)
   })
 
-  it('adds loudness metering as a silent parallel branch without changing the audible route', async () => {
+  it('inserts the master bus strip and taps loudness metering after it (spec-012)', async () => {
     const { engine, context } = makeEngine()
     await engine.resume()
-    await Promise.resolve()
+    // The chain attaches first, then the meter taps it; flush both async
+    // registrations before asserting the graph.
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
     const [masterGain, silentSink] = context.created.gains
     const [analyser] = context.created.analysers
-    const worklet = masterGain.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
-    expect(masterGain.connectedTo).toContain(analyser)
+    // Audible route: masterGain -> master bus worklet -> analyser -> destination.
+    const masterBusNode = masterGain.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
+    expect(masterBusNode).toBeInstanceOf(MockAudioWorkletNode)
+    expect(masterGain.connectedTo).not.toContain(analyser)
+    expect(masterBusNode?.connectedTo).toContain(analyser)
     expect(analyser.connectedTo).toContain(context.destination)
-    expect(worklet).toBeInstanceOf(MockAudioWorkletNode)
-    expect(worklet?.port).toBeDefined()
-    expect(worklet?.connectedTo).toContain(silentSink)
+    // Loudness metering taps the chain output as a silent parallel branch.
+    const loudnessNode = masterBusNode?.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
+    expect(loudnessNode).toBeInstanceOf(MockAudioWorkletNode)
+    expect(loudnessNode?.connectedTo).toContain(silentSink)
     expect(silentSink.gain.value).toBe(0)
     expect(silentSink.connectedTo).toContain(context.destination)
   })

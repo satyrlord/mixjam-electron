@@ -20,7 +20,9 @@ interface MixerColumnProps {
 }
 
 function returnModuleName(bus: PlaybackReturnSnapshot): string {
-  return bus.module.type === 'delay' ? 'Delay' : 'Empty'
+  if (bus.module.type === 'delay') return 'Delay'
+  if (bus.module.type === 'opus-delay') return 'Opus Delay'
+  return 'Empty'
 }
 
 /** Full-width, horizontally scrollable Mixer workspace derived from lanes. */

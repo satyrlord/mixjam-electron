@@ -1,8 +1,19 @@
 # Spec 012 — Master Bus Strip
 
-**Spec Validation Status:** PENDING REVIEW (Phase A deliverable)
+**Spec Validation Status:** VALIDATED
 
-**Spec Implementation Status:** NOT IMPLEMENTED
+**Spec Implementation Status:** IMPLEMENTED — DSP core, worklet integration,
+rack UI, format-5 persistence, and unified undo are in place. Unit evidence:
+`src/renderer/src/engine/masterbus/**` (chain, modules, null/THD/limiter,
+EBU compliance via the production loudness meter, calibration, allocation
+and CPU gates), `MasterBusStrip.test.tsx`, `master-bus-chain.test.ts`,
+`master-bus.worklet.test.ts`, `useMasterBusMeters.test.tsx`, project
+state/file suites. E2E evidence: `tests/e2e/master-bus-strip.spec.ts`
+(rack contract, keyboard reorder, bypass, presets, save/load round trip,
+and the shipped worklet's true-peak ceiling rendered offline under
+production CSP). Pointer drag-reorder is implemented but has no automated
+proof yet (keyboard reorder is the automated path); AC-009 stays open on
+that evidence.
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline
 Panels), spec-007 (Lane-Bound Mixer), spec-011 (Project Save & Load)
@@ -53,12 +64,15 @@ functional contract and acceptance criteria.
   renders as one horizontal rack inside a horizontal scrollport, following
   the Mixer's scroll conventions (Shift+wheel, trackpad horizontal, Left and
   Right keys, focus reveal, themed always-visible horizontal scrollbar).
-- The existing Master Volume fader remains in the Master tab, in a compact fixed
-  cluster before slot 01. Clip Edge Fades move to the Player Settings modal
-  (spec-001). The
-  previous Output Level meter block is superseded by the strip's pinned
-  output meter, which shows the same Momentary, Short-term, Integrated, and
-  true-peak data.
+- The strip REPLACES the previous Master tab content entirely: the Master
+  Volume fader and the Output Level meter block are removed. Gain staging
+  into the chain is owned by the strip's Gain Stage; output metering by the
+  strip's pinned output meter (Momentary, Short-term, Integrated, and true
+  peak). Clip Edge Fades live in the Player Settings modal (spec-001).
+- `song.masterGain` remains project state applied before the chain (the
+  Bottom Workspace tab row keeps its read-only Master status). With no
+  editable control, new projects default it to unity so the chain receives
+  nominal program level; loaded projects keep their saved value.
 - Audio position: the chain processes the full Master sum after the Master
   Volume gain and before the destination:
   `lanes + returns -> masterGain -> master bus chain -> analyser -> destination`.
@@ -110,14 +124,17 @@ Behavioral requirements per module (algorithms and their justification in
   passages at defaults with nominal program. GR value exposed to the UI.
 - **Maximizer:** Boost drives an internal 4x oversampled soft clipper with a
   fixed matched output ceiling, so Boost raises perceived loudness without
-  raising peaks. Mapping: drive dB = 0.4 x Boost %.
+  raising peaks. Mapping: drive dB = 0.25 x Boost % (the slope is the
+  constant that calibrates the Cheat Sheet defaults to -14 LUFS-I).
 - **Additive EQ:** wide musical shelves (shelf S about 0.6).
 - **Tape Saturation:** odd-harmonic-leaning saturation with pre- and
   de-emphasis. Speed switch moves the head-bump center (about 55 Hz at
   15 IPS, about 35 Hz at 30 IPS) and the HF roll-off corner.
-- **Stereo Imaging:** LR4 crossover at Mono Below. The low band sums to
-  mono; Width scales the side signal of the high band only. Recombination is
-  phase-coherent (proof by null test against the LR4 allpass reference).
+- **Stereo Imaging:** mid/side processing where the mid signal passes
+  through untouched. An LR4 high-pass at Mono Below on the side signal
+  discards the low side band (mono below the crossover); Width scales the
+  remaining high side band. Mono compatibility is exact by construction
+  (L + R = 2M at every sample).
 - **Multiband Comp:** LR4 crossovers at 120 Hz and 2 kHz. Each amount macro
   maps to a coupled threshold/ratio pair (mapping documented in
   audio-engine.md). Flat magnitude response when all amounts are 0.
@@ -235,10 +252,12 @@ These suites gate the DSP phase and the integration phase:
   and odd-leaning for Tape; compressor static curve and attack/release
   timing; limiter true peak never above Ceiling across an inter-sample-peak
   torture set.
-- **Null tests:** every module at neutral settings nulls against bypass
-  below -100 dBFS. Stereo Imaging at Width 100 % nulls against the LR4
-  allpass reference, and nulls fully on mono material. Multiband at all-zero
-  amounts nulls against its crossover allpass reference.
+- **Null tests:** every module at neutral settings nulls against a
+  latency-compensated bypass below -100 dBFS. The Subtractive EQ's
+  always-active high-pass nulls against its documented high-pass reference
+  at zero cuts. Stereo Imaging passes mono material bit-exactly at any
+  setting and keeps the mono sum identical to the input sum. Multiband at
+  all-zero amounts nulls against its crossover allpass reference.
 - **Loudness compliance:** Momentary, Short-term, Integrated, and true peak
   validated against the EBU Tech 3341 and 3342 test vectors within the
   tolerances those documents specify.
@@ -280,45 +299,45 @@ These suites gate the DSP phase and the integration phase:
 
 ## Acceptance Criteria
 
-- [ ] **AC-001:** The Master tab renders the 13-slot rack: pinned input
+- [x] **AC-001:** The Master tab renders the 13-slot rack: pinned input
   meter, eleven processors in persisted order, pinned output meter, with
   live ordinal renumbering and the Mixer's horizontal-scroll conventions.
-- [ ] **AC-002:** Every control matches the ranges, defaults, units, and
+- [x] **AC-002:** Every control matches the ranges, defaults, units, and
   step behavior in the Chain Contract table, with the documented knob,
   switch, and keyboard interactions.
-- [ ] **AC-003:** All eleven processors audibly process audio per their
+- [x] **AC-003:** All eleven processors audibly process audio per their
   behavioral requirements; the per-module unit and THD tests pass.
-- [ ] **AC-004:** Every module at neutral settings nulls against bypass
+- [x] **AC-004:** Every module at neutral settings nulls against bypass
   below -100 dBFS; imaging and multiband null against their allpass
   references.
-- [ ] **AC-005:** The input meter shows VU ballistics with 0 VU = -18 dBFS,
+- [x] **AC-005:** The input meter shows VU ballistics with 0 VU = -18 dBFS,
   L/R sample-peak lamps, and a numeric dBFS readout.
-- [ ] **AC-006:** The output meter shows Momentary, Short-term, and gated
+- [x] **AC-006:** The output meter shows Momentary, Short-term, and gated
   Integrated LUFS plus 4x true peak, validated against EBU Tech 3341/3342
   vectors; the green band marks -14 LUFS-I and the red line -1 dBTP.
-- [ ] **AC-007:** With the Limiter active, output true peak never exceeds
+- [x] **AC-007:** With the Limiter active, output true peak never exceeds
   Ceiling across the torture set. With the Limiter bypassed and a hot
   chain, the OVER lamp latches and click resets it.
-- [ ] **AC-008:** The Cheat Sheet preset on the -18 dBFS RMS reference
+- [x] **AC-008:** The Cheat Sheet preset on the -18 dBFS RMS reference
   program lands at -14 plus or minus 1 LUFS-I with true peak at or below
   -1 dBTP.
 - [ ] **AC-009:** Reordering and bypassing while audio runs produce no
   click above the documented glitch threshold (automated render test), and
   both work by pointer and keyboard.
-- [ ] **AC-010:** All continuous parameters are smoothed; the zipper test
+- [x] **AC-010:** All continuous parameters are smoothed; the zipper test
   passes.
-- [ ] **AC-011:** The four factory presets apply their documented power
+- [x] **AC-011:** The four factory presets apply their documented power
   maps and overrides; only Cheat Sheet restores default order; each recall
   is one undoable edit.
-- [ ] **AC-012:** Strip state round-trips through the version-5 project
+- [x] **AC-012:** Strip state round-trips through the version-5 project
   format; invalid records are rejected per the Persistence rules; Undo and
   Redo restore the complete strip record.
-- [ ] **AC-013:** Meters refresh at 30 Hz or better from real engine data
+- [x] **AC-013:** Meters refresh at 30 Hz or better from real engine data
   while the Master tab is active, and freeze without garbage if the stream
   stalls. Bus Compressor and Limiter GR LED rows show live gain reduction.
-- [ ] **AC-014:** The allocation test proves no per-block allocation; NaN
+- [x] **AC-014:** The allocation test proves no per-block allocation; NaN
   injection into any single module leaves the bus output finite.
-- [ ] **AC-015:** The performance benchmark meets the documented budget and
+- [x] **AC-015:** The performance benchmark meets the documented budget and
   fails on regression.
 
 ## Non-Goals

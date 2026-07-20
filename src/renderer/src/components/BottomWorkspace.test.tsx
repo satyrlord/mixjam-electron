@@ -40,18 +40,20 @@ describe('useBottomWorkspace', () => {
   })
 
   it('derives a content-safe minimum for every tab and UI Size', () => {
+    // Master budgets the 420px Master Bus Strip rack plus its preset chip
+    // header and paddings (spec-012).
     expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[30])).toEqual({
-      master: 246,
+      master: 554,
       mixer: 378,
       samples: 136
     })
     expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[40])).toEqual({
-      master: 332,
+      master: 601,
       mixer: 500,
       samples: 183
     })
     expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[50])).toEqual({
-      master: 406,
+      master: 641,
       mixer: 620,
       samples: 225
     })
@@ -94,7 +96,9 @@ describe('useBottomWorkspace', () => {
     await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('500px'))
 
     act(() => result.current.setBottomTab('master'))
-    await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('340px'))
+    // The remembered 34% (340px) sits under the Master rack minimum at UI
+    // Size 40, so the restore clamps to the content-safe height.
+    await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('601px'))
   })
 
   it('clamps an undersized restored tab and an unmeasured panel to pixels', async () => {

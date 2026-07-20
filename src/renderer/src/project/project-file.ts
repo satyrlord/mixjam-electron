@@ -7,6 +7,18 @@ import {
   MIN_CLIP_EDGE_FADE_MS
 } from '../engine/clip-edge-fades'
 import {
+  MASTER_BUS_PARAMS,
+  PROCESSOR_IDS,
+  isValidProcessorOrder,
+  type MasterBusParamId,
+  type ProcessorId
+} from '../engine/masterbus/params'
+import {
+  MASTER_BUS_PRESET_NAMES,
+  isPresetName,
+  type MasterBusState
+} from '../engine/masterbus/presets'
+import {
   cloneProjectSongState,
   cloneProjectFxBuses,
   type ClipPlacement,
@@ -26,7 +38,7 @@ import {
 } from '../../../shared/backend-api'
 import { isGeneratorProfileId } from '../../../shared/generator-profile-id'
 
-const PROJECT_FORMAT_VERSION = 4
+const PROJECT_FORMAT_VERSION = 5
 export const NEWER_PROJECT_VERSION_MESSAGE =
   'This project was created with a newer version of MixJam. Please update the app.'
 
@@ -114,6 +126,7 @@ interface ProjectDocumentRecord {
   song: ProjectSongState
   lanes: ProjectLaneRecord[]
   fxBuses: [ProjectFxBusRecord, ProjectFxBusRecord, ProjectFxBusRecord, ProjectFxBusRecord]
+  masterBus: MasterBusState
   generator?: ProjectGeneratorMetadata
 }
 
@@ -288,6 +301,21 @@ function serializePlacement(placement: ClipPlacement): ProjectPlacementRecord {
   }
 }
 
+/** Rebuild the strip record in registry key order so serialized documents and
+ * fingerprints are canonical regardless of in-memory key order. */
+function serializeMasterBus(masterBus: MasterBusState): MasterBusState {
+  const power = {} as Record<ProcessorId, boolean>
+  for (const processorId of PROCESSOR_IDS) power[processorId] = masterBus.power[processorId]
+  const params = {} as Record<MasterBusParamId, number>
+  for (const def of MASTER_BUS_PARAMS) params[def.id] = masterBus.params[def.id]
+  return {
+    order: [...masterBus.order],
+    power,
+    params,
+    preset: masterBus.preset
+  }
+}
+
 function toDocumentRecord(
   project: ProjectData,
   metadata: Pick<ProjectDocument, 'appVersion' | 'createdAt' | 'modifiedAt'>
@@ -330,6 +358,7 @@ function toDocumentRecord(
       returnLevel: bus.returnLevel,
       limiterEnabled: bus.limiterEnabled
     })) as ProjectDocumentRecord['fxBuses'],
+    masterBus: serializeMasterBus(project.masterBus),
     ...(project.generator === undefined ? {} : { generator: cloneGenerator(project.generator) })
   }
 }
@@ -356,7 +385,7 @@ function migrateToCurrent(value: unknown): Record<string, unknown> {
     if (typeof rawVersion === 'number' && rawVersion > PROJECT_FORMAT_VERSION) {
       throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
     }
-    throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 4 is supported.')
+    throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 5 is supported.')
   }
   return value
 }
@@ -411,6 +440,42 @@ function parsePlacement(
   }
 }
 
+function parseMasterBus(value: unknown): MasterBusState {
+  const path = 'project.masterBus'
+  if (!isRecord(value)) fail(path, 'must be an object')
+  assertKeys(value, path, ['order', 'power', 'params', 'preset'])
+
+  if (!Array.isArray(value.order) || !isValidProcessorOrder(value.order)) {
+    fail(`${path}.order`, 'must be a permutation of the eleven master bus processor ids')
+  }
+
+  if (!isRecord(value.power)) fail(`${path}.power`, 'must be an object')
+  assertKeys(value.power, `${path}.power`, PROCESSOR_IDS)
+  const power = {} as Record<ProcessorId, boolean>
+  for (const processorId of PROCESSOR_IDS) {
+    power[processorId] = readBoolean(value.power, processorId, `${path}.power`)
+  }
+
+  if (!isRecord(value.params)) fail(`${path}.params`, 'must be an object')
+  assertKeys(value.params, `${path}.params`, MASTER_BUS_PARAMS.map((def) => def.id))
+  const params = {} as Record<MasterBusParamId, number>
+  for (const def of MASTER_BUS_PARAMS) {
+    params[def.id] = readNumber(value.params, def.id, `${path}.params`, def.min, def.max)
+  }
+
+  const preset = value.preset
+  if (preset !== null && !isPresetName(preset)) {
+    fail(`${path}.preset`, `must be null or one of ${MASTER_BUS_PRESET_NAMES.join(', ')}`)
+  }
+
+  return {
+    order: [...value.order],
+    power,
+    params,
+    preset
+  }
+}
+
 export function parseProject(text: string): ProjectDocument {
   let parsed: unknown
   try {
@@ -420,7 +485,7 @@ export function parseProject(text: string): ProjectDocument {
   }
 
   const record = migrateToCurrent(parsed)
-  assertKeys(record, 'project', ['formatVersion', 'appVersion', 'createdAt', 'modifiedAt', 'song', 'lanes', 'fxBuses', 'generator'])
+  assertKeys(record, 'project', ['formatVersion', 'appVersion', 'createdAt', 'modifiedAt', 'song', 'lanes', 'fxBuses', 'masterBus', 'generator'])
   const appVersion = readString(record, 'appVersion', 'project')
   const createdAt = readIsoTimestamp(record, 'createdAt')
   const modifiedAt = readIsoTimestamp(record, 'modifiedAt')
@@ -518,9 +583,18 @@ export function parseProject(text: string): ProjectDocument {
     if (value.index !== expectedIndex) fail(`${path}.index`, `must be ${expectedIndex}`)
     if (value.name !== expectedName) fail(`${path}.name`, `must be ${expectedName}`)
     if (!isRecord(value.module)) fail(`${path}.module`, 'must be an object')
-    assertKeys(value.module, `${path}.module`, value.module.type === 'empty'
+    const moduleKeys = value.module.type === 'empty'
       ? ['type']
-      : ['type', 'mode', 'timeMs', 'noteDivision', 'feedback', 'tapeDistortion', 'pingPong'])
+      : value.module.type === 'delay'
+        ? ['type', 'mode', 'timeMs', 'noteDivision', 'feedback', 'tapeDistortion', 'pingPong']
+        : value.module.type === 'opus-delay'
+          ? [
+              'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR', 'link',
+              'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
+              'character', 'duckAmount', 'duckRelease', 'mix', 'outputDb', 'freeze', 'bypass'
+            ]
+          : ['type']
+    assertKeys(value.module, `${path}.module`, moduleKeys)
     let module: ProjectFxBusRecord['module']
     if (value.module.type === 'empty') {
       module = { id: expectedId, type: 'empty' }
@@ -544,6 +618,8 @@ export function parseProject(text: string): ProjectDocument {
     }
   }) as ProjectFxBuses
 
+  const masterBus = parseMasterBus(record.masterBus)
+
   return {
     formatVersion: PROJECT_FORMAT_VERSION,
     appVersion,
@@ -552,6 +628,7 @@ export function parseProject(text: string): ProjectDocument {
     song,
     lanes,
     fxBuses,
+    masterBus,
     ...(generator === undefined ? {} : { generator })
   }
 }

@@ -180,11 +180,27 @@
       })
     }
     return JSON.stringify({
-      formatVersion: 4,
+      formatVersion: 5,
       appVersion: 'v0.test.0',
       createdAt: '2026-06-28T12:00:00.000Z',
       modifiedAt: '2026-06-28T12:00:00.000Z',
       song: { bpm: bpm, masterGain: 0.7, clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 } },
+      masterBus: {
+        order: ['gain', 'clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim'],
+        power: {
+          gain: true, clip: true, tube: true, subeq: true, comp: true, max: true,
+          addeq: true, tape: true, width: true, mbc: true, lim: true
+        },
+        params: {
+          'gain.trim': 0, 'clip.amount': 1.5, 'clip.ceil': -0.5, 'tube.drive': 2.5, 'tube.mix': 100,
+          'subeq.hp': 20, 'subeq.mud': -1.5, 'subeq.harsh': -1,
+          'comp.thr': -16, 'comp.ratio': 2, 'comp.att': 10, 'comp.rel': 300,
+          'max.boost': 10, 'addeq.low': 1, 'addeq.air': 1, 'tape.drive': 2, 'tape.ips': 1,
+          'width.width': 105, 'width.mono': 120, 'mbc.lo': 20, 'mbc.mid': 15, 'mbc.hi': 20,
+          'lim.gain': 4, 'lim.ceil': -1
+        },
+        preset: 'Cheat Sheet'
+      },
       lanes: lanes,
       fxBuses: [1, 2, 3, 4].map(function (slot) {
         return {

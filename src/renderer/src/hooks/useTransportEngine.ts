@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { anyLaneSoloed } from '../engine/lane-evaluation'
 import {
@@ -27,6 +27,7 @@ import type { MasterMeterSnapshot } from '../engine/master-meter'
 import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 import {
   addLane,
+  applyMasterBusPreset,
   createDefaultProjectEditState,
   createDefaultProjectSongState,
   deleteEmptyLanes,
@@ -35,18 +36,23 @@ import {
   MIN_LANE_COUNT,
   projectEditStateFromProject,
   renameLane,
+  reorderMasterBus,
   setLaneGain,
   setLanePan,
   setLaneSend,
+  setMasterBusParam,
   toPlaybackProjectGraphSnapshot,
   toggleLaneMute,
   toggleLaneSolo,
+  toggleMasterBusPower,
   type LaneState,
   type ProjectEditState,
   type ProjectFxBuses,
   type ProjectState,
   type ProjectSongState,
 } from '../project/project-state'
+import type { MasterBusParamId, ProcessorId } from '../engine/masterbus/params'
+import type { MasterBusPresetName, MasterBusState } from '../engine/masterbus/presets'
 
 const UNDO_HISTORY_LIMIT = 100
 
@@ -72,6 +78,7 @@ export interface TransportEngineState {
   timerText: string
   lanes: LaneState[]
   fxBuses: ProjectFxBuses
+  masterBus: MasterBusState
   transportState: RuntimeTransportState
   currentTick: number
   songEndTick: number
@@ -105,6 +112,10 @@ export interface TransportEngineActions {
   setLaneGain: (laneIndex: number, gain: number) => void
   setLaneSend: (laneIndex: number, sendIndex: number, value: number) => void
   setReturnBus: (bus: PlaybackReturnSnapshot) => void
+  setMasterBusParam: (id: MasterBusParamId, value: number) => void
+  toggleMasterBusPower: (id: ProcessorId) => void
+  reorderMasterBus: (order: ProcessorId[]) => void
+  applyMasterBusPreset: (name: MasterBusPresetName) => void
   renameLane: (laneIndex: number, name: string) => void
   addLane: () => void
   deleteLane: (laneIndex: number) => void
@@ -139,7 +150,7 @@ export function useTransportEngine(
     createDefaultProjectEditState(),
     UNDO_HISTORY_LIMIT
   )
-  const { lanes, fxBuses } = projectHistory.current
+  const { lanes, fxBuses, masterBus } = projectHistory.current
   const songEndTick = useMemo(() => deriveSongEndTick(lanes), [lanes])
   const getEngineLanes = useCallback(
     () => toEngineLanes(projectHistory.currentRef.current.lanes),
@@ -356,6 +367,32 @@ export function useTransportEngine(
     })
   }, [applyMixerEdit])
 
+  const handleSetMasterBusParam = useCallback((id: MasterBusParamId, value: number) => {
+    applyMixerEdit((current) => ({ ...current, masterBus: setMasterBusParam(current.masterBus, id, value) }))
+  }, [applyMixerEdit])
+
+  const handleToggleMasterBusPower = useCallback((id: ProcessorId) => {
+    applyMixerEdit((current) => ({ ...current, masterBus: toggleMasterBusPower(current.masterBus, id) }))
+  }, [applyMixerEdit])
+
+  const handleReorderMasterBus = useCallback((order: ProcessorId[]) => {
+    applyMixerEdit((current) => {
+      const next = reorderMasterBus(current.masterBus, order)
+      return next === current.masterBus ? current : { ...current, masterBus: next }
+    })
+  }, [applyMixerEdit])
+
+  const handleApplyMasterBusPreset = useCallback((name: MasterBusPresetName) => {
+    applyMixerEdit((current) => ({ ...current, masterBus: applyMasterBusPreset(current.masterBus, name) }))
+  }, [applyMixerEdit])
+
+  // Live strip edits (including undo/redo restores) reconcile into the
+  // running audio graph; the worklet crossfades topology changes and
+  // smooths parameter moves. Project replacement snaps separately.
+  useEffect(() => {
+    playbackEngineRef.current?.applyMasterBusState(masterBus, 'reconcile')
+  }, [masterBus, playbackEngineRef])
+
   const handleRenameLane = useCallback(
     (laneIndex: number, name: string) => {
       applyMixerEdit((current) => ({ ...current, lanes: renameLane(current.lanes, laneIndex, name) }))
@@ -392,6 +429,7 @@ export function useTransportEngine(
     timerText,
     lanes,
     fxBuses,
+    masterBus,
     transportState,
     currentTick,
     songEndTick,
@@ -422,6 +460,10 @@ export function useTransportEngine(
     setLaneGain: handleSetLaneGain,
     setLaneSend: handleSetLaneSend,
     setReturnBus: handleSetReturnBus,
+    setMasterBusParam: handleSetMasterBusParam,
+    toggleMasterBusPower: handleToggleMasterBusPower,
+    reorderMasterBus: handleReorderMasterBus,
+    applyMasterBusPreset: handleApplyMasterBusPreset,
     renameLane: handleRenameLane,
     addLane: handleAddLane,
     deleteLane: handleDeleteLane,

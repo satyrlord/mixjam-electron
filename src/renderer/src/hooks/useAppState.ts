@@ -38,8 +38,9 @@ export function useAppState(
   const activeProject = useMemo(() => ({
     song: engine.song,
     lanes: engine.lanes,
-    fxBuses: engine.fxBuses
-  }), [engine.fxBuses, engine.lanes, engine.song])
+    fxBuses: engine.fxBuses,
+    masterBus: engine.masterBus
+  }), [engine.fxBuses, engine.lanes, engine.masterBus, engine.song])
   const project = useProjectPersistence({
     backendAPI,
     userFolder,

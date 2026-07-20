@@ -7,6 +7,7 @@ import {
   addLane as addProjectLane,
   createDefaultFxBuses,
   createDefaultLanes,
+  createDefaultMasterBusState,
   createDefaultProjectSongState,
   MAX_LANE_COUNT
 } from '../project/project-state'
@@ -47,7 +48,12 @@ describe('useTransportEngine', () => {
       clipEdgeMicroFades: { enabled: false, fadeInMs: 1.5, fadeOutMs: 7 }
     }
 
-    act(() => result.current.replaceProjectState({ lanes, song, fxBuses: createDefaultFxBuses() }))
+    act(() => result.current.replaceProjectState({
+      lanes,
+      song,
+      fxBuses: createDefaultFxBuses(),
+      masterBus: createDefaultMasterBusState()
+    }))
 
     expect(result.current.song).toEqual(song)
     expect(result.current.lanes[0]!.name).toBe('Replacement lane')
@@ -59,6 +65,7 @@ describe('useTransportEngine', () => {
     act(() => result.current.replaceProjectState({
       lanes: [],
       fxBuses: createDefaultFxBuses(),
+      masterBus: createDefaultMasterBusState(),
       song: {
         bpm: 120,
         masterGain: 0.8,
@@ -173,6 +180,7 @@ describe('useTransportEngine', () => {
     act(() => result.current.replaceProjectState({
       lanes: maxLanes,
       fxBuses: createDefaultFxBuses(),
+      masterBus: createDefaultMasterBusState(),
       song: createDefaultProjectSongState()
     }))
     act(() => result.current.addLane())
@@ -544,6 +552,7 @@ describe('useTransportEngine', () => {
       result.current.replaceProjectState({
         lanes,
         fxBuses: createDefaultFxBuses(),
+        masterBus: createDefaultMasterBusState(),
         song: {
           bpm: 120,
           masterGain: 0.8,

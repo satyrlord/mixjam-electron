@@ -82,8 +82,6 @@ function createOptions(overrides: {
     canUndo: false,
     canRedo: false,
     onSetBpm: vi.fn(),
-    onSetMasterGain: vi.fn(),
-    onResetMasterMeter: vi.fn(),
     onUndo: vi.fn(),
     onRedo: vi.fn(),
     onTransportPlay: vi.fn(),

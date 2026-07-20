@@ -73,8 +73,8 @@ browser adjacencies.
   └── .bottom-workspace — full-width tabbed work band
       ├── .bottom-workspace-tabs — Master | Mixer | Samples + Master status
       └── .bottom-workspace-panel — active peer panel
-          ├── Master    — Master Volume and 13-slot Master Bus Strip with
-          │               pinned input/output meters (spec-012)
+          ├── Master    — 13-slot Master Bus Strip with pinned
+          │               input/output meters (spec-012)
           ├── Mixer     — lane strips + Return + FX1..FX4 (specs 007 and 010)
           └── Samples   — category tree + virtualized sample list (spec-004)
 ```
@@ -130,9 +130,9 @@ browser adjacencies.
   container is 160px wide. All lane strips and all four combined containers
   remain reachable by horizontal scrolling; none is pinned outside that
   scrollport.
-- The tab row shows compact read-only BPM and Master Volume status. The status
+- The tab row shows compact read-only BPM and Master status. The status
   is an accessible button that activates Master; it does not create a second
-  editable BPM or volume control.
+  editable BPM or gain control.
 - Default layout proportion and sizing follow the
   [Style Guide](../style-guide.md#layout-architecture). The current layout
   persists under `mixjam:bottom-workspace-layout-v2`. The v2 key intentionally
@@ -172,24 +172,21 @@ browser adjacencies.
 
 ### Master Panel Controls
 
-- The combined Master Volume/Output Level control forms one leading-edge
-  vertical module. Linear controls and meters increase from bottom to
-  top. The Output Level meter, readings, and reset action share the Master
-  Volume module because they all describe or control the master bus.
-- Master Volume uses the same vertical fader grammar as lane gain, including
-  value placement and unity indication. Output Level sits beside that fader in
-  the same bordered module. Meter styling follows the
-  [Style Guide](../style-guide.md#meter-bars).
+- The Master panel contains the 13-slot Master Bus Strip (spec-012) and
+  nothing else. Master Volume is no longer a Master-tab control: the tab row
+  keeps its read-only Master status, and the strip's Gain Stage module owns
+  gain staging.
+- Master output metering lives in the strip's pinned output meter, which
+  supersedes the previous standalone Output Level block. The strip's style
+  rules live in the [Style Guide](../style-guide.md#master-bus-strip).
 - The Player Settings modal exposes the project-owned automatic clip-edge
   micro-fade controls: one enabled checkbox plus fractional fade-in and fade-out
   millisecond fields. Both fields accept 0 through 20 ms and default to 2 ms and
   4 ms. The move out of Master does not change sound, dirty-state, or project
   persistence behavior.
-- Output Level shows compact M, S, I, and TP values with explicit LUFS and dBTP
-  units. When the standards-based processor is unavailable it identifies the
-  fallback value as dBFS. A keyboard-reachable icon button starts a new
-  Integrated/LRA session without stopping Momentary or Short-term updates. Its
-  accessible name and tooltip both read `Reset loudness measurement`.
+- The Master Bus Strip's pinned output meter shows Momentary, Short-term, and
+  Integrated LUFS plus true peak in dBTP. Its behavior and layout are owned by
+  spec-012.
 - Level faders and meters increase vertically from bottom to top. The shared
   linear-slider visual is orientation-independent: BPM and Delay parameters use
   its horizontal form. Bipolar pan and continuous Mixer controls remain rotary.
@@ -503,9 +500,10 @@ infrequent commands out of the permanent button row.
   sample action and opens Samples directly. Opening it also grows a compressed
   Bottom Workspace to at least 50%.
 - Controls:
-  - **Master Volume module** — global output level slider plus the related LUFS
-    loudness meter, Momentary fill, M/S/I LUFS and true-peak dBTP readouts, and
-    an explicitly labeled RMS dBFS fallback.
+  - **Master Bus Strip (spec-012)** — the 13-slot mastering rack with pinned
+    input and output meters. The output meter shows Momentary, Short-term, and
+    Integrated LUFS plus true peak in dBTP. The strip's Gain Stage module owns
+    gain staging; a separate Master Volume module no longer exists.
 - Clip Edge Fades are not rendered in Master; their project-owned editor is in
   the Player Settings modal.
 - Changing the BPM slider updates the engine's transport BPM immediately.
@@ -570,16 +568,14 @@ window-level mouse listeners.
 - [x] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
   Master, and remains usable throughout the supported viewport range without
   targets below the selected UI Size.
-- [x] **AC-004d:** The Master panel shows one Master Volume module that
-  contains its vertical slider, the related vertical Output Level meter,
-  M/S/I in LUFS, TP in dBTP, and an explicit RMS dBFS fallback. The meter's
-  live fill is Momentary LUFS. Its keyboard-reachable reset action is an SVG
-  ear icon with the `Reset loudness measurement` accessible name and tooltip.
+- [x] **AC-004d:** The Master panel content is the spec-012 Master Bus Strip.
+  Master output metering lives in the strip's pinned output meter, which shows
+  Momentary, Short-term, and Integrated LUFS plus true peak; the previous
+  standalone Master Volume module and Output Level block are retired.
   The Middle Strip shows a horizontal BPM slider with an editable numeric
   value. BPM accepts 50 to 200, initializes to 120 for a new project, and
-  supports precise numeric entry. BPM and Master Volume use the same
-  Mixer-derived linear rail and compact rectangular handle while retaining
-  their horizontal and vertical orientations.
+  supports precise numeric entry. BPM uses the Mixer-derived linear rail and
+  compact rectangular handle in its horizontal orientation.
 - [x] **AC-004e:** Mixer and return-module visual telemetry runs only while Mixer
   is the active Bottom Workspace tab. Master, Samples, and leaving Player cancel its
   animation-frame loop without changing audio state.
@@ -755,12 +751,8 @@ contract.
 - `src/renderer/src/components/BpmControl.test.tsx` verifies precise BPM entry,
   invalid-entry rejection, external value sync, and orientation-aware keyboard
   commands.
-- `src/renderer/src/components/MasterControlsMain.test.tsx` verifies that Output
-  Level and its icon-only reset action are contained by the Master Volume
-  module, keep their accessible names, and preserve reset behavior.
-- `tmp/verify-master-output-group/evidence.md` records production Chromium
-  containment, geometry, hit testing, keyboard focus, horizontal fit, and the
-  shared reset tooltip at 1920x1080.
+- `src/renderer/src/components/MasterBusStrip.test.tsx` verifies the Master
+  panel rack, including its pinned output meter (spec-012).
 - `tests/e2e/library.spec.ts` verifies that subcategory, sort, and management
   actions render with at least 44-by-44px interaction boxes in production
   Chromium. Dense Sample Browser tiles and category-tree rows use the separate

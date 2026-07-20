@@ -11,10 +11,24 @@ import {
   type ProjectGeneratorMetadata
 } from './project-file'
 import { supportsExactGeneratorRegeneration } from './generator-support'
-import { createDefaultFxBuses, createDefaultLanes, type ProjectFxBuses } from './project-state'
+import {
+  createDefaultFxBuses,
+  createDefaultLanes,
+  createDefaultMasterBusState,
+  type ProjectFxBuses
+} from './project-state'
 
 const CREATED_AT = '2026-07-13T10:00:00.000Z'
 const MODIFIED_AT = '2026-07-13T11:00:00.000Z'
+
+type RawMasterBusProject = Record<string, unknown> & {
+  masterBus: Record<string, unknown> & {
+    order: unknown
+    power: Record<string, unknown>
+    params: Record<string, unknown>
+    preset: unknown
+  }
+}
 const GENERATOR: ProjectGeneratorMetadata = {
   generatorVersion: 1,
   profileId: 'techno',
@@ -58,7 +72,8 @@ function makeProject(): ProjectData {
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     },
     lanes,
-    fxBuses: createDefaultFxBuses()
+    fxBuses: createDefaultFxBuses(),
+    masterBus: createDefaultMasterBusState()
   }
 }
 
@@ -143,7 +158,7 @@ describe('project file format', () => {
     const project = { ...makeProject(), generator: GENERATOR }
     const parsed = parseProject(serialize(project))
 
-    expect(parsed.formatVersion).toBe(4)
+    expect(parsed.formatVersion).toBe(5)
     expect(parsed.generator).toEqual(GENERATOR)
 
     const serialized = JSON.parse(serializeProject(parsed, {
@@ -152,6 +167,58 @@ describe('project file format', () => {
       modifiedAt: parsed.modifiedAt
     })) as { generator: ProjectGeneratorMetadata }
     expect(serialized.generator).toEqual(GENERATOR)
+  })
+
+  it('round-trips a manually edited master bus strip record', () => {
+    const project = makeProject()
+    project.masterBus = {
+      order: ['lim', 'gain', 'clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc'],
+      power: { ...project.masterBus.power, max: false, mbc: false },
+      params: { ...project.masterBus.params, 'gain.trim': -3.5, 'lim.ceil': -0.8 },
+      preset: null
+    }
+
+    const parsed = parseProject(serialize(project))
+
+    expect(parsed.masterBus).toEqual(project.masterBus)
+  })
+
+  it('rejects version 4 projects (no migration, spec-012 breaking boundary)', () => {
+    const raw = JSON.parse(serialize()) as Record<string, unknown>
+    raw.formatVersion = 4
+    delete raw.masterBus
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(
+      'This MixJam project uses an unsupported format version. Only format version 5 is supported.'
+    )
+  })
+
+  it.each([
+    ['a missing masterBus record', (raw: RawMasterBusProject) => { delete (raw as Record<string, unknown>).masterBus }, 'project.masterBus must be an object'],
+    ['an unknown masterBus key', (raw: RawMasterBusProject) => { raw.masterBus.extra = true }, 'project.masterBus.extra is not supported'],
+    ['a short slot order', (raw: RawMasterBusProject) => { raw.masterBus.order = ['gain'] }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+    ['a duplicated slot order entry', (raw: RawMasterBusProject) => {
+      raw.masterBus.order = ['gain', 'gain', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
+    }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+    ['an unknown processor id in the slot order', (raw: RawMasterBusProject) => {
+      raw.masterBus.order = ['dither', 'gain', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
+    }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+    ['a missing power flag', (raw: RawMasterBusProject) => { delete raw.masterBus.power.comp }, 'project.masterBus.power.comp must be a boolean'],
+    ['an unknown power key', (raw: RawMasterBusProject) => { raw.masterBus.power.dither = true }, 'project.masterBus.power.dither is not supported'],
+    ['a non-boolean power flag', (raw: RawMasterBusProject) => { raw.masterBus.power.comp = 1 }, 'project.masterBus.power.comp must be a boolean'],
+    ['a missing parameter', (raw: RawMasterBusProject) => { delete raw.masterBus.params['gain.trim'] }, 'project.masterBus.params.gain.trim must be a finite number from -24 to 24'],
+    ['an unknown parameter id', (raw: RawMasterBusProject) => { raw.masterBus.params['gain.bogus'] = 0 }, 'project.masterBus.params.gain.bogus is not supported'],
+    ['a non-finite parameter value', (raw: RawMasterBusProject) => { raw.masterBus.params['gain.trim'] = null }, 'project.masterBus.params.gain.trim must be a finite number from -24 to 24'],
+    ['a parameter above its documented range', (raw: RawMasterBusProject) => { raw.masterBus.params['lim.gain'] = 12.5 }, 'project.masterBus.params.lim.gain must be a finite number from 0 to 12'],
+    ['a parameter below its documented range', (raw: RawMasterBusProject) => { raw.masterBus.params['clip.ceil'] = -6.5 }, 'project.masterBus.params.clip.ceil must be a finite number from -6 to 0'],
+    ['an unknown preset name', (raw: RawMasterBusProject) => { raw.masterBus.preset = 'Extreme' }, 'project.masterBus.preset must be null or one of Cheat Sheet, Gentle, Loud, Bypass All'],
+    ['a non-string preset', (raw: RawMasterBusProject) => { raw.masterBus.preset = 5 }, 'project.masterBus.preset must be null or one of Cheat Sheet, Gentle, Loud, Bypass All']
+  ])('rejects %s', (_description, mutate, expectedMessage) => {
+    const raw = JSON.parse(serialize()) as RawMasterBusProject
+    mutate(raw)
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrowError(ProjectFileError)
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(expectedMessage)
   })
 
   it('rejects version 2 projects (migration removed)', () => {
@@ -326,5 +393,9 @@ describe('project file format', () => {
       lanes: project.lanes.slice(1)
     })).not.toBe(baseline)
     expect(projectFingerprint({ ...project, generator: GENERATOR })).not.toBe(baseline)
+    expect(projectFingerprint({
+      ...project,
+      masterBus: { ...project.masterBus, preset: null }
+    })).not.toBe(baseline)
   })
 })

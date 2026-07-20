@@ -133,7 +133,7 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
   │   ├── Song Progress Bar (28px row)
   │   └── Main Row (48px): project zone | undo/redo | transport | search | menus
   └── Bottom Workspace (full width, tabbed: Master | Mixer | Samples)
-      ├── Tab Row (with BPM + Master Volume status)
+      ├── Tab Row (with BPM + Master status)
       └── Panel (one active, all mounted, inactive hidden)
 ```
 
@@ -485,8 +485,8 @@ present. Native light Windows scrollbars never appear on dark themes.
   - Yellow (`--meter-yellow`): -12 to -3 dB
   - Red (`--meter-red`): -3 to 0 dB
 - **Peak hold:** 2px CSS-positioned line, ~30 dB/s decay.
-- **Master Output Level:** Momentary LUFS fill with M/S/I/TP readouts.
-  Styled with the same themed meter chrome.
+- **Master output metering:** lives in the Master Bus Strip's pinned output
+  meter; its style rules live in the "Master Bus Strip" section.
 - Returns have no meters.
 
 ### Progress Indicators
@@ -531,7 +531,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Horizontal and vertical sliders expose the matching `aria-orientation` and
   unit-aware value text. Arrow Up/Right increases, Arrow Down/Left decreases,
   and Home/End select the bounds.
-- Used for BPM, Master Volume, lane channel Volume, and Delay parameters.
+- Used for BPM, lane channel Volume, and Delay parameters.
   Level faders increase from bottom to top and may add unity ticks, meters, and
   drag readouts without changing the shared rail or handle.
 - Rotary controls, resize separators, and the variable-width Song Progress Bar
@@ -761,7 +761,7 @@ Bottom Workspace expansion shows the rack full-height.
 - Left/Right Arrow moves focus and activates; Home/End activates first/last.
 - One tab has `tabIndex=0`, others `tabIndex=-1`.
 - Connected via `id`, `aria-controls`, `aria-labelledby`.
-- Tab row shows compact read-only BPM and Master Volume status (accessible
+- Tab row shows compact read-only BPM and Master status (accessible
   buttons that activate Master).
 - Tabs use the selected UI Size target and never shrink below it.
 

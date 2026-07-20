@@ -128,7 +128,7 @@ describe('App', () => {
     expect(screen.getByText('Off')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Settings' }))
-    expect(screen.getByText('Master Controls')).toBeInTheDocument()
+    expect(document.querySelector('.mbs-strip')).not.toBeNull()
     expect(screen.queryByText('Clip Edge Fades')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
   })
