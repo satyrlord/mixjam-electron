@@ -62,7 +62,7 @@ elements consistently.
 | `--meter-red` | Meter danger zone | Channel dB meter (-3 to 0 dB) |
 | `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink | Transport Ribbon buttons |
 | `--transport-active` | Active transport button base color; drives `--on-transport-active` | Playing transport button |
-| `--fx-accent-1` … `--fx-accent-4` | Per-slot Mixer FX/send accents; applied to slot rotary dials, the power LED, and the Edit cog; falls back to `--accent` when a slot is missing or not 6-digit hex | Mixer FX bank, channel-strip sends 1-4 |
+| `--fx-accent-1` … `--fx-accent-4` | Per-slot rotary, power LED, and Edit-cog accent; falls back to `--accent` for a missing or invalid color | Mixer FX bank, channel-strip sends 1-4 |
 | `--radius` | Border radius | Placements, buttons, panels |
 | `--radius-transport` | Transport button corner shape | Transport Ribbon buttons; `50%` = round hardware (Analog, Rust), rounded-rect for modern themes |
 | `--radius-sample-bubble` | Sample-bubble corner radius, px | Lane placements (canvas-drawn) and DOM sample bubbles; `0px` for hard-edged themes |
@@ -95,11 +95,22 @@ Mixer components, lane heads, tabs, menus, toolbars, footer and header chrome,
 spacing, supporting type, lanes, and sample bubbles. Components must not mix
 magic dimensions from different size sets.
 
+The same preset derives a content-safe Bottom Workspace minimum for Master,
+Mixer, and Samples. Changing UI Size re-clamps the active tab and grows it when
+needed; it never leaves newly enlarged controls outside their cards.
+
 Square controls and swatches use the selected UI Size as both dimensions.
 Text-bearing controls use it as their minimum cross-axis target while width
 remains content-driven. Borders, meter tracks, resize-seam visuals, the 240px
 lane head, 33px ruler, and musical x-axis geometry remain invariant. The preset
 table is the single numeric source used by CSS and JavaScript geometry:
+
+Numeric linear sliders keep a UI-Size pointer and focus target while painting
+the smaller Mixer-derived rectangular rail handle inside it. UI Size never
+turns the painted handle into a full-size circle. The fixed-height Tracker
+ruler seek surface is not a parameter slider: it reuses the shared behavior and
+handle tokens but keeps its documented compact target inside the invariant 33px
+ruler row.
 
 | Token | Size 30 | Size 40 | Size 50 |
 | --- | ---: | ---: | ---: |
@@ -151,9 +162,9 @@ semantic treatment can change with the active theme (AC-008):
 | `--border-sample-bubble` | Sample-bubble outline, parsed by the lane canvas — strict format `<width>px <color>` or `none`; gives Beton Brut/Arcade their hard ink borders |
 | `--gradient-sample-bubble` | Sample-bubble gloss, canvas-parsed — `linear-gradient(180deg, <top>, <bottom>)` or `none`; stops use hex (`#RRGGBBAA`, never rgba()); Rack's pressed metal |
 | `--shadow-meter` | box-shadow on meter fills (channel dB meter, loudness bar) — LED glow on Rack, `none` elsewhere |
-| `--gradient-mixer-device` | Mixer device surface behind the channel and FX panels — full CSS background value; carries the theme's device texture (Analog scanlines, Cosmic starfield, Riso halftone, Rust diagonal grain) or `none` for flat chrome |
+| `--gradient-mixer-device` | Mixer device surface behind channel and FX panels; a CSS background texture or `none` for flat chrome |
 | `--gradient-mixer-panel` | Mixer panel surface image layered over `--bg-panel` (Analog warm gradient, Rack faceplate with corner screws) or `none` |
-| `--shadow-mixer-panel` | box-shadow on the Mixer channel-bank and FX-bank panels — drop shadow, neumorphic pair (Soft), offset slab (Arcade, Riso), Win9x bevel (Vintage), glow halo (Cosmic, Rave) or `none` |
+| `--shadow-mixer-panel` | Mixer channel-bank and FX-bank shadow; theme-specific depth, bevel, glow, or `none` |
 | `--shadow-mixer-slot` | box-shadow on channel strips and FX cards — same treatment family as `--shadow-mixer-panel`, one step smaller, or `none` |
 | `--shadow-mixer-led` | Glow behind Mixer status and FX power LEDs; `currentColor` glows in each LED's own accent (the LED elements set `color`); `none` = flat dot (print/flat themes) |
 | `--fill-mixer-knob` | Solid face color of Mixer rotary knobs (SVG fill; darker than the slot on hardware themes, cream/ivory on print/desktop themes) |
@@ -443,6 +454,10 @@ preset layer has one clear cascade boundary.
   choice outside project files.
 - [x] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
   controls, targets, panels, Mixer components, spacing, and supporting type.
+  Every numeric linear slider retains a 30/40/50px cross-axis target while its
+  compact rectangular painted handle scales with the shared Mixer grammar. The
+  fixed-height Tracker ruler keeps its documented compact seek target. The
+  active Bottom Workspace tab re-clamps to its content-safe minimum.
 - [x] **AC-022:** Sample bubbles and lanes use the documented 24/37, 33/49, and
   41/61 pixel height pairs. Tracker, browser, and drag-image bubble rectangles
   match at each size, while bubble width and musical placement do not change.

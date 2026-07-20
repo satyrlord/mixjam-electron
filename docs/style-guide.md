@@ -131,7 +131,7 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
   ├── Middle Strip (80px base border-box, full width)
   │   ├── Song Progress Bar (28px row)
   │   └── Main Row (48px): project zone | undo/redo | transport | search | menus
-  └── Bottom Workspace (full width, tabbed: Song | Mixer | Samples)
+  └── Bottom Workspace (full width, tabbed: Master | Mixer | Samples)
       ├── Tab Row (with BPM + Master Volume status)
       └── Panel (one active, all mounted, inactive hidden)
 ```
@@ -174,7 +174,7 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 - **Song Progress Bar:** 28px persistent timeline navigation row.
 - **Main Row (48px):** three semantic zones:
   - **Project zone (left):** project name + unsaved dot + menu (New, Open,
-    Save, Save As).
+    Save, Save As), plus the BPM control.
   - **Command dock (center):** Undo/Redo group, then centered Transport Ribbon.
   - **Utility zone (right):** sample search, transient library status, More
     menu (Keyboard Shortcuts, Re-scan).
@@ -182,15 +182,23 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 ### Bottom Workspace
 
 - Full-width tabbed region below the Middle Strip.
-- Tabs: Song, Mixer, Samples (in that order).
-- Default height: 24% of Player.
+- Tabs: Master, Mixer, Samples (in that order).
+- Requested default height: 24% of Player. The rendered height clamps to the
+  active tab's content-safe minimum.
 - All three panels remain mounted; inactive panels are visually hidden and
   removed from accessibility/focus paths.
 - Tablist uses automatic activation with arrow-key navigation.
 - Mixer and the other tabs remember separate app-local heights. Entering Mixer
   expands it to its last usable height; leaving restores the other tab height.
+- Each tab has a content-safe minimum derived from the selected UI Size.
+  Manual resizing, saved layouts, tab changes, and UI Size changes clamp the
+  active panel to that minimum instead of letting controls paint outside their
+  cards. The active panel owns a defensive vertical scrollport so future
+  content growth beyond the documented minimum remains reachable; clipping
+  interactive controls is not an accepted fallback.
 - At 1920x1080 and UI Size 50, an open Mixer must leave the complete ruler and at
-  least one complete lane visible. The Player never gains a vertical scrollbar.
+  least one complete lane visible. The Player never gains a vertical scrollbar,
+  and Mixer needs no vertical fallback scrollbar at this supported size.
 
 ### Resize Handles
 
@@ -500,17 +508,26 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 ## Component Patterns
 
-### Vertical Faders
+### Linear Sliders and Faders
 
-- Shared `VerticalFader` wrapper over Radix Slider.
-- Linear controls increase from bottom to top.
-- `aria-orientation="vertical"`, unit-aware value text.
-- Arrow Up/Right increases, Arrow Down/Left decreases, Home/End for
-  min/max.
-- Pointer target uses the selected UI Size width, with the thumb centered on
-  its visible track.
-- Used for: lane channel Volume, Master Volume, and BPM slider (50-200).
-- Unity (100%) marked with a tick.
+- Every numeric linear value control uses the project-owned `LinearSlider`
+  wrapper over Radix Slider. Feature components do not assemble or skin raw
+  slider primitives.
+- The Mixer lane fader is the canonical visual: one recessed rectangular rail,
+  accent value fill, and low-profile rectangular hardware handle. Horizontal
+  sliders rotate the same handle geometry instead of introducing a circle.
+- The semantic pointer and focus target uses the selected UI Size. The painted
+  handle remains compact inside that target and scales only with `--ui-scale`.
+- Horizontal and vertical sliders expose the matching `aria-orientation` and
+  unit-aware value text. Arrow Up/Right increases, Arrow Down/Left decreases,
+  and Home/End select the bounds.
+- Used for BPM, Master Volume, lane channel Volume, and Delay parameters.
+  Level faders increase from bottom to top and may add unity ticks, meters, and
+  drag readouts without changing the shared rail or handle.
+- Rotary controls, resize separators, and the variable-width Song Progress Bar
+  scrollbar are separate semantic controls. The Tracker ruler reuses the shared
+  slider behavior and hardware handle, but its fixed 33px timeline row keeps a
+  compact 10-by-22px seek target instead of the parameter-slider UI Size target.
 
 ### Rotary Controls (Sends, Returns, Pan, FX Parameters)
 
@@ -614,13 +631,110 @@ present. Native light Windows scrollbars never appear on dark themes.
   density only. Do not invent hardware controls, screws, tape labels, or
   behavior that is not in a specification.
 
+### Master Bus Strip
+
+The Master tab's 13-slot mastering rack (spec-012). It reads as one piece
+of hardware: a dark rack shell holding thirteen module faceplates in a
+horizontal scrollport that follows the Mixer scroll conventions.
+
+**Hardware palette exception.** The rack is a fixed hardware surface. Its
+faceplate finishes, family chip colors, and meter face colors are constants
+scoped to the rack, like physical gear and like the reference-board rule
+for the Mixer. Everything around the rack (panel chrome, scrollbars, focus
+ring, text outside faceplates) uses theme tokens. Rack text uses the theme
+font roles (`--font-label` for labels, `--font-mono` for ordinals, values,
+and LCD readouts); no system fonts.
+
+**Rack shell.** Rounded rack slab (14px radius) with a dark vertical
+gradient, 16px vertical and 18px horizontal padding, 9px gap between
+modules, deep drop shadow. Each module corner carries a small screw-head
+detail as a non-interactive decoration.
+
+**Module faceplate.** 152px wide (Bus Compressor 184px wide; the two meter
+modules 196px), 500px tall, 6px radius, vertical faceplate gradient in the
+module's finish, hairline dark border, inner top highlight. Anatomy, top
+to bottom: grip + ordinal + power LED row, family chip + module name,
+control grid, optional GR LED row, description text block separated by a
+hairline.
+
+**Finishes.** Six fixed finishes; each defines face gradient, ink, dim
+ink, knob cap colors, and pointer color:
+
+| Finish | Face | Ink | Cap | Pointer | Used by |
+| --- | --- | --- | --- | --- | --- |
+| cream | #ded6c2 to #cdc4ac | #2c2921 | #3b372d/#232019 | #efe8d3 | Gain Stage, Bus Compressor |
+| graphite | #33363d to #2a2d33 | #e7e7e3 | #1c1d22/#101114 | #eceae4 | Soft Clip, Maximizer, Multiband Comp |
+| oxblood | #71413a to #5c332d | #f4e8de | #2e1d1a/#1e1210 | #f2dcc9 | Tube Saturation |
+| steel | #4e6b79 to #405865 | #eaf1f4 | #233541/#16242d | #d8edf6 | Subtractive EQ, Additive EQ |
+| sand | #c7ae86 to #b39a72 | #332a1b | #40372a/#292317 | #f4e7c8 | Tape Saturation |
+| sage | #68755f to #57634d | #eef2e8 | #293024/#1a1f17 | #e3edd5 | Stereo Imaging |
+| night | #26272e to #1c1d23 | #efecf1 | #131317/#0a0a0d | #f2e4e4 | Limiter |
+| meter | #2c2d33 to #212227 | #e7e7e3 | — | — | Input and Output meters |
+
+**Family chips.** Small uppercase chip above the module name, fixed
+colors: GAIN #c9ccd4, SAT #ff8a4e, EQ #62aee0, DYN #f4c14f, IMG #7fd69b,
+METER #9aa0ab. The chip color also tints the module's knob value arcs and
+GR LEDs. A bypassed module's chip turns neutral gray (#7c7f86).
+
+**Knobs.** Rack knobs reuse the shared rotary control (270-degree track,
+value arc, inset cap, short pointer): standard face 46px, large face 74px.
+The value arc uses the family color; bipolar knobs (Trim) fill from
+center. Value text sits under the label in a recessed mono readout. Hit
+targets: the semantic pointer/focus box uses the selected UI Size; the
+painted knob stays compact inside it.
+
+**Power LED and grip.** The power toggle paints a 20px LED (amber when on,
+with glow) centered in a UI Size hit box, same pattern as the Mixer FX
+LED. The grip paints a 20x18px four-dot handle in a UI Size hit box with
+`cursor: grab`.
+
+**Ordinals.** Two-digit mono chip (`01`-`13`), recessed background,
+renumbered live on reorder.
+
+**Meters.**
+
+- Input VU: cream radial-gradient meter window (132px tall), dark tick
+  arcs with a red over-zero arc, physical needle, legend
+  `0 VU = -18 dBFS`; below it, L/R peak LEDs (red) flanking a green-on-
+  black LCD dBFS readout.
+- Output: two vertical bars — LUFS-M (30px wide, green fill, translucent
+  green target band at -14, red fill state when hot) and TP (16px wide,
+  amber fill, red line at -1 dBTP) — sharing a -6 to -24 mono scale
+  column; below them a large LCD integrated-LUFS readout whose color
+  encodes distance to target (green on target, blue quiet, amber hot, red
+  over), a TP readout, and the latching OVER lamp (full-width, red fill
+  and glow when lit).
+- GR LED rows: label `GR` plus six 8px LEDs tinted with the family color.
+
+**States.**
+
+- Off (bypassed): module body at 40 % opacity and 75 % grayscale,
+  controls inert; power LED unlit; family chip gray.
+- Dragging: dragged module at 35 % opacity; a 4px amber drop indicator
+  with glow marks the insertion point.
+- Focus: standard focus-visible outline on grip, power, knobs, switches,
+  preset chips, and the OVER lamp.
+- Reduced motion: `prefers-reduced-motion` removes transitions; meters
+  still update by value.
+
+**Preset chips.** The four factory presets render as the standard chip
+row in the strip header; the active chip uses an amber filled state with
+dark ink.
+
+**Layout fit.** The rack lives in the Master panel's horizontal
+scrollport. The Master tab's content-safe minimum derives from the rack
+height plus shell padding; if the granted panel height is smaller, the
+panel's sanctioned defensive vertical scrollport applies (spec-006).
+Bottom Workspace expansion shows the rack full-height.
+
 ### Delay Editor Modal
 
 - Selecting Delay opens a full blocking modal with no close button and no typed
   fields. It is centered in the application viewport, outside the Mixer scroll
   surface. The backdrop and all ordinary app controls and hotkeys are inert.
-- Controls are a Free/Sync segment, horizontal parameter sliders with read-only
-  values, a sync-division dropdown, Ping-Pong Off/On, Reset, Cancel, and OK.
+- Controls are a Free/Sync segment, shared horizontal `LinearSlider` parameter
+  controls with read-only values, a sync-division dropdown, Ping-Pong Off/On,
+  Reset, Cancel, and OK.
 - Enter saves. Esc or Cancel discards. Space toggles the edited FX bypass.
   Backspace resets the focused control; Ctrl+Backspace resets all controls.
   Arrow keys adjust or select, and Home/End use the focused control's bounds.
@@ -638,7 +752,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 - One tab has `tabIndex=0`, others `tabIndex=-1`.
 - Connected via `id`, `aria-controls`, `aria-labelledby`.
 - Tab row shows compact read-only BPM and Master Volume status (accessible
-  buttons that activate Song).
+  buttons that activate Master).
 - Tabs use the selected UI Size target and never shrink below it.
 
 ### Tooltips
@@ -710,7 +824,8 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Menus use the shared Radix-backed primitive and return focus to trigger on
   dismiss.
 - Modal dialogs trap focus and restore to opener.
-- Vertical sliders expose `aria-orientation="vertical"` and unit-aware values.
+- Linear sliders expose their actual horizontal or vertical orientation and
+  unit-aware values.
 - Rotary controls expose `aria-valuetext` with position.
 - Resize handles expose separator value/min/max semantics.
 - Context menus follow standard keyboard model, remain in viewport, return

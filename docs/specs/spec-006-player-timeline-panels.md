@@ -10,7 +10,7 @@ Size layout are implemented; other unchecked acceptance criteria remain open
 Implement the MixJam Player's visual region layout from the approved General
 Layout mock-up: an upper row with the MixJam Browser and Tracker, a full-width
 Middle Strip containing the Transport Ribbon and global controls, and one
-full-width Bottom Workspace with Song, Mixer, and Samples tabs. Within that
+full-width Bottom Workspace with Master, Mixer, and Samples tabs. Within that
 shell, define the dynamic 1-through-64-lane Tracker, sample bubbles, ruler, moving playhead, and
 browser adjacencies.
 
@@ -25,9 +25,9 @@ browser adjacencies.
 - **US-003:** As a user, I see a full-width Middle Strip between the tracker
   and browser so transport controls and global song state live on a clear seam.
 - **US-004:** As a user, I can switch the full-width Bottom Workspace between
-  Song, Mixer, and Samples without learning different reveal mechanisms.
+  Master, Mixer, and Samples without learning different reveal mechanisms.
 - **US-004a:** As a user, I can adjust master volume, monitor overall loudness,
-  and change BPM from the Song panel without opening the Mixer.
+  and change BPM from the Middle Strip without opening the Mixer.
 - **US-004b:** As a keyboard user, I can navigate and activate every Bottom
   Workspace tab using the standard tablist keyboard model.
 - **US-005:** As a user, I can place sample bubbles onto lanes and see the same
@@ -71,9 +71,10 @@ browser adjacencies.
   │   ├── .song-progress-bar — 28px persistent timeline navigation row
   │   └── .middle-strip-main — 48px project + edit + transport + utility row
   └── .bottom-workspace — full-width tabbed work band
-      ├── .bottom-workspace-tabs — Song | Mixer | Samples + song status
+      ├── .bottom-workspace-tabs — Master | Mixer | Samples + Master status
       └── .bottom-workspace-panel — active peer panel
-          ├── Song      — BPM, combined Master Volume and Output Level, Clip Edge Fades
+          ├── Master    — Master Volume, Clip Edge Fades, 13-slot Master Bus
+          │               Strip with pinned input/output meters (spec-012)
           ├── Mixer     — lane strips + Return + FX1..FX4 (specs 007 and 010)
           └── Samples   — category tree + virtualized sample list (spec-004)
 ```
@@ -93,7 +94,7 @@ browser adjacencies.
   MixJam Browser/Tracker split.
 - The **MixJam Browser** is visible in the active Player layout. This
   spec only reserves the region; project-switching behavior is defined later.
-- The **Bottom Workspace** is the only lower-band container. Song, Mixer, and
+- The **Bottom Workspace** is the only lower-band container. Master, Mixer, and
   Samples are peer tabs; future peer workflows append tabs to the same
   tablist instead of adding another reveal system.
 - The **Middle Strip** is a fixed, full-width band between the upper and lower
@@ -109,9 +110,9 @@ browser adjacencies.
 
 ### Bottom Workspace
 
-- Tab order is **Song, Mixer, Samples**. Song is active only when no valid
+- Tab order is **Master, Mixer, Samples**. Master is active only when no valid
   saved tab exists. Thereafter, the last active tab persists in localStorage as
-  `mixjam:bottom-workspace-tab`; missing or unknown values fall back to Song.
+  `mixjam:bottom-workspace-tab`; missing or unknown values fall back to Master.
 - Tab behavior (activation, keyboard navigation, ARIA, panel lifecycle) follows
   the [Style Guide](../style-guide.md#tabs-bottom-workspace).
 - All three panels remain mounted in the same Bottom Workspace grid cell while
@@ -121,7 +122,7 @@ browser adjacencies.
   state, Mixer state, and stable control geometry. The
   inactive Samples panel mounts no virtual rows and cannot request result pages.
 - Mixer meters and return-module telemetry share one visual-only loop. Its
-  animation-frame loop runs only while Mixer is active; Song and Samples
+  animation-frame loop runs only while Mixer is active; Master and Samples
   pause that loop without changing audio state or unmounting any panel.
 - Mixer uses one horizontal scrollport containing the lane strips in visible
   order, then a 2x2 grid of combined FX and Return containers `FX1` through
@@ -130,7 +131,7 @@ browser adjacencies.
   remain reachable by horizontal scrolling; none is pinned outside that
   scrollport.
 - The tab row shows compact read-only BPM and Master Volume status. The status
-  is an accessible button that activates Song; it does not create a second
+  is an accessible button that activates Master; it does not create a second
   editable BPM or volume control.
 - Default layout proportion and sizing follow the
   [Style Guide](../style-guide.md#layout-architecture). The current layout
@@ -142,9 +143,15 @@ browser adjacencies.
   Samples expansion/restore state, and MixJam Browser collapse. Rendering code
   coordinates live panel refs but does not parse or write storage formats.
 - The Bottom Workspace module owns that live coordination: panel refs, tab-size
-  capture and restore, expand/restore actions, and browser-collapse effects.
-  The root Player supplies content and layout regions but does not duplicate
-  this state machine.
+  capture and restore, expand/restore actions, browser-collapse effects, and
+  the UI-Size-derived minimum for each tab. Manual sizes, stored sizes, tab
+  changes, expansion restores, and UI Size changes all clamp through the same
+  content-safe minimum. The root Player supplies content and layout regions but
+  does not duplicate this state machine.
+- At supported 1920x1080 geometry, every visible Master, Mixer, and Samples
+  control stays within its card and the Bottom Workspace. The active panel is
+  also a defensive vertical scrollport so later content growth beyond its
+  documented minimum remains reachable instead of being clipped.
 - Mixer effect selection and editing remain inside Mixer. There is no FX tab or
   cross-tab FX transition.
 - Samples exposes an explicit expand/restore action. Expansion grows the Bottom
@@ -152,25 +159,28 @@ browser adjacencies.
   Expansion intent and the restore size persist separately from the panel
   layout, so manually resizing the workspace to 60% never turns Restore into a
   hidden 24% jump.
-- The Bottom Workspace has no Song Controls/Mixer reveal seam. Resizing or
+- The Bottom Workspace has no Master Controls/Mixer reveal seam. Resizing or
   collapsing the upper MixJam Browser remains independent of its full width.
 
-### Song Panel Controls
+### Middle Strip Controls
 
-- BPM and the combined Master Volume/Output Level control form one leading-edge
-  group of vertical modules. Linear controls and meters increase from bottom to
+- The Middle Strip carries the project BPM control as a horizontal slider with
+  an editable numeric value anchored to the slider's left margin. Both surfaces
+  reflect one transport BPM value (50 to 200); invalid or out-of-range input is
+  not committed. The slider uses the app-wide Mixer-derived linear rail and
+  compact rectangular handle.
+
+### Master Panel Controls
+
+- The combined Master Volume/Output Level control forms one leading-edge
+  vertical module. Linear controls and meters increase from bottom to
   top. The Output Level meter, readings, and reset action share the Master
   Volume module because they all describe or control the master bus.
-- BPM is a vertical slider from 50 to 200 and has an editable numeric value for
-  precise entry. Both surfaces reflect one transport BPM value; invalid or
-  out-of-range input is not committed.
-- Control sizing, layout, and interaction follow the
-  [Style Guide](../style-guide.md#vertical-faders).
 - Master Volume uses the same vertical fader grammar as lane gain, including
   value placement and unity indication. Output Level sits beside that fader in
   the same bordered module. Meter styling follows the
   [Style Guide](../style-guide.md#meter-bars).
-- The Song panel exposes project-owned automatic clip-edge micro-fade controls:
+- The Master panel exposes project-owned automatic clip-edge micro-fade controls:
   one enabled checkbox plus fractional fade-in and fade-out millisecond fields.
   Both fields accept 0 through 20 ms and default to 2 ms and 4 ms. These
   controls change project sound, mark the project dirty, and are not stored as
@@ -180,8 +190,9 @@ browser adjacencies.
   fallback value as dBFS. A keyboard-reachable icon button starts a new
   Integrated/LRA session without stopping Momentary or Short-term updates. Its
   accessible name and tooltip both read `Reset loudness measurement`.
-- The vertical rule applies to linear sliders and meters. Bipolar pan and
-  continuous FX parameters remain rotary controls.
+- Level faders and meters increase vertically from bottom to top. The shared
+  linear-slider visual is orientation-independent: BPM and Delay parameters use
+  its horizontal form. Bipolar pan and continuous Mixer controls remain rotary.
 
 ### Ruler
 
@@ -484,21 +495,20 @@ infrequent commands out of the permanent button row.
 - Full project deserialization (restoring lanes/placements from the `.mixjam`
   file) is implemented by project save/load (spec-011).
 
-#### Song panel
+#### Master panel
 
-- Occupies the Song panel in the full-width Bottom Workspace.
+- Occupies the Master panel in the full-width Bottom Workspace.
 - First-launch default; subsequent visits restore the last active tab.
 - While the arrangement is empty, a persistent Tracker cue explains the first
   sample action and opens Samples directly. Opening it also grows a compressed
   Bottom Workspace to at least 50%.
 - Controls:
-  - **BPM slider** — project tempo control, from 50 BPM to 200 BPM.
   - **Master Volume module** — global output level slider plus the related LUFS
     loudness meter, Momentary fill, M/S/I LUFS and true-peak dBTP readouts, and
     an explicitly labeled RMS dBFS fallback.
 - Changing the BPM slider updates the engine's transport BPM immediately.
-- Owns song-level controls only. Mixer visibility is controlled by the Bottom
-  Workspace tabs, not by resizing Song.
+- Owns project-wide sound controls only. Mixer visibility is controlled by the
+  Bottom Workspace tabs, not by resizing the Master panel.
 
 ### Resize Handles
 
@@ -522,7 +532,8 @@ Sizing and visual treatment follow the [Style Guide](../style-guide.md#resize-ha
   between the upper work area and the full-width Bottom Workspace.
 - Supports pointer, touch, and keyboard resizing, exposes separator value/min/max
   semantics, and persists the resulting layout as
-  `mixjam:bottom-workspace-layout-v2`.
+  `mixjam:bottom-workspace-layout-v2`. Its drag floor and accessible bounds
+  follow the active tab's UI-Size-derived content minimum.
 
 All three split handles use the shared resizable-panel primitive rather than
 window-level mouse listeners.
@@ -545,9 +556,9 @@ window-level mouse listeners.
   Player width between the upper and lower work bands. Its 28px Song Progress
   Bar and 48px main row remain fully contained, including borders and group
   padding. Higher UI Sizes use the coherent scaling contract in spec-002.
-- [x] **AC-004:** The Bottom Workspace presents Song, Mixer, and Samples as
+- [x] **AC-004:** The Bottom Workspace presents Master, Mixer, and Samples as
   ordered peer tabs; the lower reveal seam no longer exists.
-- [x] **AC-004a:** With no valid persisted selection, Song is active. A valid
+- [x] **AC-004a:** With no valid persisted selection, Master is active. A valid
   last tab is restored after remount, and each mounted panel preserves its
   internal state while inactive. The hidden Samples panel keeps its virtual DOM
   empty and does not advance windowed paging until it is visible and measured.
@@ -555,17 +566,20 @@ window-level mouse listeners.
   Left/Right Arrow navigation, Home/End, roving tabindex, and correctly linked
   tab/tab-panel ARIA attributes.
 - [x] **AC-004c:** The tab row exposes read-only BPM/Master status that opens
-  Song, and remains usable throughout the supported viewport range without
+  Master, and remains usable throughout the supported viewport range without
   targets below the selected UI Size.
-- [x] **AC-004d:** The Song panel shows a vertical BPM slider beside one Master
-  Volume module that contains its vertical slider, the related vertical Output
-  Level meter, M/S/I in LUFS, TP in dBTP, and an explicit RMS dBFS fallback.
-  The meter's live fill is Momentary LUFS. Its keyboard-reachable reset action
-  is an SVG ear icon with the `Reset loudness measurement` accessible name and
-  tooltip. BPM accepts 50 to 200, initializes to 120 for a new project, and
-  supports precise numeric entry.
+- [x] **AC-004d:** The Master panel shows one Master Volume module that
+  contains its vertical slider, the related vertical Output Level meter,
+  M/S/I in LUFS, TP in dBTP, and an explicit RMS dBFS fallback. The meter's
+  live fill is Momentary LUFS. Its keyboard-reachable reset action is an SVG
+  ear icon with the `Reset loudness measurement` accessible name and tooltip.
+  The Middle Strip shows a horizontal BPM slider with an editable numeric
+  value. BPM accepts 50 to 200, initializes to 120 for a new project, and
+  supports precise numeric entry. BPM and Master Volume use the same
+  Mixer-derived linear rail and compact rectangular handle while retaining
+  their horizontal and vertical orientations.
 - [x] **AC-004e:** Mixer and return-module visual telemetry runs only while Mixer
-  is the active Bottom Workspace tab. Song, Samples, and leaving Player cancel its
+  is the active Bottom Workspace tab. Master, Samples, and leaving Player cancel its
   animation-frame loop without changing audio state.
 - [x] **AC-004f:** Inactive Bottom Workspace panels retain their layout geometry
   while remaining visually hidden, absent from the accessibility tree, and
@@ -639,15 +653,23 @@ window-level mouse listeners.
   parked end synchronizes both engine and visual playheads to tick 0 before
   asynchronous preparation begins.
 - [x] **AC-015:** The BPM slider shows the current BPM and changing it updates the engine's BPM immediately.
-- [x] **AC-015a:** The Song panel's slider and numeric field are two editing
+- [x] **AC-015a:** The Middle Strip's slider and numeric field are two editing
   surfaces for one BPM value and always reflect the transport's current BPM.
 - [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
 - [x] **AC-016a:** Dragging the Bottom Workspace separator changes its rendered
   height at supported resolutions. Pointer, touch, and keyboard input all work,
-  separator ARIA reports the current value, and the layout persists.
+  separator ARIA reports the current value and active-tab minimum, and the
+  clamped layout persists.
+- [x] **AC-016d:** At UI Sizes 30, 40, and 50, Master, Mixer, and Samples clamp
+  manual, stored, restored, and tab-switched sizes to their content-safe
+  minimum. Visible controls remain inside their card and workspace. Changing UI
+  Size grows the active panel when required. The active panel retains a
+  defensive vertical scrollport for later content growth; no interactive
+  content is clipped.
 - [x] **AC-016c:** An unversioned vertical layout from a prior format is ignored
-  in favor of the fresh 24% Bottom Workspace default. The resulting v2 layout is
-  stored, and later manual resizing persists across reloads.
+  in favor of a fresh 24% Bottom Workspace preference. The rendered height
+  clamps to the active tab minimum. The resulting v2 layout is stored, and
+  later manual resizing persists across reloads.
 - [x] **AC-016b:** Root sample categories use a two-column grid. Expandable
   hierarchy branches may span the grid so their nested children remain
   readable, while leaf categories do not reserve an empty toggle gutter.
@@ -712,7 +734,7 @@ contract.
 
 - `src/renderer/src/components/PlayerView.test.tsx` verifies ordered peer tabs,
   first-launch and persisted selection, mounted panels, automatic keyboard
-  activation, song status, telemetry activation, the upper-only resize seam,
+  activation, Master status, telemetry activation, the upper-only resize seam,
   and cached oversized-sample rejection while dragover payload access is
   protected.
 - `src/renderer/src/components/LaneRow.test.tsx` and
@@ -723,10 +745,15 @@ contract.
 - `tests/e2e/lane-head-overlap.spec.ts` verifies that collapsing or expanding
   the MixJam Browser updates the parent grid in the same interaction and keeps
   the Tracker ruler, lane names, and lane heads clear of the browser rail.
-- `src/renderer/src/components/PlayerView.test.tsx` verifies the shared vertical
-  Song controls, precise BPM entry and rejection, and orientation-aware BPM
-  keyboard commands.
-- `src/renderer/src/components/SongControlsMain.test.tsx` verifies that Output
+- `src/renderer/src/components/PlayerView.test.tsx` verifies BPM value and
+  callback wiring at the Player composition boundary.
+- `src/renderer/src/components/MiddleStrip.test.tsx` verifies that the BPM
+  control renders in the Middle Strip as a horizontal slider with an editable
+  numeric value.
+- `src/renderer/src/components/BpmControl.test.tsx` verifies precise BPM entry,
+  invalid-entry rejection, external value sync, and orientation-aware keyboard
+  commands.
+- `src/renderer/src/components/MasterControlsMain.test.tsx` verifies that Output
   Level and its icon-only reset action are contained by the Master Volume
   module, keep their accessible names, and preserve reset behavior.
 - `tmp/verify-master-output-group/evidence.md` records production Chromium

@@ -25,7 +25,6 @@ const BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout-v2'
 // remain 30/40/50.
 const UI_SIZE_BUTTON_LABELS: Record<number, string> = { 30: '75%', 40: '100%', 50: '125%' }
 const UI_SIZE_SUPPORTING_FONT: Record<number, string> = { 30: '10px', 40: '13px', 50: '17px' }
-
 async function settleLayout(page: import('@playwright/test').Page) {
   await page.evaluate(async () => {
     await document.fonts.ready
@@ -197,7 +196,7 @@ test('Home uses both desktop columns while library analysis is active', async ({
   }
 })
 
-test('compact Tracker fits all lanes and keeps shared geometry across themes', async ({ seededPage: page }) => {
+test('compact Tracker keeps all lanes reachable and shared geometry across themes', async ({ seededPage: page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.evaluate(({ legacyKey, currentKey }) => {
     localStorage.setItem(legacyKey, JSON.stringify({ upper: 40, bottom: 60 }))
@@ -213,8 +212,8 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
       const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
       const player = document.querySelector('.player-view')
       const lanes = document.querySelector('.tracker-lanes')
-      const laneBoxes = [...document.querySelectorAll('.tracker-lane')]
-        .map((lane) => lane.getBoundingClientRect())
+      const laneElements = [...document.querySelectorAll<HTMLElement>('.tracker-lane')]
+      const laneBoxes = laneElements.map((lane) => lane.getBoundingClientRect())
       const handle = document.querySelector('.bottom-workspace-resize')
       if (!(player instanceof HTMLElement) ||
         !(lanes instanceof HTMLElement) ||
@@ -222,7 +221,11 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
         laneBoxes.length !== 8) {
         throw new Error('Player geometry elements are unavailable')
       }
+      lanes.scrollTop = 0
       const lanesBox = lanes.getBoundingClientRect()
+      const firstLaneAtStart = laneElements[0]?.getBoundingClientRect()
+      lanes.scrollTop = lanes.scrollHeight
+      const lastLaneAtEnd = laneElements[7]?.getBoundingClientRect()
       const playerBox = player.getBoundingClientRect()
       const handleBox = handle.getBoundingClientRect()
       const bottomBox = box('.bottom-workspace')
@@ -232,8 +235,8 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
       return {
         laneCount: laneBoxes.length,
         laneHeights: [...new Set(laneBoxes.map((lane) => lane.height))],
-        firstLaneTop: laneBoxes[0]?.top,
-        lastLaneBottom: laneBoxes[7]?.bottom,
+        firstLaneTop: firstLaneAtStart?.top,
+        lastLaneBottom: lastLaneAtEnd?.bottom,
         lanesTop: lanesBox.top,
         lanesBottom: lanesBox.bottom,
         laneClientHeight: lanes.clientHeight,
@@ -262,13 +265,13 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
     expect(geometry.laneHeights).toEqual([49])
     expect(geometry.firstLaneTop).toBeGreaterThanOrEqual(geometry.lanesTop - 1)
     expect(geometry.lastLaneBottom).toBeLessThanOrEqual(geometry.lanesBottom + 1)
-    expect(geometry.laneScrollHeight).toBeLessThanOrEqual(geometry.laneClientHeight + 1)
+    expect(geometry.laneScrollHeight).toBeGreaterThanOrEqual(geometry.laneClientHeight)
     expect(geometry.laneHeadWidth).toBe(240)
     expect(geometry.laneControlWidth).toBe(40)
     expect(geometry.rulerHeight).toBe(33)
     expect(geometry.middleHeight).toBe(107)
-    expect(geometry.bottomPercent).toBeGreaterThan(23)
-    expect(geometry.bottomPercent).toBeLessThan(25)
+    expect(geometry.bottomPercent).toBeGreaterThan(34)
+    expect(geometry.bottomPercent).toBeLessThan(36)
     expect(geometry.geometryScale).toBe('0.75')
     expect(geometry.laneHeightToken).toBe('49px')
     expect(geometry.laneHeadToken).toBe('240px')
@@ -282,7 +285,7 @@ test('compact Tracker fits all lanes and keeps shared geometry across themes', a
   await expect.poll(async () => page.evaluate((key) => {
     const stored = localStorage.getItem(key)
     return stored ? JSON.parse(stored).bottom : null
-  }, BOTTOM_LAYOUT_KEY)).toBeCloseTo(24, 0)
+  }, BOTTOM_LAYOUT_KEY)).toBeGreaterThan(34)
 })
 
 test('UI Size scales controls across the app without breaking the 1080p frame', async ({ seededPage: page }) => {
@@ -297,7 +300,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
         return box.width > 0 && box.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
       }
       const controls = [...document.querySelectorAll(
-        'button, select, input:not([type="range"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), [role="button"], [role="tab"], [role="menuitem"]'
+        'button, select, input:not([type="range"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), [role="button"], [role="tab"], [role="menuitem"], .bpm-control [role="slider"]'
       )].filter(isVisible)
       const undersized = controls.flatMap((control) => {
         const box = control.getBoundingClientRect()
@@ -322,6 +325,38 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
           const width = control.getBoundingClientRect().width
           return Math.abs(width - expectedSize) > 0.5 ? [`${control.className}: ${width}`] : []
         })
+      const sliderTargets = [...document.querySelectorAll(
+        '.linear-slider:not(.tracker-ruler-seek) .linear-slider-thumb'
+      )].filter(isVisible)
+      const incorrectSliderTargets = sliderTargets.flatMap((control) => {
+        const box = control.getBoundingClientRect()
+        return Math.abs(box.width - expectedSize) > 0.5 || Math.abs(box.height - expectedSize) > 0.5
+          ? [`${control.className}: ${box.width}x${box.height}`]
+          : []
+      })
+      const scale = Number.parseFloat(getComputedStyle(document.documentElement)
+        .getPropertyValue('--ui-scale'))
+      const incorrectSliderHandles = sliderTargets.flatMap((control) => {
+        const root = control.closest('.linear-slider')
+        const handle = control.querySelector('.linear-slider-handle')
+        if (!(root instanceof HTMLElement) || !(handle instanceof HTMLElement)) return ['missing handle']
+        const box = handle.getBoundingClientRect()
+        const horizontal = root.dataset.orientation === 'horizontal'
+        const expectedWidth = (horizontal ? 9 : 22) * scale
+        const expectedHeight = (horizontal ? 22 : 9) * scale
+        return Math.abs(box.width - expectedWidth) > 0.75 || Math.abs(box.height - expectedHeight) > 0.75
+          ? [`${root.className}: ${box.width}x${box.height}`]
+          : []
+      })
+      const trackerThumb = document.querySelector('.tracker-ruler-seek .linear-slider-thumb')
+      const incorrectTrackerTarget = isVisible(trackerThumb)
+        ? (() => {
+            const box = trackerThumb.getBoundingClientRect()
+            return Math.abs(box.width - 10) > 0.5 || Math.abs(box.height - 22) > 0.5
+              ? [`${trackerThumb.className}: ${box.width}x${box.height}`]
+              : []
+          })()
+        : []
       const root = document.documentElement
       return {
         surfaceName,
@@ -331,6 +366,9 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
         undersized,
         incorrectSquares,
         incorrectFaders,
+        incorrectSliderTargets,
+        incorrectSliderHandles,
+        incorrectTrackerTarget,
         horizontalOverflow: root.scrollWidth > root.clientWidth,
         verticalOverflow: root.scrollHeight > root.clientHeight
       }
@@ -342,6 +380,9 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
     expect(audit.undersized, `${surface} undersized controls`).toEqual([])
     expect(audit.incorrectSquares, `${surface} square controls`).toEqual([])
     expect(audit.incorrectFaders, `${surface} vertical faders`).toEqual([])
+    expect(audit.incorrectSliderTargets, `${surface} slider targets`).toEqual([])
+    expect(audit.incorrectSliderHandles, `${surface} slider handles`).toEqual([])
+    expect(audit.incorrectTrackerTarget, `${surface} Tracker seek target`).toEqual([])
     expect(audit.horizontalOverflow, `${surface} horizontal overflow`).toBe(false)
     expect(audit.verticalOverflow, `${surface} vertical overflow`).toBe(false)
   }
@@ -357,11 +398,11 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   await page.getByRole('button', { name: 'FX 1 Empty', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Delay...' }).click()
   await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
-  await page.getByRole('tab', { name: 'Song', exact: true }).click()
+  await page.getByRole('tab', { name: 'Master', exact: true }).click()
   for (const size of [30, 40, 50]) {
     await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
     await settleLayout(page)
-    await auditVisibleControls(size, `Player Song ${size}`)
+    await auditVisibleControls(size, `Player Master ${size}`)
 
     await page.getByRole('tab', { name: 'Mixer' }).click()
     await settleLayout(page)
@@ -440,12 +481,13 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   }
 })
 
+
 test('Mixer and Tracker stay reachable with 1, 8, and 64 lanes at every UI Size', async ({ seededPage: page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
 
   const addLanes = async (count: number) => {
-    await page.getByRole('tab', { name: 'Song', exact: true }).click()
+    await page.getByRole('tab', { name: 'Master', exact: true }).click()
     const addLane = page.getByRole('button', { name: 'Add lane' })
     for (let index = 0; index < count; index += 1) await addLane.click()
   }
@@ -453,7 +495,7 @@ test('Mixer and Tracker stay reachable with 1, 8, and 64 lanes at every UI Size'
   const auditCount = async (expectedLaneCount: number) => {
     for (const size of [30, 40, 50]) {
       await page.getByRole('button', { name: UI_SIZE_BUTTON_LABELS[size], exact: true }).click()
-      await page.getByRole('tab', { name: 'Song', exact: true }).click()
+      await page.getByRole('tab', { name: 'Master', exact: true }).click()
       await settleLayout(page)
 
       const tracker = await page.evaluate(() => {
@@ -644,19 +686,28 @@ for (const viewport of MIDDLE_STRIP_VIEWPORTS) {
           const main = document.querySelector('.middle-strip-main')
           const dock = document.querySelector('.strip-command-dock')
           const transport = document.querySelector('.transport-ribbon')
+          const bpmControl = document.querySelector('.bpm-control')
+          const bpmSlider = document.querySelector('.bpm-control [role="slider"]')
+          const bpmHandle = document.querySelector('.bpm-control .linear-slider-handle')
           const targets = [...document.querySelectorAll(
-            '.strip-project-trigger, .strip-command-button, .strip-search-field, .strip-activity, .strip-more-trigger'
+            '.strip-project-trigger, .bpm-control, .strip-command-button, .strip-search-field, .strip-activity, .strip-more-trigger'
           )]
           if (!(strip instanceof HTMLElement) ||
             !(progress instanceof HTMLElement) ||
             !(main instanceof HTMLElement) ||
             !(dock instanceof HTMLElement) ||
-            !(transport instanceof HTMLElement)) {
+            !(transport instanceof HTMLElement) ||
+            !(bpmControl instanceof HTMLElement) ||
+            !(bpmSlider instanceof HTMLElement) ||
+            !(bpmHandle instanceof HTMLElement)) {
             throw new Error('Middle Strip geometry elements are unavailable')
           }
 
           const stripBox = strip.getBoundingClientRect()
           const dockBox = dock.getBoundingClientRect()
+          const bpmControlBox = bpmControl.getBoundingClientRect()
+          const bpmSliderBox = bpmSlider.getBoundingClientRect()
+          const bpmHandleBox = bpmHandle.getBoundingClientRect()
           const targetBoxes = targets.map((target) => {
             const rect = target.getBoundingClientRect()
             const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
@@ -696,6 +747,13 @@ for (const viewport of MIDDLE_STRIP_VIEWPORTS) {
               box.bottom <= stripBox.bottom + 1
             ),
             centersHit: targetBoxes.every((box) => box.centerHitsTarget),
+            bpmSliderSize: { width: bpmSliderBox.width, height: bpmSliderBox.height },
+            bpmHandleSize: { width: bpmHandleBox.width, height: bpmHandleBox.height },
+            bpmSliderContained:
+              bpmSliderBox.left >= bpmControlBox.left - 1 &&
+              bpmSliderBox.right <= bpmControlBox.right + 1 &&
+              bpmSliderBox.top >= bpmControlBox.top - 1 &&
+              bpmSliderBox.bottom <= bpmControlBox.bottom + 1,
             intersections,
             transportButtons: transport.querySelectorAll('button').length,
             primaryCommands: strip.querySelectorAll('.strip-command-primary').length,
@@ -709,6 +767,10 @@ for (const viewport of MIDDLE_STRIP_VIEWPORTS) {
         expect(geometry.dockCenterDelta).toBeLessThanOrEqual(1)
         expect(geometry.targetsInside).toBe(true)
         expect(geometry.centersHit).toBe(true)
+        expect(geometry.bpmSliderSize).toEqual({ width: 40, height: 40 })
+        expect(geometry.bpmHandleSize.width).toBeCloseTo(12, 1)
+        expect(geometry.bpmHandleSize.height).toBeCloseTo(88 / 3, 1)
+        expect(geometry.bpmSliderContained).toBe(true)
         expect(geometry.intersections).toEqual([])
         expect(geometry.transportButtons).toBe(4)
         expect(geometry.primaryCommands).toBe(1)
@@ -760,7 +822,7 @@ test('versioned Bottom Workspace layout resets once and then preserves manual re
   await expect.poll(async () => page.evaluate((key) => {
     const stored = localStorage.getItem(key)
     return stored ? JSON.parse(stored).bottom : null
-  }, BOTTOM_LAYOUT_KEY)).toBeCloseTo(24, 0)
+  }, BOTTOM_LAYOUT_KEY)).toBeGreaterThan(34)
 
   const handle = page.getByRole('separator', { name: 'Resize bottom workspace' })
   const handleBox = await handle.boundingBox()

@@ -20,7 +20,7 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
 
   const hiddenGeometry = await page.evaluate(() => {
     const panel = document.querySelector<HTMLElement>('.bottom-workspace-mixer')
-    const thumb = document.querySelector<HTMLElement>('.bottom-workspace-mixer .vertical-fader-thumb')
+    const thumb = document.querySelector<HTMLElement>('.bottom-workspace-mixer .linear-slider-thumb')
     const track = document.querySelector<HTMLElement>('.bottom-workspace-mixer .vertical-fader-track')
     return {
       hidden: panel?.hidden,
@@ -42,7 +42,7 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
   const mixerTab = page.getByRole('tab', { name: 'Mixer' })
   const mixerPanel = page.locator('.bottom-workspace-mixer')
   const takeFaderFrame = (): Promise<FaderFrame> => page.evaluate(() => {
-    const thumb = document.querySelector<HTMLElement>('.bottom-workspace-mixer .vertical-fader-thumb')
+    const thumb = document.querySelector<HTMLElement>('.bottom-workspace-mixer .linear-slider-thumb')
     const slider = thumb?.closest<HTMLElement>('[role="slider"]') ?? thumb
     const track = document.querySelector<HTMLElement>('.bottom-workspace-mixer .vertical-fader-track')
     return {
@@ -77,7 +77,7 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
     expect(new Set(frames.map((frame) => frame.wrapperPosition)).size).toBe(1)
     expect(Math.max(...frames.map((frame) => frame.thumbTop)) - Math.min(...frames.map((frame) => frame.thumbTop))).toBeLessThan(0.1)
 
-    await page.getByRole('tab', { name: 'Song' }).click()
+    await page.getByRole('tab', { name: 'Master' }).click()
     await expect(page.locator('.bottom-workspace-mixer')).toHaveCSS('visibility', 'hidden')
   }
 })

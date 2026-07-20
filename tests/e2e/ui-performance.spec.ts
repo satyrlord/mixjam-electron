@@ -97,7 +97,7 @@ test.describe('UI performance invariants', () => {
     expect(await virtualRows.count()).toBeLessThan(40)
     expect(await tiles.locator('.sample-bubble').count()).toBeLessThan(400)
 
-    await seededPage.getByRole('tab', { name: 'Song', exact: true }).click()
+    await seededPage.getByRole('tab', { name: 'Master', exact: true }).click()
     await expect(hiddenSamples.locator('.tiles .sample-bubble')).toHaveCount(0)
   })
 })

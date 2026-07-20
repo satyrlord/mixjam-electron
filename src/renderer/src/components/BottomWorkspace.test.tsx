@@ -1,6 +1,7 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useBottomWorkspace } from './BottomWorkspace'
+import { bottomWorkspaceMinimumHeights, useBottomWorkspace } from './BottomWorkspace'
+import { UI_GEOMETRY } from '../ui-size'
 
 const preferenceSpies = vi.hoisted(() => ({
   saveUpperLayout: vi.fn(),
@@ -12,12 +13,12 @@ const preferenceSpies = vi.hoisted(() => ({
 }))
 
 vi.mock('../app-state/player-workspace-preferences', () => ({
-  BOTTOM_WORKSPACE_TABS: ['song', 'mixer', 'samples'] as const,
+  BOTTOM_WORKSPACE_TABS: ['master', 'mixer', 'samples'] as const,
   loadPlayerWorkspacePreferences: () => ({
     upperLayout: { browser: 18, tracker: 82 },
     verticalLayout: { upper: 76, bottom: 24 },
-    bottomTab: 'song',
-    bottomTabSizes: { song: 24, mixer: 60, samples: 24 },
+    bottomTab: 'master',
+    bottomTabSizes: { master: 24, mixer: 60, samples: 24 },
     bottomExpansion: { expanded: false, previousBottomSize: 24 },
     mixJamBrowserCollapsed: false
   }),
@@ -38,41 +39,90 @@ describe('useBottomWorkspace', () => {
     vi.clearAllMocks()
   })
 
-  it('remembers each tab size and enforces the mixer minimum height', () => {
+  it('derives a content-safe minimum for every tab and UI Size', () => {
+    expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[30])).toEqual({
+      master: 246,
+      mixer: 378,
+      samples: 136
+    })
+    expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[40])).toEqual({
+      master: 332,
+      mixer: 500,
+      samples: 183
+    })
+    expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[50])).toEqual({
+      master: 406,
+      mixer: 620,
+      samples: 225
+    })
+  })
+
+  it('remembers each tab size and restores every tab above its minimum height', async () => {
     const { result } = renderHook(() => useBottomWorkspace())
     const panel = createPanel()
     Object.defineProperty(result.current.bottomPanelRef, 'current', { value: panel, configurable: true })
 
+    act(() => result.current.onVerticalLayoutChanged(
+      { upper: 66, bottom: 34 },
+      { isUserInteraction: true }
+    ))
     act(() => result.current.setBottomTab('mixer'))
 
     expect(preferenceSpies.saveBottomTabSizes).toHaveBeenCalledWith({
-      song: 34,
+      master: 34,
       mixer: 60,
       samples: 24
     })
     expect(preferenceSpies.saveBottomTab).toHaveBeenCalledWith('mixer')
-    expect(panel.resize).toHaveBeenLastCalledWith(
-      `${Math.max(result.current.mixerMinimumHeight, 600)}px`
-    )
+    await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('600px'))
 
     const saveCount = preferenceSpies.saveBottomTab.mock.calls.length
     act(() => result.current.setBottomTab('mixer'))
     expect(preferenceSpies.saveBottomTab).toHaveBeenCalledTimes(saveCount)
 
+    act(() => result.current.onVerticalLayoutChanged(
+      { upper: 58, bottom: 42 },
+      { isUserInteraction: true }
+    ))
     act(() => result.current.openSamples())
     expect(result.current.bottomTab).toBe('samples')
     expect(preferenceSpies.saveBottomTabSizes).toHaveBeenCalledWith({
-      song: 34,
-      mixer: 34,
+      master: 34,
+      mixer: 42,
       samples: 50
     })
-    expect(panel.resize).toHaveBeenLastCalledWith('50%')
+    await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('500px'))
+
+    act(() => result.current.setBottomTab('master'))
+    await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('340px'))
   })
 
-  it('expands and restores the panel using the captured size', () => {
+  it('clamps an undersized restored tab and an unmeasured panel to pixels', async () => {
+    const { result } = renderHook(() => useBottomWorkspace())
+    const panel = createPanel(20)
+    Object.defineProperty(result.current.bottomPanelRef, 'current', { value: panel, configurable: true })
+
+    act(() => result.current.setBottomTab('mixer'))
+    act(() => result.current.setBottomTab('master'))
+    await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith(
+      `${result.current.bottomMinimumHeights.master}px`
+    ))
+
+    panel.getSize.mockReturnValue({ asPercentage: 0, inPixels: 0 })
+    act(() => result.current.setBottomTab('samples'))
+    await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith(
+      `${result.current.bottomMinimumHeights.samples}px`
+    ))
+  })
+
+  it('persists expansion and restoration with the captured Samples size', async () => {
     const { result } = renderHook(() => useBottomWorkspace())
     const panel = createPanel(37)
     Object.defineProperty(result.current.bottomPanelRef, 'current', { value: panel, configurable: true })
+
+    act(() => result.current.setBottomTab('samples'))
+    await waitFor(() => expect(panel.resize).toHaveBeenCalled())
+    vi.clearAllMocks()
 
     act(() => result.current.toggleExpanded())
     expect(result.current.expanded).toBe(true)
@@ -80,7 +130,12 @@ describe('useBottomWorkspace', () => {
       expanded: true,
       previousBottomSize: 37
     })
-    expect(panel.resize).toHaveBeenLastCalledWith('60%')
+    expect(preferenceSpies.saveBottomTabSizes).toHaveBeenLastCalledWith({
+      master: 24,
+      mixer: 60,
+      samples: 60
+    })
+    expect(panel.resize).toHaveBeenLastCalledWith('600px')
 
     act(() => result.current.toggleExpanded())
     expect(result.current.expanded).toBe(false)
@@ -88,7 +143,12 @@ describe('useBottomWorkspace', () => {
       expanded: false,
       previousBottomSize: 37
     })
-    expect(panel.resize).toHaveBeenLastCalledWith('37%')
+    expect(preferenceSpies.saveBottomTabSizes).toHaveBeenLastCalledWith({
+      master: 24,
+      mixer: 60,
+      samples: 37
+    })
+    expect(panel.resize).toHaveBeenLastCalledWith('370px')
   })
 
   it('handles an unattached panel and distinguishes programmatic from user resizing', () => {
@@ -110,6 +170,7 @@ describe('useBottomWorkspace', () => {
       { isUserInteraction: false }
     ))
     expect(preferenceSpies.saveBottomExpansion).not.toHaveBeenCalled()
+    expect(preferenceSpies.saveBottomTabSizes).not.toHaveBeenCalled()
 
     act(() => result.current.onVerticalLayoutChanged(
       { upper: 62, bottom: 38 },
@@ -119,8 +180,13 @@ describe('useBottomWorkspace', () => {
       expanded: false,
       previousBottomSize: 38
     })
+    expect(preferenceSpies.saveBottomTabSizes).toHaveBeenLastCalledWith({
+      master: 24,
+      mixer: 60,
+      samples: 38
+    })
 
-    act(() => result.current.setBottomTab('mixer'))
+    act(() => result.current.setBottomTab('master'))
     const expansionSaveCount = preferenceSpies.saveBottomExpansion.mock.calls.length
     act(() => result.current.onVerticalLayoutChanged(
       { upper: 55, bottom: 45 },

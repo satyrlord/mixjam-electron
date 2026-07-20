@@ -176,7 +176,7 @@ async function dragAcrossCapacity(page) {
       ['trackerRegion', '.tracker-region'],
       ['trackerLanes', '.tracker-lanes'],
       ['upperGroup', '.upper-work-group'],
-      ['songControls', '.song-controls-main']
+      ['masterControls', '.master-controls-main']
     ].map(([name, selector]) => {
       const element = globalThis.document.querySelector(selector)
       const rect = element?.getBoundingClientRect()

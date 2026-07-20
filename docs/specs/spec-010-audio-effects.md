@@ -174,9 +174,10 @@ sum of lane sends N
 - The modal is portaled outside the Mixer scroll surface and centered in the
   application viewport. Mixer clipping and horizontal scroll position cannot
   move or crop it.
-- The modal uses a Free/Sync segment, horizontal sliders with read-only value
-  text, a Sync division dropdown, a Ping-Pong Off/On control, and Reset,
-  Cancel, and OK actions. It has no typed numeric fields.
+- The modal uses a Free/Sync segment, the app-wide Mixer-derived horizontal
+  linear sliders with read-only value text, a Sync division dropdown, a
+  Ping-Pong Off/On control, and Reset, Cancel, and OK actions. It has no typed
+  numeric fields.
 
 ### Keyboard contract
 
@@ -317,7 +318,8 @@ release, stereo linking, and zero limiter latency while bypassed.
   undoable edit.
 - [ ] **AC-012:** Every documented keyboard step, toggle, default reset, global
   reset, minimum, maximum, focus, and shortcut-blocking behavior works without
-  typed numeric input.
+  typed numeric input. Delay parameters use the same shared rail and compact
+  rectangular handle as every other numeric linear slider.
 - [ ] **AC-013:** While the modal is open, ordinary application hotkeys are
   blocked but Media Session Previous, Play/Pause, and Next seek or toggle as
   specified without changing modal state.

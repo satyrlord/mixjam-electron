@@ -36,7 +36,7 @@
 .transport-ribbon,
 .strip-utility-zone,
 .bottom-workspace-tabs,
-.song-control-system,
+.master-controls-system,
 .manage-list-item,
 .manage-create,
 .generator-actions,
@@ -141,7 +141,7 @@
 .tiles-empty,
 .manage-name,
 .manage-empty,
-.song-micro-fade-note,
+.master-micro-fade-note,
 .context-menu-note,
 .generator-dialog p,
 .shortcuts-action {
@@ -153,7 +153,7 @@
 .home-workflow-title,
 .home-recent-title,
 .tracker-zone-title,
-.song-control-head,
+.master-controls-head,
 .mixer-column-title,
 .mixer-channel-label,
 .manage-tab,
@@ -240,6 +240,33 @@
   font-size: var(--ui-font-sm);
 }
 
+.bpm-control {
+  height: var(--ui-size);
+  gap: var(--ui-space-sm);
+  padding-inline: var(--ui-space-sm);
+}
+
+.bpm-control-value {
+  gap: var(--ui-space-xs);
+  font: var(--ui-font-sm)/1 var(--font-mono);
+}
+
+.bpm-control-label {
+  font-size: var(--ui-font-xs);
+}
+
+.bpm-control-value input {
+  width: calc(42px * var(--ui-scale));
+  height: var(--ui-size);
+  padding-inline: var(--ui-space-xs);
+  font: var(--ui-font-sm)/1 var(--font-mono);
+}
+
+.bpm-control-slider {
+  width: calc(120px * var(--ui-scale));
+  height: var(--ui-size);
+}
+
 .strip-search-field input {
   height: calc(var(--ui-size) - 2px);
   font-size: var(--ui-font-sm);
@@ -271,22 +298,22 @@
 }
 
 .bottom-workspace-tab,
-.bottom-workspace-song-status,
+.bottom-workspace-master-status,
 .bottom-workspace-expand {
   min-height: var(--ui-size);
   padding-inline: var(--ui-space-lg);
   font-size: var(--ui-font-sm);
 }
 
-.song-controls-main,
-.song-control-system,
-.song-control-module,
-.song-micro-fade-module {
+.master-controls-main,
+.master-controls-system,
+.master-controls-module,
+.master-micro-fade-module {
   padding: var(--ui-space-md);
   gap: var(--ui-space-md);
 }
 
-.song-control-module {
+.master-controls-module {
   width: calc(124px * var(--ui-scale));
   min-width: calc(112px * var(--ui-scale));
 }
@@ -296,13 +323,12 @@
   min-width: calc(320px * var(--ui-scale));
 }
 
-.song-micro-fade-module {
+.master-micro-fade-module {
   width: calc(230px * var(--ui-scale));
   min-width: calc(210px * var(--ui-scale));
 }
 
-.song-control-head,
-.song-bpm-value {
+.master-controls-head {
   min-height: var(--ui-size);
 }
 
@@ -316,22 +342,21 @@
   font-size: var(--ui-font-sm);
 }
 
-.song-bpm-value input,
-.song-micro-fade-input input,
+.master-micro-fade-input input,
 .analysis-editor input,
 .analysis-editor select {
   min-height: var(--ui-size);
   font-size: var(--ui-font-sm);
 }
 
-.song-micro-fade-toggle,
+.master-micro-fade-toggle,
 .manage-tag-color-toggle {
   min-height: var(--ui-size);
   gap: var(--ui-space-sm);
   font-size: var(--ui-font-sm);
 }
 
-.song-micro-fade-toggle input,
+.master-micro-fade-toggle input,
 .manage-tag-color-toggle input[type='checkbox'] {
   width: calc(var(--ui-size) * 0.5333);
   height: calc(var(--ui-size) * 0.5333);
@@ -347,17 +372,6 @@
 .vertical-fader-input {
   width: var(--ui-size);
   min-width: var(--ui-size);
-}
-
-.vertical-fader-thumb {
-  width: calc(18px * var(--ui-scale));
-  height: calc(18px * var(--ui-scale));
-}
-
-/* Mixer side-meter strips keep the rectangular thumb geometry scaled. */
-.vertical-fader-side-meter .vertical-fader-thumb {
-  width: calc(22px * var(--ui-scale));
-  height: calc(9px * var(--ui-scale));
 }
 
 .mixer-column {

@@ -103,6 +103,31 @@ builds on Windows, Linux, and macOS and produces a portable `.exe`, AppImage,
 and `.dmg`. Tag pushes matching `v*` attach those files to a GitHub Release;
 manual runs retain them as workflow artifacts for 14 days.
 
+Before an artifact is uploaded or released, the Production workflow must test
+the package on its matching GitHub-hosted runner. Linux launches the generated
+AppImage itself, using the explicit path supplied to the smoke test; it must not
+substitute `linux-unpacked`. macOS mounts the generated DMG at a temporary mount
+point and launches `MixJam Electron.app/Contents/MacOS/MixJam Electron` from
+that mounted image; it must not substitute the unpacked `mac` directory. These
+native release proofs must run without `--no-sandbox`.
+
+Windows records the portable executable's hash, size, and signing state, then
+launches that exact artifact with an isolated user-data directory. The gate
+requires the portable NSIS bootstrap to produce a stable, responsive MixJam
+Electron native window and records the process and window evidence before
+cleanup. Because the bootstrap starts a child process, the deeper Playwright
+assertions then drive `win-unpacked/MixJam Electron.exe`, which contains the
+same packaged application resources and preserves the main-process connection.
+
+Each native artifact run must collect the UI Size 50, 16-lane interaction
+evidence: Tracker vertical wheel scrolling, keyboard focus reveal, and Mixer
+horizontal scrolling by horizontal wheel, Shift+wheel, Left/Right keys, and
+focus reveal for a clipped control. It must also confirm that a plain vertical
+wheel does not move the Mixer horizontally. Upload the test report, screenshots,
+and raw measurements with the package artifacts. This contract is pending until
+a manual or tag-triggered Production run succeeds; local unpacked or Windows
+proof alone is not native artifact proof.
+
 Signing and macOS notarization are not configured. Current packages are
 unsigned and may trigger operating-system trust warnings. Do not describe a
 release as signed or notarized until the production workflow has credentials

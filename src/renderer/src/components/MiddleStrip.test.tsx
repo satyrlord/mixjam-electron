@@ -38,6 +38,8 @@ function renderMiddleStrip(overrides: Partial<React.ComponentProps<typeof Middle
     onCancelLibrarySync: vi.fn(),
     onRetryLibrarySync: vi.fn(),
     onOpenShortcuts: vi.fn(),
+    bpm: 140,
+    onSetBpm: vi.fn(),
     ...overrides
   }
 
@@ -197,4 +199,19 @@ describe('MiddleStrip', () => {
 
     expect(onSearchChange).toHaveBeenCalledWith('bass')
   })
+
+  it('renders a horizontal BPM control in the project zone', () => {
+    renderMiddleStrip({ bpm: 128 })
+
+    const strip = document.querySelector('.strip-project-zone')
+    const slider = screen.getByRole('slider', { name: 'BPM' })
+    const input = screen.getByRole('textbox', { name: 'BPM value' })
+
+    expect(strip).toContainElement(slider)
+    expect(strip).toContainElement(input)
+    expect(slider).toHaveAttribute('aria-orientation', 'horizontal')
+    expect(slider).toHaveAttribute('aria-valuenow', '128')
+    expect(input).toHaveValue('128')
+  })
+
 })

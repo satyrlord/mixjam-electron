@@ -10,7 +10,7 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger
 } from './ui/DropdownMenu'
-import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
+import { LinearSlider } from './ui/Slider'
 
 type ResetKey = 'timeMs' | 'feedback' | 'tapeDistortion' | 'mode' | 'noteDivision' | 'pingPong'
 type NumericKey = 'timeMs' | 'feedback' | 'tapeDistortion'
@@ -204,25 +204,20 @@ export default function DelayModal({
         {numericFields.map(([key, label, step]) => (
           <label className="fx-slider-field" key={key}>
             <span className="fx-field-label">{label}</span>
-            <SliderRoot
+            <LinearSlider
               className="fx-slider"
-              value={[draft[key]]}
+              value={draft[key]}
               min={0}
               max={maximumFor(key)}
               step={step}
-              onValueChange={([next]) => updateNumeric(key, next)}
-            >
-              <SliderTrack className="fx-slider-track">
-                <SliderRange className="fx-slider-range" />
-              </SliderTrack>
-              <SliderThumb
-                className="fx-slider-thumb"
-                data-reset-key={key}
-                aria-label={label}
-                aria-valuetext={valueText(key, draft[key])}
-                onKeyDown={(event) => handleNumericKey(event, key, step)}
-              />
-            </SliderRoot>
+              onValueChange={(next) => updateNumeric(key, next)}
+              ariaLabel={label}
+              ariaValueText={valueText(key, draft[key])}
+              resetKey={key}
+              thumbProps={{
+                onKeyDown: (event) => handleNumericKey(event, key, step)
+              }}
+            />
             <output className="fx-slider-value">{valueText(key, draft[key])}</output>
           </label>
         ))}

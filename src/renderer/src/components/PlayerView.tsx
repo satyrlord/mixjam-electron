@@ -18,7 +18,7 @@ import { usePlayerShortcuts } from '../hooks/usePlayerShortcuts'
 import { useTrackerInteraction } from '../hooks/useTrackerInteraction'
 import MixJamBrowser from './MixJamBrowser'
 import MiddleStrip from './MiddleStrip'
-import SongControlsMain from './SongControlsMain'
+import MasterControlsMain from './MasterControlsMain'
 import MixerColumn from './MixerColumn'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
@@ -26,7 +26,7 @@ import ShortcutsOverlay from './ShortcutsOverlay'
 import BottomWorkspace, { useBottomWorkspace } from './BottomWorkspace'
 import { ContextMenuContent, ContextMenuItem, ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
 import { Panel, PanelGroup, PanelResizeHandle } from './ui/ResizablePanels'
-import { SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
+import { LinearSlider } from './ui/Slider'
 import { Tooltip } from './ui/Tooltip'
 
 const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
@@ -70,7 +70,7 @@ export default function PlayerView({
   const workspace = useBottomWorkspace()
   const {
     browserPanelRef, bottomPanelRef, bottomTab, expanded: bottomWorkspaceExpanded,
-    mixerMinimumHeight, mixJamBrowserCollapsed, upperDefaultLayout, verticalDefaultLayout,
+    bottomMinimumHeight, mixJamBrowserCollapsed, upperDefaultLayout, verticalDefaultLayout,
     setBottomTab, toggleExpanded: toggleBottomWorkspaceExpanded, openSamples: openSamplesFromCue,
     onBrowserCollapsedChange: handleMixJamBrowserCollapsedChange,
     onVerticalLayoutChanged, onUpperLayoutChanged
@@ -216,16 +216,17 @@ export default function PlayerView({
           })()}
           <div className="tracker-ruler">
             <div className="tracker-ruler-spacer" />
-            <SliderRoot
+            <LinearSlider
               className="tracker-ruler-seek"
-              value={[Math.min(currentTick, lastGridTick)]}
+              value={Math.min(currentTick, lastGridTick)}
               min={0}
               max={totalTicks}
               step={TICKS_PER_BEAT}
-              onValueChange={([tick]) => onTransportSeek(Math.min(tick, lastGridTick))}
-            >
-              <SliderTrack className="tracker-ruler-track">
-                {Array.from({ length: TRACKER_BAR_COUNT }, (_, i) => {
+              onValueChange={(tick) => onTransportSeek(Math.min(tick, lastGridTick))}
+              ariaLabel="Tracker timeline"
+              showRange={false}
+              trackClassName="tracker-ruler-track"
+              trackChildren={Array.from({ length: TRACKER_BAR_COUNT }, (_, i) => {
                   const barNumber = i + 1
                   return (
                     <div key={i} className="tracker-ruler-tick tracker-ruler-tick-bar">
@@ -233,13 +234,8 @@ export default function PlayerView({
                     </div>
                   )
                 })}
-              </SliderTrack>
-              <SliderThumb
-                className="tracker-ruler-thumb"
-                aria-label="Tracker timeline"
-                aria-valuemax={lastGridTick}
-              />
-            </SliderRoot>
+              thumbProps={{ 'aria-valuemax': lastGridTick }}
+            />
           </div>
           {lanes.map((lane) => {
             const dimmed = laneShouldDim(lane)
@@ -327,6 +323,8 @@ export default function PlayerView({
         onRetryLibrarySync={browser.onRetryLibrarySync}
         onCancelLibrarySync={browser.onCancelLibrarySync}
         onOpenShortcuts={() => setShortcutsOpen(true)}
+        bpm={transport.bpm}
+        onSetBpm={transport.onSetBpm}
           />
         </div>
       </Panel>
@@ -339,23 +337,22 @@ export default function PlayerView({
       <Panel
         id="bottom"
         panelRef={bottomPanelRef}
-        minSize={bottomTab === 'mixer' ? `${mixerMinimumHeight}px` : '60px'}
+        minSize={`${bottomMinimumHeight}px`}
         maxSize="75%"
       >
         <BottomWorkspace
         activeTab={bottomTab}
         bpm={transport.bpm}
         masterGain={transport.masterGain}
+        minimumHeight={bottomMinimumHeight}
         expanded={bottomWorkspaceExpanded}
         onTabChange={setBottomTab}
         onToggleExpanded={toggleBottomWorkspaceExpanded}
-        song={(
-          <SongControlsMain
-            bpm={transport.bpm}
+        master={(
+          <MasterControlsMain
             masterGain={transport.masterGain}
             clipEdgeMicroFades={transport.clipEdgeMicroFades}
             masterMeter={transport.masterMeter}
-            onSetBpm={transport.onSetBpm}
             onSetMasterGain={transport.onSetMasterGain}
             onSetClipEdgeMicroFades={transport.onSetClipEdgeMicroFades}
             onResetMasterMeter={transport.onResetMasterMeter}

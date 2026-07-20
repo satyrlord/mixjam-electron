@@ -34,7 +34,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes openbox x11-utils
+          fuse_package=libfuse2
+          if apt-cache show libfuse2t64 >/dev/null 2>&1; then
+            fuse_package=libfuse2t64
+          fi
+          sudo apt-get install --no-install-recommends --yes openbox x11-utils "$fuse_package"
 
       - name: Run unit tests
         run: npm test
@@ -47,17 +51,18 @@ jobs:
 
       - name: Smoke test Electron app on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum --server-args="-screen 0 2560x1440x24" bash scripts/run-electron-with-openbox.sh npx playwright test --project=electron-smoke
-        env:
-          MIXJAM_SMOKE_PACKAGED: 'true'
+        run: xvfb-run --auto-servernum --server-args="-screen 0 2560x1440x24" bash scripts/run-electron-with-openbox.sh bash scripts/run-linux-appimage-smoke.sh npx playwright test --project=electron-smoke
 
-      - name: Smoke test Electron app
-        if: runner.os != 'Linux'
-        run: npx playwright test --project=electron-smoke
-        env:
-          MIXJAM_SMOKE_PACKAGED: 'true'
+      - name: Smoke test Electron app on macOS
+        if: runner.os == 'macOS'
+        run: bash scripts/run-macos-dmg-smoke.sh npx playwright test --project=electron-smoke
+
+      - name: Verify portable bootstrap and smoke test packaged Electron app on Windows
+        if: runner.os == 'Windows'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-windows-packaged-smoke.ps1 npx playwright test --project=electron-smoke
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mixjam-electron-${{ matrix.os }}
@@ -65,14 +70,30 @@ jobs:
             dist-electron/*.exe
             dist-electron/*.AppImage
             dist-electron/*.dmg
+            tmp/package-smoke/**
+            tmp/verify-electron-window-state/**
+            tmp/verify-packaged-ui-size-50-many-lanes/**
+            playwright-report/**
+            test-results/**
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish release assets
-        if: startsWith(github.ref, 'refs/tags/v')
+  publish-release:
+    if: success() && startsWith(github.ref, 'refs/tags/v')
+    needs: build-electron
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: mixjam-electron-*
+          merge-multiple: true
+
+      - name: Publish verified release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist-electron/*.exe
-            dist-electron/*.AppImage
-            dist-electron/*.dmg
+            release-artifacts/dist-electron/*.exe
+            release-artifacts/dist-electron/*.AppImage
+            release-artifacts/dist-electron/*.dmg

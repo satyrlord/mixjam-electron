@@ -270,7 +270,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(middleStrip).toBeInTheDocument()
     expect(bottomWorkspace).toBeInTheDocument()
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-      'Song', 'Mixer', 'Samples'
+      'Master', 'Mixer', 'Samples'
     ])
   })
 

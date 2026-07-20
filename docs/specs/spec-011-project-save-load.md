@@ -133,8 +133,9 @@ is:
 - `songEndTick` is derived on load as the latest placement end and is not stored
   as redundant timeline padding or metadata. Internal and trailing empty bars
   therefore add no project-file size.
-- `song` contains every saved Song-panel control: project BPM, unchanged Master
-  Volume (`masterGain`), and automatic clip-edge micro-fade settings. Live meter
+- `song` contains every saved project-wide sound setting: project BPM from the
+  Middle Strip, plus Master Volume (`masterGain`) and automatic clip-edge
+  micro-fade settings from the Master panel. Live meter
   readings and transport position are runtime telemetry, not saved Song settings.
 - `lanes` contains 1 through 64 entries. Each entry owns an immutable stable ID,
   arrangement data, gain, pan, mute, solo, and
@@ -154,6 +155,10 @@ is:
   project file.
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
+- Planned: spec-012 (Master Bus Strip) extends the schema to breaking format
+  version 5 by adding a required `masterBus` record (slot order, per-processor
+  power, parameter values, selected preset). Spec-012 lists the record's
+  rejection rules; this spec owns the wire format when version 5 lands.
 
 ### Strict version-4 validation
 

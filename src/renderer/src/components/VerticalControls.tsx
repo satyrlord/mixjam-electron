@@ -1,7 +1,6 @@
-import { useRef, useState, type CSSProperties, type PointerEvent, type WheelEvent } from 'react'
+import { useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { clamp, meterFillPct } from '../lib/sample-utils'
-import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from './ui/Slider'
-import { Tooltip } from './ui/Tooltip'
+import { LinearSlider } from './ui/Slider'
 
 function joinClasses(...classes: Array<string | undefined>): string {
   return classes.filter(Boolean).join(' ')
@@ -105,7 +104,6 @@ export function VerticalFader({
 }: VerticalFaderProps) {
   const [dragging, setDragging] = useState(false)
   const draggingRef = useRef(false)
-  const valuePct = ((value - min) / (max - min)) * 100
   const unityPct = unityValue === undefined ? null : ((unityValue - min) / (max - min)) * 100
 
   const setNextValue = (next: number) => onChange(quantize(next, min, max, step))
@@ -131,9 +129,7 @@ export function VerticalFader({
 
   const track = (
     <div className="vertical-fader-track">
-        {meterDb === undefined || sideMeter ? (
-          <div className="vertical-fader-value-fill" aria-hidden="true" />
-        ) : (
+        {meterDb !== undefined && !sideMeter && (
           <MeterTrack
             valueDb={meterDb}
             peakDb={peakDb}
@@ -151,31 +147,28 @@ export function VerticalFader({
         {showDragValue && dragging && (
           <output className={joinClasses('vertical-fader-readout', readoutClassName)}>{valueText}</output>
         )}
-        <SliderRoot
-          className="vertical-fader-input"
+        <LinearSlider
+          className={joinClasses(
+            'vertical-fader-input',
+            meterDb !== undefined && !sideMeter ? 'linear-slider-meter-overlay' : undefined
+          )}
           orientation="vertical"
-          value={[value]}
+          value={value}
           min={min}
           max={max}
           step={step}
-          onValueChange={([next]) => setNextValue(next)}
+          onValueChange={setNextValue}
+          ariaLabel={ariaLabel}
+          ariaValueText={valueText}
+          tooltip={tooltip}
+          thumbClassName={inputClassName}
+          showRange={meterDb === undefined || sideMeter}
           onWheel={handleWheel}
           onPointerDown={beginDrag}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           onBlur={endDrag}
-        >
-          <SliderTrack className="vertical-fader-native-track">
-            <SliderRange className="vertical-fader-native-range" />
-          </SliderTrack>
-          {tooltip ? (
-            <Tooltip content={tooltip}>
-              <SliderThumb className={joinClasses('vertical-fader-thumb', inputClassName)} aria-label={ariaLabel} aria-valuetext={valueText} />
-            </Tooltip>
-          ) : (
-            <SliderThumb className={joinClasses('vertical-fader-thumb', inputClassName)} aria-label={ariaLabel} aria-valuetext={valueText} />
-          )}
-        </SliderRoot>
+        />
     </div>
   )
 
@@ -187,7 +180,6 @@ export function VerticalFader({
         sideMeter ? 'vertical-fader-side-meter' : undefined,
         className
       )}
-      style={{ '--vertical-fader-value': `${valuePct}%` } as CSSProperties}
     >
       {maxLabel && <span className="vertical-control-endpoint vertical-control-endpoint-max">{maxLabel}</span>}
       {sideMeter ? (

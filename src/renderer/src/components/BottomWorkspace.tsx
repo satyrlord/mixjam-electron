@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from './ui/Tabs'
 import {
   BOTTOM_WORKSPACE_TABS,
@@ -10,10 +10,10 @@ import {
 } from '../app-state/player-workspace-preferences'
 import { LEFT_COL_MIN_PX } from '../lib/arrangement'
 import { usePanelRef, type PanelLayout } from './ui/ResizablePanels'
-import { useUiGeometry } from '../ui-size'
+import { useUiGeometry, type UiGeometry } from '../ui-size'
 
 const TAB_LABELS: Record<BottomWorkspaceTab, string> = {
-  song: 'Song',
+  master: 'Master',
   mixer: 'Mixer',
   samples: 'Samples'
 }
@@ -21,12 +21,28 @@ const TAB_LABELS: Record<BottomWorkspaceTab, string> = {
 const EXPANDED_PERCENT = 60
 const SAMPLES_CUE_MINIMUM_PERCENT = 50
 
+export type BottomWorkspaceMinimumHeights = Record<BottomWorkspaceTab, number>
+
+/** Content budgets share the same UI Size tokens as the controls they protect. */
+export function bottomWorkspaceMinimumHeights(
+  geometry: UiGeometry
+): BottomWorkspaceMinimumHeights {
+  return {
+    master: geometry.tabRowHeight + (9 * geometry.spaceMd) + (2 * geometry.size) +
+      (3 * geometry.fontMd) + (2 * geometry.fontSm) + geometry.spaceLg,
+    mixer: geometry.tabRowHeight + (4 * geometry.spaceMd) + (2 * geometry.size) +
+      (2 * geometry.mixerFxHeight) + geometry.spaceSm + 14,
+    samples: geometry.tabRowHeight + (2 * geometry.size) + (4 * geometry.spaceMd)
+  }
+}
+
 interface BottomWorkspaceController {
   browserPanelRef: ReturnType<typeof usePanelRef>
   bottomPanelRef: ReturnType<typeof usePanelRef>
   bottomTab: BottomWorkspaceTab
   expanded: boolean
-  mixerMinimumHeight: number
+  bottomMinimumHeight: number
+  bottomMinimumHeights: BottomWorkspaceMinimumHeights
   mixJamBrowserCollapsed: boolean
   upperDefaultLayout: PanelLayout
   verticalDefaultLayout: PanelLayout
@@ -42,8 +58,10 @@ interface BottomWorkspaceController {
 export function useBottomWorkspace(): BottomWorkspaceController {
   const [workspaceDefaults] = useState(() => loadPlayerWorkspacePreferences(window.innerWidth, LEFT_COL_MIN_PX))
   const uiGeometry = useUiGeometry()
-  const mixerMinimumHeight = uiGeometry.tabRowHeight + (4 * uiGeometry.spaceMd) + uiGeometry.size +
-    (2 * uiGeometry.mixerFxHeight) + uiGeometry.spaceSm + 14
+  const bottomMinimumHeights = useMemo(
+    () => bottomWorkspaceMinimumHeights(uiGeometry),
+    [uiGeometry]
+  )
   const [mixJamBrowserCollapsed, setMixJamBrowserCollapsed] = useState(workspaceDefaults.mixJamBrowserCollapsed)
   const [bottomTab, setBottomTabState] = useState<BottomWorkspaceTab>(workspaceDefaults.bottomTab)
   const [expanded, setExpanded] = useState(workspaceDefaults.bottomExpansion.expanded)
@@ -52,39 +70,54 @@ export function useBottomWorkspace(): BottomWorkspaceController {
   const bottomTabSizesRef = useRef({ ...workspaceDefaults.bottomTabSizes })
   const previousBottomSizeRef = useRef(workspaceDefaults.bottomExpansion.previousBottomSize)
 
-  const setBottomTab = useCallback((tab: BottomWorkspaceTab) => {
-    if (tab === bottomTab) return
-    const currentSize = bottomPanelRef.current?.getSize().asPercentage
-    if (currentSize !== undefined) {
-      bottomTabSizesRef.current = { ...bottomTabSizesRef.current, [bottomTab]: currentSize }
-      playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
-    }
-    setBottomTabState(tab)
-    playerWorkspacePreferences.saveBottomTab(tab)
-  }, [bottomPanelRef, bottomTab])
-  useEffect(() => {
+  const resizeBottomTab = useCallback((tab: BottomWorkspaceTab, targetPercentage: number) => {
     const panel = bottomPanelRef.current
     if (!panel) return
-    const targetPercentage = bottomTabSizesRef.current[bottomTab]
-    if (bottomTab !== 'mixer') { panel.resize(`${targetPercentage}%`); return }
     const current = panel.getSize()
+    if (current.asPercentage <= 0) {
+      panel.resize(`${bottomMinimumHeights[tab]}px`)
+      return
+    }
     const groupHeight = current.inPixels * 100 / current.asPercentage
-    panel.resize(`${Math.max(mixerMinimumHeight, groupHeight * targetPercentage / 100)}px`)
-  }, [bottomPanelRef, bottomTab, mixerMinimumHeight])
+    const targetPixels = groupHeight * targetPercentage / 100
+    panel.resize(`${Math.max(bottomMinimumHeights[tab], targetPixels)}px`)
+  }, [bottomMinimumHeights, bottomPanelRef])
+
+  const setBottomTab = useCallback((tab: BottomWorkspaceTab) => {
+    if (tab === bottomTab) return
+    setBottomTabState(tab)
+    playerWorkspacePreferences.saveBottomTab(tab)
+  }, [bottomTab])
+  useEffect(() => {
+    // The Panel commits its new tab-specific minSize during the same render.
+    // Resize on the next frame so the imperative ref uses those new constraints.
+    const frame = requestAnimationFrame(() => {
+      const targetPercentage = bottomTabSizesRef.current[bottomTab]
+      resizeBottomTab(bottomTab, targetPercentage)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [bottomTab, resizeBottomTab])
   const toggleExpanded = useCallback(() => {
     const panel = bottomPanelRef.current
     if (!panel) return
     if (expanded) {
+      bottomTabSizesRef.current = {
+        ...bottomTabSizesRef.current,
+        samples: previousBottomSizeRef.current
+      }
+      playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
       playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: previousBottomSizeRef.current })
-      panel.resize(`${previousBottomSizeRef.current}%`)
+      resizeBottomTab('samples', previousBottomSizeRef.current)
       setExpanded(false)
       return
     }
     previousBottomSizeRef.current = panel.getSize().asPercentage
+    bottomTabSizesRef.current = { ...bottomTabSizesRef.current, samples: EXPANDED_PERCENT }
+    playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
     playerWorkspacePreferences.saveBottomExpansion({ expanded: true, previousBottomSize: previousBottomSizeRef.current })
-    panel.resize(`${EXPANDED_PERCENT}%`)
+    resizeBottomTab('samples', EXPANDED_PERCENT)
     setExpanded(true)
-  }, [bottomPanelRef, expanded])
+  }, [bottomPanelRef, expanded, resizeBottomTab])
   const openSamples = useCallback(() => {
     bottomTabSizesRef.current = {
       ...bottomTabSizesRef.current,
@@ -102,16 +135,20 @@ export function useBottomWorkspace(): BottomWorkspaceController {
   const onVerticalLayoutChanged = useCallback((layout: PanelLayout, meta: { isUserInteraction: boolean }) => {
     playerWorkspacePreferences.saveVerticalLayout(layout)
     const bottomSize = layout.bottom
-    if (bottomSize === undefined) return
+    // Constraint and tab-restoration resizes report layout changes too. They
+    // describe rendered geometry, not a new user preference for the active tab.
+    if (bottomSize === undefined || !meta.isUserInteraction) return
     bottomTabSizesRef.current = { ...bottomTabSizesRef.current, [bottomTab]: bottomSize }
     playerWorkspacePreferences.saveBottomTabSizes(bottomTabSizesRef.current)
-    if (!meta.isUserInteraction || bottomTab === 'mixer') return
+    if (bottomTab !== 'samples') return
     previousBottomSizeRef.current = bottomSize
     setExpanded(false)
     playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: bottomSize })
   }, [bottomTab])
   return {
-    browserPanelRef, bottomPanelRef, bottomTab, expanded, mixerMinimumHeight, mixJamBrowserCollapsed,
+    browserPanelRef, bottomPanelRef, bottomTab, expanded,
+    bottomMinimumHeight: bottomMinimumHeights[bottomTab], bottomMinimumHeights,
+    mixJamBrowserCollapsed,
     upperDefaultLayout: workspaceDefaults.upperLayout as PanelLayout,
     verticalDefaultLayout: workspaceDefaults.verticalLayout as PanelLayout,
     setBottomTab, toggleExpanded, openSamples, onBrowserCollapsedChange, onVerticalLayoutChanged,
@@ -123,7 +160,8 @@ interface BottomWorkspaceProps {
   activeTab: BottomWorkspaceTab
   bpm: number
   masterGain: number
-  song: ReactNode
+  minimumHeight: number
+  master: ReactNode
   mixer: ReactNode
   samples: ReactNode
   expanded: boolean
@@ -135,14 +173,17 @@ export default function BottomWorkspace({
   activeTab,
   bpm,
   masterGain,
-  song,
+  minimumHeight,
+  master,
   mixer,
   samples,
   expanded,
   onTabChange,
   onToggleExpanded
 }: BottomWorkspaceProps) {
-  const panels: Record<BottomWorkspaceTab, ReactNode> = { song, mixer, samples }
+  const uiGeometry = useUiGeometry()
+  const panels: Record<BottomWorkspaceTab, ReactNode> = { master, mixer, samples }
+  const minimumContentHeight = Math.max(0, minimumHeight - uiGeometry.tabRowHeight)
 
   const masterPercent = Math.round(masterGain * 100)
 
@@ -153,6 +194,9 @@ export default function BottomWorkspace({
       aria-label="Bottom Workspace"
       value={activeTab}
       onValueChange={(value) => onTabChange(value as BottomWorkspaceTab)}
+      style={{
+        '--bottom-workspace-content-min-height': `${minimumContentHeight}px`
+      } as CSSProperties}
       orientation="horizontal"
       activationMode="automatic"
     >
@@ -169,9 +213,9 @@ export default function BottomWorkspace({
         ))}
         <button
           type="button"
-          className="bottom-workspace-song-status"
+          className="bottom-workspace-master-status"
           aria-label={`${bpm} BPM, Master ${masterPercent}%`}
-          onClick={() => onTabChange('song')}
+          onClick={() => onTabChange('master')}
         >
           <span>{bpm} BPM</span>
           <span aria-hidden="true">·</span>

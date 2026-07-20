@@ -1,14 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { _electron as electron } from 'playwright'
 import { execFile } from 'node:child_process'
-import { join, resolve } from 'node:path'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { resolve } from 'node:path'
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { promisify } from 'node:util'
 import { buildAppIconPath } from '../../src/shared/window-config'
+import { launchMixJamElectron } from './packaged-launch'
 
-const MAIN_ENTRY = resolve(__dirname, '..', '..', 'out', 'main', 'index.js')
-const PACKAGE_DIR = resolve(__dirname, '..', '..', 'dist-electron')
 const PACKAGE_VERSION = (JSON.parse(
   readFileSync(resolve(__dirname, '..', '..', 'package.json'), 'utf8')
 ) as { version: string }).version
@@ -34,47 +31,19 @@ function centered(snapshot: NativeWindowSnapshot): boolean {
   return Math.abs(snapshot.bounds.x - expectedX) <= 1 && Math.abs(snapshot.bounds.y - expectedY) <= 1
 }
 
-function packagedExecutable(): string {
-  if (process.platform === 'win32') {
-    return resolve(PACKAGE_DIR, 'win-unpacked', 'MixJam Electron.exe')
-  }
-  if (process.platform === 'linux') {
-    return resolve(PACKAGE_DIR, 'linux-unpacked', 'mixjam-electron')
-  }
-
-  const macOutput = readdirSync(PACKAGE_DIR).find((name) => name === 'mac' || name.startsWith('mac-'))
-  return resolve(PACKAGE_DIR, macOutput ?? 'mac', 'MixJam Electron.app', 'Contents', 'MacOS', 'MixJam Electron')
-}
-
 test.describe('Electron smoke', () => {
   test('app launches and renders the home screen', async () => {
-    const usePackagedApp = process.env['MIXJAM_SMOKE_PACKAGED'] === 'true'
-    const executablePath = usePackagedApp ? packagedExecutable() : undefined
-    const launchTarget = executablePath ?? MAIN_ENTRY
-    if (!existsSync(launchTarget)) {
-      test.skip(true, `Electron launch target not found at ${launchTarget}. Build it first.`)
-      return
-    }
-
-    const env = { ...process.env } as Record<string, string>
-    delete env.ELECTRON_RUN_AS_NODE
-    const userDataDir = mkdtempSync(join(tmpdir(), 'mixjam-smoke-'))
-    const args = executablePath
-      ? [`--user-data-dir=${userDataDir}`]
-      : [MAIN_ENTRY, `--user-data-dir=${userDataDir}`]
-    if (process.env['CI']) args.push('--no-sandbox')
-
-    const electronApp = await electron.launch({
-      executablePath,
-      args,
-      env
-    })
+    const launched = await launchMixJamElectron()
+    const { app: electronApp, page: window } = launched
 
     try {
-      const window = await electronApp.firstWindow()
       expect(window).toBeTruthy()
 
       await window.waitForSelector('#root > *', { timeout: 15_000 })
+
+      const sandboxBypassed = await electronApp.evaluate(({ app }) =>
+        app.commandLine.hasSwitch('no-sandbox'))
+      expect(sandboxBypassed).toBe(process.env['MIXJAM_ELECTRON_NO_SANDBOX'] === 'true')
 
       await expect(window.locator('header')).toBeVisible({ timeout: 5_000 })
       await expect(window.locator('.home-wordmark')).toBeVisible()
@@ -201,7 +170,8 @@ test.describe('Electron smoke', () => {
         home,
         player,
         returnedHome,
-        iconProbe
+        iconProbe,
+        sandboxBypassed
       }, null, 2)}\n`)
       await window.screenshot({ path: resolve(EVIDENCE_DIR, 'home-window.png') })
 
@@ -251,8 +221,7 @@ test.describe('Electron smoke', () => {
       }, assetName)
       expect(workletResult).toEqual({ received: true, origin: 'app://bundle' })
     } finally {
-      await electronApp.close()
-      rmSync(userDataDir, { recursive: true, force: true })
+      await launched.close()
     }
   })
 })

@@ -1,4 +1,4 @@
-export const BOTTOM_WORKSPACE_TABS = ['song', 'mixer', 'samples'] as const
+export const BOTTOM_WORKSPACE_TABS = ['master', 'mixer', 'samples'] as const
 export type BottomWorkspaceTab = (typeof BOTTOM_WORKSPACE_TABS)[number]
 
 interface WorkspacePanelLayout {
@@ -88,7 +88,7 @@ function loadExpansion(fallbackSize: number): BottomWorkspaceExpansionState {
 
 function loadBottomTabSizes(fallbackSize: number): BottomWorkspaceTabSizes {
   const fallback: BottomWorkspaceTabSizes = {
-    song: fallbackSize,
+    master: fallbackSize,
     mixer: 60,
     samples: fallbackSize
   }
@@ -125,7 +125,7 @@ export function loadPlayerWorkspacePreferences(
   })
   const initialBottomSize = verticalLayout.bottom ?? DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT
   const storedTab = readStorage(STORAGE_KEYS.bottomTab)
-  const bottomTab = isBottomWorkspaceTab(storedTab) ? storedTab : 'song'
+  const bottomTab = isBottomWorkspaceTab(storedTab) ? storedTab : 'master'
   const bottomTabSizes = loadBottomTabSizes(initialBottomSize)
 
   return {

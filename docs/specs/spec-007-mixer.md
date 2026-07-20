@@ -24,7 +24,7 @@ The Mixer also hosts four fixed send/return buses and four fixed FX containers.
 - **US-004:** I can reach every lane strip and all four combined FX and Return
   containers with one horizontal scrollbar.
 - **US-005:** I can set the common wet return level for each of the four FX
-  buses without changing the Song tab's Master track.
+  buses without changing the Master tab's Master track.
 
 ## Lane and Mixer Ownership
 
@@ -94,8 +94,11 @@ Lane strip 1 ... Lane strip N | FX + Return 1  FX + Return 2
   disabled when the full row fits.
 - Horizontal trackpad movement and Shift+wheel scroll the row. Plain vertical
   wheel movement is not captured. Left/Right scroll the focused Mixer canvas.
-- The Mixer row has no vertical scrollbar. Its content fits the available
-  Bottom Workspace height at the supported minimum size.
+- The Mixer row has no vertical scrollbar. Its content fits the active tab's
+  UI-Size-derived Bottom Workspace minimum at supported 1920x1080 geometry.
+  The shared active-panel defensive scrollport is reserved for later content
+  growth beyond that documented minimum and is not active in normal Mixer
+  operation.
 - Keyboard focus scrolls a clipped control into view.
 - Geometry uses the 30 px base control size. A lane strip is 76 px wide and
   each combined FX and Return container is 160 px wide. These widths scale
@@ -123,7 +126,8 @@ Each lane strip contains, from top to bottom:
 4. The lane pan control.
 5. A vertical volume fader with a unity mark and drag value, beside one
   post-fader lane RMS meter with peak hold rendered as a segmented LED-style
-  column.
+  column. Its recessed rectangular rail, accent fill, and low-profile hardware
+  handle are the canonical visual for every numeric linear slider in MixJam.
 6. A read-only dB readout of the fader position.
 
 There is no EQ section. Mute and Solo remain in the lane header and are
@@ -156,7 +160,7 @@ control opens the module editor.
 - Return level ranges from 0% to 100%, defaults to 100%, and resets to 100%.
 - A return has no pan, mute, solo, meter, send, or crossfeed control.
 - All return outputs sum into the existing Master path immediately before the
-  unchanged Song-tab Master processing.
+  unchanged Master-panel processing.
 - Return level 0% silences that return's output but does not change its FX
   module, limiter setting, or send values.
 - Spec-010 owns each return's module, power behavior, limiter, and internal
@@ -197,7 +201,7 @@ lane state.
   cancels visual telemetry without changing audio, state, or return tails.
 - Returns and FX containers have no meters in this spec.
 - Standards-based LUFS and true-peak metering remains exclusively on the
-  unchanged Song-tab Output Level meter.
+  unchanged Master-panel Output Level meter.
 
 ## Persistence
 
@@ -226,7 +230,7 @@ missing or malformed lane-owned Mixer data.
 | Return controls live in their matching FX containers | Bus identity stays visible while removing a redundant standalone column. |
 | One scrolling row | Every strip and fixed bus remains reachable without pinning or wrapping. |
 | No EQ section | The governing reference board (REV 07) has no EQ; nothing decorative is invented. |
-| Song Master is unchanged | The overhaul ends at the existing Master input boundary. |
+| Master path is unchanged | The overhaul ends at the existing Master input boundary. |
 
 Implementation ownership follows the same model. `LaneState` is the only
 mutable source for lane volume, pan, mute, solo, and sends. The project command
@@ -264,19 +268,21 @@ removed solo cannot keep the remaining lanes gated.
   documented gating rules while existing return tails ring out.
 - [ ] **AC-010:** The row order is all lane strips, then the 2x2 combined FX and
   Return containers 1 through 4, using base widths 76/160 px and one continuous
-  horizontal scrollbar with no wrap, pinning, or vertical scroll.
+  horizontal scrollbar with no wrap, pinning, or vertical scroll at supported
+  1920x1080 geometry and the active UI Size minimum.
 - [ ] **AC-011:** Each wet-only return ranges from 0% to 100%, defaults and
   resets to 100%, and has no pan, Mute, Solo, meter, send, or crossfeed.
-- [ ] **AC-012:** All four returns sum before the unchanged Song Master path.
+- [ ] **AC-012:** All four returns sum before the unchanged Master path.
 - [ ] **AC-013:** Lane meters are RMS dBFS with peak hold, Mixer visibility
-  gates only their shared telemetry loop, and the Song Output Level contract
+  gates only their shared telemetry loop, and the Master Output Level contract
   is unchanged.
 - [ ] **AC-014:** Format-version-4 roundtrip preserves all lane-bound Mixer,
   return, FX, and limiter state; invalid lane counts and malformed lane-owned
   Mixer values are rejected; version 3 is rejected without migration.
 - [ ] **AC-015:** Lane-strip and combined FX and Return buttons, sliders, and
   rotary hit rectangles do not collide with adjacent controls at UI Size 30,
-  40, and 50, and each rotary SVG remains inside its owning slider.
+  40, and 50. The lane fader uses the shared linear-slider structure and each
+  rotary SVG remains inside its owning slider.
 - [ ] **AC-016:** Sends, Returns, Pan, and FX parameters render the shared SVG
   rotary structure; Pan uses a bipolar center arc and other Mixer dials use a
   unipolar minimum-to-value arc.
@@ -287,5 +293,6 @@ removed solo cannot keep the remaining lanes gated.
   reordering, groups, or links.
 - No functional channel EQ, filter, stereo-width, automation, or presets.
 - No return pan, mute, solo, metering, sends, crossfeed, or feedback routing.
-- No change to the Song tab's Master track or Output Level meter.
+- No change to Master bus behavior or the Output Level meter. Master Volume
+  adopts the same shared fader visual as lane Volume.
 - No compatibility path for project format version 3.

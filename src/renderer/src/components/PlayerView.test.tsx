@@ -243,7 +243,7 @@ describe('PlayerView', () => {
     expect(screen.getByText('club-night')).toBeInTheDocument()
     expect(screen.getAllByText('Lane 1')).not.toHaveLength(0)
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    expect(screen.getByText('Song Controls')).toBeInTheDocument()
+    expect(screen.getByText('Master Controls')).toBeInTheDocument()
     expect(screen.getByRole('tree', { name: /sample categories/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
   })
@@ -300,7 +300,7 @@ describe('PlayerView', () => {
 
     const css = readFileSync(INDEX_CSS_PATH, 'utf8')
     expect(css).toMatch(/\.middle-strip\s*\{[\s\S]*height:\s*80px;/m)
-    expect(css).toMatch(/\.strip-project-trigger\s*\{[\s\S]*width:\s*min\(100%, 320px\);/m)
+    expect(css).toMatch(/\.strip-project-trigger\s*\{[\s\S]*max-width:\s*320px;/m)
   })
 
   it('leaves Save shortcuts alone while editing or repeating', () => {
@@ -734,62 +734,43 @@ describe('PlayerView', () => {
   })
 
   // --- AC-004a: Output Level shares the Master Volume module ---
-  it('AC-004a: Song Controls groups Master Volume with its Output Level meter', () => {
-    renderPlayer({})
+  it('AC-004a: keeps BPM wiring in the Middle Strip and Master bus controls in the Master panel', () => {
+    const onSetBpm = vi.fn()
+    renderPlayer({ transport: { bpm: 140, onSetBpm } })
 
-    const songControls = screen.getByText('Song Controls').closest('.song-controls-main')
+    const middleStrip = document.querySelector('.middle-strip')
+    const masterControls = screen.getByText('Master Controls').closest('.master-controls-main')
     const bpmSlider = screen.getByRole('slider', { name: 'BPM' })
     const volumeSlider = screen.getByRole('slider', { name: 'Master Volume' })
     const outputMeter = screen.getByRole('meter', { name: 'Output Level' })
-    const masterModule = volumeSlider.closest('.song-control-module')
+    const masterModule = volumeSlider.closest('.master-controls-module')
 
-    expect(songControls).toContainElement(bpmSlider)
-    expect(songControls).toContainElement(volumeSlider)
+    expect(middleStrip).toContainElement(bpmSlider)
+    expect(masterControls).toContainElement(volumeSlider)
     expect(masterModule).toContainElement(outputMeter)
-    expect(bpmSlider).toHaveAttribute('aria-orientation', 'vertical')
+    expect(bpmSlider).toHaveAttribute('aria-valuenow', '140')
+    expect(bpmSlider).toHaveAttribute('aria-orientation', 'horizontal')
     expect(volumeSlider).toHaveAttribute('aria-orientation', 'vertical')
-    expect(bpmSlider.closest('.vertical-fader')).not.toBeNull()
+    expect(bpmSlider).toHaveClass('linear-slider-thumb')
+    expect(volumeSlider).toHaveClass('linear-slider-thumb')
+    expect(bpmSlider.closest('.linear-slider')).toHaveClass('bpm-control-slider')
+    expect(volumeSlider.closest('.linear-slider')).toHaveClass('vertical-fader-input')
     expect(volumeSlider.closest('.vertical-fader')).not.toBeNull()
     expect(outputMeter).toHaveClass('vertical-meter')
-  })
 
-  it('AC-004d: BPM supports precise valid numeric entry and rejects invalid values', () => {
-    const onSetBpm = vi.fn()
-    renderPlayer({ transport: { bpm: 120, onSetBpm } })
-
-    const input = screen.getByRole('textbox', { name: 'BPM value' })
-    fireEvent.change(input, { target: { value: '137' } })
-    fireEvent.blur(input)
-    expect(onSetBpm).toHaveBeenLastCalledWith(137)
-
-    onSetBpm.mockClear()
-    fireEvent.change(input, { target: { value: '220' } })
-    fireEvent.blur(input)
-    expect(onSetBpm).not.toHaveBeenCalled()
-  })
-
-  it('AC-004d: vertical BPM keyboard controls increase upward and support endpoints', () => {
-    const onSetBpm = vi.fn()
-    renderPlayer({ transport: { bpm: 120, onSetBpm } })
-    const slider = screen.getByRole('slider', { name: 'BPM' })
-
-    fireEvent.keyDown(slider, { key: 'ArrowUp' })
-    expect(onSetBpm).toHaveBeenLastCalledWith(121)
-    fireEvent.keyDown(slider, { key: 'Home' })
-    expect(onSetBpm).toHaveBeenLastCalledWith(50)
-    fireEvent.keyDown(slider, { key: 'End' })
-    expect(onSetBpm).toHaveBeenLastCalledWith(200)
+    fireEvent.keyDown(bpmSlider, { key: 'ArrowRight' })
+    expect(onSetBpm).toHaveBeenCalledWith(141)
   })
 
   it('defaults to three ordered Bottom Workspace tabs with mounted peer panels', () => {
     renderPlayer({})
 
     const tabs = screen.getAllByRole('tab')
-    expect(tabs.map((tab) => tab.textContent)).toEqual(['Song', 'Mixer', 'Samples'])
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Master', 'Mixer', 'Samples'])
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     expect(tabs[0]).toHaveAttribute('tabindex', '0')
     expect(document.querySelectorAll('.bottom-workspace-panel')).toHaveLength(3)
-    expect(document.querySelector('.bottom-workspace-song')).not.toHaveAttribute('hidden')
+    expect(document.querySelector('.bottom-workspace-master')).not.toHaveAttribute('hidden')
     expect(document.querySelector('.bottom-workspace-mixer')).toHaveAttribute('hidden')
     expect(document.querySelector('.bottom-workspace-samples')).toHaveAttribute('hidden')
   })
@@ -940,34 +921,24 @@ describe('PlayerView', () => {
   it('uses automatic activation and wrapping keyboard navigation for workspace tabs', () => {
     renderPlayer({})
 
-    const song = screen.getByRole('tab', { name: 'Song' })
-    song.focus()
-    fireEvent.keyDown(song, { key: 'ArrowLeft' })
+    const master = screen.getByRole('tab', { name: 'Master' })
+    master.focus()
+    fireEvent.keyDown(master, { key: 'ArrowLeft' })
     expect(screen.getByRole('tab', { name: 'Samples' })).toHaveFocus()
     expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true')
 
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Samples' }), { key: 'Home' })
-    expect(song).toHaveFocus()
-    fireEvent.keyDown(song, { key: 'End' })
+    expect(master).toHaveFocus()
+    fireEvent.keyDown(master, { key: 'End' })
     expect(screen.getByRole('tab', { name: 'Samples' })).toHaveFocus()
   })
 
-  it('shows compact song status that activates Song', () => {
+  it('shows compact Master status that activates Master', () => {
     localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
     renderPlayer({ transport: { bpm: 128, masterGain: 0.75 } })
 
     fireEvent.click(screen.getByRole('button', { name: '128 BPM, Master 75%' }))
-    expect(screen.getByRole('tab', { name: 'Song' })).toHaveAttribute('aria-selected', 'true')
-  })
-
-  // --- AC-004b: BPM slider ranges 50-200, defaults to 120 ---
-  it('AC-004b: BPM slider has min=50, max=200, and initializes at 120', () => {
-    renderPlayer({ transport: { bpm: 120 } })
-
-    const input = screen.getByRole('slider', { name: 'BPM' })
-    expect(input).toHaveAttribute('aria-valuemin', '50')
-    expect(input).toHaveAttribute('aria-valuemax', '200')
-    expect(input).toHaveAttribute('aria-valuenow', '120')
+    expect(screen.getByRole('tab', { name: 'Master' })).toHaveAttribute('aria-selected', 'true')
   })
 
   // --- AC-005: 8 lanes render ---
@@ -1221,24 +1192,6 @@ describe('PlayerView', () => {
     expect(onTransportSeek.mock.calls.map(([tick]) => tick)).toEqual([16, 24, 0, 31960, 16])
   })
 
-  // --- AC-015: BPM slider updates transport immediately ---
-  it('AC-015: changing the BPM slider updates the transport BPM', () => {
-    const onSetBpm = vi.fn()
-    renderPlayer({ transport: { bpm: 120, onSetBpm } })
-
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'BPM' }), { key: 'ArrowUp' })
-
-    expect(onSetBpm).toHaveBeenCalledWith(121)
-  })
-
-  // --- AC-015a: the Song Controls slider is the single BPM control ---
-  it('AC-015a: Song Controls BPM slider reflects the bpm prop', () => {
-    renderPlayer({ transport: { bpm: 145 } })
-
-    expect(screen.getByRole('slider', { name: 'BPM' })).toHaveAttribute('aria-valuenow', '145')
-    expect(screen.getByRole('textbox', { name: 'BPM value' })).toHaveValue('145')
-  })
-
   // --- AC-016: Browser vertical resize handle ---
   it('AC-016: browser vertical resize handle exposes keyboard and ARIA semantics', () => {
     renderPlayer({})
@@ -1387,15 +1340,6 @@ describe('PlayerView', () => {
     const slider = screen.getByLabelText('Master Volume')
     fireEvent.keyDown(slider, { key: 'ArrowDown' })
     expect(onSetMasterGain).toHaveBeenCalledWith(0.79)
-  })
-
-  it('calls onSetBpm when the BPM slider changes', () => {
-    const onSetBpm = vi.fn()
-    renderPlayer({ transport: { bpm: 120, onSetBpm } })
-
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'BPM' }), { key: 'ArrowUp' })
-
-    expect(onSetBpm).toHaveBeenCalledWith(121)
   })
 
   it('calls onSelectCategory(undefined) when All button is clicked', () => {

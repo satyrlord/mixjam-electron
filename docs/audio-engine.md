@@ -209,6 +209,210 @@ Lane channel meters remain lightweight post-fader, post-pan RMS dBFS meters
 with peak hold. Returns have no meters. Standards-based programme loudness is
 measured only on the stereo Master bus.
 
+## Master Bus Strip
+
+The 13-slot mastering strip (functional contract in
+[spec-012](specs/spec-012-master-bus-strip.md)) runs as one custom DSP block
+on the stereo Master path:
+
+```text
+lanes + returns -> masterGain -> [master-bus worklet] -> analyser -> destination
+                                        |
+                                        +-> loudness measurement branch (post-chain)
+```
+
+Master Volume is therefore the trim into the chain, and the Limiter ceiling
+protects the real output. The BS.1770 measurement branch taps the chain
+output, so the Middle Strip readouts and the strip's output meter share one
+measurement engine.
+
+### Threading model
+
+- All eleven processors, the input VU meter, and the limiter's true-peak
+  sidechain run inside a single `AudioWorkletProcessor`
+  (`master-bus-processor`), following the repository rule that an
+  AudioWorklet is the first custom-DSP choice. The worklet module is emitted
+  by Vite from `src/renderer/src/engine/worklets/` like the loudness
+  worklet; no `blob:` URL.
+- The DSP core is pure TypeScript operating on `Float32Array` blocks with no
+  Web Audio types. The worklet is a thin adapter. This is what makes the
+  unit suite headless: the same core runs under the node vitest project.
+- The per-block processing path allocates nothing, takes no locks, and does
+  no I/O. All buffers, module states, both chain instances, and oversampler
+  workspaces are allocated at construction.
+- The platform adaptation of the "lock-free queue" requirement: parameters
+  arrive through the worklet `MessagePort` and are drained into
+  preallocated slots at block start; meter data leaves through
+  `port.postMessage` of a small snapshot at a 33 ms cadence (about 200
+  bytes, the same accepted practice as the loudness worklet's 100 ms
+  cadence). SharedArrayBuffer is not available because the app runs without
+  COOP/COEP.
+
+### Parameter and message flow
+
+```text
+UI knob -> React state -> project history edit
+        -> port.postMessage {paramId, value}
+worklet: drain queue at block start -> per-parameter smoother (20 ms one-pole)
+        -> module reads smoothed value per sample or per block
+worklet -> port.postMessage snapshot at 33 ms:
+        {vuDb, peakL, peakR, compGrDb, limGrDb, latencySamples, stalled?}
+UI: latest-snapshot store -> animation-frame paint while Master tab active
+```
+
+- Every continuous parameter has a 20 ms one-pole smoother; gains smooth in
+  the linear domain, frequencies in log domain. A smoothing test asserts the
+  maximum per-sample step.
+- Topology messages (reorder, bypass, preset) are atomic: one message
+  carries the complete new order and power map.
+
+### Crossfade mechanism (click-free bypass and reorder)
+
+The worklet owns two complete chain instances, A and B, with independent
+module states. Exactly one is active. On any topology change (reorder,
+bypass toggle, preset recall):
+
+1. The inactive instance adopts the new topology and starts processing the
+   same input from cleared filter states.
+2. Both instances run for the 30 ms crossfade window, mixed with an
+   equal-power curve from old to new.
+3. The old instance stops; the new one becomes active. Changes arriving
+   mid-fade restart the fade toward the newest topology.
+
+Running both instances doubles CPU only during the 30 ms window. Warm-up
+transients from cleared states are inaudible because the new chain fades in
+from zero power; the automated glitch test renders program material through
+scripted reorder/bypass storms and asserts no discontinuity above
+-60 dBFS sample-to-sample step beyond what the program itself contains.
+
+Parameter-only changes never crossfade; they ride the smoothers inside the
+active instance.
+
+### Oversampling and latency
+
+- One shared oversampler implementation: 4x via two cascaded 2x half-band
+  linear-phase FIR polyphase stages (up and down). Soft Clip, Tube,
+  Maximizer, and the Limiter's true-peak sidechain use 4x; Tape uses one 2x
+  stage (its nonlinearity is gentler and pre-emphasis already tilts the
+  spectrum).
+- Each stage exposes `latencySamples`. The chain total is the sum over the
+  active order plus the Limiter lookahead (2.5 ms). The total is reported in
+  every meter snapshot. At 48 kHz the default chain totals a few
+  milliseconds; the playhead is not compensated (below the project's 10 ms
+  timing threshold), but the reported value keeps a later compensation or
+  export alignment (spec-019) honest.
+- Numerical hygiene: module outputs pass a guard that flushes denormals
+  (add/subtract a tiny DC dither constant in feedback states) and replaces
+  NaN/Inf with 0 while latching a per-module fault flag into the snapshot.
+  A faulty module can never take down the bus.
+
+### Per-module algorithms
+
+Each module is a stereo in, stereo out block with a `process(l, r, n)` hot
+path, a parameter struct, and a reported latency. Neutral settings must null
+against bypass below -100 dBFS.
+
+**Gain Stage** — one smoothed linear gain. Latency 0.
+
+**Soft Clip** — 4x oversampled cubic soft-knee waveshaper
+(`y = x - x^3/3` inside the knee, hard at the knee edge), scaled to the
+Ceiling. Amount sets the drive so that nominal program (-18 dBFS RMS,
+about -8 dBFS peaks) loses Amount dB of peak. Cubic over tanh: an odd
+polynomial's harmonic series is finite (third only below the knee), so 4x
+oversampling is alias-clean by construction. A one-pole DC blocker (5 Hz)
+follows the shaper.
+
+```text
+in -> up 4x -> drive -> cubic knee -> ceiling scale -> down 4x -> DC block -> out
+```
+
+**Tube Saturation** — asymmetric shaper
+`y = x + k2 * x^2` (k2 from Drive) saturated by tanh at high drive,
+producing predominantly even harmonics; 4x oversampled; DC blocker after
+the nonlinearity (the x^2 term rectifies); equal-loudness compensation
+gain derived from the Drive-dependent RMS gain measured at -18 dBFS RMS
+pink noise (table baked at build time), so loudness stays approximately
+constant across Drive; then dry/wet Mix. Asymmetry is the classic
+single-ended triode transfer characteristic.
+
+**Subtractive EQ** — 2nd-order Butterworth high-pass (12 dB/oct). Chosen
+over 24 dB/oct: half the low-frequency group delay and phase rotation on a
+full mix, and 12 dB/oct at 20 Hz already removes subsonic energy that
+matters here. Mud (250 Hz) and Harsh (3.5 kHz) are RBJ peaking biquads with
+Q 3.0 (inside the required 2.5 to 4 window).
+
+**Bus Compressor** — feed-forward, stereo-linked. Detector: max of L/R fed
+to a 5 ms RMS window (RMS-style "glue" response), log domain, 6 dB soft
+knee. Gain computer applies Ratio above Threshold; attack/release are
+one-pole smoothers on the gain-reduction envelope. No auto-makeup
+(spec-012 decision). GR dB is written to the snapshot.
+
+```text
+L,R -> max -> RMS(5 ms) -> dB -> knee/ratio -> attack/release -> gain -> L,R
+```
+
+**Maximizer** — input drive `driveDb = 0.4 * Boost%` (25 % = 10 dB) into a
+4x oversampled cubic soft clipper with a fixed -1.0 dBFS ceiling. The
+ceiling never moves, so Boost adds density, not peak level. The linear
+0.4 dB/% mapping keeps the knob musically even: each 2.5 % is 1 dB more
+drive.
+
+**Additive EQ** — RBJ low shelf at 90 Hz and high shelf at 12 kHz, shelf
+slope S = 0.6 (wide and musical, inside the 0.5 to 0.7 window). Latency 0.
+
+**Tape Saturation** — pre-emphasis shelf (+ tilt above 2 kHz), symmetric
+tanh stage (odd harmonics) at 2x oversampling, matching de-emphasis, then
+the speed-dependent head model: a low peaking "head bump" (55 Hz at
+15 IPS, 35 Hz at 30 IPS, up to +1.5 dB scaled by Drive) and a first-order
+HF roll-off (corner 11 kHz at 15 IPS, 16 kHz at 30 IPS). Pre/de-emphasis
+around the shaper is the standard simplified tape model; the lookup-table
+hysteresis model remains a stretch goal and is not required.
+
+**Stereo Imaging** — Linkwitz-Riley 4th-order crossover at Mono Below.
+Low band: mid only (mono sum). High band: M unchanged, S scaled by
+Width %. Recombination of an LR4 split is allpass-flat, so the module at
+Width 100 % nulls against the same input passed through the LR4 allpass
+reference, and nulls fully on mono material. This is the mono-compatible,
+phase-coherent proof required by the spec.
+
+```text
+in -> M/S -> LR4 low  -> M only ----+
+          -> LR4 high -> M, S*width +-> M/S^-1 -> out
+```
+
+**Multiband Comp** — LR4 crossovers at 120 Hz and 2 kHz (three bands, sum
+is allpass-flat when all bands are unity). Per band, the amount macro maps
+to a coupled pair: `ratio = 1 + amount/50` (0 % = 1:1, transparent;
+100 % = 3:1) and `thresholdDb = -16 - 0.14 * amount` relative to full
+scale. Fixed per-band time constants: low 30/200 ms, mid 15/150 ms, high
+5/80 ms. At amount 0 the ratio is exactly 1:1, so the band applies unity
+gain and the module nulls against its crossover allpass reference.
+
+**Limiter** — 2.5 ms lookahead delay on the audio path; the sidechain
+upsamples 4x and takes the true-peak envelope; gain computer holds the
+minimum gain over the lookahead window (running-minimum deque,
+preallocated) with instant attack and 100 ms dual-stage release;
+stereo-linked. Ceiling is enforced on the 4x true-peak estimate, so output
+true peak never exceeds Ceiling. Latency = lookahead + oversampler group
+delay, reported. GR dB is written to the snapshot.
+
+**Input VU** — 300 ms integration one-pole on the mono sum RMS, displayed
+against 0 VU = -18 dBFS; per-channel sample-peak flags with 1.5 s hold.
+
+**Output meter** — served by the existing self-hosted loudness worklet
+(BS.1770 K-weighting, Momentary 400 ms, Short-term 3 s, gated Integrated,
+4x true peak) re-tapped after the chain. The strip adds no second LUFS
+implementation. The OVER lamp latches in the UI when true peak exceeds
+-1 dBTP.
+
+### Serialization
+
+The strip state is one `masterBus` JSON object inside the version-5
+project format: slot order, per-processor power, all parameter values, and
+the selected preset name. Spec-011 owns the wire format and validation;
+spec-012 lists the rejection rules. The worklet never parses JSON; the
+renderer validates and sends typed messages.
+
 ## OS media actions
 
 The renderer registers Media Session action handlers. `previoustrack` seeks to

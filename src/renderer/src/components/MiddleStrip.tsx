@@ -2,6 +2,7 @@ import type { RefObject } from 'react'
 import type { LibrarySyncState } from '../../../shared/backend-api'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import SongProgressBar from './SongProgressBar'
+import BpmControl from './BpmControl'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -167,6 +168,8 @@ interface MiddleStripProps {
   onCancelLibrarySync: () => void
   onRetryLibrarySync: () => void
   onOpenShortcuts: () => void
+  bpm: number
+  onSetBpm: (bpm: number) => void
 }
 
 export default function MiddleStrip({
@@ -199,7 +202,9 @@ export default function MiddleStrip({
   onRescanLibrary,
   onCancelLibrarySync,
   onRetryLibrarySync,
-  onOpenShortcuts
+  onOpenShortcuts,
+  bpm,
+  onSetBpm
 }: MiddleStripProps) {
   const isPlaying = transportState === 'playing'
   const isPreparing = transportState === 'preparing'
@@ -256,6 +261,7 @@ export default function MiddleStrip({
               )}
             </DropdownMenuContent>
           </DropdownMenuRoot>
+          <BpmControl bpm={bpm} onSetBpm={onSetBpm} />
         </div>
 
         <div className="strip-command-dock">

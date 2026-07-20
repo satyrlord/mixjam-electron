@@ -43,10 +43,10 @@
 - [Session](#session)
 - [Skin](#skin)
 - [Song](#song)
-- [Song Controls](#song-controls)
+- [Master Controls](#master-controls)
+- [Master panel](#master-panel)
 - [Song end](#song-end)
 - [Song length](#song-length)
-- [Song panel](#song-panel)
 - [Song Progress Bar](#song-progress-bar)
 - [Source duration](#source-duration)
 - [Stereo-pair evidence](#stereo-pair-evidence)
@@ -224,7 +224,7 @@ Transport Ribbon. See
 ## Bottom Workspace
 
 The full-width tabbed region below the [Middle Strip](#middle-strip) in the
-[Player](#player). Its peer tabs are Song, Mixer, and Samples. Use *Bottom
+[Player](#player). Its peer tabs are Master, Mixer, and Samples. Use *Bottom
 Workspace* for the shared container; use the individual tab name for the
 workflow shown inside it. See [spec 006](specs/spec-006-player-timeline-panels.md).
 
@@ -270,7 +270,7 @@ so it is not the timing authority after a musical span exists.
 ## Player
 
 The complete active song view: Tracker, Sample Browser, MixJam Browser, Middle
-Strip, Transport Ribbon, mixer, [Song panel](#song-panel), and the other
+Strip, Transport Ribbon, mixer, [Master panel](#master-panel), and the other
 active-project regions. *Player* does not mean only the audio engine, a preview
 widget, or the Tracker. See
 [spec 001](specs/spec-001-app-shell-navigation.md) and
@@ -386,11 +386,11 @@ currently being edited in the Player. It is represented on disk by the
 `.mixjam` format. Its [arrangement capacity](#arrangement-capacity) is distinct
 from its exact [song end](#song-end).
 
-## Song Controls
+## Master Controls
 
-Use [Song panel](#song-panel) for the Bottom Workspace region. *Song Controls*
-is the visible heading and implementation shorthand for the controls inside
-that panel, not a sibling region or a separate reveal surface.
+Use [Master panel](#master-panel) for the Bottom Workspace region. *Master
+Controls* is the visible heading and implementation shorthand for the controls
+inside that panel, not a sibling region or a separate reveal surface.
 
 ## Song end
 
@@ -406,13 +406,13 @@ Use [song end](#song-end) when referring to the content-derived end of the
 arrangement. Do not use *song length* for the fixed 999-bar arrangement
 capacity.
 
-## Song panel
+## Master panel
 
-The peer panel selected by the Song tab in the
-[Bottom Workspace](#bottom-workspace). It contains Project BPM, a Master Volume
+The peer panel selected by the Master tab in the
+[Bottom Workspace](#bottom-workspace). It contains a Master Volume
 module that also owns Output Level metering, and other project-wide sound
-controls. Use *Song panel* for the region and
-[Song Controls](#song-controls) only for its visible heading or implementation
+controls. Use *Master panel* for the region and
+[Master Controls](#master-controls) only for its visible heading or implementation
 shorthand.
 
 ## Song Progress Bar

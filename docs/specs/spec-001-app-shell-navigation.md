@@ -60,7 +60,7 @@ Implement view switching, the header bar, and the footer.
 - The tracker content area below the header shows the structural skeleton of
   the app using the approved player region map: MixJam Browser and Tracker in
   the upper work band, a full-width Middle Strip, and a full-width Bottom
-  Workspace. The Bottom Workspace contains Song, Mixer, and Samples tabs;
+  Workspace. The Bottom Workspace contains Master, Mixer, and Samples tabs;
   its detailed behavior belongs to spec-006.
 - **Footer** is unchanged from Home Screen.
 
@@ -104,10 +104,31 @@ connection; a competing Electron window shows an already-open notice.
 
 The only end-user artifacts are Electron packages. The production workflow
 runs the unit suite, builds and packages natively on Windows, Linux, and macOS,
-then launches each unpacked packaged executable for its Electron smoke test.
-It produces a portable `.exe`, AppImage, and `.dmg`. Manual workflow runs retain
-the packages as workflow artifacts for 14 days. A `v*` tag attaches the three
-packages to its GitHub Release only after those gates pass.
+then verifies the native package on each matching GitHub-hosted runner. It
+produces a portable `.exe`, AppImage, and `.dmg`. The Linux proof supplies the
+AppImage's explicit generated path to the smoke test and launches that file,
+never `linux-unpacked`. The macOS proof mounts the generated DMG at a temporary
+mount point and launches `MixJam Electron.app/Contents/MacOS/MixJam Electron`
+inside that mounted image, never the unpacked `mac` directory. These native
+artifact proofs do not add `--no-sandbox`.
+
+The Windows job records the portable executable's hash, size, and signing state,
+then launches that exact artifact with an isolated user-data directory. The
+gate requires the portable NSIS bootstrap to produce a stable, responsive
+MixJam Electron native window and records the process and window evidence before
+cleanup. Because the bootstrap starts a child process, the deeper Playwright
+assertions then drive `win-unpacked/MixJam Electron.exe`, which contains the same
+packaged application resources and preserves the main-process connection.
+
+Every native artifact proof also runs the built Electron interaction probe at
+UI Size 50 with 16 lanes. It records Tracker vertical wheel scrolling and
+keyboard focus reveal; Mixer horizontal scrolling from a horizontal wheel,
+Shift+wheel, and Left/Right keys; and focus reveal of a clipped Mixer control.
+It confirms that plain vertical wheel input does not scroll the Mixer
+horizontally. The workflow uploads the Playwright report, screenshots, and raw
+measurements with the package artifacts. Manual workflow runs retain all of
+those artifacts for 14 days. A `v*` tag attaches the three packages to its
+GitHub Release only after those gates pass.
 
 Code signing and macOS notarization are separate release-readiness gates. They
 are not configured, so current artifacts are unsigned and must not be described
@@ -212,9 +233,15 @@ Implementation validation should be tracked in implementation PR/test evidence.
   They work during blocking modals and while backgrounded when the operating
   system selects MixJam, without registering a global shortcut.
 - [ ] **AC-017:** A `v*` tag completes the native Windows, Linux, and macOS
-  production matrix, passes the unit suite, smoke-tests each packaged Electron
-  executable, and attaches one portable `.exe`, one AppImage, and one `.dmg` to
-  the GitHub Release. Signing and notarization status is stated accurately.
+  production matrix and passes the unit suite. Windows records the portable
+  executable metadata, launches the portable bootstrap to a responsive native
+  window, and smoke-tests its packaged app directory. Linux launches the
+  AppImage, and macOS mounts the DMG and launches its contained application;
+  neither native artifact uses `--no-sandbox`. At UI Size 50 with 16 lanes, each
+  proof uploads keyboard, wheel, and focus-reveal evidence, including the Mixer
+  plain-vertical-wheel non-scroll assertion. It attaches one portable `.exe`,
+  one AppImage, and one `.dmg` to the GitHub Release. Signing and notarization
+  status is stated accurately.
 
 ## Native Window Evidence
 
@@ -236,6 +263,12 @@ because X11 frame extents depend on the active window-manager theme.
 The smoke test also asks Electron's `nativeImage` implementation to decode the
 same platform-specific asset passed to the live `BrowserWindow` and requires a
 non-empty result on Windows, Linux, and macOS.
+
+Native artifact verification is not yet complete. The next manual or
+tag-triggered Production run must preserve its package test report, screenshots,
+and raw UI Size 50/16-lane interaction measurements. A passing local built
+Electron probe proves the `app://bundle` interaction contract but does not prove
+the AppImage or DMG delivery path.
 
 The Windows-only `scripts/inspect-window-icon.ps1` probe reads the icon from the
 live HWND and compares it with a 32 by 32 PNG rendered from `public/app-icon.ico`
