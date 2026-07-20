@@ -62,7 +62,7 @@ describe('MixerColumn', () => {
     fireEvent.keyDown(screen.getByRole('slider', { name: 'FX Return 1 level' }), { key: 'Home' })
     fireEvent.click(screen.getByRole('button', { name: 'Limiter for FX Return 1' }))
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Empty' }), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delay...' }))
     const dialog = screen.getByRole('dialog', { name: 'Delay' })
     expect(document.body.dataset.mixjamModalBlocking).toBe('1')
@@ -80,15 +80,27 @@ describe('MixerColumn', () => {
     expect(onSet).toHaveBeenCalled()
     expect(document.body.dataset.mixjamModalBlocking).toBeUndefined()
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Delay bypassed' }), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delay...' }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Delay bypassed' }), { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Clear slot' }))
     expect(onSet).toHaveBeenLastCalledWith(expect.objectContaining({
       index: 0,
       module: expect.objectContaining({ type: 'empty' })
     }))
+  })
+
+  it('renders reference panel headers for the channel bank and FX bank', () => {
+    render(<Harness onSet={vi.fn()} onPreview={vi.fn()} />)
+    const channelPanel = document.querySelector('.mixer-panel')!
+    expect(channelPanel.querySelector('.mixer-panel-header')).toHaveTextContent('1 × Channels')
+    expect(channelPanel.querySelector('.mixer-panel-header')).toHaveTextContent('4 Sends')
+    const fxBank = screen.getByRole('region', { name: 'FX and Returns' })
+    expect(fxBank.querySelector('.mixer-panel-header')).toHaveTextContent('4 × FX Slots')
+    expect(fxBank.querySelector('.mixer-panel-header')).toHaveTextContent('Active')
+    expect(channelPanel.querySelectorAll('.mixer-status-led')).toHaveLength(1)
+    expect(fxBank.querySelectorAll('.mixer-status-led')).toHaveLength(1)
   })
 
   it('uses a constrained scrollport and supports only explicit horizontal wheel conversion', () => {
@@ -148,7 +160,7 @@ describe('MixerColumn', () => {
   it('traps focus and restores it to the originating FX container on Cancel', () => {
     const onPreview = vi.fn()
     render(<Harness onSet={vi.fn()} onPreview={onPreview} />)
-    const slot = screen.getByRole('button', { name: 'FX 2' })
+    const slot = screen.getByRole('button', { name: 'FX 2 Empty' })
     slot.focus()
     fireEvent.keyDown(slot, { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delay...' }))

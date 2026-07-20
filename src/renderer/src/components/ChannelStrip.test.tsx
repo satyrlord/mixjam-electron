@@ -240,18 +240,32 @@ describe('ChannelStrip', () => {
     expect(screen.getByRole('button', { name: 'Kick' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('renders rotary controls for all four sends and disabled decorative EQ', () => {
+  it('renders rotary controls for all four sends with per-slot accents and no EQ group', () => {
     render(<ChannelStrip {...DEFAULT_PROPS} sends={[0, 0.3, 0, 0]} />)
     expect(screen.getByRole('group', { name: 'Kick Sends' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Kick Send 1' })).toHaveAttribute('aria-valuenow', '0')
     expect(screen.getByRole('slider', { name: 'Kick Send 2' })).toHaveAttribute('aria-valuenow', '30')
     expect(screen.getByRole('slider', { name: 'Kick Send 3' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Kick Send 4' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'EQ Power unavailable' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Treble unavailable' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Bass unavailable' })).toBeDisabled()
+    const triggers = document.querySelectorAll('.mixer-send-tooltip-trigger')
+    expect(triggers).toHaveLength(4)
+    triggers.forEach((trigger, index) => {
+      expect(trigger.getAttribute('style')).toContain(`--fx-accent-${index + 1}`)
+    })
+    // The REV 07 reference strip has no EQ section; the decorative group is gone.
+    expect(document.querySelector('.mixer-channel-eq')).toBeNull()
     expect(screen.queryByRole('button', { name: 'M' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'S' })).toBeNull()
+  })
+
+  it('shows the derived channel number and fader-position dB readout', () => {
+    const { rerender } = render(<ChannelStrip {...DEFAULT_PROPS} channelIndex={2} gain={0.8} />)
+    expect(screen.getByText('CH 03')).toBeInTheDocument()
+    expect(screen.getByText('-2 dB')).toBeInTheDocument()
+    rerender(<ChannelStrip {...DEFAULT_PROPS} channelIndex={2} gain={1} />)
+    expect(screen.getByText('0 dB')).toBeInTheDocument()
+    rerender(<ChannelStrip {...DEFAULT_PROPS} channelIndex={2} gain={0} />)
+    expect(screen.getByText('−∞ dB')).toBeInTheDocument()
   })
 
   it('uses the shared SVG rotary visual for sends and bipolar pan', () => {
@@ -309,10 +323,11 @@ describe('ChannelStrip', () => {
       .map((element) => element.className)
     expect(classes).toEqual([
       'mixer-channel-label',
+      'mixer-channel-num',
       'mixer-channel-sends',
-      'mixer-channel-eq',
       'mixer-channel-pan',
-      'vertical-fader vertical-fader-has-meter mixer-channel-vol-wrap'
+      'vertical-fader vertical-fader-has-meter vertical-fader-side-meter mixer-channel-vol-wrap',
+      'mixer-channel-db'
     ])
   })
 })

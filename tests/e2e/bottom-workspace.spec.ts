@@ -20,7 +20,7 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
 
   const hiddenGeometry = await page.evaluate(() => {
     const panel = document.querySelector<HTMLElement>('.bottom-workspace-mixer')
-    const thumb = document.querySelector<HTMLElement>('.mixer-channel-vol')
+    const thumb = document.querySelector<HTMLElement>('.mixer-channel-vol-input')
     const track = thumb?.closest<HTMLElement>('.vertical-fader-track')
     return {
       hidden: panel?.hidden,
@@ -42,7 +42,7 @@ test('Mixer fader thumbs stay fixed when the panel becomes visible', async ({ se
   const mixerTab = page.getByRole('tab', { name: 'Mixer' })
   const mixerPanel = page.locator('.bottom-workspace-mixer')
   const takeFaderFrame = (): Promise<FaderFrame> => page.evaluate(() => {
-    const thumb = document.querySelector<HTMLElement>('.mixer-channel-vol')
+    const thumb = document.querySelector<HTMLElement>('.mixer-channel-vol-input')
     const slider = thumb?.closest<HTMLElement>('[role="slider"]') ?? thumb
     const track = thumb?.closest<HTMLElement>('.vertical-fader-track')
     return {

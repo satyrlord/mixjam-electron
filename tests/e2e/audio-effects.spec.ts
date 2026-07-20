@@ -10,8 +10,7 @@ test('the Mixer edits, saves, clears, and resets a return Delay', async ({ seede
     getComputedStyle(element, '::before').content
   )).toMatch(/^(none|normal|""|)$/)
 
-  const fx1 = page.getByRole('button', { name: 'FX 1', exact: true })
-  await expect(fx1).toContainText('Empty')
+  const fx1 = page.getByRole('button', { name: 'FX 1 Empty', exact: true })
   await fx1.click()
   await page.getByRole('menuitem', { name: 'Delay...' }).click()
 
@@ -23,18 +22,21 @@ test('the Mixer edits, saves, clears, and resets a return Delay', async ({ seede
   await time.press('ArrowUp')
   await feedback.press('ArrowUp')
   await dialog.getByRole('button', { name: 'OK' }).click()
-  await expect(fx1).toContainText('Delay')
-  await expect(fx1).toContainText('385 ms')
-  await expect(fx1).toContainText('Feedback 36%')
+  // Saving renames the trigger to its module ("FX 1 Delay"), so re-resolve.
+  const fx1Populated = page.getByRole('button', { name: 'FX 1 Delay', exact: true })
+  await expect(fx1Populated).toContainText('Delay')
+  const fxCard1 = page.getByRole('region', { name: 'FX Return 1' })
+  await expect(fxCard1).toContainText('385 ms')
+  await expect(fxCard1).toContainText('Feedback 36%')
 
-  await fx1.click()
+  await fx1Populated.click()
   await page.getByRole('menuitem', { name: 'Clear slot' }).click()
   await expect(fx1).toContainText('Empty')
 
   await page.reload()
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
-  await expect(page.getByRole('button', { name: 'FX 1', exact: true })).toContainText('Empty')
+  await expect(page.getByRole('button', { name: 'FX 1 Empty', exact: true })).toContainText('Empty')
 })
 
 test('return controls stay contained at the supported viewport size', async ({ seededPage: page }) => {
@@ -42,7 +44,7 @@ test('return controls stay contained at the supported viewport size', async ({ s
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
 
-  const fx1 = page.getByRole('button', { name: 'FX 1', exact: true })
+  const fx1 = page.getByRole('button', { name: 'FX 1 Empty', exact: true })
   await fx1.click()
   await page.getByRole('menuitem', { name: 'Delay...' }).click()
   await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
@@ -53,7 +55,7 @@ test('return controls stay contained at the supported viewport size', async ({ s
     let returnControlCount = 0
     for (const [index, card] of cards.entries()) {
       const cardBox = card.getBoundingClientRect()
-      const returnControls = [...card.querySelectorAll<HTMLElement>('.mixer-fx-return-row [role="slider"], .mixer-fx-return-row button')]
+      const returnControls = [...card.querySelectorAll<HTMLElement>('.mixer-fx-mix [role="slider"], .mixer-limiter-toggle')]
       returnControlCount += returnControls.length
       for (const control of returnControls) {
         const box = control.getBoundingClientRect()
@@ -65,7 +67,7 @@ test('return controls stay contained at the supported viewport size', async ({ s
     }
 
     const trigger = cards[0]?.querySelector<HTMLElement>('.mixer-fx-slot')
-    const power = cards[0]?.querySelector<HTMLElement>('.mixer-fx-power')
+    const power = cards[0]?.querySelector<HTMLElement>('button.mixer-fx-led')
     if (!trigger || !power) throw new Error('Populated FX controls are unavailable')
     const triggerBox = trigger.getBoundingClientRect()
     const powerBox = power.getBoundingClientRect()
@@ -83,13 +85,14 @@ test('return controls stay contained at the supported viewport size', async ({ s
   expect(cardGeometry.containmentErrors).toEqual([])
   expect(cardGeometry.moduleControlsIntersect).toBe(false)
 
-  await expect(page.getByRole('button', { name: 'FX 4' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'FX 4 Empty', exact: true })).toBeVisible()
   const laneSends = page.getByRole('group', { name: 'Lane 1 Sends' })
   await expect(laneSends.getByRole('slider', { name: 'Lane 1 Send 1' })).toBeVisible()
   const fxReturn4 = page.getByRole('region', { name: 'FX Return 4' })
-  await expect(fxReturn4.getByRole('slider', { name: 'FX Return 4 level' })).toBeVisible()
+  const return4Level = fxReturn4.getByRole('slider', { name: 'FX Return 4 level' })
+  await expect(return4Level).toBeVisible()
+  await expect(return4Level).toHaveAttribute('aria-valuetext', '100%')
   const limiter = page.getByRole('button', { name: 'Limiter for FX Return 4' })
-  await expect(fxReturn4).toContainText('Return 100%')
   await expect(limiter).not.toHaveAttribute('title')
   await limiter.evaluate((element) => element.focus({ preventScroll: true }))
   await expect(limiter).toBeFocused()

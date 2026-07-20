@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { nextPanCycle } from '../lib/sample-utils'
 import { VerticalFader } from './VerticalControls'
 import { RotaryControl, RotaryDial } from './RotaryField'
@@ -29,6 +30,16 @@ function panValueText(pan: number): string {
   return pan < 0 ? `${pct}% left` : `${pct}% right`
 }
 
+/** Fader-position readout in dB, e.g. 80% -> "-2 dB"; 0% -> "-inf dB" glyph. */
+function gainDbText(gain: number): string {
+  if (gain <= 0) return '−∞ dB'
+  return `${Math.round(20 * Math.log10(gain))} dB`
+}
+
+function slotAccentStyle(slot: number): CSSProperties {
+  return { '--fx-slot-accent': `var(--fx-accent-${slot}, var(--accent))` } as CSSProperties
+}
+
 export default function ChannelStrip({
   laneId,
   channelIndex,
@@ -58,6 +69,8 @@ export default function ChannelStrip({
         </Tooltip>
       </div>
 
+      <span className="mixer-channel-num">CH {String(channelIndex + 1).padStart(2, '0')}</span>
+
       <div className="mixer-channel-sends" role="group" aria-label={`${label} Sends`}>
         {[1, 2, 3, 4].map((slot) => {
           const index = slot - 1
@@ -65,7 +78,7 @@ export default function ChannelStrip({
           const valueText = `${Math.round(value * 100)}%`
           return (
             <Tooltip key={slot} content={`${sendModuleNames[index] ?? 'Empty'}, Send ${slot}: ${valueText}`}>
-              <span className="mixer-send-tooltip-trigger">
+              <span className="mixer-send-tooltip-trigger" style={slotAccentStyle(slot)}>
                 <RotaryControl
                   className="mixer-send-control"
                   label={`${label} Send ${slot}`}
@@ -88,14 +101,6 @@ export default function ChannelStrip({
           )
         })}
       </div>
-
-      <Tooltip content="EQ controls are not available">
-        <div className="mixer-channel-eq" aria-label="EQ controls are not available">
-          <button type="button" disabled tabIndex={-1} aria-label="EQ Power unavailable">EQ</button>
-          <button type="button" disabled tabIndex={-1} aria-label="Treble unavailable">T</button>
-          <button type="button" disabled tabIndex={-1} aria-label="Bass unavailable">B</button>
-        </div>
-      </Tooltip>
 
       <RotaryControl
         className="mixer-channel-pan"
@@ -140,11 +145,14 @@ export default function ChannelStrip({
         unityValue={100}
         meterDb={levelDb}
         peakDb={peakDb}
+        meterPosition="side"
         showDragValue
         onGestureStart={onGestureStart}
         onGestureEnd={onGestureEnd}
         onChange={(value) => onSetGain(channelIndex, value / 100)}
       />
+
+      <span className="mixer-channel-db">{gainDbText(gain)}</span>
     </div>
   )
 }

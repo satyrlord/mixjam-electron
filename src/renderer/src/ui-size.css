@@ -354,6 +354,12 @@
   height: calc(18px * var(--ui-scale));
 }
 
+/* Mixer side-meter strips keep the rectangular thumb geometry scaled. */
+.vertical-fader-side-meter .vertical-fader-thumb {
+  width: calc(22px * var(--ui-scale));
+  height: calc(9px * var(--ui-scale));
+}
+
 .mixer-column {
   padding: var(--ui-space-md);
   gap: var(--ui-space-md);
@@ -371,7 +377,6 @@
   gap: var(--ui-space-sm);
 }
 
-.mixer-return-name,
 .mixer-fx-menu .mixjam-menu-item {
   font-size: var(--ui-font-sm);
 }
@@ -394,13 +399,24 @@
   height: calc(var(--ui-size) * 0.8);
 }
 
-:root[data-ui-size] .mixer-channel-eq button {
-  min-width: 0;
-  min-height: var(--ui-size);
+.mixer-panel-header {
   font-size: var(--ui-font-xs);
 }
 
-.mixer-fx-power {
+.mixer-channel-num,
+.mixer-channel-db,
+.mixer-send-label,
+.mixer-fx-num,
+.mixer-fx-mix-label,
+.mixer-fx-summary {
+  font-size: var(--ui-font-xs);
+}
+
+.mixer-fx-name {
+  font-size: var(--ui-font-sm);
+}
+
+.mixer-fx-edit {
   min-height: var(--ui-size);
   font-size: var(--ui-font-xs);
 }
@@ -416,7 +432,8 @@
   gap: var(--ui-space-sm);
 }
 
-.mixer-fx-module {
+.mixer-fx-head,
+.mixer-fx-body {
   gap: var(--ui-space-sm);
 }
 
@@ -425,10 +442,9 @@
   font-size: var(--ui-font-sm);
 }
 
-.mixer-fx-return-row {
-  min-height: var(--ui-size);
+.mixer-fx-foot {
   gap: var(--ui-space-sm);
-  padding-top: var(--ui-space-sm);
+  padding-top: var(--ui-space-xs);
 }
 
 .rotary-control,

@@ -24,7 +24,11 @@
     "meter-yellow": "#FFD60A",
     "meter-red": "#FF3B5C",
     "transport": "#13131F",
-    "transport-active": "#BBF351"
+    "transport-active": "#BBF351",
+    "fx-accent-1": "#B8FF00",
+    "fx-accent-2": "#00F1DF",
+    "fx-accent-3": "#B8FF00",
+    "fx-accent-4": "#00F1DF"
   },
   "palette": [
     "#BBF351",
@@ -57,7 +61,14 @@
     "shadow-sample-bubble": "0px 0px 9px rgba(187,243,81,0.5)",
     "border-sample-bubble": "none",
     "gradient-sample-bubble": "none",
-    "shadow-meter": "none"
+    "shadow-meter": "0 0 4px rgba(184,255,0,0.6)",
+    "gradient-mixer-device": "linear-gradient(0deg, #000302, #000302)",
+    "gradient-mixer-panel": "linear-gradient(0deg, #020805, #020805)",
+    "shadow-mixer-panel": "0 6px 18px rgba(0,0,0,0.7)",
+    "shadow-mixer-slot": "none",
+    "shadow-mixer-led": "0 0 5px currentColor, 0 0 10px rgba(184,255,0,0.5)",
+    "fill-mixer-knob": "#030B06",
+    "border-mixer-knob": "#00F1DF"
   },
   "radius": "4px",
   "radius-transport": "50%",

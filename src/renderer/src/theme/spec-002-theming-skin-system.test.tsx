@@ -100,7 +100,11 @@ const EXPECTED_EMERALD_COLORS = {
   'meter-yellow': '#FBBF24',
   'meter-red': '#F87171',
   transport: '#0C2D32',
-  'transport-active': '#00674F'
+  'transport-active': '#00674F',
+  'fx-accent-1': '#22B573',
+  'fx-accent-2': '#22B573',
+  'fx-accent-3': '#22B573',
+  'fx-accent-4': '#22B573'
 } as const
 
 const EXPECTED_EMERALD_DEPTH = {
@@ -118,7 +122,14 @@ const EXPECTED_EMERALD_DEPTH = {
   'shadow-sample-bubble': 'none',
   'border-sample-bubble': 'none',
   'gradient-sample-bubble': 'none',
-  'shadow-meter': 'none'
+  'shadow-meter': 'none',
+  'gradient-mixer-device': 'linear-gradient(180deg, #02211A, #021712)',
+  'gradient-mixer-panel': 'linear-gradient(0deg, #032B20, #032B20)',
+  'shadow-mixer-panel': '0 8px 20px rgba(0,10,6,0.55)',
+  'shadow-mixer-slot': 'none',
+  'shadow-mixer-led': '0 0 5px rgba(34,181,115,0.6)',
+  'fill-mixer-knob': '#063A2B',
+  'border-mixer-knob': '#167A56'
 } as const
 
 // Emerald's expected palette; other themes author their own families
@@ -443,7 +454,11 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'meter-yellow',
       'meter-red',
       'transport',
-      'transport-active'
+      'transport-active',
+      'fx-accent-1',
+      'fx-accent-2',
+      'fx-accent-3',
+      'fx-accent-4'
     ])
     expect(Object.keys(parsed.fonts)).toEqual(['chrome', 'label', 'mono'])
     expect(Object.keys(parsed.depth)).toEqual([
@@ -461,7 +476,14 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'shadow-sample-bubble',
       'border-sample-bubble',
       'gradient-sample-bubble',
-      'shadow-meter'
+      'shadow-meter',
+      'gradient-mixer-device',
+      'gradient-mixer-panel',
+      'shadow-mixer-panel',
+      'shadow-mixer-slot',
+      'shadow-mixer-led',
+      'fill-mixer-knob',
+      'border-mixer-knob'
     ])
 
     const expectedKeyCounts: Record<string, number> = {
@@ -506,6 +528,13 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'border-sample-bubble': 1,
       'gradient-sample-bubble': 1,
       'shadow-meter': 1,
+      'gradient-mixer-device': 1,
+      'gradient-mixer-panel': 1,
+      'shadow-mixer-panel': 1,
+      'shadow-mixer-slot': 1,
+      'shadow-mixer-led': 1,
+      'fill-mixer-knob': 1,
+      'border-mixer-knob': 1,
       'radius-sample-bubble': 1,
       palette: 1,
       'palette-unsorted': 1,
@@ -513,7 +542,11 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
       'border-width-pill': 1,
       'border-width-header': 1,
       'sample-bubble-font-weight': 1,
-      'sample-bubble-case': 1
+      'sample-bubble-case': 1,
+      'fx-accent-1': 1,
+      'fx-accent-2': 1,
+      'fx-accent-3': 1,
+      'fx-accent-4': 1
     }
 
     for (const [key, count] of Object.entries(expectedKeyCounts)) {

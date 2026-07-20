@@ -62,6 +62,7 @@ elements consistently.
 | `--meter-red` | Meter danger zone | Channel dB meter (-3 to 0 dB) |
 | `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink | Transport Ribbon buttons |
 | `--transport-active` | Active transport button base color; drives `--on-transport-active` | Playing transport button |
+| `--fx-accent-1` … `--fx-accent-4` | Per-slot Mixer FX/send accents; applied to slot rotary dials, the power LED, and the Edit cog; falls back to `--accent` when a slot is missing or not 6-digit hex | Mixer FX bank, channel-strip sends 1-4 |
 | `--radius` | Border radius | Placements, buttons, panels |
 | `--radius-transport` | Transport button corner shape | Transport Ribbon buttons; `50%` = round hardware (Analog, Rust), rounded-rect for modern themes |
 | `--radius-sample-bubble` | Sample-bubble corner radius, px | Lane placements (canvas-drawn) and DOM sample bubbles; `0px` for hard-edged themes |
@@ -150,6 +151,13 @@ semantic treatment can change with the active theme (AC-008):
 | `--border-sample-bubble` | Sample-bubble outline, parsed by the lane canvas — strict format `<width>px <color>` or `none`; gives Beton Brut/Arcade their hard ink borders |
 | `--gradient-sample-bubble` | Sample-bubble gloss, canvas-parsed — `linear-gradient(180deg, <top>, <bottom>)` or `none`; stops use hex (`#RRGGBBAA`, never rgba()); Rack's pressed metal |
 | `--shadow-meter` | box-shadow on meter fills (channel dB meter, loudness bar) — LED glow on Rack, `none` elsewhere |
+| `--gradient-mixer-device` | Mixer device surface behind the channel and FX panels — full CSS background value; carries the theme's device texture (Analog scanlines, Cosmic starfield, Riso halftone, Rust diagonal grain) or `none` for flat chrome |
+| `--gradient-mixer-panel` | Mixer panel surface image layered over `--bg-panel` (Analog warm gradient, Rack faceplate with corner screws) or `none` |
+| `--shadow-mixer-panel` | box-shadow on the Mixer channel-bank and FX-bank panels — drop shadow, neumorphic pair (Soft), offset slab (Arcade, Riso), Win9x bevel (Vintage), glow halo (Cosmic, Rave) or `none` |
+| `--shadow-mixer-slot` | box-shadow on channel strips and FX cards — same treatment family as `--shadow-mixer-panel`, one step smaller, or `none` |
+| `--shadow-mixer-led` | Glow behind Mixer status and FX power LEDs; `currentColor` glows in each LED's own accent (the LED elements set `color`); `none` = flat dot (print/flat themes) |
+| `--fill-mixer-knob` | Solid face color of Mixer rotary knobs (SVG fill; darker than the slot on hardware themes, cream/ivory on print/desktop themes) |
+| `--border-mixer-knob` | Rim color of Mixer rotary knobs and the fader-thumb edge (full-strength neon rims on Arcade/Neon/Rave, near-black on Beton/Rack) |
 
 ### Sample Palette
 
@@ -336,7 +344,11 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
     "meter-yellow": "#FBBF24",
     "meter-red": "#F87171",
     "transport": "#0C2D32",
-    "transport-active": "#00674F"
+    "transport-active": "#00674F",
+    "fx-accent-1": "#34D399",
+    "fx-accent-2": "#8FBCB2",
+    "fx-accent-3": "#34D399",
+    "fx-accent-4": "#8FBCB2"
   },
   "palette": ["#982A00", "...8 slot colors, 6-digit hex..."],
   "palette-unsorted": "#555E6A",
@@ -360,7 +372,14 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
     "shadow-sample-bubble": "<x>px <y>px <blur>px <color> or none (canvas-parsed)",
     "border-sample-bubble": "<width>px <color> or none (canvas-parsed)",
     "gradient-sample-bubble": "linear-gradient(180deg, <top>, <bottom>) or none (canvas-parsed; colors space-free)",
-    "shadow-meter": "box-shadow for meter fills or none"
+    "shadow-meter": "box-shadow for meter fills or none",
+    "gradient-mixer-device": "Mixer device-surface background (texture/gradient layers) or none",
+    "gradient-mixer-panel": "Mixer panel surface image over --bg-panel or none",
+    "shadow-mixer-panel": "box-shadow for the two Mixer panels or none",
+    "shadow-mixer-slot": "box-shadow for channel strips and FX cards or none",
+    "shadow-mixer-led": "LED glow box-shadow, may use currentColor, or none",
+    "fill-mixer-knob": "solid knob-face color (SVG fill)",
+    "border-mixer-knob": "knob rim / fader-thumb edge color"
   },
   "radius": "0.22rem",
   "radius-transport": "8px",

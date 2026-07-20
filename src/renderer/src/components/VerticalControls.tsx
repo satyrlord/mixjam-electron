@@ -69,6 +69,8 @@ interface VerticalFaderProps {
   unityValue?: number
   meterDb?: number
   peakDb?: number
+  /** 'overlay' paints the meter inside the fader track; 'side' places it beside the fader (Mixer strips). */
+  meterPosition?: 'overlay' | 'side'
   maxLabel?: string
   minLabel?: string
   wheelStep?: boolean
@@ -95,6 +97,7 @@ export function VerticalFader({
   unityValue,
   meterDb,
   peakDb,
+  meterPosition = 'overlay',
   maxLabel,
   minLabel,
   wheelStep = false,
@@ -124,14 +127,11 @@ export function VerticalFader({
     onGestureEnd?.()
   }
 
-  return (
-    <div
-      className={joinClasses('vertical-fader', meterDb === undefined ? undefined : 'vertical-fader-has-meter', className)}
-      style={{ '--vertical-fader-value': `${valuePct}%` } as CSSProperties}
-    >
-      {maxLabel && <span className="vertical-control-endpoint vertical-control-endpoint-max">{maxLabel}</span>}
-      <div className="vertical-fader-track">
-        {meterDb === undefined ? (
+  const sideMeter = meterDb !== undefined && meterPosition === 'side'
+
+  const track = (
+    <div className="vertical-fader-track">
+        {meterDb === undefined || sideMeter ? (
           <div className="vertical-fader-value-fill" aria-hidden="true" />
         ) : (
           <MeterTrack
@@ -176,7 +176,33 @@ export function VerticalFader({
             <SliderThumb className={joinClasses('vertical-fader-thumb', inputClassName)} aria-label={ariaLabel} aria-valuetext={valueText} />
           )}
         </SliderRoot>
-      </div>
+    </div>
+  )
+
+  return (
+    <div
+      className={joinClasses(
+        'vertical-fader',
+        meterDb === undefined ? undefined : 'vertical-fader-has-meter',
+        sideMeter ? 'vertical-fader-side-meter' : undefined,
+        className
+      )}
+      style={{ '--vertical-fader-value': `${valuePct}%` } as CSSProperties}
+    >
+      {maxLabel && <span className="vertical-control-endpoint vertical-control-endpoint-max">{maxLabel}</span>}
+      {sideMeter ? (
+        <div className="vertical-fader-row">
+          <MeterTrack
+            valueDb={meterDb}
+            peakDb={peakDb}
+            fillClassName={meterFillClassName}
+            peakClassName={meterPeakClassName}
+          />
+          {track}
+        </div>
+      ) : (
+        track
+      )}
       {minLabel && <span className="vertical-control-endpoint vertical-control-endpoint-min">{minLabel}</span>}
     </div>
   )

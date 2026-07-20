@@ -1,4 +1,8 @@
-/* ── Mixer Column ── */
+/* ── Mixer Column ──
+   Visual grammar follows tmp/mixer design ideas/fx-mixer-16-themes.html
+   (REV 07): panels with tiny uppercase mono headers and status LEDs,
+   channel strips with side LED meter + rectangular fader, and a 2x2 FX
+   bank whose slots read number / name / power LED, Edit + Mix, summary. */
 .mixer-column {
   flex: 1;
   width: 100%;
@@ -30,13 +34,16 @@
   flex: 1 1 0;
   width: 100%;
   min-width: 0;
-  padding: 0 4px 4px;
+  padding: 4px 6px 6px;
   overflow-x: scroll;
   overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   box-sizing: border-box;
   outline: none;
+  /* Theme device texture (scanlines, starfield, halftone...); "none" falls
+     through to the column chrome. */
+  background: var(--gradient-mixer-device);
 }
 
 .mixer-strips:focus-visible {
@@ -48,6 +55,66 @@
   width: max-content;
   min-width: max-content;
   height: 100%;
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* ── Panels (channel bank + FX bank) ──
+   The radius ladder scales the theme token so rounded themes read like the
+   reference device (panels > slots > controls); 0px themes stay square. */
+.mixer-panel,
+.mixer-fx-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--gradient-mixer-panel), var(--bg-panel);
+  border: var(--edge);
+  border-radius: min(calc(var(--radius) * 2.6), 18px);
+  box-shadow: var(--shadow-mixer-panel);
+}
+
+.mixer-fx-bank {
+  align-self: flex-start;
+  max-height: 100%;
+  min-height: 0;
+}
+
+.mixer-panel-header {
+  flex-shrink: 0;
+  min-height: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font: 700 9px var(--font-mono);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mixer-panel-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* `color` feeds currentColor inside --shadow-mixer-led glows. */
+.mixer-status-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  color: var(--fx-accent-1, var(--accent));
+  background: var(--fx-accent-1, var(--accent));
+  box-shadow: var(--shadow-mixer-led);
+}
+
+.mixer-panel-channels {
+  flex: 1;
+  min-height: 0;
+  display: flex;
   gap: 4px;
 }
 
@@ -59,17 +126,19 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   padding: 4px;
+  background: var(--pill-bg);
   border: var(--edge);
-  border-radius: var(--radius);
+  border-radius: min(calc(var(--radius) * 2.2), 14px);
+  box-shadow: var(--shadow-mixer-slot);
   position: relative;
 }
 
 .mixer-channel-label {
   font-family: var(--font-label);
-  font-size: 13px;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: var(--text);
   width: 100%;
   display: block;
   align-items: center;
@@ -77,6 +146,8 @@
   line-height: 1;
 }
 
+/* Tracked bold micro-label per the reference channel-name treatment; the
+   44px hit area is untouched. */
 .mixer-channel-select {
   position: static;
   min-width: 44px;
@@ -85,7 +156,8 @@
   border-radius: var(--radius);
   background: transparent;
   color: inherit;
-  font: 600 13px/1 var(--font-label);
+  font: 800 11px/1 var(--font-label);
+  letter-spacing: 0.05em;
   cursor: pointer;
   width: 100%;
   overflow: hidden;
@@ -93,9 +165,11 @@
   white-space: nowrap;
 }
 
+/* Outline (not box-shadow) so the theme's slot shadow survives selection. */
 .mixer-channel-strip-selected {
-  box-shadow: inset 0 0 0 1px var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--pill-bg));
 }
 
 .mixer-channel-select > span { pointer-events: none; }
@@ -103,6 +177,14 @@
 .mixer-channel-select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+.mixer-channel-num {
+  font: 8px var(--font-mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 /* ── Channel gain fader + dB meter ── */
@@ -113,7 +195,106 @@
 }
 
 .mixer-channel-vol {
-  opacity: 0.82;
+  opacity: 0.92;
+}
+
+.mixer-channel-db {
+  font: 9px var(--font-mono);
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Side-by-side LED meter + fader (Mixer strips only). */
+.vertical-fader.vertical-fader-side-meter {
+  width: 100%;
+  min-width: 0;
+}
+
+.vertical-fader-side-meter .vertical-fader-row {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Visible off-segment ladder (reference --meter-off): the track base is a
+   text-tinted mix so unlit segments still read against the strip. The
+   reference meter is a borderless ladder, so the base track chrome is off. */
+.vertical-fader-side-meter .vertical-meter-track {
+  flex: 0 0 calc(8px * var(--ui-scale, 1));
+  width: calc(8px * var(--ui-scale, 1));
+  min-height: 0;
+  border: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 9%, var(--bg-grid));
+  box-shadow: none;
+}
+
+/* Peak-hold tick stays in the meter's accent vocabulary, not text white. */
+.vertical-fader-side-meter .vertical-meter-peak {
+  background: var(--fx-accent-1, var(--accent));
+}
+
+/* Fake LED segmentation: gap stripes in the strip card's background color. */
+.vertical-fader-side-meter .vertical-meter-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0 calc(10% - 1.5px),
+    var(--pill-bg) calc(10% - 1.5px) 10%
+  );
+  pointer-events: none;
+}
+
+.vertical-fader-side-meter .vertical-meter-peak {
+  z-index: 1;
+}
+
+/* The track keeps the UI-Size pointer width (style-guide fader contract);
+   only the painted rail inside it is narrow. */
+.vertical-fader-side-meter .vertical-fader-track {
+  flex: none;
+}
+
+.vertical-fader-side-meter .vertical-fader-track::before {
+  width: calc(16px * var(--ui-scale, 1));
+  border-color: color-mix(in srgb, var(--border) 45%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--bg-grid) 82%, black);
+}
+
+/* The fill runs in the reference device accent (fx-accent-1) at half
+   opacity, like the REV 07 fader-fill. */
+.vertical-fader-side-meter .vertical-fader-value-fill {
+  width: calc(14px * var(--ui-scale, 1));
+  border-radius: 2px;
+  background: var(--fx-accent-1, var(--accent));
+  opacity: 0.5;
+}
+
+.vertical-fader-side-meter .vertical-fader-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.vertical-fader-side-meter .vertical-fader-thumb {
+  width: 22px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1px solid var(--border-mixer-knob, var(--pill-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text) 16%, var(--pill-bg)), var(--pill-bg));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 50%);
+}
+
+.vertical-fader-side-meter .vertical-fader-unity-tick {
+  left: 3px;
+  right: 3px;
 }
 
 /* ── Channel Pan knob (44px) ── */
@@ -148,45 +329,172 @@
 
 /* Dim a muted strip's audio controls. Mute and Solo remain in the lane header. */
 .mixer-channel-strip-muted .mixer-channel-select,
+.mixer-channel-strip-muted .mixer-channel-num,
 .mixer-channel-strip-muted .mixer-channel-sends,
-.mixer-channel-strip-muted .mixer-channel-eq,
 .mixer-channel-strip-muted .mixer-channel-vol,
 .mixer-channel-strip-muted .vertical-meter-track,
+.mixer-channel-strip-muted .vertical-fader-value-fill,
 .mixer-channel-strip-muted .mixer-channel-unity-tick,
+.mixer-channel-strip-muted .mixer-channel-db,
 .mixer-channel-strip-muted .mixer-channel-pan {
   opacity: 0.4;
 }
 
 .mixer-column-scroll { width: 100%; min-width: 0; overflow: hidden; }
-.mixer-return-level-wrap { display: block; min-width: 0; }
-.mixer-return-level { width: 100%; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: ns-resize; outline: none; }
-.mixer-return-level:focus-visible .mixer-compact-rotary { outline: 2px solid var(--accent); outline-offset: 1px; }
-.mixer-return-name { max-width: 100%; font: 10px var(--font-label); overflow: hidden; text-overflow: ellipsis; color: var(--text); white-space: nowrap; }
-.mixer-limiter-toggle { width: 24px; height: 24px; padding: 0; border: var(--edge-pill); background: var(--pill-bg); color: var(--text-muted); }
-.mixer-limiter-toggle[aria-pressed="true"] { color: var(--highlight); border-color: var(--accent); }
-.mixer-limiter-tooltip { white-space: pre-line; }
-.mixer-fx-grid { --mixer-fx-slot-width: calc(104px + var(--ui-size, 30px)); --mixer-fx-slot-height: 112px; display: grid; grid-template-columns: repeat(2, var(--mixer-fx-slot-width)); grid-template-rows: repeat(2, var(--mixer-fx-slot-height)); gap: 4px; width: max-content; min-width: max-content; align-self: flex-start; }
-.mixer-fx-slot-wrap { width: var(--mixer-fx-slot-width); min-width: var(--mixer-fx-slot-width); height: var(--mixer-fx-slot-height); }
-.mixer-fx-card { width: 100%; height: 100%; min-width: 0; padding: 6px; border: var(--edge); border-radius: var(--radius); background: var(--pill-bg); display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 4px; }
-.mixer-fx-module { min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 4px; }
-.mixer-fx-slot { width: 100%; height: 100%; min-width: 0; border: 0; border-radius: calc(var(--radius) - 1px); background: transparent; color: var(--text); display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; padding: 4px; text-align: left; font: 600 13px var(--font-label); }
-.mixer-fx-slot:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.mixer-fx-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
-.mixer-fx-slot-head { display: flex; justify-content: space-between; gap: 8px; }
-.mixer-fx-power-state { color: var(--text-muted); font-size: var(--ui-font-xs); }
-.mixer-fx-summary { color: var(--text-muted); font-size: var(--ui-font-xs); font-weight: 400; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.mixer-fx-return-row { min-width: 0; min-height: 30px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+
+/* ── Sends (per-slot accent 1:1 with the FX bank) ── */
 .mixer-channel-sends { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; width: 100%; }
 .mixer-send-tooltip-trigger { display: block; min-width: 0; }
 .mixer-send-control { display: grid; place-items: center; gap: 1px; min-width: 0; cursor: ns-resize; outline: none; }
 .mixer-send-control:focus-visible .mixer-compact-rotary { outline: 2px solid var(--accent); outline-offset: 1px; }
 .mixer-compact-rotary { display: block; width: 24px; height: 24px; overflow: visible; }
-.mixer-send-label { color: var(--text-muted); font: 10px var(--font-label); }
-.mixer-channel-eq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; width: 100%; }
-.mixer-channel-eq button { min-width: 0; min-height: 22px; padding: 0; border: var(--edge-pill); border-radius: 2px; background: var(--pill-bg); color: var(--text-muted); font: 9px var(--font-label); cursor: not-allowed; opacity: .55; }
+.mixer-send-label { color: var(--text-muted); font: 8px var(--font-mono); letter-spacing: 0.5px; }
 
-.mixer-fx-power { min-width: 36px; min-height: 28px; padding: 0 5px; border: var(--edge-pill); border-radius: 2px; background: var(--chrome); color: var(--text-muted); font: 9px var(--font-label); }
-.mixer-fx-power[aria-pressed="true"] { color: var(--highlight); border-color: var(--accent); }
+.mixer-send-control .rotary-dial-value,
+.mixer-send-control .rotary-dial-pointer,
+.mixer-fx-card .rotary-dial-value,
+.mixer-fx-card .rotary-dial-pointer {
+  stroke: var(--fx-slot-accent, var(--highlight));
+}
+
+.mixer-send-control .rotary-dial-center,
+.mixer-fx-card .rotary-dial-center {
+  fill: var(--fx-slot-accent, var(--highlight));
+}
+
+/* ── FX bank (2x2 combined FX + Return slots) ── */
+/* Rows may shrink below the preset height when the bank hits the Mixer's
+   vertical budget (UI Size 50); cards absorb the difference in their body. */
+.mixer-fx-grid { --mixer-fx-slot-width: calc(104px + var(--ui-size, 30px)); --mixer-fx-slot-height: 112px; display: grid; grid-template-columns: repeat(2, var(--mixer-fx-slot-width)); grid-template-rows: repeat(2, minmax(0, var(--mixer-fx-slot-height))); gap: 8px; width: max-content; min-width: max-content; min-height: 0; align-self: flex-start; }
+.mixer-fx-slot-wrap { width: var(--mixer-fx-slot-width); min-width: var(--mixer-fx-slot-width); height: 100%; min-height: 0; }
+
+.mixer-fx-card {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 6px 7px;
+  border: var(--edge);
+  border-radius: min(calc(var(--radius) * 2.2), 14px);
+  background: var(--pill-bg);
+  box-shadow: var(--shadow-mixer-slot);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 4px;
+  transition: opacity 140ms ease, filter 140ms ease;
+}
+
+/* Bypassed (powered-off Delay) slots dim and desaturate. */
+.mixer-fx-card-bypassed { opacity: 0.5; filter: saturate(0.25); }
+.mixer-fx-card-bypassed .mixer-fx-led::before { box-shadow: none; }
+
+.mixer-fx-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+
+.mixer-fx-slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: calc(var(--radius) - 1px);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.mixer-fx-slot:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.mixer-fx-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.mixer-fx-num { font: 8px var(--font-mono); letter-spacing: 1px; color: var(--text-muted); flex: none; }
+.mixer-fx-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 12px var(--font-label); letter-spacing: 0.2px; }
+
+/* UI-Size hit box; the visible LED is the compact ::before dot. `color`
+   feeds currentColor inside --shadow-mixer-led glows. */
+.mixer-fx-led {
+  width: var(--ui-size, 30px);
+  height: var(--ui-size, 30px);
+  min-width: var(--ui-size, 30px);
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fx-slot-accent, var(--accent));
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.mixer-fx-led::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fx-slot-accent, var(--accent));
+  box-shadow: var(--shadow-mixer-led);
+}
+.mixer-fx-led[aria-pressed='false']::before,
+.mixer-fx-led-off::before {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  box-shadow: none;
+}
+.mixer-fx-led-off { cursor: default; }
+.mixer-fx-led:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: 50%; }
+
+.mixer-fx-body { display: flex; align-items: center; gap: 6px; min-height: 0; }
+.mixer-fx-body .mixer-fx-mix { margin-left: auto; }
+
+/* One contrast step up from the card (reference --slot-2), with the theme's
+   pill treatment (neumorphic, bevel, offset slab) from --shadow-pill. */
+.mixer-fx-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 68px;
+  min-height: 28px;
+  padding: 0 10px;
+  font: 600 11px var(--font-label);
+  letter-spacing: 0.4px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 7%, var(--pill-bg));
+  border: var(--edge-pill);
+  border-radius: min(calc(var(--radius) * 1.6), 11px);
+  box-shadow: var(--shadow-pill);
+  cursor: pointer;
+}
+.mixer-fx-edit:hover { background: color-mix(in srgb, var(--accent) 12%, var(--pill-bg)); }
+.mixer-fx-edit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mixer-fx-edit-icon { width: 12px; height: 12px; flex: none; stroke: var(--fx-slot-accent, var(--accent)); }
+
+.mixer-fx-mix { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mixer-fx-mix-label { font: 700 7px var(--font-mono); letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-muted); }
+/* The MIX knob is the FX card's visual anchor (reference 28px vs 11px sends). */
+.mixer-return-level .mixer-compact-rotary { width: var(--ui-size, 30px); height: var(--ui-size, 30px); }
+.mixer-return-level-wrap { display: block; min-width: 0; }
+.mixer-return-level { min-width: 0; display: flex; align-items: center; justify-content: center; cursor: ns-resize; outline: none; }
+.mixer-return-level:focus-visible .mixer-compact-rotary { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.mixer-fx-foot { display: flex; align-items: center; gap: 6px; padding-top: 2px; min-width: 0; }
+.mixer-fx-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 8px/1.4 var(--font-mono); letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-muted); }
+
+.mixer-limiter-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--ui-size, 30px);
+  min-height: var(--ui-size, 30px);
+  padding: 0;
+  border: var(--edge-pill);
+  border-radius: 2px;
+  background: var(--pill-bg);
+  color: var(--text-muted);
+  font: 700 9px var(--font-mono);
+  cursor: pointer;
+}
+.mixer-limiter-toggle[aria-pressed="true"] { color: var(--highlight); border-color: var(--accent); }
+.mixer-limiter-tooltip { white-space: pre-line; }
+
 .mixer-fx-menu { min-width: 160px; padding: 6px; background: var(--chrome); border: var(--edge); border-radius: var(--radius); }
 .mixer-fx-menu .mixjam-menu-item { min-height: 32px; }
 .fx-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; display: grid; gap: 16px; padding: 20px; background: var(--chrome); border: var(--edge); box-shadow: 0 18px 60px rgb(0 0 0 / 53%); }
@@ -208,3 +516,137 @@
 .fx-division-trigger { padding: 0 12px; text-align: left; }
 .fx-division-menu { min-width: 160px; }
 .fx-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+/* ── Filled hardware knobs (reference REV 07) ──
+   Mixer rotaries read as physical knobs: a solid cap with an accent pointer.
+   The arc ring stays on dials outside the Mixer (Delay modal). */
+.mixer-column .mixer-compact-rotary .rotary-dial-track,
+.mixer-column .mixer-compact-rotary .rotary-dial-value,
+.mixer-column .mixer-pan-rotary .rotary-dial-track,
+.mixer-column .mixer-pan-rotary .rotary-dial-value {
+  stroke: transparent;
+}
+
+.mixer-column .mixer-compact-rotary .rotary-dial-cap,
+.mixer-column .mixer-pan-rotary .rotary-dial-cap {
+  r: 25px;
+  fill: var(--fill-mixer-knob, color-mix(in srgb, var(--text) 12%, var(--pill-bg)));
+  stroke: var(--border-mixer-knob, var(--pill-border));
+  stroke-width: 2.5;
+}
+
+.mixer-column .mixer-compact-rotary .rotary-dial-pointer,
+.mixer-column .mixer-pan-rotary .rotary-dial-pointer {
+  stroke-width: 5;
+}
+
+/* Pan follows the knob grammar: accent pointer, not the app highlight. */
+.mixer-column .mixer-pan-rotary .rotary-dial-pointer { stroke: var(--accent); }
+.mixer-column .mixer-pan-rotary .rotary-dial-center { fill: var(--accent); }
+
+/* ── Per-theme mixer construction ──
+   Geometry and token-referencing rules only; colors stay in theme JSON
+   (spec-002 AC-008). Shadow/texture flavor rides the mixer depth tokens. */
+
+/* Arcade: hard per-slot accent outlines on cards and Edit (cabinet bezels),
+   electric-cyan panel frames, violet strip rules. */
+[data-theme-key='arcade'] .mixer-fx-card,
+[data-theme-key='arcade'] .mixer-fx-edit {
+  border: 2px solid var(--fx-slot-accent, var(--accent));
+}
+[data-theme-key='arcade'] .mixer-panel,
+[data-theme-key='arcade'] .mixer-fx-bank {
+  border: 2px solid var(--fx-accent-2, var(--accent));
+}
+[data-theme-key='arcade'] .mixer-channel-strip {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+/* Neon tubes / rave glass: cards borrow their slot accent for the border. */
+[data-theme-key='neon'] .mixer-fx-card {
+  border-color: var(--fx-slot-accent, var(--accent));
+}
+[data-theme-key='rave'] .mixer-fx-card {
+  border-color: color-mix(in srgb, var(--fx-slot-accent, var(--accent)) 55%, var(--border));
+}
+
+/* Riso: two-ink print — heavy slot-accent card outlines, 2px panel rules. */
+[data-theme-key='riso'] .mixer-fx-card {
+  border: 2px solid var(--fx-slot-accent, var(--accent));
+}
+[data-theme-key='riso'] .mixer-panel,
+[data-theme-key='riso'] .mixer-fx-bank {
+  border-width: 2px;
+  border-color: var(--text);
+}
+[data-theme-key='riso'] .vertical-fader-side-meter .vertical-fader-thumb {
+  background: var(--pill-bg);
+  border: 2px solid var(--text);
+  box-shadow: none;
+}
+
+/* Light print/desktop surfaces: the fader rail stays a gentle tone step. */
+[data-theme-key='riso'] .vertical-fader-side-meter .vertical-fader-track::before,
+[data-theme-key='soft'] .vertical-fader-side-meter .vertical-fader-track::before {
+  background: color-mix(in srgb, var(--bg-grid) 94%, black);
+}
+
+/* Shouted slot names on the poster/terminal/print/cabinet themes. */
+[data-theme-key='arcade'] .mixer-fx-name,
+[data-theme-key='beton'] .mixer-fx-name,
+[data-theme-key='mono'] .mixer-fx-name,
+[data-theme-key='pa'] .mixer-fx-name,
+[data-theme-key='riso'] .mixer-fx-name {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+[data-theme-key='pa'] .mixer-channel-select {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Analog: slot names glow like backlit legends. */
+[data-theme-key='analog'] .mixer-fx-name {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--fx-slot-accent, var(--accent)) 40%, transparent);
+}
+
+/* Emerald and Rust run their header status LEDs in the warn/red family. */
+[data-theme-key='emerald'] .mixer-status-led,
+[data-theme-key='rust'] .mixer-status-led {
+  color: var(--meter-red);
+  background: var(--meter-red);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--meter-red) 70%, transparent);
+}
+
+/* Mono / PA: bare hardware faders on the single-hue rigs. */
+[data-theme-key='mono'] .vertical-fader-side-meter .vertical-fader-thumb {
+  background: var(--bg-base);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+[data-theme-key='mono'] .vertical-fader-side-meter .vertical-fader-value-fill { opacity: 0.35; }
+[data-theme-key='pa'] .vertical-fader-side-meter .vertical-fader-thumb {
+  background: var(--text);
+  border-color: var(--text);
+}
+[data-theme-key='pa'] .vertical-fader-side-meter .vertical-fader-value-fill { opacity: 0.3; }
+[data-theme-key='soft'] .vertical-fader-side-meter .vertical-fader-value-fill { opacity: 0.65; }
+
+/* Vintage: Win9x — the depth-token bevels carry the relief; borders off and
+   the meter/fader rails sit in sunken wells (neutral overlays only). */
+[data-theme-key='vintage'] .mixer-panel,
+[data-theme-key='vintage'] .mixer-fx-bank,
+[data-theme-key='vintage'] .mixer-channel-strip,
+[data-theme-key='vintage'] .mixer-fx-card,
+[data-theme-key='vintage'] .mixer-fx-edit {
+  border-color: transparent;
+}
+[data-theme-key='vintage'] .vertical-fader-side-meter .vertical-fader-thumb {
+  background: var(--pill-bg);
+  border-color: transparent;
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.75), inset -1px -1px 0 rgba(0, 0, 0, 0.45);
+}
+[data-theme-key='vintage'] .vertical-fader-side-meter .vertical-meter-track,
+[data-theme-key='vintage'] .vertical-fader-side-meter .vertical-fader-track::before {
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.35), inset -1px -1px 0 rgba(255, 255, 255, 0.65);
+}

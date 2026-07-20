@@ -16,7 +16,7 @@ test.describe('Project save and load', () => {
     await seededPage.getByRole('tab', { name: 'Mixer' }).click()
     await expect(seededPage.getByRole('slider', { name: 'Channel 1 Volume' })).toHaveAttribute('aria-valuenow', '64')
 
-    await expect(seededPage.getByRole('button', { name: 'FX 1', exact: true })).toContainText('Delay')
+    await expect(seededPage.getByRole('button', { name: 'FX 1 Delay', exact: true })).toContainText('Delay')
   })
 
   test('marks edits dirty and Save As writes the complete current project', async ({ seededPage }) => {
@@ -78,7 +78,7 @@ test.describe('Project save and load', () => {
     await expect(seededPage.getByRole('button', { name: '120 BPM, Master 80%' })).toBeVisible()
     await seededPage.getByRole('tab', { name: 'Mixer' }).click()
     await expect(seededPage.getByRole('slider', { name: 'Channel 1 Volume' })).toHaveAttribute('aria-valuenow', '80')
-    await expect(seededPage.getByRole('button', { name: 'FX 1' })).toContainText('Empty')
+    await expect(seededPage.getByRole('button', { name: 'FX 1 Empty', exact: true })).toContainText('Empty')
   })
 
   test('loads a project with missing samples and marks the affected lane', async ({ seededPage }) => {

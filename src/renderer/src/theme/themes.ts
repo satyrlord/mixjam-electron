@@ -69,6 +69,12 @@ export interface ThemeColors {
   // Solid bases used to derive transport glyph contrast.
   transport: string
   'transport-active': string
+  // Optional per-slot Mixer FX/send accents (reference themes with a
+  // multi-accent system). Missing slots fall back to `accent`.
+  'fx-accent-1'?: string
+  'fx-accent-2'?: string
+  'fx-accent-3'?: string
+  'fx-accent-4'?: string
 }
 
 export interface ThemeFonts {
@@ -96,6 +102,22 @@ export interface ThemeDepth {
   // Canvas-parsed; stops must be space-free colors such as #RRGGBBAA.
   'gradient-sample-bubble': string
   'shadow-meter': string
+  // Mixer device surface behind the channel and FX panels — a CSS
+  // background value (texture/gradient layers, or "none" for flat chrome).
+  'gradient-mixer-device': string
+  // Mixer panel surface layered over --bg-panel, or "none".
+  'gradient-mixer-panel': string
+  // box-shadow on the Mixer channel-bank and FX-bank panels, or "none".
+  'shadow-mixer-panel': string
+  // box-shadow on channel strips and FX cards, or "none".
+  'shadow-mixer-slot': string
+  // Glow behind Mixer status and FX power LEDs; "currentColor" glows in the
+  // LED's own accent because the LED elements set `color`. "none" = flat dot.
+  'shadow-mixer-led': string
+  // Solid face color of Mixer rotary knobs (SVG fill — no gradients).
+  'fill-mixer-knob': string
+  // Rim color of Mixer rotary knobs and the fader thumb edge.
+  'border-mixer-knob': string
 }
 
 export interface Theme {
@@ -240,6 +262,15 @@ function applyTheme(theme: Theme, root: HTMLElement = document.documentElement):
   } else {
     root.style.removeProperty('--sample-bubble-border-width')
     root.style.removeProperty('--sample-bubble-border-color')
+  }
+  // Per-slot FX/send accents always resolve (fallback: accent) so switching
+  // away from a multi-accent theme cannot leave stale slot colors behind.
+  for (const slot of [1, 2, 3, 4] as const) {
+    const override = theme.colors[`fx-accent-${slot}`]
+    root.style.setProperty(
+      `--fx-accent-${slot}`,
+      typeof override === 'string' && SIX_HEX.test(override) ? override : theme.colors.accent
+    )
   }
   root.style.setProperty('--on-accent', bubbleTextColor(theme.colors.accent))
   root.style.setProperty('--on-highlight', bubbleTextColor(theme.colors.highlight))

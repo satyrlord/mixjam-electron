@@ -24,7 +24,11 @@
     "meter-yellow": "#FBBF24",
     "meter-red": "#F87171",
     "transport": "#141B3E",
-    "transport-active": "#3B82F6"
+    "transport-active": "#3B82F6",
+    "fx-accent-1": "#8E66FF",
+    "fx-accent-2": "#8E66FF",
+    "fx-accent-3": "#8E66FF",
+    "fx-accent-4": "#8E66FF"
   },
   "palette": [
     "#3B82F6",
@@ -57,7 +61,14 @@
     "shadow-sample-bubble": "0px 0px 8px rgba(59,130,246,0.55)",
     "border-sample-bubble": "none",
     "gradient-sample-bubble": "none",
-    "shadow-meter": "none"
+    "shadow-meter": "none",
+    "gradient-mixer-device": "radial-gradient(1.4px 1.4px at 12% 22%, rgba(220,226,255,0.75) 45%, transparent 55%), radial-gradient(1.2px 1.2px at 34% 74%, rgba(220,226,255,0.5) 45%, transparent 55%), radial-gradient(1.6px 1.6px at 58% 30%, rgba(142,102,255,0.6) 45%, transparent 55%), radial-gradient(1.2px 1.2px at 78% 62%, rgba(220,226,255,0.55) 45%, transparent 55%), radial-gradient(1.4px 1.4px at 90% 16%, rgba(76,125,255,0.6) 45%, transparent 55%), radial-gradient(1.1px 1.1px at 22% 88%, rgba(220,226,255,0.45) 45%, transparent 55%), radial-gradient(900px 320px at 50% -10%, rgba(142,102,255,0.10), transparent 70%), linear-gradient(0deg, #050723, #050723)",
+    "gradient-mixer-panel": "linear-gradient(0deg, #080B31, #080B31)",
+    "shadow-mixer-panel": "0 10px 26px rgba(2,3,20,0.7), 0 0 22px rgba(142,102,255,0.10)",
+    "shadow-mixer-slot": "none",
+    "shadow-mixer-led": "0 0 7px rgba(142,102,255,0.85)",
+    "fill-mixer-knob": "#161D5E",
+    "border-mixer-knob": "#4C7DFF"
   },
   "radius": "6px",
   "radius-transport": "50%",

@@ -308,6 +308,8 @@ are defined in JSON theme files under `public/themes/` and applied to
 - **Surface tokens:** `--bg-base`, `--bg-panel`, `--bg-lane`, `--bg-grid`,
   `--chrome`
 - **Accent tokens:** `--accent`, `--accent-dark`, `--highlight`
+- **Mixer slot accents:** `--fx-accent-1` … `--fx-accent-4`, one per FX/Return
+  slot and its matching channel-strip send; each falls back to `--accent`
 - **Text tokens:** `--text`, `--text-muted`
 - **Border tokens:** `--border`, `--header-border`
 - **Control tokens:** `--pill-bg`, `--pill-border`
@@ -336,6 +338,16 @@ Depth tokens (gradients and shadows) are theme-dependent value strings:
 - `--border-sample-bubble`: sample-bubble outline (canvas-parsed)
 - `--gradient-sample-bubble`: sample-bubble gloss (canvas-parsed)
 - `--shadow-meter`: box-shadow on meter fills
+- `--gradient-mixer-device`: Mixer device surface behind the panels (theme
+  texture: scanlines, starfield, halftone, grain) or `none`
+- `--gradient-mixer-panel`: Mixer panel surface image over `--bg-panel`
+- `--shadow-mixer-panel`: Mixer panel box-shadow (drop, neumorphic, slab,
+  bevel, glow)
+- `--shadow-mixer-slot`: channel strip / FX card box-shadow
+- `--shadow-mixer-led`: Mixer LED glow (`currentColor` = LED's own accent)
+- `--fill-mixer-knob`: Mixer knob face (solid; polarity follows the theme's
+  hardware — dark caps on consoles, cream on print/desktop themes)
+- `--border-mixer-knob`: Mixer knob rim and fader-thumb edge
 
 ### Construction Tokens
 

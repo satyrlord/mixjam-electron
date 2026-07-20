@@ -354,7 +354,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
 
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
-  await page.getByRole('button', { name: 'FX 1', exact: true }).click()
+  await page.getByRole('button', { name: 'FX 1 Empty', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Delay...' }).click()
   await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
   await page.getByRole('tab', { name: 'Song', exact: true }).click()
@@ -410,28 +410,15 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
             ? []
             : [`${control.getAttribute('aria-label') ?? control.className}: ${dialBox.width}x${dialBox.height} dial exceeds ${controlBox.width}x${controlBox.height} control`]
         })
-      const eqOverflow = [...scrollport.querySelectorAll<HTMLButtonElement>('.mixer-channel-eq button')]
-        .flatMap((button) => {
-          const strip = button.closest<HTMLElement>('.mixer-channel-strip')
-          if (!strip) return ['EQ button has no channel strip owner']
-          const buttonBox = button.getBoundingClientRect()
-          const stripBox = strip.getBoundingClientRect()
-          const contained = buttonBox.left >= stripBox.left - 0.5
-            && buttonBox.right <= stripBox.right + 0.5
-          return contained
-            ? []
-            : [`${button.textContent ?? 'EQ button'} exceeds its channel strip`]
-        })
       return {
         workspaceHeight: document.querySelector('.bottom-workspace')?.getBoundingClientRect().height ?? 0,
         supportingFontSizes: [...new Set(
-          [...scrollport.querySelectorAll<HTMLElement>('.mixer-fx-power-state, .mixer-fx-summary')]
+          [...scrollport.querySelectorAll<HTMLElement>('.mixer-fx-summary')]
             .map((element) => getComputedStyle(element).fontSize)
         )],
         verticalContentFits: children.every((child) => child.getBoundingClientRect().bottom <= port.bottom + 1),
         controlIntersections,
         dialOverflow,
-        eqOverflow,
         rootVerticalOverflow: document.documentElement.scrollHeight > document.documentElement.clientHeight
       }
     })
@@ -440,7 +427,6 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
     expect(mixerFit.verticalContentFits, `Player Mixer ${size} vertical fit`).toBe(true)
     expect(mixerFit.controlIntersections, `Player Mixer ${size} control intersections`).toEqual([])
     expect(mixerFit.dialOverflow, `Player Mixer ${size} rotary dial containment`).toEqual([])
-    expect(mixerFit.eqOverflow, `Player Mixer ${size} EQ containment`).toEqual([])
     expect(mixerFit.rootVerticalOverflow, `Player Mixer ${size} root overflow`).toBe(false)
 
     await page.getByRole('tab', { name: 'Samples' }).click()

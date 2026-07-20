@@ -50,6 +50,9 @@ export function RotaryDial({
         strokeDashoffset={-activeArcStart}
         transform="rotate(135 32 32)"
       />
+      <circle className="rotary-dial-cap" cx="32" cy="32" r="17" />
+      {/* After the cap in paint order so enlarged caps (Mixer knobs, r up to
+          26.25 with stroke) cannot occlude the default tick at radius 23-27. */}
       <line
         className="rotary-dial-default-marker"
         x1="32"
@@ -58,7 +61,6 @@ export function RotaryDial({
         y2="9"
         transform={`rotate(${defaultAngle} 32 32)`}
       />
-      <circle className="rotary-dial-cap" cx="32" cy="32" r="17" />
       <line
         className="rotary-dial-pointer"
         x1="32"
