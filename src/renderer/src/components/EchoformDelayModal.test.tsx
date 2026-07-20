@@ -187,6 +187,22 @@ describe('EchoformDelayModal', () => {
     perfSpy.mockRestore()
   })
 
+  it('routes tap tempo through the project-tempo command', () => {
+    let now = 1000
+    const perfSpy = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const onSetBpm = vi.fn()
+    render(
+      <EchoformDelayModal value={defaultModule()} powered mix={0.82} bpm={120} slot={1}
+        onSetBpm={onSetBpm} onCancel={vi.fn()} onSave={vi.fn()} onPreview={vi.fn()} onRestoreFocus={vi.fn()} />
+    )
+    const tap = screen.getByRole('button', { name: /Tap Tempo/ })
+    // Two taps 400 ms apart => 150 BPM through the established command.
+    fireEvent.click(tap); now += 400
+    fireEvent.click(tap)
+    expect(onSetBpm).toHaveBeenCalledWith(150)
+    perfSpy.mockRestore()
+  })
+
   it('applies a preset atomically and clears bypass', async () => {
     const { onPreview } = renderModal(defaultModule({ bypass: true }))
     // Open the Radix preset menu via keyboard (portal renders on open).

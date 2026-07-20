@@ -19,6 +19,7 @@ import {
 interface MixerFxSlotProps {
   bus: PlaybackReturnSnapshot
   bpm?: number
+  onSetBpm?: (bpm: number) => void
   onSet: (bus: PlaybackReturnSnapshot) => void
   onPreview: (bus: PlaybackReturnSnapshot) => void
   onGestureStart: () => void
@@ -47,6 +48,7 @@ function EditCog() {
 export default function MixerFxSlot({
   bus,
   bpm = 120,
+  onSetBpm,
   onSet,
   onPreview,
   onGestureStart,
@@ -184,6 +186,7 @@ export default function MixerFxSlot({
           powered={editing.powered}
           mix={bus.returnLevel}
           bpm={bpm}
+          onSetBpm={onSetBpm}
           slot={slot}
           onCancel={cancel}
           onSave={saveDelay}

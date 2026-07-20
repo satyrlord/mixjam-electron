@@ -241,7 +241,10 @@ interface EchoformDelayModalProps {
   powered: boolean
   /** Shared Mix parameter (0..1 = FX-return level). */
   mix: number
+  /** Real project tempo driving synced delay timing. */
   bpm: number
+  /** Established tempo command; Tap Tempo routes real BPM changes through it. */
+  onSetBpm?: (bpm: number) => void
   slot: number
   onCancel: () => void
   onSave: (value: EchoformDelayModule, powered: boolean, mix: number) => void
@@ -256,6 +259,7 @@ export default function EchoformDelayModal({
   powered,
   mix: mixProp,
   bpm,
+  onSetBpm,
   slot,
   onCancel,
   onSave,
@@ -320,8 +324,12 @@ export default function EchoformDelayModal({
     if (history.length >= 2) {
       const intervals = history.slice(1).map((t, i) => t - history[i]!)
       const average = intervals.reduce((sum, v) => sum + v, 0) / intervals.length
-      setLocalBpm(clamp(Math.round(60000 / average), 40, 240))
-      markCustom()
+      const tappedBpm = clamp(Math.round(60000 / average), 40, 240)
+      // Route through the established project-tempo command so real synced delay
+      // timing follows; the new BPM flows back through the `bpm` prop. Update the
+      // local readout too so the display responds even without a host command.
+      setLocalBpm(tappedBpm)
+      onSetBpm?.(tappedBpm)
     }
     setTapFlash(true)
     window.setTimeout(() => setTapFlash(false), 150)

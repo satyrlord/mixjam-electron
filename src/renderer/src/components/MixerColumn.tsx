@@ -9,6 +9,10 @@ interface MixerColumnProps {
   channelLevels: ReadonlyMap<number, number>
   channelPeaks: ReadonlyMap<number, number>
   selectedLaneId: string | null
+  /** Current project tempo, so synced FX show and use the real BPM. */
+  bpm?: number
+  /** Established tempo command; the delay editor's Tap Tempo routes through it. */
+  onSetBpm?: (bpm: number) => void
   onSetChannelGain: (channelIndex: number, gain: number) => void
   onSetChannelPan: (channelIndex: number, pan: number) => void
   onSetChannelSend: (channelIndex: number, sendIndex: number, value: number) => void
@@ -31,6 +35,8 @@ export default function MixerColumn({
   channelLevels,
   channelPeaks,
   selectedLaneId,
+  bpm = 120,
+  onSetBpm,
   onSetChannelGain,
   onSetChannelPan,
   onSetChannelSend,
@@ -116,6 +122,8 @@ export default function MixerColumn({
                 <MixerFxSlot
                   key={bus.index}
                   bus={bus}
+                  bpm={bpm}
+                  onSetBpm={onSetBpm}
                   onSet={onSetReturnBus}
                   onPreview={onPreviewReturnBus}
                   onGestureStart={onGestureStart}

@@ -380,6 +380,8 @@ export default function PlayerView({
             channelLevels={mixer.channelLevels}
             channelPeaks={mixer.channelPeaks}
             selectedLaneId={selectedLaneId}
+            bpm={transport.bpm}
+            onSetBpm={transport.onSetBpm}
             onGestureStart={mixer.onBeginMixerGesture}
             onGestureEnd={mixer.onCommitMixerGesture}
             onSetChannelGain={mixer.onSetChannelGain}
