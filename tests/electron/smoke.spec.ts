@@ -29,6 +29,15 @@ interface NativeWindowSnapshot {
   iconAssetIsEmpty: boolean
 }
 
+function minimumPlayerContentSize(snapshot: NativeWindowSnapshot): { width: number; height: number } {
+  const frameWidth = Math.max(0, snapshot.bounds.width - snapshot.contentBounds.width)
+  const frameHeight = Math.max(0, snapshot.bounds.height - snapshot.contentBounds.height)
+  return {
+    width: Math.max(0, Math.min(snapshot.workArea.width - frameWidth, 1920)),
+    height: Math.max(0, Math.min(snapshot.workArea.height - frameHeight, 1080))
+  }
+}
+
 function centered(snapshot: NativeWindowSnapshot): boolean {
   const expectedX = snapshot.workArea.x + Math.round((snapshot.workArea.width - snapshot.bounds.width) / 2)
   const expectedY = snapshot.workArea.y + Math.round((snapshot.workArea.height - snapshot.bounds.height) / 2)
@@ -119,20 +128,19 @@ test.describe('Electron smoke', () => {
           snapshot(),
           window.evaluate(() => ({ width: innerWidth, height: innerHeight }))
         ])
-        // After maximizing, the window fills the work area. On CI runners a taskbar
-        // reduces the usable height below 1080, so clamp the minimum to the
-        // available work-area height rather than a fixed 1080. Similarly the
-        // display width may be narrower than 1920 on some CI runners, so clamp
-        // the minimum width to the available work-area width.
-        const minHeight = Math.min(nativeState.workArea.height, 1080)
-        const minWidth = Math.min(nativeState.workArea.width, 1920)
+        // Maximize fills the native work area, but content/renderer sizes can be
+        // smaller when window frame chrome consumes part of the area.
+        const minimumPlayerSize = minimumPlayerContentSize(nativeState)
         return {
           resizable: nativeState.resizable,
           maximizable: nativeState.maximizable,
           maximized: nativeState.maximized,
           contentMeetsMinimum:
-            nativeState.contentBounds.width >= minWidth && nativeState.contentBounds.height >= minHeight,
-          rendererMeetsMinimum: rendererState.width >= minWidth && rendererState.height >= minHeight
+            nativeState.contentBounds.width >= minimumPlayerSize.width &&
+            nativeState.contentBounds.height >= minimumPlayerSize.height,
+          rendererMeetsMinimum:
+            rendererState.width >= minimumPlayerSize.width &&
+            rendererState.height >= minimumPlayerSize.height
         }
       }).toEqual({
         resizable: true,
@@ -145,8 +153,9 @@ test.describe('Electron smoke', () => {
       // isMaximized() is the cross-platform native state. A managed X11
       // window's reported bounds can exclude theme-specific frame extents, so
       // they do not have to equal the display work area.
-      expect(player.contentBounds.width).toBeGreaterThanOrEqual(Math.min(player.workArea.width, 1920))
-      expect(player.contentBounds.height).toBeGreaterThanOrEqual(Math.min(player.workArea.height, 1080))
+      const minimumPlayerSize = minimumPlayerContentSize(player)
+      expect(player.contentBounds.width).toBeGreaterThanOrEqual(minimumPlayerSize.width)
+      expect(player.contentBounds.height).toBeGreaterThanOrEqual(minimumPlayerSize.height)
 
       await window.evaluate(() => window.shellAPI.resizeToHome())
       await expect.poll(async () => snapshot()).toMatchObject({
