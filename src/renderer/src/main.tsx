@@ -16,10 +16,28 @@ const rootElement = document.getElementById('root') as HTMLElement
 function acquireAppLock(): Promise<boolean> {
   if (!('locks' in navigator)) return Promise.resolve(true)
   return new Promise((resolve) => {
+    // Phase 1 — fast path: acquire without waiting.
     void navigator.locks.request('mixjam-app', { ifAvailable: true }, async (lock) => {
-      resolve(lock !== null)
       if (lock !== null) {
-        await new Promise(() => {})
+        resolve(true)
+        await new Promise<never>(() => {})
+      } else {
+        // Phase 2 — slow path: the lock was not immediately available. On a
+        // Playwright-driven page reload the previous execution context may not
+        // have released the lock yet. Wait up to 500 ms before concluding that
+        // another application instance is genuinely running.
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 500)
+        void navigator.locks
+          .request('mixjam-app', { signal: controller.signal }, async () => {
+            clearTimeout(timer)
+            resolve(true)
+            await new Promise<never>(() => {})
+          })
+          .catch(() => {
+            clearTimeout(timer)
+            resolve(false)
+          })
       }
     })
   })
