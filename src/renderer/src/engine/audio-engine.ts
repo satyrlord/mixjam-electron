@@ -13,6 +13,7 @@ import { clamp } from '../lib/sample-utils'
 import {
   createEmptyReturnModule,
   createReturnModuleProcessor,
+  prepareEchoformDelayWorklet,
   createSafetyLimiter,
   RETURN_BUS_COUNT,
   type ReturnModule,
@@ -24,6 +25,10 @@ import {
   type MasterMeterOptions,
   type MasterMeterSnapshot
 } from './master-meter'
+import { MasterBusChain, type MasterBusChainOptions } from './master-bus-chain'
+import type { MasterBusMeterSnapshot } from './masterbus/dsp/core'
+import type { MasterBusParamId, ProcessorId } from './masterbus/params'
+import type { MasterBusState } from './masterbus/presets'
 import type { ClipEdgeFadePlan } from './clip-edge-fades'
 
 // Factory injected so tests can supply a mock AudioContext. In production this
@@ -36,6 +41,7 @@ export interface AudioEngineOptions {
   // FFT size for the master analyser; smaller is cheaper, larger is smoother.
   meterFftSize?: number
   masterMeter?: MasterMeterOptions
+  masterBus?: MasterBusChainOptions
 }
 
 export interface TriggerVoiceParams {
@@ -92,6 +98,7 @@ export class AudioEngine {
   private readonly createContextImpl: AudioContextFactory
   private readonly meterFftSize: number
   private readonly masterMeter: MasterMeter
+  private readonly masterBusChain: MasterBusChain
   private readonly activeVoices = new Set<Voice>()
   private masterGainValue = 1
   private channelCount = 0
@@ -107,6 +114,7 @@ export class AudioEngine {
     this.createContextImpl = options.createContext ?? defaultContextFactory
     this.meterFftSize = options.meterFftSize ?? 1024
     this.masterMeter = new MasterMeter(options.masterMeter)
+    this.masterBusChain = new MasterBusChain(options.masterBus)
     this.samples = new SampleCache(
       (bytes) => this.ctx.context.decodeAudioData(bytes),
       options.sampleCache
@@ -185,10 +193,21 @@ export class AudioEngine {
 
   /** Resume the AudioContext after a user gesture (autoplay policy). */
   async resume(): Promise<void> {
-    const { context, masterGain } = this.ctx
+    const { context, masterGain, analyser } = this.ctx
     await context.resume()
-    // Optional telemetry must never delay or reject audible playback.
-    void this.masterMeter.initialize(context, masterGain, context.destination)
+    // The Echoform Delay processor must be registered before a populated Return
+    // snapshot is materialized. Unsupported test contexts use its identity
+    // fallback; Electron's production AudioContext loads the same-origin
+    // worklet emitted by Vite.
+    await prepareEchoformDelayWorklet(context)
+    // The master bus strip inserts between masterGain and the analyser tap
+    // (spec-012 signal position); the loudness meter then taps the chain
+    // output so all master readouts are post-chain and delivery-accurate.
+    // Neither may delay or reject audible playback.
+    void this.masterBusChain.initialize(context, masterGain, analyser).then(() => {
+      const source = this.masterBusChain.output ?? masterGain
+      void this.masterMeter.initialize(context, source, context.destination)
+    })
   }
 
   createChannel(channelIndex?: number): Channel {
@@ -427,6 +446,28 @@ export class AudioEngine {
     this.masterMeter.reset()
   }
 
+  /**
+   * Applies strip state. 'replace' snaps without fading (project load);
+   * 'reconcile' diffs and lets the worklet crossfade/smooth the changes.
+   */
+  applyMasterBusState(state: MasterBusState, mode: 'reconcile' | 'replace' = 'replace'): void {
+    if (mode === 'reconcile') this.masterBusChain.reconcile(state)
+    else this.masterBusChain.applyState(state)
+  }
+
+  setMasterBusParam(id: MasterBusParamId, value: number): void {
+    this.masterBusChain.setParam(id, value)
+  }
+
+  /** Reorder/bypass; the worklet crossfades to the new topology. */
+  setMasterBusTopology(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): void {
+    this.masterBusChain.setTopology(order, power)
+  }
+
+  getMasterBusMeterSnapshot(): MasterBusMeterSnapshot | null {
+    return this.masterBusChain.getMeterSnapshot()
+  }
+
   stopAllVoices(): void {
     for (const voice of this.activeVoices) {
       voice.stop()
@@ -443,6 +484,7 @@ export class AudioEngine {
     this.channelMeterBuffers.clear()
     this.channelCount = 0
     this.masterMeter.close()
+    this.masterBusChain.close()
     if (this.nodes) {
       for (const bus of this.nodes.returns) {
         bus.processor.dispose()

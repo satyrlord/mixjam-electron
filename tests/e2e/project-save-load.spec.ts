@@ -16,7 +16,7 @@ test.describe('Project save and load', () => {
     await seededPage.getByRole('tab', { name: 'Mixer' }).click()
     await expect(seededPage.getByRole('slider', { name: 'Channel 1 Volume' })).toHaveAttribute('aria-valuenow', '64')
 
-    await expect(seededPage.getByRole('button', { name: 'FX 1 Delay', exact: true })).toContainText('Delay')
+    await expect(seededPage.getByRole('button', { name: 'FX 1 Echoform Delay', exact: true })).toContainText('Echoform Delay')
   })
 
   test('marks edits dirty and Save As writes the complete current project', async ({ seededPage }) => {
@@ -34,14 +34,16 @@ test.describe('Project save and load', () => {
       return JSON.parse(harness.__mixjamProjectFiles['saved-project.mixjam'])
     })
 
-    expect(saved.formatVersion).toBe(4)
+    expect(saved.formatVersion).toBe(6)
     expect(saved.song).toEqual({
       bpm: 126,
-      masterGain: 0.8,
+      masterGain: 1,
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     })
     expect(saved.lanes).toHaveLength(8)
     expect(saved.channels).toBeUndefined()
+    expect(saved.masterBus.order).toHaveLength(11)
+    expect(saved.masterBus.preset).toBe('Cheat Sheet')
     expect(saved.fxBuses).toHaveLength(4)
     expect(saved.fxBuses.every((bus: { module: { type: string } }) => bus.module.type === 'empty')).toBe(true)
   })
@@ -75,7 +77,7 @@ test.describe('Project save and load', () => {
     await seededPage.getByRole('menuitem', { name: 'New' }).click()
 
     await expect(seededPage.getByLabel('Untitled')).toBeVisible()
-    await expect(seededPage.getByRole('button', { name: '120 BPM, Master 80%' })).toBeVisible()
+    await expect(seededPage.getByRole('button', { name: '120 BPM, Master 100%' })).toBeVisible()
     await seededPage.getByRole('tab', { name: 'Mixer' }).click()
     await expect(seededPage.getByRole('slider', { name: 'Channel 1 Volume' })).toHaveAttribute('aria-valuenow', '80')
     await expect(seededPage.getByRole('button', { name: 'FX 1 Empty', exact: true })).toContainText('Empty')

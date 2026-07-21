@@ -27,7 +27,7 @@ const plan: MixJamGeneratorPlan = {
 }
 
 describe('materializeGeneratedProject', () => {
-  it('maps a neutral worker plan into a strict format-4 project', () => {
+  it('maps a neutral worker plan into a strict format-6 project', () => {
     const project = materializeGeneratedProject(plan)
     expect(project.song.bpm).toBe(140)
     expect(project.lanes[0]?.placements[0]).toMatchObject({ samplePath: 'Kick/k.wav', nativeBPM: 140 })

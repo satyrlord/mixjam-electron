@@ -34,6 +34,8 @@ async function settleLayout(page: import('@playwright/test').Page) {
   await page.evaluate(async () => {
     await document.fonts.ready
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   })
 }
 
@@ -275,8 +277,8 @@ test('compact Tracker keeps all lanes reachable and shared geometry across theme
     expect(geometry.laneControlWidth).toBe(40)
     expect(geometry.rulerHeight).toBe(33)
     expect(geometry.middleHeight).toBe(107)
-    expect(geometry.bottomPercent).toBeGreaterThan(34)
-    expect(geometry.bottomPercent).toBeLessThan(36)
+    expect(geometry.bottomPercent).toBeGreaterThan(62)
+    expect(geometry.bottomPercent).toBeLessThan(65)
     expect(geometry.geometryScale).toBe('0.75')
     expect(geometry.laneHeightToken).toBe('49px')
     expect(geometry.laneHeadToken).toBe('240px')
@@ -290,7 +292,7 @@ test('compact Tracker keeps all lanes reachable and shared geometry across theme
   await expect.poll(async () => page.evaluate((key) => {
     const stored = localStorage.getItem(key)
     return stored ? JSON.parse(stored).bottom : null
-  }, BOTTOM_LAYOUT_KEY)).toBeGreaterThan(34)
+  }, BOTTOM_LAYOUT_KEY)).toBeGreaterThan(62)
 })
 
 test('UI Size scales controls across the app without breaking the 1080p frame', async ({ seededPage: page }) => {
@@ -407,8 +409,9 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
   await page.getByRole('tab', { name: 'Mixer' }).click()
   await page.getByRole('button', { name: 'FX 1 Empty', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delay...' }).click()
-  await page.getByRole('dialog', { name: 'Delay' }).getByRole('button', { name: 'OK' }).click()
+  await page.getByRole('menuitem', { name: 'Echoform Delay...' }).click()
+  await page.getByRole('dialog', { name: 'Echoform Delay' })
+    .getByRole('button', { name: 'Close Echoform Delay editor' }).click()
   await page.getByRole('tab', { name: 'Master', exact: true }).click()
   for (const size of [30, 40, 50]) {
     await setZoomLevelAndClose(page, UI_SIZE_BUTTON_LABELS[size]!)
@@ -833,7 +836,7 @@ test('versioned Bottom Workspace layout resets once and then preserves manual re
   await expect.poll(async () => page.evaluate((key) => {
     const stored = localStorage.getItem(key)
     return stored ? JSON.parse(stored).bottom : null
-  }, BOTTOM_LAYOUT_KEY)).toBeGreaterThan(34)
+  }, BOTTOM_LAYOUT_KEY)).toBeGreaterThan(62)
 
   const handle = page.getByRole('separator', { name: 'Resize bottom workspace' })
   const handleBox = await handle.boundingBox()

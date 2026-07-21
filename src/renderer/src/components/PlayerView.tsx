@@ -3,6 +3,7 @@ import type { MixJamFileItem } from '../../../shared/backend-api'
 import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
+  PlayerMasterBusProps,
   PlayerMixerProps,
   PlayerProjectProps,
   PlayerTransportProps
@@ -18,7 +19,8 @@ import { usePlayerShortcuts } from '../hooks/usePlayerShortcuts'
 import { useTrackerInteraction } from '../hooks/useTrackerInteraction'
 import MixJamBrowser from './MixJamBrowser'
 import MiddleStrip from './MiddleStrip'
-import MasterControlsMain from './MasterControlsMain'
+import MasterBusStrip from './MasterBusStrip'
+import { useMasterBusMeters } from '../hooks/useMasterBusMeters'
 import MixerColumn from './MixerColumn'
 import SampleBrowser from './SampleBrowser'
 import LaneRow from './LaneRow'
@@ -37,6 +39,7 @@ export interface PlayerViewProps {
   arrangement: TrackerArrangementProps
   transport: PlayerTransportProps
   mixer: PlayerMixerProps
+  masterBus: PlayerMasterBusProps
   project: PlayerProjectProps
 }
 
@@ -46,6 +49,7 @@ export default function PlayerView({
   arrangement,
   transport,
   mixer,
+  masterBus,
   project
 }: PlayerViewProps) {
   const { lanes, laneShouldDim, currentTick } = arrangement
@@ -85,6 +89,14 @@ export default function PlayerView({
   useEffect(() => {
     onSetVisualTelemetryActive(bottomTab === 'mixer')
   }, [bottomTab, onSetVisualTelemetryActive])
+
+  // Strip meters poll only while the Master tab is active (spec-012); the
+  // OVER lamp latch lives here so it survives tab switches.
+  const { meters: masterBusMeters, onResetOver: handleResetMasterBusOver } = useMasterBusMeters(
+    bottomTab === 'master',
+    masterBus.getMeterSnapshot,
+    transport.masterMeter
+  )
 
   useEffect(() => () => {
     onSetVisualTelemetryActive(false)
@@ -349,11 +361,16 @@ export default function PlayerView({
         onTabChange={setBottomTab}
         onToggleExpanded={toggleBottomWorkspaceExpanded}
         master={(
-          <MasterControlsMain
-            masterGain={transport.masterGain}
-            masterMeter={transport.masterMeter}
-            onSetMasterGain={transport.onSetMasterGain}
-            onResetMasterMeter={transport.onResetMasterMeter}
+          <MasterBusStrip
+            state={masterBus.state}
+            meters={masterBusMeters}
+            onSetParam={masterBus.onSetParam}
+            onGestureStart={mixer.onBeginMixerGesture}
+            onGestureEnd={mixer.onCommitMixerGesture}
+            onTogglePower={masterBus.onTogglePower}
+            onReorder={masterBus.onReorder}
+            onApplyPreset={masterBus.onApplyPreset}
+            onResetOver={handleResetMasterBusOver}
           />
         )}
         mixer={(
@@ -363,6 +380,8 @@ export default function PlayerView({
             channelLevels={mixer.channelLevels}
             channelPeaks={mixer.channelPeaks}
             selectedLaneId={selectedLaneId}
+            bpm={transport.bpm}
+            onSetBpm={transport.onSetBpm}
             onGestureStart={mixer.onBeginMixerGesture}
             onGestureEnd={mixer.onCommitMixerGesture}
             onSetChannelGain={mixer.onSetChannelGain}

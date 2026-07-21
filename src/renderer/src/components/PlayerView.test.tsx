@@ -7,10 +7,12 @@ import { reconcileSelectedLaneId } from '../hooks/useTrackerInteraction'
 import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
+  PlayerMasterBusProps,
   PlayerMixerProps,
   PlayerProjectProps,
   PlayerTransportProps
 } from './playerProps'
+import { defaultMasterBusState } from '../engine/masterbus/presets'
 import type { LibrarySyncState, MixJamFileItem, SampleListItem } from '../../../shared/backend-api'
 import type { LaneState } from '../project/project-state'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
@@ -151,8 +153,6 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
-  onSetMasterGain: noop,
-  onResetMasterMeter: noop,
   onUndo: noop,
   onRedo: noop,
   onTransportPlay: noop,
@@ -191,6 +191,15 @@ const DEFAULT_PROJECT: PlayerProjectProps = {
   onRegenerateCurrent: noop
 }
 
+const DEFAULT_MASTER_BUS: PlayerMasterBusProps = {
+  state: defaultMasterBusState(),
+  getMeterSnapshot: () => null,
+  onSetParam: noop,
+  onTogglePower: noop,
+  onReorder: noop,
+  onApplyPreset: noop
+}
+
 interface TrackerOverrides {
   mixJamFiles?: MixJamFileItem[]
   browser?: Partial<PlayerBrowserProps>
@@ -208,6 +217,7 @@ function playerView(overrides: TrackerOverrides = {}) {
       arrangement={{ ...DEFAULT_ARRANGEMENT, ...overrides.arrangement }}
       transport={{ ...DEFAULT_TRANSPORT, ...overrides.transport }}
       mixer={{ ...DEFAULT_MIXER, ...overrides.mixer }}
+      masterBus={DEFAULT_MASTER_BUS}
       project={{ ...DEFAULT_PROJECT, ...overrides.project }}
     />
   )
@@ -241,7 +251,7 @@ describe('PlayerView', () => {
     expect(screen.getByText('club-night')).toBeInTheDocument()
     expect(screen.getAllByText('Lane 1')).not.toHaveLength(0)
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    expect(screen.getByText('Master Controls')).toBeInTheDocument()
+    expect(document.querySelector('.mbs-strip')).not.toBeNull()
     expect(screen.getByRole('tree', { name: /sample categories/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
   })
@@ -731,30 +741,29 @@ describe('PlayerView', () => {
     expect(localStorage.getItem('mixjam:recents-rail-collapsed')).toBeNull()
   })
 
-  // --- AC-004a: Output Level shares the Master Volume module ---
-  it('AC-004a: keeps BPM wiring in the Middle Strip and Master bus controls in the Master panel', () => {
+  // --- AC-004a: the Master panel content is exactly the Master Bus Strip ---
+  it('AC-004a: keeps BPM wiring in the Middle Strip and the Master Bus Strip in the Master panel', () => {
     const onSetBpm = vi.fn()
     renderPlayer({ transport: { bpm: 140, onSetBpm } })
 
     const middleStrip = document.querySelector('.middle-strip')
-    const masterControls = screen.getByText('Master Controls').closest('.master-controls-main')
+    const masterPanel = document.querySelector('.bottom-workspace-master')
+    const busStrip = document.querySelector('.mbs-strip')
     const bpmSlider = screen.getByRole('slider', { name: 'BPM' })
-    const volumeSlider = screen.getByRole('slider', { name: 'Master Volume' })
-    const outputMeter = screen.getByRole('meter', { name: 'Output Level' })
-    const masterModule = volumeSlider.closest('.master-controls-module')
 
     expect(middleStrip).toContainElement(bpmSlider)
-    expect(masterControls).toContainElement(volumeSlider)
-    expect(masterModule).toContainElement(outputMeter)
+    // The Master panel content is the spec-012 rack; the old Master Volume
+    // cluster and its Output Level block no longer exist.
+    expect(busStrip).not.toBeNull()
+    expect(masterPanel).toContainElement(busStrip as HTMLElement)
+    expect(busStrip).toContainElement(screen.getByLabelText('Output meter'))
+    expect(screen.queryByRole('slider', { name: 'Master Volume' })).toBeNull()
+    expect(screen.queryByText('Master Controls')).toBeNull()
+    expect(screen.queryByText('Output Level')).toBeNull()
     expect(bpmSlider).toHaveAttribute('aria-valuenow', '140')
     expect(bpmSlider).toHaveAttribute('aria-orientation', 'horizontal')
-    expect(volumeSlider).toHaveAttribute('aria-orientation', 'vertical')
     expect(bpmSlider).toHaveClass('linear-slider-thumb')
-    expect(volumeSlider).toHaveClass('linear-slider-thumb')
     expect(bpmSlider.closest('.linear-slider')).toHaveClass('bpm-control-slider')
-    expect(volumeSlider.closest('.linear-slider')).toHaveClass('vertical-fader-input')
-    expect(volumeSlider.closest('.vertical-fader')).not.toBeNull()
-    expect(outputMeter).toHaveClass('vertical-meter')
 
     fireEvent.keyDown(bpmSlider, { key: 'ArrowRight' })
     expect(onSetBpm).toHaveBeenCalledWith(141)
@@ -797,6 +806,7 @@ describe('PlayerView', () => {
       arrangement={{ ...DEFAULT_ARRANGEMENT, lanes: lanesWithPlacement }}
       transport={DEFAULT_TRANSPORT}
       mixer={DEFAULT_MIXER}
+      masterBus={DEFAULT_MASTER_BUS}
       project={DEFAULT_PROJECT}
     />)
     expect(screen.queryByRole('button', { name: 'Open Samples' })).toBeNull()
@@ -1331,15 +1341,6 @@ describe('PlayerView', () => {
     expect(onTransportSkipBack).toHaveBeenCalled()
   })
 
-  it('calls onSetMasterGain when Master Volume slider changes', () => {
-    const onSetMasterGain = vi.fn()
-    renderPlayer({ transport: { masterGain: 0.8, onSetMasterGain } })
-
-    const slider = screen.getByLabelText('Master Volume')
-    fireEvent.keyDown(slider, { key: 'ArrowDown' })
-    expect(onSetMasterGain).toHaveBeenCalledWith(0.79)
-  })
-
   it('calls onSelectCategory(undefined) when All button is clicked', () => {
     const onSelectCategory = vi.fn()
     const categoriesWithChildren = [
@@ -1830,9 +1831,11 @@ describe('PlayerView', () => {
     expect(screen.getByRole('slider', { name: 'Channel 3 Pan' })).toBeInTheDocument()
   })
 
-  it('AC-024: master meter label reads Output Level', () => {
+  it('AC-024: master output metering lives in the Master Bus Strip OUTPUT module', () => {
     renderPlayer({})
-    expect(screen.getByText('Output Level')).toBeInTheDocument()
-    expect(screen.queryByText('dB Loudness')).toBeNull()
+    const outputMeter = screen.getByLabelText('Output meter')
+    expect(outputMeter).toHaveTextContent('OUTPUT')
+    expect(screen.queryByRole('meter', { name: 'Output Level' })).toBeNull()
+    expect(screen.queryByText('Output Level')).toBeNull()
   })
 })

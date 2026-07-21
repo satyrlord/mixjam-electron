@@ -152,9 +152,10 @@ intentionally absent here.
 There are exactly four global return buses. Each FX container exposes the level
 and limiter controls for its matching return bus. There is no separate Return
 section. The container also shows the current module display name, Empty or
-Delay. The Return level presents as the container's Mix rotary; power state
-presents as a slot-accent LED toggle in the container header; a dedicated Edit
-control opens the module editor.
+Echoform Delay. The Return level presents as the container's Mix rotary — the
+same shared Mix parameter the editor exposes; power state presents as a
+slot-accent LED toggle in the container header; a dedicated Edit control opens
+the module editor.
 
 - Each return is wet-only. Dry audio remains on the lane's normal path.
 - Return level ranges from 0% to 100%, defaults to 100%, and resets to 100%.
@@ -201,7 +202,8 @@ lane state.
   cancels visual telemetry without changing audio, state, or return tails.
 - Returns and FX containers have no meters in this spec.
 - Standards-based LUFS and true-peak metering remains exclusively on the
-  unchanged Master-panel Output Level meter.
+  Master panel, now shown by the Master Bus Strip's pinned output meter
+  (spec-012).
 
 ## Persistence
 
@@ -274,8 +276,8 @@ removed solo cannot keep the remaining lanes gated.
   resets to 100%, and has no pan, Mute, Solo, meter, send, or crossfeed.
 - [ ] **AC-012:** All four returns sum before the unchanged Master path.
 - [ ] **AC-013:** Lane meters are RMS dBFS with peak hold, Mixer visibility
-  gates only their shared telemetry loop, and the Master Output Level contract
-  is unchanged.
+  gates only their shared telemetry loop, and master loudness metering stays
+  exclusive to the Master panel (the spec-012 strip output meter).
 - [ ] **AC-014:** Format-version-4 roundtrip preserves all lane-bound Mixer,
   return, FX, and limiter state; invalid lane counts and malformed lane-owned
   Mixer values are rejected; version 3 is rejected without migration.
@@ -293,6 +295,6 @@ removed solo cannot keep the remaining lanes gated.
   reordering, groups, or links.
 - No functional channel EQ, filter, stereo-width, automation, or presets.
 - No return pan, mute, solo, metering, sends, crossfeed, or feedback routing.
-- No change to Master bus behavior or the Output Level meter. Master Volume
-  adopts the same shared fader visual as lane Volume.
+- No change to Master bus behavior beyond what spec-012 defines for the
+  Master Bus Strip.
 - No compatibility path for project format version 3.

@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_PROCESSOR_ORDER, PROCESSOR_IDS } from '../engine/masterbus/params'
+import { createDefaultEchoformDelayReturnModule } from '../engine/return-effects'
 import {
+  applyMasterBusPreset,
+  cloneMasterBusState,
   cloneProjectState,
   cloneProjectSongState,
+  createDefaultMasterBusState,
+  createDefaultProjectEditState,
   createDefaultProjectState,
   createDefaultProjectSongState,
   projectEditStateFromProject,
+  reorderMasterBus,
+  setMasterBusParam,
+  toggleMasterBusPower,
   toPlaybackProjectGraphSnapshot
 } from './project-state'
 
@@ -12,7 +21,7 @@ describe('project state', () => {
   it('creates the canonical Song defaults and merges nested overrides', () => {
     expect(createDefaultProjectSongState()).toEqual({
       bpm: 120,
-      masterGain: 0.8,
+      masterGain: 1,
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     })
     expect(createDefaultProjectSongState({
@@ -20,7 +29,7 @@ describe('project state', () => {
       clipEdgeMicroFades: { enabled: false, fadeInMs: 1, fadeOutMs: 6 }
     })).toEqual({
       bpm: 140,
-      masterGain: 0.8,
+      masterGain: 1,
       clipEdgeMicroFades: { enabled: false, fadeInMs: 1, fadeOutMs: 6 }
     })
   })
@@ -89,10 +98,7 @@ describe('project state', () => {
 
   it('clones supplied FX buses without creating a second Mixer state model', () => {
     const source = createDefaultProjectState()
-    source.fxBuses[0]!.module = {
-      id: 'fx-1', type: 'delay', mode: 'sync', timeMs: 500,
-      noteDivision: '1/4', feedback: 40, tapeDistortion: 5, pingPong: true
-    }
+    source.fxBuses[0]!.module = createDefaultEchoformDelayReturnModule('fx-1')
     const created = createDefaultProjectState({
       lanes: source.lanes,
       fxBuses: source.fxBuses
@@ -123,6 +129,90 @@ describe('project state', () => {
     expect(editState.fxBuses[0]!.module).not.toBe(project.fxBuses[0]!.module)
   })
 
+  it('starts new projects on the Cheat Sheet master bus preset', () => {
+    const project = createDefaultProjectState()
+    const editState = createDefaultProjectEditState()
+
+    expect(project.masterBus.preset).toBe('Cheat Sheet')
+    expect(project.masterBus.order).toEqual([...DEFAULT_PROCESSOR_ORDER])
+    expect(PROCESSOR_IDS.every((id) => project.masterBus.power[id])).toBe(true)
+    expect(editState.masterBus).toEqual(project.masterBus)
+    expect(project.masterBus).toEqual(createDefaultMasterBusState())
+  })
+
+  it('deep-clones the master bus record at every replacement boundary', () => {
+    const project = createDefaultProjectState()
+    const clone = cloneProjectState(project)
+    const editState = projectEditStateFromProject(project)
+    const busClone = cloneMasterBusState(project.masterBus)
+
+    for (const copy of [clone.masterBus, editState.masterBus, busClone]) {
+      expect(copy).toEqual(project.masterBus)
+      expect(copy).not.toBe(project.masterBus)
+      expect(copy.order).not.toBe(project.masterBus.order)
+      expect(copy.power).not.toBe(project.masterBus.power)
+      expect(copy.params).not.toBe(project.masterBus.params)
+    }
+
+    const supplied = createDefaultProjectState({ masterBus: project.masterBus })
+    expect(supplied.masterBus).toEqual(project.masterBus)
+    expect(supplied.masterBus).not.toBe(project.masterBus)
+  })
+
+  it('clamps master bus parameter edits and clears the preset selection', () => {
+    const masterBus = createDefaultMasterBusState()
+
+    const edited = setMasterBusParam(masterBus, 'gain.trim', 99)
+    expect(edited).not.toBe(masterBus)
+    expect(edited.params['gain.trim']).toBe(24)
+    expect(edited.preset).toBeNull()
+
+    // Switch parameters snap to their discrete positions.
+    expect(setMasterBusParam(masterBus, 'tape.ips', 0.4).params['tape.ips']).toBe(0)
+
+    // The source state stays untouched.
+    expect(masterBus.params['gain.trim']).toBe(0)
+    expect(masterBus.preset).toBe('Cheat Sheet')
+  })
+
+  it('toggles processor power and clears the preset selection', () => {
+    const masterBus = createDefaultMasterBusState()
+
+    const toggled = toggleMasterBusPower(masterBus, 'comp')
+    expect(toggled.power.comp).toBe(false)
+    expect(toggled.preset).toBeNull()
+    expect(toggleMasterBusPower(toggled, 'comp').power.comp).toBe(true)
+    expect(masterBus.power.comp).toBe(true)
+  })
+
+  it('reorders the strip only for a valid permutation of the processor ids', () => {
+    const masterBus = createDefaultMasterBusState()
+    const reversed = [...DEFAULT_PROCESSOR_ORDER].reverse()
+
+    const reordered = reorderMasterBus(masterBus, reversed)
+    expect(reordered.order).toEqual(reversed)
+    expect(reordered.order).not.toBe(reversed)
+    expect(reordered.preset).toBeNull()
+
+    expect(reorderMasterBus(masterBus, ['gain'])).toBe(masterBus)
+    expect(reorderMasterBus(masterBus, [...masterBus.order.slice(0, 10), 'gain'])).toBe(masterBus)
+  })
+
+  it('recalls presets from the current order; only Cheat Sheet restores the default order', () => {
+    const reversed = [...DEFAULT_PROCESSOR_ORDER].reverse()
+    const reordered = reorderMasterBus(createDefaultMasterBusState(), reversed)
+
+    const gentle = applyMasterBusPreset(reordered, 'Gentle')
+    expect(gentle.preset).toBe('Gentle')
+    expect(gentle.order).toEqual(reversed)
+    expect(gentle.power.max).toBe(false)
+    expect(gentle.power.mbc).toBe(false)
+    expect(gentle.params['clip.amount']).toBe(0.8)
+
+    const cheatSheet = applyMasterBusPreset(reordered, 'Cheat Sheet')
+    expect(cheatSheet).toEqual(createDefaultMasterBusState())
+  })
+
   it('adapts one complete graph snapshot with the project-owned pan', () => {
     const project = createDefaultProjectState()
     project.lanes[0] = {
@@ -137,5 +227,14 @@ describe('project state', () => {
     expect(graph.returns).toHaveLength(4)
     expect(graph.channels[0]!.sends).not.toBe(project.lanes[0]!.sends)
     expect(graph.returns[0]!.module).not.toBe(project.fxBuses[0]!.module)
+    expect(graph.masterBus).toEqual(project.masterBus)
+    expect(graph.masterBus).not.toBe(project.masterBus)
+
+    // Telemetry-only callers reconcile lanes and Returns without a strip record.
+    const partial = toPlaybackProjectGraphSnapshot({
+      lanes: project.lanes,
+      fxBuses: project.fxBuses
+    })
+    expect(partial.masterBus).toBeUndefined()
   })
 })

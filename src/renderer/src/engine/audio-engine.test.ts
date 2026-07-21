@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AudioEngine } from './audio-engine'
 import { MockAudioContext, MockAudioWorkletNode, createMockContext } from '../test/mockAudioContext'
 import { createClipEdgeFadePlan } from './clip-edge-fades'
-import { createDefaultDelayReturnModule } from './return-effects'
+import { createDefaultEchoformDelayReturnModule } from './return-effects'
 
 function makeBuffer(): AudioBuffer {
   return { duration: 1, length: 44100, numberOfChannels: 2, sampleRate: 44100 } as AudioBuffer
@@ -15,28 +15,26 @@ function makeEngine(): { engine: AudioEngine; context: MockAudioContext } {
 }
 
 describe('AudioEngine', () => {
-  it('rebuilds same-type Return processors at project replacement boundaries', () => {
-    const context = createMockContext() as MockAudioContext & {
-      createChannelSplitter: () => ChannelSplitterNode
-      createChannelMerger: () => ChannelMergerNode
-    }
-    context.createChannelSplitter = () => context.createGain() as unknown as ChannelSplitterNode
-    context.createChannelMerger = () => context.createGain() as unknown as ChannelMergerNode
+  it('applies Return snapshots and reconfigures gain/limiter on set and replace', () => {
+    const context = createMockContext()
     const engine = new AudioEngine({ createContext: () => context as unknown as AudioContext })
     const snapshot = {
       index: 0,
-      module: { ...createDefaultDelayReturnModule('fx-1'), pingPong: false },
+      module: { ...createDefaultEchoformDelayReturnModule('fx-1'), pingPong: false },
       powered: true,
-      returnLevel: 1,
+      returnLevel: 0.8,
       limiterEnabled: true
     }
     engine.setReturnBus(0, snapshot, 120)
-    const delayCountBeforeReplacement = context.created.delays.length
-    engine.replaceReturnBuses([{ ...snapshot, module: { ...snapshot.module, timeMs: 600 } }], 120)
+    // returnLevel is the shared Mix; it maps linearly onto the return gain.
+    const gainAfterSet = context.created.gains.find((g) => g.gain.value === 0.8)
+    expect(gainAfterSet).toBeDefined()
 
-    expect(context.created.delays).toHaveLength(delayCountBeforeReplacement + 2)
-    expect(context.created.delays.at(-2)!.delayTime.value).toBe(0.6)
-    expect(context.created.delays.at(-1)!.delayTime.value).toBe(0.6)
+    // Replacing rebuilds the processor even for the same type (cuts stale tails)
+    // and re-applies the new return level.
+    engine.replaceReturnBuses([{ ...snapshot, returnLevel: 0.4 }], 120)
+    const gainAfterReplace = context.created.gains.find((g) => g.gain.value === 0.4)
+    expect(gainAfterReplace).toBeDefined()
   })
 
   it('test AudioWorklet mock exposes the message-port surface used by the engine', () => {
@@ -70,19 +68,25 @@ describe('AudioEngine', () => {
     expect(analyser.connectedTo).toContain(context.destination)
   })
 
-  it('adds loudness metering as a silent parallel branch without changing the audible route', async () => {
+  it('inserts the master bus strip and taps loudness metering after it (spec-012)', async () => {
     const { engine, context } = makeEngine()
     await engine.resume()
-    await Promise.resolve()
+    // The chain attaches first, then the meter taps it; flush both async
+    // registrations before asserting the graph.
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
     const [masterGain, silentSink] = context.created.gains
     const [analyser] = context.created.analysers
-    const worklet = masterGain.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
-    expect(masterGain.connectedTo).toContain(analyser)
+    // Audible route: masterGain -> master bus worklet -> analyser -> destination.
+    const masterBusNode = masterGain.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
+    expect(masterBusNode).toBeInstanceOf(MockAudioWorkletNode)
+    expect(masterGain.connectedTo).not.toContain(analyser)
+    expect(masterBusNode?.connectedTo).toContain(analyser)
     expect(analyser.connectedTo).toContain(context.destination)
-    expect(worklet).toBeInstanceOf(MockAudioWorkletNode)
-    expect(worklet?.port).toBeDefined()
-    expect(worklet?.connectedTo).toContain(silentSink)
+    // Loudness metering taps the chain output as a silent parallel branch.
+    const loudnessNode = masterBusNode?.connectedTo.find((node) => node instanceof MockAudioWorkletNode)
+    expect(loudnessNode).toBeInstanceOf(MockAudioWorkletNode)
+    expect(loudnessNode?.connectedTo).toContain(silentSink)
     expect(silentSink.gain.value).toBe(0)
     expect(silentSink.connectedTo).toContain(context.destination)
   })

@@ -1,5 +1,17 @@
 import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 import { DEFAULT_CLIP_EDGE_MICRO_FADES } from '../engine/clip-edge-fades'
+import {
+  clampParamValue,
+  isValidProcessorOrder,
+  type MasterBusParamId,
+  type ProcessorId
+} from '../engine/masterbus/params'
+import {
+  applyPreset,
+  defaultMasterBusState,
+  type MasterBusPresetName,
+  type MasterBusState
+} from '../engine/masterbus/presets'
 import type { PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
 import {
   createEmptyReturnModule,
@@ -9,7 +21,11 @@ import {
 import { clamp } from '../lib/sample-utils'
 
 const DEFAULT_BPM = 120
-const DEFAULT_MASTER_GAIN = 0.8
+// Unity since the Master Bus Strip replaced the Master Volume fader
+// (spec-012): masterGain has no editable control, and the strip's
+// calibration expects nominal program level at its input. Loaded projects
+// keep their saved value.
+const DEFAULT_MASTER_GAIN = 1
 const DEFAULT_LANE_GAIN = 0.8
 const DEFAULT_LANE_SENDS = [0, 0, 0, 0] as const
 
@@ -189,15 +205,17 @@ export type ProjectFxBuses = [
 /** Complete project-owned state shared by New, load, save, and generation. */
 export interface ProjectState extends ProjectTransportState {
   fxBuses: ProjectFxBuses
+  masterBus: MasterBusState
 }
 
-/** The lane and Return state covered by the shared edit-history contract. */
-export type ProjectEditState = Pick<ProjectState, 'lanes' | 'fxBuses'>
+/** The lane, Return, and Master Bus state covered by the shared edit-history contract. */
+export type ProjectEditState = Pick<ProjectState, 'lanes' | 'fxBuses' | 'masterBus'>
 
 export function createDefaultProjectEditState(): ProjectEditState {
   return {
     lanes: createDefaultLanes(),
-    fxBuses: createDefaultFxBuses()
+    fxBuses: createDefaultFxBuses(),
+    masterBus: createDefaultMasterBusState()
   }
 }
 
@@ -256,17 +274,80 @@ export function cloneProjectFxBuses(buses: readonly ProjectFxBusState[]): Projec
   }) as ProjectFxBuses
 }
 
+/** New projects start on the Cheat Sheet preset (spec-012 Persistence). */
+export function createDefaultMasterBusState(): MasterBusState {
+  return defaultMasterBusState()
+}
+
+export function cloneMasterBusState(masterBus: MasterBusState): MasterBusState {
+  return {
+    order: [...masterBus.order],
+    power: { ...masterBus.power },
+    params: { ...masterBus.params },
+    preset: masterBus.preset
+  }
+}
+
+/** Set one strip parameter, clamped to its documented range. A manual edit
+ * clears the preset selection. */
+export function setMasterBusParam(
+  masterBus: MasterBusState,
+  paramId: MasterBusParamId,
+  value: number
+): MasterBusState {
+  return {
+    ...masterBus,
+    params: { ...masterBus.params, [paramId]: clampParamValue(paramId, value) },
+    preset: null
+  }
+}
+
+/** Toggle one processor's power flag. A manual edit clears the preset selection. */
+export function toggleMasterBusPower(
+  masterBus: MasterBusState,
+  processorId: ProcessorId
+): MasterBusState {
+  return {
+    ...masterBus,
+    power: { ...masterBus.power, [processorId]: !masterBus.power[processorId] },
+    preset: null
+  }
+}
+
+/** Replace the processor order. An order that is not a permutation of the
+ * eleven processor ids leaves the state unchanged. */
+export function reorderMasterBus(
+  masterBus: MasterBusState,
+  order: readonly ProcessorId[]
+): MasterBusState {
+  if (!isValidProcessorOrder(order)) return masterBus
+  return { ...masterBus, order: [...order], preset: null }
+}
+
+/** Recall a factory preset from the current order (only Cheat Sheet restores
+ * the default order). */
+export function applyMasterBusPreset(
+  masterBus: MasterBusState,
+  name: MasterBusPresetName
+): MasterBusState {
+  return applyPreset(name, masterBus.order)
+}
+
 export function createDefaultProjectState(
   overrides: {
     song?: Partial<ProjectSongState>
     lanes?: readonly LaneState[]
     fxBuses?: readonly ProjectFxBusState[]
+    masterBus?: MasterBusState
   } = {}
 ): ProjectState {
   return {
     song: createDefaultProjectSongState(overrides.song),
     lanes: overrides.lanes ? cloneProjectLanes(overrides.lanes) : createDefaultLanes(),
-    fxBuses: overrides.fxBuses ? cloneProjectFxBuses(overrides.fxBuses) : createDefaultFxBuses()
+    fxBuses: overrides.fxBuses ? cloneProjectFxBuses(overrides.fxBuses) : createDefaultFxBuses(),
+    masterBus: overrides.masterBus
+      ? cloneMasterBusState(overrides.masterBus)
+      : createDefaultMasterBusState()
   }
 }
 
@@ -276,7 +357,8 @@ export function cloneProjectState(project: ProjectState): ProjectState {
   return {
     song: cloneProjectSongState(project.song),
     lanes: cloneProjectLanes(project.lanes),
-    fxBuses: cloneProjectFxBuses(project.fxBuses)
+    fxBuses: cloneProjectFxBuses(project.fxBuses),
+    masterBus: cloneMasterBusState(project.masterBus)
   }
 }
 
@@ -284,16 +366,21 @@ export function projectEditStateFromProject(project: ProjectState): ProjectEditS
   const lanes = cloneProjectLanes(project.lanes.slice(0, MAX_LANE_COUNT))
   return {
     lanes: lanes.length > 0 ? lanes : createDefaultLanes().slice(0, MIN_LANE_COUNT),
-    fxBuses: cloneProjectFxBuses(project.fxBuses)
+    fxBuses: cloneProjectFxBuses(project.fxBuses),
+    masterBus: cloneMasterBusState(project.masterBus)
   }
 }
 
-/** Adapt project-owned lane and Return state to the one snapshot consumed by
- * playback graph reconciliation. */
+/** Adapt project-owned lane, Return, and Master Bus state to the one snapshot
+ * consumed by playback graph reconciliation. Callers that only reconcile lanes
+ * and Returns (visual telemetry) may omit masterBus. */
 export function toPlaybackProjectGraphSnapshot(
-  project: ProjectEditState
+  project: Pick<ProjectEditState, 'lanes' | 'fxBuses'> & Partial<Pick<ProjectEditState, 'masterBus'>>
 ): PlaybackProjectGraphSnapshot {
   return {
+    ...(project.masterBus === undefined
+      ? {}
+      : { masterBus: cloneMasterBusState(project.masterBus) }),
     channels: project.lanes.map((lane) => ({
       laneId: lane.id,
       channelIndex: lane.index,

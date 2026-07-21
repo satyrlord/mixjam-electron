@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultFxBuses, createDefaultLanes, createDefaultProjectSongState } from './project-state'
+import {
+  createDefaultFxBuses,
+  createDefaultLanes,
+  createDefaultMasterBusState,
+  createDefaultProjectSongState
+} from './project-state'
 import {
   parseProject,
   serializeProject,
@@ -38,7 +43,8 @@ function projectWithPlacements(): ProjectData {
   return {
     song: createDefaultProjectSongState(),
     lanes,
-    fxBuses: createDefaultFxBuses()
+    fxBuses: createDefaultFxBuses(),
+    masterBus: createDefaultMasterBusState()
   }
 }
 

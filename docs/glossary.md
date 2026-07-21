@@ -410,11 +410,12 @@ capacity.
 ## Master panel
 
 The peer panel selected by the Master tab in the
-[Bottom Workspace](#bottom-workspace). It contains a Master Volume
-module that also owns Output Level metering, and other project-wide sound
-controls. Use *Master panel* for the region and
-[Master Controls](#master-controls) only for its visible heading or implementation
-shorthand.
+[Bottom Workspace](#bottom-workspace). Its content is the 13-slot Master
+Bus Strip (spec-012): pinned input and output meters around eleven
+reorderable processors. The strip's Gain Stage owns gain staging and its
+pinned output meter owns master loudness display. Use *Master panel* for
+the region and [Master Controls](#master-controls) only for its visible
+heading or implementation shorthand.
 
 ## Song Progress Bar
 

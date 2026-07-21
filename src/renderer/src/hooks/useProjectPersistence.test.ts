@@ -8,6 +8,7 @@ import { parseProject, serializeProject, type ProjectData } from '../project/pro
 import {
   createDefaultFxBuses,
   createDefaultLanes,
+  createDefaultMasterBusState,
   createDefaultProjectState,
   type LaneState,
   type ProjectState
@@ -42,7 +43,8 @@ function makeProject(bpm = 128, masterGain = 0.67): ProjectData {
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     },
     lanes,
-    fxBuses: createDefaultFxBuses()
+    fxBuses: createDefaultFxBuses(),
+    masterBus: createDefaultMasterBusState()
   }
 }
 
@@ -371,7 +373,7 @@ describe('useProjectPersistence', () => {
 
     await waitFor(() => expect(result.current.project.projectBusy).toBe(false))
     expect(result.current.bpm).toBe(120)
-    expect(result.current.masterGain).toBe(0.8)
+    expect(result.current.masterGain).toBe(1)
     expect(result.current.clipEdgeMicroFades).toEqual({
       enabled: true,
       fadeInMs: 2,

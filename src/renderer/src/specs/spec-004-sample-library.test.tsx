@@ -4,10 +4,12 @@ import PlayerView from '../components/PlayerView'
 import type {
   TrackerArrangementProps,
   PlayerBrowserProps,
+  PlayerMasterBusProps,
   PlayerMixerProps,
   PlayerProjectProps,
   PlayerTransportProps
 } from '../components/playerProps'
+import { defaultMasterBusState } from '../engine/masterbus/presets'
 import type {
   CategoryItem,
   LibraryItem,
@@ -148,8 +150,6 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
-  onSetMasterGain: noop,
-  onResetMasterMeter: noop,
   onUndo: noop,
   onRedo: noop,
   onTransportPlay: noop,
@@ -188,6 +188,15 @@ const DEFAULT_PROJECT: PlayerProjectProps = {
   onRegenerateCurrent: noop
 }
 
+const DEFAULT_MASTER_BUS: PlayerMasterBusProps = {
+  state: defaultMasterBusState(),
+  getMeterSnapshot: () => null,
+  onSetParam: noop,
+  onTogglePower: noop,
+  onReorder: noop,
+  onApplyPreset: noop
+}
+
 function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {
   // These tests exercise the Samples workflow, so restore that persisted tab
   // instead of relying on the application's first-launch Song default.
@@ -199,6 +208,7 @@ function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {
       arrangement={DEFAULT_ARRANGEMENT}
       transport={DEFAULT_TRANSPORT}
       mixer={DEFAULT_MIXER}
+      masterBus={DEFAULT_MASTER_BUS}
       project={DEFAULT_PROJECT}
     />
   )

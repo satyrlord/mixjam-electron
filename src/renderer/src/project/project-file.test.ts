@@ -11,10 +11,24 @@ import {
   type ProjectGeneratorMetadata
 } from './project-file'
 import { supportsExactGeneratorRegeneration } from './generator-support'
-import { createDefaultFxBuses, createDefaultLanes, type ProjectFxBuses } from './project-state'
+import {
+  createDefaultFxBuses,
+  createDefaultLanes,
+  createDefaultMasterBusState,
+  type ProjectFxBuses
+} from './project-state'
 
 const CREATED_AT = '2026-07-13T10:00:00.000Z'
 const MODIFIED_AT = '2026-07-13T11:00:00.000Z'
+
+type RawMasterBusProject = Record<string, unknown> & {
+  masterBus: Record<string, unknown> & {
+    order: unknown
+    power: Record<string, unknown>
+    params: Record<string, unknown>
+    preset: unknown
+  }
+}
 const GENERATOR: ProjectGeneratorMetadata = {
   generatorVersion: 1,
   profileId: 'techno',
@@ -58,7 +72,8 @@ function makeProject(): ProjectData {
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     },
     lanes,
-    fxBuses: createDefaultFxBuses()
+    fxBuses: createDefaultFxBuses(),
+    masterBus: createDefaultMasterBusState()
   }
 }
 
@@ -143,7 +158,7 @@ describe('project file format', () => {
     const project = { ...makeProject(), generator: GENERATOR }
     const parsed = parseProject(serialize(project))
 
-    expect(parsed.formatVersion).toBe(4)
+    expect(parsed.formatVersion).toBe(6)
     expect(parsed.generator).toEqual(GENERATOR)
 
     const serialized = JSON.parse(serializeProject(parsed, {
@@ -152,6 +167,58 @@ describe('project file format', () => {
       modifiedAt: parsed.modifiedAt
     })) as { generator: ProjectGeneratorMetadata }
     expect(serialized.generator).toEqual(GENERATOR)
+  })
+
+  it('round-trips a manually edited master bus strip record', () => {
+    const project = makeProject()
+    project.masterBus = {
+      order: ['lim', 'gain', 'clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc'],
+      power: { ...project.masterBus.power, max: false, mbc: false },
+      params: { ...project.masterBus.params, 'gain.trim': -3.5, 'lim.ceil': -0.8 },
+      preset: null
+    }
+
+    const parsed = parseProject(serialize(project))
+
+    expect(parsed.masterBus).toEqual(project.masterBus)
+  })
+
+  it('rejects version 4 projects (below the v5 migration floor)', () => {
+    const raw = JSON.parse(serialize()) as Record<string, unknown>
+    raw.formatVersion = 4
+    delete raw.masterBus
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(
+      'This MixJam project uses an unsupported format version. Only format version 6 is supported.'
+    )
+  })
+
+  it.each([
+    ['a missing masterBus record', (raw: RawMasterBusProject) => { delete (raw as Record<string, unknown>).masterBus }, 'project.masterBus must be an object'],
+    ['an unknown masterBus key', (raw: RawMasterBusProject) => { raw.masterBus.extra = true }, 'project.masterBus.extra is not supported'],
+    ['a short slot order', (raw: RawMasterBusProject) => { raw.masterBus.order = ['gain'] }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+    ['a duplicated slot order entry', (raw: RawMasterBusProject) => {
+      raw.masterBus.order = ['gain', 'gain', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
+    }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+    ['an unknown processor id in the slot order', (raw: RawMasterBusProject) => {
+      raw.masterBus.order = ['dither', 'gain', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
+    }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+    ['a missing power flag', (raw: RawMasterBusProject) => { delete raw.masterBus.power.comp }, 'project.masterBus.power.comp must be a boolean'],
+    ['an unknown power key', (raw: RawMasterBusProject) => { raw.masterBus.power.dither = true }, 'project.masterBus.power.dither is not supported'],
+    ['a non-boolean power flag', (raw: RawMasterBusProject) => { raw.masterBus.power.comp = 1 }, 'project.masterBus.power.comp must be a boolean'],
+    ['a missing parameter', (raw: RawMasterBusProject) => { delete raw.masterBus.params['gain.trim'] }, 'project.masterBus.params.gain.trim must be a finite number from -24 to 24'],
+    ['an unknown parameter id', (raw: RawMasterBusProject) => { raw.masterBus.params['gain.bogus'] = 0 }, 'project.masterBus.params.gain.bogus is not supported'],
+    ['a non-finite parameter value', (raw: RawMasterBusProject) => { raw.masterBus.params['gain.trim'] = null }, 'project.masterBus.params.gain.trim must be a finite number from -24 to 24'],
+    ['a parameter above its documented range', (raw: RawMasterBusProject) => { raw.masterBus.params['lim.gain'] = 12.5 }, 'project.masterBus.params.lim.gain must be a finite number from 0 to 12'],
+    ['a parameter below its documented range', (raw: RawMasterBusProject) => { raw.masterBus.params['clip.ceil'] = -6.5 }, 'project.masterBus.params.clip.ceil must be a finite number from -6 to 0'],
+    ['an unknown preset name', (raw: RawMasterBusProject) => { raw.masterBus.preset = 'Extreme' }, 'project.masterBus.preset must be null or one of Cheat Sheet, Gentle, Loud, Bypass All'],
+    ['a non-string preset', (raw: RawMasterBusProject) => { raw.masterBus.preset = 5 }, 'project.masterBus.preset must be null or one of Cheat Sheet, Gentle, Loud, Bypass All']
+  ])('rejects %s', (_description, mutate, expectedMessage) => {
+    const raw = JSON.parse(serialize()) as RawMasterBusProject
+    mutate(raw)
+
+    expect(() => parseProject(JSON.stringify(raw))).toThrowError(ProjectFileError)
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(expectedMessage)
   })
 
   it('rejects version 2 projects (migration removed)', () => {
@@ -326,5 +393,122 @@ describe('project file format', () => {
       lanes: project.lanes.slice(1)
     })).not.toBe(baseline)
     expect(projectFingerprint({ ...project, generator: GENERATOR })).not.toBe(baseline)
+    expect(projectFingerprint({
+      ...project,
+      masterBus: { ...project.masterBus, preset: null }
+    })).not.toBe(baseline)
+  })
+})
+
+describe('v5 -> v6 Echoform delay migration', () => {
+  /** Build a raw v5 document (serialize current, then downgrade the version). */
+  function rawV5(module: Record<string, unknown>): Record<string, unknown> {
+    const raw = JSON.parse(serialize()) as Record<string, unknown>
+    raw.formatVersion = 5
+    const buses = raw.fxBuses as Array<{ module: Record<string, unknown> }>
+    buses[0]!.module = module
+    return raw
+  }
+
+  it('upgrades a legacy native delay module to an Echoform delay', () => {
+    const raw = rawV5({
+      type: 'delay',
+      mode: 'sync',
+      timeMs: 500,
+      noteDivision: '1/8T',
+      feedback: 40,
+      tapeDistortion: 5,
+      pingPong: true
+    })
+    const parsed = parseProject(JSON.stringify(raw))
+    expect(parsed.formatVersion).toBe(6)
+    const module = parsed.fxBuses[0]!.module
+    expect(module.type).toBe('echoform-delay')
+    if (module.type !== 'echoform-delay') throw new Error('expected echoform-delay')
+    // Semantically equivalent values carry over.
+    expect(module.mode).toBe('sync')
+    expect(module.feedback).toBe(40)
+    expect(module.pingPong).toBe(true)
+    // One old time seeds both L and R; the triplet division is preserved.
+    expect(module.divisionL).toBe('1/8T')
+    expect(module.divisionR).toBe('1/8T')
+    expect(module.timeMsL).toBe(500)
+    expect(module.timeMsR).toBe(500)
+    // Fields absent from the old module get Echoform defaults.
+    expect(module.width).toBe(142)
+    expect(module.character).toBe('tape')
+    // No dropped fields leak through.
+    expect('mix' in module).toBe(false)
+    expect('link' in module).toBe(false)
+  })
+
+  it('re-clamps a legacy division that has no Echoform equivalent', () => {
+    const raw = rawV5({
+      type: 'delay',
+      mode: 'free',
+      timeMs: 375,
+      noteDivision: '1/32', // not in the Echoform set
+      feedback: 35,
+      tapeDistortion: 0,
+      pingPong: false
+    })
+    const module = parseProject(JSON.stringify(raw)).fxBuses[0]!.module
+    if (module.type !== 'echoform-delay') throw new Error('expected echoform-delay')
+    expect(module.divisionL).toBe('1/4') // safe fallback
+  })
+
+  it('normalizes a pre-release opus-delay sketch (drops link/mix, re-clamps ranges)', () => {
+    const raw = rawV5({
+      type: 'opus-delay',
+      mode: 'sync',
+      divisionL: '1/8',
+      divisionR: '1/4',
+      timeMsL: 350,
+      timeMsR: 500,
+      link: true,
+      feedback: 38,
+      pingPong: true,
+      width: 62,
+      lowCut: 120,
+      highCut: 7500,
+      modRate: 0.35,
+      modDepth: 18, // old sketch stored depth as a 0..100 value; re-clamped to 0..20
+      character: 'tape',
+      duckAmount: 0,
+      duckRelease: 220,
+      mix: 100,
+      outputDb: 0,
+      freeze: false,
+      bypass: false
+    })
+    const module = parseProject(JSON.stringify(raw)).fxBuses[0]!.module
+    expect(module.type).toBe('echoform-delay')
+    if (module.type !== 'echoform-delay') throw new Error('expected echoform-delay')
+    expect('link' in module).toBe(false)
+    expect('mix' in module).toBe(false)
+    expect(module.feedback).toBe(38)
+    expect(module.divisionL).toBe('1/8')
+    // Sketch modDepth 18 is already within the 0..20 range, so it is preserved.
+    expect(module.modDepth).toBe(18)
+    expect(module.modDepth).toBeLessThanOrEqual(20)
+  })
+
+  it('re-serializes a migrated project as version 6 and round-trips', () => {
+    const raw = rawV5({
+      type: 'delay',
+      mode: 'free',
+      timeMs: 375,
+      noteDivision: '1/8',
+      feedback: 35,
+      tapeDistortion: 0,
+      pingPong: false
+    })
+    const parsed = parseProject(JSON.stringify(raw))
+    const reserialized = serialize(parsed)
+    const reparsed = parseProject(reserialized)
+    expect(reparsed.formatVersion).toBe(6)
+    expect(reparsed.fxBuses[0]!.module.type).toBe('echoform-delay')
+    // Idempotent: a second parse leaves the migrated module unchanged.
+    expect(reparsed.fxBuses[0]!.module).toEqual(parsed.fxBuses[0]!.module)
   })
 })

@@ -18,6 +18,8 @@ import {
 import { type Voice } from './voice'
 import { stretchRatio, stretchRatioForDuration } from './time-stretch'
 import type { ChannelSendSnapshot, ReturnBusSnapshot } from './audio-engine'
+import type { MasterBusState } from './masterbus/presets'
+import type { MasterBusMeterSnapshot } from './masterbus/dsp/core'
 import type { MasterMeterSnapshot } from './master-meter'
 import { tickDurationSeconds } from './transport'
 import {
@@ -63,6 +65,8 @@ export interface PlaybackReturnSnapshot extends ReturnBusSnapshot {
 export interface PlaybackProjectGraphSnapshot {
   channels: readonly PlaybackChannelSnapshot[]
   returns: readonly PlaybackReturnSnapshot[]
+  /** Master Bus Strip record (spec-012); consumed by the master bus engine wiring. */
+  masterBus?: MasterBusState
 }
 
 export class PlaybackEngine {
@@ -145,6 +149,15 @@ export class PlaybackEngine {
     return this.frozenMeterSnapshot ?? this.engine.getMasterMeterSnapshot()
   }
 
+  getMasterBusMeterSnapshot(): MasterBusMeterSnapshot | null {
+    return this.engine.getMasterBusMeterSnapshot()
+  }
+
+  /** Applies strip state; 'replace' snaps, 'reconcile' crossfades/smooths. */
+  applyMasterBusState(state: MasterBusState, mode: 'reconcile' | 'replace' = 'reconcile'): void {
+    this.engine.applyMasterBusState(state, mode)
+  }
+
   resetMasterMeter(): void {
     this.engine.resetMasterMeter()
     this.meterFrozen = false
@@ -173,6 +186,9 @@ export class PlaybackEngine {
     mode: 'reconcile' | 'replace-project' = 'reconcile'
   ): void {
     this.applyChannelSnapshot(snapshot.channels)
+    if (snapshot.masterBus) {
+      this.applyMasterBusState(snapshot.masterBus, mode === 'reconcile' ? 'reconcile' : 'replace')
+    }
     if (mode === 'reconcile') {
       this.applyReturnSnapshot(snapshot.returns)
       return

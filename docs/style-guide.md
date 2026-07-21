@@ -133,7 +133,7 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
   │   ├── Song Progress Bar (28px row)
   │   └── Main Row (48px): project zone | undo/redo | transport | search | menus
   └── Bottom Workspace (full width, tabbed: Master | Mixer | Samples)
-      ├── Tab Row (with BPM + Master Volume status)
+      ├── Tab Row (with BPM + Master status)
       └── Panel (one active, all mounted, inactive hidden)
 ```
 
@@ -485,8 +485,8 @@ present. Native light Windows scrollbars never appear on dark themes.
   - Yellow (`--meter-yellow`): -12 to -3 dB
   - Red (`--meter-red`): -3 to 0 dB
 - **Peak hold:** 2px CSS-positioned line, ~30 dB/s decay.
-- **Master Output Level:** Momentary LUFS fill with M/S/I/TP readouts.
-  Styled with the same themed meter chrome.
+- **Master output metering:** lives in the Master Bus Strip's pinned output
+  meter; its style rules live in the "Master Bus Strip" section.
 - Returns have no meters.
 
 ### Progress Indicators
@@ -531,7 +531,8 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Horizontal and vertical sliders expose the matching `aria-orientation` and
   unit-aware value text. Arrow Up/Right increases, Arrow Down/Left decreases,
   and Home/End select the bounds.
-- Used for BPM, Master Volume, lane channel Volume, and Delay parameters.
+- Used for BPM and lane channel Volume. (The Echoform Delay editor uses circular
+  knobs and one horizontal range instead of the shared linear rail.)
   Level faders increase from bottom to top and may add unity ticks, meters, and
   drag readouts without changing the shared rail or handle.
 - Rotary controls, resize separators, and the variable-width Song Progress Bar
@@ -615,20 +616,21 @@ present. Native light Windows scrollbars never appear on dark themes.
   the selected UI Size while the compact height keeps both rows inside the
   1080p Mixer without a vertical scrollbar.
 - Container anatomy, top to bottom:
-  - Header: mono slot number ("01"), the Empty or Delay name, and a round
-    power LED tinted with the slot accent. On a populated slot the LED is the
-    power toggle (`aria-pressed`, unlit when bypassed): a UI-Size hit box
+  - Header: mono slot number ("01"), the Empty or Echoform Delay name, and a
+    round power LED tinted with the slot accent. On a populated slot the LED is
+    the power toggle (`aria-pressed`, unlit when bypassed): a UI-Size hit box
     that paints its compact dot centered inside. An Empty slot shows a
     static unlit dot.
   - Body: an Edit button (cog icon tinted with the slot accent), the square
     limiter toggle, and a Mix rotary that edits the wet Return level
-    (default 100%). Edit opens the Delay editor; on an Empty slot it
-    auditions a default Delay in the same editor.
-  - Foot: a one-line mono summary of time/division, feedback, Tape
-    Distortion, and Ping-Pong.
-- Left-click on the name opens a dropdown. Empty offers `Delay...`. A
-  configured slot offers `Delay...` and `Clear slot`. Clear is immediate and
-  undoable.
+    (default 100%) — the same shared Mix parameter the editor exposes. Edit
+    opens the Echoform Delay editor; on an Empty slot it auditions a default
+    Echoform Delay in the same editor.
+  - Foot: a one-line mono summary of time/division, feedback, character, and
+    Mix.
+- Left-click on the name opens a dropdown. Empty offers `Echoform Delay...`. A
+  configured slot offers `Echoform Delay...` and `Clear slot`. Clear is
+  immediate and undoable.
 - Bypass stops new input but lets the current tail finish. A bypassed
   container dims to half opacity and desaturates.
 - Slot accents come from the theme tokens `--fx-accent-1` through
@@ -737,21 +739,31 @@ height plus shell padding; if the granted panel height is smaller, the
 panel's sanctioned defensive vertical scrollport applies (spec-006).
 Bottom Workspace expansion shows the rack full-height.
 
-### Delay Editor Modal
+### Echoform Delay Editor Modal
 
-- Selecting Delay opens a full blocking modal with no close button and no typed
-  fields. It is centered in the application viewport, outside the Mixer scroll
-  surface. The backdrop and all ordinary app controls and hotkeys are inert.
-- Controls are a Free/Sync segment, shared horizontal `LinearSlider` parameter
-  controls with read-only values, a sync-division dropdown, Ping-Pong Off/On,
-  Reset, Cancel, and OK.
-- Enter saves. Esc or Cancel discards. Space toggles the edited FX bypass.
-  Backspace resets the focused control; Ctrl+Backspace resets all controls.
-  Arrow keys adjust or select, and Home/End use the focused control's bounds.
-- Editing is a live audition. OK creates one undo history edit. Cancel restores
-  the previous processor state; canceling a new Delay restores Empty.
-- Focus is trapped and returns to the originating FX container. Playback that
-  was already running continues. The modal contains no transport controls.
+- Selecting Echoform Delay opens a centered blocking modal at a target 760 × 680
+  (width `min(760px, 100vw − 28px)`, height `min(680px, 100vh − 28px)`), outside
+  the Mixer scroll surface, with responsive two- and one-column fallbacks and an
+  internal scroll when smaller. The backdrop and ordinary app hotkeys are inert;
+  there is no click-outside dismissal. It inherits the active DAW theme through
+  semantic `--ef-*` tokens over a dark charcoal / amber / teal fallback palette.
+- A 68 px header holds a "D8" module mark, an "FX Return NN" kicker with the real
+  slot number, the "Echoform Delay" title, and a Bypass toggle, Preset selector,
+  and Close button on the right. Below it: a ~120 px echo-tap visualizer (a
+  tempo grid, never a waveform), a four-column control grid (Time spans two
+  columns; then Space, Feedback Tone, Modulation, Character, Ducking, Output),
+  and a footer with knob help plus a live `Active / Tape / Sync` state string.
+- Continuous controls are 270°-arc circular knobs (`role="slider"`) with value
+  readouts, plus a horizontal range for Stereo width. Toggles (Bypass, Ping-pong,
+  Freeze, Sync/Free, Character) are real `aria-pressed` buttons.
+- Close saves as one undo edit. Esc discards. Knob keys: arrows step, Shift is
+  fine, Page Up/Down move ten steps, Home/End are the bounds, double-click
+  resets to default. A manual edit switches the Preset selector to Custom; a
+  preset load is one atomic edit that clears Bypass.
+- Editing is a live audition. Cancel (Esc) restores the previous processor
+  state; canceling a new draft restores Empty. Focus is trapped, opens on
+  Bypass, and returns to the originating FX container's Edit trigger. The
+  visualizer honors `prefers-reduced-motion`.
 - OS Media Session actions remain available because they are not ordinary app
   hotkeys.
 
@@ -761,7 +773,7 @@ Bottom Workspace expansion shows the rack full-height.
 - Left/Right Arrow moves focus and activates; Home/End activates first/last.
 - One tab has `tabIndex=0`, others `tabIndex=-1`.
 - Connected via `id`, `aria-controls`, `aria-labelledby`.
-- Tab row shows compact read-only BPM and Master Volume status (accessible
+- Tab row shows compact read-only BPM and Master status (accessible
   buttons that activate Master).
 - Tabs use the selected UI Size target and never shrink below it.
 

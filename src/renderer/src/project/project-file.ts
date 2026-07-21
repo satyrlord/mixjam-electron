@@ -7,6 +7,18 @@ import {
   MIN_CLIP_EDGE_FADE_MS
 } from '../engine/clip-edge-fades'
 import {
+  MASTER_BUS_PARAMS,
+  PROCESSOR_IDS,
+  isValidProcessorOrder,
+  type MasterBusParamId,
+  type ProcessorId
+} from '../engine/masterbus/params'
+import {
+  MASTER_BUS_PRESET_NAMES,
+  isPresetName,
+  type MasterBusState
+} from '../engine/masterbus/presets'
+import {
   cloneProjectSongState,
   cloneProjectFxBuses,
   type ClipPlacement,
@@ -26,7 +38,7 @@ import {
 } from '../../../shared/backend-api'
 import { isGeneratorProfileId } from '../../../shared/generator-profile-id'
 
-const PROJECT_FORMAT_VERSION = 4
+const PROJECT_FORMAT_VERSION = 6
 export const NEWER_PROJECT_VERSION_MESSAGE =
   'This project was created with a newer version of MixJam. Please update the app.'
 
@@ -114,6 +126,7 @@ interface ProjectDocumentRecord {
   song: ProjectSongState
   lanes: ProjectLaneRecord[]
   fxBuses: [ProjectFxBusRecord, ProjectFxBusRecord, ProjectFxBusRecord, ProjectFxBusRecord]
+  masterBus: MasterBusState
   generator?: ProjectGeneratorMetadata
 }
 
@@ -288,6 +301,21 @@ function serializePlacement(placement: ClipPlacement): ProjectPlacementRecord {
   }
 }
 
+/** Rebuild the strip record in registry key order so serialized documents and
+ * fingerprints are canonical regardless of in-memory key order. */
+function serializeMasterBus(masterBus: MasterBusState): MasterBusState {
+  const power = {} as Record<ProcessorId, boolean>
+  for (const processorId of PROCESSOR_IDS) power[processorId] = masterBus.power[processorId]
+  const params = {} as Record<MasterBusParamId, number>
+  for (const def of MASTER_BUS_PARAMS) params[def.id] = masterBus.params[def.id]
+  return {
+    order: [...masterBus.order],
+    power,
+    params,
+    preset: masterBus.preset
+  }
+}
+
 function toDocumentRecord(
   project: ProjectData,
   metadata: Pick<ProjectDocument, 'appVersion' | 'createdAt' | 'modifiedAt'>
@@ -330,6 +358,7 @@ function toDocumentRecord(
       returnLevel: bus.returnLevel,
       limiterEnabled: bus.limiterEnabled
     })) as ProjectDocumentRecord['fxBuses'],
+    masterBus: serializeMasterBus(project.masterBus),
     ...(project.generator === undefined ? {} : { generator: cloneGenerator(project.generator) })
   }
 }
@@ -349,16 +378,119 @@ export function serializeProject(
   return `${JSON.stringify(toDocumentRecord(project, metadata), null, 2)}\n`
 }
 
+const ECHOFORM_DELAY_NOTE_DIVISIONS = new Set([
+  '1/1', '1/1.', '1/1T', '1/2', '1/2.', '1/2T', '1/4', '1/4.', '1/4T',
+  '1/8', '1/8.', '1/8T', '1/16', '1/16.', '1/16T'
+])
+
+/** Map a legacy native-delay note division onto the Echoform division set. */
+function migrateDelayDivision(value: unknown): string {
+  // Legacy set was 1/4 1/8 1/16 1/8T 1/16T. Triplets used the `T` suffix,
+  // which the new set keeps; straight values are already valid.
+  return typeof value === 'string' && ECHOFORM_DELAY_NOTE_DIVISIONS.has(value) ? value : '1/4'
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, value))
+    : fallback
+}
+
+/**
+ * Convert a legacy native `delay` FX module into an Echoform `echoform-delay`
+ * module, mapping semantically equivalent values and applying Echoform
+ * defaults for fields the old module never had (spec §23). A single old time
+ * seeds both L and R; feedback/mode/timing/ping-pong carry over.
+ */
+function migrateLegacyDelayModule(module: Record<string, unknown>): Record<string, unknown> {
+  const mode = module.mode === 'sync' ? 'sync' : 'free'
+  const timeMs = clampNumber(module.timeMs, 1, 2000, 420)
+  const division = migrateDelayDivision(module.noteDivision)
+  // Old feedback was 0–75%; Echoform feedback is 0–110%. Preserve the value.
+  const feedback = clampNumber(module.feedback, 0, 110, 68)
+  return {
+    type: 'echoform-delay',
+    mode,
+    divisionL: division,
+    divisionR: division,
+    timeMsL: timeMs,
+    timeMsR: timeMs,
+    feedback,
+    pingPong: typeof module.pingPong === 'boolean' ? module.pingPong : true,
+    width: 142,
+    lowCut: 160,
+    highCut: 7800,
+    modRate: 0.38,
+    // Old "tapeDistortion" implied a tape character but wasn't a mod depth.
+    modDepth: 5.4,
+    character: 'tape',
+    duckAmount: 34,
+    duckRelease: 620,
+    outputDb: -1.5,
+    freeze: false,
+    bypass: false
+  }
+}
+
+/**
+ * Normalize a pre-release `opus-delay` sketch module onto the current Echoform
+ * shape: rename the type, drop the removed `link`/`mix` fields, and re-clamp
+ * ranges that widened. This shape never shipped, but keeping the migration
+ * total means any stray sketch file still loads cleanly.
+ */
+function migrateSketchEchoformDelayModule(module: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...module, type: 'echoform-delay' }
+  delete next.link
+  delete next.mix
+  next.divisionL = typeof module.divisionL === 'string' && ECHOFORM_DELAY_NOTE_DIVISIONS.has(module.divisionL)
+    ? module.divisionL : '1/4'
+  next.divisionR = typeof module.divisionR === 'string' && ECHOFORM_DELAY_NOTE_DIVISIONS.has(module.divisionR)
+    ? module.divisionR : '1/8.'
+  next.timeMsL = clampNumber(module.timeMsL, 1, 2000, 420)
+  next.timeMsR = clampNumber(module.timeMsR, 1, 2000, 610)
+  next.feedback = clampNumber(module.feedback, 0, 110, 68)
+  next.width = clampNumber(module.width, 0, 200, 142)
+  next.lowCut = clampNumber(module.lowCut, 20, 2000, 160)
+  next.highCut = clampNumber(module.highCut, 1000, 20000, 7800)
+  next.modRate = clampNumber(module.modRate, 0.05, 8, 0.38)
+  next.modDepth = clampNumber(module.modDepth, 0, 20, 5.4)
+  next.duckRelease = clampNumber(module.duckRelease, 50, 2500, 620)
+  next.outputDb = clampNumber(module.outputDb, -24, 6, -1.5)
+  return next
+}
+
+/** Transform a v5 FX-bus record's module in place, returning a new record. */
+function migrateFxBusV5ToV6(bus: unknown): unknown {
+  if (!isRecord(bus) || !isRecord(bus.module)) return bus
+  const module = bus.module
+  if (module.type === 'delay') {
+    return { ...bus, module: migrateLegacyDelayModule(module) }
+  }
+  // Pre-release sketch used the `opus-delay` type string with link/mix fields.
+  if (module.type === 'opus-delay') {
+    return { ...bus, module: migrateSketchEchoformDelayModule(module) }
+  }
+  return bus
+}
+
+function migrateV5ToV6(value: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...value, formatVersion: PROJECT_FORMAT_VERSION }
+  if (Array.isArray(value.fxBuses)) {
+    next.fxBuses = value.fxBuses.map(migrateFxBusV5ToV6)
+  }
+  return next
+}
+
 function migrateToCurrent(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) fail('project', 'must be a JSON object')
   const rawVersion = value.formatVersion
-  if (rawVersion !== PROJECT_FORMAT_VERSION) {
-    if (typeof rawVersion === 'number' && rawVersion > PROJECT_FORMAT_VERSION) {
-      throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
-    }
-    throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 4 is supported.')
+  if (rawVersion === PROJECT_FORMAT_VERSION) return value
+  if (typeof rawVersion === 'number' && rawVersion > PROJECT_FORMAT_VERSION) {
+    throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
   }
-  return value
+  // v5 introduced the FX-return modules; upgrade its delay modules to Echoform.
+  if (rawVersion === 5) return migrateV5ToV6(value)
+  throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 6 is supported.')
 }
 
 function parsePlacement(
@@ -411,6 +543,42 @@ function parsePlacement(
   }
 }
 
+function parseMasterBus(value: unknown): MasterBusState {
+  const path = 'project.masterBus'
+  if (!isRecord(value)) fail(path, 'must be an object')
+  assertKeys(value, path, ['order', 'power', 'params', 'preset'])
+
+  if (!Array.isArray(value.order) || !isValidProcessorOrder(value.order)) {
+    fail(`${path}.order`, 'must be a permutation of the eleven master bus processor ids')
+  }
+
+  if (!isRecord(value.power)) fail(`${path}.power`, 'must be an object')
+  assertKeys(value.power, `${path}.power`, PROCESSOR_IDS)
+  const power = {} as Record<ProcessorId, boolean>
+  for (const processorId of PROCESSOR_IDS) {
+    power[processorId] = readBoolean(value.power, processorId, `${path}.power`)
+  }
+
+  if (!isRecord(value.params)) fail(`${path}.params`, 'must be an object')
+  assertKeys(value.params, `${path}.params`, MASTER_BUS_PARAMS.map((def) => def.id))
+  const params = {} as Record<MasterBusParamId, number>
+  for (const def of MASTER_BUS_PARAMS) {
+    params[def.id] = readNumber(value.params, def.id, `${path}.params`, def.min, def.max)
+  }
+
+  const preset = value.preset
+  if (preset !== null && !isPresetName(preset)) {
+    fail(`${path}.preset`, `must be null or one of ${MASTER_BUS_PRESET_NAMES.join(', ')}`)
+  }
+
+  return {
+    order: [...value.order],
+    power,
+    params,
+    preset
+  }
+}
+
 export function parseProject(text: string): ProjectDocument {
   let parsed: unknown
   try {
@@ -420,7 +588,7 @@ export function parseProject(text: string): ProjectDocument {
   }
 
   const record = migrateToCurrent(parsed)
-  assertKeys(record, 'project', ['formatVersion', 'appVersion', 'createdAt', 'modifiedAt', 'song', 'lanes', 'fxBuses', 'generator'])
+  assertKeys(record, 'project', ['formatVersion', 'appVersion', 'createdAt', 'modifiedAt', 'song', 'lanes', 'fxBuses', 'masterBus', 'generator'])
   const appVersion = readString(record, 'appVersion', 'project')
   const createdAt = readIsoTimestamp(record, 'createdAt')
   const modifiedAt = readIsoTimestamp(record, 'modifiedAt')
@@ -518,9 +686,14 @@ export function parseProject(text: string): ProjectDocument {
     if (value.index !== expectedIndex) fail(`${path}.index`, `must be ${expectedIndex}`)
     if (value.name !== expectedName) fail(`${path}.name`, `must be ${expectedName}`)
     if (!isRecord(value.module)) fail(`${path}.module`, 'must be an object')
-    assertKeys(value.module, `${path}.module`, value.module.type === 'empty'
-      ? ['type']
-      : ['type', 'mode', 'timeMs', 'noteDivision', 'feedback', 'tapeDistortion', 'pingPong'])
+    const moduleKeys = value.module.type === 'echoform-delay'
+      ? [
+          'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR',
+          'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
+          'character', 'duckAmount', 'duckRelease', 'outputDb', 'freeze', 'bypass'
+        ]
+      : ['type']
+    assertKeys(value.module, `${path}.module`, moduleKeys)
     let module: ProjectFxBusRecord['module']
     if (value.module.type === 'empty') {
       module = { id: expectedId, type: 'empty' }
@@ -544,6 +717,8 @@ export function parseProject(text: string): ProjectDocument {
     }
   }) as ProjectFxBuses
 
+  const masterBus = parseMasterBus(record.masterBus)
+
   return {
     formatVersion: PROJECT_FORMAT_VERSION,
     appVersion,
@@ -552,6 +727,7 @@ export function parseProject(text: string): ProjectDocument {
     song,
     lanes,
     fxBuses,
+    masterBus,
     ...(generator === undefined ? {} : { generator })
   }
 }

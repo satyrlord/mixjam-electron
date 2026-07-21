@@ -36,7 +36,6 @@
 .transport-ribbon,
 .strip-utility-zone,
 .bottom-workspace-tabs,
-.master-controls-system,
 .manage-list-item,
 .manage-create,
 .generator-actions,
@@ -69,7 +68,6 @@
 .strip-more-trigger,
 .strip-activity-action,
 .tracker-lane-controls button,
-.master-loudness-reset,
 .manage-action,
 .manage-tag-color,
 .mixer-channel-pan,
@@ -207,7 +205,6 @@
 .home-workflow-title,
 .home-recent-title,
 .tracker-zone-title,
-.master-controls-head,
 .mixer-column-title,
 .mixer-channel-label,
 .manage-tab,
@@ -356,37 +353,6 @@
 .bottom-workspace-expand {
   min-height: var(--ui-size);
   padding-inline: var(--ui-space-lg);
-  font-size: var(--ui-font-sm);
-}
-
-.master-controls-main,
-.master-controls-system,
-.master-controls-module {
-  padding: var(--ui-space-md);
-  gap: var(--ui-space-md);
-}
-
-.master-controls-module {
-  width: calc(124px * var(--ui-scale));
-  min-width: calc(112px * var(--ui-scale));
-}
-
-.master-control-module {
-  width: calc(340px * var(--ui-scale));
-  min-width: calc(320px * var(--ui-scale));
-}
-
-.master-controls-head {
-  min-height: var(--ui-size);
-}
-
-.master-loudness-track {
-  flex-basis: var(--ui-size);
-}
-
-.master-loudness-data {
-  min-width: calc(142px * var(--ui-scale));
-  gap: var(--ui-space-md);
   font-size: var(--ui-font-sm);
 }
 
@@ -608,4 +574,40 @@
 .fx-modal button {
   min-height: var(--ui-size);
   font-size: var(--ui-font-sm);
+}
+
+/* ── Master Bus Strip rack (spec-012) ──
+   Grip, power, and switch are UI Size hit boxes with compact painted
+   visuals; knobs reuse the shared rotary sizing pattern with a compact
+   rack face plus a big variant. */
+.mbs-grip,
+.mbs-power {
+  box-sizing: border-box;
+  width: var(--ui-size);
+  min-width: var(--ui-size);
+  height: var(--ui-size);
+  min-height: var(--ui-size);
+  padding: 0;
+}
+
+.mbs-knob-control,
+.mbs-knob-control > .rotary-dial {
+  width: calc(var(--ui-size) * 1.15);
+  height: calc(var(--ui-size) * 1.15);
+}
+
+.mbs-knob-control-big,
+.mbs-knob-control-big > .rotary-dial {
+  width: calc(var(--ui-size) * 1.85);
+  height: calc(var(--ui-size) * 1.85);
+}
+
+.mbs-chip {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-sm);
+}
+
+.mbs-switch {
+  min-height: var(--ui-size);
+  font-size: var(--ui-font-xs);
 }

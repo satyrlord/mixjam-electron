@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { placementDurationTicks } from '../src/renderer/src/lib/arrangement'
 import { isProjectRelativePath, parseProject } from '../src/renderer/src/project/project-file'
+import { createDefaultMasterBusState } from '../src/renderer/src/project/project-state'
 import {
   bpmFromMetadataOrName,
   generateMixerTestSong,
@@ -214,6 +215,8 @@ describe('generateMixerTestSong', () => {
 
     expect(project.lanes.every((lane) => lane.sends?.every((send) => send === 0))).toBe(true)
     expect(project.fxBuses?.every((bus) => bus.module.type === 'empty')).toBe(true)
+    expect(project.masterBus).toEqual(createDefaultMasterBusState())
+    expect(project.masterBus.preset).toBe('Cheat Sheet')
     expect(new Set(project.lanes.map((lane) => lane.gain)).size).toBeGreaterThan(4)
     expect(project.lanes.some((lane) => lane.pan < 0)).toBe(true)
     expect(project.lanes.some((lane) => lane.pan > 0)).toBe(true)

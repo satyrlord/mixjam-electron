@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import {
-  createDefaultDelayReturnModule,
+  createDefaultEchoformDelayReturnModule,
   createEmptyReturnModule,
-  type DelayReturnModule
+  type EchoformDelayModule
 } from '../engine/return-effects'
-import DelayModal from './DelayModal'
+import EchoformDelayModal from './EchoformDelayModal'
 import { slotAccentStyle } from './mixer-accent'
 import { RotaryControl, RotaryDial } from './RotaryField'
 import { Tooltip } from './ui/Tooltip'
@@ -18,6 +18,8 @@ import {
 
 interface MixerFxSlotProps {
   bus: PlaybackReturnSnapshot
+  bpm?: number
+  onSetBpm?: (bpm: number) => void
   onSet: (bus: PlaybackReturnSnapshot) => void
   onPreview: (bus: PlaybackReturnSnapshot) => void
   onGestureStart: () => void
@@ -45,30 +47,37 @@ function EditCog() {
 
 export default function MixerFxSlot({
   bus,
+  bpm = 120,
+  onSetBpm,
   onSet,
   onPreview,
   onGestureStart,
   onGestureEnd
 }: MixerFxSlotProps) {
-  const [editing, setEditing] = useState<{ module: DelayReturnModule; powered: boolean } | null>(null)
+  const [editing, setEditing] = useState<
+    { module: EchoformDelayModule; powered: boolean } | null
+  >(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const module = bus.module
   const slot = bus.index + 1
-  const moduleName = module.type === 'delay' ? 'Delay' : 'Empty'
-  const bypassed = module.type === 'delay' && !bus.powered
+  const isDelay = module.type === 'echoform-delay'
+  const moduleName = isDelay ? 'Echoform Delay' : 'Empty'
+  const bypassed = isDelay && !bus.powered
   const triggerName = `FX ${slot} ${moduleName}${bypassed ? ' bypassed' : ''}`
+  // The FX-slot Mix knob and the editor Mix are ONE parameter: the bus return
+  // level. The delay always renders 100% wet; returnLevel is the single Mix.
+  const mix = bus.returnLevel
 
   const chooseDelay = () => {
-    const next = module.type === 'delay'
+    const next = module.type === 'echoform-delay'
       ? { ...module }
-      : createDefaultDelayReturnModule(`fx-${slot}`)
-    const nextBus = { ...bus, module: next }
-    onPreview(nextBus)
+      : createDefaultEchoformDelayReturnModule(`fx-${slot}`)
+    onPreview({ ...bus, module: next, powered: bus.powered })
     setEditing({ module: next, powered: bus.powered })
   }
 
-  const save = (next: DelayReturnModule, powered: boolean) => {
-    onSet({ ...bus, module: next, powered })
+  const saveDelay = (next: EchoformDelayModule, powered: boolean, returnLevel: number) => {
+    onSet({ ...bus, module: next, powered, returnLevel })
     setEditing(null)
   }
 
@@ -81,8 +90,8 @@ export default function MixerFxSlot({
     onSet({ ...bus, module: createEmptyReturnModule(`fx-${slot}`) })
   }
 
-  const summary = module.type === 'delay'
-    ? `${module.mode === 'free' ? `${Math.round(module.timeMs)} ms` : module.noteDivision} · Feedback ${Math.round(module.feedback)}% · Tape ${Math.round(module.tapeDistortion)}% · Ping-Pong ${module.pingPong ? 'On' : 'Off'}`
+  const summary = isDelay
+    ? `${module.mode === 'sync' ? module.divisionL : `${Math.round(module.timeMsL)} ms`} · Feedback ${Math.round(module.feedback)}% · ${module.character} · Mix ${Math.round(mix * 100)}%`
     : 'No effect assigned'
 
   return (
@@ -100,13 +109,13 @@ export default function MixerFxSlot({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="mixer-fx-menu" align="start">
-              <DropdownMenuItem onSelect={chooseDelay}>Delay...</DropdownMenuItem>
+              <DropdownMenuItem onSelect={chooseDelay}>Echoform Delay...</DropdownMenuItem>
               {module.type !== 'empty' && (
                 <DropdownMenuItem onSelect={clear}>Clear slot</DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenuRoot>
-          {module.type === 'delay' ? (
+          {isDelay ? (
             <button
               type="button"
               className="mixer-fx-led"
@@ -140,25 +149,25 @@ export default function MixerFxSlot({
           </Tooltip>
           <div className="mixer-fx-mix">
             <span className="mixer-fx-mix-label" aria-hidden="true">Mix</span>
-            <Tooltip content={`${moduleName}, Return ${slot}: ${Math.round(bus.returnLevel * 100)}%`}>
+            <Tooltip content={`${moduleName}, Return ${slot}: ${Math.round(mix * 100)}%`}>
               <span className="mixer-return-level-wrap">
                 <RotaryControl
                   className="mixer-return-level"
-                  label={`FX Return ${slot} level`}
-                  value={bus.returnLevel}
+                  label={`FX Return ${slot} Mix`}
+                  value={mix}
                   min={0}
                   max={1}
                   step={0.01}
-                  valueText={`${Math.round(bus.returnLevel * 100)}%`}
+                  valueText={`${Math.round(mix * 100)}%`}
                   defaultValue={1}
                   ariaMultiplier={100}
                   onGestureStart={onGestureStart}
                   onGestureEnd={onGestureEnd}
-                  onChange={(returnLevel) => onSet({ ...bus, returnLevel })}
+                  onChange={(nextMix) => onSet({ ...bus, returnLevel: nextMix })}
                 >
                   <RotaryDial
                     className="mixer-compact-rotary"
-                    value={bus.returnLevel}
+                    value={mix}
                     defaultValue={1}
                   />
                 </RotaryControl>
@@ -172,16 +181,21 @@ export default function MixerFxSlot({
         </div>
       </section>
       {editing && (
-        <DelayModal
+        <EchoformDelayModal
           value={editing.module}
           powered={editing.powered}
+          mix={bus.returnLevel}
+          bpm={bpm}
+          onSetBpm={onSetBpm}
+          slot={slot}
           onCancel={cancel}
-          onSave={save}
+          onSave={saveDelay}
           onRestoreFocus={() => triggerRef.current?.focus()}
-          onPreview={(next, nextPowered) => onPreview({
+          onPreview={(next, nextPowered, nextMix) => onPreview({
             ...bus,
             module: next,
-            powered: nextPowered
+            powered: nextPowered,
+            returnLevel: nextMix
           })}
         />
       )}
