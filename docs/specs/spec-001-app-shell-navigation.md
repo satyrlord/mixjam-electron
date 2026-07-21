@@ -1,7 +1,8 @@
 # Spec 001 — App Shell & Navigation
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — the shell and both views are
+implemented; the state-adaptive Home composition is pending.
 **Depends on:** *(root — no dependencies)*
 
 ## Objective
@@ -31,14 +32,24 @@ Implement view switching, the header bar, and the footer.
   Windows and `app-icon-512.png` on Linux and macOS.
 - Window, header, content-area, and footer layout, sizing, and positioning
   follow the [Style Guide](../style-guide.md#layout-architecture).
-- **Content area:** two primary columns, vertically and horizontally centered.
-  - Hero column (left): the app logo from `public/app-icon-128.png`, "MixJam"
-    wordmark, tagline, three quick-start steps, and a theme-preview grid that
-    switches the active theme. The selected theme name appears only in the
-    header selector.
-  - Workflow column (right): three independent sibling cards with no enclosing
-    panel. Library Setup owns the folder controls and scanner, Create or Open
-    owns the project actions, and Generate a MixJam owns the generator entry.
+- **Content area:** a state-adaptive hybrid with two primary columns. It keeps
+  onboarding and repeat-launch work on one Home Screen without giving them
+  equal weight in every state.
+  - **Setup-priority composition:** while either required folder is unavailable,
+    Library Setup and the quick-start guidance dominate. Project actions remain
+    visible but keep their existing availability gates.
+  - **Project-priority composition:** once both required folders are available,
+    Create or Open, Recent Projects, and Generate a MixJam dominate. Library
+    Setup remains directly reachable as a compact status and change affordance;
+    completed quick-start guidance no longer occupies the primary hierarchy.
+  - Active sync, analysis, permission, and error states may expand the relevant
+    status or recovery controls without blocking navigation or replacing the
+    whole Home Screen.
+  - The hero retains the app logo from `public/app-icon-128.png`, "MixJam"
+    wordmark, and tagline. Setup guidance and theme previews adapt to the active
+    composition instead of remaining permanently expanded.
+  - Library Setup, Create or Open, and Generate a MixJam remain independent
+    workflow regions with no enclosing panel.
   - Recent Projects rail: when projects exist, a sibling region sits below the
     hero while the workflow column spans both desktop rows. It shows up to four
     projects that are selectable on click and load through spec-011. The
@@ -202,9 +213,12 @@ Implementation validation should be tracked in implementation PR/test evidence.
   on screen (Home Screen), with maximize and resize enabled.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" and "Load MixJam" buttons.
-- [x] **AC-002a:** The right workflow column contains three independent sibling
-  cards with no enclosing panel. Recent Projects remains outside that column,
-  aligns below the hero, and uses four columns at the supported viewport size.
+- [ ] **AC-002a:** Home uses the setup-priority composition while either
+  required folder is unavailable and the project-priority composition once both
+  folders are available. In the project-priority composition, completed setup
+  is compact, project work holds the primary hierarchy, and every folder action
+  remains directly reachable. The three workflow regions have no enclosing
+  panel.
 - [x] **AC-002b:** The Home hero uses `public/app-icon-128.png` as the visible
   MixJam logo instead of a generated waveform mark.
 - [x] **AC-002c:** At the default 1920x1080 renderer content size, Home has no

@@ -61,3 +61,4 @@ Thumbs.db
 # Generated one-off outputs
 logs/
 .claude/
+.impeccable/
