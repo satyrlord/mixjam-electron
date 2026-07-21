@@ -7,6 +7,8 @@
 // decision layer the scheduler consults; the engine performs the actual
 // triggering.
 
+import { weakMemoize1 } from '../lib/weak-memoize'
+
 export interface EnginePlacement {
   startTick: number
   durationTicks: number
@@ -66,24 +68,48 @@ interface EffectivePlacement {
   endTick: number
 }
 
+interface LaneEvaluation {
+  placements: EffectivePlacement[]
+  /** startTick -> index into `placements`, so a tick lookup is O(1). */
+  indexByStartTick: Map<number, number>
+}
+
+// The scheduler asks "what fires at this tick?" 40 times a second, but the
+// answer only changes when the arrangement is edited. Placement arrays are
+// immutable by convention (every edit produces a new array), so caching on
+// array identity is exact: a stale entry is impossible, and an edit is a
+// guaranteed miss. Keyed weakly so deleted lanes cannot leak.
+const evaluatePlacements = weakMemoize1(
+  (placements: readonly EnginePlacement[]): LaneEvaluation => {
+    const winnerByStart = new Map<number, EnginePlacement>()
+    for (const placement of placements) {
+      winnerByStart.set(placement.startTick, placement)
+    }
+    const winners = [...winnerByStart.values()]
+      .sort((left, right) => left.startTick - right.startTick)
+    const effectivePlacements = winners.map((placement, index) => {
+      const nextStart = winners[index + 1]?.startTick ?? Number.POSITIVE_INFINITY
+      return {
+        placement,
+        startTick: placement.startTick,
+        endTick: Math.min(placementEnd(placement), nextStart)
+      }
+    }).filter(({ startTick, endTick }) => endTick > startTick)
+
+    const indexByStartTick = new Map<number, number>()
+    for (let index = 0; index < effectivePlacements.length; index++) {
+      indexByStartTick.set(effectivePlacements[index]!.startTick, index)
+    }
+
+    return { placements: effectivePlacements, indexByStartTick }
+  }
+)
+
 /** Resolve the lane's stored overlaps into the segments that can actually
  * sound under the monophonic trigger rule. The last placement at one start
  * tick wins; a later start permanently cuts the prior winner. */
-function effectivePlacements(lane: EngineLane): EffectivePlacement[] {
-  const winnerByStart = new Map<number, EnginePlacement>()
-  for (const placement of lane.placements) {
-    winnerByStart.set(placement.startTick, placement)
-  }
-  const winners = [...winnerByStart.values()]
-    .sort((left, right) => left.startTick - right.startTick)
-  return winners.map((placement, index) => {
-    const nextStart = winners[index + 1]?.startTick ?? Number.POSITIVE_INFINITY
-    return {
-      placement,
-      startTick: placement.startTick,
-      endTick: Math.min(placementEnd(placement), nextStart)
-    }
-  }).filter(({ startTick, endTick }) => endTick > startTick)
+function evaluateLane(lane: EngineLane): LaneEvaluation {
+  return evaluatePlacements(lane.placements)
 }
 
 function laneTrigger(
@@ -116,9 +142,9 @@ export function triggersForTick(lanes: readonly EngineLane[], tick: number): Lan
 
   for (const lane of lanes) {
     if (!laneIsAudible(lane, soloActive)) continue
-    const placements = effectivePlacements(lane)
-    const index = placements.findIndex((placement) => placement.startTick === tick)
-    if (index >= 0) {
+    const { placements, indexByStartTick } = evaluateLane(lane)
+    const index = indexByStartTick.get(tick)
+    if (index !== undefined) {
       triggers.push(laneTrigger(lane, placements, index))
     }
   }
@@ -138,7 +164,7 @@ export function triggersForPlaybackStart(
 
   for (const lane of lanes) {
     if (!laneIsAudible(lane, soloActive)) continue
-    const placements = effectivePlacements(lane)
+    const { placements } = evaluateLane(lane)
     const index = placements.findIndex(({ startTick, endTick }) =>
       startTick < tick && endTick > tick
     )

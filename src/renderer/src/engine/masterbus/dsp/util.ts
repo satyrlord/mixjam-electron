@@ -22,7 +22,13 @@ export function flushDenormal(value: number): number {
  * reaches ~63% of its target after `timeMs`. Call `next()` once per sample
  * or `advance(n)` once per block when only the settled value matters.
  */
-export class OnePoleSmoother {
+/** Block-level surface used by the Master Bus parameter-smoothing loop. */
+interface BlockSmoother {
+  readonly pending: boolean
+  advance(samples: number): number
+}
+
+export class OnePoleSmoother implements BlockSmoother {
   private current: number
   private target: number
   private coeff: number

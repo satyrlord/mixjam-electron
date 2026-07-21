@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDefaultEchoformDelayReturnModule, type EchoformDelayModule } from '../engine/return-effects'
 import EchoformDelayModal from './EchoformDelayModal'
@@ -96,6 +96,55 @@ describe('EchoformDelayModal', () => {
     fireEvent.pointerMove(feedback, { clientX: 0, clientY: 40, pointerId: 1 }) // drag up
     fireEvent.pointerUp(feedback, { pointerId: 1 })
     expect(onPreview.mock.calls.at(-1)![0].feedback).toBeGreaterThan(50)
+  })
+
+  it('adjusts a knob with the wheel, in both directions and with Shift for fine', () => {
+    // Every other knob in the app is wheel-adjustable; this one used to be the
+    // exception. The listener is non-passive so the scroll cannot leak to the
+    // dialog body underneath.
+    renderModal(defaultModule({ feedback: 50 }))
+    const feedback = screen.getByRole('slider', { name: 'Feedback' })
+    // The listener is registered natively (non-passive), so the wheel event is
+    // dispatched directly and act() flushes the resulting state update.
+    const wheel = (deltaY: number, shiftKey = false): WheelEvent => {
+      const event = new WheelEvent('wheel', { deltaY, shiftKey, bubbles: true, cancelable: true })
+      act(() => { feedback.dispatchEvent(event) })
+      return event
+    }
+
+    const up = wheel(-100)
+    const raised = Number(feedback.getAttribute('aria-valuenow'))
+    expect(raised).toBeGreaterThan(50)
+    // Non-passive: the scroll must not leak to the dialog body underneath.
+    expect(up.defaultPrevented).toBe(true)
+
+    wheel(100)
+    expect(Number(feedback.getAttribute('aria-valuenow'))).toBeLessThan(raised)
+
+    // Shift takes a smaller bite than an unmodified notch.
+    const before = Number(feedback.getAttribute('aria-valuenow'))
+    wheel(-100, true)
+    const fine = Number(feedback.getAttribute('aria-valuenow')) - before
+    expect(fine).toBeGreaterThan(0)
+    expect(fine).toBeLessThan(raised - 50)
+
+    // A wheel event with no vertical component is not a value gesture.
+    const steady = Number(feedback.getAttribute('aria-valuenow'))
+    wheel(0)
+    expect(Number(feedback.getAttribute('aria-valuenow'))).toBe(steady)
+  })
+
+  it('names presets with the radio role that actually carries a checked state', async () => {
+    // `menuitem` has no checked state, so `aria-checked` on one is invalid ARIA
+    // and screen readers drop it. Presets are single-choice: radio items.
+    renderModal()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Preset' }), { key: 'Enter' })
+    await screen.findByRole('menuitemradio', { name: 'Clean Slap' })
+    const items = screen.getAllByRole('menuitemradio')
+    expect(items.length).toBeGreaterThan(1)
+    // No plain menuitem is left carrying a checked state it cannot express.
+    expect(screen.queryAllByRole('menuitem')).toHaveLength(0)
+    for (const item of items) expect(item).toHaveAttribute('aria-checked')
   })
 
   it('exposes ARIA slider attributes that update with value', () => {
@@ -207,7 +256,7 @@ describe('EchoformDelayModal', () => {
     const { onPreview } = renderModal(defaultModule({ bypass: true }))
     // Open the Radix preset menu via keyboard (portal renders on open).
     fireEvent.keyDown(screen.getByRole('button', { name: 'Preset' }), { key: 'Enter' })
-    const item = await screen.findByRole('menuitem', { name: 'Clean Slap' })
+    const item = await screen.findByRole('menuitemradio', { name: 'Clean Slap' })
     fireEvent.click(item)
     const applied = onPreview.mock.calls.at(-1)![0]
     expect(applied.mode).toBe('free')

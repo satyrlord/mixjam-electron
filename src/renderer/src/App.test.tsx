@@ -19,9 +19,10 @@ describe('App', () => {
   it('switches to the Player when Start New MixJam is clicked', async () => {
     render(<App />)
 
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
-    fireEvent.click(start)
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
 
     await waitFor(() => {
       expect(screen.getByText('MixJam Browser')).toBeInTheDocument()
@@ -33,9 +34,10 @@ describe('App', () => {
   it('renders MixJam files in the MixJam Browser and mirrors sample selection into the footer', async () => {
     render(<App />)
 
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
-    fireEvent.click(start)
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
 
     await waitFor(() => {
       expect(screen.getByText('club-night')).toBeInTheDocument()
@@ -70,9 +72,10 @@ describe('App', () => {
 
     try {
       const initial = render(<App />)
-      const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-      await waitFor(() => expect(start).toBeEnabled())
-      fireEvent.click(start)
+      await waitFor(() => expect(
+        screen.getByRole('button', { name: 'Start New MixJam' })
+      ).toBeEnabled())
+      fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
       fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
       const sizeGroup = screen.getByRole('group', { name: 'Zoom Level' })
 
@@ -101,17 +104,19 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
-    fireEvent.click(start)
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument())
   })
 
   it('opens an exclusive Player Settings modal without moving Clip Edge Fades back into Master', async () => {
     render(<App />)
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
-    fireEvent.click(start)
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
 
     await waitFor(() => expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0))
     const trigger = screen.getByRole('button', { name: 'Settings' })
@@ -136,9 +141,10 @@ describe('App', () => {
   it('creates a clip placement when a sample bubble is dragged onto a Tracker lane', async () => {
     render(<App />)
 
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
-    fireEvent.click(start)
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
 
     await waitFor(() => {
       expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)

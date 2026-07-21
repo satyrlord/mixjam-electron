@@ -1,13 +1,21 @@
+import { useMemo } from 'react'
 import type { LaneState } from '../project/project-state'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
-import ChannelStrip from './ChannelStrip'
+import type { ChannelMeterFrame } from '../hooks/useMixer'
+import { deriveStore, type ReadableStore } from '../lib/value-store'
+import ChannelStrip, { type ChannelMeterValue } from './ChannelStrip'
 import MixerFxSlot from './MixerFxSlot'
+
+const SILENCE_DB = -100
+
+function channelMeterEquals(a: ChannelMeterValue, b: ChannelMeterValue): boolean {
+  return a.levelDb === b.levelDb && a.peakDb === b.peakDb
+}
 
 interface MixerColumnProps {
   lanes: LaneState[]
   returnBuses: readonly [PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot]
-  channelLevels: ReadonlyMap<number, number>
-  channelPeaks: ReadonlyMap<number, number>
+  channelMetersStore: ReadableStore<ChannelMeterFrame>
   selectedLaneId: string | null
   /** Current project tempo, so synced FX show and use the real BPM. */
   bpm?: number
@@ -32,8 +40,7 @@ function returnModuleName(bus: PlaybackReturnSnapshot): string {
 export default function MixerColumn({
   lanes,
   returnBuses,
-  channelLevels,
-  channelPeaks,
+  channelMetersStore,
   selectedLaneId,
   bpm = 120,
   onSetBpm,
@@ -46,6 +53,30 @@ export default function MixerColumn({
   onSetReturnBus,
   onPreviewReturnBus
 }: MixerColumnProps) {
+  // One derived view per channel: RAF-cadence frames fan out so each meter
+  // leaf re-renders only when its own channel's numbers change.
+  const meterStores = useMemo(() => {
+    const stores = new Map<number, ReadableStore<ChannelMeterValue>>()
+    for (const lane of lanes) {
+      stores.set(
+        lane.index,
+        deriveStore(
+          channelMetersStore,
+          (frame) => ({
+            levelDb: frame.levels.get(lane.index) ?? SILENCE_DB,
+            peakDb: frame.peaks.get(lane.index) ?? SILENCE_DB
+          }),
+          channelMeterEquals
+        )
+      )
+    }
+    return stores
+  }, [channelMetersStore, lanes])
+  const silentMeterStore = useMemo(
+    () =>
+      deriveStore(channelMetersStore, () => ({ levelDb: SILENCE_DB, peakDb: SILENCE_DB }), channelMeterEquals),
+    [channelMetersStore]
+  )
   return (
     <div className="mixer-column mixer-column-scroll">
       <div className="mixer-column-head">
@@ -95,8 +126,7 @@ export default function MixerColumn({
                       returnModuleName(returnBuses[3])
                     ]}
                     muted={lane.muted}
-                    levelDb={channelLevels.get(lane.index) ?? -100}
-                    peakDb={channelPeaks.get(lane.index) ?? -100}
+                    meterStore={meterStores.get(lane.index) ?? silentMeterStore}
                     selected={selectedLaneId === lane.id}
                     onSetGain={onSetChannelGain}
                     onSetPan={onSetChannelPan}

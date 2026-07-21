@@ -212,12 +212,14 @@ describe('useTransportEngine', () => {
     await waitFor(() => expect(result.current.playbackEngineRef.current).not.toBeNull())
     placePlayableSample(result)
 
-    // Start transport so state is 'playing'
+    // Start transport. transportPlay commits 'preparing' and only reaches
+    // 'playing' after playbackEngine.start() resolves, so await the transition
+    // instead of asserting on the synchronous intermediate state.
     await act(async () => {
       result.current.transportPlay()
     })
 
-    expect(result.current.transportState).toBe('playing')
+    await waitFor(() => expect(result.current.transportState).toBe('playing'))
 
     // Preview a sample while playing — hits the transport-aware scheduling branch
     await act(async () => {
@@ -275,7 +277,7 @@ describe('useTransportEngine', () => {
 
     act(() => result.current.transportSeek(40))
 
-    expect(result.current.currentTick).toBe(40)
+    expect(result.current.tickStore.get()).toBe(40)
     expect(result.current.transportState).toBe('stopped')
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(40)
   })
@@ -290,7 +292,7 @@ describe('useTransportEngine', () => {
     })
 
     expect(result.current.songEndTick).toBe(0)
-    expect(result.current.currentTick).toBe(0)
+    expect(result.current.tickStore.get()).toBe(0)
     expect(result.current.transportState).toBe('stopped')
   })
 
@@ -304,7 +306,7 @@ describe('useTransportEngine', () => {
     act(() => result.current.transportJumpToEnd())
 
     expect(result.current.songEndTick).toBe(160)
-    expect(result.current.currentTick).toBe(160)
+    expect(result.current.tickStore.get()).toBe(160)
     expect(result.current.transportState).toBe('stopped')
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(160)
   })
@@ -320,12 +322,12 @@ describe('useTransportEngine', () => {
     placePlayableSample(result)
 
     act(() => result.current.transportJumpToEnd())
-    expect(result.current.currentTick).toBe(160)
+    expect(result.current.tickStore.get()).toBe(160)
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(160)
 
     act(() => result.current.transportPlay())
     expect(result.current.transportState).toBe('preparing')
-    expect(result.current.currentTick).toBe(0)
+    expect(result.current.tickStore.get()).toBe(0)
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(0)
 
     act(() => vi.advanceTimersByTime(200))
@@ -348,7 +350,7 @@ describe('useTransportEngine', () => {
     act(() => result.current.transportSeek(120))
     act(() => result.current.removePlacementFromLane(0, placementId))
 
-    await waitFor(() => expect(result.current.currentTick).toBe(0))
+    await waitFor(() => expect(result.current.tickStore.get()).toBe(0))
     expect(result.current.songEndTick).toBe(0)
     expect(result.current.transportState).toBe('stopped')
   })
@@ -365,7 +367,7 @@ describe('useTransportEngine', () => {
     expect(result.current.transportState).toBe('preparing')
     await waitFor(() => expect(result.current.transportState).toBe('playing'))
 
-    expect(result.current.currentTick).toBe(72)
+    expect(result.current.tickStore.get()).toBe(72)
     expect(result.current.transportState).toBe('playing')
     expect(result.current.playbackEngineRef.current?.currentTick).toBe(72)
   })
@@ -386,7 +388,7 @@ describe('useTransportEngine', () => {
     engineTick = 1
     await waitFor(() => {
       expect(result.current.transportState).toBe('stopped')
-      expect(result.current.currentTick).toBe(0)
+      expect(result.current.tickStore.get()).toBe(0)
     }, { timeout: 1_000 })
   })
 
@@ -404,7 +406,7 @@ describe('useTransportEngine', () => {
     expect(result.current.transportState).toBe('preparing')
 
     act(() => vi.advanceTimersByTime(500))
-    expect(result.current.elapsedMs).toBe(0)
+    expect(result.current.elapsedMsStore.get()).toBe(0)
 
     await act(async () => {
       finishStart(true)
@@ -431,7 +433,7 @@ describe('useTransportEngine', () => {
       await Promise.resolve()
     })
     expect(result.current.transportState).toBe('stopped')
-    expect(result.current.elapsedMs).toBe(0)
+    expect(result.current.elapsedMsStore.get()).toBe(0)
   })
 
   it('previewSample handles null sample folder gracefully', async () => {
@@ -782,7 +784,7 @@ describe('useTransportEngine', () => {
     vi.setSystemTime(1_250)
     act(() => { result.current.transportPause() })
     expect(result.current.transportState).toBe('paused')
-    expect(result.current.elapsedMs).toBe(250)
+    expect(result.current.elapsedMsStore.get()).toBe(250)
 
     vi.setSystemTime(2_000)
     await act(async () => {
@@ -793,9 +795,9 @@ describe('useTransportEngine', () => {
     vi.setSystemTime(2_100)
     act(() => { result.current.transportPause() })
 
-    expect(result.current.elapsedMs).toBe(350)
+    expect(result.current.elapsedMsStore.get()).toBe(350)
     act(() => { result.current.transportStop() })
-    expect(result.current.elapsedMs).toBe(0)
+    expect(result.current.elapsedMsStore.get()).toBe(0)
   })
 
   it('exposes BPM and master gain from the runtime owner', () => {

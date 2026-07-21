@@ -13,6 +13,7 @@ import {
   SONG_BPM,
   SONG_DURATION_SECONDS,
   SONG_SECTIONS,
+  TOTAL_BARS,
   TOTAL_TICKS,
   variationForSeed
 } from './generate-mixer-test-song'
@@ -24,16 +25,18 @@ const TEST_SAMPLE_REFS = [
   'Drum/snare-01.wav',
   'Drum/hihat-01.wav',
   'Drum/hihat-02.wav',
-  'Loop/at-the-beach-01.wav',
-  'Loop/tribal-01.wav',
-  'Bass/warm-bass-01.wav',
+  'Drum/perc-01.wav',
+  'Drum/perc-02.wav',
+  'Loop/tribal-pulse-01.wav',
+  'Loop/deep-space-groove-01.wav',
   'Bass/deep-bass-01.wav',
-  'Seq/sun.wav',
-  'Seq/summer.wav',
-  'Keys/cool-water.wav',
-  'Keys/sunburst-01.wav',
-  'Layer/sunny-times-1-l.wav',
-  'Layer/sunny-times-1-r.wav',
+  'Bass/sub-bass-01.wav',
+  'Seq/starlight-arp.wav',
+  'Seq/cosmic-pulse.wav',
+  'Keys/dark-chord-stab.wav',
+  'Keys/deep-organ-stab.wav',
+  'Layer/cosmic-pad-1-l.wav',
+  'Layer/cosmic-pad-1-r.wav',
   'Sphere/dreampad-1-l.wav',
   'Sphere/dreampad-1-r.wav',
   'Voice/a-yeyea-01.wav',
@@ -96,6 +99,12 @@ function overlaps(startTick: number, durationTicks: number, sectionStart: number
   return startTick < sectionEnd && startTick + durationTicks > sectionStart
 }
 
+function sectionNamed(name: typeof SONG_SECTIONS[number]['name']): typeof SONG_SECTIONS[number] {
+  const section = SONG_SECTIONS.find((candidate) => candidate.name === name)
+  if (!section) throw new Error(`Unknown section: ${name}`)
+  return section
+}
+
 function normalizedArrangement(project: ReturnType<typeof parseProject>): unknown {
   return {
     song: project.song,
@@ -148,7 +157,7 @@ describe('generateMixerTestSong', () => {
     expect(bpmFromMetadataOrName(126, 'kick 128 BPM.wav')).toBe(126)
   })
 
-  it('writes a production-parseable two-minute Ibiza melodic-techno arrangement with all categories and empty return FX', async () => {
+  it('writes a production-parseable three-minute ambient cosmic-techno arrangement with all categories and empty return FX', async () => {
     const { samplesDir, outputDir } = await createFixture()
     const result = await generateMixerTestSong({ samplesDir, outputDir, seed: 'fixture-seed' })
     const project = parseProject(await readFile(result.filePath, 'utf8'))
@@ -159,18 +168,28 @@ describe('generateMixerTestSong', () => {
       clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 }
     })
     expect(result.durationSeconds).toBeCloseTo(SONG_DURATION_SECONDS, 6)
-    expect(result.durationSeconds).toBeCloseTo(120, 6)
+    expect(result.durationSeconds).toBeCloseTo(180, 6)
     expect(project.lanes).toHaveLength(16)
     expect(project.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
+    // Kick, hats, percussion, bass, stabs, and sequences always alternate two
+    // clips; groove, voice, rap, and texture may add more depending on seed.
     expect(project.lanes.filter((lane) =>
       new Set(lane.placements.map((placement) => placement.samplePath)).size > 1
-    )).toHaveLength(10)
+    ).length).toBeGreaterThanOrEqual(8)
 
     const placements = project.lanes.flatMap((lane) => lane.placements)
     const endTicks = placements.map((placement) => placement.startTick + placement.durationTicks)
     expect(Math.max(...endTicks)).toBe(TOTAL_TICKS)
     expect(endTicks.every((endTick) => endTick <= TOTAL_TICKS)).toBe(true)
     expect(placements.every((placement) => isProjectRelativePath(placement.samplePath))).toBe(true)
+
+    // Every placement of one sample keeps a single natural span (AC-016).
+    const spanBySample = new Map<string, number>()
+    for (const placement of placements) {
+      const existing = spanBySample.get(placement.samplePath)
+      if (existing !== undefined) expect(placement.durationTicks).toBe(existing)
+      spanBySample.set(placement.samplePath, placement.durationTicks)
+    }
 
     const categories = new Set(placements.map((placement) =>
       placement.samplePath.includes('/') ? placement.samplePath.split('/')[0]! : 'Unsorted'
@@ -185,32 +204,59 @@ describe('generateMixerTestSong', () => {
       ), section.name).toBe(true)
     }
 
-    const breakdownStart = 30 * 32
-    const breakdownEnd = 40 * 32
+    // The void breakdown removes the rhythm section (kick, clap/snare, hats,
+    // percussion, bass) while melodic and atmospheric material continues.
+    const breakdown = sectionNamed('void breakdown')
+    const breakdownStart = breakdown.startBar * 32
+    const breakdownEnd = breakdown.endBar * 32
     expect(project.lanes.slice(0, 5).flatMap((lane) => lane.placements).some((placement) =>
       overlaps(placement.startTick, placement.durationTicks, breakdownStart, breakdownEnd)
     )).toBe(false)
 
-    const peakStart = 50 * 32
-    const peakEnd = 62 * 32
+    // The supernova peak restores kick, clap/snare, hats, percussion, bass,
+    // stabs, sequences, spheres, and voice.
+    const peak = sectionNamed('supernova peak')
+    const peakStart = peak.startBar * 32
+    const peakEnd = peak.endBar * 32
     for (const laneIndex of [0, 1, 2, 3, 4, 5, 6, 9, 10, 11]) {
       expect(project.lanes[laneIndex]!.placements.some((placement) =>
         overlaps(placement.startTick, placement.durationTicks, peakStart, peakEnd)
       ), project.lanes[laneIndex]!.name).toBe(true)
     }
 
+    // The bass answers the kick off the beat: every bass hit starts off the
+    // beat and at least one lands on the 4-tick offbeat so the two lanes
+    // interlock rather than double. Because kick and bass clips share one
+    // natural span, an on-beat bass hit could still ring under the kick; the
+    // offbeat trigger placement is what keeps the groove complementary.
+    const bassStarts = project.lanes[4]!.placements.map((placement) => placement.startTick)
+    expect(bassStarts.length).toBeGreaterThan(0)
+    expect(bassStarts.every((tick) => tick % 8 !== 0)).toBe(true)
+    expect(bassStarts.some((tick) => tick % 8 === 4)).toBe(true)
+
+    // The kick breathes at phrase boundaries: at least one 8-bar phrase-final
+    // bar (bar % 8 === 7) outside the breakdown carries no kick hit.
+    const kickTicks = project.lanes[0]!.placements.map((placement) => placement.startTick)
+    const kickedBars = new Set(kickTicks.map((tick) => Math.floor(tick / 32)))
+    const breakdownBars = new Set(
+      Array.from({ length: breakdownEnd / 32 - breakdownStart / 32 }, (_, index) => breakdownStart / 32 + index)
+    )
+    const phraseFinalBars = Array.from({ length: Math.ceil(TOTAL_BARS / 8) }, (_, index) => index * 8 + 7)
+      .filter((bar) => bar < TOTAL_BARS && !breakdownBars.has(bar))
+    expect(phraseFinalBars.some((bar) => !kickedBars.has(bar))).toBe(true)
+
     const styleBiasedSamples = [
       result.selectedSamples.groovePrimary,
       result.selectedSamples.grooveAlternate,
       result.selectedSamples.sequencePrimary,
       result.selectedSamples.sequenceAlternate,
-      result.selectedSamples.keysPrimary,
-      result.selectedSamples.keysAlternate,
+      result.selectedSamples.stabPrimary,
+      result.selectedSamples.stabAlternate,
       result.selectedSamples.layerLeft,
       result.selectedSamples.layerRight
     ]
     expect(styleBiasedSamples.every((sample) =>
-      /beach|tribal|sun|summer|water|sunny/i.test(sample.sampleName)
+      /tribal|pulse|space|groove|star|cosmic|dark|chord|stab|organ|pad|dream|deep/i.test(sample.sampleName)
     )).toBe(true)
 
     expect(project.lanes.every((lane) => lane.sends?.every((send) => send === 0))).toBe(true)
@@ -260,8 +306,8 @@ describe('generateMixerTestSong', () => {
     const first = await generateMixerTestSong({ samplesDir, outputDir, seed: 'repeatable' })
     const second = await generateMixerTestSong({ samplesDir, outputDir, seed: 'repeatable' })
 
-    expect(first.fileName).toBe('Ibiza-Melodic-Techno-Mixer-Test-001.mixjam')
-    expect(second.fileName).toBe('Ibiza-Melodic-Techno-Mixer-Test-002.mixjam')
+    expect(first.fileName).toBe('Ambient-Cosmic-Techno-Mixer-Test-001.mixjam')
+    expect(second.fileName).toBe('Ambient-Cosmic-Techno-Mixer-Test-002.mixjam')
     expect(Object.values(first.selectedSamples).map((sample) => sample.sampleRef)).toEqual(
       Object.values(second.selectedSamples).map((sample) => sample.sampleRef)
     )
@@ -277,10 +323,10 @@ describe('generateMixerTestSong', () => {
       Object.values(first.selectedSamples).map((sample) => sample.sampleRef)
     )
 
-    const sentinelPath = join(outputDir, 'Ibiza-Melodic-Techno-Mixer-Test-010.mixjam')
+    const sentinelPath = join(outputDir, 'Ambient-Cosmic-Techno-Mixer-Test-010.mixjam')
     await writeFile(sentinelPath, 'do not overwrite')
     const afterGap = await generateMixerTestSong({ samplesDir, outputDir, seed: 'repeatable' })
-    expect(afterGap.fileName).toBe('Ibiza-Melodic-Techno-Mixer-Test-011.mixjam')
+    expect(afterGap.fileName).toBe('Ambient-Cosmic-Techno-Mixer-Test-011.mixjam')
     expect(await readFile(sentinelPath, 'utf8')).toBe('do not overwrite')
   })
 })

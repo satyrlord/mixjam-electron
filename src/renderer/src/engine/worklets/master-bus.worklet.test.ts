@@ -3,7 +3,7 @@
 // is shimmed, the module registers its processor, and the class is driven
 // with Float32Array blocks like Chromium's audio thread would.
 
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { defaultMasterBusState } from '../masterbus/presets'
 import type { MasterBusMeterSnapshot } from '../masterbus/dsp/core'
 
@@ -33,8 +33,11 @@ beforeAll(async () => {
   Processor = captured[0]
 })
 
-function makeProcessor(state = defaultMasterBusState()): { processor: ProcessorLike; snapshots: MasterBusMeterSnapshot[] } {
-  const processor = new Processor({ processorOptions: { state } })
+function makeProcessor(
+  state = defaultMasterBusState(),
+  { meters = true }: { meters?: boolean } = {}
+): { processor: ProcessorLike; snapshots: MasterBusMeterSnapshot[] } {
+  const processor = new Processor({ processorOptions: { state, metersEnabled: meters } })
   const snapshots: MasterBusMeterSnapshot[] = []
   processor.port.postMessage = (value) => {
     snapshots.push(value as MasterBusMeterSnapshot)
@@ -72,6 +75,21 @@ describe('master-bus worklet adapter', () => {
     expect(Number.isFinite(snapshots[0].vuDb)).toBe(true)
   })
 
+  it('posts no snapshots until meters are enabled, and stops when disabled', () => {
+    const { processor, snapshots } = makeProcessor(defaultMasterBusState(), { meters: false })
+    runBlocks(processor, 40)
+    expect(snapshots.length).toBe(0)
+
+    processor.port.onmessage?.({ data: { type: 'meters', enabled: true } })
+    runBlocks(processor, 40)
+    expect(snapshots.length).toBeGreaterThanOrEqual(2)
+
+    processor.port.onmessage?.({ data: { type: 'meters', enabled: false } })
+    snapshots.length = 0
+    runBlocks(processor, 40)
+    expect(snapshots.length).toBe(0)
+  })
+
   it('outputs silence and stays alive when the input is disconnected', () => {
     const { processor } = makeProcessor()
     const outL = new Float32Array(128)
@@ -100,5 +118,28 @@ describe('master-bus worklet adapter', () => {
     snapshots.length = 0
     runBlocks(processor, 40)
     expect(snapshots[snapshots.length - 1].latencySamples).toBe(0)
+  })
+
+  // Vite's `?worker&url` query only resolves a URL, but toolchains that ignore
+  // it (tsx, plain node) import this module for real. The AudioWorklet globals
+  // are absent there and an `extends` clause runs at load time, so the module
+  // must stay inert instead of throwing.
+  it('is inert when imported outside an AudioWorklet global scope', async () => {
+    const g = globalThis as Record<string, unknown>
+    const savedBase = g.AudioWorkletProcessor
+    const savedRegister = g.registerProcessor
+    let registered = 0
+    g.registerProcessor = (): void => { registered += 1 }
+    delete g.AudioWorkletProcessor
+
+    try {
+      vi.resetModules()
+      await expect(import('./master-bus.worklet')).resolves.toBeDefined()
+      expect(registered).toBe(0)
+    } finally {
+      g.AudioWorkletProcessor = savedBase
+      g.registerProcessor = savedRegister
+      vi.resetModules()
+    }
   })
 })

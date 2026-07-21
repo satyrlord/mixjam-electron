@@ -3,7 +3,7 @@ import { createEchoformDelayProcessor } from './echoform-delay-processor'
 import type { EchoformDelayState } from './echoform-delay-types'
 import { isEchoformDelayDivision } from './echoform-delay-core'
 
-export type { EchoformDelayCharacter, EchoformDelayDivision, EchoformDelayMode, EchoformDelayState } from './echoform-delay-types'
+export type { EchoformDelayState } from './echoform-delay-types'
 export { prepareEchoformDelayWorklet } from './echoform-delay-processor'
 
 /** The project and audio graph always expose exactly four parallel Return buses. */

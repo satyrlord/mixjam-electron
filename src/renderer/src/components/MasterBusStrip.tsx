@@ -1,6 +1,7 @@
 import { useState, type DragEvent, type ReactNode } from 'react'
 import {
   MASTER_BUS_PARAMS,
+  type MasterBusModuleId,
   type MasterBusParamDef,
   type MasterBusParamId,
   type ProcessorId
@@ -53,7 +54,7 @@ interface ModuleMeta {
 const COMP_GR_THRESHOLDS = [0.5, 1, 1.5, 2, 3, 4] as const
 const LIM_GR_THRESHOLDS = [0.5, 1, 2, 3, 4.5, 6] as const
 
-const MODULE_META: Record<ProcessorId, ModuleMeta> = {
+const MODULE_META: Record<MasterBusModuleId, ModuleMeta> = {
   gain: {
     name: 'GAIN STAGE',
     family: 'GAIN',
@@ -73,10 +74,10 @@ const MODULE_META: Record<ProcessorId, ModuleMeta> = {
     desc: 'Even-harmonic warmth from a virtual triode stage.'
   },
   subeq: {
-    name: 'SUB EQ',
+    name: 'TRIM EQ',
     family: 'EQ',
     finish: 'steel',
-    desc: 'Remove mud and harshness with narrow cuts. High-pass at 20 Hz.'
+    desc: 'Trim rumble, mud, and harshness with focused cuts. High-pass at 20 Hz.'
   },
   comp: {
     name: 'BUS COMP',
@@ -93,10 +94,10 @@ const MODULE_META: Record<ProcessorId, ModuleMeta> = {
     desc: 'Push perceived loudness toward the streaming target.'
   },
   addeq: {
-    name: 'ADD EQ',
+    name: 'LIFT EQ',
     family: 'EQ',
     finish: 'steel',
-    desc: 'Add weight and air with wide, musical shelves.'
+    desc: 'Lift weight and air with wide, musical shelves.'
   },
   tape: {
     name: 'TAPE SAT',
@@ -319,7 +320,7 @@ function InputMeterModule({ meters }: { meters: MasterBusUiMeters }) {
     <section className="mbs-module mbs-module-meter mbs-finish-meter mbs-fam-meter" aria-label="Input meter">
       <div className="mbs-mod-top">
         <span className="mbs-ordinal" aria-hidden="true">
-          01
+          02
         </span>
         <span className="mbs-fam-chip">METER</span>
       </div>
@@ -455,7 +456,55 @@ function OutputMeterModule({
   )
 }
 
-/* ── Processor module (slots 02..12) ── */
+/* ── Pinned Gain Stage (slot 01) ── */
+
+function GainStageModule({
+  params,
+  onSetParam,
+  onGestureStart,
+  onGestureEnd
+}: {
+  params: MasterBusState['params']
+  onSetParam: (paramId: MasterBusParamId, value: number) => void
+  onGestureStart: () => void
+  onGestureEnd: () => void
+}) {
+  const meta = MODULE_META.gain
+  const defs = MASTER_BUS_PARAMS.filter((def) => def.processor === 'gain')
+  return (
+    <section
+      className="mbs-module mbs-finish-cream mbs-fam-gain"
+      aria-label={meta.name}
+    >
+      <div className="mbs-mod-top">
+        <span className="mbs-ordinal" aria-hidden="true">01</span>
+      </div>
+      <div className="mbs-mod-name">
+        <span className="mbs-fam-chip">{meta.family}</span>
+        <span className="mbs-mod-title">{meta.name}</span>
+      </div>
+      <div className="mbs-mod-body">
+        <div className="mbs-ctl-grid">
+          {defs.map((def) => (
+            <ModuleKnob
+              key={def.id}
+              def={def}
+              moduleName={meta.name}
+              value={params[def.id]}
+              powered
+              onSetParam={onSetParam}
+              onGestureStart={onGestureStart}
+              onGestureEnd={onGestureEnd}
+            />
+          ))}
+        </div>
+        <p className="mbs-mod-desc">{meta.desc}</p>
+      </div>
+    </section>
+  )
+}
+
+/* ── Reorderable processor modules (slots 03..12) ── */
 
 function ProcessorModule({
   id,
@@ -632,16 +681,26 @@ export default function MasterBusStrip({
     if (from >= 0 && next.some((p, i) => p !== state.order[i])) onReorder(next)
   }
 
-  const slots: ReactNode[] = [<InputMeterModule key="meter-in" meters={meters} />]
+  const slots: ReactNode[] = [
+    <GainStageModule
+      key="gain"
+      params={state.params}
+      onSetParam={onSetParam}
+      onGestureStart={onGestureStart}
+      onGestureEnd={onGestureEnd}
+    />,
+    <InputMeterModule key="meter-in" meters={meters} />
+  ]
   state.order.forEach((id, index) => {
     if (dragId !== null && dropIndex === index) {
       slots.push(<div key={`ind-${index}`} className="mbs-drop-ind" aria-hidden="true" />)
     }
+    const ordinal = index + 3
     slots.push(
       <ProcessorModule
         key={id}
         id={id}
-        ordinal={index + 2}
+        ordinal={ordinal}
         powered={state.power[id]}
         params={state.params}
         grDb={id === 'comp' ? meters.compGrDb : id === 'lim' ? meters.limGrDb : 0}

@@ -14,7 +14,8 @@ import {
 import { BlockingDialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
 import {
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuRoot,
   DropdownMenuTrigger
 } from './ui/DropdownMenu'
@@ -152,8 +153,15 @@ interface KnobProps {
   onGestureEnd: () => void
 }
 
+/* This knob is deliberately not the shared RotaryControl. Five of these specs
+   are logarithmic (delay times, both filter cutoffs, mod rate) and the shared
+   primitive quantizes linearly against raw min/max with no curve support, so a
+   20 Hz - 2 kHz sweep would be unusable on a linear drag. The interaction
+   contract is otherwise matched to the shared one on purpose, wheel included,
+   so the two knobs do not behave differently for the same gesture. */
 function Knob({ id, spec, label, value, onChange, onGestureStart, onGestureEnd }: KnobProps) {
   const dragRef = useRef<{ startY: number; startX: number; startNorm: number } | null>(null)
+  const knobRef = useRef<HTMLDivElement | null>(null)
   const normalized = toNormalized(spec, value)
   const angle = -135 + normalized * 270
   const fillDeg = normalized * 270
@@ -187,6 +195,32 @@ function Knob({ id, spec, label, value, onChange, onGestureStart, onGestureEnd }
     onGestureEnd()
   }
 
+  // Registered manually rather than via onWheel: React's wheel listener is
+  // passive, so it cannot preventDefault and the scroll would leak to the
+  // dialog body. Same approach as the shared RotaryControl.
+  useEffect(() => {
+    const knob = knobRef.current
+    if (!knob) return
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return
+      event.preventDefault()
+      const fineStep = event.shiftKey ? spec.step / 10 : spec.step
+      const sensitivity = event.shiftKey ? 0.01 : 0.04
+      const direction = event.deltaY < 0 ? 1 : -1
+      onGestureStart()
+      onChange(
+        clamp(
+          quantize(spec, fromNormalized(spec, normalized + direction * sensitivity, fineStep), fineStep),
+          spec.min,
+          spec.max
+        )
+      )
+      onGestureEnd()
+    }
+    knob.addEventListener('wheel', handleWheel, { passive: false })
+    return () => knob.removeEventListener('wheel', handleWheel)
+  }, [spec, normalized, onChange, onGestureStart, onGestureEnd])
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const fineStep = event.shiftKey ? spec.step / 10 : spec.step
     let next: number | null = null
@@ -207,6 +241,7 @@ function Knob({ id, spec, label, value, onChange, onGestureStart, onGestureEnd }
     <div className="ef-knob-row">
       <div
         id={id}
+        ref={knobRef}
         className={`ef-knob${spec.tone === 'warm' ? ' ef-knob-warm' : spec.tone === 'cool' ? ' ef-knob-cool' : ''}`}
         role="slider"
         tabIndex={0}
@@ -395,15 +430,18 @@ export default function EchoformDelayModal({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="ef-preset-menu" align="end">
-                    {ECHOFORM_DELAY_PRESET_NAMES.map((name) => (
-                      <DropdownMenuItem
-                        key={name}
-                        aria-checked={preset === name}
-                        onSelect={() => applyPreset(name)}
-                      >
-                        {PRESET_LABEL[name]}
-                      </DropdownMenuItem>
-                    ))}
+                    {/* Presets are a single-choice set, so the items carry the
+                        radio role that actually supports a checked state. */}
+                    <DropdownMenuRadioGroup
+                      value={preset}
+                      onValueChange={(name) => applyPreset(name as EchoformDelayPresetName)}
+                    >
+                      {ECHOFORM_DELAY_PRESET_NAMES.map((name) => (
+                        <DropdownMenuRadioItem key={name} value={name}>
+                          {PRESET_LABEL[name]}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenuRoot>
               </div>
@@ -578,7 +616,7 @@ export default function EchoformDelayModal({
 
             <footer className="ef-foot">
               <span className="ef-foot-help">
-                Knobs: drag vertically / Shift for fine / double-click to reset
+                Knobs: drag or scroll / Shift for fine / double-click to reset
               </span>
               <span className="ef-foot-state">{`${stateWord} / ${characterLabel} / ${modeLabel}`}</span>
             </footer>
@@ -630,8 +668,11 @@ interface Tap {
   size: number
 }
 
-function buildTaps(props: VisualizerProps): Tap[] {
-  const { times, feedback, width, pingPong, freeze } = props
+/* Only the five fields that actually shape the taps, so the memo in Visualizer
+   can depend on values rather than on the whole (always-fresh) props object. */
+type TapInputs = Pick<VisualizerProps, 'times' | 'feedback' | 'width' | 'pingPong' | 'freeze'>
+
+function buildTaps({ times, feedback, width, pingPong, freeze }: TapInputs): Tap[] {
   const repeats = freeze ? 12 : clamp(Math.round(3 + feedback / 10.5), 3, 12)
   const events: { index: number; side: 'left' | 'right'; time: number }[] = []
   if (pingPong) {
@@ -661,7 +702,12 @@ function buildTaps(props: VisualizerProps): Tap[] {
 
 function Visualizer(props: VisualizerProps) {
   const { times, bpm, mode, character, feedback, pingPong, width, freeze, bypass, reducedMotion } = props
-  const taps = useMemo(() => buildTaps(props), [props])
+  // Depends on the values that shape the taps. The previous `[props]` was a
+  // no-op: the props object is fresh on every render, so the memo never hit.
+  const taps = useMemo(
+    () => buildTaps({ times, feedback, width, pingPong, freeze }),
+    [times, feedback, width, pingPong, freeze]
+  )
   const modeLabel = mode === 'sync' ? 'Sync' : 'Free'
   const characterLabel = character.charAt(0).toUpperCase() + character.slice(1)
   const description =

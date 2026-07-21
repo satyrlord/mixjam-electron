@@ -28,9 +28,10 @@ describe('App tag filter', () => {
   it('toggles tag filter when tag chip is clicked', async () => {
     render(<App />)
 
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
-    fireEvent.click(start)
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
 
     await waitFor(() => {
       expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)

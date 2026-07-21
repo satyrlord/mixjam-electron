@@ -101,6 +101,22 @@ describe('useBottomWorkspace', () => {
     await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('590px'))
   })
 
+  // The Panel constraint is what stops a drag from squeezing a tab below its
+  // content budget (e2e: "each Bottom Workspace tab keeps its content inside
+  // the active minimum height"), so it must track the active tab exactly.
+  it('constrains the panel to the active tab content budget', () => {
+    const { result } = renderHook(() => useBottomWorkspace())
+
+    act(() => result.current.setBottomTab('master'))
+    expect(result.current.bottomPanelMinimumHeight).toBe(
+      result.current.bottomMinimumHeights.master
+    )
+    act(() => result.current.setBottomTab('samples'))
+    expect(result.current.bottomPanelMinimumHeight).toBe(
+      result.current.bottomMinimumHeights.samples
+    )
+  })
+
   it('clamps an undersized restored tab and an unmeasured panel to pixels', async () => {
     const { result } = renderHook(() => useBottomWorkspace())
     const panel = createPanel(20)

@@ -1,4 +1,4 @@
-// Subtractive EQ (HP + narrow cuts) and Additive EQ (wide shelves).
+// Trim EQ (HP + narrow cuts) and Lift EQ (wide shelves).
 // RBJ biquads; at 0 dB gain the peaking/shelf forms collapse to exact
 // identity coefficients, so the cut/boost sections null bit-exactly at
 // neutral. The high-pass is always active by design; its null test runs

@@ -5,7 +5,7 @@ import { vi } from 'vitest'
 // AudioContext. Nodes record their connections so tests can assert the graph.
 
 class MockAudioParam {
-  readonly events: Array<{ type: 'set' | 'linear', value: number, time: number }> = []
+  readonly events: Array<{ type: 'set' | 'linear' | 'hold', value: number, time: number }> = []
 
   constructor(public value: number) {}
 
@@ -18,6 +18,11 @@ class MockAudioParam {
   linearRampToValueAtTime(value: number, time: number): MockAudioParam {
     this.value = value
     this.events.push({ type: 'linear', value, time })
+    return this
+  }
+
+  cancelAndHoldAtTime(time: number): MockAudioParam {
+    this.events.push({ type: 'hold', value: this.value, time })
     return this
   }
 }

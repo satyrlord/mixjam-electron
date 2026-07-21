@@ -44,6 +44,11 @@ interface BottomWorkspaceController {
   bottomPanelRef: ReturnType<typeof usePanelRef>
   bottomTab: BottomWorkspaceTab
   expanded: boolean
+  /** Floor for the resizable Panel constraint. Per-tab, because this is what
+   *  prevents a drag from squeezing a tab below its content budget. */
+  bottomPanelMinimumHeight: number
+  /** Per-tab content budget, applied as a CSS min-height on the panel's
+   *  contents and used by the imperative restore-size path. */
   bottomMinimumHeight: number
   bottomMinimumHeights: BottomWorkspaceMinimumHeights
   mixJamBrowserCollapsed: boolean
@@ -92,8 +97,10 @@ export function useBottomWorkspace(): BottomWorkspaceController {
     playerWorkspacePreferences.saveBottomTab(tab)
   }, [bottomTab])
   useEffect(() => {
-    // The Panel commits its new tab-specific minSize during the same render.
-    // Resize on the next frame so the imperative ref uses those new constraints.
+    // Restore this tab's remembered size, lifted to its own content budget.
+    // The Panel's minSize is tab-independent, so this imperative resize is what
+    // enforces the per-tab floor — and it runs on the next frame so it lands
+    // after the tab's own commit rather than fighting it.
     const frame = requestAnimationFrame(() => {
       const targetPercentage = bottomTabSizesRef.current[bottomTab]
       resizeBottomTab(bottomTab, targetPercentage)
@@ -148,8 +155,17 @@ export function useBottomWorkspace(): BottomWorkspaceController {
     setExpanded(false)
     playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: bottomSize })
   }, [bottomTab])
+  // The Panel constraint stays per-tab: it is what stops a drag from squeezing
+  // a tab below its content budget, and enforcing that after the fact would
+  // fight the user's pointer mid-gesture. What it must not do is churn — the
+  // value is memoized per tab so React sees a stable string across unrelated
+  // re-renders, and only a genuine tab change (or a UI Size change) makes the
+  // panel group recompute the Tracker's layout.
+  const bottomPanelMinimumHeight = bottomMinimumHeights[bottomTab]
+
   return {
     browserPanelRef, bottomPanelRef, bottomTab, expanded,
+    bottomPanelMinimumHeight,
     bottomMinimumHeight: bottomMinimumHeights[bottomTab], bottomMinimumHeights,
     mixJamBrowserCollapsed,
     upperDefaultLayout: workspaceDefaults.upperLayout as PanelLayout,

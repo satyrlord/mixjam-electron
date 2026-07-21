@@ -172,7 +172,7 @@ describe('project file format', () => {
   it('round-trips a manually edited master bus strip record', () => {
     const project = makeProject()
     project.masterBus = {
-      order: ['lim', 'gain', 'clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc'],
+      order: ['lim', 'clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc'],
       power: { ...project.masterBus.power, max: false, mbc: false },
       params: { ...project.masterBus.params, 'gain.trim': -3.5, 'lim.ceil': -0.8 },
       preset: null
@@ -196,15 +196,19 @@ describe('project file format', () => {
   it.each([
     ['a missing masterBus record', (raw: RawMasterBusProject) => { delete (raw as Record<string, unknown>).masterBus }, 'project.masterBus must be an object'],
     ['an unknown masterBus key', (raw: RawMasterBusProject) => { raw.masterBus.extra = true }, 'project.masterBus.extra is not supported'],
-    ['a short slot order', (raw: RawMasterBusProject) => { raw.masterBus.order = ['gain'] }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+    ['a short slot order', (raw: RawMasterBusProject) => { raw.masterBus.order = ['clip'] }, 'project.masterBus.order must be a permutation of the ten reorderable master bus processor ids'],
     ['a duplicated slot order entry', (raw: RawMasterBusProject) => {
-      raw.masterBus.order = ['gain', 'gain', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
-    }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+      raw.masterBus.order = ['clip', 'clip', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
+    }, 'project.masterBus.order must be a permutation of the ten reorderable master bus processor ids'],
     ['an unknown processor id in the slot order', (raw: RawMasterBusProject) => {
-      raw.masterBus.order = ['dither', 'gain', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
-    }, 'project.masterBus.order must be a permutation of the eleven master bus processor ids'],
+      raw.masterBus.order = ['dither', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
+    }, 'project.masterBus.order must be a permutation of the ten reorderable master bus processor ids'],
+    ['Gain Stage in the persisted order', (raw: RawMasterBusProject) => {
+      raw.masterBus.order = ['gain', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim']
+    }, 'project.masterBus.order must be a permutation of the ten reorderable master bus processor ids'],
     ['a missing power flag', (raw: RawMasterBusProject) => { delete raw.masterBus.power.comp }, 'project.masterBus.power.comp must be a boolean'],
     ['an unknown power key', (raw: RawMasterBusProject) => { raw.masterBus.power.dither = true }, 'project.masterBus.power.dither is not supported'],
+    ['a persisted Gain Stage power flag', (raw: RawMasterBusProject) => { raw.masterBus.power.gain = true }, 'project.masterBus.power.gain is not supported'],
     ['a non-boolean power flag', (raw: RawMasterBusProject) => { raw.masterBus.power.comp = 1 }, 'project.masterBus.power.comp must be a boolean'],
     ['a missing parameter', (raw: RawMasterBusProject) => { delete raw.masterBus.params['gain.trim'] }, 'project.masterBus.params.gain.trim must be a finite number from -24 to 24'],
     ['an unknown parameter id', (raw: RawMasterBusProject) => { raw.masterBus.params['gain.bogus'] = 0 }, 'project.masterBus.params.gain.bogus is not supported'],

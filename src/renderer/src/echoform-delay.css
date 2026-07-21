@@ -1,50 +1,131 @@
 /* ==========================================================================
    Echoform Delay editor
-   A compact, dark delay editor with understated studio-hardware character.
-   Colors resolve from the active DAW theme via a semantic bridge; the
-   fallback palette below keeps the module complete when no theme override is
-   present. Target desktop size: 760 × 680.
+   A compact delay editor with understated studio-hardware character. Every
+   colour resolves from the active theme through the semantic bridge below —
+   there is no private palette and no fixed fallback, so the module repaints
+   with the skin like the rest of the instrument (DESIGN.md, The Token Rule).
+   Target desktop size: 760 × 680.
    ========================================================================== */
 
 .ef-dialog {
-  /* Semantic bridge: prefer the active theme's tokens, fall back to the spec
-     palette. Each variable degrades to a fixed studio-hardware value. */
-  --ef-canvas: var(--bg-base, #0e1113);
-  --ef-canvas-raised: #13171a;
-  --ef-panel: var(--bg-panel, #191e21);
-  --ef-panel-raised: #20262a;
-  --ef-control: #252c30;
-  --ef-control-hover: #2b3337;
-  --ef-control-pressed: #151a1d;
+  /* Semantic bridge to the active theme (DESIGN.md, The Token Rule).
+     Every role below is DERIVED from a theme token — no fixed surface, line,
+     ink, or accent literal. The rule that makes this work on all sixteen skins:
+     a surface is never a fixed-alpha black over the theme, because that reads
+     as a dark step on dark skins and collapses to mud on the light ones
+     (Vintage, Soft, Riso). Instead each surface is a mix between two tokens the
+     theme already sized against each other, so the contrast direction follows
+     the skin's own polarity. Overlays and hairlines mix toward `--text` rather
+     than toward white, so they darken on light skins and lighten on dark ones
+     automatically instead of washing out. */
+  --ef-canvas: var(--bg-base);
+  --ef-panel: var(--bg-panel);
+  /* Recessed work surface for cards and the visualizer: a step from the panel
+     toward the theme's own grid tone (the darkest structural neutral it
+     defines), which is the same direction the Tracker uses. */
+  --ef-card: color-mix(in srgb, var(--bg-grid) 55%, var(--bg-panel));
+  /* Controls sit on the project's quiet control surface, exactly like the
+     Mixer's pills and ghost-button hover. */
+  --ef-control: var(--pill-bg);
+  --ef-control-hover: color-mix(in srgb, var(--accent) 12%, var(--pill-bg));
+  --ef-control-pressed: color-mix(in srgb, var(--bg-grid) 45%, var(--pill-bg));
 
-  --ef-line: rgba(246, 241, 226, 0.09);
-  --ef-line-strong: rgba(246, 241, 226, 0.17);
-  --ef-grid: rgba(246, 241, 226, 0.055);
-  --ef-grid-major: rgba(246, 241, 226, 0.10);
+  --ef-line: color-mix(in srgb, var(--border) 70%, transparent);
+  --ef-line-strong: var(--border);
+  --ef-grid: color-mix(in srgb, var(--text) 7%, transparent);
+  --ef-grid-major: color-mix(in srgb, var(--text) 13%, transparent);
+  /* Faceplate scanline and the unfilled part of a knob's value arc. Both are
+     ink-toward washes, so they stay visible on light and dark skins alike. */
+  --ef-scanline: color-mix(in srgb, var(--text) 4%, transparent);
+  --ef-knob-track: color-mix(in srgb, var(--text) 12%, transparent);
 
-  --ef-text: var(--text, #f2efe7);
-  --ef-text-soft: #c7c5bd;
-  --ef-text-muted: var(--text-muted, #8e9697);
-  --ef-text-faint: #626a6c;
+  --ef-text: var(--text);
+  /* One step down from ink, still well clear of the muted floor. */
+  --ef-text-soft: color-mix(in srgb, var(--text) 78%, var(--text-muted));
+  /* Secondary ink, pulled 40% toward the theme's ink. Raw `--text-muted` is
+     sized against `--bg-panel`; this module's cards sit a step off the panel,
+     and that step costs enough contrast to drop small text under 4.5:1 on
+     several skins (measured raw: 4.28 Soft / 3.90 Vintage / 3.52 Riso /
+     3.31 Beton). Some themes miss AA with their muted tone on their own panel
+     regardless of this module — Beton 3.08:1, Riso 3.98:1 — so deriving a
+     readable floor here is the only way the editor stays legible on all
+     sixteen skins. The 40% blend clears 4.5:1 on every theme (worst case
+     Beton 4.92 on the card, 4.60 on the panel) and still reads as clearly
+     secondary next to `--ef-text`. Verified in the built renderer across all
+     sixteen themes; see tmp/verify-echoform-contrast.mjs. */
+  --ef-text-muted: color-mix(in srgb, var(--text-muted) 60%, var(--text));
 
-  --ef-accent: var(--accent, #dba24e);
-  --ef-accent-strong: var(--highlight, #f5c671);
+  --ef-accent: var(--accent);
+  --ef-accent-strong: var(--highlight);
   --ef-accent-soft: color-mix(in srgb, var(--ef-accent) 16%, transparent);
   --ef-accent-faint: color-mix(in srgb, var(--ef-accent) 8%, transparent);
-  --ef-secondary: #75b6ad;
+  /* Accent used as small TEXT rather than as a fill. The raw highlight is
+     chosen for saturation, not for legibility at 8px on a faint wash, so it is
+     pulled toward the theme's ink — the same readable-floor treatment as
+     `--ef-text-muted`. Keeps the accent hue, clears AA on every skin. */
+  --ef-accent-ink: color-mix(in srgb, var(--ef-accent-strong) 62%, var(--text));
+  /* The cool counterpart (right-channel taps, high-cut, mod depth, Freeze).
+     Slot accent 2 is the project's own second accent: themes with a genuine
+     multi-accent system ship a distinct value, single-voice themes repeat one. */
+  --ef-secondary: var(--fx-accent-2, var(--highlight));
   --ef-secondary-soft: color-mix(in srgb, var(--ef-secondary) 15%, transparent);
-  --ef-danger: #d97668;
+  --ef-secondary-ink: color-mix(in srgb, var(--ef-secondary) 70%, var(--text));
+  --ef-danger: var(--meter-red);
   --ef-danger-soft: color-mix(in srgb, var(--ef-danger) 14%, transparent);
+  --ef-danger-ink: color-mix(in srgb, var(--ef-danger) 65%, var(--text));
 
-  --ef-focus: var(--highlight, #f8d493);
-  --ef-shadow: 0 26px 90px rgba(0, 0, 0, 0.54), 0 3px 12px rgba(0, 0, 0, 0.46);
-  --ef-inset: inset 0 1px 0 rgba(255, 255, 255, 0.035), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+  --ef-focus: var(--highlight);
+  --ef-shadow: var(--shadow-mixer-panel, 0 26px 90px rgba(0, 0, 0, 0.54));
+  --ef-inset: var(--shadow-mixer-slot, none);
 
-  --ef-radius-panel: 18px;
-  --ef-radius-card: 12px;
-  --ef-radius-control: 8px;
+  --ef-radius-panel: min(calc(var(--radius) * 2.6), 18px);
+  --ef-radius-card: min(calc(var(--radius) * 2.2), 12px);
   --ef-mono: var(--font-mono, "SFMono-Regular", Consolas, "Liberation Mono", monospace);
   --ef-font: var(--font-label, Inter, system-ui, sans-serif);
+
+  /* ── Geometry bridge (DESIGN.md, The Token Rule applies to size too) ──
+     This module used to be exempt from UI Size: a fixed 760×680 box with a
+     fixed 44px knob and a fixed 8/9/10px type tier. That exemption was not
+     stable, because the exemption was never total — the shared linear slider
+     scales, and the global `:root[data-ui-size] :is(button, [role=button], …)`
+     rule in ui-size.css forces `min-height: var(--ui-size)` and
+     `font-size: var(--ui-font-sm)` onto every button in the app, this one
+     included. So the controls grew with UI Size while the box did not, and
+     `.ef-card`'s `overflow: hidden` silently ate the difference (measured
+     10px lost at size 30, 21px at 40, 41px at 50 — clipping Freeze/Hold and
+     the Stereo Width slider). A surface cannot half-scale; either the whole
+     module follows UI Size or it clips.
+
+     `--ui-scale` is 1 / 4:3 / 5:3 for sizes 30 / 40 / 50 and is the same
+     multiplier the rest of the app uses for bespoke geometry. Fallbacks keep
+     the module rendering standalone (tests, storybook) when no size is set. */
+  --ef-scale: var(--ui-scale, 1);
+  --ef-unit: var(--ui-size, 30px);
+  /* The module's own type ramp, below the global `--ui-font-*` tiers because
+     this is dense instrument labelling — but it scales at the same rate. */
+  --ef-fs-micro: calc(8px * var(--ef-scale));
+  --ef-fs-tiny: calc(9px * var(--ef-scale));
+  --ef-fs-small: calc(10px * var(--ef-scale));
+  --ef-fs-body: calc(11px * var(--ef-scale));
+  --ef-fs-readout: calc(13px * var(--ef-scale));
+  --ef-fs-title: calc(18px * var(--ef-scale));
+  --ef-fs-display: calc(22px * var(--ef-scale));
+  /* Spacing follows the global rhythm so gaps match neighbouring surfaces. */
+  --ef-gap-xs: var(--ui-space-xs, 2px);
+  --ef-gap-sm: var(--ui-space-sm, 4px);
+  --ef-gap-md: var(--ui-space-md, 8px);
+  --ef-gap-lg: var(--ui-space-lg, 12px);
+  /* Control heights derive from the UI Size hit box so they agree with the
+     `min-height: var(--ui-size)` the global rule already imposes. */
+  --ef-control-h: var(--ef-unit);
+  --ef-control-h-sm: calc(var(--ef-unit) * 0.8);
+  --ef-knob-size: calc(var(--ef-unit) * 1.47);
+  --ef-header-h: calc(68px * var(--ef-scale));
+  /* The visualizer is a fixed-aspect plot, not a text surface: it only needs
+     to grow enough for its scaled labels, so it takes half the scale delta.
+     Full scaling spent 80px of scarce vertical budget at size 50 on empty
+     plot area and pushed the control grid into a scroll. */
+  --ef-vis-h: calc(120px * (1 + (var(--ef-scale) - 1) * 0.5));
 
   /* Centered overlay, above the dialog backdrop — not an inline panel. */
   position: fixed;
@@ -52,8 +133,21 @@
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 201;
-  width: min(760px, calc(100vw - 28px));
-  height: min(680px, calc(100vh - 28px));
+  /* The envelope scales with UI Size, then yields to the viewport. Without the
+     scale term the contents outgrow the box (see the geometry bridge above).
+
+     The two axes scale differently on purpose. 1080p is the app's supported
+     floor, so vertical space is scarce (a full 1.67x of 680px is 1135px, which
+     does not fit) while horizontal space is plentiful. Width takes the full
+     scale; height grows by only half the delta and `.ef-body` scrolls for the
+     remainder. At size 50 the controls genuinely need ~870px — knobs are 74px
+     and card heads 44px — so that scroll is the honest result of asking for
+     larger controls in a bounded viewport, not wasted space. */
+  width: min(calc(760px * var(--ef-scale)), calc(100vw - 28px));
+  height: min(
+    calc(680px * (1 + (var(--ef-scale) - 1) * 0.5)),
+    calc(100vh - 28px)
+  );
   max-width: none;
   max-height: none;
   padding: 0;
@@ -68,7 +162,7 @@
 .ef-module {
   position: relative;
   display: grid;
-  grid-template-rows: 68px minmax(0, 1fr);
+  grid-template-rows: var(--ef-header-h) minmax(0, 1fr);
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -76,7 +170,7 @@
   border-radius: var(--ef-radius-panel);
   background:
     radial-gradient(circle at 84% 0%, var(--ef-accent-faint), transparent 22rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--text) 4%, transparent), transparent 28%),
     var(--ef-panel);
   box-shadow: var(--ef-shadow);
   isolation: isolate;
@@ -90,34 +184,34 @@
   pointer-events: none;
   opacity: 0.24;
   background-image: repeating-linear-gradient(0deg,
-    rgba(255, 255, 255, 0.015) 0, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 4px);
+    var(--ef-scanline) 0, var(--ef-scanline) 1px, transparent 1px, transparent 4px);
 }
 
-/* ---- Header (68px, stays visible while body scrolls) ---- */
+/* ---- Header (stays visible while body scrolls) ---- */
 .ef-header {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(calc(180px * var(--ef-scale)), 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 0 14px 0 16px;
+  gap: var(--ef-gap-lg);
+  padding: 0 var(--ef-gap-lg) 0 var(--ef-gap-lg);
   border-bottom: 1px solid var(--ef-line);
   background: color-mix(in srgb, var(--ef-panel) 72%, transparent);
 }
 
-.ef-brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.ef-brand { display: flex; align-items: center; gap: var(--ef-gap-md); min-width: 0; }
 
 .ef-mark {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
+  width: calc(var(--ef-unit) * 1.27);
+  height: calc(var(--ef-unit) * 1.27);
   border: 1px solid color-mix(in srgb, var(--ef-accent) 34%, transparent);
   border-radius: 10px;
   background: linear-gradient(145deg, var(--ef-accent-soft), var(--ef-accent-faint));
   color: var(--ef-accent-strong);
   font-family: var(--ef-mono);
-  font-size: 12px;
+  font-size: var(--ef-fs-body);
   font-weight: 800;
   letter-spacing: 0.08em;
   box-shadow: var(--ef-inset);
@@ -129,21 +223,21 @@
   margin-bottom: 2px;
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 9px;
+  font-size: var(--ef-fs-tiny);
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 .ef-title {
   overflow: hidden;
   margin: 0;
-  font-size: 18px;
+  font-size: var(--ef-fs-title);
   font-weight: 720;
   letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ef-header-actions { display: flex; align-items: center; gap: 8px; }
+.ef-header-actions { display: flex; align-items: center; gap: var(--ef-gap-md); }
 
 .ef-bypass, .ef-preset-trigger, .ef-toggle, .ef-performance,
 .ef-character-group button, .ef-segmented button {
@@ -161,10 +255,10 @@
 }
 
 .ef-bypass {
-  height: 32px;
-  padding: 0 12px;
+  min-height: var(--ef-control-h);
+  padding: 0 var(--ef-gap-md);
   border-radius: 8px;
-  font-size: 10px;
+  font-size: var(--ef-fs-small);
   font-weight: 750;
   letter-spacing: 0.055em;
   text-transform: uppercase;
@@ -173,32 +267,32 @@
 .ef-bypass[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--ef-danger) 48%, transparent);
   background: var(--ef-danger-soft);
-  color: #f0aea5;
+  color: var(--ef-danger-ink);
 }
 
 .ef-preset-field {
   display: grid;
-  grid-template-columns: auto minmax(120px, 160px);
+  grid-template-columns: auto minmax(calc(120px * var(--ef-scale)), calc(160px * var(--ef-scale)));
   align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding-left: 9px;
+  gap: var(--ef-gap-sm);
+  min-height: calc(var(--ef-control-h) + 4px);
+  padding-left: var(--ef-gap-md);
   border: 1px solid var(--ef-line);
   border-radius: 8px;
 }
 .ef-preset-field > span {
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 8px;
+  font-size: var(--ef-fs-micro);
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 .ef-preset-trigger {
-  height: 28px;
+  min-height: var(--ef-control-h);
   margin-right: 2px;
-  padding: 0 10px;
+  padding: 0 var(--ef-gap-md);
   border-radius: 6px;
-  font-size: 10px;
+  font-size: var(--ef-fs-small);
   font-weight: 650;
   text-align: left;
 }
@@ -206,8 +300,8 @@
 .ef-close {
   position: relative;
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
+  width: var(--ef-control-h);
+  height: var(--ef-control-h);
   border: 1px solid var(--ef-line-strong);
   border-radius: 8px;
   background: var(--ef-control);
@@ -231,25 +325,30 @@
 /* ---- Body ---- */
 .ef-body {
   display: grid;
-  grid-template-rows: 120px minmax(0, 1fr) 20px;
-  gap: 10px;
+  grid-template-rows: var(--ef-vis-h) minmax(0, 1fr) auto;
+  gap: var(--ef-gap-md);
   min-height: 0;
-  padding: 12px 14px 10px;
-  overflow: auto;
+  padding: var(--ef-gap-lg) var(--ef-gap-lg) var(--ef-gap-md);
+  /* The body itself does not scroll: the footer is a persistent legend for the
+     knob gestures and the state readout, so it stays pinned like the header.
+     Only the control grid scrolls (see .ef-grid), which keeps the legend
+     visible at every UI Size instead of letting it slide off the bottom. */
+  overflow: hidden;
 }
 
 /* ---- Echo-tap visualizer ---- */
 .ef-visualizer {
   position: relative;
   display: grid;
-  grid-template-columns: 122px minmax(0, 1fr) 130px;
-  gap: 10px;
+  grid-template-columns:
+    calc(122px * var(--ef-scale)) minmax(0, 1fr) calc(130px * var(--ef-scale));
+  gap: var(--ef-gap-md);
   min-width: 0;
   overflow: hidden;
-  padding: 10px;
+  padding: var(--ef-gap-md);
   border: 1px solid var(--ef-line);
   border-radius: var(--ef-radius-card);
-  background: rgba(12, 16, 18, 0.56);
+  background: var(--ef-card);
   box-shadow: var(--ef-inset);
 }
 .ef-vis-meta, .ef-vis-readouts {
@@ -265,28 +364,34 @@
   margin-bottom: 3px;
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 8px;
+  font-size: var(--ef-fs-micro);
   letter-spacing: 0.10em;
   text-transform: uppercase;
 }
-.ef-vis-tempo { display: flex; align-items: baseline; gap: 5px; }
+.ef-vis-tempo { display: flex; align-items: baseline; gap: var(--ef-gap-sm); }
 .ef-vis-tempo strong {
   font-family: var(--ef-mono);
-  font-size: 22px;
+  font-size: var(--ef-fs-display);
   font-weight: 720;
   letter-spacing: -0.04em;
 }
-.ef-vis-tempo span { color: var(--ef-text-muted); font-family: var(--ef-mono); font-size: 9px; }
+.ef-vis-tempo span {
+  color: var(--ef-text-muted); font-family: var(--ef-mono); font-size: var(--ef-fs-tiny);
+}
 .ef-mode-chip {
   align-self: flex-start;
-  min-width: 70px;
-  padding: 4px 7px;
+  min-width: calc(70px * var(--ef-scale));
+  padding: var(--ef-gap-xs) var(--ef-gap-sm);
   border: 1px solid color-mix(in srgb, var(--ef-accent) 27%, transparent);
   border-radius: 999px;
   background: var(--ef-accent-faint);
-  color: var(--ef-accent-strong);
+  /* Not raw `--ef-accent-strong`: a saturated highlight is sized for fills and
+     large type, and as 8px uppercase ink on a faint wash it measured 3.08:1 on
+     Soft and 3.52:1 on Vintage. Pulling it toward the theme's ink keeps the
+     accent identity while clearing AA. */
+  color: var(--ef-accent-ink);
   font-family: var(--ef-mono);
-  font-size: 8px;
+  font-size: var(--ef-fs-micro);
   font-weight: 750;
   letter-spacing: 0.08em;
   text-align: center;
@@ -295,7 +400,7 @@
 .ef-mode-chip-held {
   border-color: color-mix(in srgb, var(--ef-secondary) 38%, transparent);
   background: var(--ef-secondary-soft);
-  color: #a2d8d1;
+  color: var(--ef-secondary-ink);
 }
 
 .ef-echo-plot {
@@ -303,9 +408,9 @@
   z-index: 1;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--ef-line);
   border-radius: 8px;
-  background-color: rgba(6, 9, 10, 0.58);
+  background-color: color-mix(in srgb, var(--bg-grid) 75%, var(--bg-panel));
   background-image:
     linear-gradient(90deg, var(--ef-grid-major) 1px, transparent 1px),
     linear-gradient(0deg, var(--ef-grid-major) 1px, transparent 1px),
@@ -316,9 +421,12 @@
   position: absolute;
   left: 7px;
   z-index: 3;
-  color: var(--ef-text-faint);
+  /* These L/R axis labels used a dedicated "faint" ink that measured 3.5:1 on
+     the dark default and 1.05:1 on Riso. Muted is the floor for readable text
+     (DESIGN.md: muted is a hierarchy signal, not a license for low contrast). */
+  color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 8px;
+  font-size: var(--ef-fs-micro);
   font-weight: 700;
 }
 .ef-echo-plot::before { content: "L"; top: 7px; }
@@ -352,7 +460,7 @@
   z-index: 4;
   width: var(--tap-size, 9px);
   height: var(--tap-size, 9px);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid color-mix(in srgb, var(--text) 30%, transparent);
   border-radius: 3px;
   background: var(--tap-color, var(--ef-accent));
   opacity: var(--tap-opacity, 0.7);
@@ -363,31 +471,46 @@
 .ef-dialog[data-character="tape"] .ef-tap { border-radius: 45% 55% 48% 52%; filter: blur(0.25px); }
 
 .ef-vis-readouts { padding: 1px 0; }
-.ef-time-readout { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: baseline; gap: 7px; }
-.ef-time-readout + .ef-time-readout { margin-top: 5px; }
+.ef-time-readout {
+  display: grid;
+  grid-template-columns: calc(var(--ef-unit) * 0.6) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--ef-gap-sm);
+}
+.ef-time-readout + .ef-time-readout { margin-top: var(--ef-gap-sm); }
 .ef-time-readout b {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: calc(var(--ef-unit) * 0.6);
+  height: calc(var(--ef-unit) * 0.6);
   border-radius: 5px;
   background: var(--ef-control);
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 9px;
+  font-size: var(--ef-fs-tiny);
 }
-.ef-time-readout strong { overflow: hidden; font-family: var(--ef-mono); font-size: 13px; }
+.ef-time-readout strong {
+  overflow: hidden; font-family: var(--ef-mono); font-size: var(--ef-fs-readout);
+}
 .ef-vis-state {
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 8px;
+  font-size: var(--ef-fs-micro);
   letter-spacing: 0.08em;
   text-align: right;
   text-transform: uppercase;
 }
 
-/* Bypass desaturates and pauses the visualizer. */
-.ef-dialog[data-bypassed="1"] .ef-visualizer { filter: saturate(0.35) brightness(0.8); }
+/* Bypass desaturates and pauses the visualizer.
+
+   Desaturation only — no `brightness()`. A brightness filter scales ink and
+   surface by the same factor, so it compresses the gap between them: the old
+   `brightness(0.8)` dropped eleven readouts below AA (worst: Beton 4.92 -> 3.64,
+   measured post-filter in the built renderer). Removing colour is enough to
+   read as "not processing" — the state is also carried by the Bypass button's
+   own pressed styling, the halted playhead, and the footer state word, so the
+   signal is not colour-only either. */
+.ef-dialog[data-bypassed="1"] .ef-visualizer { filter: saturate(0.35); }
 .ef-dialog[data-bypassed="1"] .ef-playhead { animation: none; }
 
 @keyframes ef-playhead-scan {
@@ -400,20 +523,40 @@
 /* ---- Control grid ---- */
 .ef-grid {
   display: grid;
+  /* Fixed 4-up, matching the composition the module was designed around (Time
+     spans two of them). Auto-fit was tried and rejected: the track count then
+     varies with UI Size, which reflows the cards into a different arrangement
+     at each setting — the same editor rearranging itself is worse than the
+     scroll it was meant to avoid. Vertical fit is solved by keeping the cards
+     to their content height instead. */
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1.08fr) minmax(0, 0.92fr);
-  gap: 10px;
+  /* Rows take exactly their content height. The original `1.08fr`/`0.92fr`
+     capped them, so `.ef-card`'s `overflow: hidden` silently ate whatever the
+     scaled contents needed; plain `auto` swings the other way and lets a row
+     stretch into spare space, inflating a two-knob card to 299px at size 50
+     and pushing the last row out of view. `min-content` is the honest height:
+     the grid asks for what the controls need and no more. */
+  grid-auto-rows: min-content;
+  align-content: start;
+  gap: var(--ef-gap-md);
   min-height: 0;
+  /* The scroll lives here rather than on .ef-body so the footer legend stays
+     pinned. A little end padding keeps the last row clear of the edge. */
+  overflow-y: auto;
+  padding-bottom: var(--ef-gap-xs);
 }
 .ef-card {
   position: relative;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  padding: 10px;
+  /* Was `hidden`, which silently ate any content taller than the card. Nothing
+     here needs clipping — the visualizer is the only surface with painted
+     overflow — so let content define the height and the body scroll. */
+  overflow: visible;
+  padding: var(--ef-gap-md);
   border: 1px solid var(--ef-line);
   border-radius: var(--ef-radius-card);
-  background: rgba(12, 16, 18, 0.56);
+  background: var(--ef-card);
   box-shadow: var(--ef-inset);
 }
 .ef-card-time { grid-column: span 2; }
@@ -421,13 +564,13 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  min-height: 26px;
-  margin-bottom: 7px;
+  gap: var(--ef-gap-md);
+  min-height: calc(var(--ef-unit) * 0.87);
+  margin-bottom: var(--ef-gap-sm);
 }
 .ef-card-head h2 {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--ef-fs-body);
   font-weight: 760;
   letter-spacing: 0.065em;
   text-transform: uppercase;
@@ -444,20 +587,29 @@
   border-radius: 8px;
   background: var(--ef-control-pressed);
 }
-.ef-character-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-bottom: 8px; text-align: center; }
+.ef-character-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  margin-bottom: var(--ef-gap-md);
+  text-align: center;
+}
 .ef-segmented button, .ef-character-group button {
-  min-width: 42px;
-  height: 24px;
-  padding: 0 8px;
+  /* Hit target is the full UI Size box (style-guide.md §Spacing & Rhythm:
+     text-bearing controls take the selected size as their minimum cross-axis
+     size). The group grows with it rather than clipping — never shrink the
+     target to fit a fixed container. */
+  min-width: calc(42px * var(--ef-scale));
+  min-height: var(--ef-control-h);
+  padding: 0 var(--ef-gap-md);
   border-color: transparent;
   border-radius: 5px;
   background: transparent;
   box-shadow: none;
   color: var(--ef-text-muted);
-  font-size: 9px;
+  font-size: var(--ef-fs-tiny);
   font-weight: 730;
 }
-.ef-character-group button { height: 28px; }
 .ef-segmented button[aria-pressed="true"], .ef-character-group button[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--ef-accent) 28%, transparent);
   background: var(--ef-accent-soft);
@@ -466,7 +618,7 @@
 .ef-character-desc {
   margin: 0;
   color: var(--ef-text-muted);
-  font-size: 10px;
+  font-size: var(--ef-fs-small);
   line-height: 1.4;
 }
 
@@ -474,38 +626,44 @@
 .ef-time-lanes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  height: calc(100% - 33px);
+  gap: var(--ef-gap-md);
+  /* Height was `calc(100% - 33px)` — a fixed offset for a head whose size now
+     scales, which forced the lanes past the card bottom. Content-driven. */
   min-height: 0;
 }
 .ef-time-lane {
   display: grid;
-  grid-template-rows: 24px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--ef-gap-sm);
   min-width: 0;
-  padding: 7px;
+  padding: var(--ef-gap-sm);
   border: 1px solid var(--ef-line);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.018);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
 }
-.ef-lane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ef-lane-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--ef-gap-md);
+}
 .ef-lane-badge {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: calc(var(--ef-unit) * 0.67);
+  height: calc(var(--ef-unit) * 0.67);
   border-radius: 5px;
   background: var(--ef-control);
   color: var(--ef-text-soft);
   font-family: var(--ef-mono);
-  font-size: 9px;
+  font-size: var(--ef-fs-tiny);
   font-weight: 800;
 }
-.ef-lane-computed { color: var(--ef-text-muted); font-family: var(--ef-mono); font-size: 9px; }
-.ef-division-field { display: grid; gap: 5px; align-content: center; width: 100%; }
+.ef-lane-computed {
+  color: var(--ef-text-muted); font-family: var(--ef-mono); font-size: var(--ef-fs-tiny);
+}
+.ef-division-field { display: grid; gap: var(--ef-gap-sm); align-content: center; width: 100%; }
 .ef-division-field span {
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 8px;
+  font-size: var(--ef-fs-micro);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -518,67 +676,77 @@
   cursor: pointer;
 }
 .ef-division-select {
-  height: 34px;
-  padding: 0 8px;
+  min-height: var(--ef-control-h);
+  padding: 0 var(--ef-gap-md);
   font-family: var(--ef-mono);
-  font-size: 11px;
+  font-size: var(--ef-fs-body);
   font-weight: 700;
 }
 
 /* Knob */
 .ef-knob-row {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: var(--ef-knob-size) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--ef-gap-md);
+  margin-bottom: var(--ef-gap-md);
 }
 .ef-knob {
   position: relative;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: var(--ef-knob-size);
+  height: var(--ef-knob-size);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
   border-radius: 50%;
   background:
     conic-gradient(from 225deg,
       var(--ef-accent) 0deg, var(--ef-accent) var(--knob-fill, 0deg),
-      rgba(255, 255, 255, 0.08) var(--knob-fill, 0deg), rgba(255, 255, 255, 0.08) 270deg,
+      var(--ef-knob-track) var(--knob-fill, 0deg), var(--ef-knob-track) 270deg,
       transparent 270deg);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.34);
+  /* Elevation is the theme's call (DESIGN.md §4): a flat skin stays flat here
+     instead of carrying a shadow this module invented. */
+  box-shadow: var(--shadow-pill, none);
   cursor: ns-resize;
   touch-action: none;
 }
 .ef-knob-cool { background:
   conic-gradient(from 225deg,
     var(--ef-secondary) 0deg, var(--ef-secondary) var(--knob-fill, 0deg),
-    rgba(255, 255, 255, 0.08) var(--knob-fill, 0deg), rgba(255, 255, 255, 0.08) 270deg,
+    var(--ef-knob-track) var(--knob-fill, 0deg), var(--ef-knob-track) 270deg,
     transparent 270deg); }
 .ef-knob::before {
   content: "";
   position: absolute;
-  inset: 5px;
+  inset: calc(var(--ef-knob-size) * 0.114);
   border-radius: inherit;
-  background: linear-gradient(145deg, #343c40, #171b1e);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--text) 14%, var(--ef-control)),
+    color-mix(in srgb, var(--bg-grid) 60%, var(--ef-control)));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent);
 }
 .ef-knob-pointer {
   position: absolute;
-  top: 7px;
+  /* Geometry is a fraction of the knob face, not fixed px: the rotation origin
+     must stay on the knob's center at every UI Size or the pointer sweeps an
+     off-center arc. `transform-origin` is measured from the pointer's own top
+     edge, so top + origin must equal half the face: 0.159 + 0.341 = 0.5. */
+  top: calc(var(--ef-knob-size) * 0.159);
   left: 50%;
   z-index: 1;
   width: 2px;
-  height: 10px;
+  height: calc(var(--ef-knob-size) * 0.227);
   border-radius: 2px;
   background: var(--ef-accent-strong);
   transform: translateX(-50%) rotate(var(--knob-angle, 0deg));
-  transform-origin: 50% 15px;
+  transform-origin: 50% calc(var(--ef-knob-size) * 0.341);
 }
 .ef-knob-cool .ef-knob-pointer { background: var(--ef-secondary); }
-.ef-knob-label { color: var(--ef-text-muted); font-size: 10px; letter-spacing: 0.02em; }
+.ef-knob-label {
+  color: var(--ef-text-muted); font-size: var(--ef-fs-small); letter-spacing: 0.02em;
+}
 .ef-knob-value {
   color: var(--ef-text);
   font-family: var(--ef-mono);
-  font-size: 11px;
+  font-size: var(--ef-fs-body);
   text-align: right;
   white-space: nowrap;
 }
@@ -586,10 +754,10 @@
 /* Toggle + range */
 .ef-toggle {
   width: 100%;
-  height: 30px;
-  margin-bottom: 8px;
+  min-height: var(--ef-control-h);
+  margin-bottom: var(--ef-gap-md);
   border-radius: 7px;
-  font-size: 10px;
+  font-size: var(--ef-fs-small);
   font-weight: 730;
 }
 .ef-toggle[aria-pressed="true"] {
@@ -597,29 +765,44 @@
   background: var(--ef-accent-soft);
   color: var(--ef-accent-strong);
 }
-.ef-range-field { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
-.ef-range-field span { color: var(--ef-text-muted); font-family: var(--ef-mono); font-size: 8px; text-transform: uppercase; }
+.ef-range-field {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--ef-gap-md);
+}
+.ef-range-field span {
+  color: var(--ef-text-muted);
+  font-family: var(--ef-mono);
+  font-size: var(--ef-fs-micro);
+  text-transform: uppercase;
+}
 .ef-range-field .ef-width-slider { min-width: 0; }
-.ef-range-field output { color: var(--ef-text); font-family: var(--ef-mono); font-size: 10px; }
+.ef-range-field output {
+  color: var(--ef-text); font-family: var(--ef-mono); font-size: var(--ef-fs-small);
+}
 
 /* Performance buttons */
 .ef-performance {
   display: grid;
   gap: 2px;
   width: 100%;
-  min-height: 40px;
-  margin-bottom: 8px;
-  padding: 6px 8px;
+  /* Two-line control (title + caption), so it needs more than one hit box. */
+  min-height: calc(var(--ef-unit) * 1.34);
+  margin-bottom: var(--ef-gap-md);
+  padding: var(--ef-gap-sm) var(--ef-gap-md);
   border-radius: 8px;
-  font-size: 11px;
+  font-size: var(--ef-fs-body);
   font-weight: 730;
   text-align: left;
 }
-.ef-performance small { color: var(--ef-text-muted); font-size: 8px; font-weight: 600; }
+.ef-performance small {
+  color: var(--ef-text-muted); font-size: var(--ef-fs-micro); font-weight: 600;
+}
 .ef-performance[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--ef-secondary) 40%, transparent);
   background: var(--ef-secondary-soft);
-  color: #a2d8d1;
+  color: var(--ef-secondary-ink);
 }
 .ef-performance-flash { background: var(--ef-accent-soft); border-color: var(--ef-accent); }
 
@@ -628,10 +811,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--ef-gap-lg);
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
-  font-size: 9px;
+  font-size: var(--ef-fs-tiny);
   letter-spacing: 0.03em;
 }
 .ef-foot-state { color: var(--ef-text-soft); text-transform: uppercase; }

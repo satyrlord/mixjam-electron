@@ -17,7 +17,11 @@
     { path: 'club-night.mixjam', displayName: 'club-night', lastOpened: '2026-06-28T12:00:00.000Z' },
     { path: 'archive/sunrise.mixjam', displayName: 'sunrise', lastOpened: null },
     { path: 'ideas/after-hours.mixjam', displayName: 'after-hours', lastOpened: null },
-    { path: 'sketches/deep-water.mixjam', displayName: 'deep-water', lastOpened: null },
+    {
+      path: 'sketches/deep-water-session-with-an-unusually-long-project-name-for-layout-stress-that-keeps-going.mixjam',
+      displayName: 'deep-water-session-with-an-unusually-long-project-name-for-layout-stress-that-keeps-going',
+      lastOpened: '2026-06-20T12:00:00.000Z'
+    },
     { path: 'archive/warehouse.mixjam', displayName: 'warehouse', lastOpened: null },
     { path: 'ideas/low-tide.mixjam', displayName: 'low-tide', lastOpened: null },
     { path: 'sketches/blue-hour.mixjam', displayName: 'blue-hour', lastOpened: null },
@@ -186,9 +190,9 @@
       modifiedAt: '2026-06-28T12:00:00.000Z',
       song: { bpm: bpm, masterGain: 0.7, clipEdgeMicroFades: { enabled: true, fadeInMs: 2, fadeOutMs: 4 } },
       masterBus: {
-        order: ['gain', 'clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim'],
+        order: ['clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim'],
         power: {
-          gain: true, clip: true, tube: true, subeq: true, comp: true, max: true,
+          clip: true, tube: true, subeq: true, comp: true, max: true,
           addeq: true, tape: true, width: true, mbc: true, lim: true
         },
         params: {

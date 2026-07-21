@@ -36,7 +36,7 @@ describe('useTransportRuntime', () => {
 
     await expect(result.current.getSampleBuffer('kick.wav')).resolves.toBeNull()
     expect(result.current.transportState).toBe('stopped')
-    expect(result.current.currentTick).toBe(0)
+    expect(result.current.tickStore.get()).toBe(0)
     expect(result.current.bpm).toBe(128)
     expect(result.current.masterGain).toBe(0.5)
   })
@@ -66,6 +66,37 @@ describe('useTransportRuntime', () => {
     })
 
     expect(result.current.transportState).toBe('stopped')
+    expect(renderCount).toBe(renderCountAfterMount)
+  })
+
+  it('advances the tick store on the poll interval without re-rendering the consumer', () => {
+    vi.useFakeTimers()
+    let engineTick = 0
+    vi.spyOn(PlaybackEngine.prototype, 'currentTick', 'get').mockImplementation(() => engineTick)
+    let renderCount = 0
+    const getLanes = () => []
+    const backendAPI = createBackendAPI()
+    const { result } = renderHook(() => {
+      renderCount += 1
+      return useTransportRuntime({
+        backendAPI,
+        sampleFolder: null,
+        active: true,
+        getLanes,
+        getProjectGraphSnapshot: () => EMPTY_GRAPH,
+        songEndTick: 160,
+        initialBpm: 120,
+        initialMasterGain: 0.8
+      })
+    })
+    const renderCountAfterMount = renderCount
+
+    act(() => {
+      engineTick = 24
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(result.current.tickStore.get()).toBe(24)
     expect(renderCount).toBe(renderCountAfterMount)
   })
 

@@ -100,13 +100,47 @@ describe('useMixer', () => {
     act(() => result.current.setVisualTelemetryActive(true))
     expect(callbacks).toHaveLength(1)
     act(() => callbacks.shift()!(100))
-    expect(result.current.channelLevels.get(0)).toBeCloseTo(-6.0206, 3)
-    expect(result.current.channelPeaks.get(0)).toBeCloseTo(-6.0206, 3)
+    expect(result.current.channelMetersStore.get().levels.get(0)).toBeCloseTo(-6.0206, 3)
+    expect(result.current.channelMetersStore.get().peaks.get(0)).toBeCloseTo(-6.0206, 3)
 
     act(() => callbacks.shift()!(200))
     expect(analyser.getFloatTimeDomainData).toHaveBeenCalledTimes(2)
+    const pendingFrame = callbacks.shift()!
     unmount()
     expect(cancelAnimationFrame).toHaveBeenCalled()
+    act(() => pendingFrame(300))
+    expect(analyser.getFloatTimeDomainData).toHaveBeenCalledTimes(2)
+  })
+
+  it('publishes peak decay while the RMS level remains unchanged', () => {
+    const engine = engineStub()
+    engine.activeVoiceCount = 1
+    let sample = 1
+    const analyser = {
+      fftSize: 4,
+      getFloatTimeDomainData: vi.fn((buffer: Float32Array) => buffer.fill(sample))
+    }
+    engine.getChannelAnalyser.mockReturnValue(analyser)
+    const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
+    const { result } = renderHook(() => useMixer(
+      playbackEngineRef,
+      'player',
+      createDefaultLanes().slice(0, 1),
+      createDefaultFxBuses()
+    ))
+
+    act(() => result.current.setVisualTelemetryActive(true))
+    act(() => callbacks.shift()!(100))
+    expect(result.current.channelMetersStore.get().peaks.get(0)).toBe(0)
+
+    sample = 0.25
+    act(() => callbacks.shift()!(200))
+    const firstDecay = result.current.channelMetersStore.get().peaks.get(0)!
+    expect(firstDecay).toBeCloseTo(-3, 5)
+
+    act(() => callbacks.shift()!(300))
+    expect(result.current.channelMetersStore.get().levels.get(0)).toBeCloseTo(-12.0412, 3)
+    expect(result.current.channelMetersStore.get().peaks.get(0)).toBeCloseTo(-6, 5)
   })
 
   it('handles missing engines, missing analysers, silence decay, and storage failure', () => {
@@ -128,20 +162,24 @@ describe('useMixer', () => {
     engine.activeVoiceCount = 1
     playbackEngineRef.current = engine as unknown as PlaybackEngine
     act(() => callbacks.shift()!(100))
-    expect(result.current.channelLevels.get(0)).toBe(-100)
+    expect(result.current.channelMetersStore.get().levels.get(0)).toBe(-100)
 
     const analyser = {
       fftSize: 2,
-      getFloatTimeDomainData: (buffer: Float32Array) => buffer.fill(1)
+      getFloatTimeDomainData: (buffer: Float32Array) => buffer.fill(0)
     }
     engine.getChannelAnalyser.mockReturnValue(analyser)
     act(() => callbacks.shift()!(200))
-    expect(result.current.channelLevels.get(0)).toBe(0)
+    expect(result.current.channelMetersStore.get().levels.get(0)).toBe(-100)
+
+    analyser.getFloatTimeDomainData = (buffer: Float32Array) => buffer.fill(1)
+    act(() => callbacks.shift()!(250))
+    expect(result.current.channelMetersStore.get().levels.get(0)).toBe(0)
 
     engine.activeVoiceCount = 0
     act(() => callbacks.shift()!(300))
-    expect(result.current.channelLevels.get(0)).toBe(-100)
-    expect(result.current.channelPeaks.get(0)).toBe(-100)
+    expect(result.current.channelMetersStore.get().levels.get(0)).toBe(-100)
+    expect(result.current.channelMetersStore.get().peaks.get(0)).toBe(-100)
     expect(remove).toHaveBeenCalledWith('mixjam-mixer-channels')
   })
 })

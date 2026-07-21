@@ -50,6 +50,14 @@ interface HalfBandKernel {
   // positions.
   readonly denseTapIndices: Int32Array
   readonly denseTapValues: Float64Array
+  // A half-band kernel's nonzero taps are a fixed stride-2 comb with the center
+  // tap inserted in the middle: `denseFirst + 2k` below the center, `center` at
+  // `densePivot`, then `denseFirst + 2(k-1)` above it. That lets the downsampler
+  // walk the history with a decrementing pointer instead of loading an index per
+  // tap. `designHalfBand` proves the layout before publishing these.
+  readonly denseFirst: number
+  readonly densePivot: number
+  readonly denseCenter: number
 }
 
 function designHalfBand(taps: number, beta: number): HalfBandKernel {
@@ -88,6 +96,23 @@ function designHalfBand(taps: number, beta: number): HalfBandKernel {
       denseValues.push(h[i])
     }
   }
+  // Prove the stride-2-with-center-insert layout the downsampler's pointer walk
+  // depends on. A future tap count that broke it would otherwise read the wrong
+  // history slots silently, so fail loudly at module-load time instead.
+  const densePivot = denseIndices.indexOf(center)
+  const denseFirst = denseIndices[0]!
+  if (densePivot < 0) throw new Error('half-band kernel: center tap missing from dense set')
+  for (let k = 0; k < denseIndices.length; k++) {
+    const expected = k === densePivot
+      ? center
+      : denseFirst + 2 * (k < densePivot ? k : k - 1)
+    if (denseIndices[k] !== expected) {
+      throw new Error(
+        `half-band kernel (${taps} taps): dense tap ${k} is ${denseIndices[k]}, expected ${expected}`
+      )
+    }
+  }
+
   return {
     taps: h,
     phase0,
@@ -100,19 +125,26 @@ function designHalfBand(taps: number, beta: number): HalfBandKernel {
     densePhase,
     denseTapIndices: Int32Array.from(denseIndices),
     denseTapValues: Float64Array.from(denseValues),
+    denseFirst,
+    densePivot,
+    denseCenter: center,
   }
 }
 
 const OUTER_KERNEL = designHalfBand(OUTER_TAPS, KAISER_BETA)
 const INNER_KERNEL = designHalfBand(INNER_TAPS, KAISER_BETA)
 
+// The history rings hold f64. Every value written into them is copied from a
+// Float32Array, so it is exactly representable and the stored double equals the
+// widened float32 the old Float32Array ring produced — bit-identical reads, but
+// without a narrowing store and a widening load on the hot path.
 class Upsampler2x {
-  private readonly history: Float32Array
+  private readonly history: Float64Array
   private readonly kernel: HalfBandKernel
 
   constructor(kernel: HalfBandKernel, maxInput: number) {
     this.kernel = kernel
-    this.history = new Float32Array(maxInput + kernel.phaseLen)
+    this.history = new Float64Array(maxInput + kernel.phaseLen)
   }
 
   reset(): void {
@@ -146,12 +178,12 @@ class Upsampler2x {
 }
 
 class Downsampler2x {
-  private readonly history: Float32Array
+  private readonly history: Float64Array
   private readonly kernel: HalfBandKernel
 
   constructor(kernel: HalfBandKernel, maxInput: number) {
     this.kernel = kernel
-    this.history = new Float32Array(maxInput + kernel.order)
+    this.history = new Float64Array(maxInput + kernel.order)
   }
 
   reset(): void {
@@ -161,15 +193,27 @@ class Downsampler2x {
   /** Writes n/2 samples into out from n high-rate input samples. */
   process(input: Float32Array, n: number, out: Float32Array): void {
     const hist = this.history
-    const { order, denseTapIndices, denseTapValues } = this.kernel
+    const { order, denseTapIndices, denseTapValues, denseFirst, densePivot, denseCenter } = this.kernel
     for (let i = 0; i < n; i++) hist[order + i] = input[i]
     const outN = n >> 1
     const denseCount = denseTapIndices.length
     for (let i = 0; i < outN; i++) {
       let acc = 0
       const base = order + 2 * i
-      // Only the ~order/2 nonzero half-band taps contribute.
-      for (let k = 0; k < denseCount; k++) acc += denseTapValues[k] * hist[base - denseTapIndices[k]]
+      // Only the ~order/2 nonzero half-band taps contribute. Their positions are
+      // a stride-2 comb (asserted in designHalfBand), so walk the history with a
+      // decrementing pointer rather than loading an index per tap. Terms and
+      // summation order are identical to the indexed form, so this is bit-exact.
+      let p = base - denseFirst
+      for (let k = 0; k < densePivot; k++) {
+        acc += denseTapValues[k] * hist[p]
+        p -= 2
+      }
+      acc += denseTapValues[densePivot] * hist[base - denseCenter]
+      for (let k = densePivot + 1; k < denseCount; k++) {
+        acc += denseTapValues[k] * hist[p]
+        p -= 2
+      }
       out[i] = acc
     }
     hist.copyWithin(0, n, n + order)

@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import { createBackendAPI, DEFAULT_SAMPLE_ROWS, TEST_SAMPLE_FOLDER, TEST_USER_FOLDER } from '../test/backendApi'
+import { formatTimer } from '../lib/formatTimer'
 import { useAppState } from './useAppState'
 
 const USER_FOLDER = TEST_USER_FOLDER
@@ -28,7 +29,7 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     expect(result.current.view).toBe('home')
-    expect(result.current.timerText).toBe('00:00.0')
+    expect(formatTimer(result.current.elapsedMsStore.get())).toBe('00:00.0')
 
     await waitFor(() => {
       expect(result.current.version).toBe('v0.test.0')
@@ -68,23 +69,28 @@ describe('useAppState', () => {
     expect(backendAPI.resizeToPlayer).toHaveBeenCalledTimes(1)
 
     // Timer should be at 00:00.0 until playback starts
-    expect(result.current.timerText).toBe('00:00.0')
+    expect(formatTimer(result.current.elapsedMsStore.get())).toBe('00:00.0')
 
     // Start playback
     act(() => result.current.placeSampleDetailOnLane({
       name: 'test.wav', relpath: 'test.wav', tags: [], bpm: 120, duration: 10
     }, 0, 0))
+    // transportPlay resolves playbackEngine.start() before it starts the
+    // elapsed timer. A fixed microtask count races that chain, so drain
+    // until the transport actually reports 'playing'.
     await act(async () => {
       result.current.transportPlay()
-      await Promise.resolve()
-      await Promise.resolve()
+      for (let i = 0; i < 50 && result.current.transportState !== 'playing'; i += 1) {
+        await Promise.resolve()
+      }
     })
+    expect(result.current.transportState).toBe('playing')
 
     act(() => {
       vi.advanceTimersByTime(1000)
     })
 
-    expect(result.current.timerText).toBe('00:01.0')
+    expect(formatTimer(result.current.elapsedMsStore.get())).toBe('00:01.0')
   })
 
   it('returns to home and clears the timer', async () => {
@@ -97,7 +103,7 @@ describe('useAppState', () => {
     })
 
     expect(result.current.view).toBe('home')
-    expect(result.current.timerText).toBe('00:00.0')
+    expect(formatTimer(result.current.elapsedMsStore.get())).toBe('00:00.0')
     expect(backendAPI.resizeToHome).toHaveBeenCalledTimes(1)
   })
 

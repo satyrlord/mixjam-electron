@@ -17,6 +17,7 @@ import type { LibrarySyncState, MixJamFileItem, SampleListItem } from '../../../
 import type { LaneState } from '../project/project-state'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 import { createDefaultFxBuses } from '../project/project-state'
+import { createValueStore } from '../lib/value-store'
 
 const INDEX_CSS_PATH = resolve(process.cwd(), 'src/renderer/src/index.css')
 
@@ -126,7 +127,7 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
 const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   lanes: LANES,
   laneShouldDim: () => false,
-  currentTick: 0,
+  tickStore: createValueStore(0),
   missingSamplePaths: new Set<string>(),
   onPlaceSampleDetailOnLane: noop,
   onMovePlacement: noop,
@@ -149,7 +150,7 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   songEndTick: 0,
   bpm: 120,
   masterGain: 0.8,
-  masterMeter: emptyMasterMeterSnapshot(),
+  masterMeterStore: createValueStore(emptyMasterMeterSnapshot()),
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
@@ -165,8 +166,7 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
 
 const DEFAULT_MIXER: PlayerMixerProps = {
   returnBuses: createDefaultFxBuses(),
-  channelLevels: new Map(),
-  channelPeaks: new Map(),
+  channelMetersStore: createValueStore({ levels: new Map(), peaks: new Map() }),
   onSetVisualTelemetryActive: noop,
   onBeginMixerGesture: noop,
   onCommitMixerGesture: noop,
@@ -194,6 +194,7 @@ const DEFAULT_PROJECT: PlayerProjectProps = {
 const DEFAULT_MASTER_BUS: PlayerMasterBusProps = {
   state: defaultMasterBusState(),
   getMeterSnapshot: () => null,
+  onSetMetersActive: noop,
   onSetParam: noop,
   onTogglePower: noop,
   onReorder: noop,
@@ -964,16 +965,16 @@ describe('PlayerView', () => {
 
   // --- AC-010: Playhead visible during playback ---
   it('AC-010: playhead is visible during playback at correct position', () => {
-    renderPlayer({ transport: { transportState: 'playing' }, arrangement: { currentTick: 64 } })
+    renderPlayer({ transport: { transportState: 'playing' }, arrangement: { tickStore: createValueStore(64) } })
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
-    // currentTick=64 out of the 31,968-tick capacity.
+    // tick 64 out of the 31,968-tick capacity.
     expect(playhead!.getAttribute('style')).toContain('0.002002')
   })
 
   it('AC-010: playhead remains visible at its position when transport is stopped', () => {
-    renderPlayer({ transport: { transportState: 'stopped' }, arrangement: { currentTick: 40 } })
+    renderPlayer({ transport: { transportState: 'stopped' }, arrangement: { tickStore: createValueStore(40) } })
 
     const playhead = document.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
@@ -1186,7 +1187,7 @@ describe('PlayerView', () => {
   it('AC-011a: ruler keyboard controls seek by grid step and to both ends', () => {
     const onTransportSeek = vi.fn()
     renderPlayer({
-      arrangement: { currentTick: 18 },
+      arrangement: { tickStore: createValueStore(18) },
       transport: { onTransportSeek }
     })
     const ruler = screen.getByRole('slider', { name: 'Tracker timeline' })
@@ -1412,7 +1413,7 @@ describe('PlayerView', () => {
   it('renders playhead when transport is playing with non-zero tick', () => {
     const { container } = renderPlayer({
       transport: { transportState: 'playing' },
-      arrangement: { currentTick: 64 }
+      arrangement: { tickStore: createValueStore(64) }
     })
     const playhead = container.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
@@ -1421,7 +1422,7 @@ describe('PlayerView', () => {
   it('renders the repositioned playhead when transport is stopped', () => {
     const { container } = renderPlayer({
       transport: { transportState: 'stopped' },
-      arrangement: { currentTick: 64 }
+      arrangement: { tickStore: createValueStore(64) }
     })
     const playhead = container.querySelector('.tracker-playhead')
     expect(playhead).not.toBeNull()
@@ -1778,10 +1779,10 @@ describe('PlayerView', () => {
     expect(screen.getByText(/shortcuts/i)).toBeInTheDocument()
   })
 
-  it('hides playhead when currentTick exceeds totalTicks', () => {
+  it('hides playhead when the tick exceeds totalTicks', () => {
     renderPlayer({
       transport: { transportState: 'playing' },
-      arrangement: { currentTick: 31968 }
+      arrangement: { tickStore: createValueStore(31968) }
     })
 
     const playhead = document.querySelector('.tracker-playhead')

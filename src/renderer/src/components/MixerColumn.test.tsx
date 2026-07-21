@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
+import type { ChannelMeterFrame } from '../hooks/useMixer'
+import { createValueStore } from '../lib/value-store'
 import { createDefaultFxBuses, createDefaultLanes } from '../project/project-state'
 import MixerColumn from './MixerColumn'
 
@@ -25,6 +27,10 @@ function Harness({ onSet, onPreview, onGestureStart = vi.fn(), onGestureEnd = vi
 }) {
   const [buses, setBuses] = useState<ReturnBuses>(initialReturnBuses)
   const [lanes] = useState(() => createDefaultLanes().slice(0, 1))
+  const [channelMetersStore] = useState(() => createValueStore<ChannelMeterFrame>({
+    levels: new Map([[0, -12]]),
+    peaks: new Map([[0, -8]])
+  }))
   const handleSet = (next: PlaybackReturnSnapshot) => {
     onSet(next)
     setBuses((current) => current.map((bus) => bus.index === next.index ? next : bus) as unknown as ReturnBuses)
@@ -33,8 +39,7 @@ function Harness({ onSet, onPreview, onGestureStart = vi.fn(), onGestureEnd = vi
     <MixerColumn
       lanes={lanes}
       returnBuses={buses}
-      channelLevels={new Map([[0, -12]])}
-      channelPeaks={new Map([[0, -8]])}
+      channelMetersStore={channelMetersStore}
       selectedLaneId={lanes[0]!.id}
       onSetChannelGain={vi.fn()}
       onSetChannelPan={vi.fn()}
@@ -102,10 +107,18 @@ describe('MixerColumn', () => {
     Object.defineProperty(scrollport, 'scrollLeft', { configurable: true, writable: true, value: 0 })
     fireEvent.wheel(scrollport, { deltaY: 40 })
     expect(scrollport.scrollLeft).toBe(0)
+    fireEvent.wheel(scrollport, { deltaY: 0, shiftKey: true })
+    expect(scrollport.scrollLeft).toBe(0)
     fireEvent.wheel(scrollport, { deltaY: 40, shiftKey: true })
+    expect(scrollport.scrollLeft).toBe(40)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Lane 1' }), { key: 'ArrowLeft' })
+    expect(scrollport.scrollLeft).toBe(40)
+    fireEvent.keyDown(scrollport, { key: 'Home' })
     expect(scrollport.scrollLeft).toBe(40)
     fireEvent.keyDown(scrollport, { key: 'ArrowRight' })
     expect(scrollport.scrollLeft).toBe(120)
+    fireEvent.keyDown(scrollport, { key: 'ArrowLeft' })
+    expect(scrollport.scrollLeft).toBe(40)
   })
 
   it('wraps a multi-update Return drag in one Mixer gesture', () => {

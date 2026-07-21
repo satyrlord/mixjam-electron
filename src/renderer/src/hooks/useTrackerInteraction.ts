@@ -19,7 +19,7 @@ interface UseTrackerInteractionOptions {
 
 /** Owns Tracker selection, drag, scrolling, lane menus, and sample location state. */
 export function useTrackerInteraction({ arrangement, transport, browser }: UseTrackerInteractionOptions) {
-  const { lanes, currentTick } = arrangement
+  const { lanes, tickStore } = arrangement
   const lanesRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const [laneContentWidth, setLaneContentWidth] = useState(0)
@@ -74,18 +74,21 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
   const onTransportStop = useCallback(() => { transport.onTransportStop(); scrollToTick(0) }, [scrollToTick, transport])
   const onTransportSkipBack = useCallback(() => { transport.onTransportSkipBack(); scrollToTick(0) }, [scrollToTick, transport])
   const onTransportJumpToEnd = useCallback(() => { transport.onTransportJumpToEnd(); scrollToTick(transport.songEndTick) }, [scrollToTick, transport])
+  // Both effects key off discrete transitions (transport state, song end) and
+  // read the playhead tick from the store at that moment, so the 10 Hz tick
+  // advance itself never re-runs them.
   const previousTransportState = useRef(transport.transportState)
   useEffect(() => {
     if ((previousTransportState.current === 'playing' || previousTransportState.current === 'preparing') &&
-      transport.transportState === 'stopped' && currentTick === 0) scrollToTick(0)
+      transport.transportState === 'stopped' && tickStore.get() === 0) scrollToTick(0)
     previousTransportState.current = transport.transportState
-  }, [currentTick, scrollToTick, transport.transportState])
+  }, [tickStore, scrollToTick, transport.transportState])
   const previousSongEndTick = useRef(transport.songEndTick)
   useEffect(() => {
-    if (transport.songEndTick < previousSongEndTick.current && currentTick > transport.songEndTick &&
+    if (transport.songEndTick < previousSongEndTick.current && tickStore.get() > transport.songEndTick &&
       transport.transportState !== 'playing' && transport.transportState !== 'preparing') scrollToTick(transport.songEndTick)
     previousSongEndTick.current = transport.songEndTick
-  }, [currentTick, scrollToTick, transport.songEndTick, transport.transportState])
+  }, [tickStore, scrollToTick, transport.songEndTick, transport.transportState])
   const handleLanesMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const cleanup = drag.handleLanesMouseDown(event, lanesRef.current, setSelectedPlacementIds)
     if (cleanup) trackDragCleanup(cleanup)

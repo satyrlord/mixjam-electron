@@ -29,7 +29,6 @@
 .footer-preferences,
 .home-brand,
 .home-steps,
-.home-themes-head,
 .mixjam-browser-header,
 .strip-command-dock,
 .strip-edit-group,
@@ -63,7 +62,6 @@
   font-size: var(--ui-font-md);
 }
 
-.home-theme-swatch,
 .strip-command-button,
 .strip-more-trigger,
 .strip-activity-action,
@@ -90,17 +88,11 @@
 }
 
 .home-screen {
-  padding: var(--ui-space-lg);
+  padding: calc(3 * var(--ui-space-lg)) calc(2 * var(--ui-space-lg)) var(--ui-space-lg);
 }
 
-.home-content,
 .settings-content,
-.home-hero,
-.home-setup,
 .home-folder-grid,
-.home-recent-list,
-.home-workflow-card,
-.folder-card,
 .home-launch,
 .home-project-actions,
 .generator-fields,
@@ -108,11 +100,31 @@
   gap: var(--ui-space-md);
 }
 
-.home-hero,
+.home-content {
+  column-gap: calc(3 * var(--ui-space-lg));
+  row-gap: var(--ui-space-lg);
+}
+
+.home-hero {
+  gap: calc(2 * var(--ui-space-lg));
+}
+
 .home-setup,
+.home-recent-list {
+  gap: 0;
+}
+
+.home-workflow-section {
+  padding-block: var(--ui-space-lg);
+}
+
+.home-library-summary,
+.home-library-folders {
+  gap: var(--ui-space-md);
+}
+
 .settings-modal,
 .settings-card,
-.home-workflow-card,
 .folder-card,
 .generator-dialog,
 .shortcuts-panel,
@@ -190,7 +202,8 @@
 .home-step-text,
 .home-workflow-copy,
 .home-library-status,
-.home-recent-path,
+.home-recent-location,
+.home-recent-time,
 .tiles-empty,
 .manage-name,
 .manage-empty,
@@ -201,7 +214,6 @@
 }
 
 .home-step-num,
-.home-themes-label,
 .home-workflow-title,
 .home-recent-title,
 .tracker-zone-title,
@@ -211,11 +223,6 @@
 .shortcuts-section-title,
 .generator-dialog label {
   font-size: var(--ui-font-sm);
-}
-
-.home-theme-swatches {
-  grid-template-columns: repeat(8, var(--ui-size));
-  gap: var(--ui-space-sm);
 }
 
 .upper-middle-work {

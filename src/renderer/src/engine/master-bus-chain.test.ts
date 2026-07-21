@@ -103,6 +103,29 @@ describe('MasterBusChain', () => {
     expect(chain.getMeterSnapshot()?.vuDb).toBe(-18)
   })
 
+  it('forwards meter enablement, dedupes repeats, and carries it into attachment', async () => {
+    const harness = createHarness()
+    const chain = new MasterBusChain({ processorUrl: 'stub', createNode: harness.createNode })
+    // Requested before the worklet attached: delivered via processorOptions
+    // so no port message can race the first rendered blocks.
+    chain.setMetersEnabled(true)
+    await chain.initialize(harness.context, harness.upstream, harness.downstream)
+    expect(harness.createNode).toHaveBeenCalledWith(
+      harness.context,
+      'master-bus-processor',
+      expect.objectContaining({
+        processorOptions: expect.objectContaining({ metersEnabled: true })
+      })
+    )
+
+    const post = harness.nodes[0].port.postMessage
+    post.mockClear()
+    chain.setMetersEnabled(true)
+    expect(post).not.toHaveBeenCalled()
+    chain.setMetersEnabled(false)
+    expect(post).toHaveBeenCalledWith({ type: 'meters', enabled: false })
+  })
+
   it('degrades to passthrough with one warning when the module fails', async () => {
     const warn = vi.fn()
     const harness = createHarness(vi.fn(async () => Promise.reject(new Error('nope'))))
@@ -124,5 +147,86 @@ describe('MasterBusChain', () => {
     expect(harness.upstream.connect).toHaveBeenCalledWith(harness.downstream)
     expect(chain.output).toBeNull()
     expect(chain.getMeterSnapshot()).toBeNull()
+  })
+
+  it('degrades to passthrough when the context has no AudioWorklet support', async () => {
+    const harness = createHarness()
+    const context = {} as unknown as AudioContext
+    const chain = new MasterBusChain({ processorUrl: 'stub', createNode: harness.createNode })
+    const ok = await chain.initialize(context, harness.upstream, harness.downstream)
+    expect(ok).toBe(false)
+    expect(chain.output).toBeNull()
+    expect(harness.createNode).not.toHaveBeenCalled()
+    expect(harness.upstream.disconnect).not.toHaveBeenCalled()
+    // The memoized result is reused rather than retried.
+    expect(await chain.initialize(context, harness.upstream, harness.downstream)).toBe(false)
+  })
+
+  it('degrades to passthrough with one warning when node construction throws', async () => {
+    const warn = vi.fn()
+    const harness = createHarness()
+    const createNode = vi.fn(() => {
+      throw new Error('AudioWorkletNode unavailable')
+    })
+    const chain = new MasterBusChain({ processorUrl: 'stub', createNode, warn })
+    const ok = await chain.initialize(harness.context, harness.upstream, harness.downstream)
+    expect(ok).toBe(false)
+    expect(chain.output).toBeNull()
+    // Passthrough is preserved: the direct route is never broken.
+    expect(harness.upstream.disconnect).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
+    // close() on a chain that never attached is a no-op, not a throw.
+    expect(() => chain.close()).not.toThrow()
+  })
+
+  it('skips attachment when the chain was closed before the module resolved', async () => {
+    const harness = createHarness()
+    const chain = new MasterBusChain({ processorUrl: 'stub', createNode: harness.createNode })
+    const pending = chain.initialize(harness.context, harness.upstream, harness.downstream)
+    chain.close()
+    expect(await pending).toBe(false)
+    expect(harness.createNode).not.toHaveBeenCalled()
+    expect(chain.output).toBeNull()
+  })
+
+  it('reconcile sends only what changed', async () => {
+    const harness = createHarness()
+    const chain = new MasterBusChain({ processorUrl: 'stub', createNode: harness.createNode })
+    await chain.initialize(harness.context, harness.upstream, harness.downstream)
+    const post = harness.nodes[0].port.postMessage
+    post.mockClear()
+
+    // Identical state: no topology and no param messages.
+    chain.reconcile(defaultMasterBusState())
+    expect(post).not.toHaveBeenCalled()
+
+    // One changed param: exactly one param message, no topology message.
+    const oneParam = defaultMasterBusState()
+    oneParam.params['gain.trim'] = 3
+    chain.reconcile(oneParam)
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post).toHaveBeenCalledWith({ type: 'param', id: 'gain.trim', value: 3 })
+
+    // Changed power flag: a topology message is emitted.
+    post.mockClear()
+    const flipped = defaultMasterBusState()
+    flipped.params['gain.trim'] = 3
+    flipped.power.lim = !flipped.power.lim
+    chain.reconcile(flipped)
+    expect(post).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'topology' })
+    )
+  })
+
+  it('defaults to console.warn when no warn hook is supplied', async () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const harness = createHarness(vi.fn(async () => Promise.reject(new Error('nope'))))
+      const chain = new MasterBusChain({ processorUrl: 'stub', createNode: harness.createNode })
+      expect(await chain.initialize(harness.context, harness.upstream, harness.downstream)).toBe(false)
+      expect(spy).toHaveBeenCalledTimes(1)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

@@ -153,6 +153,10 @@ export class PlaybackEngine {
     return this.engine.getMasterBusMeterSnapshot()
   }
 
+  setMasterBusMetersActive(active: boolean): void {
+    this.engine.setMasterBusMetersActive(active)
+  }
+
   /** Applies strip state; 'replace' snaps, 'reconcile' crossfades/smooths. */
   applyMasterBusState(state: MasterBusState, mode: 'reconcile' | 'replace' = 'reconcile'): void {
     this.engine.applyMasterBusState(state, mode)

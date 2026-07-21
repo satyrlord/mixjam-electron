@@ -71,8 +71,8 @@ describe('MasterBusCore', () => {
 
   it('smooths a full-range trim jump without zipper steps', () => {
     const state = defaultMasterBusState()
-    // Isolate the gain stage: bypass everything else.
-    for (const id of DEFAULT_PROCESSOR_ORDER) state.power[id] = id === 'gain'
+    // Isolate the always-on Gain Stage: bypass everything downstream.
+    for (const id of DEFAULT_PROCESSOR_ORDER) state.power[id] = false
     const core = makeCore(state)
     core.snapState(state)
     const input = sine(30, 1, 0.25)
@@ -135,6 +135,45 @@ describe('MasterBusCore', () => {
     // below that.
     expect(stormSlew).toBeLessThan(referenceSlew + 8)
     expect(stormSlew).toBeLessThan(-6)
+  })
+
+  it('applies non-unity Gain once before both topology crossfade branches', () => {
+    const state = defaultMasterBusState()
+    state.params['gain.trim'] = 6
+    for (const id of DEFAULT_PROCESSOR_ORDER) state.power[id] = false
+    const core = makeCore(state)
+    core.snapState(state)
+
+    const frames = FS / 5
+    const l = new Float32Array(frames).fill(0.1)
+    const r = new Float32Array(frames).fill(0.1)
+    let changed = false
+    runBlocks(core, l, r, (block) => {
+      if (block === 5 && !changed) {
+        changed = true
+        core.setTopology([...state.order].reverse(), state.power)
+      }
+    })
+
+    const expected = 0.1 * Math.pow(10, 6 / 20)
+    let peak = 0
+    for (let i = 5 * BLOCK; i < l.length; i++) peak = Math.max(peak, Math.abs(l[i]))
+    // Identical correlated branches can rise by sqrt(2) under an equal-power
+    // fade. A second Gain application would exceed this bound by about 3 dB.
+    expect(peak).toBeLessThan(expected * Math.SQRT2 + 0.002)
+    expect(l[l.length - 1]).toBeCloseTo(expected, 4)
+  })
+
+  it('meters the signal after the pinned Gain Stage and before downstream processing', () => {
+    const state = defaultMasterBusState()
+    state.params['gain.trim'] = 6
+    for (const id of DEFAULT_PROCESSOR_ORDER) state.power[id] = false
+    const core = makeCore(state)
+    core.snapState(state)
+    const amplitude = Math.pow(10, -18 / 20) * Math.SQRT2
+    const input = sine(997, 2, amplitude)
+    runBlocks(core, Float32Array.from(input), Float32Array.from(input))
+    expect(core.meterSnapshot().vuDb).toBeCloseTo(-12, 0)
   })
 
   it('isolates a NaN-poisoned block instead of taking down the bus', () => {

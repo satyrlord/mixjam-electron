@@ -102,7 +102,7 @@ test('Home stays root-overflow-free at the supported renderer size', async ({ se
           recentRight: recentBox.right,
           recentCount: items.length,
           recentRows: new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size,
-          gridColumns: getComputedStyle(list).gridTemplateColumns.split(' ').length,
+          recentDirection: getComputedStyle(list).flexDirection,
           contentTopReachable: contentBoxAtStart.top >= screenBoxAtStart.top - 1,
           contentBottomReachable: contentBoxAtEnd.bottom <= screenBoxAtEnd.bottom + 1,
           rootClientWidth: document.documentElement.clientWidth,
@@ -120,8 +120,8 @@ test('Home stays root-overflow-free at the supported renderer size', async ({ se
     expect(Math.abs(geometry.heroRight - geometry.recentRight)).toBeLessThanOrEqual(1)
     expect(geometry.recentRight).toBeLessThan(geometry.contentRight)
     expect(geometry.recentCount).toBe(4)
-    expect(geometry.gridColumns).toBe(4)
-    expect(geometry.recentRows).toBe(1)
+    expect(geometry.recentDirection).toBe('column')
+    expect(geometry.recentRows).toBe(4)
     expect(geometry.contentTopReachable).toBe(true)
     expect(geometry.contentBottomReachable).toBe(true)
     expect(geometry.rootScrollWidth).toBe(geometry.rootClientWidth)
@@ -146,7 +146,7 @@ test('Home uses both desktop columns while library analysis is active', async ({
       const folderGrid = document.querySelector('.home-folder-grid')
       const actionRow = document.querySelector('.home-project-action-row')
       const libraryStatus = document.querySelector('.home-library-status')
-      const generateButton = document.querySelector('.home-generator-card .btn-secondary')
+      const generateButton = document.querySelector('.home-generator .btn-secondary')
       if (!(screen instanceof HTMLElement) ||
         !(content instanceof HTMLElement) ||
         !(setup instanceof HTMLElement) ||
@@ -158,8 +158,8 @@ test('Home uses both desktop columns while library analysis is active', async ({
       }
       const screenBox = screen.getBoundingClientRect()
       const contentBox = content.getBoundingClientRect()
-      const cards = [...setup.querySelectorAll(':scope > .home-workflow-card')]
-        .filter((card): card is HTMLElement => card instanceof HTMLElement)
+      const sections = [...setup.querySelectorAll(':scope > .home-workflow-section')]
+        .filter((section): section is HTMLElement => section instanceof HTMLElement)
       const actionButtons = [...actionRow.querySelectorAll('button')]
         .filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement)
       const actionWidths = actionButtons.map((button) => button.getBoundingClientRect().width)
@@ -172,10 +172,12 @@ test('Home uses both desktop columns while library analysis is active', async ({
         screenScrollHeight: screen.scrollHeight,
         screenOverflowY: getComputedStyle(screen).overflowY,
         setupDirection: getComputedStyle(setup).flexDirection,
+        sectionCount: sections.length,
+        sectionsDoNotOverlap: sections.every((section, index) => index === 0 ||
+          sections[index - 1]!.getBoundingClientRect().bottom <= section.getBoundingClientRect().top),
         folderColumns: getComputedStyle(folderGrid).gridTemplateColumns.split(' ').length,
-        cardCount: cards.length,
-        cardsDoNotOverlap: cards.every((card, index) => index === 0 ||
-          cards[index - 1]!.getBoundingClientRect().bottom <= card.getBoundingClientRect().top),
+        folderControlsVisible: folderGrid.getBoundingClientRect().height > 0,
+        librarySummaryAbsent: document.querySelector('.home-library-summary') === null,
         actionWidthRatio: actionWidths.length === 2 ? actionWidths[0]! / actionWidths[1]! : 0,
         scannerInsideFolder: libraryStatus.closest('.folder-card') !== null,
         generateDisabled: generateButton.disabled,
@@ -191,15 +193,84 @@ test('Home uses both desktop columns while library analysis is active', async ({
     expect(geometry.screenScrollHeight).toBeLessThanOrEqual(geometry.screenClientHeight + 1)
     expect(geometry.screenOverflowY).toBe('hidden')
     expect(geometry.setupDirection).toBe('column')
+    expect(geometry.sectionCount).toBe(3)
+    expect(geometry.sectionsDoNotOverlap).toBe(true)
     expect(geometry.folderColumns).toBe(2)
-    expect(geometry.cardCount).toBe(3)
-    expect(geometry.cardsDoNotOverlap).toBe(true)
+    expect(geometry.folderControlsVisible).toBe(true)
+    expect(geometry.librarySummaryAbsent).toBe(true)
     expect(geometry.actionWidthRatio).toBeGreaterThan(1.9)
     expect(geometry.actionWidthRatio).toBeLessThan(2.1)
     expect(geometry.scannerInsideFolder).toBe(false)
     expect(geometry.generateDisabled).toBe(true)
     expect(geometry.generateDescription).toBe('home-generator-status')
     expect(geometry.contentInsideScreen).toBe(true)
+  }
+})
+
+test('expanded Home library controls fit at the largest UI Size during active work', async ({
+  seededPage: page
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.evaluate(() => localStorage.setItem('mixjam:ui-size', '50'))
+  await page.reload()
+  await expect(page.locator('.app')).toHaveAttribute('data-ui-size', '50')
+  await page.getByRole('button', { name: 'Change folders' }).click()
+  await expect(page.locator('.home-folder-grid')).toBeVisible()
+
+  const activityJobId = 'home-expanded-active'
+  for (const state of ['syncing', 'error'] as const) {
+    await setActivityState(page, state, activityJobId)
+
+    for (const theme of STRESS_THEMES) {
+      await page.locator('.theme-selector').selectOption(theme)
+      await settleLayout(page)
+
+      const geometry = await page.evaluate(() => {
+        const screen = document.querySelector('.home-screen')
+        const content = document.querySelector('.home-content')
+        const setup = document.querySelector('.home-setup')
+        const folderGrid = document.querySelector('.home-folder-grid')
+        const recentItems = [...document.querySelectorAll<HTMLElement>('.home-recent-item')]
+        if (!(screen instanceof HTMLElement) ||
+          !(content instanceof HTMLElement) ||
+          !(setup instanceof HTMLElement) ||
+          !(folderGrid instanceof HTMLElement)) {
+          throw new Error('Expanded Home geometry elements are unavailable')
+        }
+        const screenBox = screen.getBoundingClientRect()
+        const contentBox = content.getBoundingClientRect()
+        const folderBox = folderGrid.getBoundingClientRect()
+        const sections = [...setup.querySelectorAll<HTMLElement>(':scope > .home-workflow-section')]
+        return {
+          rootClientWidth: document.documentElement.clientWidth,
+          rootScrollWidth: document.documentElement.scrollWidth,
+          rootClientHeight: document.documentElement.clientHeight,
+          rootScrollHeight: document.documentElement.scrollHeight,
+          screenClientHeight: screen.clientHeight,
+          screenScrollHeight: screen.scrollHeight,
+          folderGridVisible: folderBox.width > 0 && folderBox.height > 0,
+          recentCount: recentItems.length,
+          recentRows: new Set(recentItems.map((item) => Math.round(item.getBoundingClientRect().top))).size,
+          sectionsDoNotOverlap: sections.every((section, index) => index === 0 ||
+            sections[index - 1]!.getBoundingClientRect().bottom <= section.getBoundingClientRect().top),
+          contentInsideScreen:
+            contentBox.top >= screenBox.top - 1 &&
+            contentBox.bottom <= screenBox.bottom + 1,
+          folderGridInsideScreen: folderBox.bottom <= screenBox.bottom + 1
+        }
+      })
+
+      expect(geometry.rootScrollWidth, `${state} / ${theme}`).toBe(geometry.rootClientWidth)
+      expect(geometry.rootScrollHeight, `${state} / ${theme}`).toBe(geometry.rootClientHeight)
+      expect(geometry.screenScrollHeight, `${state} / ${theme}`)
+        .toBeLessThanOrEqual(geometry.screenClientHeight + 1)
+      expect(geometry.folderGridVisible, `${state} / ${theme}`).toBe(true)
+      expect(geometry.recentCount, `${state} / ${theme}`).toBe(4)
+      expect(geometry.recentRows, `${state} / ${theme}`).toBe(4)
+      expect(geometry.sectionsDoNotOverlap, `${state} / ${theme}`).toBe(true)
+      expect(geometry.contentInsideScreen, `${state} / ${theme}`).toBe(true)
+      expect(geometry.folderGridInsideScreen, `${state} / ${theme}`).toBe(true)
+    }
   }
 })
 
@@ -315,11 +386,32 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
           ? [`${control.tagName}.${control.className}: ${box.width}x${box.height}`]
           : []
       })
-      const exactSquares = [...document.querySelectorAll(
-        '.home-theme-swatch, .strip-command-button, .strip-more-trigger, ' +
-        '.tracker-lane-controls button, .master-loudness-reset, .mixer-restore, ' +
-        '.mixer-channel-remove, .mixer-channel-pan, .manage-action'
-      )].filter(isVisible)
+      const squareGroupContracts = [
+        ...(surfaceName.startsWith('Player')
+          ? [
+              { name: 'Middle Strip commands', selector: '.strip-command-button' },
+              { name: 'Middle Strip more menu', selector: '.strip-more-trigger' },
+              { name: 'Tracker lane controls', selector: '.tracker-lane-controls button' }
+            ]
+          : []),
+        ...(surfaceName.startsWith('Player Master')
+          ? [{ name: 'Master Bus power controls', selector: '.mbs-power' }]
+          : []),
+        ...(surfaceName.startsWith('Player Mixer')
+          ? [
+              { name: 'Mixer pan controls', selector: '.mixer-channel-pan' },
+              { name: 'Mixer return limiter controls', selector: '.mixer-limiter-toggle' }
+            ]
+          : [])
+      ]
+      const squareGroups = squareGroupContracts.map(({ name, selector }) => ({
+        name,
+        controls: [...document.querySelectorAll(selector)].filter(isVisible)
+      }))
+      const missingSquareGroups = squareGroups
+        .filter(({ controls }) => controls.length === 0)
+        .map(({ name }) => name)
+      const exactSquares = squareGroups.flatMap(({ controls }) => controls)
       const incorrectSquares = exactSquares.flatMap((control) => {
         const box = control.getBoundingClientRect()
         return Math.abs(box.width - expectedSize) > 0.5 || Math.abs(box.height - expectedSize) > 0.5
@@ -371,6 +463,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
         token: getComputedStyle(root).getPropertyValue('--ui-size').trim(),
         controlCount: controls.length,
         undersized,
+        missingSquareGroups,
         incorrectSquares,
         incorrectFaders,
         incorrectSliderTargets,
@@ -385,6 +478,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
     expect(audit.token, `${surface} token`).toBe(`${size}px`)
     expect(audit.controlCount, `${surface} controls`).toBeGreaterThan(0)
     expect(audit.undersized, `${surface} undersized controls`).toEqual([])
+    expect(audit.missingSquareGroups, `${surface} required square controls`).toEqual([])
     expect(audit.incorrectSquares, `${surface} square controls`).toEqual([])
     expect(audit.incorrectFaders, `${surface} vertical faders`).toEqual([])
     expect(audit.incorrectSliderTargets, `${surface} slider targets`).toEqual([])
@@ -415,6 +509,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
   await page.getByRole('tab', { name: 'Master', exact: true }).click()
   for (const size of [30, 40, 50]) {
     await setZoomLevelAndClose(page, UI_SIZE_BUTTON_LABELS[size]!)
+    await page.getByRole('tab', { name: 'Master', exact: true }).click()
     await settleLayout(page)
     await auditVisibleControls(size, `Player Master ${size}`)
 
@@ -658,7 +753,7 @@ async function setActivityState(
   }, { nextState: state, activeJobId: jobId })
 
   if (state === 'syncing') {
-    await expect(page.getByText('Updating library', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^(Updating library|Reading metadata)$/)).toBeVisible()
   } else if (state === 'analyzing') {
     await expect(page.getByText('Analyzing samples', { exact: true })).toBeVisible()
   } else if (state === 'error') {

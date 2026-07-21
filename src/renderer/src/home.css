@@ -1,0 +1,336 @@
+/* Home screen styles. Extracted from index.css because the Home composition
+   grew large enough to deserve its own file; index.css stays focused on
+   shell and Player chrome. */
+
+/* ── Home Screen ─────────────────────────────── */
+.home-screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 64px 48px 32px;
+  overflow: hidden;
+  /* Accent glow bleeding from the top gives the first screen the same
+     dimensionality as the tracker chrome without hardcoding a color. */
+  background:
+    radial-gradient(
+      ellipse 90% 70% at 50% -10%,
+      color-mix(in srgb, var(--accent) 20%, transparent),
+      transparent 70%
+    ),
+    var(--bg-base);
+}
+
+.home-content {
+  display: grid;
+  grid-template-columns: minmax(440px, 0.9fr) minmax(600px, 1.2fr);
+  grid-template-areas:
+    'hero setup'
+    'recent setup';
+  column-gap: 48px;
+  row-gap: 24px;
+  align-items: start;
+  width: 1280px;
+  max-width: 100%;
+}
+
+/* ── Home hero: brand, tagline, and setup guidance ── */
+.home-hero {
+  grid-area: hero;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.home-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.home-logo {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+
+.home-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.home-wordmark {
+  font-family: var(--font-chrome);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  line-height: 1;
+}
+
+.home-tagline {
+  font-family: var(--font-label);
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.home-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.home-step-num {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--pill-bg);
+  border: var(--edge-pill);
+  color: var(--highlight);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.home-step-text {
+  font-family: var(--font-label);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding-top: 3px;
+}
+
+/* ── Home workflow rail ─────────────────────── */
+.home-setup {
+  grid-area: setup;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.home-workflow-section {
+  min-width: 0;
+  padding: 20px 0;
+  border-bottom: var(--edge);
+}
+
+.home-workflow-section:first-child {
+  padding-top: 0;
+}
+
+.home-workflow-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.home-workflow-title {
+  margin: 0;
+  color: var(--text);
+  font: 600 13px/1.2 var(--font-chrome);
+  letter-spacing: 0.03em;
+}
+
+.home-workflow-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font: 12px/1.4 var(--font-label);
+}
+
+.home-library-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-library-summary {
+  display: grid;
+  grid-template-columns: auto minmax(112px, 0.7fr) minmax(0, 1.3fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--bg-panel-quiet);
+}
+
+.home-library-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--highlight);
+  box-shadow: var(--shadow-mixer-led);
+}
+
+.home-library-summary-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-library-summary-copy > strong {
+  overflow: hidden;
+  color: var(--highlight);
+  font: 12px/1.3 var(--font-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-library-folders {
+  display: flex;
+  min-width: 0;
+  gap: 16px;
+  color: var(--text-muted);
+  font: 12px/1.3 var(--font-label);
+}
+
+.home-library-folders span {
+  display: flex;
+  min-width: 0;
+  gap: 5px;
+}
+
+.home-library-folders strong {
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-library-change {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--highlight);
+  font: 13px/1 var(--font-label);
+  cursor: pointer;
+}
+
+.home-library-change:hover,
+.home-library-change[aria-expanded='true'] {
+  background: var(--pill-bg);
+}
+
+.home-folder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.home-library-status {
+  min-width: 0;
+}
+
+.home-recent {
+  grid-area: recent;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-recent-title {
+  font-family: var(--font-chrome);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.home-recent-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-recent-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: var(--edge);
+  border-radius: 0;
+  padding: 10px 4px;
+  min-height: 58px;
+  cursor: pointer;
+}
+
+.home-recent-list li:last-child .home-recent-item {
+  border-bottom: 0;
+}
+
+.home-recent-item:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.home-recent-item:hover .home-recent-name {
+  color: var(--highlight);
+}
+
+.home-recent-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.home-recent-name {
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.home-recent-location {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.home-recent-time {
+  color: var(--text-muted);
+  font: 12px/1.4 var(--font-label);
+  white-space: nowrap;
+}
+
+.home-generator {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}

@@ -20,6 +20,7 @@ import type {
 import type { LaneState } from '../project/project-state'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 import { createDefaultFxBuses } from '../project/project-state'
+import { createValueStore } from '../lib/value-store'
 
 const noop = () => undefined
 const asyncNoop = async () => { /* empty */ }
@@ -123,7 +124,7 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
 const DEFAULT_ARRANGEMENT: TrackerArrangementProps = {
   lanes: LANES,
   laneShouldDim: () => false,
-  currentTick: 0,
+  tickStore: createValueStore(0),
   missingSamplePaths: new Set<string>(),
   onPlaceSampleDetailOnLane: noop,
   onMovePlacement: noop,
@@ -146,7 +147,7 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
   songEndTick: 0,
   bpm: 120,
   masterGain: 0.8,
-  masterMeter: emptyMasterMeterSnapshot(),
+  masterMeterStore: createValueStore(emptyMasterMeterSnapshot()),
   canUndo: false,
   canRedo: false,
   onSetBpm: noop,
@@ -162,8 +163,7 @@ const DEFAULT_TRANSPORT: PlayerTransportProps = {
 
 const DEFAULT_MIXER: PlayerMixerProps = {
   returnBuses: createDefaultFxBuses(),
-  channelLevels: new Map(),
-  channelPeaks: new Map(),
+  channelMetersStore: createValueStore({ levels: new Map(), peaks: new Map() }),
   onSetVisualTelemetryActive: noop,
   onBeginMixerGesture: noop,
   onCommitMixerGesture: noop,
@@ -191,6 +191,7 @@ const DEFAULT_PROJECT: PlayerProjectProps = {
 const DEFAULT_MASTER_BUS: PlayerMasterBusProps = {
   state: defaultMasterBusState(),
   getMeterSnapshot: () => null,
+  onSetMetersActive: noop,
   onSetParam: noop,
   onTogglePower: noop,
   onReorder: noop,

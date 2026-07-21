@@ -1,4 +1,4 @@
-// Gain Stage (slot 02 default): clean smoothed trim.
+// Pinned Gain Stage (slot 01): clean smoothed trim before the Input Meter.
 
 import type { BusModule, ParamReader } from '../module'
 import { dbToLinear } from '../util'

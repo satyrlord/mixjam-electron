@@ -26,7 +26,7 @@ interface EffectHarnessWindow extends Window {
   mixjamTransportStateHistory: string[]
   mixjamTransportHarness: {
     transportState: string
-    currentTick: number
+    tickStore: { get(): number }
     playbackEngineRef: {
       current: {
         activeVoiceCount: number
@@ -39,6 +39,7 @@ interface EffectHarnessWindow extends Window {
 async function installEffectHarness(page: Page): Promise<void> {
   const returnEffectsPath = resolve(process.cwd(), 'src/renderer/src/engine/return-effects.ts').replaceAll('\\', '/')
   const runtimePath = resolve(process.cwd(), 'src/renderer/src/hooks/useTransportRuntime.ts').replaceAll('\\', '/')
+  const valueStorePath = resolve(process.cwd(), 'src/renderer/src/lib/value-store.ts').replaceAll('\\', '/')
   const result = await build({
     configFile: false,
     logLevel: 'silent',
@@ -54,6 +55,7 @@ async function installEffectHarness(page: Page): Promise<void> {
           import { createRoot } from 'react-dom/client'
           import { createReturnModuleProcessor, prepareEchoformDelayWorklet } from ${JSON.stringify(returnEffectsPath)}
           import { useTransportRuntime } from ${JSON.stringify(runtimePath)}
+          import { useStoreValue } from ${JSON.stringify(valueStorePath)}
 
           window.mixjamEffects = { createReturnModuleProcessor, prepareEchoformDelayWorklet }
           let root = null
@@ -96,6 +98,7 @@ async function installEffectHarness(page: Page): Promise<void> {
                 initialMasterGain: 1
               })
               window.mixjamTransportHarness = runtime
+              const currentTick = useStoreValue(runtime.tickStore)
               useEffect(() => {
                 window.mixjamTransportStateHistory.push(runtime.transportState)
               }, [runtime.transportState])
@@ -108,7 +111,7 @@ async function installEffectHarness(page: Page): Promise<void> {
                 React.createElement('output', {
                   id: 'harness-state',
                   'data-state': runtime.transportState,
-                  'data-tick': runtime.currentTick
+                  'data-tick': currentTick
                 })
               )
             }
@@ -184,7 +187,7 @@ async function samplePostStopOutput(page: Page, durationMs = 600) {
     }
     return {
       transportState: harness.transportState,
-      currentTick: harness.currentTick,
+      currentTick: harness.tickStore.get(),
       activeVoiceCount: harness.playbackEngineRef.current?.activeVoiceCount ?? -1,
       maximumLevelDb: Math.max(...levels.map((sample) => sample.levelDb)),
       finalLevelDb: levels.at(-1)?.levelDb ?? -100,

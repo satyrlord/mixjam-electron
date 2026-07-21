@@ -12,6 +12,8 @@ import type { SampleSortColumn, SampleSortDirection } from '../hooks/useLibraryD
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import type { RuntimeTransportState } from '../hooks/useTransportRuntime'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
+import type { ReadableStore } from '../lib/value-store'
+import type { ChannelMeterFrame } from '../hooks/useMixer'
 import type { MasterBusMeterSnapshot } from '../engine/masterbus/dsp/core'
 import type { MasterBusParamId, ProcessorId } from '../engine/masterbus/params'
 import type { MasterBusPresetName, MasterBusState } from '../engine/masterbus/presets'
@@ -60,7 +62,8 @@ export interface PlayerBrowserProps {
 export interface TrackerArrangementProps {
   lanes: LaneState[]
   laneShouldDim: (lane: LaneState) => boolean
-  currentTick: number
+  /** Playhead tick at the 10 Hz poll cadence; leaves subscribe individually. */
+  tickStore: ReadableStore<number>
   /** Relpaths of missing samples; placements referencing them render hazard
    *  stripes (spec-002 AC-013). */
   missingSamplePaths: ReadonlySet<string>
@@ -89,7 +92,7 @@ export interface PlayerTransportProps {
   songEndTick: number
   bpm: number
   masterGain: number
-  masterMeter: MasterMeterSnapshot
+  masterMeterStore: ReadableStore<MasterMeterSnapshot>
   canUndo: boolean
   canRedo: boolean
   onSetBpm: (bpm: number) => void
@@ -106,6 +109,9 @@ export interface PlayerTransportProps {
 export interface PlayerMasterBusProps {
   state: MasterBusState
   getMeterSnapshot: () => MasterBusMeterSnapshot | null
+  /** Tells the engine whether the strip is visible, so the worklet only
+   *  streams 30 Hz meter snapshots while someone is looking at them. */
+  onSetMetersActive: (active: boolean) => void
   onSetParam: (id: MasterBusParamId, value: number) => void
   onTogglePower: (id: ProcessorId) => void
   onReorder: (order: ProcessorId[]) => void
@@ -114,8 +120,8 @@ export interface PlayerMasterBusProps {
 
 export interface PlayerMixerProps {
   returnBuses: readonly [PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot]
-  channelLevels: ReadonlyMap<number, number>
-  channelPeaks: ReadonlyMap<number, number>
+  /** Per-channel RMS/peak telemetry at RAF cadence; meters subscribe per channel. */
+  channelMetersStore: ReadableStore<ChannelMeterFrame>
   onSetVisualTelemetryActive: (active: boolean) => void
   onBeginMixerGesture: () => void
   onCommitMixerGesture: () => void

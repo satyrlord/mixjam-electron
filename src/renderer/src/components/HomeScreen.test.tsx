@@ -9,6 +9,11 @@ const SET_FOLDER: FolderView = {
   ref: { id: 'test-user-folder', name: 'MixJam' }
 }
 
+const SET_SAMPLE_FOLDER: FolderView = {
+  status: 'set',
+  ref: { id: 'test-sample-folder', name: 'Samples' }
+}
+
 const UNSET_FOLDER: FolderView = {
   status: 'empty',
   ref: null
@@ -19,9 +24,11 @@ const SAMPLE_FOLDER_NEEDS_PERMISSION: FolderView = {
   ref: { id: 'test-sample-folder', name: 'Samples' }
 }
 
+const QUICK_START_COPY = 'Pick a User Folder for your projects and a Sample Folder to jam with.'
+
 const RECENT_PROJECTS: MixJamFileItem[] = [
   {
-    path: 'club-night.mixjam',
+    path: 'live-sets/club-night.mixjam',
     displayName: 'club-night',
     lastOpened: '2026-06-28T12:00:00.000Z'
   },
@@ -36,7 +43,7 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
   return render(
     <HomeScreen
       userFolder={SET_FOLDER}
-      sampleFolder={SET_FOLDER}
+      sampleFolder={SET_SAMPLE_FOLDER}
       librarySyncState={{
         status: 'ready',
         rootKey: 'test-user-folder',
@@ -54,8 +61,6 @@ function renderHome(overrides: Partial<Parameters<typeof HomeScreen>[0]> = {}) {
       canStart={true}
       mixJamFiles={[]}
       projectBusy={false}
-      activeTheme="emerald"
-      onThemeChange={vi.fn()}
       onPickUser={vi.fn()}
       onPickSample={vi.fn()}
       onRestoreUser={vi.fn()}
@@ -79,21 +84,54 @@ describe('HomeScreen', () => {
     expect(document.querySelector('.brand-mark')).toBeNull()
   })
 
-  it('separates library, project, and generator workflows with one primary action', () => {
+  it('uses the project-priority composition with one primary action', () => {
     renderHome()
 
     const library = screen.getByRole('region', { name: 'Library Setup' })
     const projects = screen.getByRole('region', { name: 'Create or Open' })
     const generator = screen.getByRole('region', { name: 'Generate a MixJam' })
-    expect(document.querySelectorAll('.home-workflow-card')).toHaveLength(3)
-    expect(within(library).getByText('Library ready').closest('.library-sync-status'))
-      .toHaveClass('library-sync-compact')
+    expect(document.querySelector('.home-screen')).toHaveClass('home-project-priority')
+    expect(document.querySelectorAll('.home-workflow-section')).toHaveLength(3)
+    expect(within(library).getByText('Library ready')).toBeInTheDocument()
+    expect(within(library).getByText('MixJam')).toBeInTheDocument()
+    expect(within(library).getByText('Samples', { selector: 'strong' })).toBeInTheDocument()
+    expect(within(library).queryByRole('button', { name: 'Change User Folder' })).toBeNull()
     expect(within(projects).getByRole('button', { name: 'Start New MixJam' }))
       .toHaveClass('btn-primary')
     expect(within(projects).getByRole('button', { name: 'Load MixJam' }))
       .toHaveClass('btn-secondary')
     expect(within(generator).getByRole('button', { name: 'Generate MixJam' }))
       .toHaveClass('btn-secondary')
+    expect(document.querySelectorAll('.btn-primary')).toHaveLength(1)
+    expect(screen.queryByText(QUICK_START_COPY)).not.toBeInTheDocument()
+  })
+
+  it('uses the setup-priority composition until both folders are accessible', () => {
+    renderHome({ sampleFolder: UNSET_FOLDER, canStart: false })
+
+    expect(document.querySelector('.home-screen')).toHaveClass('home-setup-priority')
+    expect(screen.getByText(QUICK_START_COPY)).toBeInTheDocument()
+    expect(screen.getByText('User Folder')).toBeInTheDocument()
+    expect(screen.getByText('Sample Folder')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change folders' })).toBeNull()
+  })
+
+  it('reveals configured folder controls from the compact summary', () => {
+    renderHome()
+
+    const changeFolders = screen.getByRole('button', { name: 'Change folders' })
+    expect(changeFolders).toHaveAttribute('aria-expanded', 'false')
+    expect(changeFolders).not.toHaveAttribute('aria-controls')
+    expect(screen.queryByRole('button', { name: 'Change User Folder' })).toBeNull()
+
+    fireEvent.click(changeFolders)
+
+    expect(changeFolders).toHaveAttribute('aria-expanded', 'true')
+    expect(changeFolders).toHaveAttribute('aria-controls', 'home-folder-controls')
+    expect(document.getElementById('home-folder-controls')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change User Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change Sample Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
   })
 
   it('renders start button disabled when canStart is false', () => {
@@ -117,15 +155,6 @@ describe('HomeScreen', () => {
     expect(onStart).toHaveBeenCalledTimes(1)
   })
 
-  it('calls onThemeChange when a theme swatch is clicked', () => {
-    const onThemeChange = vi.fn()
-    renderHome({ onThemeChange })
-
-    const swatch = screen.getByLabelText('Switch to Rust Industrial theme')
-    fireEvent.click(swatch)
-    expect(onThemeChange).toHaveBeenCalledWith('rust')
-  })
-
   it('shows the generator when the sample folder is set and gates it on readiness', () => {
     const onOpenGenerator = vi.fn()
     const { rerender } = renderHome({ onOpenGenerator })
@@ -135,11 +164,11 @@ describe('HomeScreen', () => {
     const busy: MixJamGeneratorReadiness = { status: 'preparing', message: 'Scanning library' }
     rerender(<HomeScreen
       userFolder={SET_FOLDER}
-      sampleFolder={SET_FOLDER}
+      sampleFolder={SET_SAMPLE_FOLDER}
       librarySyncState={{ status: 'ready', rootKey: 'test-user-folder', lastCompletedAt: 1 }}
       generatorReadiness={busy}
-      canStart mixJamFiles={[]} projectBusy={false} activeTheme="emerald"
-      onThemeChange={vi.fn()} onPickUser={vi.fn()} onPickSample={vi.fn()}
+      canStart mixJamFiles={[]} projectBusy={false}
+      onPickUser={vi.fn()} onPickSample={vi.fn()}
       onRestoreUser={vi.fn()} onRestoreSample={vi.fn()} onRetryLibrarySync={vi.fn()}
       onCancelLibrarySync={vi.fn()} onStart={vi.fn()} onLoad={vi.fn()}
       onOpenProject={vi.fn()} onOpenGenerator={onOpenGenerator}
@@ -195,18 +224,19 @@ describe('HomeScreen', () => {
 
     expect(screen.getByText('Restore access to the Sample Folder before generating.'))
       .toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change User Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Restore Sample Folder' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change folders' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Restore Sample Folder' }))
     expect(onRestoreSample).toHaveBeenCalledOnce()
   })
 
-  it('keeps Home theme previews without repeating the selected theme name', () => {
-    renderHome({ activeTheme: 'enterprise' })
+  it('leaves theme selection to the shell header', () => {
+    renderHome()
 
-    expect(screen.getByText('Home theme')).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).toBeNull()
-    expect(document.querySelector('.home-theme-name')).toBeNull()
-    expect(screen.getAllByLabelText(/Switch to .* theme/)).toHaveLength(16)
-    expect(screen.getByLabelText('Switch to Enterprise theme')).toHaveAttribute('aria-pressed', 'true')
+    expect(document.querySelector('.home-themes')).toBeNull()
+    expect(document.querySelector('.home-theme-swatch')).toBeNull()
   })
 
   it('renders recent projects when provided', () => {
@@ -214,10 +244,25 @@ describe('HomeScreen', () => {
 
     expect(screen.getByText('club-night')).toBeTruthy()
     expect(screen.getByText('ambient-set')).toBeTruthy()
+    expect(screen.getByText('live-sets')).toBeInTheDocument()
+    expect(document.querySelectorAll('.home-recent-time')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: /Open club-night from live-sets\/club-night\.mixjam/ }))
+      .not.toHaveAttribute('title')
     const rail = document.querySelector('.home-recent')
     expect(rail).not.toBeNull()
     expect(rail?.closest('.home-setup')).toBeNull()
     expect(rail?.parentElement).toHaveClass('home-content')
+  })
+
+  it('exposes a recent project full path through the shared tooltip', async () => {
+    renderHome({ mixJamFiles: RECENT_PROJECTS })
+
+    const recentProject = screen.getByRole('button', {
+      name: /Open club-night from live-sets\/club-night\.mixjam/
+    })
+    fireEvent.focus(recentProject)
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('live-sets/club-night.mixjam')
   })
 
   it('opens the native project picker and recent project entries', () => {
@@ -233,7 +278,7 @@ describe('HomeScreen', () => {
     const recentEntry = screen.getByText('club-night').closest('button')!
     expect(recentEntry).toBeEnabled()
     fireEvent.click(recentEntry)
-    expect(onOpenProject).toHaveBeenCalledWith('club-night.mixjam')
+    expect(onOpenProject).toHaveBeenCalledWith('live-sets/club-night.mixjam')
   })
 
   it('disables project actions while a project operation is busy', () => {
@@ -265,6 +310,9 @@ describe('HomeScreen', () => {
     expect(status.closest('.home-library-setup')).toHaveTextContent('Library Setup')
     expect(status.closest('.folder-card')).toBeNull()
     expect(status.closest('.library-sync-status')).not.toHaveClass('library-sync-compact')
+    expect(screen.getByRole('button', { name: 'Change User Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change Sample Folder' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Change folders' })).toBeNull()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
     expect(container.querySelector('.scan-overlay')).toBeNull()
     const generate = screen.getByRole('button', { name: 'Generate MixJam' })

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import type {
   TrackerArrangementProps,
@@ -8,6 +8,8 @@ import type {
   PlayerProjectProps,
   PlayerTransportProps
 } from './playerProps'
+import type { MasterMeterSnapshot } from '../engine/master-meter'
+import { useStoreValue, type ReadableStore } from '../lib/value-store'
 import {
   LANE_HEAD_WIDTH_PX,
   LEFT_COL_MIN_PX,
@@ -33,6 +35,109 @@ import { Tooltip } from './ui/Tooltip'
 
 const TRACKER_SCROLLPORT_ID = 'tracker-song-scrollport'
 
+// Bar ticks are static; hoisting avoids recreating the array (and a useMemo
+// hook) on every render while still satisfying LinearSlider's trackChildren.
+const TRACKER_RULER_CHILDREN = Array.from({ length: TRACKER_BAR_COUNT }, (_, i) => {
+  const barNumber = i + 1
+  return (
+    <div key={i} className="tracker-ruler-tick tracker-ruler-tick-bar">
+      {barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
+    </div>
+  )
+})
+
+// The playhead tick advances at 10 Hz during playback. These leaves are the
+// only components that subscribe to it, so a tick re-renders a few elements
+// instead of the whole PlayerView tree (the source of the playback-latency
+// regression diagnosed in dev builds).
+function TrackerPlayhead({
+  tickStore,
+  totalTicks
+}: {
+  tickStore: ReadableStore<number>
+  totalTicks: number
+}) {
+  const currentTick = useStoreValue(tickStore)
+  if (currentTick >= totalTicks) return null
+  return (
+    <div
+      className="tracker-playhead"
+      style={{
+        left: `calc(${LANE_HEAD_WIDTH_PX}px + (${currentTick} / ${totalTicks}) * (100% - ${LANE_HEAD_WIDTH_PX}px))`,
+      }}
+      aria-hidden="true"
+    />
+  )
+}
+
+function TrackerRulerSeek({
+  tickStore,
+  lastGridTick,
+  totalTicks,
+  onTransportSeek
+}: {
+  tickStore: ReadableStore<number>
+  lastGridTick: number
+  totalTicks: number
+  onTransportSeek: (tick: number) => void
+}) {
+  const currentTick = useStoreValue(tickStore)
+  return (
+    <LinearSlider
+      className="tracker-ruler-seek"
+      value={Math.min(currentTick, lastGridTick)}
+      min={0}
+      max={totalTicks}
+      step={TICKS_PER_BEAT}
+      onValueChange={(tick) => onTransportSeek(Math.min(tick, lastGridTick))}
+      ariaLabel="Tracker timeline"
+      showRange={false}
+      trackClassName="tracker-ruler-track"
+      trackChildren={TRACKER_RULER_CHILDREN}
+      thumbProps={{ 'aria-valuemax': lastGridTick }}
+    />
+  )
+}
+
+// Owns the Master strip's meter feed so its 30 Hz chain poll and 10 Hz
+// loudness updates re-render only this panel, never PlayerView. Stays
+// mounted across tab switches so the OVER latch survives (spec-012); while
+// hidden it unsubscribes and tells the engine to stop streaming snapshots.
+function MasterBusStripPanel({
+  active,
+  masterBus,
+  masterMeterStore,
+  onGestureStart,
+  onGestureEnd
+}: {
+  active: boolean
+  masterBus: PlayerMasterBusProps
+  masterMeterStore: ReadableStore<MasterMeterSnapshot>
+  onGestureStart: () => void
+  onGestureEnd: () => void
+}) {
+  const masterMeter = useStoreValue(masterMeterStore)
+  const { meters, onResetOver } = useMasterBusMeters(active, masterBus.getMeterSnapshot, masterMeter)
+  const { onSetMetersActive } = masterBus
+  useEffect(() => {
+    onSetMetersActive(active)
+    return () => onSetMetersActive(false)
+  }, [active, onSetMetersActive])
+  return (
+    <MasterBusStrip
+      state={masterBus.state}
+      meters={meters}
+      onSetParam={masterBus.onSetParam}
+      onGestureStart={onGestureStart}
+      onGestureEnd={onGestureEnd}
+      onTogglePower={masterBus.onTogglePower}
+      onReorder={masterBus.onReorder}
+      onApplyPreset={masterBus.onApplyPreset}
+      onResetOver={onResetOver}
+    />
+  )
+}
+
 export interface PlayerViewProps {
   mixJamFiles: MixJamFileItem[]
   browser: PlayerBrowserProps
@@ -52,7 +157,7 @@ export default function PlayerView({
   masterBus,
   project
 }: PlayerViewProps) {
-  const { lanes, laneShouldDim, currentTick } = arrangement
+  const { lanes, laneShouldDim, tickStore } = arrangement
   const { transportState, onTransportSeek } = transport
   const hasPlacedSamples = lanes.some((lane) => lane.placements.length > 0)
   const emptyLaneCount = Math.max(0, lanes.filter((lane) => lane.placements.length === 0).length - (lanes.every((lane) => lane.placements.length === 0) ? 1 : 0))
@@ -74,7 +179,7 @@ export default function PlayerView({
   const workspace = useBottomWorkspace()
   const {
     browserPanelRef, bottomPanelRef, bottomTab, expanded: bottomWorkspaceExpanded,
-    bottomMinimumHeight, mixJamBrowserCollapsed, upperDefaultLayout, verticalDefaultLayout,
+    bottomMinimumHeight, bottomPanelMinimumHeight, mixJamBrowserCollapsed, upperDefaultLayout, verticalDefaultLayout,
     setBottomTab, toggleExpanded: toggleBottomWorkspaceExpanded, openSamples: openSamplesFromCue,
     onBrowserCollapsedChange: handleMixJamBrowserCollapsedChange,
     onVerticalLayoutChanged, onUpperLayoutChanged
@@ -90,14 +195,6 @@ export default function PlayerView({
     onSetVisualTelemetryActive(bottomTab === 'mixer')
   }, [bottomTab, onSetVisualTelemetryActive])
 
-  // Strip meters poll only while the Master tab is active (spec-012); the
-  // OVER lamp latch lives here so it survives tab switches.
-  const { meters: masterBusMeters, onResetOver: handleResetMasterBusOver } = useMasterBusMeters(
-    bottomTab === 'master',
-    masterBus.getMeterSnapshot,
-    transport.masterMeter
-  )
-
   useEffect(() => () => {
     onSetVisualTelemetryActive(false)
   }, [onSetVisualTelemetryActive])
@@ -110,6 +207,56 @@ export default function PlayerView({
   transportStateRef.current = transportState
   const projectBusyRef = useRef(projectBusy)
   projectBusyRef.current = projectBusy
+
+  // The bottom panels are memoized so switching tabs re-renders the tab chrome
+  // and nothing else. Without this, `bottomTab` lives in PlayerView, so every
+  // switch rebuilt the Mixer strips, the Master rack, and the Sample browser
+  // along with the whole tracker — the switch stall, not any audio work.
+  // `active` is the only tab-derived input, and reacting to it is cheap.
+  const masterActive = bottomTab === 'master'
+  const samplesActive = bottomTab === 'samples'
+  const masterPanel = useMemo(() => (
+    <MasterBusStripPanel
+      active={masterActive}
+      masterBus={masterBus}
+      masterMeterStore={transport.masterMeterStore}
+      onGestureStart={mixer.onBeginMixerGesture}
+      onGestureEnd={mixer.onCommitMixerGesture}
+    />
+  ), [masterActive, masterBus, transport.masterMeterStore, mixer.onBeginMixerGesture, mixer.onCommitMixerGesture])
+
+  const mixerPanel = useMemo(() => (
+    <MixerColumn
+      lanes={arrangement.lanes}
+      returnBuses={mixer.returnBuses}
+      channelMetersStore={mixer.channelMetersStore}
+      selectedLaneId={selectedLaneId}
+      bpm={transport.bpm}
+      onSetBpm={transport.onSetBpm}
+      onGestureStart={mixer.onBeginMixerGesture}
+      onGestureEnd={mixer.onCommitMixerGesture}
+      onSetChannelGain={mixer.onSetChannelGain}
+      onSetChannelPan={mixer.onSetChannelPan}
+      onSetChannelSend={mixer.onSetChannelSend}
+      onSetReturnBus={mixer.onSetReturnBus}
+      onPreviewReturnBus={mixer.onPreviewReturnBus}
+      onSelectLane={setSelectedLaneId}
+    />
+  ), [arrangement.lanes, mixer, selectedLaneId, transport.bpm, transport.onSetBpm, setSelectedLaneId])
+
+  const samplesPanel = useMemo(() => (
+    <SampleBrowser
+      active={samplesActive}
+      browser={browser}
+      bubblePixelsPerSecond={bubblePixelsPerSecond}
+      pixelsPerTick={pixelsPerTick}
+      projectBpm={transport.bpm}
+      durationTicksBySamplePath={sampleDurationTicksByPath}
+      flashSamplePath={activeFlashPath}
+      onSampleDragStart={handleSampleDragStart}
+    />
+  ), [samplesActive, browser, bubblePixelsPerSecond, pixelsPerTick, transport.bpm,
+      sampleDurationTicksByPath, activeFlashPath, handleSampleDragStart])
 
   usePlayerShortcuts({
     selectedPlacementIdsRef,
@@ -210,15 +357,7 @@ export default function PlayerView({
               </span>
             </Tooltip>
           </div>
-          {currentTick < totalTicks && (
-            <div
-              className="tracker-playhead"
-              style={{
-                left: `calc(${LANE_HEAD_WIDTH_PX}px + (${currentTick} / ${totalTicks}) * (100% - ${LANE_HEAD_WIDTH_PX}px))`,
-              }}
-              aria-hidden="true"
-            />
-          )}
+          <TrackerPlayhead tickStore={tickStore} totalTicks={totalTicks} />
           {selectionRect && (() => {
             const x = Math.min(selectionRect.startX, selectionRect.currentX)
             const y = Math.min(selectionRect.startY, selectionRect.currentY)
@@ -228,25 +367,11 @@ export default function PlayerView({
           })()}
           <div className="tracker-ruler">
             <div className="tracker-ruler-spacer" />
-            <LinearSlider
-              className="tracker-ruler-seek"
-              value={Math.min(currentTick, lastGridTick)}
-              min={0}
-              max={totalTicks}
-              step={TICKS_PER_BEAT}
-              onValueChange={(tick) => onTransportSeek(Math.min(tick, lastGridTick))}
-              ariaLabel="Tracker timeline"
-              showRange={false}
-              trackClassName="tracker-ruler-track"
-              trackChildren={Array.from({ length: TRACKER_BAR_COUNT }, (_, i) => {
-                  const barNumber = i + 1
-                  return (
-                    <div key={i} className="tracker-ruler-tick tracker-ruler-tick-bar">
-                      {barNumber % 4 === 1 ? <span className="tracker-ruler-bar">{barNumber}</span> : null}
-                    </div>
-                  )
-                })}
-              thumbProps={{ 'aria-valuemax': lastGridTick }}
+            <TrackerRulerSeek
+              tickStore={tickStore}
+              lastGridTick={lastGridTick}
+              totalTicks={totalTicks}
+              onTransportSeek={onTransportSeek}
             />
           </div>
           {lanes.map((lane) => {
@@ -349,7 +474,7 @@ export default function PlayerView({
       <Panel
         id="bottom"
         panelRef={bottomPanelRef}
-        minSize={`${bottomMinimumHeight}px`}
+        minSize={`${bottomPanelMinimumHeight}px`}
         maxSize="75%"
       >
         <BottomWorkspace
@@ -360,50 +485,9 @@ export default function PlayerView({
         expanded={bottomWorkspaceExpanded}
         onTabChange={setBottomTab}
         onToggleExpanded={toggleBottomWorkspaceExpanded}
-        master={(
-          <MasterBusStrip
-            state={masterBus.state}
-            meters={masterBusMeters}
-            onSetParam={masterBus.onSetParam}
-            onGestureStart={mixer.onBeginMixerGesture}
-            onGestureEnd={mixer.onCommitMixerGesture}
-            onTogglePower={masterBus.onTogglePower}
-            onReorder={masterBus.onReorder}
-            onApplyPreset={masterBus.onApplyPreset}
-            onResetOver={handleResetMasterBusOver}
-          />
-        )}
-        mixer={(
-          <MixerColumn
-            lanes={arrangement.lanes}
-            returnBuses={mixer.returnBuses}
-            channelLevels={mixer.channelLevels}
-            channelPeaks={mixer.channelPeaks}
-            selectedLaneId={selectedLaneId}
-            bpm={transport.bpm}
-            onSetBpm={transport.onSetBpm}
-            onGestureStart={mixer.onBeginMixerGesture}
-            onGestureEnd={mixer.onCommitMixerGesture}
-            onSetChannelGain={mixer.onSetChannelGain}
-            onSetChannelPan={mixer.onSetChannelPan}
-            onSetChannelSend={mixer.onSetChannelSend}
-            onSetReturnBus={mixer.onSetReturnBus}
-            onPreviewReturnBus={mixer.onPreviewReturnBus}
-            onSelectLane={setSelectedLaneId}
-          />
-        )}
-        samples={(
-          <SampleBrowser
-            active={bottomTab === 'samples'}
-            browser={browser}
-            bubblePixelsPerSecond={bubblePixelsPerSecond}
-            pixelsPerTick={pixelsPerTick}
-            projectBpm={transport.bpm}
-            durationTicksBySamplePath={sampleDurationTicksByPath}
-            flashSamplePath={activeFlashPath}
-            onSampleDragStart={handleSampleDragStart}
-          />
-        )}
+        master={masterPanel}
+        mixer={mixerPanel}
+        samples={samplesPanel}
         />
       </Panel>
 

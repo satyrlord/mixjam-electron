@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import App from '../App'
 import { mountApp } from '../bootstrapApp'
 import Header from '../components/Header'
+import { createValueStore } from '../lib/value-store'
 import { UI_GEOMETRY } from '../ui-size'
 import {
   THEME_OPTIONS,
@@ -273,7 +274,7 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     render(
       <Header
         view="player"
-        timer="00:00.0"
+        elapsedMsStore={createValueStore(0)}
         theme="emerald"
         onHome={() => {}}
         onThemeChange={() => {}}
@@ -339,9 +340,10 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     const select = screen.getByLabelText('Theme')
     const beforeStyleSnapshot = document.documentElement.style.cssText
 
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
-    fireEvent.click(start)
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
 
     await waitFor(() => {
       expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)

@@ -445,6 +445,35 @@ describe('toEngineLanes', () => {
       expect(el.placements).toEqual([])
     }
   })
+
+  // The scheduler calls this 40 times a second, so the result is cached on
+  // array identity. These lock the cache's correctness: repeat calls must not
+  // re-allocate, and any edit must be observed.
+  it('reuses the mapped result for the same lanes array', () => {
+    const lanes = createDefaultLanes()
+    expect(toEngineLanes(lanes)).toBe(toEngineLanes(lanes))
+  })
+
+  it('remaps after an edit and keeps untouched lanes stable', () => {
+    const lanes = createDefaultLanes()
+    const before = toEngineLanes(lanes)
+    const edited = placeSampleOnLane(lanes, 0, 'Drums/kick.wav', 'kick.wav', 0, 32, 0.5, 0, 124)
+    const after = toEngineLanes(edited)
+
+    expect(after).not.toBe(before)
+    expect(after[0]!.placements).toHaveLength(1)
+    // Lane 1 was not touched, so its placements array is reused — this is what
+    // keeps the downstream per-lane evaluation cache hot across edits.
+    expect(after[1]!.placements).toBe(before[1]!.placements)
+  })
+
+  it('observes a mute change on the same placements', () => {
+    const lanes = createDefaultLanes()
+    toEngineLanes(lanes)
+    const muted = toggleLaneMute(lanes, 0)
+
+    expect(toEngineLanes(muted)[0]!.muted).toBe(true)
+  })
 })
 
 describe('duplicatePlacement', () => {

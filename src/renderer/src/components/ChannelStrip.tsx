@@ -1,8 +1,15 @@
 import type { CSSProperties } from 'react'
 import { nextPanCycle } from '../lib/sample-utils'
+import type { ReadableStore } from '../lib/value-store'
 import { VerticalFader } from './VerticalControls'
 import { RotaryControl, RotaryDial } from './RotaryField'
 import { Tooltip } from './ui/Tooltip'
+
+/** RMS level and peak-hold in dBFS for one channel's meter. */
+export interface ChannelMeterValue {
+  levelDb: number
+  peakDb: number
+}
 
 interface ChannelStripProps {
   laneId: string
@@ -13,8 +20,7 @@ interface ChannelStripProps {
   sends: readonly [number, number, number, number]
   sendModuleNames: readonly [string, string, string, string]
   muted?: boolean
-  levelDb: number
-  peakDb: number
+  meterStore: ReadableStore<ChannelMeterValue>
   selected?: boolean
   onSetGain: (channelIndex: number, gain: number) => void
   onSetPan: (channelIndex: number, pan: number) => void
@@ -49,8 +55,7 @@ export default function ChannelStrip({
   sends,
   sendModuleNames,
   muted,
-  levelDb,
-  peakDb,
+  meterStore,
   selected = false,
   onSetGain,
   onSetPan,
@@ -143,8 +148,7 @@ export default function ChannelStrip({
         step={1}
         valueText={`${Math.round(gain * 100)}%`}
         unityValue={100}
-        meterDb={levelDb}
-        peakDb={peakDb}
+        meterStore={meterStore}
         meterPosition="side"
         showDragValue
         onGestureStart={onGestureStart}

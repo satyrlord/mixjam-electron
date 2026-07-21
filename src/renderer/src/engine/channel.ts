@@ -4,6 +4,7 @@
 // Engine boundary: pure TypeScript over the Web Audio API. No React, no DOM.
 
 import { clamp } from '../lib/sample-utils'
+import { rampAudioParam } from './param-ramp'
 import { RETURN_BUS_COUNT } from './return-effects'
 
 export interface Channel {
@@ -53,17 +54,17 @@ export function createChannel(context: BaseAudioContext, index: number): Channel
 
     setGain(value: number): void {
       gainValue = clamp(value, 0, 1)
-      gainNode.gain.value = gainValue
+      rampAudioParam(gainNode.gain, gainValue, context)
     },
 
     setPan(value: number): void {
       panValue = clamp(value, -1, 1)
-      panNode.pan.value = panValue
+      rampAudioParam(panNode.pan, panValue, context)
     },
 
     setSend(index: number, value: number): void {
       if (index < 0 || index >= sendNodes.length) return
-      sendNodes[index]!.gain.value = clamp(value, 0, 1)
+      rampAudioParam(sendNodes[index]!.gain, clamp(value, 0, 1), context)
     },
 
     disconnect(): void {

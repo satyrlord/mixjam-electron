@@ -44,6 +44,7 @@ const PRESETS: Record<MasterBusPresetName, PresetDef> = {
       'lim.gain': 7,
     },
   },
+  // Gain remains active: Bypass All bypasses the ten downstream processors.
   'Bypass All': { restoreOrder: false, poweredOff: [...PROCESSOR_IDS], overrides: {} },
 }
 

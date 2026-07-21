@@ -4,7 +4,6 @@
 // defaults here are the spec's numbers; changing them is a spec change.
 
 export const PROCESSOR_IDS = [
-  'gain',
   'clip',
   'tube',
   'subeq',
@@ -18,6 +17,9 @@ export const PROCESSOR_IDS = [
 ] as const
 
 export type ProcessorId = (typeof PROCESSOR_IDS)[number]
+
+/** The pinned Gain Stage plus the ten reorderable downstream processors. */
+export type MasterBusModuleId = 'gain' | ProcessorId
 
 export type MasterBusParamId =
   | 'gain.trim'
@@ -47,7 +49,7 @@ export type MasterBusParamId =
 
 export interface MasterBusParamDef {
   readonly id: MasterBusParamId
-  readonly processor: ProcessorId
+  readonly processor: MasterBusModuleId
   readonly label: string
   readonly min: number
   readonly max: number
@@ -89,7 +91,7 @@ export const MASTER_BUS_PARAMS: readonly MasterBusParamDef[] = [
   { id: 'lim.ceil', processor: 'lim', label: 'CEILING', min: -3, max: 0, def: -1, unit: 'dBTP', dp: 1 },
 ] as const
 
-export const PARAM_BY_ID: ReadonlyMap<MasterBusParamId, MasterBusParamDef> = new Map(
+const PARAM_BY_ID: ReadonlyMap<MasterBusParamId, MasterBusParamDef> = new Map(
   MASTER_BUS_PARAMS.map((p) => [p.id, p]),
 )
 
@@ -108,9 +110,8 @@ export function clampParamValue(id: MasterBusParamId, value: number): number {
   return def.isSwitch ? Math.round(clamped) : clamped
 }
 
-/** Default processor order for slots 02..12 (spec-012 Chain Contract). */
+/** Default order for the ten reorderable processors in slots 03..12. */
 export const DEFAULT_PROCESSOR_ORDER: readonly ProcessorId[] = [
-  'gain',
   'clip',
   'tube',
   'subeq',

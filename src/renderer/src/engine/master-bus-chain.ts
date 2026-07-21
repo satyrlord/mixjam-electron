@@ -68,6 +68,7 @@ export class MasterBusChain {
   // The chain's current complete state; re-sent on (re)attachment so a
   // late worklet load cannot miss edits that happened before it was ready.
   private state: MasterBusState = defaultMasterBusState()
+  private metersEnabled = false
   private warned = false
   private closed = false
 
@@ -150,6 +151,17 @@ export class MasterBusChain {
     return this.latest
   }
 
+  /**
+   * Turns the worklet's 30 Hz snapshot stream on or off. Off (the default)
+   * while no UI is watching, so the audio thread skips the per-snapshot
+   * postMessage and allocation entirely.
+   */
+  setMetersEnabled(enabled: boolean): void {
+    if (this.metersEnabled === enabled) return
+    this.metersEnabled = enabled
+    this.node?.port.postMessage({ type: 'meters', enabled })
+  }
+
   close(): void {
     this.closed = true
     this.detachNode()
@@ -167,7 +179,7 @@ export class MasterBusChain {
         numberOfInputs: 1,
         numberOfOutputs: 1,
         outputChannelCount: [2],
-        processorOptions: { state: this.state },
+        processorOptions: { state: this.state, metersEnabled: this.metersEnabled },
       })
     } catch (cause) {
       if (!this.warned) {

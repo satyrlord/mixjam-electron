@@ -549,7 +549,7 @@ function parseMasterBus(value: unknown): MasterBusState {
   assertKeys(value, path, ['order', 'power', 'params', 'preset'])
 
   if (!Array.isArray(value.order) || !isValidProcessorOrder(value.order)) {
-    fail(`${path}.order`, 'must be a permutation of the eleven master bus processor ids')
+    fail(`${path}.order`, 'must be a permutation of the ten reorderable master bus processor ids')
   }
 
   if (!isRecord(value.power)) fail(`${path}.power`, 'must be an object')

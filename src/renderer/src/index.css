@@ -293,6 +293,8 @@
   --edge: var(--border-width) solid var(--border);
   --edge-pill: var(--border-width-pill) solid var(--pill-border);
   --edge-header: var(--border-width-header) solid var(--header-border);
+  /* Derived surfaces */
+  --bg-panel-quiet: color-mix(in srgb, var(--bg-panel) 72%, transparent);
 }
 
 html, body {
@@ -882,292 +884,16 @@ select option:disabled {
   font-size: 12px;
 }
 
-/* ── Home Screen ─────────────────────────────── */
-.home-screen {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px 32px;
-  overflow: hidden;
-  /* Accent glow bleeding from the top gives the first screen the same
-     dimensionality as the tracker chrome without hardcoding a color. */
-  background:
-    radial-gradient(
-      ellipse 90% 70% at 50% -10%,
-      color-mix(in srgb, var(--accent) 20%, transparent),
-      transparent 70%
-    ),
-    var(--bg-base);
-}
-
-.home-content {
-  display: grid;
-  grid-template-columns: minmax(408px, 1fr) minmax(500px, 1.1fr);
-  grid-template-areas:
-    'hero setup'
-    'recent setup';
-  column-gap: 24px;
-  row-gap: 16px;
-  align-items: center;
-  width: 1120px;
-  max-width: 100%;
-}
-
-/* ── Home hero: brand, tagline, quick start, themes ── */
-.home-hero {
-  grid-area: hero;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  min-width: 0;
-}
-
-.home-brand {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.home-logo {
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-  object-fit: contain;
-  filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent));
-}
-
-.home-brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-
-.home-wordmark {
-  font-family: var(--font-chrome);
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text);
-  line-height: 1;
-}
-
-.home-tagline {
-  font-family: var(--font-label);
-  font-size: 13px;
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-
-.home-steps {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.home-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.home-step-num {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--pill-bg);
-  border: var(--edge-pill);
-  color: var(--highlight);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.home-step-text {
-  font-family: var(--font-label);
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-  padding-top: 3px;
-}
-
-.home-themes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.home-themes-head {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.home-themes-label {
-  font-family: var(--font-chrome);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-}
-
-.home-theme-swatches {
-  display: grid;
-  grid-template-columns: repeat(8, 44px);
-  gap: 8px;
-}
-
-.home-theme-swatch {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: var(--edge-pill);
-  cursor: pointer;
-  padding: 0;
-}
-
-.home-theme-swatch:hover {
-  transform: scale(1.15);
-  border-color: var(--highlight);
-}
-
-.home-theme-swatch-active {
-  outline: 2px solid var(--highlight);
-  outline-offset: 2px;
-}
-
-/* ── Home workflow rail ─────────────────────── */
-.home-setup {
-  grid-area: setup;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
 .footer-preferences {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.home-workflow-card {
-  min-width: 0;
-  padding: 12px;
-  background: var(--bg-panel);
-  border: var(--edge);
-  border-radius: var(--radius);
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
-}
-
-.home-workflow-title {
-  margin: 0;
-  color: var(--text);
-  font: 600 13px/1.2 var(--font-chrome);
-  letter-spacing: 0.03em;
-}
-
-.home-workflow-copy {
-  margin: 0;
-  color: var(--text-muted);
-  font: 12px/1.4 var(--font-label);
-}
-
-.home-library-setup {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.home-folder-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.home-library-status {
-  min-width: 0;
-}
-
-.home-recent {
-  grid-area: recent;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border-top: var(--edge);
-  padding-top: 10px;
-}
-
-.home-recent-title {
-  font-family: var(--font-chrome);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--text-muted);
-}
-
-.home-recent-list {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.home-recent-item {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  width: 100%;
-  min-width: 0;
-  text-align: left;
-  background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
-  border: var(--edge);
-  border-radius: var(--radius);
-  padding: 6px 10px;
-  min-height: 44px;
-  cursor: pointer;
-}
-
-.home-recent-item:hover {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-color: var(--border);
-}
-
-.home-recent-item:hover .home-recent-name {
-  color: var(--highlight);
-}
-
-.home-recent-name {
-  font-family: var(--font-label);
-  font-size: 12px;
-  color: var(--text);
-}
-
-.home-recent-path {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
 /* ── Folder cards ────────────────────────────── */
 .folder-card {
-  background: var(--bg-panel);
-  border: var(--edge);
+  background: var(--bg-panel-quiet);
+  border: 0;
   border-radius: var(--radius);
   padding: 14px 16px;
 }
@@ -3473,7 +3199,12 @@ select option:disabled {
 
 /* ── Context Menu ──────────────────────────── */
 .mixjam-menu-content {
-  z-index: 100;
+  /* Above the blocking-dialog layer (overlay 200 / dialog 201), because menus
+     are opened FROM inside dialogs — the Echoform preset picker, for one. At
+     z-index 100 the menu still mounted and measured correctly but was painted
+     over by the overlay, so it read as "the presets disappeared". A menu is
+     always transient and always on top of whatever opened it. */
+  z-index: 210;
   background: var(--chrome);
   border: var(--edge);
   border-radius: var(--radius);
@@ -3746,13 +3477,6 @@ select option:disabled {
   z-index: 201;
 }
 
-.home-generator-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-}
-
 
 .tracker-lane-actions { position: sticky; left: 0; z-index: 8; display: flex; align-items: center; justify-content: flex-end; width: var(--tracker-lane-head-width, 240px); gap: 8px; padding: 4px 8px; border-bottom: var(--edge); background: var(--chrome); box-sizing: border-box; }
 .lane-add-button, .lane-empty-delete { min-height: 28px; border: var(--edge-pill); border-radius: 3px; background: var(--pill-bg); color: var(--text-muted); font: 600 12px var(--font-label); padding: 0 8px; }
@@ -3771,7 +3495,7 @@ select option:disabled {
   gap: 4px;
 }
 
-.home-generator-card p {
+.home-generator p {
   margin: 0;
 }
 

@@ -274,24 +274,29 @@ function LaneSampleBubbleCanvas({
     const container = containerRef.current
     if (!container) return
     const scrollport = container.closest<HTMLElement>('.tracker-lanes')
-    let scrollFrame: number | null = null
-    const scheduleScrollDraw = () => {
-      if (scrollFrame !== null) return
-      scrollFrame = window.requestAnimationFrame(() => {
-        scrollFrame = null
+    // Every lane observes the same shared scrollport, so one height change (a
+    // bottom-tab switch resizes it) would otherwise run N synchronous draws in
+    // a single observer flush — each reallocating a device-pixel backing store
+    // and repainting the lane. Coalesce to one draw per frame, matching what
+    // the scroll path already does.
+    let redrawFrame: number | null = null
+    const scheduleDraw = () => {
+      if (redrawFrame !== null) return
+      redrawFrame = window.requestAnimationFrame(() => {
+        redrawFrame = null
         draw()
       })
     }
-    const observer = new ResizeObserver(() => draw())
+    const observer = new ResizeObserver(scheduleDraw)
     observer.observe(container)
     if (scrollport) {
       observer.observe(scrollport)
-      scrollport.addEventListener('scroll', scheduleScrollDraw, { passive: true })
+      scrollport.addEventListener('scroll', scheduleDraw, { passive: true })
     }
     return () => {
       observer.disconnect()
-      scrollport?.removeEventListener('scroll', scheduleScrollDraw)
-      if (scrollFrame !== null) window.cancelAnimationFrame(scrollFrame)
+      scrollport?.removeEventListener('scroll', scheduleDraw)
+      if (redrawFrame !== null) window.cancelAnimationFrame(redrawFrame)
     }
   }, [draw])
 

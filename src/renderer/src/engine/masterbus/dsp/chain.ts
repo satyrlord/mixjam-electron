@@ -1,19 +1,17 @@
-// One complete chain instance: the eleven processors in a mutable order
-// with per-processor power flags. The MasterBusCore owns two instances and
-// crossfades between them on topology changes (audio-engine.md).
+// One downstream chain instance: ten processors in a mutable order with
+// per-processor power flags. The pinned Gain Stage is owned by MasterBusCore
+// and runs once before the Input Meter and both crossfade branches.
 
 import type { ProcessorId } from '../params'
 import type { BusModule, ParamReader } from './module'
-import { GainStageModule } from './modules/gain'
 import { MaximizerModule, SoftClipModule, TapeSaturationModule, TubeSaturationModule } from './modules/saturators'
 import { AdditiveEqModule, SubtractiveEqModule } from './modules/eq'
 import { BusCompressorModule, LimiterModule, MultibandCompModule } from './modules/dynamics'
 import { StereoImagingModule } from './modules/imaging'
 import { sanitizeBlock } from './util'
 
-export function createModules(sampleRate: number, maxBlock: number): Record<ProcessorId, BusModule> {
+function createModules(sampleRate: number, maxBlock: number): Record<ProcessorId, BusModule> {
   return {
-    gain: new GainStageModule(),
     clip: new SoftClipModule(sampleRate, maxBlock),
     tube: new TubeSaturationModule(sampleRate, maxBlock),
     subeq: new SubtractiveEqModule(sampleRate),
@@ -27,7 +25,18 @@ export function createModules(sampleRate: number, maxBlock: number): Record<Proc
   }
 }
 
-export class ChainInstance {
+/** Explicit polymorphic surface consumed by MasterBusCore. */
+interface DownstreamChain {
+  setTopology(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): void
+  topologyEquals(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): boolean
+  isPowered(id: ProcessorId): boolean
+  readonly latencySamples: number
+  updateParams(read: ParamReader): void
+  process(l: Float32Array, r: Float32Array, n: number): void
+  reset(): void
+}
+
+export class ChainInstance implements DownstreamChain {
   readonly modules: Record<ProcessorId, BusModule>
   private order: ProcessorId[]
   private readonly power: Record<ProcessorId, boolean>
@@ -38,7 +47,6 @@ export class ChainInstance {
     this.modules = createModules(sampleRate, maxBlock)
     this.order = [...order]
     this.power = {
-      gain: true,
       clip: true,
       tube: true,
       subeq: true,

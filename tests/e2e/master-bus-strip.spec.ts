@@ -30,11 +30,15 @@ test.describe('Master Bus Strip (spec-012)', () => {
     const modules = seededPage.locator('.mbs-module')
     await expect(modules).toHaveCount(13)
     await expect(modules.first()).toContainText('01')
-    await expect(modules.first()).toContainText('INPUT')
+    await expect(modules.first()).toContainText('GAIN STAGE')
+    await expect(modules.nth(1)).toContainText('02')
+    await expect(modules.nth(1)).toContainText('INPUT')
     await expect(modules.last()).toContainText('13')
     await expect(modules.last()).toContainText('OUTPUT')
-    // Processors occupy slots 02..12 in the default order.
-    await expect(modules.nth(1)).toContainText('GAIN STAGE')
+    // Processors occupy slots 03..12 in the default order.
+    await expect(modules.nth(2)).toContainText('SOFT CLIP')
+    await expect(modules.nth(4)).toContainText('TRIM EQ')
+    await expect(modules.nth(7)).toContainText('LIFT EQ')
     await expect(modules.nth(11)).toContainText('LIMITER')
     // The four preset chips are present with Cheat Sheet active.
     await expect(seededPage.getByRole('button', { name: 'Cheat Sheet' })).toBeVisible()
@@ -45,16 +49,20 @@ test.describe('Master Bus Strip (spec-012)', () => {
     await seededPage.getByRole('button', { name: 'Start New MixJam' }).click()
     await seededPage.getByRole('tab', { name: 'Master' }).click()
 
-    const gainGrip = seededPage.getByRole('button', { name: /Move GAIN STAGE/ })
-    await gainGrip.focus()
-    await gainGrip.press('ArrowRight')
+    // Gain Stage is pinned at slot 01 — it has no active grip. Reorder SOFT CLIP instead.
+    const clipGrip = seededPage.getByRole('button', { name: /Move SOFT CLIP/ })
+    await clipGrip.focus()
+    await clipGrip.press('ArrowRight')
 
     const modules = seededPage.locator('.mbs-module')
-    await expect(modules.nth(1)).toContainText('SOFT CLIP')
-    await expect(modules.nth(2)).toContainText('GAIN STAGE')
+    // After swapping SOFT CLIP (was 03) right with TUBE SAT (was 04):
+    await expect(modules.nth(2)).toContainText('TUBE SAT')
+    await expect(modules.nth(3)).toContainText('SOFT CLIP')
 
     const saved = await savedMasterBus(seededPage)
-    expect(saved.order.slice(0, 2)).toEqual(['clip', 'gain'])
+    expect(saved.order.slice(0, 2)).toEqual(['tube', 'clip'])
+    expect(saved.order).toHaveLength(10)
+    expect(saved.order).not.toContain('gain')
     expect(saved.preset).toBeNull()
   })
 
@@ -71,6 +79,7 @@ test.describe('Master Bus Strip (spec-012)', () => {
     const saved = await savedMasterBus(seededPage)
     expect(saved.power.lim).toBe(false)
     expect(saved.power.comp).toBe(true)
+    expect(saved.power).not.toHaveProperty('gain')
   })
 
   test('preset recall applies the documented power map and values', async ({ seededPage }) => {
@@ -149,7 +158,11 @@ test.describe('Master Bus Strip (spec-012)', () => {
       const node = new AudioWorkletNode(context, 'master-bus-processor', {
         numberOfInputs: 1,
         numberOfOutputs: 1,
-        outputChannelCount: [2]
+        outputChannelCount: [2],
+        // Meter snapshots stream only on request (the Master tab enables
+        // them). Construction-time enable: a port message can lose the race
+        // against a short offline render.
+        processorOptions: { metersEnabled: true }
       })
       let snapshots = 0
       node.port.onmessage = () => {

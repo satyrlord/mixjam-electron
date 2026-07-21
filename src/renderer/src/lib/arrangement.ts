@@ -3,6 +3,7 @@ import { type EngineLane } from '../engine/lane-evaluation'
 import { BEATS_PER_BAR, TICKS_PER_BAR, tickDurationSeconds } from '../engine/transport'
 import type { ClipPlacement, LaneState } from '../project/project-state'
 import { clamp } from './sample-utils'
+import { weakMemoize1 } from './weak-memoize'
 
 /** Detail passed around the UI after a user selects or drags a sample. All
  *  paths are relpaths within the active Sample Folder's scan root. */
@@ -106,23 +107,35 @@ export function sampleBubbleScreenRect(
   }
 }
 
-// Maps the UI lane model onto the engine's lane model. Default routing: lane N
-// plays through mixer channel N (spec-005 Lane "default routing").
-export function toEngineLanes(lanes: readonly LaneState[]): EngineLane[] {
-  return lanes.map((lane) => ({
-    index: lane.index,
-    muted: lane.muted,
-    solo: lane.solo,
-    pan: lane.pan,
-    channelIndex: lane.index,
-    placements: lane.placements.map((placement) => ({
+// The scheduler calls this on every 25 ms tick, so an uncached mapping
+// re-allocates one object per lane and per placement 40 times a second — tens
+// of thousands of short-lived objects whose GC pauses eat the scheduler's
+// lookahead budget. Lane state is immutable by convention (every edit produces
+// new arrays), so caching on array identity is exact: an edit is always a miss,
+// and a stale hit is impossible. Weak keys so deleted lanes cannot leak.
+const toEnginePlacements = weakMemoize1(
+  (placements: LaneState['placements']): EngineLane['placements'] =>
+    placements.map((placement) => ({
       startTick: placement.startTick,
       durationTicks: placement.durationTicks,
       samplePath: placement.samplePath,
       nativeBPM: placement.nativeBPM ?? null
     }))
-  }))
-}
+)
+
+// Maps the UI lane model onto the engine's lane model. Default routing: lane N
+// plays through mixer channel N (spec-005 Lane "default routing").
+export const toEngineLanes = weakMemoize1(
+  (lanes: readonly LaneState[]): EngineLane[] =>
+    lanes.map((lane) => ({
+      index: lane.index,
+      muted: lane.muted,
+      solo: lane.solo,
+      pan: lane.pan,
+      channelIndex: lane.index,
+      placements: toEnginePlacements(lane.placements)
+    }))
+)
 
 export function placementDurationTicks(durationSeconds: number | null, bpm: number): number {
   if (!durationSeconds || durationSeconds <= 0) return DEFAULT_PLACEMENT_DURATION_TICKS

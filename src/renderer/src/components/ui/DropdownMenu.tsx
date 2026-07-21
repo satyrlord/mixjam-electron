@@ -28,3 +28,17 @@ export const DropdownMenuItem = forwardRef<
 >(function DropdownMenuItem({ className = '', ...props }, ref) {
   return <Primitive.Item ref={ref} className={`mixjam-menu-item ${className}`.trim()} {...props} />
 })
+
+/* A menu whose items are a single-choice set (presets, modes). `menuitem` has
+   no checked state — putting `aria-checked` on one is invalid ARIA and screen
+   readers drop it — so selection must be expressed with the radio roles. */
+export const DropdownMenuRadioGroup = Primitive.RadioGroup
+
+export const DropdownMenuRadioItem = forwardRef<
+  React.ElementRef<typeof Primitive.RadioItem>,
+  React.ComponentPropsWithoutRef<typeof Primitive.RadioItem>
+>(function DropdownMenuRadioItem({ className = '', ...props }, ref) {
+  return (
+    <Primitive.RadioItem ref={ref} className={`mixjam-menu-item ${className}`.trim()} {...props} />
+  )
+})

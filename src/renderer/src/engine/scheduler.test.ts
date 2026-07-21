@@ -58,10 +58,68 @@ describe('createScheduler', () => {
     audioTime = 0.2
     clock.fire()
     expect(scheduled.length).toBeGreaterThan(firstBatch)
-    // No duplicate ticks — each scheduled exactly once, monotonically.
+    // No duplicate ticks — each scheduled exactly once, and never backwards.
     for (let i = 1; i < scheduled.length; i++) {
-      expect(scheduled[i]).toBe(scheduled[i - 1] + 1)
+      expect(scheduled[i]).toBeGreaterThan(scheduled[i - 1])
     }
+  })
+
+  it('keeps a barely-late tick rather than silencing the downbeat', () => {
+    let audioTime = 0
+    const scheduled: Array<{ tick: number, when: number }> = []
+    const clock = mockClock()
+
+    const scheduler = createScheduler({
+      now: () => audioTime,
+      transport: { bpm: 120 },
+      onSchedule: (tick, when) => scheduled.push({ tick, when }),
+      clock,
+      lookaheadMs: 100
+    })
+
+    // start() anchors the first step to the clock, but the clock keeps moving
+    // before the first pass runs — more so on a device with a large output
+    // buffer. Steps that slipped only slightly into the past are still audibly
+    // on time, so the sequence must stay contiguous rather than skip ahead.
+    scheduler.start(0)
+    const scheduledAtStart = scheduled.length
+    expect(scheduledAtStart).toBeGreaterThan(0)
+    const nextExpectedTick = scheduled[scheduledAtStart - 1]!.tick + 1
+
+    audioTime = 0.03
+    clock.fire()
+
+    expect(scheduled.length).toBeGreaterThan(scheduledAtStart)
+    expect(scheduled[scheduledAtStart]!.tick).toBe(nextExpectedTick)
+  })
+
+  it('drops ticks whose audio time already passed instead of firing them late', () => {
+    let audioTime = 0
+    const scheduled: Array<{ tick: number, when: number }> = []
+    const clock = mockClock()
+
+    const scheduler = createScheduler({
+      now: () => audioTime,
+      transport: { bpm: 120 },
+      onSchedule: (tick, when) => scheduled.push({ tick, when }),
+      clock,
+      lookaheadMs: 100
+    })
+
+    scheduler.start(0)
+    scheduled.length = 0
+
+    // A main-thread stall far longer than the lookahead: at 120 BPM a tick is
+    // 62.5 ms, so one second buries a backlog of 16 ticks. Scheduling those
+    // would hand Web Audio start times in the past, which it fires immediately
+    // as one burst; they must be dropped instead.
+    audioTime = 1
+    clock.fire()
+
+    expect(scheduled.length).toBeGreaterThan(0)
+    for (const { when } of scheduled) expect(when).toBeGreaterThanOrEqual(audioTime)
+    // Playback resumes at the present, not from the buried backlog.
+    expect(scheduled[0]!.tick).toBeGreaterThanOrEqual(16)
   })
 
   it('does not double-start and stops cleanly', () => {

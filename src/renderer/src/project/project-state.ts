@@ -302,7 +302,8 @@ export function setMasterBusParam(
   }
 }
 
-/** Toggle one processor's power flag. A manual edit clears the preset selection. */
+/** Toggle one downstream processor's power flag. The pinned Gain Stage has no
+ * power state. A manual edit clears the preset selection. */
 export function toggleMasterBusPower(
   masterBus: MasterBusState,
   processorId: ProcessorId
@@ -314,8 +315,8 @@ export function toggleMasterBusPower(
   }
 }
 
-/** Replace the processor order. An order that is not a permutation of the
- * eleven processor ids leaves the state unchanged. */
+/** Replace the downstream processor order. An order that is not a permutation
+ * of the ten processor ids leaves the state unchanged. */
 export function reorderMasterBus(
   masterBus: MasterBusState,
   order: readonly ProcessorId[]

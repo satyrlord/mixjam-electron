@@ -62,8 +62,14 @@ export default function FolderCard({
             {`Restore access to ${folderName ?? 'folder'}`}
           </button>
         ) : null}
-        <button type="button" className="folder-card-pick" onClick={onPick} disabled={disabled}>
-          Pick Folder
+        <button
+          type="button"
+          className="folder-card-pick"
+          aria-label={status === 'set' ? `Change ${label}` : undefined}
+          onClick={onPick}
+          disabled={disabled}
+        >
+          {status === 'set' ? 'Change' : 'Pick Folder'}
         </button>
       </div>
       <p className={`folder-card-status folder-card-status-${tone}`}>{text}</p>

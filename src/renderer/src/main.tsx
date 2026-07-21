@@ -1,4 +1,5 @@
 import './index.css'
+import './home.css'
 import './mixer.css'
 import './masterbus.css'
 import './echoform-delay.css'

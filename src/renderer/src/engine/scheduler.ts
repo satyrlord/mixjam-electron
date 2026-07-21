@@ -90,6 +90,25 @@ export function createScheduler(options: SchedulerOptions): Scheduler {
       anchorTime += elapsedTicks * stepSeconds
     }
 
+    // A main-thread stall longer than the lookahead leaves a backlog of ticks
+    // whose audio time has already passed. Scheduling them anyway would hand
+    // Web Audio start times in the past, which it clamps to "now" — firing the
+    // whole backlog at once as an audible burst. Drop what can no longer sound
+    // on time and resume from the present instead: a stall costs the notes it
+    // covered, never a machine-gun catch-up. The playhead itself is derived
+    // from the audio clock (liveTick), so it stays correct either way.
+    //
+    // Only a real backlog qualifies. A step whose time has just barely passed —
+    // ordinary timer jitter, or the clock advancing between start() and the
+    // first pass on a device with a large output buffer — is still audibly on
+    // time, and dropping it would silence the downbeat.
+    const backlogSeconds = now - nextTickTime
+    if (backlogSeconds > lookaheadSeconds) {
+      const missedTicks = Math.ceil(backlogSeconds / stepSeconds)
+      nextTick += missedTicks
+      nextTickTime += missedTicks * stepSeconds
+    }
+
     const horizon = now + lookaheadSeconds
     while (nextTickTime < horizon) {
       options.onSchedule(nextTick, nextTickTime)

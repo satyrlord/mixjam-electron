@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PlaybackEngine, PlaybackReturnSnapshot } from '../engine/playback-engine'
 import type { ReturnModule } from '../engine/return-effects'
+import { createValueStore, type ReadableStore } from '../lib/value-store'
 import {
   toPlaybackProjectGraphSnapshot,
   type LaneState,
@@ -11,12 +12,19 @@ const PEAK_HOLD_DECAY_DB_PER_S = 30
 const SILENCE_DB = -100
 const LEGACY_STORAGE_KEY = 'mixjam-mixer-channels'
 
+/** One visual telemetry frame: RMS level and peak-hold in dBFS per channel. */
+export interface ChannelMeterFrame {
+  levels: ReadonlyMap<number, number>
+  peaks: ReadonlyMap<number, number>
+}
+
+const SILENT_FRAME: ChannelMeterFrame = { levels: new Map(), peaks: new Map() }
+
 export interface MixerState {
   returnBuses: [PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot, PlaybackReturnSnapshot]
-  /** Current RMS level in dBFS per lane-derived channel index. */
-  channelLevels: ReadonlyMap<number, number>
-  /** Peak hold level per lane-derived channel index. */
-  channelPeaks: ReadonlyMap<number, number>
+  /** Telemetry frames at RAF cadence. A store, not React state: meter leaves
+   *  subscribe individually so a frame never re-renders the App tree. */
+  channelMetersStore: ReadableStore<ChannelMeterFrame>
 }
 
 export interface MixerActions {
@@ -46,8 +54,7 @@ export function useMixer(
     [fxBuses, lanes]
   )
   const returnBuses = projectGraphSnapshot.returns as MixerState['returnBuses']
-  const [channelLevels, setChannelLevels] = useState<Map<number, number>>(new Map())
-  const [channelPeaks, setChannelPeaks] = useState<Map<number, number>>(new Map())
+  const [channelMetersStore] = useState(() => createValueStore<ChannelMeterFrame>(SILENT_FRAME))
   const [visualTelemetryActive, setVisualTelemetryActive] = useState(false)
 
   const channelsRef = useRef(projectGraphSnapshot.channels)
@@ -81,8 +88,25 @@ export function useMixer(
       }
 
       if (playbackEngine.activeVoiceCount === 0) {
-        const previous = prevLevelsRef.current
-        if ([...previous.values()].some((db) => db > SILENCE_DB)) {
+        const published = channelMetersStore.get()
+        let hasAudibleTelemetry = false
+        for (const db of published.levels.values()) {
+          if (db > SILENCE_DB) {
+            hasAudibleTelemetry = true
+            break
+          }
+        }
+        if (!hasAudibleTelemetry) {
+          for (const db of published.peaks.values()) {
+            if (db > SILENCE_DB) {
+              hasAudibleTelemetry = true
+              break
+            }
+          }
+        }
+        if (hasAudibleTelemetry ||
+            published.levels.size !== channelsRef.current.length ||
+            published.peaks.size !== channelsRef.current.length) {
           const silentLevels = new Map<number, number>()
           const silentPeaks = new Map<number, number>()
           for (const channel of channelsRef.current) {
@@ -91,8 +115,7 @@ export function useMixer(
           }
           prevLevelsRef.current = silentLevels
           peaksRef.current = new Map()
-          setChannelLevels(silentLevels)
-          setChannelPeaks(silentPeaks)
+          channelMetersStore.set({ levels: silentLevels, peaks: silentPeaks })
         }
         rafId = requestAnimationFrame(tick)
         return
@@ -102,13 +125,17 @@ export function useMixer(
       lastFrameRef.current = now
       const nextLevels = new Map<number, number>()
       const nextPeaks = new Map<number, number>()
+      const publishedPeaks = channelMetersStore.get().peaks
       let changed = false
 
       for (const channel of channelsRef.current) {
         const analyser = playbackEngine.getChannelAnalyser(channel.channelIndex)
         if (!analyser) {
           nextLevels.set(channel.channelIndex, SILENCE_DB)
+          nextPeaks.set(channel.channelIndex, SILENCE_DB)
+          peaksRef.current.delete(channel.channelIndex)
           if (prevLevelsRef.current.get(channel.channelIndex) !== SILENCE_DB) changed = true
+          if (publishedPeaks.get(channel.channelIndex) !== SILENCE_DB) changed = true
           continue
         }
 
@@ -129,13 +156,14 @@ export function useMixer(
         const peak = Math.max(currentPeak - PEAK_HOLD_DECAY_DB_PER_S * dt, db)
         peaksRef.current.set(channel.channelIndex, peak)
         nextPeaks.set(channel.channelIndex, peak)
+        if (peak !== publishedPeaks.get(channel.channelIndex)) changed = true
       }
 
       if (nextLevels.size !== prevLevelsRef.current.size) changed = true
+      if (nextPeaks.size !== publishedPeaks.size) changed = true
       if (changed) {
         prevLevelsRef.current = nextLevels
-        setChannelLevels(nextLevels)
-        setChannelPeaks(nextPeaks)
+        channelMetersStore.set({ levels: nextLevels, peaks: nextPeaks })
       }
       rafId = requestAnimationFrame(tick)
     }
@@ -146,7 +174,7 @@ export function useMixer(
       cancelAnimationFrame(rafId)
       lastFrameRef.current = 0
     }
-  }, [playbackEngineRef, visualTelemetryActive])
+  }, [playbackEngineRef, visualTelemetryActive, channelMetersStore])
 
   useEffect(() => {
     if (view !== 'player') return
@@ -161,8 +189,7 @@ export function useMixer(
 
   return {
     returnBuses,
-    channelLevels,
-    channelPeaks,
+    channelMetersStore,
     setVisualTelemetryActive,
     previewReturnBus
   }

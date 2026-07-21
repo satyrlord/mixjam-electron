@@ -30,18 +30,29 @@ import {
 } from '../src/renderer/src/project/project-state'
 
 export const SONG_BPM = 140
-export const TOTAL_BARS = 70
+export const TOTAL_BARS = 105
 export const TOTAL_TICKS = TOTAL_BARS * TICKS_PER_BAR
 export const SONG_DURATION_SECONDS = TOTAL_TICKS * tickDurationSeconds(SONG_BPM)
 
+// One bar is 32 ticks, one beat 8, one sixteenth 2. The "and" offbeat of a
+// beat sits 4 ticks after the beat; a swung off-sixteenth sits 1 tick late.
+const TICKS_PER_BEAT = 8
+const SIXTEENTH_TICKS = 2
+const OFFBEAT_TICKS = 4
+const SWING_TICKS = 1
+
+// Sections sit on 8-bar phrase boundaries so the arc stays DJ-mixable. The
+// drift-out absorbs the one leftover bar that makes 105 bars land on exactly
+// 180 seconds at 140 BPM. The arc stages density and element count, not FX.
 export const SONG_SECTIONS = [
-  { name: 'sunset DJ intro', startBar: 0, endBar: 8 },
-  { name: 'tropical groove', startBar: 8, endBar: 20 },
-  { name: 'melodic ascent', startBar: 20, endBar: 30 },
-  { name: 'ocean-air breakdown', startBar: 30, endBar: 40 },
-  { name: 'terrace buildup', startBar: 40, endBar: 50 },
-  { name: 'Ibiza peak', startBar: 50, endBar: 62 },
-  { name: 'sunrise mix-out', startBar: 62, endBar: 70 }
+  { name: 'deep-space intro', startBar: 0, endBar: 16 },
+  { name: 'orbital groove', startBar: 16, endBar: 32 },
+  { name: 'first contact build', startBar: 32, endBar: 40 },
+  { name: 'cosmic peak', startBar: 40, endBar: 56 },
+  { name: 'void breakdown', startBar: 56, endBar: 72 },
+  { name: 'ignition build', startBar: 72, endBar: 80 },
+  { name: 'supernova peak', startBar: 80, endBar: 96 },
+  { name: 'drift-out', startBar: 96, endBar: 105 }
 ] as const
 
 export const REQUIRED_CATEGORIES = [
@@ -58,66 +69,73 @@ export const REQUIRED_CATEGORIES = [
   'Xtra'
 ] as const
 
-const OUTPUT_BASENAME = 'Ibiza-Melodic-Techno-Mixer-Test'
+const OUTPUT_BASENAME = 'Ambient-Cosmic-Techno-Mixer-Test'
 const DEFAULT_SAMPLES_DIR = 'tmp/test-samples'
 const DEFAULT_OUTPUT_DIR = 'tmp/generated-songs'
 const MIN_SAMPLE_BPM = 20
 const MAX_SAMPLE_BPM = 400
 
 const LANE_NAMES = [
-  'Kick Phrases',
-  'Clap / Snare',
-  'Hi-Hat / Percussion',
-  'Groove Loops',
-  'Bass',
-  'Sequences',
-  'Keys',
-  'Layer L',
-  'Layer R',
+  'Kick',
+  'Groove Loop',
+  'Offbeat Hats',
+  'Clap / Percussion',
+  'Offbeat Bass',
+  'Dub Stabs',
+  'Sequence Motifs',
+  'Pad L',
+  'Pad R',
   'Sphere L',
   'Sphere R',
   'Voice',
   'Rap',
-  'Extra Texture',
+  'Texture',
   'Transition FX L',
   'Transition FX R'
 ] as const
 
-const LANE_GAINS = [0.78, 0.58, 0.46, 0.52, 0.68, 0.44, 0.5, 0.36, 0.36, 0.34, 0.34, 0.52, 0.48, 0.34, 0.5, 0.5] as const
-const LANE_PANS = [0, 0.04, -0.12, 0.08, 0, -0.16, 0.14, -0.62, 0.62, -0.5, 0.5, -0.06, 0.12, -0.22, -0.7, 0.7] as const
+// Gains stage the techno hierarchy: kick and bass lead, hats and stabs sit
+// under, pads and spheres stay low so they read as space rather than a wall.
+const LANE_GAINS = [0.8, 0.56, 0.42, 0.44, 0.66, 0.46, 0.44, 0.3, 0.3, 0.32, 0.32, 0.5, 0.46, 0.3, 0.48, 0.48] as const
+const LANE_PANS = [0, 0.04, 0.18, -0.14, 0, -0.2, 0.16, -0.62, 0.62, -0.5, 0.5, -0.06, 0.12, -0.24, -0.7, 0.7] as const
+
+const COSMIC_DRONE = /cosmos|cosmic|space|star|astro|nebula|galaxy|orbit|lunar|moon|solar|eclipse|void|dark|night|dream|deep|drone|ambient|pad|atmo|sphere|air|wind|ocean|sea|water/i
+const COSMIC_TENSION = /dark|night|void|shadow|echo|drone|deep|cosmic|space|tension|myster|hypno|pulse|siren|alarm|signal|static|noise|air|wind|wave/i
 
 const SINGLE_SAMPLE_ROLE_DEFINITIONS = [
-  { key: 'kickPrimary', name: 'primary kick phrase', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
-  { key: 'kickAlternate', name: 'alternate kick phrase', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
-  { key: 'clap', name: 'clap phrase', category: 'Drum', pattern: /clap/i, maxDurationBars: 2 },
-  { key: 'snare', name: 'snare phrase', category: 'Drum', pattern: /snare/i, maxDurationBars: 2 },
-  { key: 'percussionPrimary', name: 'primary percussion phrase', category: 'Drum', pattern: /hihat|perc|shak|conga|bongo|tamb|cow|stick|rim/i, maxDurationBars: 2 },
-  { key: 'percussionAlternate', name: 'alternate percussion phrase', category: 'Drum', pattern: /hihat|perc|shak|conga|bongo|tamb|cow|stick|rim/i, maxDurationBars: 2 },
-  { key: 'groovePrimary', name: 'primary groove loop', category: 'Loop', pattern: /.*/, stylePattern: /beach|afrika|africa|tribal|latin|tropic|island|samba|bongo|conga/i, maxDurationBars: 4 },
-  { key: 'grooveAlternate', name: 'alternate groove loop', category: 'Loop', pattern: /.*/, stylePattern: /beach|afrika|africa|tribal|latin|tropic|island|samba|bongo|conga/i, maxDurationBars: 4 },
-  { key: 'bassPrimary', name: 'primary bass phrase', category: 'Bass', pattern: /.*/, stylePattern: /warm|deep|sub|swing|sun|summer|tropic|island|beach/i, maxDurationBars: 4 },
-  { key: 'bassAlternate', name: 'alternate bass phrase', category: 'Bass', pattern: /.*/, stylePattern: /warm|deep|sub|swing|sun|summer|tropic|island|beach/i, maxDurationBars: 4 },
-  { key: 'sequencePrimary', name: 'primary sequence', category: 'Seq', pattern: /.*/, stylePattern: /sun|summer|beach|tequila|thai|andorra|island|tropic|bali|sea|ocean|water|(?:^|[-_])air(?:[-_.]|$)/i, maxDurationBars: 4 },
-  { key: 'sequenceAlternate', name: 'alternate sequence', category: 'Seq', pattern: /.*/, stylePattern: /sun|summer|beach|tequila|thai|andorra|island|tropic|bali|sea|ocean|water|(?:^|[-_])air(?:[-_.]|$)/i, maxDurationBars: 4 },
-  { key: 'keysPrimary', name: 'primary keys phrase', category: 'Keys', pattern: /.*/, stylePattern: /sun|water|cielo|chiquita|chico|chica|casa|gracias|fuego|iglesias|madre|santiago|tango|toro|verde|tribal|orient|melodica/i, maxDurationBars: 4 },
-  { key: 'keysAlternate', name: 'alternate keys phrase', category: 'Keys', pattern: /.*/, stylePattern: /sun|water|cielo|chiquita|chico|chica|casa|gracias|fuego|iglesias|madre|santiago|tango|toro|verde|tribal|orient|melodica/i, maxDurationBars: 4 },
-  { key: 'voicePrimary', name: 'primary voice motif', category: 'Voice', pattern: /.*/, stylePattern: /a-ha|yeyea|a-ouh|batida|clear-space|alright|feel|love|summer|sun|beach/i, maxDurationBars: 4 },
-  { key: 'voiceAlternate', name: 'alternate voice motif', category: 'Voice', pattern: /.*/, stylePattern: /a-ha|yeyea|a-ouh|batida|clear-space|alright|feel|love|summer|sun|beach/i, maxDurationBars: 4 },
-  { key: 'rapPrimary', name: 'primary rap motif', category: 'Rap', pattern: /.*/, stylePattern: /feel|dance|body|free|love|nice|sky|spark|sun|summer|beach|sea/i, maxDurationBars: 4 },
-  { key: 'rapAlternate', name: 'alternate rap motif', category: 'Rap', pattern: /.*/, stylePattern: /feel|dance|body|free|love|nice|sky|spark|sun|summer|beach|sea/i, maxDurationBars: 4 },
-  { key: 'extraPrimary', name: 'primary extra texture', category: 'Xtra', pattern: /.*/, stylePattern: /air|sun|summer|sea|ocean|beach|tropic|island|warm|wind|water/i, maxDurationBars: 4 },
-  { key: 'extraAlternate', name: 'alternate extra texture', category: 'Xtra', pattern: /.*/, stylePattern: /air|sun|summer|sea|ocean|beach|tropic|island|warm|wind|water/i, maxDurationBars: 4 }
+  { key: 'kickPrimary', name: 'primary kick hit', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
+  { key: 'kickAlternate', name: 'alternate kick hit', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
+  { key: 'clap', name: 'clap hit', category: 'Drum', pattern: /clap|snap/i, maxDurationBars: 2 },
+  { key: 'snare', name: 'snare hit', category: 'Drum', pattern: /snare|rim/i, maxDurationBars: 2 },
+  { key: 'hatPrimary', name: 'primary offbeat hat', category: 'Drum', pattern: /hihat|hat|ride|shak|tamb|open|perc/i, maxDurationBars: 2 },
+  { key: 'hatAlternate', name: 'alternate offbeat hat', category: 'Drum', pattern: /hihat|hat|ride|shak|tamb|open|perc/i, maxDurationBars: 2 },
+  { key: 'percussionPrimary', name: 'primary syncopated percussion', category: 'Drum', pattern: /perc|conga|bongo|cow|stick|rim|tom|clave|wood|metal|click|shak|tamb|hihat|hat/i, maxDurationBars: 2 },
+  { key: 'percussionAlternate', name: 'alternate syncopated percussion', category: 'Drum', pattern: /perc|conga|bongo|cow|stick|rim|tom|clave|wood|metal|click|shak|tamb|hihat|hat/i, maxDurationBars: 2 },
+  { key: 'groovePrimary', name: 'primary groove loop', category: 'Loop', pattern: /.*/, stylePattern: /tribal|afrika|africa|latin|samba|bongo|conga|dark|deep|hypno|pulse|drive|space|cosmic|night/i, maxDurationBars: 4 },
+  { key: 'grooveAlternate', name: 'alternate groove loop', category: 'Loop', pattern: /.*/, stylePattern: /tribal|afrika|africa|latin|samba|bongo|conga|dark|deep|hypno|pulse|drive|space|cosmic|night/i, maxDurationBars: 4 },
+  { key: 'bassPrimary', name: 'primary offbeat bass hit', category: 'Bass', pattern: /.*/, stylePattern: /deep|sub|dark|warm|pulse|drive|night|space|cosmic|void|reese|acid|sine/i, maxDurationBars: 4 },
+  { key: 'bassAlternate', name: 'alternate offbeat bass hit', category: 'Bass', pattern: /.*/, stylePattern: /deep|sub|dark|warm|pulse|drive|night|space|cosmic|void|reese|acid|sine/i, maxDurationBars: 4 },
+  { key: 'sequencePrimary', name: 'primary sequence motif', category: 'Seq', pattern: /.*/, stylePattern: /arp|seq|pulse|space|cosmic|star|astro|dark|night|echo|signal|sine|air|water|ocean|sea/i, maxDurationBars: 4 },
+  { key: 'sequenceAlternate', name: 'alternate sequence motif', category: 'Seq', pattern: /.*/, stylePattern: /arp|seq|pulse|space|cosmic|star|astro|dark|night|echo|signal|sine|air|water|ocean|sea/i, maxDurationBars: 4 },
+  { key: 'stabPrimary', name: 'primary dub stab', category: 'Keys', pattern: /.*/, stylePattern: /chord|stab|minor|dark|deep|dub|organ|pad|space|cosmic|night|water|dream|orient|melodica|tribal/i, maxDurationBars: 4 },
+  { key: 'stabAlternate', name: 'alternate dub stab', category: 'Keys', pattern: /.*/, stylePattern: /chord|stab|minor|dark|deep|dub|organ|pad|space|cosmic|night|water|dream|orient|melodica|tribal/i, maxDurationBars: 4 },
+  { key: 'voicePrimary', name: 'primary voice motif', category: 'Voice', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'voiceAlternate', name: 'alternate voice motif', category: 'Voice', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'rapPrimary', name: 'primary rap motif', category: 'Rap', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'rapAlternate', name: 'alternate rap motif', category: 'Rap', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'extraPrimary', name: 'primary texture', category: 'Xtra', pattern: /.*/, stylePattern: COSMIC_DRONE, maxDurationBars: 4 },
+  { key: 'extraAlternate', name: 'alternate texture', category: 'Xtra', pattern: /.*/, stylePattern: COSMIC_DRONE, maxDurationBars: 4 }
 ] as const
 
 const STEREO_SAMPLE_ROLE_DEFINITIONS = [
   {
     leftKey: 'layerLeft',
     rightKey: 'layerRight',
-    name: 'stereo layer',
+    name: 'stereo pad',
     category: 'Layer',
     pattern: /.*/,
-    stylePattern: /sun|summer|sea|ocean|water|beach|air|dream/i,
-    maxDurationBars: 4
+    stylePattern: COSMIC_DRONE,
+    maxDurationBars: 8
   },
   {
     leftKey: 'sphereLeft',
@@ -125,48 +143,44 @@ const STEREO_SAMPLE_ROLE_DEFINITIONS = [
     name: 'stereo sphere',
     category: 'Sphere',
     pattern: /.*/,
-    stylePattern: /dream|amor|warm|sun|sea|ocean|water|air/i,
-    maxDurationBars: 10
+    stylePattern: COSMIC_DRONE,
+    maxDurationBars: 16
   },
   {
     leftKey: 'transitionLeft',
     rightKey: 'transitionRight',
     name: 'stereo transition effect',
     category: 'Effect',
-    pattern: /rise|sweep|swish|crash|uplift|transition|impact|noise|wind|reverse|roll/i,
-    stylePattern: /wind|wave|sea|ocean|air|sweep|swish/i,
+    pattern: /rise|sweep|swish|crash|uplift|transition|impact|noise|wind|reverse|roll|downlift|fall/i,
+    stylePattern: /wind|wave|sea|ocean|air|sweep|swish|noise|cosmic|space|dark|rise|fall/i,
     maxDurationBars: 4
   }
 ] as const
 
 const ARRANGEMENT_VARIATIONS = [
   {
-    name: 'sunset call and response',
-    grooveReturnBar: 42,
-    voiceBars: [14, 24, 34, 52, 64],
-    rapBars: [18, 28, 44, 58, 68],
-    textureRegions: [[4, 8], [16, 20], [30, 34], [40, 44], [54, 58], [64, 70]]
+    name: 'cosmic call and response',
+    voiceBars: [18, 36, 52, 82, 98],
+    rapBars: [26, 44, 74, 88, 100],
+    textureRegions: [[8, 16], [24, 32], [56, 64], [64, 72], [84, 92], [96, 105]]
   },
   {
-    name: 'late terrace lift',
-    grooveReturnBar: 46,
-    voiceBars: [12, 26, 36, 54, 66],
-    rapBars: [18, 28, 46, 60, 68],
-    textureRegions: [[6, 12], [20, 24], [34, 40], [44, 50], [58, 62], [66, 70]]
+    name: 'late supernova lift',
+    voiceBars: [16, 40, 54, 84, 100],
+    rapBars: [28, 46, 76, 90, 98],
+    textureRegions: [[12, 24], [32, 40], [60, 72], [76, 84], [86, 94], [98, 105]]
   },
   {
-    name: 'ocean-air dialogue',
-    grooveReturnBar: 42,
-    voiceBars: [16, 32, 38, 56, 66],
-    rapBars: [12, 28, 46, 60, 68],
-    textureRegions: [[6, 10], [22, 30], [32, 38], [42, 46], [56, 62], [66, 70]]
+    name: 'void-air dialogue',
+    voiceBars: [24, 48, 58, 88, 96],
+    rapBars: [20, 44, 76, 92, 100],
+    textureRegions: [[8, 20], [36, 48], [58, 66], [64, 72], [84, 94], [96, 105]]
   },
   {
-    name: 'Ibiza peak answers',
-    grooveReturnBar: 46,
-    voiceBars: [10, 26, 36, 58, 64],
-    rapBars: [18, 28, 44, 54, 68],
-    textureRegions: [[4, 12], [24, 30], [34, 40], [46, 50], [56, 62], [64, 70]]
+    name: 'supernova answers',
+    voiceBars: [16, 40, 56, 86, 96],
+    rapBars: [28, 44, 72, 80, 100],
+    textureRegions: [[8, 20], [36, 44], [60, 68], [72, 78], [82, 92], [98, 105]]
   }
 ] as const
 
@@ -219,7 +233,7 @@ interface CliOptions extends GeneratorOptions {
   help: boolean
 }
 
-const HELP_TEXT = `Generate a two-minute Ibiza-inspired melodic-techno project for Mixer and FX testing.
+const HELP_TEXT = `Generate a three-minute ambient cosmic-techno project for Mixer and FX testing.
 
 Usage:
   npm run generate:mixer-test-song -- [options]
@@ -447,14 +461,18 @@ function buildArrangement(samples: SelectedSamples, variationNumber: number): La
     sends: [0, 0, 0, 0]
   }))
 
-  const place = (laneIndex: number, sample: SelectedSample, startTick: number): void => {
-    if (startTick < 0 || startTick + sample.durationTicks > TOTAL_TICKS) return
+  // A single hit event at the clip's natural span. The audio voice is
+  // monophonic per lane, so a dense trigger cuts the previous voice; the stored
+  // durationTicks stays the clip's one natural span, which keeps every placement
+  // of a given sample on the same durationTicks (spec-011 AC-016).
+  const hit = (laneIndex: number, sample: SelectedSample, tick: number): void => {
+    if (!Number.isFinite(tick) || tick < 0 || tick + sample.durationTicks > TOTAL_TICKS) return
     lanes = placeSampleOnLane(
       lanes,
       laneIndex,
       sample.sampleRef,
       sample.sampleName,
-      startTick,
+      Math.round(tick),
       sample.durationTicks,
       sample.durationSeconds,
       categorySlot(sample.category),
@@ -462,7 +480,9 @@ function buildArrangement(samples: SelectedSamples, variationNumber: number): La
     )
   }
 
-  const tileBars = (
+  // A continuous bed covering a bar range, tiled back-to-back at the clip's
+  // natural span. Used for pads and spheres that should read as sustained space.
+  const sustain = (
     laneIndex: number,
     sample: SelectedSample,
     startBar: number,
@@ -474,76 +494,193 @@ function buildArrangement(samples: SelectedSamples, variationNumber: number): La
       tick + sample.durationTicks <= endTick;
       tick += sample.durationTicks
     ) {
-      place(laneIndex, sample, tick)
+      hit(laneIndex, sample, tick)
     }
   }
 
-  const tileAlternatingRegions = (
-    laneIndex: number,
-    primary: SelectedSample,
-    alternate: SelectedSample,
-    regions: readonly (readonly [number, number])[]
-  ): void => {
-    const phase = variationNumber % 2
-    regions.forEach(([startBar, endBar], index) => {
-      tileBars(laneIndex, (index + phase) % 2 === 0 ? primary : alternate, startBar, endBar)
-    })
+  const phase = variationNumber % 2
+
+  // Alternate between two clips on a per-hit basis so a lane keeps its rhythm
+  // identity while its timbre evolves. `accentStep` marks one hit per cycle for
+  // a subtle lane-volume-independent push (we cannot author per-hit velocity,
+  // so accents live in pattern density and clip choice).
+  const alternate = (index: number, primary: SelectedSample, alt: SelectedSample): SelectedSample =>
+    (index + phase) % 2 === 0 ? primary : alt
+
+  // Section lookup so the arc drives which lanes play and how dense they are.
+  const sectionAt = (bar: number): typeof SONG_SECTIONS[number] =>
+    SONG_SECTIONS.find((section) => bar >= section.startBar && bar < section.endBar) ??
+    SONG_SECTIONS[SONG_SECTIONS.length - 1]!
+
+  const isBreakdownBar = (bar: number): boolean => sectionAt(bar).name === 'void breakdown'
+  const isBuildBar = (bar: number): boolean => /build/.test(sectionAt(bar).name)
+  const isPeakBar = (bar: number): boolean => /peak/.test(sectionAt(bar).name)
+  const isOutroBar = (bar: number): boolean => sectionAt(bar).name === 'drift-out'
+
+  // The breakdown must be a true void for the rhythm section. Because every
+  // clip keeps its full natural span (AC-016), a hit triggered just before the
+  // breakdown would ring into it. Rhythm lanes therefore stay silent for a
+  // clearance window ahead of the breakdown that covers the longest clip.
+  const breakdown = SONG_SECTIONS.find((section) => section.name === 'void breakdown')!
+  const longestRhythmBars = Math.ceil(Math.max(
+    samples.kickPrimary.durationTicks,
+    samples.kickAlternate.durationTicks,
+    samples.groovePrimary.durationTicks,
+    samples.grooveAlternate.durationTicks,
+    samples.clap.durationTicks,
+    samples.snare.durationTicks,
+    samples.hatPrimary.durationTicks,
+    samples.hatAlternate.durationTicks,
+    samples.percussionPrimary.durationTicks,
+    samples.percussionAlternate.durationTicks,
+    samples.bassPrimary.durationTicks,
+    samples.bassAlternate.durationTicks
+  ) / TICKS_PER_BAR)
+  const rhythmClearanceStart = breakdown.startBar - longestRhythmBars
+  const ringsIntoBreakdown = (bar: number): boolean => bar >= rhythmClearanceStart && bar < breakdown.endBar
+
+  // Phrase-boundary kick drop: mute the kick on the last bar of every 8-bar
+  // phrase, throughout the breakdown, and in the clearance that keeps a natural
+  // clip tail from ringing into the void.
+  const kickMutedForBar = (bar: number): boolean => ringsIntoBreakdown(bar) || bar % 8 === 7
+
+  // --- Kick: four-on-the-floor anchor with phrase-boundary breaths. ---
+  for (let bar = 0; bar < TOTAL_BARS; bar += 1) {
+    if (kickMutedForBar(bar)) continue
+    // Outro strips to kick + hats near the very end, then nothing but texture.
+    for (let beat = 0; beat < 4; beat += 1) {
+      const tick = bar * TICKS_PER_BAR + beat * TICKS_PER_BEAT
+      hit(0, alternate(bar * 4 + beat, samples.kickPrimary, samples.kickAlternate), tick)
+    }
   }
 
-  const placeAlternatingBars = (
-    laneIndex: number,
-    primary: SelectedSample,
-    alternate: SelectedSample,
-    bars: readonly number[]
-  ): void => {
-    const phase = variationNumber % 2
-    bars.forEach((bar, index) => {
-      place(laneIndex, (index + phase) % 2 === 0 ? primary : alternate, bar * TICKS_PER_BAR)
-    })
+  // --- Groove loop: the rhythmic backbone that enters with the groove and
+  // rides both peaks, lifting out for the intro and the breakdown clearance so
+  // its return is an arrangement event. ---
+  for (const [startBar, endBar] of [[16, 32], [32, Math.min(56, rhythmClearanceStart)], [72, 96], [96, 105]] as const) {
+    sustain(1, alternate(startBar, samples.groovePrimary, samples.grooveAlternate), startBar, endBar)
   }
 
-  tileAlternatingRegions(0, samples.kickPrimary, samples.kickAlternate, [
-    [0, 8], [8, 20], [20, 30], [46, 50], [50, 62], [62, 70]
-  ])
-  tileAlternatingRegions(1, samples.clap, samples.snare, [
-    [4, 20], [20, 30], [46, 50], [50, 62], [62, 68]
-  ])
-  tileAlternatingRegions(2, samples.percussionPrimary, samples.percussionAlternate, [
-    [6, 20], [20, 30], [44, 50], [50, 62], [62, 66]
-  ])
-  tileAlternatingRegions(3, samples.groovePrimary, samples.grooveAlternate, [
-    [4, 20],
-    [20, 30],
-    [variation.grooveReturnBar, 50],
-    [50, 62],
-    [62, 70]
-  ])
-  tileAlternatingRegions(4, samples.bassPrimary, samples.bassAlternate, [
-    [8, 20], [20, 30], [46, 50], [50, 62], [62, 70]
-  ])
-  tileAlternatingRegions(5, samples.sequencePrimary, samples.sequenceAlternate, [
-    [12, 20], [20, 30], [30, 40], [40, 50], [50, 62], [62, 66]
-  ])
-  tileAlternatingRegions(6, samples.keysPrimary, samples.keysAlternate, [
-    [16, 20], [20, 30], [30, 40], [44, 50], [50, 62]
-  ])
-
-  for (const [startBar, endBar] of [[0, 8], [20, 40], [50, 62], [62, 70]] as const) {
-    tileBars(7, samples.layerLeft, startBar, endBar)
-    tileBars(8, samples.layerRight, startBar, endBar)
-  }
-  for (const startBar of [8, 30, 50]) {
-    place(9, samples.sphereLeft, startBar * TICKS_PER_BAR)
-    place(10, samples.sphereRight, startBar * TICKS_PER_BAR)
+  // --- Clap / snare backbeat (beats 2 and 4) interlocked with sparse
+  // syncopated percussion on the same lane. The backbeat stays on-grid while
+  // the percussion answers on off-sixteenths, and the lane rests in the intro
+  // and through the breakdown clearance. ---
+  for (let bar = 0; bar < TOTAL_BARS; bar += 1) {
+    const name = sectionAt(bar).name
+    if (name === 'deep-space intro' || ringsIntoBreakdown(bar)) continue
+    const base = bar * TICKS_PER_BAR
+    hit(3, samples.clap, base + 1 * TICKS_PER_BEAT)
+    hit(3, samples.snare, base + 3 * TICKS_PER_BEAT)
+    // On the last bar of an 8-bar phrase, double the beat-4 hit for a push.
+    if (bar % 8 === 7 && !isOutroBar(bar)) {
+      hit(3, samples.clap, base + 3 * TICKS_PER_BEAT + OFFBEAT_TICKS)
+    }
+    // A 3-against-4 dotted-eighth percussion motif cycles against the kick and
+    // resolves with a rest every third bar, setting up the next phrase.
+    if (bar % 3 !== 2) {
+      for (let step = 0; step < 2; step += 1) {
+        const tick = base + OFFBEAT_TICKS + step * 3 * SIXTEENTH_TICKS + (step % 2 === 1 ? SWING_TICKS : 0)
+        hit(3, alternate(bar * 2 + step, samples.percussionPrimary, samples.percussionAlternate), tick)
+      }
+    }
   }
 
-  placeAlternatingBars(11, samples.voicePrimary, samples.voiceAlternate, variation.voiceBars)
-  placeAlternatingBars(12, samples.rapPrimary, samples.rapAlternate, variation.rapBars)
-  tileAlternatingRegions(13, samples.extraPrimary, samples.extraAlternate, variation.textureRegions)
+  // --- Offbeat hats on the "and" of each beat with swing and a 4-step accent
+  // cycle. They rest in the intro and through the breakdown clearance so their
+  // return is an event. ---
+  for (let bar = 0; bar < TOTAL_BARS; bar += 1) {
+    const name = sectionAt(bar).name
+    if (name === 'deep-space intro' || ringsIntoBreakdown(bar)) continue
+    // Builds raise hat density by adding the off-sixteenth; peaks keep it high.
+    const dense = isBuildBar(bar) || isPeakBar(bar)
+    for (let beat = 0; beat < 4; beat += 1) {
+      const swing = beat % 2 === 1 ? SWING_TICKS : 0
+      const tick = bar * TICKS_PER_BAR + beat * TICKS_PER_BEAT + OFFBEAT_TICKS + swing
+      hit(2, alternate(bar * 4 + beat, samples.hatPrimary, samples.hatAlternate), tick)
+      if (dense && beat % 2 === 0) {
+        // Ghost sixteenth before the next offbeat, swung, reads as lift.
+        hit(2, samples.hatAlternate, tick + SIXTEENTH_TICKS + SWING_TICKS)
+      }
+    }
+  }
 
+  // --- Offbeat bass answering the kick, resting at phrase ends and through
+  // the breakdown clearance. Enters at the groove so the intro stays spacious. ---
+  for (let bar = 0; bar < TOTAL_BARS; bar += 1) {
+    const name = sectionAt(bar).name
+    if (name === 'deep-space intro' || ringsIntoBreakdown(bar)) continue
+    // Rest the bass on the last bar of each 16-bar half-phrase for a pickup.
+    if (bar % 16 === 15) continue
+    for (let beat = 0; beat < 4; beat += 1) {
+      const tick = bar * TICKS_PER_BAR + beat * TICKS_PER_BEAT + OFFBEAT_TICKS
+      hit(4, alternate(bar * 4 + beat, samples.bassPrimary, samples.bassAlternate), tick)
+    }
+  }
+
+  // --- Dub stabs: sparse offbeat chord events, one per bar normally, rising
+  // to two per bar in builds and peaks. They answer across the breakdown where
+  // almost everything else is silent. ---
+  for (let bar = 0; bar < TOTAL_BARS; bar += 1) {
+    const name = sectionAt(bar).name
+    if (name === 'deep-space intro') continue
+    const base = bar * TICKS_PER_BAR
+    const stab = alternate(bar, samples.stabPrimary, samples.stabAlternate)
+    if (isBreakdownBar(bar)) {
+      // In the void, a lone stab every two bars carries the harmony.
+      if (bar % 2 === 0) hit(5, stab, base + OFFBEAT_TICKS)
+      continue
+    }
+    hit(5, stab, base + 1 * TICKS_PER_BEAT + OFFBEAT_TICKS)
+    if (isBuildBar(bar) || isPeakBar(bar)) {
+      hit(5, alternate(bar + 1, samples.stabPrimary, samples.stabAlternate), base + 3 * TICKS_PER_BEAT + OFFBEAT_TICKS)
+    }
+  }
+
+  // --- Sequence motifs: the cosmic arp-like voice. Enters at the first build,
+  // rides both peaks, and thins in the breakdown to a single motif per 2 bars. ---
+  for (let bar = 0; bar < TOTAL_BARS; bar += 1) {
+    const name = sectionAt(bar).name
+    if (name === 'deep-space intro' || name === 'orbital groove') continue
+    const base = bar * TICKS_PER_BAR
+    const seq = alternate(bar, samples.sequencePrimary, samples.sequenceAlternate)
+    if (isBreakdownBar(bar)) {
+      if (bar % 2 === 1) hit(6, seq, base + 2 * TICKS_PER_BEAT)
+      continue
+    }
+    hit(6, seq, base)
+    if (isPeakBar(bar)) hit(6, alternate(bar + 1, samples.sequencePrimary, samples.sequenceAlternate), base + 2 * TICKS_PER_BEAT)
+  }
+
+  // --- Pads: sustained stereo bed under the groove and peaks, muted in the
+  // breakdown so the stab alone carries harmony, back for the peaks. ---
+  for (const [startBar, endBar] of [[16, 32], [32, 56], [80, 96], [96, 105]] as const) {
+    sustain(7, samples.layerLeft, startBar, endBar)
+    sustain(8, samples.layerRight, startBar, endBar)
+  }
+
+  // --- Spheres: long cosmic drones marking the largest structural arrivals. ---
+  for (const startBar of [0, 32, 56, 80]) {
+    sustain(9, samples.sphereLeft, startBar, Math.min(startBar + 16, TOTAL_BARS))
+    sustain(10, samples.sphereRight, startBar, Math.min(startBar + 16, TOTAL_BARS))
+  }
+
+  // --- Voice / rap motifs: seeded call-and-response on the variation grid. ---
+  variation.voiceBars.forEach((bar, index) => {
+    hit(11, alternate(index, samples.voicePrimary, samples.voiceAlternate), bar * TICKS_PER_BAR)
+  })
+  variation.rapBars.forEach((bar, index) => {
+    hit(12, alternate(index, samples.rapPrimary, samples.rapAlternate), bar * TICKS_PER_BAR)
+  })
+
+  // --- Texture: alternating ambient regions from the variation profile. ---
+  variation.textureRegions.forEach(([startBar, endBar], index) => {
+    sustain(13, alternate(index, samples.extraPrimary, samples.extraAlternate), startBar, endBar)
+  })
+
+  // --- Transition FX at every section boundary, placed to end on the boundary. ---
   for (const endBar of SONG_SECTIONS.map((section) => section.endBar)) {
-    place(14, samples.transitionLeft, endBar * TICKS_PER_BAR - samples.transitionLeft.durationTicks)
-    place(15, samples.transitionRight, endBar * TICKS_PER_BAR - samples.transitionRight.durationTicks)
+    hit(14, samples.transitionLeft, endBar * TICKS_PER_BAR - samples.transitionLeft.durationTicks)
+    hit(15, samples.transitionRight, endBar * TICKS_PER_BAR - samples.transitionRight.durationTicks)
   }
 
   const emptyLane = lanes.find((lane) => lane.placements.length === 0)

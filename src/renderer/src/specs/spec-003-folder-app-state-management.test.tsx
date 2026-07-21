@@ -102,11 +102,12 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
     vi.mocked(api().pickFolder).mockResolvedValueOnce(SAMPLE_REF)
     fireEvent.click(pickButton('Sample Folder'))
 
-    const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
     expect(screen.queryByText(LAUNCH_HINT)).not.toBeInTheDocument()
 
-    fireEvent.click(start)
+    fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
     await waitFor(() => expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0))
     expect(vi.mocked(api().resizeToPlayer)).toHaveBeenCalledTimes(1)
   })
@@ -174,13 +175,12 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
     vi.mocked(api().validateFolder).mockResolvedValue('ok')
     await renderRestored({ userFolder: USER_REF, sampleFolder: SAMPLE_REF })
 
-    await waitFor(() => {
-      expect(within(card('User Folder')).getByText(USER_REF.name)).toBeInTheDocument()
-    })
-    expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
-
-    const start = screen.getByRole('button', { name: 'Start New MixJam' })
-    await waitFor(() => expect(start).toBeEnabled())
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Start New MixJam' })
+    ).toBeEnabled())
+    const library = screen.getByRole('region', { name: 'Library Setup' })
+    expect(within(library).getByText(USER_REF.name)).toBeInTheDocument()
+    expect(within(library).getByText(SAMPLE_REF.name)).toBeInTheDocument()
     expect(api().validateFolder).toHaveBeenCalledWith(USER_REF, 'user')
     expect(api().validateFolder).toHaveBeenCalledWith(SAMPLE_REF, 'sample')
   })
@@ -213,13 +213,12 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
     vi.mocked(api().validateFolder).mockResolvedValue('ok')
     fireEvent.click(restore)
 
-    await waitFor(() => {
-      expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
-    })
     expect(api().requestFolderAccess).toHaveBeenCalledWith(SAMPLE_REF, 'sample')
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Start New MixJam' })).toBeEnabled()
     )
+    const library = screen.getByRole('region', { name: 'Library Setup' })
+    expect(within(library).getByText(SAMPLE_REF.name)).toBeInTheDocument()
   })
 
   it('AC-014: selecting both folders persists them via saveFolderSelections', async () => {
@@ -249,18 +248,23 @@ describe('Spec 003 - Folder & App State Management acceptance', () => {
 
     vi.mocked(api().pickFolder).mockResolvedValueOnce(SAMPLE_REF)
     fireEvent.click(pickButton('Sample Folder'))
-    await waitFor(() => {
-      expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
-    })
+    await waitFor(() => expect(within(
+      screen.getByRole('region', { name: 'Library Setup' })
+    ).getByText(SAMPLE_REF.name)).toBeInTheDocument())
+    const library = screen.getByRole('region', { name: 'Library Setup' })
+
+    const changeFolders = within(library).queryByRole('button', { name: 'Change folders' })
+    if (changeFolders) fireEvent.click(changeFolders)
 
     const newUserRef: FolderRef = { id: 'user-2', name: 'MixJam2' }
     vi.mocked(api().pickFolder).mockResolvedValueOnce(newUserRef)
-    fireEvent.click(pickButton('User Folder'))
+    fireEvent.click(within(library).getByRole('button', { name: 'Change User Folder' }))
 
-    await waitFor(() => {
-      expect(within(card('User Folder')).getByText(newUserRef.name)).toBeInTheDocument()
-    })
-    expect(within(card('Sample Folder')).getByText(SAMPLE_REF.name)).toBeInTheDocument()
+    await waitFor(() => expect(within(
+      screen.getByRole('region', { name: 'Library Setup' })
+    ).getByText(newUserRef.name)).toBeInTheDocument())
+    const updatedLibrary = screen.getByRole('region', { name: 'Library Setup' })
+    expect(within(updatedLibrary).getByText(SAMPLE_REF.name)).toBeInTheDocument()
     expect(vi.mocked(api().saveFolderSelections)).toHaveBeenLastCalledWith({
       userFolder: newUserRef,
       sampleFolder: SAMPLE_REF

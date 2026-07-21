@@ -8,6 +8,7 @@ import type { MasterBusState } from '../presets'
 import { ChainInstance } from './chain'
 import { InputVuMeter } from './meters'
 import type { ParamReader } from './module'
+import { GainStageModule } from './modules/gain'
 import { OnePoleSmoother } from './util'
 
 const PARAM_SMOOTHING_MS = 20
@@ -35,6 +36,7 @@ export class MasterBusCore {
   /** Same smoothers as a plain array for the allocation-free block loop. */
   private readonly smootherList: OnePoleSmoother[]
   private readonly readSmoothed: ParamReader
+  private readonly gainStage: GainStageModule
   private readonly inputMeter: InputVuMeter
   private readonly fadeL: Float32Array
   private readonly fadeR: Float32Array
@@ -63,6 +65,9 @@ export class MasterBusCore {
       const smoother = this.smoothers.get(id)
       return smoother ? smoother.value : 0
     }
+    this.gainStage = new GainStageModule()
+    this.gainStage.updateParams(this.readSmoothed)
+    this.gainStage.reset()
     this.inputMeter = new InputVuMeter(sampleRate)
     this.fadeL = new Float32Array(maxBlock)
     this.fadeR = new Float32Array(maxBlock)
@@ -106,6 +111,8 @@ export class MasterBusCore {
       chain.setTopology(this.order, this.power)
       chain.reset()
     }
+    this.gainStage.updateParams(this.readSmoothed)
+    this.gainStage.reset()
     this.inputMeter.reset()
   }
 
@@ -121,13 +128,19 @@ export class MasterBusCore {
   }
 
   process(l: Float32Array, r: Float32Array, n: number): void {
-    this.inputMeter.process(l, r, n)
     const smoothers = this.smootherList
     for (let i = 0; i < smoothers.length; i++) smoothers[i].advance(n)
 
+    // Gain is a single always-on pre-chain stage. Apply it exactly once before
+    // metering and before copying the signal into either crossfade branch.
+    this.gainStage.updateParams(this.readSmoothed)
+    this.gainStage.process(l, r, n)
+    this.inputMeter.process(l, r, n)
+
     const active = this.chains[this.activeChain]
+    active.updateParams(this.readSmoothed)
+
     if (this.fadeRemaining === 0) {
-      active.updateParams(this.readSmoothed)
       active.process(l, r, n)
       return
     }
@@ -138,9 +151,9 @@ export class MasterBusCore {
       fadeL[i] = l[i]
       fadeR[i] = r[i]
     }
-    active.updateParams(this.readSmoothed)
-    active.process(l, r, n)
     incoming.updateParams(this.readSmoothed)
+
+    active.process(l, r, n)
     incoming.process(fadeL, fadeR, n)
 
     const total = this.fadeTotal
@@ -179,6 +192,7 @@ export class MasterBusCore {
 
   reset(): void {
     for (const chain of this.chains) chain.reset()
+    this.gainStage.reset()
     this.inputMeter.reset()
     this.fadeRemaining = 0
     this.pendingTopology = null

@@ -26,8 +26,8 @@ import {
   type MasterMeterSnapshot
 } from './master-meter'
 import { MasterBusChain, type MasterBusChainOptions } from './master-bus-chain'
+import { rampAudioParam } from './param-ramp'
 import type { MasterBusMeterSnapshot } from './masterbus/dsp/core'
-import type { MasterBusParamId, ProcessorId } from './masterbus/params'
 import type { MasterBusState } from './masterbus/presets'
 import type { ClipEdgeFadePlan } from './clip-edge-fades'
 
@@ -59,8 +59,17 @@ const SILENCE_DB = -100
 // FFT size for per-channel analysers — small for low-latency meter reads.
 const CHANNEL_METER_FFT = 256
 
+// Output buffer target in seconds. The note scheduler runs on the renderer
+// main thread, so the audio thread's only protection from a UI stall is how
+// much rendered audio is already buffered ahead of it. MixJam is arrangement
+// playback with no live input monitoring (spec-005 non-goal) and nothing in the
+// app reacts to output latency, so buying the largest practical buffer is free
+// resilience rather than a trade-off. 200 ms is well beyond the worst stalls
+// measured during tab switching.
+const OUTPUT_LATENCY_HINT_SECONDS = 0.2
+
 function defaultContextFactory(): AudioContext {
-  return new AudioContext()
+  return new AudioContext({ latencyHint: OUTPUT_LATENCY_HINT_SECONDS })
 }
 
 // Deferred-init audio nodes — all created together by ensureContext(), never
@@ -272,8 +281,12 @@ export class AudioEngine {
     }
     bus.module = { ...snapshot.module }
     bus.powered = snapshot.powered
-    bus.poweredInput.gain.value = snapshot.powered && snapshot.module.type !== 'empty' ? 1 : 0
-    bus.returnGain.gain.value = clamp(snapshot.returnLevel, 0, 1)
+    // Live edits ramp: powering a bus and dragging its return level are both
+    // continuous user gestures, and stepping either one clicks.
+    const context = this.ctx.context
+    const poweredGain = snapshot.powered && snapshot.module.type !== 'empty' ? 1 : 0
+    rampAudioParam(bus.poweredInput.gain, poweredGain, context)
+    rampAudioParam(bus.returnGain.gain, clamp(snapshot.returnLevel, 0, 1), context)
     bus.limiter.setEnabled(snapshot.limiterEnabled)
   }
 
@@ -413,7 +426,9 @@ export class AudioEngine {
 
   setMasterGain(value: number): void {
     this.masterGainValue = clamp(value, 0, 1)
-    if (this.nodes) this.nodes.masterGain.gain.value = this.masterGainValue
+    if (this.nodes) {
+      rampAudioParam(this.nodes.masterGain.gain, this.masterGainValue, this.nodes.context)
+    }
   }
 
   get masterGainLevel(): number {
@@ -455,17 +470,13 @@ export class AudioEngine {
     else this.masterBusChain.applyState(state)
   }
 
-  setMasterBusParam(id: MasterBusParamId, value: number): void {
-    this.masterBusChain.setParam(id, value)
-  }
-
-  /** Reorder/bypass; the worklet crossfades to the new topology. */
-  setMasterBusTopology(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): void {
-    this.masterBusChain.setTopology(order, power)
-  }
-
   getMasterBusMeterSnapshot(): MasterBusMeterSnapshot | null {
     return this.masterBusChain.getMeterSnapshot()
+  }
+
+  /** Streams strip meter snapshots only while the Master tab shows them. */
+  setMasterBusMetersActive(active: boolean): void {
+    this.masterBusChain.setMetersEnabled(active)
   }
 
   stopAllVoices(): void {

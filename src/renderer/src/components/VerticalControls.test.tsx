@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { VerticalFader } from './VerticalControls'
+import { createValueStore } from '../lib/value-store'
 
 describe('VerticalFader', () => {
   it('supports an overlaid meter, tooltip, wheel steps, and one gesture lifecycle', () => {
@@ -20,7 +21,7 @@ describe('VerticalFader', () => {
         onGestureEnd={onGestureEnd}
         tooltip="Test tooltip"
         unityValue={0.8}
-        meterDb={-6}
+        meterStore={createValueStore({ levelDb: -6, peakDb: -6 })}
         maxLabel="Max"
         minLabel="Min"
         wheelStep
@@ -35,7 +36,7 @@ describe('VerticalFader', () => {
     expect(document.querySelector('.vertical-meter-fill')).toHaveStyle({
       background: 'var(--meter-yellow)'
     })
-    expect(document.querySelector('.vertical-meter-peak')).toBeNull()
+    expect(document.querySelector('.vertical-meter-peak')).toBeInTheDocument()
     expect(screen.getByText('Max')).toBeInTheDocument()
     expect(screen.getByText('Min')).toBeInTheDocument()
 

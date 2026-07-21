@@ -12,6 +12,7 @@ import {
 } from '../../../shared/window-config'
 import App from '../App'
 import Header from '../components/Header'
+import { createValueStore } from '../lib/value-store'
 
 const REPO_ROOT = process.cwd()
 const INDEX_CSS_PATH = resolve(REPO_ROOT, 'src/renderer/src/index.css')
@@ -24,9 +25,10 @@ function readUtf8(absolutePath: string): string {
 }
 
 async function clickStartNewMixJam(): Promise<void> {
-  const start = await screen.findByRole('button', { name: 'Start New MixJam' })
-  await waitFor(() => expect(start).toBeEnabled())
-  fireEvent.click(start)
+  await waitFor(() => expect(
+    screen.getByRole('button', { name: 'Start New MixJam' })
+  ).toBeEnabled())
+  fireEvent.click(screen.getByRole('button', { name: 'Start New MixJam' }))
 }
 
 describe('Spec 001 - App Shell & Navigation acceptance', () => {
@@ -186,7 +188,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     render(
       <Header
         view="player"
-        timer="00:00.0"
+        elapsedMsStore={createValueStore(0)}
         theme="emerald"
         onHome={() => {}}
         onThemeChange={() => {}}
@@ -202,8 +204,10 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
   it('AC-007: Load MixJam opens the project picker and cancellation stays on Home', async () => {
     render(<App />)
 
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Load MixJam' })
+    ).toBeEnabled())
     const loadButton = screen.getByRole('button', { name: 'Load MixJam' })
-    await waitFor(() => expect(loadButton).toBeEnabled())
     expect(loadButton).not.toHaveAttribute('title')
 
     fireEvent.click(loadButton)

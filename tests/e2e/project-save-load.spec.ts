@@ -42,7 +42,10 @@ test.describe('Project save and load', () => {
     })
     expect(saved.lanes).toHaveLength(8)
     expect(saved.channels).toBeUndefined()
-    expect(saved.masterBus.order).toHaveLength(11)
+    expect(saved.masterBus.order).toEqual([
+      'clip', 'tube', 'subeq', 'comp', 'max', 'addeq', 'tape', 'width', 'mbc', 'lim'
+    ])
+    expect(saved.masterBus.power).not.toHaveProperty('gain')
     expect(saved.masterBus.preset).toBe('Cheat Sheet')
     expect(saved.fxBuses).toHaveLength(4)
     expect(saved.fxBuses.every((bus: { module: { type: string } }) => bus.module.type === 'empty')).toBe(true)

@@ -20,10 +20,11 @@ import {
 import type { RuntimeTransportState } from './useTransportRuntime'
 import { PlaybackEngine } from '../engine/playback-engine'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
-import { formatTimer } from '../lib/formatTimer'
+import type { ValueStore } from '../lib/value-store'
 import { useTransportRuntime } from './useTransportRuntime'
 import { useUndoHistory } from './useUndoHistory'
 import type { MasterMeterSnapshot } from '../engine/master-meter'
+import type { MasterBusMeterSnapshot } from '../engine/masterbus/dsp/core'
 import type { ClipEdgeMicroFadeSettings } from '../engine/clip-edge-fades'
 import {
   addLane,
@@ -75,19 +76,20 @@ function canonicalSampleDurationTicks(
 
 export interface TransportEngineState {
   view: View
-  timerText: string
   lanes: LaneState[]
   fxBuses: ProjectFxBuses
   masterBus: MasterBusState
   transportState: RuntimeTransportState
-  currentTick: number
+  /** High-frequency playback telemetry lives in stores, not React state, so
+   *  ticks and meter frames re-render only the leaves that subscribe. */
+  tickStore: ValueStore<number>
+  elapsedMsStore: ValueStore<number>
+  masterMeterStore: ValueStore<MasterMeterSnapshot>
   songEndTick: number
   bpm: number
   masterGain: number
   clipEdgeMicroFades: ClipEdgeMicroFadeSettings
   song: ProjectSongState
-  masterMeter: MasterMeterSnapshot
-  elapsedMs: number
   canUndo: boolean
   canRedo: boolean
   playbackEngineRef: React.RefObject<PlaybackEngine | null>
@@ -135,6 +137,8 @@ export interface TransportEngineActions {
   setMasterGain: (value: number) => void
   setClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   resetMasterMeter: () => void
+  getMasterBusMeterSnapshot: () => MasterBusMeterSnapshot | null
+  setMasterBusMetersActive: (active: boolean) => void
 }
 
 export type TransportEngine = TransportEngineState & TransportEngineActions
@@ -174,12 +178,12 @@ export function useTransportEngine(
   const {
     playbackEngineRef,
     transportState,
-    currentTick,
+    tickStore,
     bpm,
     masterGain,
     clipEdgeMicroFades,
-    elapsedMs,
-    masterMeter,
+    elapsedMsStore,
+    masterMeterStore,
     previewSample,
     getSampleBuffer,
     transportPlay,
@@ -192,7 +196,9 @@ export function useTransportEngine(
     setMasterGain,
     setClipEdgeMicroFades,
     replaceSongState,
-    resetMasterMeter
+    resetMasterMeter,
+    getMasterBusMeterSnapshot,
+    setMasterBusMetersActive
   } = runtime
 
   const { pushEdit, undo, redo, setCurrent, reset } = projectHistory
@@ -417,7 +423,6 @@ export function useTransportEngine(
     pushEdit((current) => ({ ...current, lanes: deleteEmptyLanes(current.lanes) }))
   }, [pushEdit, transportStop])
 
-  const timerText = useMemo(() => formatTimer(elapsedMs), [elapsedMs])
   const anySoloed = useMemo(() => anyLaneSoloed(lanes), [lanes])
   const dimLane = useCallback(
     (lane: LaneState) => laneShouldDim(lane, anySoloed),
@@ -426,19 +431,18 @@ export function useTransportEngine(
 
   return {
     view,
-    timerText,
     lanes,
     fxBuses,
     masterBus,
     transportState,
-    currentTick,
+    tickStore,
+    elapsedMsStore,
+    masterMeterStore,
     songEndTick,
     bpm,
     masterGain,
     clipEdgeMicroFades,
     song,
-    masterMeter,
-    elapsedMs,
     canUndo: projectHistory.canUndo,
     canRedo: projectHistory.canRedo,
     playbackEngineRef,
@@ -482,6 +486,8 @@ export function useTransportEngine(
     setBpm,
     setMasterGain,
     setClipEdgeMicroFades,
-    resetMasterMeter
+    resetMasterMeter,
+    getMasterBusMeterSnapshot,
+    setMasterBusMetersActive
   }
 }

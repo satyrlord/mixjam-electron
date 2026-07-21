@@ -5,7 +5,12 @@
 
 import { flushDenormal } from './util'
 
-export class StereoBiquad {
+/** Coefficient-reset surface used when a band becomes neutral. */
+interface IdentityFilter {
+  identity(): void
+}
+
+export class StereoBiquad implements IdentityFilter {
   private b0 = 1
   private b1 = 0
   private b2 = 0

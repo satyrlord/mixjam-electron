@@ -1,5 +1,6 @@
 import { useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { clamp, meterFillPct } from '../lib/sample-utils'
+import { useStoreValue, type ReadableStore } from '../lib/value-store'
 import { LinearSlider } from './ui/Slider'
 
 function joinClasses(...classes: Array<string | undefined>): string {
@@ -48,6 +49,26 @@ function MeterTrack({ valueDb, peakDb, fillClassName, peakClassName }: MeterTrac
   )
 }
 
+interface StoreMeterTrackProps {
+  store: ReadableStore<{ levelDb: number; peakDb: number }>
+  fillClassName?: string
+  peakClassName?: string
+}
+
+// Leaf subscriber for RAF-cadence telemetry: only these few meter elements
+// re-render per frame, never the fader or the strip around them.
+function StoreMeterTrack({ store, fillClassName, peakClassName }: StoreMeterTrackProps) {
+  const { levelDb, peakDb } = useStoreValue(store)
+  return (
+    <MeterTrack
+      valueDb={levelDb}
+      peakDb={peakDb}
+      fillClassName={fillClassName}
+      peakClassName={peakClassName}
+    />
+  )
+}
+
 interface VerticalFaderProps {
   ariaLabel: string
   value: number
@@ -66,8 +87,8 @@ interface VerticalFaderProps {
   meterPeakClassName?: string
   tooltip?: string
   unityValue?: number
-  meterDb?: number
-  peakDb?: number
+  /** Live meter feed; the meter subscribes itself and updates at the store cadence. */
+  meterStore?: ReadableStore<{ levelDb: number; peakDb: number }>
   /** 'overlay' paints the meter inside the fader track; 'side' places it beside the fader (Mixer strips). */
   meterPosition?: 'overlay' | 'side'
   maxLabel?: string
@@ -94,8 +115,7 @@ export function VerticalFader({
   meterPeakClassName,
   tooltip,
   unityValue,
-  meterDb,
-  peakDb,
+  meterStore,
   meterPosition = 'overlay',
   maxLabel,
   minLabel,
@@ -105,6 +125,15 @@ export function VerticalFader({
   const [dragging, setDragging] = useState(false)
   const draggingRef = useRef(false)
   const unityPct = unityValue === undefined ? null : ((unityValue - min) / (max - min)) * 100
+  const hasMeter = meterStore !== undefined
+  const renderMeter = () =>
+    meterStore !== undefined ? (
+      <StoreMeterTrack
+        store={meterStore}
+        fillClassName={meterFillClassName}
+        peakClassName={meterPeakClassName}
+      />
+    ) : null
 
   const setNextValue = (next: number) => onChange(quantize(next, min, max, step))
   const handleWheel = (event: WheelEvent<HTMLElement>) => {
@@ -125,18 +154,11 @@ export function VerticalFader({
     onGestureEnd?.()
   }
 
-  const sideMeter = meterDb !== undefined && meterPosition === 'side'
+  const sideMeter = hasMeter && meterPosition === 'side'
 
   const track = (
     <div className="vertical-fader-track">
-        {meterDb !== undefined && !sideMeter && (
-          <MeterTrack
-            valueDb={meterDb}
-            peakDb={peakDb}
-            fillClassName={meterFillClassName}
-            peakClassName={meterPeakClassName}
-          />
-        )}
+        {hasMeter && !sideMeter && renderMeter()}
         {unityPct !== null && (
           <div
             className={joinClasses('vertical-fader-unity-tick', unityClassName)}
@@ -150,7 +172,7 @@ export function VerticalFader({
         <LinearSlider
           className={joinClasses(
             'vertical-fader-input',
-            meterDb !== undefined && !sideMeter ? 'linear-slider-meter-overlay' : undefined
+            hasMeter && !sideMeter ? 'linear-slider-meter-overlay' : undefined
           )}
           orientation="vertical"
           value={value}
@@ -162,7 +184,7 @@ export function VerticalFader({
           ariaValueText={valueText}
           tooltip={tooltip}
           thumbClassName={inputClassName}
-          showRange={meterDb === undefined || sideMeter}
+          showRange={!hasMeter || sideMeter}
           onWheel={handleWheel}
           onPointerDown={beginDrag}
           onPointerUp={endDrag}
@@ -176,7 +198,7 @@ export function VerticalFader({
     <div
       className={joinClasses(
         'vertical-fader',
-        meterDb === undefined ? undefined : 'vertical-fader-has-meter',
+        hasMeter ? 'vertical-fader-has-meter' : undefined,
         sideMeter ? 'vertical-fader-side-meter' : undefined,
         className
       )}
@@ -184,12 +206,7 @@ export function VerticalFader({
       {maxLabel && <span className="vertical-control-endpoint vertical-control-endpoint-max">{maxLabel}</span>}
       {sideMeter ? (
         <div className="vertical-fader-row">
-          <MeterTrack
-            valueDb={meterDb}
-            peakDb={peakDb}
-            fillClassName={meterFillClassName}
-            peakClassName={meterPeakClassName}
-          />
+          {renderMeter()}
           {track}
         </div>
       ) : (

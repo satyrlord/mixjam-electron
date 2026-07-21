@@ -1,14 +1,23 @@
 import { THEME_OPTIONS } from '../theme/themes'
+import { formatTimer } from '../lib/formatTimer'
+import { useStoreValue, type ReadableStore } from '../lib/value-store'
 
 interface HeaderProps {
   view: 'home' | 'player'
-  timer: string
+  elapsedMsStore: ReadableStore<number>
   theme: string
   onHome: () => void
   onThemeChange: (themeKey: string) => void
 }
 
-export default function Header({ view, timer, theme, onHome, onThemeChange }: HeaderProps) {
+// Leaf subscriber: the elapsed timer updates at 10 Hz while playing, so only
+// this element re-renders per update, never the Header or the App tree.
+function HeaderTimer({ elapsedMsStore }: { elapsedMsStore: ReadableStore<number> }) {
+  const elapsedMs = useStoreValue(elapsedMsStore)
+  return <div className="header-timer">{formatTimer(elapsedMs)}</div>
+}
+
+export default function Header({ view, elapsedMsStore, theme, onHome, onThemeChange }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-left">
@@ -21,7 +30,7 @@ export default function Header({ view, timer, theme, onHome, onThemeChange }: He
       </div>
 
       {view === 'player' && (
-        <div className="header-timer">{timer}</div>
+        <HeaderTimer elapsedMsStore={elapsedMsStore} />
       )}
 
       <div className="header-right">

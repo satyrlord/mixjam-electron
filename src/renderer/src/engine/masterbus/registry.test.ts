@@ -15,14 +15,14 @@ import {
 import { MASTER_BUS_PRESET_NAMES, applyPreset, defaultMasterBusState, isPresetName } from './presets'
 
 describe('parameter registry', () => {
-  it('covers all eleven processors with spec ranges and defaults', () => {
-    expect(PROCESSOR_IDS).toHaveLength(11)
-    expect(DEFAULT_PROCESSOR_ORDER).toHaveLength(11)
+  it('covers the pinned Gain Stage and ten downstream processors', () => {
+    expect(PROCESSOR_IDS).toHaveLength(10)
+    expect(DEFAULT_PROCESSOR_ORDER).toHaveLength(10)
     for (const def of MASTER_BUS_PARAMS) {
       expect(def.min).toBeLessThan(def.max)
       expect(def.def).toBeGreaterThanOrEqual(def.min)
       expect(def.def).toBeLessThanOrEqual(def.max)
-      expect(isProcessorId(def.processor)).toBe(true)
+      expect(def.processor === 'gain' || isProcessorId(def.processor)).toBe(true)
     }
     const defaults = defaultParamValues()
     expect(defaults['comp.thr']).toBe(-16)
@@ -41,7 +41,7 @@ describe('parameter registry', () => {
     expect(isValidProcessorOrder([...DEFAULT_PROCESSOR_ORDER])).toBe(true)
     expect(isValidProcessorOrder([...DEFAULT_PROCESSOR_ORDER].reverse())).toBe(true)
     expect(isValidProcessorOrder(DEFAULT_PROCESSOR_ORDER.slice(1))).toBe(false)
-    expect(isValidProcessorOrder([...DEFAULT_PROCESSOR_ORDER.slice(1), 'gain', 'gain'])).toBe(false)
+    expect(isValidProcessorOrder([...DEFAULT_PROCESSOR_ORDER.slice(1), 'gain'])).toBe(false)
     expect(isValidProcessorOrder([...DEFAULT_PROCESSOR_ORDER.slice(1), 'bogus'])).toBe(false)
   })
 })
@@ -90,10 +90,11 @@ describe('factory presets', () => {
     expect(state.params['lim.gain']).toBe(7)
   })
 
-  it('Bypass All powers off every processor at default values', () => {
+  it('Bypass All powers off all ten downstream processors but keeps Gain available', () => {
     const state = applyPreset('Bypass All', DEFAULT_PROCESSOR_ORDER)
     for (const id of PROCESSOR_IDS) expect(state.power[id]).toBe(false)
     expect(state.params).toEqual(defaultParamValues())
+    expect('gain' in state.power).toBe(false)
   })
 
   it('default strip state is the Cheat Sheet preset', () => {

@@ -1,14 +1,14 @@
-// Common contract for the eleven master bus processors (spec-012).
+// Common contract for the pinned Gain Stage and ten downstream processors.
 // Modules are stereo-in/stereo-out blocks over Float32Array with no Web
 // Audio types, so the identical code runs in the AudioWorklet and in the
 // node test suite.
 
-import type { MasterBusParamId, ProcessorId } from '../params'
+import type { MasterBusModuleId, MasterBusParamId } from '../params'
 
 export type ParamReader = (id: MasterBusParamId) => number
 
 export interface BusModule {
-  readonly id: ProcessorId
+  readonly id: MasterBusModuleId
   /**
    * Constant group delay this module imposes on the audio path, in samples
    * at the base rate. Neutral and engaged paths share the same delay so

@@ -148,4 +148,39 @@ describe('lane-evaluation', () => {
       fadeOutAtEnd: true
     })
   })
+
+  // Lane evaluation is cached on the placements array identity so the 40 Hz
+  // scheduler does not re-sort the arrangement every tick. A stale answer
+  // would be silent and severe: notes firing from an edited-away arrangement.
+  it('reflects an edited placements array rather than a cached evaluation', () => {
+    const placements = [{ startTick: 8, durationTicks: 8, samplePath: 'before' }]
+    const original = [lane({ index: 0, placements })]
+    expect(triggersForTick(original, 8)[0]).toMatchObject({ samplePath: 'before' })
+
+    // An edit produces a new array — the identity the cache keys on.
+    const edited = [lane({
+      index: 0,
+      placements: [{ startTick: 8, durationTicks: 8, samplePath: 'after' }]
+    })]
+    expect(triggersForTick(edited, 8)[0]).toMatchObject({ samplePath: 'after' })
+
+    // The original array still evaluates to its own, unchanged answer.
+    expect(triggersForTick(original, 8)[0]).toMatchObject({ samplePath: 'before' })
+  })
+
+  it('answers repeated ticks consistently across many scheduler passes', () => {
+    const lanes = [lane({
+      index: 0,
+      placements: [
+        { startTick: 0, durationTicks: 8, samplePath: 'a' },
+        { startTick: 8, durationTicks: 8, samplePath: 'b' }
+      ]
+    })]
+
+    for (let pass = 0; pass < 3; pass++) {
+      expect(triggersForTick(lanes, 0)[0]).toMatchObject({ samplePath: 'a' })
+      expect(triggersForTick(lanes, 4)).toHaveLength(0)
+      expect(triggersForTick(lanes, 8)[0]).toMatchObject({ samplePath: 'b' })
+    }
+  })
 })

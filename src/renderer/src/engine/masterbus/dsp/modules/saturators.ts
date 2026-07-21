@@ -17,7 +17,7 @@ const ENGAGE_EPS = 1e-3
 const PRIME_SAMPLES = 256
 
 /** Soft-knee clipper: identity below ceiling/2, saturates at ceiling. */
-export function softKneeClip(x: number, ceiling: number): number {
+function softKneeClip(x: number, ceiling: number): number {
   const ax = x < 0 ? -x : x
   const half = ceiling * 0.5
   if (ax <= half) return x

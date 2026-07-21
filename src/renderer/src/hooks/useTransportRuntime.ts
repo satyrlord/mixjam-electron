@@ -4,6 +4,7 @@ import { type Transport, type TransportState, createTransport, TICKS_PER_BEAT } 
 import { PlaybackEngine, type PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
 import type { EngineLane } from '../engine/lane-evaluation'
 import { useSyncedRef } from './useSyncedRef'
+import { createValueStore, type ValueStore } from '../lib/value-store'
 import {
   emptyMasterMeterSnapshot,
   masterMeterSnapshotsEqual,
@@ -14,6 +15,7 @@ import {
   normalizeClipEdgeMicroFades,
   type ClipEdgeMicroFadeSettings
 } from '../engine/clip-edge-fades'
+import type { MasterBusMeterSnapshot } from '../engine/masterbus/dsp/core'
 import type { ProjectSongState } from '../project/project-state'
 
 export type RuntimeTransportState = TransportState | 'preparing'
@@ -33,12 +35,15 @@ interface UseTransportRuntimeParams {
 export interface TransportRuntime {
   playbackEngineRef: React.RefObject<PlaybackEngine | null>
   transportState: RuntimeTransportState
-  currentTick: number
+  /** Playhead tick, written at the 10 Hz poll cadence. A store (not React
+   *  state) so a tick advance re-renders only subscribed leaves, never the
+   *  whole App tree. */
+  tickStore: ValueStore<number>
   bpm: number
   masterGain: number
   clipEdgeMicroFades: ClipEdgeMicroFadeSettings
-  elapsedMs: number
-  masterMeter: MasterMeterSnapshot
+  elapsedMsStore: ValueStore<number>
+  masterMeterStore: ValueStore<MasterMeterSnapshot>
   transportPlay: () => void
   transportPause: () => void
   transportStop: () => void
@@ -52,6 +57,11 @@ export interface TransportRuntime {
   setClipEdgeMicroFades: (settings: ClipEdgeMicroFadeSettings) => void
   replaceSongState: (song: ProjectSongState) => void
   resetMasterMeter: () => void
+  /** Polls the master-bus worklet for the latest chain snapshot. */
+  getMasterBusMeterSnapshot: () => MasterBusMeterSnapshot | null
+  /** Tells the engine whether the strip is visible, so the worklet only
+   *  streams 30 Hz meter snapshots while someone is looking at them. */
+  setMasterBusMetersActive: (active: boolean) => void
 }
 
 export function useTransportRuntime({
@@ -68,16 +78,15 @@ export function useTransportRuntime({
   const transportRef = useRef<Transport | null>(null)
   const playbackEngineRef = useRef<PlaybackEngine | null>(null)
   const [transportState, setTransportState] = useState<RuntimeTransportState>('stopped')
-  const [currentTick, setCurrentTick] = useState(0)
   const [bpm, setBpmState] = useState(initialBpm)
   const [masterGain, setMasterGainState] = useState(initialMasterGain)
   const initialFades = initialClipEdgeMicroFades ?? DEFAULT_CLIP_EDGE_MICRO_FADES
   const [clipEdgeMicroFades, setClipEdgeMicroFadesState] = useState(initialFades)
-  const [elapsedMs, setElapsedMs] = useState(0)
-  const [masterMeter, setMasterMeter] = useState<MasterMeterSnapshot>(
-    emptyMasterMeterSnapshot()
+  const [tickStore] = useState(() => createValueStore(0))
+  const [elapsedMsStore] = useState(() => createValueStore(0))
+  const [masterMeterStore] = useState(() =>
+    createValueStore<MasterMeterSnapshot>(emptyMasterMeterSnapshot())
   )
-  const currentTickRef = useSyncedRef(currentTick)
   const songEndTickRef = useSyncedRef(songEndTick)
   const activeRef = useSyncedRef(active)
   const getLanesRef = useSyncedRef(getLanes)
@@ -103,22 +112,22 @@ export function useTransportRuntime({
     if (timerRef.current !== null) return
     startedAtRef.current = Date.now()
     timerRef.current = window.setInterval(() => {
-      setElapsedMs(elapsedBaseRef.current + Date.now() - startedAtRef.current)
+      elapsedMsStore.set(elapsedBaseRef.current + Date.now() - startedAtRef.current)
     }, 100)
-  }, [])
+  }, [elapsedMsStore])
 
   const pauseElapsedTimer = useCallback(() => {
     if (timerRef.current === null) return
     elapsedBaseRef.current += Date.now() - startedAtRef.current
-    setElapsedMs(elapsedBaseRef.current)
+    elapsedMsStore.set(elapsedBaseRef.current)
     clearElapsedTimer()
-  }, [clearElapsedTimer])
+  }, [clearElapsedTimer, elapsedMsStore])
 
   const resetElapsedTimer = useCallback(() => {
     clearElapsedTimer()
     elapsedBaseRef.current = 0
-    setElapsedMs(0)
-  }, [clearElapsedTimer])
+    elapsedMsStore.set(0)
+  }, [clearElapsedTimer, elapsedMsStore])
 
   const commitTransportState = useCallback((state: RuntimeTransportState) => {
     runtimeStateRef.current = state
@@ -176,11 +185,10 @@ export function useTransportRuntime({
     cancelPendingStart()
     transportRef.current?.stop()
     playbackEngineRef.current?.stop()
-    currentTickRef.current = 0
     resetElapsedTimer()
     commitTransportState('stopped')
-    setCurrentTick(0)
-  }, [cancelPendingStart, commitTransportState, currentTickRef, resetElapsedTimer])
+    tickStore.set(0)
+  }, [cancelPendingStart, commitTransportState, tickStore, resetElapsedTimer])
 
   useEffect(() => {
     if (!active) return
@@ -202,15 +210,16 @@ export function useTransportRuntime({
 
     const meterTimer = window.setInterval(() => {
       const nextMeter = playbackEngine.getMasterMeterSnapshot()
-      setMasterMeter((current) => masterMeterSnapshotsEqual(current, nextMeter) ? current : nextMeter)
+      if (!masterMeterSnapshotsEqual(masterMeterStore.get(), nextMeter)) {
+        masterMeterStore.set(nextMeter)
+      }
       const nextTick = playbackEngine.currentTick
       if ((runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing') &&
           nextTick >= songEndTickRef.current) {
         stopAndReset()
         return
       }
-      currentTickRef.current = nextTick
-      setCurrentTick(nextTick)
+      tickStore.set(nextTick)
     }, 100)
 
     return () => {
@@ -220,12 +229,11 @@ export function useTransportRuntime({
       void playbackEngine.close()
       transportRef.current = null
       playbackEngineRef.current = null
-      currentTickRef.current = 0
       commitTransportState('stopped')
-      setCurrentTick(0)
-      setMasterMeter(emptyMasterMeterSnapshot())
+      tickStore.set(0)
+      masterMeterStore.set(emptyMasterMeterSnapshot())
     }
-  }, [active, backendAPI, sampleFolder, getLanesRef, projectGraphSnapshotRef, currentTickRef, songEndTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState, stopAndReset])
+  }, [active, backendAPI, sampleFolder, getLanesRef, projectGraphSnapshotRef, tickStore, masterMeterStore, songEndTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState, stopAndReset])
 
   const transportPlay = useCallback(() => {
     if (!activeRef.current) return
@@ -233,16 +241,15 @@ export function useTransportRuntime({
     const endTick = songEndTickRef.current
     if (endTick <= 0) return
     const playbackEngine = playbackEngineRef.current
-    const requestedTick = playbackEngine?.currentTick ?? currentTickRef.current
+    const requestedTick = playbackEngine?.currentTick ?? tickStore.get()
     const replayFromStart = requestedTick >= endTick
     const fromTick = replayFromStart ? 0 : requestedTick
     if (replayFromStart) {
       playbackEngine?.seek(0)
-      currentTickRef.current = 0
-      setCurrentTick(0)
+      tickStore.set(0)
     }
     prepareAndStart(fromTick)
-  }, [activeRef, currentTickRef, prepareAndStart, songEndTickRef])
+  }, [activeRef, tickStore, prepareAndStart, songEndTickRef])
 
   const transportPause = useCallback(() => {
     cancelPendingStart()
@@ -262,9 +269,8 @@ export function useTransportRuntime({
       if (shouldResume) restartAfterPreparation(0)
       else playbackEngine.seek(0)
     }
-    currentTickRef.current = 0
-    setCurrentTick(0)
-  }, [activeRef, currentTickRef, restartAfterPreparation])
+    tickStore.set(0)
+  }, [activeRef, tickStore, restartAfterPreparation])
 
   const transportJumpToEnd = useCallback(() => {
     if (!activeRef.current) return
@@ -275,11 +281,10 @@ export function useTransportRuntime({
     const playbackEngine = playbackEngineRef.current
     playbackEngine?.stop()
     playbackEngine?.seek(endTick)
-    currentTickRef.current = endTick
     resetElapsedTimer()
     commitTransportState('stopped')
-    setCurrentTick(endTick)
-  }, [activeRef, cancelPendingStart, commitTransportState, currentTickRef, resetElapsedTimer, songEndTickRef])
+    tickStore.set(endTick)
+  }, [activeRef, cancelPendingStart, commitTransportState, tickStore, resetElapsedTimer, songEndTickRef])
 
   const transportSeek = useCallback((tick: number) => {
     if (!activeRef.current) return
@@ -290,12 +295,11 @@ export function useTransportRuntime({
       if (shouldResume) restartAfterPreparation(nextTick)
       else playbackEngine.seek(nextTick)
     }
-    currentTickRef.current = nextTick
-    setCurrentTick(nextTick)
-  }, [activeRef, currentTickRef, restartAfterPreparation])
+    tickStore.set(nextTick)
+  }, [activeRef, tickStore, restartAfterPreparation])
 
   useEffect(() => {
-    const tick = currentTickRef.current
+    const tick = tickStore.get()
     const isRunning = runtimeStateRef.current === 'playing' || runtimeStateRef.current === 'preparing'
     if (isRunning && tick >= songEndTick) {
       stopAndReset()
@@ -303,10 +307,9 @@ export function useTransportRuntime({
     }
     if (!isRunning && tick > songEndTick) {
       playbackEngineRef.current?.seek(songEndTick)
-      currentTickRef.current = songEndTick
-      setCurrentTick(songEndTick)
+      tickStore.set(songEndTick)
     }
-  }, [currentTickRef, songEndTick, stopAndReset])
+  }, [tickStore, songEndTick, stopAndReset])
 
   const previewSample = useCallback((samplePath: string, nativeBPM: number | null = null) => {
     const playbackEngine = playbackEngineRef.current
@@ -362,18 +365,28 @@ export function useTransportRuntime({
     const playbackEngine = playbackEngineRef.current
     if (!playbackEngine) return
     playbackEngine.resetMasterMeter()
-    setMasterMeter(playbackEngine.getMasterMeterSnapshot())
-  }, [])
+    masterMeterStore.set(playbackEngine.getMasterMeterSnapshot())
+  }, [masterMeterStore])
+
+  const getMasterBusMeterSnapshot = useCallback(
+    () => playbackEngineRef.current?.getMasterBusMeterSnapshot() ?? null,
+    []
+  )
+
+  const setMasterBusMetersActive = useCallback(
+    (active: boolean) => playbackEngineRef.current?.setMasterBusMetersActive(active),
+    []
+  )
 
   return {
     playbackEngineRef,
     transportState,
-    currentTick,
+    tickStore,
     bpm,
     masterGain,
     clipEdgeMicroFades,
-    elapsedMs,
-    masterMeter,
+    elapsedMsStore,
+    masterMeterStore,
     transportPlay,
     transportPause,
     transportStop,
@@ -386,6 +399,8 @@ export function useTransportRuntime({
     setMasterGain,
     setClipEdgeMicroFades,
     replaceSongState,
-    resetMasterMeter
+    resetMasterMeter,
+    getMasterBusMeterSnapshot,
+    setMasterBusMetersActive
   }
 }

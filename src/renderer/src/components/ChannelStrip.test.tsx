@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { createValueStore } from '../lib/value-store'
 import ChannelStrip from './ChannelStrip'
 
 const DEFAULT_PROPS = {
@@ -11,8 +12,7 @@ const DEFAULT_PROPS = {
   muted: false,
   sends: [0, 0, 0, 0] as const,
   sendModuleNames: ['Empty', 'Delay', 'Empty', 'Empty'] as const,
-  levelDb: -20,
-  peakDb: -15,
+  meterStore: createValueStore({ levelDb: -20, peakDb: -15 }),
   onSetGain: vi.fn(),
   onSetPan: vi.fn(),
   onSetSend: vi.fn(),
@@ -75,7 +75,7 @@ describe('ChannelStrip', () => {
   })
 
   it('renders meter fill with green color when level is below -12 dB', () => {
-    render(<ChannelStrip {...DEFAULT_PROPS} levelDb={-20} />)
+    render(<ChannelStrip {...DEFAULT_PROPS} meterStore={createValueStore({ levelDb: -20, peakDb: -15 })} />)
     const meterFill = document.querySelector('.mixer-channel-meter-fill')
     expect(meterFill).toBeInTheDocument()
     expect(meterFill).toHaveStyle({ background: 'var(--meter-green)' })
@@ -83,13 +83,13 @@ describe('ChannelStrip', () => {
   })
 
   it('renders meter fill with yellow color when level is between -12 and -3 dB', () => {
-    render(<ChannelStrip {...DEFAULT_PROPS} levelDb={-6} />)
+    render(<ChannelStrip {...DEFAULT_PROPS} meterStore={createValueStore({ levelDb: -6, peakDb: -6 })} />)
     const meterFill = document.querySelector('.mixer-channel-meter-fill')
     expect(meterFill).toHaveStyle({ background: 'var(--meter-yellow)' })
   })
 
   it('renders meter fill with red color when level is above -3 dB', () => {
-    render(<ChannelStrip {...DEFAULT_PROPS} levelDb={0} />)
+    render(<ChannelStrip {...DEFAULT_PROPS} meterStore={createValueStore({ levelDb: 0, peakDb: 0 })} />)
     const meterFill = document.querySelector('.mixer-channel-meter-fill')
     expect(meterFill).toHaveStyle({ background: 'var(--meter-red)' })
   })

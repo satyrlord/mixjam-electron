@@ -60,7 +60,13 @@ export function createMainWindowOptions(preloadPath: string, icon: NativeImage):
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // The note scheduler is a 25 ms window.setInterval on the renderer main
+      // thread with a 100 ms lookahead. Chromium clamps background timers to
+      // >= 1 s, which would shred playback; the audio-playback exemption that
+      // covers this today is an undocumented implementation detail, so opt out
+      // explicitly rather than depend on it.
+      backgroundThrottling: false
     }
   }
 }

@@ -55,6 +55,34 @@ describe('EBU Tech 3341 style compliance (production loudness meter)', () => {
     expect(Math.abs(result.integratedLufs - -23)).toBeLessThan(0.15)
   })
 
+  it('silence: non-finite readings are dropped rather than folded into the maxima', { timeout: 90000 }, async () => {
+    // A digitally silent program leaves short-term loudness and true peak at
+    // -Infinity. Those readings must be filtered out of the trails, not
+    // propagated as if they were measurements.
+    const n = FS * 2
+    const result = await measureLoudness(new Float32Array(n), new Float32Array(n), FS)
+    expect(result.integratedLufs).toBe(Number.NEGATIVE_INFINITY)
+    expect(result.maxShortTermLufs).toBe(Number.NEGATIVE_INFINITY)
+    expect(result.maxTruePeakDbtp).toBe(Number.NEGATIVE_INFINITY)
+    expect(result.shortTermTrail).toHaveLength(0)
+    // Momentary loudness does resolve to a finite floor, so its trail fills.
+    expect(result.momentaryTrail.length).toBeGreaterThan(0)
+    expect(result.momentaryTrail.every((v) => Number.isFinite(v))).toBe(true)
+    expect(result.maxMomentaryLufs).toBeLessThan(-100)
+  })
+
+  it('short program: a sub-window burst yields no finite loudness readings', { timeout: 90000 }, async () => {
+    // Shorter than the 400 ms momentary window, so no gating block ever
+    // completes: every loudness reading stays -Infinity and both trails are
+    // empty rather than carrying a placeholder value.
+    const { l, r } = stereoTone(-20, 0.05)
+    const result = await measureLoudness(l, r, FS)
+    expect(result.maxMomentaryLufs).toBe(Number.NEGATIVE_INFINITY)
+    expect(result.maxShortTermLufs).toBe(Number.NEGATIVE_INFINITY)
+    expect(result.momentaryTrail).toHaveLength(0)
+    expect(result.shortTermTrail).toHaveLength(0)
+  })
+
   it('true peak: a phase-shifted fs/4 tone reveals its inter-sample peak', { timeout: 90000 }, async () => {
     // Peak amplitude -6.02 dBFS but sample peaks near -9 dBFS: only an
     // oversampled meter sees the true level. BS.1770 conformance allows

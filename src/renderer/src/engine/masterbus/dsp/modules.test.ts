@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Per-module unit tests for the eleven master bus processors (spec-012 §7):
+// Per-module unit tests for the pinned Gain Stage and ten downstream processors:
 // latency-compensated null tests at neutral settings, THD profiles for the
 // saturators, compressor static curve and timing, limiter true-peak
 // ceiling, and metering behavior.

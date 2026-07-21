@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TrackerArrangementProps, PlayerTransportProps } from '../components/playerProps'
 import type { LaneState } from '../project/project-state'
 import { emptyMasterMeterSnapshot } from '../engine/master-meter'
+import { createValueStore } from '../lib/value-store'
 import { LANE_HEAD_WIDTH_PX, TRACKER_TOTAL_TICKS } from '../lib/arrangement'
 import { useTrackerInteraction } from './useTrackerInteraction'
 
@@ -56,7 +57,7 @@ function createOptions(overrides: {
   const arrangement: TrackerArrangementProps = {
     lanes: overrides.lanes ?? [lane(0, 1)],
     laneShouldDim: vi.fn(() => false),
-    currentTick: overrides.currentTick ?? 0,
+    tickStore: createValueStore(overrides.currentTick ?? 0),
     missingSamplePaths: new Set(),
     onPlaceSampleDetailOnLane: vi.fn(),
     onMovePlacement: vi.fn(),
@@ -78,7 +79,7 @@ function createOptions(overrides: {
     songEndTick: overrides.songEndTick ?? 768,
     bpm: 120,
     masterGain: 0.8,
-    masterMeter: emptyMasterMeterSnapshot(),
+    masterMeterStore: createValueStore(emptyMasterMeterSnapshot()),
     canUndo: false,
     canRedo: false,
     onSetBpm: vi.fn(),

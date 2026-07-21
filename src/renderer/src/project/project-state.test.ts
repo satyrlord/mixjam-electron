@@ -135,7 +135,9 @@ describe('project state', () => {
 
     expect(project.masterBus.preset).toBe('Cheat Sheet')
     expect(project.masterBus.order).toEqual([...DEFAULT_PROCESSOR_ORDER])
+    expect(project.masterBus.order).toHaveLength(10)
     expect(PROCESSOR_IDS.every((id) => project.masterBus.power[id])).toBe(true)
+    expect('gain' in project.masterBus.power).toBe(false)
     expect(editState.masterBus).toEqual(project.masterBus)
     expect(project.masterBus).toEqual(createDefaultMasterBusState())
   })
@@ -194,8 +196,11 @@ describe('project state', () => {
     expect(reordered.order).not.toBe(reversed)
     expect(reordered.preset).toBeNull()
 
-    expect(reorderMasterBus(masterBus, ['gain'])).toBe(masterBus)
-    expect(reorderMasterBus(masterBus, [...masterBus.order.slice(0, 10), 'gain'])).toBe(masterBus)
+    expect(reorderMasterBus(masterBus, ['clip'])).toBe(masterBus)
+    expect(reorderMasterBus(
+      masterBus,
+      [...masterBus.order.slice(1), 'gain'] as unknown as typeof masterBus.order
+    )).toBe(masterBus)
   })
 
   it('recalls presets from the current order; only Cheat Sheet restores the default order', () => {

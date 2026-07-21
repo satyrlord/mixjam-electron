@@ -1,13 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import Header from './Header'
+import { createValueStore } from '../lib/value-store'
 
 describe('Header', () => {
   it('shows only the brand in the home view', () => {
     render(
       <Header
         view="home"
-        timer="00:00.0"
+        elapsedMsStore={createValueStore(0)}
         theme="emerald"
         onHome={vi.fn()}
         onThemeChange={vi.fn()}
@@ -23,7 +24,7 @@ describe('Header', () => {
     render(
       <Header
         view="player"
-        timer="01:23.4"
+        elapsedMsStore={createValueStore(83400)}
         theme="emerald"
         onHome={onHome}
         onThemeChange={vi.fn()}
@@ -41,7 +42,7 @@ describe('Header', () => {
     render(
       <Header
         view="home"
-        timer="00:00.0"
+        elapsedMsStore={createValueStore(0)}
         theme="emerald"
         onHome={vi.fn()}
         onThemeChange={onThemeChange}

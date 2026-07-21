@@ -18,8 +18,18 @@ const BLOCK = 512
 // on the same cores, so even the fastest sampled blocks are preempted). Relax
 // the gate for both so it catches real regressions, not scheduler noise. The
 // uncontended cost is exercised precisely when this file runs in isolation.
+//
+// The coverage factor is measured, not guessed. V8 precise coverage emits a
+// counter per basic block, and this chain is dominated by half-band FIR loops
+// whose bodies are a single multiply-accumulate, so instrumentation inflates it
+// by ~7.3x overall (6.3-9.2x on the oversampled modules). A factor of 3 was
+// therefore always short: a healthy chain measured ~1.2 s against a 0.6 s gate.
+// 8 sits ~30% above the instrumented cost while still catching a real ~40%
+// regression. Detection keys off the npm script name, so the relaxed budget
+// applies to `npm run test:coverage` (the quality gate); a bare
+// `npx vitest run --coverage` is measured against the strict budget.
 const COVERAGE_RUN = (process.env.npm_lifecycle_event ?? '').includes('coverage')
-const BUDGET_FACTOR = COVERAGE_RUN ? 3 : 2
+const BUDGET_FACTOR = COVERAGE_RUN ? 8 : 2
 
 function warmedCore(): { core: MasterBusCore; l: Float32Array; r: Float32Array } {
   const core = new MasterBusCore(FS, BLOCK, defaultMasterBusState())

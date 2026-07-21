@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import {
   createDefaultEchoformDelayReturnModule,
@@ -59,6 +59,26 @@ export default function MixerFxSlot({
   >(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const module = bus.module
+
+  // The editor syncs the live DSP from an effect keyed on this callback. An
+  // inline arrow would change identity on every render of this component, and
+  // the transport's 10 Hz elapsed-time tick re-renders the whole Mixer chain
+  // during playback — which re-fired the effect ~20x/s and pushed redundant
+  // worklet state messages and AudioParam writes for unchanged values. Read
+  // `bus` through a ref so the callback stays stable for the editor's lifetime.
+  const busRef = useRef(bus)
+  busRef.current = bus
+  const previewFromEditor = useCallback(
+    (next: EchoformDelayModule, nextPowered: boolean, nextMix: number) => {
+      onPreview({
+        ...busRef.current,
+        module: next,
+        powered: nextPowered,
+        returnLevel: nextMix
+      })
+    },
+    [onPreview]
+  )
   const slot = bus.index + 1
   const isDelay = module.type === 'echoform-delay'
   const moduleName = isDelay ? 'Echoform Delay' : 'Empty'
@@ -191,12 +211,7 @@ export default function MixerFxSlot({
           onCancel={cancel}
           onSave={saveDelay}
           onRestoreFocus={() => triggerRef.current?.focus()}
-          onPreview={(next, nextPowered, nextMix) => onPreview({
-            ...bus,
-            module: next,
-            powered: nextPowered,
-            returnLevel: nextMix
-          })}
+          onPreview={previewFromEditor}
         />
       )}
     </div>
