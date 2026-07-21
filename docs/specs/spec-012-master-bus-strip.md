@@ -3,7 +3,7 @@
 **Spec Validation Status:** VALIDATED
 
 **Spec Implementation Status:** IMPLEMENTED — DSP core, worklet integration,
-rack UI, format-5 persistence, and unified undo are in place. Unit evidence:
+rack UI, format-6 persistence, and unified undo are in place. Unit evidence:
 `src/renderer/src/engine/masterbus/**` (chain, modules, null/THD/limiter,
 EBU compliance via the production loudness meter, calibration, allocation
 and CPU gates), `MasterBusStrip.test.tsx`, `master-bus-chain.test.ts`,

@@ -36,10 +36,12 @@ path, never embedded.
 
 A project is a JSON file with a `.mixjam` extension, saved to the User Folder
 (spec-003). The version-6 schema without the optional generator object
+(spec-003). The version-6 schema without the optional generator object
 is:
 
 ```json
 {
+  "formatVersion": 6,
   "formatVersion": 6,
   "appVersion": "v0.1.0",
   "createdAt": "2026-06-28T...",
@@ -172,11 +174,13 @@ is:
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
 - Version 6 adds the required `masterBus` record from spec-012 (Master Bus
+- Version 6 adds the required `masterBus` record from spec-012 (Master Bus
   Strip): slot order (a permutation of the eleven processor ids),
   per-processor power flags, every strip parameter value, and the selected
   preset name or null. Spec-012 lists the record's rejection rules; this
   spec owns the wire format.
 
+### Strict version-6 validation
 ### Strict version-6 validation
 
 - Version 6 is a breaking boundary. The parser accepts `formatVersion: 6` only.
@@ -202,7 +206,10 @@ is:
   `durationTicks` for each `sampleRef`.
 
 ### Format version 6 generator metadata extension
+### Format version 6 generator metadata extension
 
+Version 6 retains the optional project-owned `generator` object for generated
+projects. Projects created or saved without it remain valid version-6 projects.
 Version 6 retains the optional project-owned `generator` object for generated
 projects. Projects created or saved without it remain valid version-6 projects.
 
@@ -212,6 +219,7 @@ the Sample Folder key used for exact regeneration:
 
 ```json
 {
+  "formatVersion": 6,
   "formatVersion": 6,
   "generator": {
     "generatorVersion": 1,

@@ -48,7 +48,7 @@ test('Player Settings edits Clip Edge Fades and returns to a Master panel withou
   })).toBeDisabled()
 
   await closeSettings(page)
-  await expect(page.getByText('Master Controls')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Master bus rack' })).toBeVisible()
   await expect(page.getByText('Clip Edge Fades')).toHaveCount(0)
 })
 
