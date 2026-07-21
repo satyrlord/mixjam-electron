@@ -119,7 +119,7 @@ test.describe('Electron smoke', () => {
           snapshot(),
           window.evaluate(() => ({ width: innerWidth, height: innerHeight }))
         ])
-        // After maximize the window fills the work area. On CI runners a taskbar
+        // After maximizing, the window fills the work area. On CI runners a taskbar
         // reduces the usable height below 1080, so clamp the minimum to the
         // available work-area height rather than a fixed 1080.
         const minHeight = Math.min(nativeState.workArea.height, 1080)
