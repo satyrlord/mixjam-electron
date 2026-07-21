@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
 
     steps:
       - name: Check out repository
@@ -95,5 +95,3 @@ jobs:
         with:
           files: |
             release-artifacts/dist-electron/*.exe
-            release-artifacts/dist-electron/*.AppImage
-            release-artifacts/dist-electron/*.dmg

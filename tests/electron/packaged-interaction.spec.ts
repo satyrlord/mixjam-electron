@@ -57,10 +57,10 @@ test.describe('packaged interaction proof', () => {
     try {
       mkdirSync(EVIDENCE_DIR, { recursive: true })
       await seedMockBackend(page)
-      await expect(page.locator('.home-wordmark')).toHaveText('MixJam')
       await page.setViewportSize({ width: 1920, height: 1080 })
       await expect.poll(() => page.evaluate(() => ({ width: innerWidth, height: innerHeight })))
         .toEqual({ width: 1920, height: 1080 })
+      await expect(page.locator('.home-wordmark')).toHaveText('MixJam')
       await page.getByRole('button', { name: 'Start New MixJam' }).click()
       await page.getByRole('button', { name: 'Settings', exact: true }).click()
       await page.getByRole('button', { name: UI_SIZE_50_LABEL, exact: true }).click()
