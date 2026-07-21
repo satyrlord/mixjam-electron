@@ -1,7 +1,7 @@
 # Spec 011 — Project Save & Load
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED for breaking format version 5.
+**Spec Implementation Status:** IMPLEMENTED for breaking format version 6.
 **Depends on:** spec-006 (Player Timeline & Panel Layout), spec-007 (Mixer),
 spec-010 (Audio Effects)
 
@@ -35,12 +35,12 @@ path, never embedded.
 ### Project File Format
 
 A project is a JSON file with a `.mixjam` extension, saved to the User Folder
-(spec-003). The version-5 schema without the optional generator object
+(spec-003). The version-6 schema without the optional generator object
 is:
 
 ```json
 {
-  "formatVersion": 5,
+  "formatVersion": 6,
   "appVersion": "v0.1.0",
   "createdAt": "2026-06-28T...",
   "modifiedAt": "2026-06-28T...",
@@ -171,16 +171,16 @@ is:
   project file.
 - `formatVersion` is incremented when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
-- Version 5 adds the required `masterBus` record from spec-012 (Master Bus
+- Version 6 adds the required `masterBus` record from spec-012 (Master Bus
   Strip): slot order (a permutation of the eleven processor ids),
   per-processor power flags, every strip parameter value, and the selected
   preset name or null. Spec-012 lists the record's rejection rules; this
   spec owns the wire format.
 
-### Strict version-5 validation
+### Strict version-6 validation
 
-- Version 5 is a breaking boundary. The parser accepts `formatVersion: 5` only.
-  It does not migrate format 4, 3, or any other older format. An older file is
+- Version 6 is a breaking boundary. The parser accepts `formatVersion: 6` only.
+  It does not migrate format 5, 4, 3, or any other older format. An older file is
   rejected without changing active project state and reports that the file uses
   an unsupported project format and must be recreated in the current MixJam.
 - Objects reject unknown keys. Required arrays and fields may not be omitted,
@@ -190,7 +190,7 @@ is:
   trimmed and non-empty. Numeric Mixer fields must be
   finite and within their documented ranges. Every lane must contain exactly
   four finite send values in the inclusive 0 through 1 range.
-- A lane owns its Mixer state. Version 4 rejects `channelId`, a top-level
+- A lane owns its Mixer state. Version 5 rejects `channelId`, a top-level
   `channels` array, lane routing data, and per-channel insert FX.
 - `fxBuses` must contain exactly four entries with no additions, omissions, or
   reordering. Their identities, indices, and names must be exactly
@@ -201,10 +201,10 @@ is:
   placement IDs, finite timing, arrangement capacity, and one consistent
   `durationTicks` for each `sampleRef`.
 
-### Format version 5 generator metadata extension
+### Format version 6 generator metadata extension
 
-Version 4 retains the optional project-owned `generator` object for generated
-projects. Projects created or saved without it remain valid version-5 projects.
+Version 6 retains the optional project-owned `generator` object for generated
+projects. Projects created or saved without it remain valid version-6 projects.
 
 The object contains the generator version, stable profile ID and profile schema
 version, safe seed, generation parameters, the indexed-corpus fingerprint, and
@@ -212,7 +212,7 @@ the Sample Folder key used for exact regeneration:
 
 ```json
 {
-  "formatVersion": 4,
+  "formatVersion": 6,
   "generator": {
     "generatorVersion": 1,
     "profileId": "techno",
@@ -368,8 +368,8 @@ generator, its tests, and this contract are the durable repository assets.
   3. Replace the active project state with the saved lanes, placements, Song
      settings, lane Mixer state, sends, and four return buses.
   4. Missing samples show a warning badge on affected lanes.
-- If `formatVersion` is not 4, show the unsupported-format message from Strict
-  version-5 validation and leave the active project unchanged.
+- If `formatVersion` is not 6, show the unsupported-format message from Strict
+  version-6 validation and leave the active project unchanged.
 
 ### Recent Projects Registry
 
@@ -395,7 +395,7 @@ generator, its tests, and this contract are the durable repository assets.
 
 ### Unsupported Formats
 
-- Format version 5 has no migration from version 4 or earlier. Unsupported
+- Format version 6 has no migration from version 5 or earlier. Unsupported
   versions are rejected before project replacement or sample checks.
 - App-level Song, Mixer, send, or return-FX storage from a prior format is not project data
   and must not be imported into, merged with, or allowed to override a new or
@@ -403,7 +403,7 @@ generator, its tests, and this contract are the durable repository assets.
 
 ## Acceptance Criteria (testable)
 
-- [ ] **AC-001:** "Save As…" writes a valid format-version-5 `.mixjam` JSON file to the chosen location.
+- [ ] **AC-001:** "Save As…" writes a valid format-version-6 `.mixjam` JSON file to the chosen location.
 - [ ] **AC-002:** Saving, closing the app, reopening, and loading the project
   restores all stable-ID lanes, placements, unchanged Song settings, lane Mixer
   state, exactly four sends per lane, and exactly four fixed return buses.
@@ -412,9 +412,9 @@ generator, its tests, and this contract are the durable repository assets.
   and disappears after save.
 - [x] **AC-004:** Ctrl+S saves to the current path; Ctrl+Shift+S triggers "Save As…".
 - [x] **AC-005:** Loading a project with a missing sample file shows a warning badge on the affected lane(s) — other lanes load correctly.
-- [ ] **AC-006:** Loading any project whose `formatVersion` is not 4 shows the
+- [ ] **AC-006:** Loading any project whose `formatVersion` is not 6 shows the
   clear unsupported-format error and does not change the active project. There
-  is no version-3 migration.
+  is no version-5 migration.
 - [x] **AC-007:** `sampleRef` fields are relative paths, never absolute paths, never base64-encoded audio.
 - [x] **AC-008:** The project file survives a roundtrip: save → load → save produces an identical file (minus `modifiedAt` timestamp).
 - [x] **AC-009:** Opening a `.mixjam` file adds or refreshes that file in the persisted recent-project registry.
@@ -433,7 +433,7 @@ generator, its tests, and this contract are the durable repository assets.
   already busy.
 - [x] **AC-016:** Loading rejects projects that assign conflicting
   `durationTicks` values to placements with the same `sampleRef`.
-- [ ] **AC-017:** The repository test-song generator writes a format-5 project that
+- [ ] **AC-017:** The repository test-song generator writes a format-6 project that
   roundtrips through the production project parser, has 140 BPM, spans exactly
   70 bars (120 seconds), contains 16 non-empty lanes, has four zero Sends on
   every lane, and leaves all four FX modules Empty.
@@ -465,19 +465,19 @@ generator, its tests, and this contract are the durable repository assets.
   140 BPM project tempo, and persist that same native BPM provenance.
 - [ ] **AC-026:** New in the Middle Strip project menu starts the same exactly
   eight-lane blank project used by the Home Screen.
-- [ ] **AC-027:** Saving and loading version 5 preserves the automatic clip-edge
+- [ ] **AC-027:** Saving and loading version 6 preserves the automatic clip-edge
   micro-fade enabled state and fractional 0-20 ms fade durations without
   changing the Settings modal editor contract.
 - [x] **AC-028:** New, load, save, transport replacement, and the generated test
   project use one complete nested Song-state contract and canonical default
   factory rather than independently listing Song fields.
-- [ ] **AC-029:** Versions 3 and earlier are rejected clearly and atomically;
-  the parser exposes no migration path into version 5.
-- [ ] **AC-030:** A version-5 generator block validates, survives a load/save
+- [ ] **AC-029:** Versions 5 and earlier are rejected clearly and atomically;
+  the parser exposes no migration path into version 6.
+- [ ] **AC-030:** A version-6 generator block validates, survives a load/save
   roundtrip, and preserves the profile, profile version, generator version,
   safe seed, parameters including an optional analysis-group key, corpus
   fingerprint, and Sample Folder key.
-- [ ] **AC-031:** A generated version-5 project exposes its generator metadata to
+- [ ] **AC-031:** A generated version-6 project exposes its generator metadata to
   exact and current-corpus regeneration without storing it in app state or the
   recent-project registry.
 - [ ] **AC-032:** Strict parsing rejects zero or more than 64 lanes, duplicate or
@@ -487,14 +487,14 @@ generator, its tests, and this contract are the durable repository assets.
   exact `FX1` through `FX4` contract, invalid modules or numeric ranges, legacy
   `channels`/`channelId`/routing/insert-FX fields, and unknown object keys.
 
-## Required version-5 evidence
+## Required version-6 evidence
 
-The in-memory `ProjectState` matches the physical version-5 model: Song, lanes,
+The in-memory `ProjectState` matches the physical version-6 model: Song, lanes,
 and four Return buses. Parsing, generation, dirty fingerprints, and persistence
 do not synthesize or replace a second top-level channel array.
 
 - Project-file unit tests cover exact format-version acceptance, rejection of
-  version 3, unknown-key rejection, 1/64 lane boundaries, stable IDs, lane array
+  version 5, unknown-key rejection, 1/64 lane boundaries, stable IDs, lane array
   order, four sends, four ordered buses, module payloads, numeric ranges, safe
   relative paths, and unchanged placement validation.
 - Project-state tests cover the exactly-eight-lane blank default, isolated
