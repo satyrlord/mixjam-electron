@@ -21,7 +21,6 @@ review standard.
 
 ## Design and Architecture
 
-- [`design-critique`](./design-critique/SKILL.md)
 - [`design-router`](./design-router/SKILL.md)
 - [`improve-codebase-architecture`](./improve-codebase-architecture/SKILL.md)
 

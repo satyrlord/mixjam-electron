@@ -1,6 +1,6 @@
 ---
 name: MixJam Electron
-description: A skinnable sample-library tracker whose interface reads as studio hardware, rendered entirely from swappable theme tokens.
+description: A local-first sample-library tracker whose interface reads as studio hardware, with the visual identity rendered through swappable theme tokens.
 colors:
   accent: "#00674F"
   accent-dark: "#004434"
@@ -123,7 +123,7 @@ components:
     textColor: "#2c2921"
     rounded: "{rounded.module}"
     width: "152px"
-    height: "500px"
+    height: "420px"
 ---
 
 # Design System: MixJam Electron
@@ -132,21 +132,24 @@ components:
 
 **Creative North Star: "The Studio Rack"**
 
-MixJam is not a website that plays audio. It is a piece of gear. The Master
-tab holds thirteen module faceplates in a screwed-down rack shell; the Mixer
-holds channel strips and FX slots on a device surface; knobs have real
-pointers and value arcs, LEDs glow when a bus is live, faders ride in recessed
-rails. Depth in this interface is hardware depth, never decoration. When a
-surface lifts off the page, it is because it represents something you could
-put your hands on.
+MixJam is not a website that plays audio. It is a local-first piece of gear. The
+Home surface gets the user from folder setup to a new, loaded, or generated
+project; the Player then holds the tracker, browser, Mixer, and Master surfaces.
+The Master tab holds thirteen module faceplates in a rack shell; the Mixer holds
+channel strips and combined FX/Return slots on a device surface; knobs have real
+pointers and value arcs, LEDs glow when a bus is live, and faders ride in
+recessed rails. Depth in this interface is hardware depth, never decoration.
+When a surface lifts off the page, it is because it represents something the
+user can operate.
 
 The second half of the identity is that the hardware is skinnable. Sixteen
-themes ship in `public/themes/`, and each one repaints the entire instrument —
-surfaces, accents, three font roles, gradients, shadows, knob faces, corner
-radii — without moving a single control. Geometry is fixed and shared; identity
-is entirely token-driven. Emerald (deep green, dark) is the default, but the
-system is designed so that Mono's single phosphor green and Riso's print
-palette are equally native, not skins bolted onto a green app.
+themes ship in `public/themes/`: Emerald, Enterprise, Neon Rave, Warm Analog,
+IDE, Rust Industrial, Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack,
+Soft, Riso, and Arcade. Each repaints the instrument — surfaces, accents, font
+roles, gradients, shadows, knob faces, and corner radii — without moving a
+control. Geometry is fixed and shared; identity is token-driven. Emerald is the
+default, but Mono's phosphor voice, Riso's print palette, and the lighter skins
+are equally native rather than bolted-on modes.
 
 This system explicitly rejects the SaaS dashboard: no metric-card grids, no
 gradients-for-the-sake-of-gradients, no glassmorphism, no corporate sheen. It
@@ -160,8 +163,10 @@ library still feels instant. The tool disappears into the task.
 - Every semantic color is a CSS custom property. Hardcoded hex is a defect.
 - One primary accent action per surface. Everything else is quiet or ghost.
 - Continuous surface: related controls share a rounded group background rather than each rendering as a raised bordered slab.
-- Three font roles (chrome / label / mono), zero system-font fallbacks.
-- Fixed pixel geometry at three UI Sizes (30 / 40 / 50), never fluid typography.
+- Three font roles (chrome / label / mono), with bundled families first and
+  explicit runtime fallbacks.
+- Fixed pixel geometry at three UI Sizes (30 / 40 / 50), exposed to users as
+  75%, 100%, and 125%; typography remains fixed rather than fluid.
 - The root viewport never scrolls. Internal panels do.
 
 ## 2. Colors
@@ -230,7 +235,10 @@ humanist sans for everything you read while working, and a mono for anything
 that represents a measured value. The pairing works on a contrast axis, and
 each theme may substitute its own bundled families for all three (Special
 Elite, Space Grotesk, Space Mono, Orbitron, IBM Plex Sans and others ship in
-`public/fonts/`). All fonts are bundled — no CDN, no Google Fonts, no network.
+`public/fonts/`). All primary font files are bundled — no CDN, no Google Fonts,
+and no network dependency. Runtime stacks keep an explicit fallback after the
+theme family so a missing font resource does not collapse into browser-default
+typography.
 
 ### Hierarchy
 
@@ -245,11 +253,11 @@ type and no clamp() anywhere in this system.
 
 ### Named Rules
 
-**The No-Fallback Rule.** Every visible glyph — labels, buttons, links, chrome,
-status text, tooltips, menu items, placeholder text, input values — must resolve
-to a bundled theme font through a font-family token. If any element renders in
-a system font or browser default, the theme is broken. Placeholder text is the
-one people forget.
+**The Tokenized Typography Rule.** Every visible glyph — labels, buttons, links,
+chrome, status text, tooltips, menu items, placeholder text, and input values —
+must resolve through a font-family token. The selected bundled theme family is
+first in the stack, followed by the explicit runtime fallback. Components must
+not rely on browser-default typography or introduce a private font family.
 
 **The Measured-Value Rule.** If a number represents something the audio engine
 measured — time, level, tempo, position, gain reduction — it renders in mono.
@@ -304,7 +312,7 @@ drag image. Change one, change all three.
 - **Shape:** Softly squared (`--radius`, 0.22rem in Emerald). Transport uses its own rounder corner (`--radius-transport`, 8px).
 - **Transport:** The one filled accent family. Play is accent-colored when stopped, Pause when playing; the face uses `--gradient-transport` / `--gradient-transport-active` over the `--transport` / `--transport-active` solids, with glyph contrast derived automatically into `--on-transport`.
 - **Ghost / Quiet:** Transparent at rest with `--text-muted` ink. Hover, focus-visible, and active paint an accent-tinted `--pill-bg` surface. This is the default for every non-transport command.
-- **Sizing:** Square controls take the UI Size token exactly (30x30, 40x40, or 50x50). Text-bearing controls use it as a minimum cross-axis size and keep content-driven width. Never mix target sets within one UI Size.
+- **Sizing:** Square controls take the UI Size token exactly (30x30, 40x40, or 50x50). Users see those geometry tokens as 75%, 100%, and 125%. Text-bearing controls use the selected size as a minimum cross-axis size and keep content-driven width. Never mix target sets within one UI Size.
 
 ### Sliders and Faders
 
@@ -325,6 +333,39 @@ drag image. Change one, change all three.
 - **Corner:** `--radius`. **Background:** `--bg-panel` under `--gradient-mixer-panel`. **Shadow:** `--shadow-mixer-panel`. **Border:** `--border` hairline at `--border-width`.
 - **Header grammar:** small uppercase mono header, count on the left ("4 × FX Slots", "N × Channels"), status LED plus state on the right.
 - **No enclosing outer panel** where headings, spacing, and surface contrast already establish grouping (Home's workflow cards).
+
+### Home and project flow
+
+- **Home:** a quiet hero pairs the app mark, MixJam wordmark, and the line
+  "Sketch beats straight from your sample library." with a three-step quick
+  start. The page then moves through Library Setup, Create or Open, optional
+  MixJam generation, and Recent Projects.
+- **Folder setup:** User Folder and Sample Folder use the same folder-card
+  grammar for pick, restore, unavailable, and syncing states. The library
+  status sits inside the setup surface instead of interrupting the workflow.
+- **Theme choice:** the Home surface exposes all sixteen themes as compact
+  swatches. A swatch changes identity tokens only; it never changes geometry or
+  the arrangement of controls.
+- **Generator readiness:** the Generate a MixJam action explains whether the
+  library is ready, needs preparation, or needs folder access. The action stays
+  secondary to Start New MixJam and Load MixJam.
+
+### Tracker shell and browser
+
+- **Player frame:** a fixed header and footer contain the work area. The upper
+  region is a resizable split between the collapsible MixJam Browser and the
+  Tracker. The Middle Strip owns project commands, transport, BPM, search, and
+  library-sync status.
+- **Tracker:** the lane canvas has a ruler, beat grid, playhead, lane headers,
+  sample bubbles, selection rectangle, lane actions, and a single Add Lane
+  affordance. Context menus handle placement and lane actions without adding a
+  second control surface.
+- **Bottom Workspace:** Master, Mixer, and Samples are tabs in one persisted,
+  resizable panel. The active tab gates visual telemetry so meters do not keep
+  repainting when their surface is hidden.
+- **Browser:** project entries are compact, keyboard-focusable controls with
+  open and copy-path context actions. Sample browsing remains virtualized and
+  windowed; the surface never renders a large collection as one full DOM list.
 
 ### Sample Bubbles
 
@@ -347,12 +388,26 @@ height (24 / 33 / 41px by UI Size), the same width, the same treatment.
 Thirteen module faceplates in a horizontal scrollport inside a rounded rack
 slab (14px radius, dark vertical gradient, 16px/18px padding, 9px gaps, deep
 drop shadow, decorative screw-head corners). Faceplates are 152px wide (Bus
-Compressor 184, meters 196) by 500px tall at 6px radius, in one of eight fixed
+Compressor 184, meters 196) by 420px tall at 6px radius, in one of eight fixed
 finishes — cream, graphite, oxblood, steel, sand, sage, night, meter — each
 defining face gradient, ink, dim ink, knob cap, and pointer color. Anatomy runs
 top to bottom: grip + ordinal + power LED, family chip + module name, control
 grid, optional GR LED row, hairline, description block. Rack knobs are the
 shared rotary at 46px (standard) or 74px (large).
+
+### Echoform Delay editor
+
+The Echoform Delay editor is a centered blocking Dialog overlay opened from a
+combined FX/Return card. It reads and previews the real return state while the
+dialog is open, then commits on Save or restores the previous state on Cancel.
+The module is a compact dark instrument surface with a stereo echo-tap
+visualizer, BPM and left/right delay readouts, preset menu, bypass state, synced
+or free timing, digital/analog/tape character, ping-pong and freeze controls,
+filter/modulation/ducking/output controls, and Tap Tempo.
+
+The editor uses local accent roles for warm and cool parameters, keeps Mix as
+the shared FX Return level rather than duplicating it in DSP state, and disables
+visualizer animation when reduced motion is requested or the module is bypassed.
 
 ### Modals
 
@@ -381,7 +436,7 @@ pixels.
 
 - **Do** read every color from a theme token. Add a new semantic need to `ThemeColors` and to all sixteen theme JSONs, then use it.
 - **Do** keep the root viewport free of scrollbars. Every shell view fits 1920x1080 exactly; internal panels (lane list, browser grid, Mixer strips, FX containers) scroll instead.
-- **Do** use fixed pixel geometry from the UI Size tokens (30 / 40 / 50). Square controls take the token exactly; text-bearing controls take it as a minimum cross-axis size.
+- **Do** use fixed pixel geometry from the UI Size tokens (30 / 40 / 50, shown as 75% / 100% / 125%). Square controls take the token exactly; text-bearing controls take it as a minimum cross-axis size.
 - **Do** hold transitions to 150–250ms. Users are in flow.
 - **Do** give every interactive component its full state set: default, hover, focus-visible, active, disabled, and where applicable loading, selected, and bypassed.
 - **Do** honor `prefers-reduced-motion: reduce` — the scan spinner and locate-in-browser flash become static indicators and transitions are removed.
@@ -395,7 +450,7 @@ pixels.
 - **Don't** reach for full-DAW complexity. No piano rolls, no automation lanes, no plugin hosting. The eJay / Sony Acid model is the point.
 - **Don't** render idle buttons as raised bordered slabs. Group them on one shared rounded surface.
 - **Don't** put a second filled accent action on a surface that already has Play/Pause.
-- **Don't** let any element fall back to a system font — placeholder text and input values included.
+- **Don't** rely on browser-default typography. Placeholder text and input values use the same tokenized font stacks as the rest of the surface.
 - **Don't** use fluid typography. No `clamp()` headings; this is product UI at a fixed minimum resolution.
 - **Don't** overlap interactive containers or fight with z-index.
 - **Don't** invent hardware that no spec calls for. The reference board governs structure and density only — no invented screws, tape labels, or fake wear on the Mixer.

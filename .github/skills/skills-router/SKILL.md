@@ -26,7 +26,6 @@ the skill:
 
 - `add-feature` — spec, decisions, and durable docs for new work
 - `dead-code-audit` — find and optionally remove dead code
-- `design-critique` — structured design feedback with screenshots
 - `diagnose` — controlled bug or regression diagnosis
 - `grill-me` — decision-tree design grilling
 - `refactor` — behavior-preserving cleanup

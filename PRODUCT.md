@@ -10,84 +10,98 @@ web
 
 ## Users
 
-Bedroom producers and hobbyists with large local sample collections (35 GB or
-more, 100,000+ samples across 850+ folders). They make beats at home, browse by
-category and tag, and arrange samples in a tracker. The workflow is
-exploratory: find sounds, drop them into lanes, shape the mix, and save the
-project for another session.
+MixJam is for bedroom producers and hobbyists who work with large local sample
+collections, often 35 GB or more and 100,000+ samples across hundreds of
+folders. They use it at home in an exploratory loop: choose a sample folder,
+search and preview sounds, drag sounds into lanes, shape the arrangement and
+mix, then save the project for another session.
 
-The app is also usable by experienced producers who want a focused, skin-able
-alternative to a full DAW, provided they accept the deliberately simple eJay /
-Sony Acid tracker model.
+Experienced producers are a secondary audience. They can use MixJam as a
+focused, skin-able alternative to a full DAW when the deliberately simple
+eJay / Sony Acid tracker model is enough for the job.
 
 ## Product Purpose
 
-MixJam Electron is a sample-library browser and tracker that scales to massive
-local collections without slowing down. Users browse, search, filter, and tag
-samples, then arrange them on lanes in a tracker-style Player with per-lane
-gain, pan, sends, and four return FX buses. Projects save as versioned JSON
-files referencing samples by relative path.
+MixJam Electron is a local-first sample-library browser and tracker. It keeps a
+User Folder for projects and exports and a Sample Folder for the library. The
+library syncs and analyzes in the background so users can search, filter, tag,
+preview, and place samples without loading the full collection into the UI.
 
-Success means the user can open the app, find sounds fast, build an arrangement,
-and hear it play back with sample-accurate timing — all inside a visually
-coherent, theme-able interface that stays responsive at scale.
+The Player arranges samples on lanes with lane-owned gain, pan, mute, solo, and
+four sends. Four fixed FX returns, the Master Bus chain, project save/load, and
+the analyzed-sample MixJam generator complete the working loop. Saved `.mixjam`
+files preserve project state while samples remain references inside the granted
+folder.
+
+Success means a user can open the app, prepare or restore their folders, find a
+sound quickly, build a playable arrangement, hear it with stable timing, and
+return to the same project later without losing the visual or audio state.
 
 ## Positioning
 
-A tracker that handles 100,000 samples as smoothly as it handles 100. Every
-other choice — SQLite-backed filtering, virtualized rendering, no embedded
-audio, no web deployment — serves that one claim.
+MixJam is a local-first tracker that stays quick and understandable when the
+sample library grows from 100 files to 100,000.
 
 ## Brand Personality
 
-Sleek, focused, underground. The tool gets out of the way. Dark by default,
-with 16 switchable themes that change the visual identity without changing the
-layout. The personality lives in the themes, not in decorative chrome. No
-cute mascots, no onboarding wizards, no corporate sheen. It feels like
-software made by someone who makes music.
+Focused, tactile, underground. The interface should feel like a piece of music
+software made by someone who makes music: quiet around the work, precise where
+control matters, and willing to let the active theme carry the identity.
+
+Sixteen switchable themes change the palette, typography, depth, and hardware
+finish without changing the workflow geometry. The default surface is dark,
+but light and high-contrast skins are first-class options.
 
 ## Anti-references
 
-- Not a full DAW. No Ableton Live, FL Studio, or Logic Pro complexity. No piano
-  rolls, no automation lanes, no plugin hosting, no audio-to-MIDI.
-- Not corporate or enterprise software. No Jira, no Salesforce, no SaaS-dashboard
-  aesthetic. No gradients-for-the-sake-of-gradients, no glassmorphism, no
-  metric-card grids.
-- Not a web app that happens to run in Electron. The renderer loads from
-  `app://bundle`; there is no browser deployment, no CDN, no cloud sync.
+- Not a full DAW. No piano rolls, automation lanes, plugin hosting, audio-to-
+  MIDI conversion, or routing maze.
+- Not a SaaS dashboard. The core surface has no metric-card grid, cloud account,
+  collaboration layer, or corporate workflow language. The optional Enterprise
+  theme is a skin experiment, not the product's default register.
+- Not a browser product that happens to be packaged. The renderer is loaded
+  from Electron's `app://bundle` origin and works against local folder handles;
+  there is no browser deployment, CDN, or cloud sync.
+- Not decorative studio cosplay. Hardware depth, meters, knobs, LEDs, and rack
+  finishes earn their place by explaining an audio control or state.
 
 ## Design Principles
 
-1. **Performance is the feature.** A 100,000-sample library must feel instant.
-   SQLite filtering, virtualized rendering, and worker-owned data access are
-   non-negotiable.
+1. **Performance is the feature.** SQLite filtering, virtualized sample lists,
+   worker-owned data access, and windowed UI requests protect the exploratory
+   workflow at library scale.
 
-2. **Continuous surface, not isolated islands.** Related controls share subtle
-   rounded group backgrounds. Idle buttons do not render as raised bordered
-   slabs. One primary accent action per surface.
+2. **Local data has clear boundaries.** User and Sample Folders are explicit
+   capabilities. Samples are referenced by relative path inside a granted
+   folder; the UI never depends on absolute paths or shell access.
 
-3. **Theme tokens, not hardcoded colors.** Every semantic color comes from CSS
-   custom properties. Themes define the palette; the layout does not change.
-   Dark by default, light supported.
+3. **The surface is continuous.** Related controls share quiet groups and
+   panels. Play/Pause is the main filled action; other commands stay calm until
+   hover, focus, or an active state gives them a reason to speak.
 
-4. **No scrollbars on the main view.** Every shell view fits within the viewport.
-   Internal panels scroll; the root does not.
+4. **Project state has one owner.** Tracker lanes own their Mixer values and
+   stable identities. The saved project is the source of truth for arrangement,
+   Mixer, FX, and generator state.
 
-5. **Sample bubbles are identical everywhere.** Same height, width, and visual
-   treatment in the tracker canvas, browser grid, drag images, and every future
-   surface.
+5. **Themes change identity, not geometry.** Semantic colors, depth, fonts,
+   sample-bubble styling, and FX accents come from theme tokens. Shared controls
+   retain the same interaction and layout contract across all skins and UI
+   Sizes.
 
-6. **No overlapping control containers.** Every hit-testable rectangle is
-   disjoint. No z-index fights, no invisible catch-basins over other controls.
+6. **The app stays in the task.** The root viewport remains contained while
+   internal work areas scroll or resize. Empty, loading, syncing, error, bypass,
+   and missing-sample states explain what the user can do next.
 
-## Accessibility and Inclusion
+## Accessibility & Inclusion
 
-The app uses Radix UI primitives for keyboard navigation, focus management,
-portal behavior, and ARIA attributes. Theme fonts are bundled and applied to
-every text-bearing element — no system font fallbacks. The minimum viewport is
-1920x1080 renderer content area; below that, a clear notice explains the
-requirement.
+No specific WCAG level is claimed. The app uses project-owned wrappers around
+Radix primitives for keyboard navigation, focus management, portals, dialogs,
+menus, tabs, tooltips, and ARIA state. Interactive controls expose visible
+focus, keyboard value changes, and unit-aware value text; larger library and
+management actions use the project's 44px target contract.
 
-No specific WCAG level is claimed, but the interaction patterns (focus
-trapping in modals, arrow-key tab navigation, visible focus indicators) follow
-established accessibility practice.
+Reduced-motion preferences remove or simplify decorative state transitions and
+visualizer motion. The supported renderer content area is 1920x1080; smaller
+windows receive a clear unsupported-resolution notice instead of a broken
+partial shell. Theme fonts are bundled and selected through tokens, with
+explicit runtime fallback stacks for missing font resources.
