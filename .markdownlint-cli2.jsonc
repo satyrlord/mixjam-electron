@@ -9,6 +9,8 @@
   "ignores": [
     "tmp/**",
     ".git/**",
+    // Generated agent-skill output; gitignored, same as tmp/ and the reports.
+    ".impeccable/**",
     "**/node_modules/**",
     "**/HTML-REPORT.md",
     "playwright-report/**"

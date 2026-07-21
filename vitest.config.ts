@@ -19,6 +19,10 @@ const NODE_BACKEND_TESTS = [
 export default defineConfig({
   plugins: [react()],
   test: {
+    // The real-time allocation gate measures retained heap after explicit GC.
+    // Passing this to Vitest workers keeps that measurement stable under V8
+    // coverage instrumentation as well as in the normal unit run.
+    execArgv: ['--expose-gc'],
     setupFiles: ['src/renderer/src/test/setup.ts'],
     projects: [
       {

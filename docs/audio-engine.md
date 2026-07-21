@@ -3,6 +3,16 @@
 The tracker/player uses the **Web Audio API** in the renderer with a
 lookahead-scheduler pattern.
 
+The `AudioContext` is created with an explicit `latencyHint` of 0.2 seconds.
+The note scheduler runs on the renderer main thread, so the audio thread's only
+protection from a UI stall is how much rendered audio is already buffered ahead
+of it; a large buffer converts a main-thread hitch into no audible event at all.
+MixJam is arrangement playback with no live input monitoring (a spec-005
+non-goal) and nothing in the app reacts to output latency, so this is free
+resilience rather than a trade-off. Measured result: `baseLatency` 0.17 s and
+`outputLatency` 0.21 s at 48 kHz, comfortably beyond the worst main-thread
+stalls observed while switching Bottom Workspace tabs.
+
 ## Lookahead scheduler
 
 `AudioContext` time is sample-accurate, but JS timers are not. Bridge them with the
@@ -16,6 +26,27 @@ standard lookahead-scheduler pattern:
 
 This gives sample-accurate playback timing regardless of timer jitter, which is more
 than enough for an eJay/Acid-style tracker.
+
+The timer runs on the renderer main thread, so its budget is finite: the
+lookahead minus one interval, about 75 ms of main-thread stall before a step
+would be scheduled late. Two rules protect that budget.
+
+- **Steps whose time already passed are dropped, not fired late.** Handing Web
+  Audio a start time in the past makes it play immediately, so a stalled event
+  loop would otherwise dump its whole backlog at once as an audible burst. The
+  scheduler skips forward to the present instead: a stall costs the steps it
+  covered and nothing more. The playhead is derived from the audio clock, so it
+  stays correct either way.
+- **Per-tick work stays flat.** Whatever the scheduler consults every tick must
+  not scale with arrangement size. Lane evaluation and the UI-to-engine lane
+  mapping are both cached on array identity (lane state is immutable by
+  convention, so an edit is always a cache miss and a stale hit is impossible),
+  and each lane keeps a start-tick index so a tick lookup is a map read rather
+  than a re-sort of every placement.
+
+The renderer also disables Chromium's background timer throttling
+(`backgroundThrottling: false`), which would otherwise clamp the interval to
+one second — ten times past the lookahead — when the window is hidden.
 
 ### Sample loading
 
@@ -101,8 +132,21 @@ than enough for an eJay/Acid-style tracker.
 
 ## Lane, Send, and Return graph
 
-Each lane has one stable input and a project-owned volume and pan stage. The
-post-fader, post-pan output splits into the dry Master route and four independent
+Each lane has one stable input and a project-owned volume and pan stage. Every
+continuous parameter on this path — lane volume, pan, the four Sends, Return
+level and power, and Master volume — is written as a 20 ms linear ramp rather
+than a direct `.value` assignment. A raw write is a step discontinuity that
+clicks, and a fader drag emits one per pointer move; the ramp length matches the
+smoothing the Master Bus worklet applies to its own parameters. Project
+replacement is the deliberate exception: it snaps, because that boundary is
+meant to cut tails.
+When a new edit arrives during an active ramp, the engine calls
+`cancelAndHoldAtTime(now)` before scheduling the replacement ramp. This holds
+the value already reached by automation; cancelling scheduled values and then
+reading `.value` can restore an earlier value and create the very step the ramp
+is meant to prevent.
+
+The post-fader, post-pan output splits into the dry Master route and four independent
 Send gains. Each Send is linear from 0 through 100 percent and defaults to zero.
 One gate controls both the dry route and new Send input:
 `anySolo ? lane.solo : !lane.muted`. Solo therefore overrides mute. Audio
@@ -234,6 +278,11 @@ lanes + returns -> masterGain -> [master-bus worklet] -> analyser -> destination
                                         +-> loudness measurement branch (post-chain)
 ```
 
+Inside the worklet the signal flows: `Gain Stage -> Input VU meter -> remaining
+processors -> Output`. The Input VU meter taps after the Gain Stage so the
+needle reflects the trimmed signal — the user can gain-stage the mix with the
+Trim control and see the result on the VU before it hits dynamics and EQ.
+
 Master Volume is therefore the trim into the chain, and the Limiter ceiling
 protects the real output. The BS.1770 measurement branch taps the chain
 output, so the Middle Strip readouts and the strip's output meter share one
@@ -241,8 +290,9 @@ measurement engine.
 
 ### Threading model
 
-- All eleven processors, the input VU meter, and the limiter's true-peak
-  sidechain run inside a single `AudioWorkletProcessor`
+- The pinned Gain Stage, all ten downstream processors, the input VU meter
+  (tapped after the Gain Stage),
+  and the limiter's true-peak sidechain run inside a single `AudioWorkletProcessor`
   (`master-bus-processor`), following the repository rule that an
   AudioWorklet is the first custom-DSP choice. The worklet module is emitted
   by Vite from `src/renderer/src/engine/worklets/` like the loudness
@@ -260,6 +310,21 @@ measurement engine.
   bytes, the same accepted practice as the loudness worklet's 100 ms
   cadence). SharedArrayBuffer is not available because the app runs without
   COOP/COEP.
+- Snapshot posting is gated by a `meters` enable message. It is off by
+  default and enabled only while the Master tab shows the strip, so the
+  audio thread pays no postMessage or allocation cost for hidden meters.
+
+### UI telemetry routing
+
+High-frequency read-only values never enter React state above the component
+that displays them. The playhead tick and master meter snapshot (100 ms
+poll), the elapsed-time readout, the strip meter feed, and the per-channel
+Mixer meters (animation-frame cadence) all flow through small subscription
+stores (`src/renderer/src/lib/value-store.ts`). Writers set the store; only
+the leaf components that subscribe re-render. This keeps a playing song from
+re-rendering the App tree ten or more times per second — the cause of a
+severe UI-latency regression in development builds, where each App render
+costs about ten times more than in production.
 
 ### Parameter and message flow
 
@@ -277,13 +342,16 @@ UI: latest-snapshot store -> animation-frame paint while Master tab active
   the linear domain, frequencies in log domain. A smoothing test asserts the
   maximum per-sample step.
 - Topology messages (reorder, bypass, preset) are atomic: one message
-  carries the complete new order and power map.
+  carries the complete ten-processor order and power map. Gain has no
+  topology state and cannot be bypassed or reordered.
 
 ### Crossfade mechanism (click-free bypass and reorder)
 
-The worklet owns two complete chain instances, A and B, with independent
-module states. Exactly one is active. On any topology change (reorder,
-bypass toggle, preset recall):
+The worklet owns one always-on Gain Stage followed by two downstream chain
+instances, A and B, with independent module states. Gain runs exactly once,
+then the Input VU meter taps the result, and only then is that same gain-staged
+signal copied to both branches. Exactly one downstream chain is active. On any
+topology change (reorder, bypass toggle, preset recall):
 
 1. The inactive instance adopts the new topology and starts processing the
    same input from cleared filter states.
@@ -360,7 +428,7 @@ a -18 dBFS RMS reference sine (the chain's nominal level) and inverts it,
 so loudness stays approximately constant across Drive; then dry/wet Mix
 against a latency-aligned dry path.
 
-**Subtractive EQ** — 2nd-order Butterworth high-pass (12 dB/oct). Chosen
+**Trim EQ** — 2nd-order Butterworth high-pass (12 dB/oct). Chosen
 over 24 dB/oct: half the low-frequency group delay and phase rotation on a
 full mix, and 12 dB/oct at 20 Hz already removes subsonic energy that
 matters here. Mud (250 Hz) and Harsh (3.5 kHz) are RBJ peaking biquads with
@@ -383,7 +451,7 @@ The linear mapping keeps the knob musically even (each 4 % is 1 dB more
 drive); its slope is the constant that calibrates the Cheat Sheet defaults
 to -14 LUFS-I from a -18 dBFS RMS reference program.
 
-**Additive EQ** — RBJ low shelf at 90 Hz and high shelf at 12 kHz, shelf
+**Lift EQ** — RBJ low shelf at 90 Hz and high shelf at 12 kHz, shelf
 slope S = 0.6 (wide and musical, inside the 0.5 to 0.7 window). Latency 0.
 
 **Tape Saturation** — pre-emphasis high shelf (+4 dB above 4.5 kHz),
@@ -435,7 +503,9 @@ documented ceiling. Latency = the lookahead (the sidechain adds none to
 the audio path), reported. GR dB is written to the snapshot.
 
 **Input VU** — 300 ms integration one-pole on the mono sum RMS, displayed
-against 0 VU = -18 dBFS; per-channel sample-peak flags with 1.5 s hold.
+against 0 VU = -18 dBFS; per-channel sample-peak flags with 1.5 s hold. Taps
+after the Gain Stage so the VU needle shows the trimmed signal before dynamics
+and EQ.
 
 **Output meter** — served by the existing self-hosted loudness worklet
 (BS.1770 K-weighting, Momentary 400 ms, Short-term 3 s, gated Integrated,
@@ -445,9 +515,10 @@ implementation. The OVER lamp latches in the UI when true peak exceeds
 
 ### Serialization
 
-The strip state is one `masterBus` JSON object inside the version-5
-project format: slot order, per-processor power, all parameter values, and
-the selected preset name. Spec-011 owns the wire format and validation;
+The strip state is one `masterBus` JSON object inside the version-6
+project format: the ten downstream processor IDs in slot order, their ten
+power flags, all parameter values including Gain Trim, and the selected preset
+name. Gain has no order entry or power flag. Spec-011 owns the wire format and validation;
 spec-012 lists the rejection rules. The worklet never parses JSON; the
 renderer validates and sends typed messages.
 

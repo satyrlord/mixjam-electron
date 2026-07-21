@@ -148,6 +148,13 @@ browser adjacencies.
   changes, expansion restores, and UI Size changes all clamp through the same
   content-safe minimum. The root Player supplies content and layout regions but
   does not duplicate this state machine.
+- The active tab's content-safe minimum constrains the resizable Panel itself,
+  because that constraint is what prevents a manual drag from squeezing a tab
+  below its budget. Enforcing the floor after a drag instead would fight the
+  user's pointer mid-gesture. The cost is that a tab change is also a layout
+  change; it is kept affordable by memoizing the three panel subtrees so a switch
+  re-renders the tab chrome and the panel group, not the Mixer strips, Master
+  rack, Sample Browser, and Tracker as well.
 - At supported 1920x1080 geometry, every visible Master, Mixer, and Samples
   control stays within its card and the Bottom Workspace. The active panel is
   also a defensive vertical scrollport so later content growth beyond its

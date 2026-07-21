@@ -128,9 +128,25 @@ components:
 
 # Design System: MixJam Electron
 
+## Relationship to style-guide.md
+
+This file (`DESIGN.md`) is the **design token manifest** — it declares the concrete
+colors, typography faces, radii, spacing, shadow vocabulary, and component
+patterns that the CSS token system implements. It is the authoritative source for
+token names and their Emerald default values.
+
+[docs/style-guide.md](docs/style-guide.md) is the **design intent document** —
+layout architecture, spacing rhythm, color philosophy, surface treatments,
+interaction patterns, accessibility foundations, and theme design rules. It
+describes *why* and *how* the system behaves, not the token-level defaults.
+
+Both files are authoritative for different concerns. When adding or modifying a
+visual feature, consult both: `DESIGN.md` for the token contract and defaults,
+`docs/style-guide.md` for the layout, interaction, and accessibility rules.
+
 ## 1. Overview
 
-**Creative North Star: "The Studio Rack"**
+### Creative North Star: "The Studio Rack"
 
 MixJam is not a website that plays audio. It is a local-first piece of gear. The
 Home surface gets the user from folder setup to a new, loaded, or generated
@@ -177,18 +193,41 @@ themes redefine every value below.
 
 ### Primary
 
-- **Signal Green** (`--accent`, #00674F in Emerald): The one committed color. Reserved for the active transport state, current selection, filled value arcs, and live indicators. Never used for decoration or for inactive states.
+- **Signal Green** (`--accent`, #00674F in Emerald): The one committed color.
+  Reserved for the active transport state, current selection, filled value arcs,
+  and live indicators. Never used for decoration or for inactive states.
 - **Deep Signal** (`--accent-dark`, #004434): The pressed and recessed companion to the accent; value-arc backing and active-state depth.
 - **Pale Mint** (`--highlight`, #8FBCB2): The light-on-dark counterpart used where accent-on-dark would lose legibility, and for lane shading.
 
 ### Secondary
 
-- **Slot Accents** (`--fx-accent-1` … `--fx-accent-4`, #22B573 in Emerald): Four per-slot accents that map FX slots to channel-strip sends 1:1 by color. Themes with a genuine multi-accent system (Arcade, Neon, Neon Rave, Riso, IDE) ship four distinct values; single-voice themes such as Mono deliberately repeat one. Any missing slot falls back to `--accent`.
+- **Slot Accents** (`--fx-accent-1` … `--fx-accent-4`, #22B573 in Emerald): Four
+  per-slot accents that map FX slots to channel-strip sends 1:1 by color. Themes
+  with a genuine multi-accent system (Arcade, Neon, Neon Rave, Riso, IDE) ship
+  four distinct values; single-voice themes such as Mono deliberately repeat one.
+  Any missing slot falls back to `--accent`.
 
 ### Tertiary
 
-- **Rack Family Chips** (fixed, unthemed): GAIN #c9ccd4, SAT #ff8a4e, EQ #62aee0, DYN #f4c14f, IMG #7fd69b, METER #9aa0ab. These tint the Master Bus rack's chips, knob value arcs, and gain-reduction LEDs. A bypassed module's chip goes neutral gray (#7c7f86).
-- **Sample Slot Palette** (`--palette-0` … `--palette-7`): Eight category colors for sample bubbles (Drums, Loop, Bass, Keys, Synth, Voice, Arp, Pad), plus one unsorted gray (#555E6A). Bubble ink is computed per slot for contrast, not chosen by hand.
+- **Rack Family Chips** (fixed, unthemed): GAIN #c9ccd4, SAT #ff8a4e, EQ #62aee0,
+  DYN #f4c14f, IMG #7fd69b, METER #9aa0ab. These tint the Master Bus rack's chips,
+  knob value arcs, and gain-reduction LEDs. A bypassed module's chip goes neutral
+  gray (#7c7f86).
+- **Sample Slot Palette** (`--palette-0` … `--palette-7`): Eight category colors
+  for sample bubbles, plus one unsorted gray (`--palette-unsorted`, #555E6A).
+  Bubble ink is computed per slot for contrast, not chosen by hand.
+
+  | Slot | Category |
+  | ---- | -------- |
+  | 0 | Drums / Percussion |
+  | 1 | Loop |
+  | 2 | Bass |
+  | 3 | Keys / Guitar / Chords / Piano |
+  | 4 | Synth / Lead |
+  | 5 | Voice / Vocal / FX / Vox |
+  | 6 | Arp |
+  | 7 | Pad / Atmosphere / Xtra / Texture |
+  | 8 | Unsorted (fallback) |
 
 ### Neutral
 
@@ -206,7 +245,7 @@ themes redefine every value below.
 - **Meter Ramp** (`--meter-green` #34D399, `--meter-yellow` #FBBF24, `--meter-red` #F87171): Level metering only.
 - **Bubble States** (`--sample-bubble-select` #FDE047 selection, `--sample-bubble-missing` #FB8A7E missing-file hazard).
 
-### Named Rules
+### Color Named Rules
 
 **The Token Rule.** Every semantic color comes from a CSS custom property.
 Local literals are permitted in exactly three places: invariant neutral
@@ -251,7 +290,7 @@ type and no clamp() anywhere in this system.
 - **Lane Name** (400, 11px, 1.3): The densest text in the app; truncates with ellipsis and a tooltip.
 - **Mono Readout** (400, 12px, 1.2): Timer (`00:00.0`), bar numbers, `CH 01` position lines, dB values (`-2 dB`, `−∞ dB`), FX slot summaries.
 
-### Named Rules
+### Typography Named Rules
 
 **The Tokenized Typography Rule.** Every visible glyph — labels, buttons, links,
 chrome, status text, tooltips, menu items, placeholder text, and input values —
@@ -293,7 +332,7 @@ Every theme defines all of these; values below are Emerald's.
 - `--gradient-mixer-panel`: the panel surface layered over `--bg-panel`.
 - `--gradient-sample-bubble`: canvas-parsed bubble gloss; stops must be space-free colors such as `#RRGGBBAA`.
 
-### Named Rules
+### Elevation Named Rules
 
 **The No-Raised-Idle Rule.** An idle button never renders as a raised bordered
 slab. Related controls share one subtle rounded group background instead. If a
@@ -310,23 +349,31 @@ drag image. Change one, change all three.
 ### Buttons
 
 - **Shape:** Softly squared (`--radius`, 0.22rem in Emerald). Transport uses its own rounder corner (`--radius-transport`, 8px).
-- **Transport:** The one filled accent family. Play is accent-colored when stopped, Pause when playing; the face uses `--gradient-transport` / `--gradient-transport-active` over the `--transport` / `--transport-active` solids, with glyph contrast derived automatically into `--on-transport`.
+- **Transport:** The one filled accent family. Play is accent-colored when
+  stopped, Pause when playing; the face uses `--gradient-transport` /
+  `--gradient-transport-active` over the `--transport` / `--transport-active`
+  solids, with glyph contrast derived automatically into `--on-transport`.
 - **Ghost / Quiet:** Transparent at rest with `--text-muted` ink. Hover, focus-visible, and active paint an accent-tinted `--pill-bg` surface. This is the default for every non-transport command.
-- **Sizing:** Square controls take the UI Size token exactly (30x30, 40x40, or 50x50). Users see those geometry tokens as 75%, 100%, and 125%. Text-bearing controls use the selected size as a minimum cross-axis size and keep content-driven width. Never mix target sets within one UI Size.
+- **Sizing:** Square controls take the UI Size token exactly (30x30, 40x40, or
+  50x50). Users see those geometry tokens as 75%, 100%, and 125%. Text-bearing
+  controls use the selected size as a minimum cross-axis size and keep
+  content-driven width. Never mix target sets within one UI Size.
 
 ### Sliders and Faders
 
-- **Every** numeric linear control is the project-owned `LinearSlider` over Radix Slider. Feature components never assemble or skin raw slider primitives.
-- **Canonical visual:** one recessed rectangular rail, accent value fill, low-profile rectangular hardware handle. Horizontal sliders rotate the same handle geometry — they never introduce a circle.
-- **Hit target:** the semantic pointer/focus box takes the selected UI Size; the painted handle stays compact inside it and scales only with `--ui-scale`.
-- **Keyboard:** Arrow Up/Right increases, Down/Left decreases, Home/End select bounds. `aria-orientation` and unit-aware value text are required.
+Project-owned `LinearSlider` over Radix Slider. Canonical visual: recessed
+rectangular rail, accent value fill, low-profile rectangular handle. Hit target
+uses selected UI Size; painted handle scales with `--ui-scale` only. Horizontal
+sliders rotate the same handle geometry. See [docs/style-guide.md](docs/style-guide.md)
+for full interaction, keyboard, and ARIA rules.
 
 ### Rotary Controls
 
-- **Shape:** Shared project-owned SVG — 270° range track, high-contrast value arc, inset cap, short pointer inside the cap. Size changes rendered dimensions only; a CSS-only circle is never an acceptable substitute.
-- **Polarity:** Unipolar (sends, returns, FX params) fills from minimum. Bipolar (pan, trim) fills outward from center. A short outer marker shows the default.
-- **Interaction:** vertical pointer drag, wheel steps (up increases), Shift for fine, Arrow keys, Home/End, double-click reset. Handled wheel events must not scroll the page. Values are read-only text; there is no typed numeric entry.
-- **A11y:** `aria-valuetext` carries unit-aware position ("Center", "40% left", "100% right").
+Shared project-owned SVG: 270-degree range track, high-contrast value arc, inset
+cap, short pointer. Size changes dimensions only; never substitute a CSS-only
+circle. Unipolar fills from minimum; bipolar fills outward from center. See
+[docs/style-guide.md](docs/style-guide.md) for full interaction, keyboard, ARIA,
+and pan right-click-cycle rules.
 
 ### Panels and Containers
 
@@ -336,36 +383,16 @@ drag image. Change one, change all three.
 
 ### Home and project flow
 
-- **Home:** a quiet hero pairs the app mark, MixJam wordmark, and the line
-  "Sketch beats straight from your sample library." with a three-step quick
-  start. The page then moves through Library Setup, Create or Open, optional
-  MixJam generation, and Recent Projects.
-- **Folder setup:** User Folder and Sample Folder use the same folder-card
-  grammar for pick, restore, unavailable, and syncing states. The library
-  status sits inside the setup surface instead of interrupting the workflow.
-- **Theme choice:** the Home surface exposes all sixteen themes as compact
-  swatches. A swatch changes identity tokens only; it never changes geometry or
-  the arrangement of controls.
-- **Generator readiness:** the Generate a MixJam action explains whether the
-  library is ready, needs preparation, or needs folder access. The action stays
-  secondary to Start New MixJam and Load MixJam.
+See [docs/style-guide.md](docs/style-guide.md) for the complete Home and Player
+layout architecture, state-adaptive workflow rules, and component placement.
+Theme choice uses the header selector only (all sixteen themes); geometry is
+fixed, identity is token-driven.
 
 ### Tracker shell and browser
 
-- **Player frame:** a fixed header and footer contain the work area. The upper
-  region is a resizable split between the collapsible MixJam Browser and the
-  Tracker. The Middle Strip owns project commands, transport, BPM, search, and
-  library-sync status.
-- **Tracker:** the lane canvas has a ruler, beat grid, playhead, lane headers,
-  sample bubbles, selection rectangle, lane actions, and a single Add Lane
-  affordance. Context menus handle placement and lane actions without adding a
-  second control surface.
-- **Bottom Workspace:** Master, Mixer, and Samples are tabs in one persisted,
-  resizable panel. The active tab gates visual telemetry so meters do not keep
-  repainting when their surface is hidden.
-- **Browser:** project entries are compact, keyboard-focusable controls with
-  open and copy-path context actions. Sample browsing remains virtualized and
-  windowed; the surface never renders a large collection as one full DOM list.
+See [docs/style-guide.md](docs/style-guide.md) for the full Player frame layout,
+Browser/Tracker split, Middle Strip zones, Bottom Workspace tab behavior, and
+resize-handle patterns.
 
 ### Sample Bubbles
 
@@ -373,14 +400,24 @@ The signature component. A bubble is the same object everywhere it appears —
 Tracker canvas, browser grid, drag image, any future surface — at the same
 height (24 / 33 / 41px by UI Size), the same width, the same treatment.
 
-- **Fill:** the category slot color (`--palette-0` … `--palette-7`, unsorted `--palette-unsorted`). **Ink:** computed per slot for contrast, never picked by hand. **Radius:** `--radius-sample-bubble` (6px), parsed as pixels by the canvas.
+- **Fill:** the category slot color (`--palette-0` … `--palette-7`, unsorted
+  `--palette-unsorted`). **Ink:** computed per slot for contrast, never picked by
+  hand. **Radius:** `--radius-sample-bubble` (6px), parsed as pixels by the
+  canvas.
 - **Case and weight** follow `--sample-bubble-case` and `--sample-bubble-font-weight`.
 - **States:** selected (`--sample-bubble-select`), missing file (`--sample-bubble-missing`, drawn as hazard stripes mixed toward black).
 
 ### Channel Strip and FX Slot
 
-- **Channel strip:** 76px wide at UI Size 30. Lane name verbatim (ellipsis + tooltip when long), a mono `CH 01` position line beneath it, a 2x2 group of four send dials each tinted with its matching slot accent, pan, then the fader with a segmented dry-RMS meter column beside it and a mono dB readout at the foot.
-- **FX slot:** 160x112px at UI Size 30. Header carries the mono slot number, the module name, and a round power LED tinted with the slot accent — on a populated slot the LED *is* the toggle (`aria-pressed`, unlit when bypassed). Body holds Edit (cog, slot-tinted), the square limiter toggle, and a Mix rotary. Foot is a one-line mono summary.
+- **Channel strip:** 76px wide at UI Size 30. Lane name verbatim (ellipsis +
+  tooltip when long), a mono `CH 01` position line beneath it, a 2x2 group of four
+  send dials each tinted with its matching slot accent, pan, then the fader with a
+  segmented dry-RMS meter column beside it and a mono dB readout at the foot.
+- **FX slot:** 160x112px at UI Size 30. Header carries the mono slot number, the
+  module name, and a round power LED tinted with the slot accent — on a populated
+  slot the LED *is* the toggle (`aria-pressed`, unlit when bypassed). Body holds
+  Edit (cog, slot-tinted), the square limiter toggle, and a Mix rotary. Foot is a
+  one-line mono summary.
 - **Bypass:** dims the container to half opacity and desaturates. It stops new input but lets the current tail finish.
 
 ### Master Bus Rack
@@ -390,24 +427,30 @@ slab (14px radius, dark vertical gradient, 16px/18px padding, 9px gaps, deep
 drop shadow, decorative screw-head corners). Faceplates are 152px wide (Bus
 Compressor 184, meters 196) by 420px tall at 6px radius, in one of eight fixed
 finishes — cream, graphite, oxblood, steel, sand, sage, night, meter — each
-defining face gradient, ink, dim ink, knob cap, and pointer color. Anatomy runs
-top to bottom: grip + ordinal + power LED, family chip + module name, control
-grid, optional GR LED row, hairline, description block. Rack knobs are the
-shared rotary at 46px (standard) or 74px (large).
+defining face gradient, ink, dim ink, knob cap, and pointer color. Reorderable
+processor anatomy runs top to bottom: grip + ordinal + power LED, family chip +
+module name, control grid, optional GR LED row, hairline, description block.
+The pinned Gain Stage keeps its ordinal and Trim control but has no grip or
+power LED; pinned meters omit both controls. Rack knobs are the shared rotary
+at 46px (standard) or 74px (large).
+
+| Finish | Face | Ink | Cap | Pointer | Used by |
+| --- | --- | --- | --- | --- | --- |
+| cream | #ded6c2 to #cdc4ac | #2c2921 | #3b372d/#232019 | #efe8d3 | Gain Stage, Bus Comp |
+| graphite | #33363d to #2a2d33 | #e7e7e3 | #1c1d22/#101114 | #eceae4 | Soft Clip, Maximizer, MB Comp |
+| oxblood | #71413a to #5c332d | #f4e8de | #2e1d1a/#1e1210 | #f2dcc9 | Tube Sat |
+| steel | #4e6b79 to #405865 | #eaf1f4 | #233541/#16242d | #d8edf6 | Trim EQ, Lift EQ |
+| sand | #c7ae86 to #b39a72 | #332a1b | #40372a/#292317 | #f4e7c8 | Tape Sat |
+| sage | #68755f to #57634d | #eef2e8 | #293024/#1a1f17 | #e3edd5 | Stereo Img |
+| night | #26272e to #1c1d23 | #efecf1 | #131317/#0a0a0d | #f2e4e4 | Limiter |
+| meter | #2c2d33 to #212227 | #e7e7e3 | — | — | Input and Output meters |
 
 ### Echoform Delay editor
 
-The Echoform Delay editor is a centered blocking Dialog overlay opened from a
-combined FX/Return card. It reads and previews the real return state while the
-dialog is open, then commits on Save or restores the previous state on Cancel.
-The module is a compact dark instrument surface with a stereo echo-tap
-visualizer, BPM and left/right delay readouts, preset menu, bypass state, synced
-or free timing, digital/analog/tape character, ping-pong and freeze controls,
-filter/modulation/ducking/output controls, and Tap Tempo.
-
-The editor uses local accent roles for warm and cool parameters, keeps Mix as
-the shared FX Return level rather than duplicating it in DSP state, and disables
-visualizer animation when reduced motion is requested or the module is bypassed.
+See [docs/style-guide.md](docs/style-guide.md) for the full editor modal
+specification (layout, control grid, preset behavior, keyboard model, live
+audition lifecycle). The editor uses local accent roles for warm and cool
+parameters; Mix is the shared FX Return level, not duplicated in DSP state.
 
 ### Modals
 
@@ -418,7 +461,7 @@ transport are disabled beneath it. Enter confirms and Esc cancels unless the
 owning spec says the focused control consumes that key. OS media keys remain
 live through the Media Session API.
 
-### Named Rules
+### Component Named Rules
 
 **The Shared-Primitive Rule.** If a control already exists as a project-owned
 primitive — `LinearSlider`, the rotary SVG, the Dialog — a feature must use it.
@@ -432,18 +475,20 @@ pixels.
 
 ## 6. Do's and Don'ts
 
-### Do:
+### Do
 
 - **Do** read every color from a theme token. Add a new semantic need to `ThemeColors` and to all sixteen theme JSONs, then use it.
 - **Do** keep the root viewport free of scrollbars. Every shell view fits 1920x1080 exactly; internal panels (lane list, browser grid, Mixer strips, FX containers) scroll instead.
-- **Do** use fixed pixel geometry from the UI Size tokens (30 / 40 / 50, shown as 75% / 100% / 125%). Square controls take the token exactly; text-bearing controls take it as a minimum cross-axis size.
+- **Do** use fixed pixel geometry from the UI Size tokens (30 / 40 / 50, shown as
+  75% / 100% / 125%). Square controls take the token exactly; text-bearing
+  controls take it as a minimum cross-axis size.
 - **Do** hold transitions to 150–250ms. Users are in flow.
 - **Do** give every interactive component its full state set: default, hover, focus-visible, active, disabled, and where applicable loading, selected, and bypassed.
 - **Do** honor `prefers-reduced-motion: reduce` — the scan spinner and locate-in-browser flash become static indicators and transitions are removed.
 - **Do** verify a change against all sixteen themes, light ones included. Vintage, Soft, and Riso are light; a change that only reads on dark is unfinished.
 - **Do** keep `--text-muted` genuinely readable. Muted is a hierarchy signal, not a license for low contrast.
 
-### Don't:
+### Don't
 
 - **Don't** hardcode a color, shadow, gradient, or radius. Invariant neutral overlays, selection ink, and canvas safety fallbacks are the only exceptions.
 - **Don't** build the SaaS-dashboard aesthetic PRODUCT.md rejects by name: no metric-card grids, no gradients-for-the-sake-of-gradients, no glassmorphism, no corporate sheen.

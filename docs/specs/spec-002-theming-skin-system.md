@@ -440,9 +440,10 @@ preset layer has one clear cascade boundary.
 - [x] **AC-014:** Canvas sample-bubble labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
 - [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`; Beton Brut renders 2px structural rules and a 3px header rule.
 - [x] **AC-016:** The playhead renders a triangular cap colored from `--playhead`.
-- [ ] **AC-017:** Home retains a labeled 8-by-2 grid of UI-Size-scaled theme
-  preview swatches with explicit selected state, while the selected theme name appears
-  only once on Home: in the header selector.
+- [x] **AC-017:** The header selector is the sole theme-selection control in
+  both Home and Player. Home content has no theme-preview grid or duplicate
+  theme control. The selector retains all 16 themes, its explicit selected
+  state, and the selected theme name.
 - [x] **AC-018:** Every native select trigger, option popup, and custom dropdown
   menu maintains at least 4.5:1 text contrast in all 16 bundled themes. Native
   option rows have an explicit themed background rather than a white user-agent

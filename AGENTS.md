@@ -62,6 +62,8 @@ evidence.
 - [docs/query-schema.md](docs/query-schema.md) — `rule_json` subset and target compiler
 - [docs/indexing.md](docs/indexing.md) — scan and re-scan logic
 - [docs/audio-engine.md](docs/audio-engine.md) — Web Audio scheduler
+- [DESIGN.md](DESIGN.md) — design token manifest, component patterns, Emerald defaults
+- [docs/style-guide.md](docs/style-guide.md) — design intent, layout, interaction, accessibility
 
 ## Commands
 

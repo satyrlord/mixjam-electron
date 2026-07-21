@@ -23,10 +23,11 @@ Panels), spec-007 (Lane-Bound Mixer), spec-011 (Project Save & Load)
 
 ## Objective
 
-Add a 13-slot mastering strip on the stereo Master bus. Slot 01 is a pinned
-input meter and slot 13 is a pinned output meter. Slots 02 through 12 are
-eleven real DSP processors the user can reorder freely and bypass
-individually. The chain is calibrated so that a nominal mix at -18 dBFS RMS
+Add a 13-slot mastering strip on the stereo Master bus. Slot 01 is the pinned,
+always-on Gain Stage, slot 02 is the pinned input meter, and slot 13 is the
+pinned output meter. Slots 03 through 12 are ten DSP processors the user can
+reorder freely and bypass individually. The chain is calibrated so that a
+nominal mix at -18 dBFS RMS
 lands at -14 LUFS integrated with true peak at or below -1 dBTP using the
 default preset, matching Spotify's published loudness guidance.
 
@@ -46,9 +47,10 @@ functional contract and acceptance criteria.
 
 - **US-001:** I can gain-stage my mix into the chain using a VU meter
   calibrated to 0 VU = -18 dBFS.
-- **US-002:** I can reorder the eleven processors by dragging a grip or with
+- **US-002:** I can reorder the ten downstream processors by dragging a grip or with
   the keyboard, while audio keeps playing without clicks.
-- **US-003:** I can bypass any processor with its power LED, click-free.
+- **US-003:** I can bypass any downstream processor with its power LED,
+  click-free. The Gain Stage stays active.
 - **US-004:** I can recall four factory chain presets.
 - **US-005:** I can watch live gain reduction on the Bus Compressor and
   Limiter, and live LUFS and true peak on the output meter.
@@ -78,6 +80,9 @@ functional contract and acceptance criteria.
   `lanes + returns -> masterGain -> master bus chain -> analyser -> destination`.
   Master Volume therefore acts as the trim into the chain, and the Limiter
   ceiling protects the actual output.
+- Inside the chain, the Gain Stage module runs before the Input Meter so the
+  VU needle reflects the trimmed signal. The signal path through the strip is:
+  `Gain Stage -> Input Meter -> remaining processors -> Output Meter`.
 - The loudness measurement branch (spec-005 Master loudness metering) taps
   after the chain, so the Middle Strip readouts and the strip's output meter
   report the same delivery-accurate values from one measurement engine.
@@ -86,39 +91,50 @@ functional contract and acceptance criteria.
 
 ## Chain Contract
 
-Thirteen slots. Slots 01 and 13 are pinned and cannot move or bypass. Slots
-02 through 12 hold the eleven processors below, in this default order. The
-user may reorder slots 02 through 12 freely; slot ordinals renumber live.
+Thirteen slots. Slots 01 (Gain Stage) and 02 (Input Meter) and 13 (Output Meter)
+are pinned and cannot move or bypass. Slots 03 through 12 hold the ten remaining
+processors below, in this default order. The user may reorder slots 03 through
+12 freely; slot ordinals renumber live.
+
+The Input Meter is pinned to slot 02, immediately after the Gain Stage, so the
+VU needle always reflects the gain-staged signal regardless of downstream
+reordering.
 
 | # | Module | Family | Controls (range, default) |
 | --- | --- | --- | --- |
-| 01 | Input Meter (pinned) | METER | none |
-| 02 | Gain Stage | GAIN | Trim -24 to +24 dB, default 0 |
+| 01 | Gain Stage | GAIN | Trim -24 to +24 dB, default 0 |
+| 02 | Input Meter (pinned) | METER | none |
 | 03 | Soft Clip | SAT | Amount 0 to 6 dB, default 1.5; Ceiling -6 to 0 dB, default -0.5 |
 | 04 | Tube Saturation | SAT | Drive 0 to 10, default 2.5; Mix 0 to 100 %, default 100 |
-| 05 | Subtractive EQ | EQ | HP 10 to 40 Hz, default 20; Mud @250 Hz 0 to -3 dB, default -1.5; Harsh @3.5 kHz 0 to -3 dB, default -1.0 |
+| 05 | Trim EQ | EQ | HP 10 to 40 Hz, default 20; Mud @250 Hz 0 to -3 dB, default -1.5; Harsh @3.5 kHz 0 to -3 dB, default -1.0 |
 | 06 | Bus Compressor | DYN | Threshold -30 to 0 dB, default -16; Ratio 1.5:1 to 10:1, default 2:1; Attack 0.1 to 30 ms, default 10; Release 50 to 1200 ms, default 300 |
 | 07 | Maximizer | DYN | Boost 0 to 25 %, default 10 |
-| 08 | Additive EQ | EQ | Low shelf @90 Hz 0 to +2 dB, default +1; Air shelf @12 kHz 0 to +2 dB, default +1 |
+| 08 | Lift EQ | EQ | Low shelf @90 Hz 0 to +2 dB, default +1; Air shelf @12 kHz 0 to +2 dB, default +1 |
 | 09 | Tape Saturation | SAT | Drive 0 to 10, default 2; Speed 15/30 IPS, default 30 |
 | 10 | Stereo Imaging | IMG | Width 60 to 140 %, default 105; Mono Below 60 to 300 Hz, default 120 |
 | 11 | Multiband Comp | DYN | Low/Mid/High amount 0 to 100 %, defaults 20/15/20 |
 | 12 | Limiter | DYN | Gain 0 to 12 dB, default 4; Ceiling -3 to 0 dBTP, default -1.0 |
 | 13 | Output Meter (pinned) | METER | none |
 
+The EQ faceplates are displayed as **TRIM EQ** and **LIFT EQ**. Their
+internal processor IDs remain `subeq` and `addeq` for DSP routing and saved
+project state.
+
 Behavioral requirements per module (algorithms and their justification in
 [audio-engine.md](../audio-engine.md#master-bus-strip)):
 
 - **Input Meter:** VU ballistics with about 300 ms integration, 0 VU
-  calibrated to -18 dBFS. L and R sample-peak lamps. Numeric dBFS readout.
+  calibrated to -18 dBFS. Taps after the Gain Stage so the needle shows the
+  trimmed signal before dynamics and EQ. L and R sample-peak lamps.
 - **Gain Stage:** clean smoothed gain.
 - **Soft Clip:** continuous waveshaper, at least 4x oversampled. Amount maps
   to how many dB of peak reduction occur on nominal program. DC-safe.
 - **Tube Saturation:** asymmetric waveshaper with predominantly even
   harmonics, DC blocker after the nonlinearity, oversampled, dry/wet mix,
   approximately unity loudness across Drive (automatic gain compensation).
-- **Subtractive EQ:** 12 dB/oct Butterworth high-pass; Mud and Harsh are RBJ
-  peaking cuts with narrow Q (2.5 to 4).
+- **Trim EQ:** 12 dB/oct Butterworth high-pass; Mud and Harsh are RBJ
+  peaking cuts with narrow Q (2.5 to 4). The name signals focused cleanup,
+  not a sub-bass processor.
 - **Bus Compressor:** feed-forward, stereo-linked, RMS-style detector with a
   soft knee. No auto-makeup. Design intent: 1 to 2 dB gain reduction on loud
   passages at defaults with nominal program. GR value exposed to the UI.
@@ -126,7 +142,8 @@ Behavioral requirements per module (algorithms and their justification in
   fixed matched output ceiling, so Boost raises perceived loudness without
   raising peaks. Mapping: drive dB = 0.25 x Boost % (the slope is the
   constant that calibrates the Cheat Sheet defaults to -14 LUFS-I).
-- **Additive EQ:** wide musical shelves (shelf S about 0.6).
+- **Lift EQ:** wide musical shelves (shelf S about 0.6) for low-end weight
+  and high-frequency air.
 - **Tape Saturation:** odd-harmonic-leaning saturation with pre- and
   de-emphasis. Speed switch moves the head-bump center (about 55 Hz at
   15 IPS, about 35 Hz at 30 IPS) and the HF roll-off corner.
@@ -160,13 +177,15 @@ Behavioral requirements per module (algorithms and their justification in
 ## Interaction Contract
 
 - **Reorder:** drag a module by its grip, or focus the grip and press Left
-  or Right to swap with the neighbor. Pinned meters never move and reject
-  drops. A drop indicator marks the insertion point while dragging. Ordinals
+  or Right to swap with the neighbor. The Gain Stage and pinned meters never
+  move and reject drops. A drop indicator marks the insertion point while dragging. Ordinals
   renumber immediately. Reordering while audio runs is a first-class case
   and must be click-free.
-- **Bypass:** each processor has a power LED toggle (`aria-pressed`). Off
+- **Bypass:** each of the ten downstream processors has a power LED toggle
+  (`aria-pressed`). Off
   dims and desaturates the module body and disables its controls. Bypass and
-  re-enable are click-free. Pinned meters have no power control.
+  re-enable are click-free. The Gain Stage and pinned meters have no power
+  control; Gain Trim remains editable in every preset.
 - **Knobs:** shared rotary behavior per the Style Guide: vertical drag,
   wheel steps, Shift for fine, double-click and Home reset to default, Arrow
   keys step, read-only value text, `aria-valuetext` with unit. Bipolar knobs
@@ -192,16 +211,22 @@ the other presets keep the current order.
 | Cheat Sheet | all on | none (defaults, default order restored) |
 | Gentle | all on except Maximizer and Multiband Comp off | Soft Clip Amount 0.8; Tube Drive 1.5; Comp Threshold -12; Limiter Gain 2.5; Width 100 |
 | Loud | all on | Soft Clip Amount 2.5; Boost 16; Comp Threshold -20; Comp Ratio 3; MB 35/25/35; Air +1.6; Limiter Gain 7 |
-| Bypass All | all processors off | none |
+| Bypass All | all ten downstream processors off; Gain Stage stays on | none |
 
 ## Metering and UI Data
 
-- The engine publishes a meter snapshot at least 30 times per second:
-  input VU level and L/R peak flags, Bus Compressor GR dB, Limiter GR dB,
-  output Momentary/Short-term/Integrated LUFS, and output true peak dBTP.
+- The engine publishes a meter snapshot at least 30 times per second while
+  the Master tab is active: input VU level and L/R peak flags, Bus
+  Compressor GR dB, Limiter GR dB, output Momentary/Short-term/Integrated
+  LUFS, and output true peak dBTP.
+- While the Master tab is hidden, the UI disables the snapshot stream (a
+  `meters` enable message to the worklet), so the audio thread posts
+  nothing for meters nobody can see. The loudness measurement itself is
+  never paused; Integrated LUFS keeps accumulating in its own worklet.
 - The UI renders meters from the latest snapshot on an animation-frame loop
   that runs only while the Master tab is active (same policy as the Mixer
-  meter loop, spec-006).
+  meter loop, spec-006). Snapshot values reach the strip through a
+  subscription store; they never pass through App-level React state.
 - If the snapshot stream stalls, meters freeze at their last values. They
   never show fabricated or garbage data.
 - GR LED rows: Bus Compressor thresholds 0.5/1/1.5/2/3/4 dB; Limiter
@@ -214,8 +239,10 @@ Owned in detail by [audio-engine.md](../audio-engine.md#master-bus-strip):
 - All DSP runs in one AudioWorkletProcessor. The per-block processing path
   performs no allocation, no locks, and no I/O.
 - All continuous parameters are smoothed (20 ms); no zipper noise.
-- Bypass, reorder, and preset recall crossfade old and new chain outputs
-  with a 30 ms equal-power crossfade; no clicks.
+- Bypass, reorder, and preset recall crossfade old and new downstream-chain
+  outputs with a 30 ms equal-power crossfade; no clicks. The Gain Stage runs
+  exactly once before the Input Meter and before the signal is copied to both
+  crossfade branches.
 - Shared 4x oversampling infrastructure for nonlinear stages; each stage
   reports latency; the total chain latency is reported in the meter
   snapshot.
@@ -225,16 +252,15 @@ Owned in detail by [audio-engine.md](../audio-engine.md#master-bus-strip):
 ## Persistence
 
 - The complete strip state serializes into the project file as one
-  `masterBus` JSON object: slot order (array of the eleven processor ids),
-  per-processor power flag, every parameter value, and the selected preset
-  name (or none after manual edits).
-- This extends the project file to **format version 5** (spec-011 owns the
-  wire format). Version 5 is a breaking boundary in line with the repository
-  rule against backward compatibility: the parser accepts `formatVersion: 5`
-  only, and a version-5 file always contains a complete `masterBus` record.
-  There is no migration from version 4.
-- Parsing rejects: a slot order that is not a permutation of the eleven
-  processor ids; unknown module or parameter ids; missing parameters;
+  `masterBus` JSON object: slot order (array of the ten downstream processor
+  ids), one power flag for each downstream processor, every parameter value
+  including `gain.trim`, and the selected preset name (or none after manual
+  edits). Gain has no persisted order entry or power flag.
+- This record is required by project **format version 6** (spec-011 owns the
+  wire format).
+- Parsing rejects: a slot order that is not a permutation of the ten
+  downstream processor ids; `gain` in the order or power map; unknown module
+  or parameter ids; missing parameters;
   non-finite values; values outside documented ranges; non-boolean power
   flags; and an unknown preset name.
 - Strip edits (parameter change, bypass, reorder, preset recall) join the
@@ -253,7 +279,7 @@ These suites gate the DSP phase and the integration phase:
   timing; limiter true peak never above Ceiling across an inter-sample-peak
   torture set.
 - **Null tests:** every module at neutral settings nulls against a
-  latency-compensated bypass below -100 dBFS. The Subtractive EQ's
+  latency-compensated bypass below -100 dBFS. The Trim EQ's
   always-active high-pass nulls against its documented high-pass reference
   at zero cuts. Stereo Imaging passes mono material bit-exactly at any
   setting and keeps the mono sum identical to the input sum. Multiband at
@@ -292,20 +318,22 @@ These suites gate the DSP phase and the integration phase:
 | Chain sits after masterGain | Master Volume becomes the trim into the chain, and the Limiter ceiling protects the real output. |
 | Output meter reuses the loudness measurement engine | One BS.1770 implementation serves the Middle Strip readouts and the strip meter; no duplicate gated-LUFS DSP. |
 | No auto-makeup on the Bus Compressor | Makeup would silently shift the calibrated loudness budget; the Maximizer and Limiter Gain own loudness recovery. |
-| Format version 5, no migration | Follows the repository's explicit no-backward-compatibility rule and the version-4 precedent. |
+| Format version 6 strict Master Bus record | Spec-011 owns the current wire format; Gain persists only through `gain.trim`, never topology state. |
 | Fixed hardware finishes, not theme tokens | The rack reads as physical gear; finishes are module identity, like the sample palette's fixed slots. Sanctioned in the Style Guide. |
 | Rack hit targets are UI Size boxes around compact painted controls | Mockup control sizes are below the repo minimum; the Mixer FX LED precedent applies. |
 | Latency is reported, not compensated in the playhead | Total chain latency is a few milliseconds at 48 kHz, below the 10 ms threshold the project already accepts for timing. |
 
 ## Acceptance Criteria
 
-- [x] **AC-001:** The Master tab renders the 13-slot rack: pinned input
-  meter, eleven processors in persisted order, pinned output meter, with
-  live ordinal renumbering and the Mixer's horizontal-scroll conventions.
+- [x] **AC-001:** The Master tab renders the 13-slot rack: pinned Gain Stage,
+  pinned input meter, ten processors in persisted order, and pinned output
+  meter, with live ordinal renumbering and the Mixer's horizontal-scroll
+  conventions.
 - [x] **AC-002:** Every control matches the ranges, defaults, units, and
   step behavior in the Chain Contract table, with the documented knob,
   switch, and keyboard interactions.
-- [x] **AC-003:** All eleven processors audibly process audio per their
+- [x] **AC-003:** The always-on Gain Stage and all ten downstream processors
+  audibly process audio per their
   behavioral requirements; the per-module unit and THD tests pass.
 - [x] **AC-004:** Every module at neutral settings nulls against bypass
   below -100 dBFS; imaging and multiband null against their allpass
@@ -329,7 +357,7 @@ These suites gate the DSP phase and the integration phase:
 - [x] **AC-011:** The four factory presets apply their documented power
   maps and overrides; only Cheat Sheet restores default order; each recall
   is one undoable edit.
-- [x] **AC-012:** Strip state round-trips through the version-5 project
+- [x] **AC-012:** Strip state round-trips through the version-6 project
   format; invalid records are rejected per the Persistence rules; Undo and
   Redo restore the complete strip record.
 - [x] **AC-013:** Meters refresh at 30 Hz or better from real engine data

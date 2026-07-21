@@ -1,8 +1,7 @@
 # Spec 001 — App Shell & Navigation
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIAL — the shell and both views are
-implemented; the state-adaptive Home composition is pending.
+**Spec Implementation Status:** IMPLEMENTED
 **Depends on:** *(root — no dependencies)*
 
 ## Objective
@@ -40,21 +39,28 @@ Implement view switching, the header bar, and the footer.
     visible but keep their existing availability gates.
   - **Project-priority composition:** once both required folders are available,
     Create or Open, Recent Projects, and Generate a MixJam dominate. Library
-    Setup remains directly reachable as a compact status and change affordance;
-    completed quick-start guidance no longer occupies the primary hierarchy.
+    Setup becomes one always-visible compact status row. The row shows
+    "Library ready," both selected folder names, and a quiet "Change folders"
+    action. That action reveals the User Folder and Sample Folder controls
+    inline; it does not open a new modal. Completed quick-start guidance no
+    longer occupies the primary hierarchy.
   - Active sync, analysis, permission, and error states may expand the relevant
     status or recovery controls without blocking navigation or replacing the
     whole Home Screen.
   - The hero retains the app logo from `public/app-icon-128.png`, "MixJam"
-    wordmark, and tagline. Setup guidance and theme previews adapt to the active
-    composition instead of remaining permanently expanded.
+    wordmark, and tagline. Setup guidance adapts to the active composition
+    instead of remaining permanently expanded. Theme selection stays in the
+    header selector and is not duplicated in Home content.
   - Library Setup, Create or Open, and Generate a MixJam remain independent
     workflow regions with no enclosing panel.
-  - Recent Projects rail: when projects exist, a sibling region sits below the
-    hero while the workflow column spans both desktop rows. It shows up to four
-    projects that are selectable on click and load through spec-011. The
-    four-item cap keeps Home geometry independent of the total project history.
-    Responsive breakpoints follow the [Style Guide](../style-guide.md#layout-architecture).
+  - Recent Projects: when projects exist, a sibling region shows up to four
+    readable project rows that load through spec-011. Each row prioritizes the
+    display name, then a meaningful relative parent location and last-opened
+    metadata when available. The full relative path remains available as
+    accessible text or a tooltip. No recent project receives a filled or
+    special "Continue" treatment: "Start New MixJam" remains the stable sole
+    primary action. The four-item cap keeps Home geometry independent of the
+    total project history.
   - "Start New MixJam" button — the sole filled primary action, navigates to
     the MixJam Player. In the Create or Open card it occupies about two-thirds
     of the action row.
@@ -213,11 +219,13 @@ Implementation validation should be tracked in implementation PR/test evidence.
   on screen (Home Screen), with maximize and resize enabled.
 - [x] **AC-001a:** Home Screen header shows "MixJam Electron" brand anchored to the left margin.
 - [x] **AC-002:** Home Screen content area shows "Start New MixJam" and "Load MixJam" buttons.
-- [ ] **AC-002a:** Home uses the setup-priority composition while either
+- [x] **AC-002a:** Home uses the setup-priority composition while either
   required folder is unavailable and the project-priority composition once both
-  folders are available. In the project-priority composition, completed setup
-  is compact, project work holds the primary hierarchy, and every folder action
-  remains directly reachable. The three workflow regions have no enclosing
+  folders are available. In the project-priority composition, one compact row
+  shows "Library ready," both folder names, and a "Change folders" disclosure.
+  The disclosure reveals both folder controls inline. Sync, permission, and
+  error states expand their status and recovery controls in place. Project work
+  holds the primary hierarchy, and the three workflow regions have no enclosing
   panel.
 - [x] **AC-002b:** The Home hero uses `public/app-icon-128.png` as the visible
   MixJam logo instead of a generated waveform mark.
@@ -226,6 +234,10 @@ Implementation validation should be tracked in implementation PR/test evidence.
   idle, sync, analysis, error, or ready states. The Library Setup scanner
   expands for active work and collapses when ready. Any number of available
   recent projects keeps the same layout because only the first four are rendered.
+- [x] **AC-002d:** Recent Projects renders at most four readable rows. Every row
+  prioritizes the display name and exposes its relative location, last-opened
+  metadata when available, and full relative path. "Start New MixJam" remains
+  the sole filled primary action whether or not recent projects exist.
 - [x] **AC-003:** At base UI Size 30, footer and header are 48px high. The footer
   shows the clickable version string right on Home and Player. Player also shows
   Settings on the left. Spec-002 owns higher UI Size scaling.
@@ -319,13 +331,16 @@ confirming the live MixJam skull rather than only the source asset's existence.
 Raw bounds, display work area, frame states, icon metrics, and screenshots are
 stored under `tmp/verify-electron-window-state/`.
 
-`tests/e2e/compact-layout.spec.ts` verifies the full-width four-column Recent
-Projects rail and root-versus-Home overflow ownership across representative
-themes in the production Chromium bundle. Its single below-minimum test checks
-both the width and height boundaries and proves that only the refusal surface
-is available.
-`tmp/verify-compact-layout/evidence.md` records the matching computed geometry
-and screenshots.
+`tests/e2e/compact-layout.spec.ts` verifies the four-row Recent Projects list,
+the expanded library controls at the largest UI Size, and root-versus-Home
+overflow ownership across representative themes in the production Chromium
+bundle. Its single below-minimum test checks both the width and height
+boundaries and proves that only the refusal surface is available.
+`src/renderer/src/components/HomeScreen.test.tsx` verifies the compact ready
+summary and its inline folder disclosure, expanded setup and recovery states,
+the sole primary action, recent-project metadata, and the four-project cap.
+`tmp/verify-home-remediation/EVIDENCE.md` records matching computed geometry and
+screenshots for the state-adaptive Home flow.
 
 ## Non-Goals (deferred to later specs)
 

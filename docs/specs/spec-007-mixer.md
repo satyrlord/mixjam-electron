@@ -239,7 +239,10 @@ mutable source for lane volume, pan, mute, solo, and sends. The project command
 history owns lanes and the four Return buses in one atomic edit snapshot.
 `useMixer` derives audio-graph snapshots and meter indices from that project
 state and owns only live visual telemetry. It does not store project data or a
-parallel channel array.
+parallel channel array. Telemetry frames leave the loop through a
+subscription store (`value-store.ts`), not React state: each channel's meter
+subscribes to its own derived view, so a frame re-renders only the meter
+elements whose numbers changed and never the App tree.
 Complete snapshot reconciliation also removes every graph channel absent from
 the new lane list, including channels above a shortened list's new length, so a
 removed solo cannot keep the remaining lanes gated.

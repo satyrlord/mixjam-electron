@@ -9,6 +9,15 @@ The theming system (spec-002) implements this style guide through CSS custom
 properties and JSON theme files. This document describes the *design intent*;
 spec-002 defines the *token mechanics*.
 
+**Relationship to DESIGN.md:** [DESIGN.md](../DESIGN.md) is the **design token
+manifest** — the concrete token names, Emerald default values, component pattern
+tables, and shadow/gradient vocabulary that the CSS token system implements.
+This file (`docs/style-guide.md`) is the **design intent document**. Both are
+authoritative for different concerns: `DESIGN.md` for the token contract and
+defaults, this file for layout architecture, spacing rhythm, color philosophy,
+interaction rules, and accessibility foundations. When adding or modifying a
+visual feature, consult both.
+
 ---
 
 ## Table of Contents
@@ -91,17 +100,25 @@ App (full viewport, no root overflow scrollbar)
 
 ```text
 Home (1920x1080 renderer content minimum, resizable, maximizable)
-  ├── Content (centered two-column layout)
-  │   ├── Hero column (left): logo, wordmark, tagline, steps, theme grid
-  │   ├── Workflow column (right): three independent sibling cards
-  │   │   ├── Library Setup: folder pickers + spanning scanner
-  │   │   ├── Create or Open: primary Start + secondary Load
-  │   │   └── Generate a MixJam: readiness copy + secondary action
-  │   └── Recent Projects rail (full-width, below hero, up to 4 entries)
+  ├── Content (state-adaptive two-column layout)
+  │   ├── Setup priority: hero + guidance, expanded Library Setup, gated actions
+  │   └── Project priority: hero, compact library status, project actions,
+  │       generation, and Recent Projects
   └── Footer: version (right)
 ```
 
 - The Home Screen has no timer and no home link.
+- Home uses setup priority while either required folder is unavailable and
+  project priority once both folders are available.
+- In project priority, Library Setup is one compact status row with both folder
+  names and a quiet disclosure for changing folders. Sync and recovery states
+  expand inline.
+- The header selector is the only theme-selection control. Home content does
+  not repeat the theme catalog.
+- "Start New MixJam" remains the sole filled primary action. Recent Projects
+  uses up to four readable rows with a strong project name, relative location,
+  last-opened metadata when available, and access to the full relative path.
+  It does not promote the newest project into a competing Continue action.
 - The workflow cards have no enclosing outer panel. Headings, spacing, and
   surface contrast establish their grouping.
 - At 1920x1080, Home has no vertical overflow or scrollbar.
@@ -229,13 +246,15 @@ All use the shared resizable-panel primitive (pointer, touch, keyboard).
 
 ### Font Roles
 
-Three typographic roles, each defined per theme via CSS custom properties:
+Three typographic roles, each defined per theme via CSS custom properties.
+See [DESIGN.md](../DESIGN.md) for the Emerald default font families, sizes,
+weights, and line-heights.
 
-| Role | Token | Purpose | Emerald Default |
-| ------ | ------- | --------- | ----------------- |
-| Chrome | `--font-chrome` | Header, chrome UI, brand | Josefin Sans |
-| Label | `--font-label` | Body copy, labels, buttons | Ubuntu |
-| Mono | `--font-mono` | Ruler, timer, code, bar numbers | JetBrains Mono |
+| Role | Token | Purpose |
+| ------ | ------- | --------- |
+| Chrome | `--font-chrome` | Header, chrome UI, brand |
+| Label | `--font-label` | Body copy, labels, buttons |
+| Mono | `--font-mono` | Ruler, timer, code, bar numbers, dB readouts, LCD text |
 
 ### Type Scale
 
@@ -286,30 +305,19 @@ Three typographic roles, each defined per theme via CSS custom properties:
 
 ### Key Measurements
 
-| Element | Measurement |
+See [DESIGN.md](../DESIGN.md) for the complete dimension table including all
+three UI Size breakpoints. Essential layout constraints not covered by UI Size
+scaling:
+
+| Element | Constraint |
 | --------- | ------------- |
-| Header height | 48 / 64 / 80px at size 30 / 40 / 50 |
-| Footer height | 48 / 64 / 80px at size 30 / 40 / 50 |
-| Middle Strip total | 80 / 107 / 133px at size 30 / 40 / 50 |
-| Song Progress Bar row | 28 / 37 / 47px at size 30 / 40 / 50 |
-| Middle Strip main row | 48 / 64 / 80px at size 30 / 40 / 50 |
-| Bottom Workspace tab row | 44 / 59 / 73px at size 30 / 40 / 50 |
-| Lane height | 37px at size 30; 49px at size 40; 61px at size 50 |
-| Lane head width | 240px (exact, including rendered border box) |
-| Sample bubble height | 24px at size 30; 33px at size 40; 41px at size 50 |
+| Lane head width | 240px exact (including rendered border box) |
 | Ruler height | 33px, padded-left 240px |
-| Ruler beat/bar model | Beat tick lines at each beat; stronger tick every bar |
-| Bar number interval | Every 4 bars: 1, 5, 9, 13... |
 | Playhead width | 2px |
-| Mixer channel strip | 76 / 101 / 127px at size 30 / 40 / 50 |
-| Mixer FX and Return container | 160 / 213 / 267px at size 30 / 40 / 50 |
-| Lane Mute/Solo controls | selected UI Size target |
-| BPM numeric input | scales inside the selected UI Size target |
-| Vertical fader minimum width | selected UI Size target |
-| Transport buttons | selected UI Size target inside the scaled main row |
+| Bar number interval | Every 4 bars: 1, 5, 9, 13... |
 | Search field | 200-320px flexible width |
 | Project name trigger | up to 320px, truncates with ellipsis |
-| Theme preview swatches | selected UI Size squares, 8x2 grid |
+| Theme selector | header-only native select, selected theme name visible |
 
 ---
 
@@ -339,69 +347,39 @@ are defined in JSON theme files under `public/themes/` and applied to
 
 ### Depth Tokens
 
-Depth tokens (gradients and shadows) are theme-dependent value strings:
+Depth tokens (gradients and shadows) are theme-dependent value strings. Every
+theme defines the complete vocabulary; a theme may be flat, shadowed, neumorphic,
+beveled, or glowing. Components read tokens and never hardcode shadows or
+gradients. See [DESIGN.md](../DESIGN.md) for the full token list with Emerald
+default values.
 
-- `--gradient-header`: header background (gradient or flat color)
-- `--gradient-ruler`: ruler shading over `--bg-panel`
-- `--gradient-lane`: lane shading over `--bg-lane`
-- `--shadow-sample-bubble-text`: text-shadow on bubble labels
-- `--gradient-transport`: idle transport button surface
-- `--gradient-transport-active`: active transport button surface
-- `--shadow-transport`: idle transport button box-shadow
-- `--shadow-transport-active`: active transport button box-shadow (glow)
-- `--shadow-pill`: box-shadow for pill-family chrome
-- `--shadow-lane`: inset well shadow on lane placement area
-- `--shadow-playhead`: playhead glow
-- `--shadow-sample-bubble`: sample-bubble drop-shadow (canvas-parsed)
-- `--border-sample-bubble`: sample-bubble outline (canvas-parsed)
-- `--gradient-sample-bubble`: sample-bubble gloss (canvas-parsed)
-- `--shadow-meter`: box-shadow on meter fills
-- `--gradient-mixer-device`: Mixer device surface behind the panels (theme
-  texture: scanlines, starfield, halftone, grain) or `none`
-- `--gradient-mixer-panel`: Mixer panel surface image over `--bg-panel`
-- `--shadow-mixer-panel`: Mixer panel box-shadow (drop, neumorphic, slab,
-  bevel, glow)
-- `--shadow-mixer-slot`: channel strip / FX card box-shadow
-- `--shadow-mixer-led`: Mixer LED glow (`currentColor` = LED's own accent)
-- `--fill-mixer-knob`: Mixer knob face (solid; polarity follows the theme's
-  hardware — dark caps on consoles, cream on print/desktop themes)
-- `--border-mixer-knob`: Mixer knob rim and fader-thumb edge
+Key behavioral rules:
+
+- `--shadow-mixer-led` uses `currentColor` so the LED glows in its own slot accent.
+- `--gradient-sample-bubble` stops must be space-free colors (`#RRGGBBAA`).
+- `--gradient-mixer-device` may be `none` for themes without a device texture.
+- Canvas-parsed tokens (`--shadow-sample-bubble`, `--border-sample-bubble`,
+  `--gradient-sample-bubble`) follow fixed string formats.
 
 ### Construction Tokens
 
-- `--radius`: general border radius
-- `--radius-transport`: transport button corner shape
-- `--radius-sample-bubble`: sample-bubble corner radius
-- `--border-width`: structural hairline width
-- `--border-width-pill`: control border width
-- `--border-width-header`: header bottom-rule width
-- `--sample-bubble-font-weight`: bubble label weight
-- `--sample-bubble-case`: bubble label case (`uppercase` or `none`)
+Geometry tokens for radii, border widths, and sample-bubble typography.
+See [DESIGN.md](../DESIGN.md) for the Emerald default values.
 
 ### Sample Palette
 
 Each theme defines an 8-slot palette plus an unsorted color. Slots map to
-acoustic categories deterministically:
+acoustic categories deterministically. Placements store the slot number, not
+the color; the hex resolves at draw time from the active palette. Switching
+themes recolors every placed sample bubble live.
 
-| Slot | Category |
-| ------ | ---------- |
-| 0 | Drums / Percussion |
-| 1 | Loop |
-| 2 | Bass |
-| 3 | Keys / Guitar / Chords / Piano |
-| 4 | Synth / Lead |
-| 5 | Voice / Vocal / FX / Vox |
-| 6 | Arp |
-| 7 | Pad / Atmosphere / Xtra / Texture |
-| 8 | Unsorted (fallback) |
+See [DESIGN.md](../DESIGN.md) for the slot-to-category mapping table, the
+unsorted fallback color, and the palette token names.
 
-Placements store the slot number, not the color. The hex resolves at draw
-time from the active palette. Switching themes recolors every placed sample
-bubble live. Palette entries must be 6-digit hex.
-
-Label contrast is guaranteed per slot by derived ink (white or near-black,
-whichever clears the higher WCAG ratio). Slot colors themselves are surfaces,
-not signals — the 3:1 signal contrast gate does not apply to them.
+Palette entries must be 6-digit hex. Label contrast is guaranteed per slot
+by derived ink (white or near-black, whichever clears the higher WCAG ratio).
+Slot colors are surfaces, not signals — the 3:1 contrast gate does not apply
+to them.
 
 ### Contrast Policy
 
@@ -663,30 +641,21 @@ modules, deep drop shadow. Each module corner carries a small screw-head
 detail as a non-interactive decoration.
 
 **Module faceplate.** 152px wide (Bus Compressor 184px wide; the two meter
-modules 196px), 500px tall, 6px radius, vertical faceplate gradient in the
-module's finish, hairline dark border, inner top highlight. Anatomy, top
-to bottom: grip + ordinal + power LED row, family chip + module name,
-control grid, optional GR LED row, description text block separated by a
-hairline.
+modules 196px), 420px tall, 6px radius, vertical faceplate gradient in the
+module's finish, hairline dark border, inner top highlight. Reorderable
+processor anatomy, top to bottom: grip + ordinal + power LED row, family chip
+and module name, control grid, optional GR LED row, description text block
+separated by a hairline. The pinned Gain Stage keeps its ordinal and controls
+but omits the grip and power LED. Pinned meters omit both controls too.
 
-**Finishes.** Six fixed finishes; each defines face gradient, ink, dim
-ink, knob cap colors, and pointer color:
+**Finishes.** Eight fixed finishes. See [DESIGN.md](../DESIGN.md) for the
+complete table with color values. Finishes define face gradient, ink, dim ink,
+knob cap colors, and pointer color for each module faceplate.
 
-| Finish | Face | Ink | Cap | Pointer | Used by |
-| --- | --- | --- | --- | --- | --- |
-| cream | #ded6c2 to #cdc4ac | #2c2921 | #3b372d/#232019 | #efe8d3 | Gain Stage, Bus Compressor |
-| graphite | #33363d to #2a2d33 | #e7e7e3 | #1c1d22/#101114 | #eceae4 | Soft Clip, Maximizer, Multiband Comp |
-| oxblood | #71413a to #5c332d | #f4e8de | #2e1d1a/#1e1210 | #f2dcc9 | Tube Saturation |
-| steel | #4e6b79 to #405865 | #eaf1f4 | #233541/#16242d | #d8edf6 | Subtractive EQ, Additive EQ |
-| sand | #c7ae86 to #b39a72 | #332a1b | #40372a/#292317 | #f4e7c8 | Tape Saturation |
-| sage | #68755f to #57634d | #eef2e8 | #293024/#1a1f17 | #e3edd5 | Stereo Imaging |
-| night | #26272e to #1c1d23 | #efecf1 | #131317/#0a0a0d | #f2e4e4 | Limiter |
-| meter | #2c2d33 to #212227 | #e7e7e3 | — | — | Input and Output meters |
-
-**Family chips.** Small uppercase chip above the module name, fixed
-colors: GAIN #c9ccd4, SAT #ff8a4e, EQ #62aee0, DYN #f4c14f, IMG #7fd69b,
-METER #9aa0ab. The chip color also tints the module's knob value arcs and
-GR LEDs. A bypassed module's chip turns neutral gray (#7c7f86).
+**Family chips.** Small uppercase chip above the module name. See
+[DESIGN.md](../DESIGN.md) for the fixed chip colors. The chip color also
+tints the module's knob value arcs and GR LEDs. A bypassed module's chip
+turns neutral gray.
 
 **Knobs.** Rack knobs reuse the shared rotary control (270-degree track,
 value arc, inset cap, short pointer): standard face 46px, large face 74px.
@@ -901,9 +870,8 @@ When creating or modifying a theme, follow these rules:
 10. **Case transforms are typography, not color.** Uppercase brand/lane/mixer
     labels live in CSS `[data-theme-key]` rules, not theme JSON.
 
-11. **Theme-preview swatches** on Home use selected UI Size squares in an 8x2 grid,
-    showing the palette colors with selected-state indicator. The theme name
-    appears only in the header selector.
+11. **Theme selection** stays in the header on both Home and Player. Home does
+    not repeat the selector or render palette-preview swatches.
 
 12. **`gradient-header` must be a complete background value** (not layered
     over another color). `gradient-ruler` and `gradient-lane` are layered

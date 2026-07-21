@@ -411,9 +411,12 @@ capacity.
 
 The peer panel selected by the Master tab in the
 [Bottom Workspace](#bottom-workspace). Its content is the 13-slot Master
-Bus Strip (spec-012): pinned input and output meters around eleven
-reorderable processors. The strip's Gain Stage owns gain staging and its
-pinned output meter owns master loudness display. Use *Master panel* for
+Bus Strip (spec-012): pinned Gain Stage, Input Meter, and Output Meter around ten
+reorderable processors. The Gain Stage is always on, cannot move, and persists
+only its Trim parameter; order and power state belong to the ten downstream
+processors. The strip's Gain Stage owns gain staging, the Input
+Meter shows the trimmed signal, and its pinned Output Meter owns master loudness
+display. Use *Master panel* for
 the region and [Master Controls](#master-controls) only for its visible
 heading or implementation shorthand.
 
