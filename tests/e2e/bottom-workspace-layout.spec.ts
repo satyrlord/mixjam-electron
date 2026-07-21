@@ -3,9 +3,9 @@ import { setZoomLevelAndClose } from './settings-helpers'
 
 const UI_SIZE_BUTTON_LABELS: Record<number, string> = { 30: '75%', 40: '100%', 50: '125%' }
 const BOTTOM_WORKSPACE_MINIMUM_HEIGHTS = {
-  30: { master: 554, mixer: 378, samples: 136 },
-  40: { master: 601, mixer: 500, samples: 183 },
-  50: { master: 641, mixer: 620, samples: 225 }
+  30: { master: 546, mixer: 378, samples: 136 },
+  40: { master: 590, mixer: 500, samples: 183 },
+  50: { master: 628, mixer: 620, samples: 225 }
 } as const
 
 async function settleLayout(page: import('@playwright/test').Page) {

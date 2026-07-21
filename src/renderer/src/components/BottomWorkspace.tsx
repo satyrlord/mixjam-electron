@@ -29,10 +29,10 @@ export function bottomWorkspaceMinimumHeights(
 ): BottomWorkspaceMinimumHeights {
   return {
     // The Master Bus Strip rack renders 420px-tall modules plus its preset
-    // chip header, rack shell, and panel padding (spec-012). At 1920x1080
-    // with UI Size 50 this budget still leaves the ruler and one complete
-    // lane visible above.
-    master: geometry.tabRowHeight + 420 + geometry.size + (6 * geometry.spaceMd) + geometry.spaceLg,
+    // chip header, rack shell, and panel padding (spec-012). Five medium
+    // gaps cover the chrome around that stack; six double-counted one gap and
+    // clipped the first Tracker lane at UI Size 50.
+    master: geometry.tabRowHeight + 420 + geometry.size + (5 * geometry.spaceMd) + geometry.spaceLg,
     mixer: geometry.tabRowHeight + (4 * geometry.spaceMd) + (2 * geometry.size) +
       (2 * geometry.mixerFxHeight) + geometry.spaceSm + 14,
     samples: geometry.tabRowHeight + (2 * geometry.size) + (4 * geometry.spaceMd)
