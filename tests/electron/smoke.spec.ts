@@ -121,15 +121,18 @@ test.describe('Electron smoke', () => {
         ])
         // After maximizing, the window fills the work area. On CI runners a taskbar
         // reduces the usable height below 1080, so clamp the minimum to the
-        // available work-area height rather than a fixed 1080.
+        // available work-area height rather than a fixed 1080. Similarly the
+        // display width may be narrower than 1920 on some CI runners, so clamp
+        // the minimum width to the available work-area width.
         const minHeight = Math.min(nativeState.workArea.height, 1080)
+        const minWidth = Math.min(nativeState.workArea.width, 1920)
         return {
           resizable: nativeState.resizable,
           maximizable: nativeState.maximizable,
           maximized: nativeState.maximized,
           contentMeetsMinimum:
-            nativeState.contentBounds.width >= 1920 && nativeState.contentBounds.height >= minHeight,
-          rendererMeetsMinimum: rendererState.width >= 1920 && rendererState.height >= minHeight
+            nativeState.contentBounds.width >= minWidth && nativeState.contentBounds.height >= minHeight,
+          rendererMeetsMinimum: rendererState.width >= minWidth && rendererState.height >= minHeight
         }
       }).toEqual({
         resizable: true,
@@ -142,7 +145,7 @@ test.describe('Electron smoke', () => {
       // isMaximized() is the cross-platform native state. A managed X11
       // window's reported bounds can exclude theme-specific frame extents, so
       // they do not have to equal the display work area.
-      expect(player.contentBounds.width).toBeGreaterThanOrEqual(1920)
+      expect(player.contentBounds.width).toBeGreaterThanOrEqual(Math.min(player.workArea.width, 1920))
       expect(player.contentBounds.height).toBeGreaterThanOrEqual(Math.min(player.workArea.height, 1080))
 
       await window.evaluate(() => window.shellAPI.resizeToHome())
