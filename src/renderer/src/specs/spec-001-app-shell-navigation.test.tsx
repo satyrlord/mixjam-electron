@@ -259,6 +259,9 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       setMaximizable: vi.fn(),
       setSize: vi.fn(),
       setContentSize: vi.fn(),
+      setMinimumSize: vi.fn(),
+      getBounds: vi.fn(() => ({ width: 1920, height: 1080 })),
+      getContentBounds: vi.fn(() => ({ width: 1920, height: 1080 })),
       center: vi.fn(),
       unmaximize: vi.fn(),
       isMaximized: vi.fn(() => true),
@@ -270,10 +273,12 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
 
     resizeWindowToHome(windowControls)
     expect(windowControls.center).not.toHaveBeenCalled()
+    expect(windowControls.setMinimumSize).toHaveBeenCalledTimes(1)
 
     unmaximizeListener?.()
     await new Promise<void>((resolve) => queueMicrotask(resolve))
     expect(windowControls.center).toHaveBeenCalledTimes(1)
+    expect(windowControls.setMinimumSize).toHaveBeenCalledTimes(2)
   })
 
   it('AC-009: roundtrip Home -> Player -> Home -> Player works with no state leak', async () => {
