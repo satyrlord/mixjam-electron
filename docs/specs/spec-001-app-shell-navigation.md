@@ -159,6 +159,8 @@ MixJam Electron native window and records the process and window evidence before
 cleanup. Because the bootstrap starts a child process, the deeper Playwright
 assertions then drive `win-unpacked/MixJam Electron.exe`, which contains the same
 packaged application resources and preserves the main-process connection.
+When returning from the maximized Player view, the native window is re-centered
+again after Windows completes its asynchronous unmaximize transition.
 
 Every native artifact proof also runs the built Electron interaction probe at
 UI Size 50 with 16 lanes. It records Tracker vertical wheel scrolling and

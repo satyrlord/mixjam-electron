@@ -20,6 +20,8 @@ export interface WindowFrameControls {
   center(): void
   maximize?(): void
   unmaximize?(): void
+  isMaximized?(): boolean
+  once?(event: 'unmaximize', listener: () => void): void
 }
 
 /** BrowserWindow minimum sizes use native-frame bounds. Convert the renderer
@@ -83,11 +85,22 @@ export function resizeWindowToPlayer(window: WindowFrameControls): void {
 }
 
 export function resizeWindowToHome(window: WindowFrameControls): void {
+  const wasMaximized = window.isMaximized?.() ?? false
+  const deferCenterForUnmaximize = wasMaximized && Boolean(window.once)
+  if (deferCenterForUnmaximize) {
+    window.once?.('unmaximize', () => {
+      queueMicrotask(() => {
+        enforceMinimumContentSize(window)
+        window.center()
+      })
+    })
+  }
   window.unmaximize?.()
   if (window.setContentSize) {
     window.setContentSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
   } else {
     window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
   }
-  window.center()
+  enforceMinimumContentSize(window)
+  if (!deferCenterForUnmaximize) window.center()
 }
