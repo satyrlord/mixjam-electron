@@ -269,11 +269,11 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     }
 
     resizeWindowToHome(windowControls)
-    expect(windowControls.center).toHaveBeenCalledTimes(1)
+    expect(windowControls.center).not.toHaveBeenCalled()
 
     unmaximizeListener?.()
     await new Promise<void>((resolve) => queueMicrotask(resolve))
-    expect(windowControls.center).toHaveBeenCalledTimes(2)
+    expect(windowControls.center).toHaveBeenCalledTimes(1)
   })
 
   it('AC-009: roundtrip Home -> Player -> Home -> Player works with no state leak', async () => {
