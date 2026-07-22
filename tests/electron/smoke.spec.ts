@@ -167,7 +167,7 @@ test.describe('Electron smoke', () => {
       expect(returnedHome.bounds.width).toBeGreaterThanOrEqual(1920)
       expect(returnedHome.bounds.height).toBeGreaterThanOrEqual(1080)
       expect(returnedHome.contentBounds).toMatchObject({ width: 1920, height: 1080 })
-      expect(centered(returnedHome)).toBe(true)
+      await expect.poll(async () => centered(await snapshot())).toBe(true)
 
       let iconProbe: Record<string, unknown> | null = null
       if (process.platform === 'win32') {
