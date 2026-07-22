@@ -101,11 +101,8 @@ export function resizeWindowToHome(window: WindowFrameControls): void {
     // On Windows, calling setContentSize while maximized triggers an immediate
     // unmaximize via SetWindowPos, which fires the 'unmaximize' event before the
     // deferred SC_RESTORE is processed. That SC_RESTORE then moves the window to
-    // a non-centered restore position, overwriting the center() call. Set the
-    // minimum size constraints first so Windows can enforce them during the
-    // restore transition, then defer setContentSize and center until after the
-    // native unmaximize completes.
-    enforceMinimumContentSize(window)
+    // a non-centered restore position, overwriting the center() call. Defer all
+    // sizing and centering until after the native unmaximize completes.
     window.once?.('unmaximize', () => {
       queueMicrotask(() => applyHomeSize(window))
     })
