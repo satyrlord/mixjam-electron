@@ -257,6 +257,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     const windowControls = {
       setResizable: vi.fn(),
       setMaximizable: vi.fn(),
+      setSize: vi.fn(),
       setContentSize: vi.fn(),
       center: vi.fn(),
       unmaximize: vi.fn(),
