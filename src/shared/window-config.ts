@@ -95,5 +95,6 @@ export function resizeWindowToHome(window: WindowFrameControls): void {
   } else {
     window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
   }
+  enforceMinimumContentSize(window)
   window.center()
 }
