@@ -20,6 +20,8 @@ export interface WindowFrameControls {
   center(): void
   maximize?(): void
   unmaximize?(): void
+  isMaximized?(): boolean
+  once?(event: 'unmaximize', listener: () => void): void
 }
 
 /** BrowserWindow minimum sizes use native-frame bounds. Convert the renderer
@@ -83,6 +85,10 @@ export function resizeWindowToPlayer(window: WindowFrameControls): void {
 }
 
 export function resizeWindowToHome(window: WindowFrameControls): void {
+  const wasMaximized = window.isMaximized?.() ?? false
+  if (wasMaximized) {
+    window.once?.('unmaximize', () => window.center())
+  }
   window.unmaximize?.()
   if (window.setContentSize) {
     window.setContentSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
