@@ -86,21 +86,33 @@ export function resizeWindowToPlayer(window: WindowFrameControls): void {
 
 export function resizeWindowToHome(window: WindowFrameControls): void {
   const wasMaximized = window.isMaximized?.() ?? false
-  const deferCenterForUnmaximize = wasMaximized && Boolean(window.once)
-  if (deferCenterForUnmaximize) {
+  const deferForUnmaximize = wasMaximized && Boolean(window.once)
+  if (deferForUnmaximize) {
+    // On Windows, calling setContentSize while maximized triggers an immediate
+    // unmaximize via SetWindowPos, which fires the 'unmaximize' event before the
+    // deferred SC_RESTORE is processed. That SC_RESTORE then moves the window to
+    // a non-centered restore position, overwriting the center() call. Defer ALL
+    // size and center work to after the native unmaximize completes.
     window.once?.('unmaximize', () => {
       queueMicrotask(() => {
+        if (window.setContentSize) {
+          window.setContentSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+        } else {
+          window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+        }
         enforceMinimumContentSize(window)
         window.center()
       })
     })
-  }
-  window.unmaximize?.()
-  if (window.setContentSize) {
-    window.setContentSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+    window.unmaximize?.()
   } else {
-    window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+    window.unmaximize?.()
+    if (window.setContentSize) {
+      window.setContentSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+    } else {
+      window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
+    }
+    enforceMinimumContentSize(window)
+    window.center()
   }
-  enforceMinimumContentSize(window)
-  if (!deferCenterForUnmaximize) window.center()
 }
