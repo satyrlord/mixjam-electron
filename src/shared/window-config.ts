@@ -86,8 +86,14 @@ export function resizeWindowToPlayer(window: WindowFrameControls): void {
 
 export function resizeWindowToHome(window: WindowFrameControls): void {
   const wasMaximized = window.isMaximized?.() ?? false
-  if (wasMaximized) {
-    window.once?.('unmaximize', () => window.center())
+  const recenterAfterUnmaximize = wasMaximized && Boolean(window.once)
+  if (recenterAfterUnmaximize) {
+    window.once?.('unmaximize', () => {
+      queueMicrotask(() => {
+        enforceMinimumContentSize(window)
+        window.center()
+      })
+    })
   }
   window.unmaximize?.()
   if (window.setContentSize) {
@@ -96,5 +102,5 @@ export function resizeWindowToHome(window: WindowFrameControls): void {
     window.setSize(HOME_WINDOW_SIZE.width, HOME_WINDOW_SIZE.height)
   }
   enforceMinimumContentSize(window)
-  window.center()
+  if (!recenterAfterUnmaximize) window.center()
 }

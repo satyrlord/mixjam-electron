@@ -252,7 +252,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
-  it('re-centers after an asynchronous unmaximize', () => {
+  it('re-centers after an asynchronous unmaximize', async () => {
     let unmaximizeListener: (() => void) | undefined
     const windowControls = {
       setResizable: vi.fn(),
@@ -262,7 +262,8 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       center: vi.fn(),
       unmaximize: vi.fn(),
       isMaximized: vi.fn(() => true),
-      once: vi.fn((_event: 'unmaximize', listener: () => void) => {
+      once: vi.fn((event: 'unmaximize', listener: () => void) => {
+        expect(event).toBe('unmaximize')
         unmaximizeListener = listener
       })
     }
@@ -271,6 +272,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(windowControls.center).toHaveBeenCalledTimes(1)
 
     unmaximizeListener?.()
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
     expect(windowControls.center).toHaveBeenCalledTimes(2)
   })
 
