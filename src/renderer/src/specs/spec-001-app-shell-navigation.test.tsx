@@ -224,7 +224,8 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
       setSize: vi.fn((width: number, height: number) => callOrder.push(`setSize:${width}x${height}`)),
       setContentSize: vi.fn((width: number, height: number) => callOrder.push(`setContentSize:${width}x${height}`)),
       center: vi.fn(() => callOrder.push('center')),
-      unmaximize: vi.fn(() => callOrder.push('unmaximize'))
+      unmaximize: vi.fn(() => callOrder.push('unmaximize')),
+      isMaximized: vi.fn(() => false)
     }
 
     resizeWindowToHome(windowControls)
@@ -249,6 +250,35 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     })
 
     expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-centers after an asynchronous unmaximize', async () => {
+    let unmaximizeListener: (() => void) | undefined
+    const windowControls = {
+      setResizable: vi.fn(),
+      setMaximizable: vi.fn(),
+      setSize: vi.fn(),
+      setContentSize: vi.fn(),
+      setMinimumSize: vi.fn(),
+      getBounds: vi.fn(() => ({ width: 1920, height: 1080 })),
+      getContentBounds: vi.fn(() => ({ width: 1920, height: 1080 })),
+      center: vi.fn(),
+      unmaximize: vi.fn(),
+      isMaximized: vi.fn(() => true),
+      once: vi.fn((event: 'unmaximize', listener: () => void) => {
+        expect(event).toBe('unmaximize')
+        unmaximizeListener = listener
+      })
+    }
+
+    resizeWindowToHome(windowControls)
+    expect(windowControls.center).not.toHaveBeenCalled()
+    expect(windowControls.setMinimumSize).not.toHaveBeenCalled()
+
+    unmaximizeListener?.()
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
+    expect(windowControls.center).toHaveBeenCalledTimes(1)
+    expect(windowControls.setMinimumSize).toHaveBeenCalledTimes(1)
   })
 
   it('AC-009: roundtrip Home -> Player -> Home -> Player works with no state leak', async () => {
