@@ -3,7 +3,7 @@
 // no Web Audio dependency, so process() is driven directly with sample buffers.
 
 import { describe, expect, it } from 'vitest'
-import { EchoformDelayCore, echoformDelaySeconds, echoformDelayDivisionBeats } from './echoform-delay-core'
+import { EchoformDelayCore, echoformDelaySeconds, echoformDelayDivisionBeats, isEchoformDelayDivision } from './echoform-delay-core'
 import type { EchoformDelayState } from './echoform-delay-types'
 
 const FS = 48_000
@@ -550,6 +550,72 @@ describe('Echoform delay — bypass and output', () => {
     const loudOut = renderImpulse(loud, 0.3)
     const quietOut = renderImpulse(quiet, 0.3)
     expect(peak(loudOut.left)).toBeGreaterThan(peak(quietOut.left))
+  })
+})
+
+describe('Echoform delay — type guard', () => {
+  it('accepts valid division strings', () => {
+    expect(isEchoformDelayDivision('1/4')).toBe(true)
+    expect(isEchoformDelayDivision('1/8.')).toBe(true)
+    expect(isEchoformDelayDivision('1/16T')).toBe(true)
+  })
+
+  it('rejects invalid values', () => {
+    expect(isEchoformDelayDivision('1/3')).toBe(false)
+    expect(isEchoformDelayDivision('')).toBe(false)
+    expect(isEchoformDelayDivision(123)).toBe(false)
+    expect(isEchoformDelayDivision(null)).toBe(false)
+    expect(isEchoformDelayDivision(undefined)).toBe(false)
+  })
+})
+
+describe('Echoform delay — reset', () => {
+  it('clears the delay buffer and restores the initial state', () => {
+    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 100, timeMsR: 100, feedback: 60 }), 120)
+    // Prime the buffer with a tone so the loop is active.
+    renderTone(core, 0.5, 0.7)
+    core.reset()
+    // After reset the buffer is silent and the tap is back at the initial position.
+    const out = renderImpulse(core, 0.3)
+    const p = peakIndex(out.left, 100)
+    expect(p / FS * 1000).toBeGreaterThan(95)
+    expect(p / FS * 1000).toBeLessThan(105)
+    expect(isFiniteBuffer(out.left)).toBe(true)
+  })
+})
+
+describe('Echoform delay — sync mode timing', () => {
+  it('places taps at BPM-synced divisions', () => {
+    const core = new EchoformDelayCore(FS, baseState({
+      mode: 'sync', divisionL: '1/4', divisionR: '1/8.', timeMsL: 100, timeMsR: 100
+    }), 120)
+    const { left, right } = renderImpulse(core, 0.7)
+    // 1/4 at 120 BPM = 500 ms. Search after the initial transient window.
+    const lPeak = peakIndex(left, Math.round(0.4 * FS))
+    expect(lPeak / FS * 1000).toBeGreaterThan(490)
+    expect(lPeak / FS * 1000).toBeLessThan(520)
+    // 1/8. at 120 BPM = 375 ms.
+    const rPeak = peakIndex(right, Math.round(0.25 * FS))
+    expect(rPeak / FS * 1000).toBeGreaterThan(365)
+    expect(rPeak / FS * 1000).toBeLessThan(385)
+  })
+
+  it('updates sync times on BPM change', () => {
+    const core = new EchoformDelayCore(FS, baseState({
+      mode: 'sync', divisionL: '1/4', divisionR: '1/4', timeMsL: 100, timeMsR: 100
+    }), 60)
+    // At 60 BPM, 1/4 = 1000 ms. Prime at the slow BPM so the buffer is at 1 s.
+    renderImpulse(core, 1.2)
+    // Change BPM to 120 — 1/4 becomes 500 ms. The retime should shift the tap.
+    core.update(baseState({
+      mode: 'sync', divisionL: '1/4', divisionR: '1/4', timeMsL: 100, timeMsR: 100
+    }), 120)
+    const { left } = renderImpulse(core, 0.8)
+    const p = peakIndex(left, Math.round(0.3 * FS))
+    // Tap lands near 500 ms after the BPM change (digital character retimes hard).
+    expect(p / FS * 1000).toBeGreaterThan(480)
+    expect(p / FS * 1000).toBeLessThan(520)
+    expect(isFiniteBuffer(left)).toBe(true)
   })
 })
 

@@ -1,6 +1,5 @@
 import { clamp } from '../lib/sample-utils'
 import { createEchoformDelayProcessor, prepareEchoformDelayWorklet } from './echoform-delay-processor'
-export { prepareEchoformDelayWorklet } from './echoform-delay-processor'
 import type { EchoformDelayState } from './echoform-delay-types'
 import { isEchoformDelayDivision } from './echoform-delay-core'
 import { createAetherformReverbProcessor, prepareAetherformReverbWorklet } from './aetherform-reverb-processor'
