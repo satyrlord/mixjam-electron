@@ -158,15 +158,19 @@ test.describe('Electron smoke', () => {
       expect(player.contentBounds.height).toBeGreaterThanOrEqual(minimumPlayerSize.height)
 
       await window.evaluate(() => window.shellAPI.resizeToHome())
+      // applyHomeSize runs inside a 200 ms setTimeout after the unmaximize event
+      // (needed on Windows to prevent SC_RESTORE from overwriting center()).
+      // Poll for both maximized:false AND the expected content size so the
+      // assertion does not race against the deferred resize.
       await expect.poll(async () => snapshot()).toMatchObject({
         resizable: true,
         maximizable: true,
-        maximized: false
+        maximized: false,
+        contentBounds: { width: 1920, height: 1080 }
       })
       const returnedHome = await snapshot()
       expect(returnedHome.bounds.width).toBeGreaterThanOrEqual(1920)
       expect(returnedHome.bounds.height).toBeGreaterThanOrEqual(1080)
-      expect(returnedHome.contentBounds).toMatchObject({ width: 1920, height: 1080 })
       await expect.poll(async () => centered(await snapshot())).toBe(true)
 
       let iconProbe: Record<string, unknown> | null = null
