@@ -252,7 +252,8 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
-  it('re-centers after an asynchronous unmaximize', async () => {
+  it('re-centers after an asynchronous unmaximize', () => {
+    vi.useFakeTimers()
     let unmaximizeListener: (() => void) | undefined
     const windowControls = {
       setResizable: vi.fn(),
@@ -276,9 +277,10 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(windowControls.setMinimumSize).not.toHaveBeenCalled()
 
     unmaximizeListener?.()
-    await new Promise<void>((resolve) => setTimeout(resolve, 250))
+    vi.advanceTimersByTime(200)
     expect(windowControls.center).toHaveBeenCalledTimes(1)
     expect(windowControls.setMinimumSize).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
   })
 
   it('AC-009: roundtrip Home -> Player -> Home -> Player works with no state leak', async () => {

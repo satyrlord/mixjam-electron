@@ -73,7 +73,13 @@ export function createMainWindowOptions(preloadPath: string, icon: NativeImage):
   }
 }
 
+let pendingHomeResizeTimer: ReturnType<typeof setTimeout> | undefined
+
 export function resizeWindowToPlayer(window: WindowFrameControls): void {
+  if (pendingHomeResizeTimer !== undefined) {
+    clearTimeout(pendingHomeResizeTimer)
+    pendingHomeResizeTimer = undefined
+  }
   if (window.setContentSize) {
     window.setContentSize(PLAYER_WINDOW_SIZE.width, PLAYER_WINDOW_SIZE.height)
   } else {
@@ -104,7 +110,10 @@ export function resizeWindowToHome(window: WindowFrameControls): void {
     // a non-centered restore position, overwriting the center() call. Defer all
     // sizing and centering until after the native unmaximize completes.
     window.once?.('unmaximize', () => {
-      setTimeout(() => applyHomeSize(window), 200)
+      pendingHomeResizeTimer = setTimeout(() => {
+        pendingHomeResizeTimer = undefined
+        applyHomeSize(window)
+      }, 200)
     })
     window.unmaximize?.()
   } else {
