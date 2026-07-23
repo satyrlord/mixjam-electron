@@ -1,1 +1,0 @@
-console.log("Ah! The Windows CI test failed ON LINE 170, which is `await expect.poll(async () => centered(await snapshot())).toBe(true)` in `resizeToHome`. It didn't fail on line 148 like my Linux test did!");

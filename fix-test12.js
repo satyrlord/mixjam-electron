@@ -1,1 +1,0 @@
-console.log("Ah, wait! `max-test.js` printed `Maximized? false` because on *Linux under Xvfb*, `maximize()` doesn't actually maximize the window! `xvfb-run` doesn't have a window manager by default, so it can't maximize! Wait, earlier when we ran with Openbox, it worked! Let's try it with Openbox.");

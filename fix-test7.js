@@ -1,1 +1,0 @@
-console.log("Since 'maximized: false' is returned where 'maximized: true' is expected after 'resizeToPlayer', that means `resizeToPlayer` failed to maximize the window in the smoke test on Windows.");

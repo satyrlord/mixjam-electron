@@ -1,1 +1,0 @@
-console.log("Wait, the commit 78a8047 removed `enforceMinimumContentSize(window)` from OUTSIDE the queueMicrotask. And PR #11 changed the test to expect `setMinimumSize` NOT to be called BEFORE the listener.");

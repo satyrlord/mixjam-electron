@@ -1,1 +1,0 @@
-console.log("Ok, so the poll for `centered` is timing out because the window bounds never match the expected center. But WHY does it not match the expected center? And why did this issue only start happening recently?");

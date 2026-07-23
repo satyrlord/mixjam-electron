@@ -1,3 +1,0 @@
-console.log("Wait, the test itself says `await expect.poll(async () => centered(await snapshot())).toBe(true)`");
-console.log("If the test is timing out, that means `centered(await snapshot())` never returns `true`. What happens on Windows? `unmaximize()` is called. The `SC_RESTORE` bounds are set. The `queueMicrotask` fires. It calls `applyHomeSize`, which calls `setContentSize` and `center`.");
-console.log("If `queueMicrotask` fires before `SC_RESTORE` completes, `center()` is overwritten. So 50ms should fix it, because `SC_RESTORE` will complete within 50ms, and THEN `applyHomeSize` will center it. But to be safe, I should change 50ms to 200ms.");

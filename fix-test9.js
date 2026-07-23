@@ -1,1 +1,0 @@
-console.log("Ok! So the failure `Timeout 5000ms exceeded while waiting on the predicate... 170 | await expect.poll(async () => centered(await snapshot())).toBe(true)` really *was* the flaky Windows home-center smoke assertion! AND it happened when the branch was 'main' basically!");
