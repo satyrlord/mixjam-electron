@@ -9,14 +9,6 @@ const VIRTUAL_ENTRY = 'virtual:mixjam-effects-test'
 const RESOLVED_VIRTUAL_ENTRY = `\0${VIRTUAL_ENTRY}`
 
 interface EffectHarnessWindow extends Window {
-  mixjamEffects: {
-    createReturnModuleProcessor(
-      context: BaseAudioContext,
-      module: Record<string, unknown>,
-      bpm: number
-    ): { input: AudioNode; output: AudioNode; dispose(): void }
-    prepareEchoformDelayWorklet(context: BaseAudioContext): Promise<boolean>
-  }
   mountMixjamTransportHarness(options: {
     wavBytes: number[]
     songEndTick: number
@@ -37,7 +29,6 @@ interface EffectHarnessWindow extends Window {
 }
 
 async function installEffectHarness(page: Page): Promise<void> {
-  const returnEffectsPath = resolve(process.cwd(), 'src/renderer/src/engine/return-effects.ts').replaceAll('\\', '/')
   const runtimePath = resolve(process.cwd(), 'src/renderer/src/hooks/useTransportRuntime.ts').replaceAll('\\', '/')
   const valueStorePath = resolve(process.cwd(), 'src/renderer/src/lib/value-store.ts').replaceAll('\\', '/')
   const result = await build({
@@ -53,11 +44,9 @@ async function installEffectHarness(page: Page): Promise<void> {
         return `
           import React, { useEffect } from 'react'
           import { createRoot } from 'react-dom/client'
-          import { createReturnModuleProcessor, prepareEchoformDelayWorklet } from ${JSON.stringify(returnEffectsPath)}
           import { useTransportRuntime } from ${JSON.stringify(runtimePath)}
           import { useStoreValue } from ${JSON.stringify(valueStorePath)}
 
-          window.mixjamEffects = { createReturnModuleProcessor, prepareEchoformDelayWorklet }
           let root = null
 
           window.mountMixjamTransportHarness = ({ wavBytes, songEndTick, returnBus }) => {
