@@ -9,6 +9,10 @@ const MIN_WINDOW_SIZE = MINIMUM_VIEWPORT
 export const HOME_WINDOW_SIZE = MIN_WINDOW_SIZE
 export const PLAYER_WINDOW_SIZE = MIN_WINDOW_SIZE
 
+/** Delay after the native unmaximize event before applying home size, in ms.
+ * Allows the OS to finish restoring the window before we resize and center. */
+export const HOME_RESIZE_DELAY_MS = 200
+
 export interface WindowFrameControls {
   setResizable(value: boolean): void
   setMaximizable(value: boolean): void
@@ -113,7 +117,7 @@ export function resizeWindowToHome(window: WindowFrameControls): void {
       pendingHomeResizeTimer = setTimeout(() => {
         pendingHomeResizeTimer = undefined
         applyHomeSize(window)
-      }, 200)
+      }, HOME_RESIZE_DELAY_MS)
     })
     window.unmaximize?.()
   } else {

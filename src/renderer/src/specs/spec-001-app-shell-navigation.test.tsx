@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildAppIconPath,
   createMainWindowOptions,
+  HOME_RESIZE_DELAY_MS,
   HOME_WINDOW_SIZE,
   resizeWindowToHome,
   resizeWindowToPlayer,
@@ -252,7 +253,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(vi.mocked(window.backendAPI.resizeToHome)).toHaveBeenCalledTimes(1)
   })
 
-  it('re-centers after an asynchronous unmaximize', () => {
+  it('re-centers after a deferred unmaximize', () => {
     vi.useFakeTimers()
     let unmaximizeListener: (() => void) | undefined
     const windowControls = {
@@ -277,7 +278,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(windowControls.setMinimumSize).not.toHaveBeenCalled()
 
     unmaximizeListener?.()
-    vi.advanceTimersByTime(200)
+    vi.advanceTimersByTime(HOME_RESIZE_DELAY_MS)
     expect(windowControls.center).toHaveBeenCalledTimes(1)
     expect(windowControls.setMinimumSize).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
