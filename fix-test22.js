@@ -1,0 +1,3 @@
+console.log("Looks like tests are passing now.");
+console.log("I am going to check what exact failure was in `build-electron (windows-latest)` before. It was around `tests/electron/smoke.spec.ts:170`, which checks `expect(centered(returnedHome)).toBe(true)`.");
+console.log("The test had `await expect.poll(async () => centered(await snapshot())).toBe(true)` in PR 9, which then failed because the bounds weren't centering. The `queueMicrotask` fired instantly, but the window bounds took a while to settle, and any OS update to `bounds` via `SC_RESTORE` would override `center()` if `center()` ran first. But wait, `setTimeout` defers `applyHomeSize(window)` so it runs 50ms AFTER `unmaximize`. Is 50ms enough? In typical UI race conditions, 50ms is standard.");

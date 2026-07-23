@@ -276,7 +276,7 @@ describe('Spec 001 - App Shell & Navigation acceptance', () => {
     expect(windowControls.setMinimumSize).not.toHaveBeenCalled()
 
     unmaximizeListener?.()
-    await new Promise<void>((resolve) => queueMicrotask(resolve))
+    await new Promise<void>((resolve) => setTimeout(resolve, 250))
     expect(windowControls.center).toHaveBeenCalledTimes(1)
     expect(windowControls.setMinimumSize).toHaveBeenCalledTimes(1)
   })

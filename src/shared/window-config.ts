@@ -104,7 +104,7 @@ export function resizeWindowToHome(window: WindowFrameControls): void {
     // a non-centered restore position, overwriting the center() call. Defer all
     // sizing and centering until after the native unmaximize completes.
     window.once?.('unmaximize', () => {
-      queueMicrotask(() => applyHomeSize(window))
+      setTimeout(() => applyHomeSize(window), 200)
     })
     window.unmaximize?.()
   } else {

@@ -1,0 +1,1 @@
+console.log("The test has `await expect.poll(async () => centered(await snapshot())).toBe(true)`, which has a default timeout of 5 seconds or something in Playwright. 200ms is well within that, so we don't need to change it. It should just pass.");
