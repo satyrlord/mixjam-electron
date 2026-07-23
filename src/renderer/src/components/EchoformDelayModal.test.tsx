@@ -58,6 +58,14 @@ describe('EchoformDelayModal', () => {
     expect(last[0].feedback).toBe(69)
   })
 
+  it('exposes the Drive knob and previews drive changes', () => {
+    const { onPreview } = renderModal(defaultModule({ drive: 0 }))
+    const drive = screen.getByRole('slider', { name: 'Drive' })
+    expect(drive).toHaveAttribute('aria-valuenow', '0')
+    fireEvent.keyDown(drive, { key: 'ArrowUp' })
+    expect(onPreview.mock.calls.at(-1)![0].drive).toBe(1)
+  })
+
   it('supports arrow, PageUp/PageDown, Home, and End on knobs', () => {
     const { onPreview } = renderModal(defaultModule({ feedback: 50 }))
     const feedback = screen.getByRole('slider', { name: 'Feedback' })

@@ -13,7 +13,7 @@ import { clamp } from '../lib/sample-utils'
 import {
   createEmptyReturnModule,
   createReturnModuleProcessor,
-  prepareEchoformDelayWorklet,
+  returnEffectDescriptors,
   createSafetyLimiter,
   RETURN_BUS_COUNT,
   type ReturnModule,
@@ -204,11 +204,14 @@ export class AudioEngine {
   async resume(): Promise<void> {
     const { context, masterGain, analyser } = this.ctx
     await context.resume()
-    // The Echoform Delay processor must be registered before a populated Return
-    // snapshot is materialized. Unsupported test contexts use its identity
-    // fallback; Electron's production AudioContext loads the same-origin
-    // worklet emitted by Vite.
-    await prepareEchoformDelayWorklet(context)
+    // Every registered FX-return processor must be registered before a
+    // populated Return snapshot is materialized. Driven by the effect registry
+    // so a new effect prepares automatically. Unsupported test contexts use
+    // their identity fallbacks; Electron's production AudioContext loads the
+    // same-origin worklets emitted by Vite.
+    await Promise.all(
+      returnEffectDescriptors().map((descriptor) => descriptor.prepareWorklet(context))
+    )
     // The master bus strip inserts between masterGain and the analyser tap
     // (spec-012 signal position); the loudness meter then taps the chain
     // output so all master readouts are post-chain and delivery-accurate.
@@ -288,6 +291,11 @@ export class AudioEngine {
     rampAudioParam(bus.poweredInput.gain, poweredGain, context)
     rampAudioParam(bus.returnGain.gain, clamp(snapshot.returnLevel, 0, 1), context)
     bus.limiter.setEnabled(snapshot.limiterEnabled)
+  }
+
+  /** Momentary command: flush a Return module's audio history (Clear Tail). */
+  clearReturnTail(index: number): void {
+    this.nodes?.returns[index]?.processor.clearTail?.()
   }
 
   /** Replace project-owned Return graphs even when the module type is unchanged.

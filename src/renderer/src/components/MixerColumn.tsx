@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { LaneState } from '../project/project-state'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
+import { getReturnEffect } from '../engine/return-effects'
 import type { ChannelMeterFrame } from '../hooks/useMixer'
 import { deriveStore, type ReadableStore } from '../lib/value-store'
 import ChannelStrip, { type ChannelMeterValue } from './ChannelStrip'
@@ -29,11 +30,19 @@ interface MixerColumnProps {
   onGestureEnd: () => void
   onSetReturnBus: (bus: PlaybackReturnSnapshot) => void
   onPreviewReturnBus: (bus: PlaybackReturnSnapshot) => void
+  /**
+   * Momentary Clear Tail command for a Return bus. Always supplied by the host;
+   * whether an editor exposes it is governed by the effect descriptor's
+   * `supportsClearTail`, matching the required `PlayerMixerProps` contract.
+   */
+  onClearReturnTail: (index: number) => void
 }
 
+// Labels come from the effect registry, so a new effect needs no edit here and
+// the strip send labels never drift from the slot header. (See MixerFxSlot's
+// moduleDisplayName, which does the same lookup.)
 function returnModuleName(bus: PlaybackReturnSnapshot): string {
-  if (bus.module.type === 'echoform-delay') return 'Echoform Delay'
-  return 'Empty'
+  return getReturnEffect(bus.module.type)?.label ?? 'Empty'
 }
 
 /** Full-width, horizontally scrollable Mixer workspace derived from lanes. */
@@ -51,7 +60,8 @@ export default function MixerColumn({
   onGestureStart,
   onGestureEnd,
   onSetReturnBus,
-  onPreviewReturnBus
+  onPreviewReturnBus,
+  onClearReturnTail
 }: MixerColumnProps) {
   // One derived view per channel: RAF-cadence frames fan out so each meter
   // leaf re-renders only when its own channel's numbers change.
@@ -156,6 +166,7 @@ export default function MixerColumn({
                   onSetBpm={onSetBpm}
                   onSet={onSetReturnBus}
                   onPreview={onPreviewReturnBus}
+                  onClearTail={onClearReturnTail}
                   onGestureStart={onGestureStart}
                   onGestureEnd={onGestureEnd}
                 />

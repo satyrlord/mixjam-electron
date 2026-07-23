@@ -130,6 +130,8 @@ export interface PlayerMixerProps {
   onSetChannelSend: (channelIndex: number, sendIndex: number, value: number) => void
   onSetReturnBus: (bus: PlaybackReturnSnapshot) => void
   onPreviewReturnBus: (bus: PlaybackReturnSnapshot) => void
+  /** Momentary Aetherform Clear Tail command for a Return bus. */
+  onClearReturnTail: (index: number) => void
 }
 
 export interface PlayerProjectProps {

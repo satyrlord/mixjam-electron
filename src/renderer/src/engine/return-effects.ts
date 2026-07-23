@@ -1,20 +1,31 @@
 import { clamp } from '../lib/sample-utils'
-import { createEchoformDelayProcessor } from './echoform-delay-processor'
+import { createEchoformDelayProcessor, prepareEchoformDelayWorklet } from './echoform-delay-processor'
+export { prepareEchoformDelayWorklet } from './echoform-delay-processor'
 import type { EchoformDelayState } from './echoform-delay-types'
 import { isEchoformDelayDivision } from './echoform-delay-core'
+import { createAetherformReverbProcessor, prepareAetherformReverbWorklet } from './aetherform-reverb-processor'
+import {
+  isAetherformCharacter,
+  isAetherformShimmerInterval,
+  isAetherformSpaceModel,
+  type AetherformReverbState
+} from './aetherform-reverb-types'
+import { getReturnEffect, registerReturnEffect } from './return-effect-registry'
 
 export type { EchoformDelayState } from './echoform-delay-types'
-export { prepareEchoformDelayWorklet } from './echoform-delay-processor'
+export type { AetherformReverbState } from './aetherform-reverb-types'
+export { getReturnEffect, returnEffectDescriptors } from './return-effect-registry'
 
 /** The project and audio graph always expose exactly four parallel Return buses. */
 export const RETURN_BUS_COUNT = 4
 
 /**
- * Return modules are black boxes hosted by the four fixed FX buses. The only
- * effect module is the Echoform Delay (`echoform-delay`); the legacy native
- * `delay` was replaced by it and is migrated on project load.
+ * Return modules are black boxes hosted by the four fixed FX buses. The effect
+ * modules are the Echoform Delay (`echoform-delay`) and the Aetherform Reverb
+ * (`aetherform-reverb`); the legacy native `delay` was replaced by the delay
+ * and is migrated on project load.
  */
-export type ReturnModule = EmptyReturnModule | EchoformDelayModule
+export type ReturnModule = EmptyReturnModule | EchoformDelayModule | AetherformReverbModule
 
 export interface EmptyReturnModule {
   readonly type: 'empty'
@@ -28,10 +39,18 @@ export interface EchoformDelayModule extends EchoformDelayState {
   readonly id?: string
 }
 
+export interface AetherformReverbModule extends AetherformReverbState {
+  readonly type: 'aetherform-reverb'
+  /** Optional runtime identity; project files identify modules by bus slot. */
+  readonly id?: string
+}
+
 export interface ReturnModuleProcessor {
   readonly input: GainNode
   readonly output: GainNode
   update(module: ReturnModule, bpm: number): void
+  /** Momentary command: flush all internal audio history (Aetherform Clear Tail). */
+  clearTail?(): void
   dispose(): void
 }
 
@@ -60,7 +79,9 @@ export function createReturnModuleProcessor(
   module: ReturnModule,
   bpm: number
 ): ReturnModuleProcessor {
-  if (module.type === 'echoform-delay') return createEchoformDelayProcessor(context, module, bpm)
+  const descriptor = getReturnEffect(module.type)
+  if (descriptor) return descriptor.createProcessor(context, module, bpm)
+  // Empty and unknown types are the host-owned silent identity module.
   return createEmptyProcessor(context)
 }
 
@@ -89,6 +110,7 @@ export function createDefaultEchoformDelayReturnModule(id = `fx-${crypto.randomU
     modRate: 0.38,
     modDepth: 5.4,
     character: 'tape',
+    drive: 0,
     duckAmount: 34,
     duckRelease: 620,
     outputDb: -1.5,
@@ -180,6 +202,7 @@ export function applyEchoformDelayPreset(
         modRate: 0.24,
         modDepth: 7.6,
         character: 'tape',
+        drive: 32,
         duckAmount: 18,
         duckRelease: 980,
         outputDb: -4.1,
@@ -230,11 +253,220 @@ export function applyEchoformDelayPreset(
   }
 }
 
+/**
+ * Default state is the "Warm Chamber" preset. Mix (88%) is the shared
+ * FX-return level and lives with the editor's preset table, not here.
+ */
+export function createDefaultAetherformReverbReturnModule(
+  id = `fx-${crypto.randomUUID()}`
+): AetherformReverbModule {
+  return {
+    id,
+    type: 'aetherform-reverb',
+    spaceModel: 'chamber',
+    preDelayMs: 24,
+    decaySeconds: 2.8,
+    sizePercent: 68,
+    character: 'vintage',
+    drivePercent: 0,
+    widthPercent: 148,
+    lateBalancePercent: 72,
+    lowCutHz: 180,
+    highCutHz: 8600,
+    diffusionPercent: 78,
+    densityPercent: 84,
+    earlyReflectionsEnabled: true,
+    modRateHz: 0.32,
+    modDepthPercent: 18,
+    shimmerEnabled: false,
+    shimmerAmountPercent: 24,
+    shimmerIntervalSemitones: 12,
+    duckAmountPercent: 28,
+    duckReleaseMs: 720,
+    outputDb: -1.5,
+    freeze: false,
+    bypass: false
+  }
+}
+
+export type AetherformReverbPresetName =
+  | 'Warm Chamber'
+  | 'Vocal Plate'
+  | 'Dark Hall'
+  | 'Small Room'
+  | 'Ambient Bloom'
+  | 'Shimmer Cloud'
+  | 'Frozen Cathedral'
+
+export const AETHERFORM_REVERB_PRESET_NAMES: readonly AetherformReverbPresetName[] = [
+  'Warm Chamber', 'Vocal Plate', 'Dark Hall', 'Small Room',
+  'Ambient Bloom', 'Shimmer Cloud', 'Frozen Cathedral'
+]
+
+/**
+ * Apply a built-in preset. Every field is set explicitly (spread over the
+ * default), the preset always clears Bypass, and the caller applies the
+ * preset's Mix to the shared FX-return level.
+ */
+export function applyAetherformReverbPreset(
+  module: AetherformReverbModule,
+  preset: AetherformReverbPresetName
+): AetherformReverbModule {
+  const base = createDefaultAetherformReverbReturnModule(module.id)
+  switch (preset) {
+    case 'Warm Chamber':
+      return base
+    case 'Vocal Plate':
+      return {
+        ...base,
+        spaceModel: 'plate',
+        character: 'natural',
+        preDelayMs: 56,
+        decaySeconds: 1.9,
+        sizePercent: 52,
+        widthPercent: 132,
+        lateBalancePercent: 62,
+        lowCutHz: 220,
+        highCutHz: 12500,
+        diffusionPercent: 86,
+        densityPercent: 90,
+        modRateHz: 0.18,
+        modDepthPercent: 9,
+        shimmerAmountPercent: 14,
+        duckAmountPercent: 46,
+        duckReleaseMs: 420,
+        outputDb: -2.0
+      }
+    case 'Dark Hall':
+      return {
+        ...base,
+        spaceModel: 'hall',
+        character: 'vintage',
+        preDelayMs: 38,
+        decaySeconds: 5.6,
+        sizePercent: 88,
+        widthPercent: 164,
+        lateBalancePercent: 82,
+        lowCutHz: 260,
+        highCutHz: 4800,
+        diffusionPercent: 70,
+        densityPercent: 76,
+        modRateHz: 0.21,
+        modDepthPercent: 24,
+        shimmerAmountPercent: 18,
+        shimmerIntervalSemitones: 7,
+        duckAmountPercent: 18,
+        duckReleaseMs: 1100,
+        outputDb: -3.5
+      }
+    case 'Small Room':
+      return {
+        ...base,
+        spaceModel: 'room',
+        character: 'natural',
+        preDelayMs: 8,
+        decaySeconds: 0.7,
+        sizePercent: 28,
+        widthPercent: 110,
+        lateBalancePercent: 48,
+        lowCutHz: 120,
+        highCutHz: 14800,
+        diffusionPercent: 58,
+        densityPercent: 64,
+        modRateHz: 0.12,
+        modDepthPercent: 4,
+        shimmerAmountPercent: 0,
+        duckAmountPercent: 12,
+        duckReleaseMs: 220,
+        outputDb: -1.0
+      }
+    case 'Ambient Bloom':
+      return {
+        ...base,
+        spaceModel: 'hall',
+        character: 'bloom',
+        preDelayMs: 72,
+        decaySeconds: 9.5,
+        sizePercent: 96,
+        widthPercent: 188,
+        lateBalancePercent: 91,
+        lowCutHz: 340,
+        highCutHz: 7200,
+        diffusionPercent: 94,
+        densityPercent: 98,
+        modRateHz: 0.14,
+        modDepthPercent: 42,
+        shimmerEnabled: true,
+        shimmerAmountPercent: 38,
+        duckAmountPercent: 8,
+        duckReleaseMs: 1800,
+        outputDb: -5.2
+      }
+    case 'Shimmer Cloud':
+      return {
+        ...base,
+        spaceModel: 'hall',
+        character: 'bloom',
+        preDelayMs: 84,
+        decaySeconds: 12.4,
+        sizePercent: 100,
+        widthPercent: 196,
+        lateBalancePercent: 94,
+        lowCutHz: 460,
+        highCutHz: 9800,
+        diffusionPercent: 98,
+        densityPercent: 100,
+        earlyReflectionsEnabled: false,
+        modRateHz: 0.1,
+        modDepthPercent: 36,
+        shimmerEnabled: true,
+        shimmerAmountPercent: 72,
+        duckAmountPercent: 4,
+        duckReleaseMs: 2200,
+        outputDb: -6.0
+      }
+    case 'Frozen Cathedral':
+      return {
+        ...base,
+        spaceModel: 'hall',
+        character: 'bloom',
+        preDelayMs: 110,
+        decaySeconds: 18,
+        sizePercent: 100,
+        widthPercent: 200,
+        lateBalancePercent: 96,
+        lowCutHz: 420,
+        highCutHz: 5600,
+        diffusionPercent: 100,
+        densityPercent: 100,
+        earlyReflectionsEnabled: false,
+        modRateHz: 0.08,
+        modDepthPercent: 55,
+        shimmerEnabled: true,
+        shimmerAmountPercent: 84,
+        shimmerIntervalSemitones: 19,
+        duckAmountPercent: 0,
+        duckReleaseMs: 2500,
+        outputDb: -7.0,
+        freeze: true
+      }
+  }
+}
+
 const EMPTY_KEYS = ['id', 'type'] as const
 const ECHOFORM_DELAY_KEYS = [
   'id', 'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR',
   'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
-  'character', 'duckAmount', 'duckRelease', 'outputDb', 'freeze', 'bypass'
+  'character', 'drive', 'duckAmount', 'duckRelease', 'outputDb', 'freeze', 'bypass'
+] as const
+
+const AETHERFORM_REVERB_KEYS = [
+  'id', 'type', 'spaceModel', 'preDelayMs', 'decaySeconds', 'sizePercent',
+  'character', 'drivePercent', 'widthPercent', 'lateBalancePercent', 'lowCutHz', 'highCutHz',
+  'diffusionPercent', 'densityPercent', 'earlyReflectionsEnabled', 'modRateHz',
+  'modDepthPercent', 'shimmerEnabled', 'shimmerAmountPercent',
+  'shimmerIntervalSemitones', 'duckAmountPercent', 'duckReleaseMs', 'outputDb',
+  'freeze', 'bypass'
 ] as const
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
@@ -245,12 +477,34 @@ function numberInRange(value: unknown, minimum: number, maximum: number): value 
   return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
 }
 
-export function isReturnModule(value: unknown): value is ReturnModule {
-  if (!value || typeof value !== 'object') return false
-  const module = value as Record<string, unknown>
-  if (module.id !== undefined && (typeof module.id !== 'string' || module.id.length === 0)) return false
-  if (module.type === 'empty') return hasOnlyKeys(module, EMPTY_KEYS)
-  if (module.type !== 'echoform-delay') return false
+function isAetherformReverbModule(module: Record<string, unknown>): boolean {
+  return hasOnlyKeys(module, AETHERFORM_REVERB_KEYS) &&
+    isAetherformSpaceModel(module.spaceModel) &&
+    numberInRange(module.preDelayMs, 0, 250) &&
+    numberInRange(module.decaySeconds, 0.2, 30) &&
+    numberInRange(module.sizePercent, 5, 100) &&
+    isAetherformCharacter(module.character) &&
+    numberInRange(module.drivePercent, 0, 100) &&
+    numberInRange(module.widthPercent, 0, 200) &&
+    numberInRange(module.lateBalancePercent, 0, 100) &&
+    numberInRange(module.lowCutHz, 20, 2000) &&
+    numberInRange(module.highCutHz, 1000, 20000) &&
+    numberInRange(module.diffusionPercent, 0, 100) &&
+    numberInRange(module.densityPercent, 0, 100) &&
+    typeof module.earlyReflectionsEnabled === 'boolean' &&
+    numberInRange(module.modRateHz, 0.05, 3) &&
+    numberInRange(module.modDepthPercent, 0, 100) &&
+    typeof module.shimmerEnabled === 'boolean' &&
+    numberInRange(module.shimmerAmountPercent, 0, 100) &&
+    isAetherformShimmerInterval(module.shimmerIntervalSemitones) &&
+    numberInRange(module.duckAmountPercent, 0, 100) &&
+    numberInRange(module.duckReleaseMs, 50, 2500) &&
+    numberInRange(module.outputDb, -24, 12) &&
+    typeof module.freeze === 'boolean' &&
+    typeof module.bypass === 'boolean'
+}
+
+function isEchoformDelayModule(module: Record<string, unknown>): boolean {
   return hasOnlyKeys(module, ECHOFORM_DELAY_KEYS) &&
     (module.mode === 'free' || module.mode === 'sync') &&
     isEchoformDelayDivision(module.divisionL) &&
@@ -265,11 +519,21 @@ export function isReturnModule(value: unknown): value is ReturnModule {
     numberInRange(module.modRate, 0.05, 8) &&
     numberInRange(module.modDepth, 0, 20) &&
     (module.character === 'digital' || module.character === 'analog' || module.character === 'tape') &&
+    numberInRange(module.drive, 0, 100) &&
     numberInRange(module.duckAmount, 0, 100) &&
     numberInRange(module.duckRelease, 50, 2500) &&
-    numberInRange(module.outputDb, -24, 6) &&
+    numberInRange(module.outputDb, -24, 12) &&
     typeof module.freeze === 'boolean' &&
     typeof module.bypass === 'boolean'
+}
+
+export function isReturnModule(value: unknown): value is ReturnModule {
+  if (!value || typeof value !== 'object') return false
+  const module = value as Record<string, unknown>
+  if (module.id !== undefined && (typeof module.id !== 'string' || module.id.length === 0)) return false
+  if (module.type === 'empty') return hasOnlyKeys(module, EMPTY_KEYS)
+  const descriptor = getReturnEffect(module.type as string)
+  return descriptor ? descriptor.validate(module) : false
 }
 
 export interface SafetyLimiter {
@@ -327,3 +591,41 @@ export function createSafetyLimiter(context: BaseAudioContext, enabled = true): 
     dispose(): void { disconnectAll([input, output, lookahead, compressor, ceiling]) }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Effect registry
+//
+// The two built-in effects register their descriptors here. The host reads the
+// registry and never names an effect. `moduleKeys` is the serialized field
+// allow-list (type + fields, no id); it is derived from the validation KEYS so
+// there is one source of truth. See spec-010 "Module Registration Contract".
+// ---------------------------------------------------------------------------
+
+const serializedKeys = (keys: readonly string[]): readonly string[] =>
+  keys.filter((key) => key !== 'id')
+
+registerReturnEffect({
+  type: 'echoform-delay',
+  label: 'Echoform Delay',
+  tempoAware: true,
+  supportsClearTail: false,
+  createProcessor: (context, module, bpm) =>
+    createEchoformDelayProcessor(context, module as EchoformDelayModule, bpm),
+  prepareWorklet: prepareEchoformDelayWorklet,
+  createDefault: (id) => createDefaultEchoformDelayReturnModule(id),
+  validate: isEchoformDelayModule,
+  moduleKeys: serializedKeys(ECHOFORM_DELAY_KEYS)
+})
+
+registerReturnEffect({
+  type: 'aetherform-reverb',
+  label: 'Aetherform Reverb',
+  tempoAware: false,
+  supportsClearTail: true,
+  createProcessor: (context, module) =>
+    createAetherformReverbProcessor(context, module as AetherformReverbModule),
+  prepareWorklet: prepareAetherformReverbWorklet,
+  createDefault: (id) => createDefaultAetherformReverbReturnModule(id),
+  validate: isAetherformReverbModule,
+  moduleKeys: serializedKeys(AETHERFORM_REVERB_KEYS)
+})

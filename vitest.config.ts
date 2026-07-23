@@ -16,9 +16,17 @@ const NODE_BACKEND_TESTS = [
   'scripts/generate-mixer-test-song.test.ts'
 ]
 
+// V8 coverage instrumentation runs the DSP long-render tests (multi-second
+// reverb tails at 48 kHz) roughly 8x slower, so the 5 s default timeout is
+// marginal under `--coverage` even though those tests finish in ~2 s
+// uninstrumented. Widen the default timeout for coverage runs only; normal
+// unit runs keep the strict 5 s. Detection mirrors the perf tests' BUDGET_FACTOR.
+const COVERAGE_RUN = (process.env.npm_lifecycle_event ?? '').includes('coverage')
+
 export default defineConfig({
   plugins: [react()],
   test: {
+    testTimeout: COVERAGE_RUN ? 30000 : 5000,
     // The real-time allocation gate measures retained heap after explicit GC.
     // Passing this to Vitest workers keeps that measurement stable under V8
     // coverage instrumentation as well as in the normal unit run.
@@ -63,7 +71,10 @@ export default defineConfig({
         'src/renderer/src/backend/client.ts',
         'src/renderer/src/backend/folder-access.ts',
         'src/renderer/src/backend/handle-store.ts',
-        'src/renderer/src/backend/worker.ts'
+        'src/renderer/src/backend/worker.ts',
+        // AudioWorklet-only code that runs inside AudioWorkletGlobalScope,
+        // unreachable from jsdom. Exercised through the E2E suite instead.
+        'src/renderer/src/engine/worklets/**'
       ]
     }
   }

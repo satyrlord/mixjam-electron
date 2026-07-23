@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
-import { createDefaultEchoformDelayReturnModule, createEmptyReturnModule } from '../engine/return-effects'
+import {
+  createDefaultAetherformReverbReturnModule,
+  createDefaultEchoformDelayReturnModule,
+  createEmptyReturnModule
+} from '../engine/return-effects'
 import MixerFxSlot from './MixerFxSlot'
 
 function delayBus(): PlaybackReturnSnapshot {
@@ -11,6 +15,16 @@ function delayBus(): PlaybackReturnSnapshot {
     powered: true,
     returnLevel: 0.7,
     limiterEnabled: false
+  }
+}
+
+function reverbBus(): PlaybackReturnSnapshot {
+  return {
+    index: 0,
+    module: createDefaultAetherformReverbReturnModule('fx-1'),
+    powered: true,
+    returnLevel: 0.88,
+    limiterEnabled: true
   }
 }
 
@@ -79,12 +93,28 @@ describe('MixerFxSlot', () => {
     expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ index: 0 }))
   })
 
-  it('Edit on an Empty slot auditions a default Echoform delay', () => {
+  it('Edit on an Empty slot opens the effect picker with both modules', () => {
     const { onPreview } = renderSlot({ ...delayBus(), module: createEmptyReturnModule('fx-1') })
     fireEvent.click(screen.getByRole('button', { name: 'Edit parameters for FX 1' }))
+    // No module is silently assigned: the picker opens instead of an editor.
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onPreview).not.toHaveBeenCalled()
+    const delayItem = screen.getByRole('menuitem', { name: 'Echoform Delay...' })
+    expect(screen.getByRole('menuitem', { name: 'Aetherform Reverb...' })).toBeInTheDocument()
+    fireEvent.click(delayItem)
     expect(screen.getByRole('dialog', { name: 'Echoform Delay' })).toBeInTheDocument()
     expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({
       module: expect.objectContaining({ type: 'echoform-delay' })
+    }))
+  })
+
+  it('Edit on an Empty slot can pick the Aetherform Reverb', () => {
+    const { onPreview } = renderSlot({ ...delayBus(), module: createEmptyReturnModule('fx-1') })
+    fireEvent.click(screen.getByRole('button', { name: 'Edit parameters for FX 1' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Aetherform Reverb...' }))
+    expect(screen.getByRole('dialog', { name: 'Aetherform Reverb' })).toBeInTheDocument()
+    expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({
+      module: expect.objectContaining({ type: 'aetherform-reverb' })
     }))
   })
 
@@ -103,7 +133,59 @@ describe('MixerFxSlot', () => {
     }))
   })
 
-  it('clears a populated slot and offers only Echoform Delay for Empty', () => {
+  it('shows the Aetherform summary and opens its editor from Edit', () => {
+    const { onPreview } = renderSlot(reverbBus())
+    const card = screen.getByRole('region', { name: 'FX Return 1' })
+    expect(screen.getByRole('button', { name: 'FX 1 Aetherform Reverb' })).toHaveTextContent('Aetherform Reverb')
+    expect(card).toHaveTextContent('chamber')
+    expect(card).toHaveTextContent('2.8 s')
+    expect(card).toHaveTextContent('vintage')
+    expect(card).toHaveTextContent('Mix 88%')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit parameters for FX 1' }))
+    expect(screen.getByRole('dialog', { name: 'Aetherform Reverb' })).toBeInTheDocument()
+    expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({
+      module: expect.objectContaining({ type: 'aetherform-reverb' })
+    }))
+  })
+
+  it('mentions shimmer in the summary when enabled', () => {
+    renderSlot({
+      ...reverbBus(),
+      module: {
+        ...createDefaultAetherformReverbReturnModule('fx-1'),
+        shimmerEnabled: true,
+        shimmerIntervalSemitones: 19
+      }
+    })
+    expect(screen.getByRole('region', { name: 'FX Return 1' })).toHaveTextContent('Shimmer +19')
+  })
+
+  it('assigns Aetherform Reverb from the slot menu and saves it on close', () => {
+    const { onSet, onPreview } = renderSlot({ ...delayBus(), module: createEmptyReturnModule('fx-1') })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'FX 1 Empty' }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Aetherform Reverb...' }))
+    expect(screen.getByRole('dialog', { name: 'Aetherform Reverb' })).toBeInTheDocument()
+    expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({
+      module: expect.objectContaining({ type: 'aetherform-reverb' })
+    }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close Aetherform Reverb editor' }))
+    expect(onSet).toHaveBeenCalledWith(expect.objectContaining({
+      module: expect.objectContaining({ type: 'aetherform-reverb', spaceModel: 'chamber' })
+    }))
+  })
+
+  it('routes the editor Clear Tail command to the bus index', () => {
+    const onClearTail = vi.fn()
+    render(<MixerFxSlot
+      bus={{ ...reverbBus(), index: 2 }} onSet={vi.fn()} onPreview={vi.fn()}
+      onClearTail={onClearTail} onGestureStart={vi.fn()} onGestureEnd={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit parameters for FX 3' }))
+    fireEvent.click(screen.getByRole('button', { name: /Clear tail/ }))
+    expect(onClearTail).toHaveBeenCalledWith(2)
+  })
+
+  it('clears a populated slot and offers both effects for Empty', () => {
     const onSet = vi.fn()
     const { rerender } = render(<MixerFxSlot
       bus={delayBus()} onSet={onSet} onPreview={vi.fn()} onGestureStart={vi.fn()} onGestureEnd={vi.fn()} />)
@@ -119,6 +201,7 @@ describe('MixerFxSlot', () => {
     expect(screen.queryByRole('button', { name: 'Power FX 2' })).toBeNull()
     fireEvent.keyDown(screen.getByRole('button', { name: 'FX 2 Empty' }), { key: 'Enter' })
     expect(screen.getByRole('menuitem', { name: 'Echoform Delay...' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Aetherform Reverb...' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Clear slot' })).toBeNull()
   })
 

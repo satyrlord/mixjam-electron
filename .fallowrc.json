@@ -9,6 +9,7 @@
     // is invisible to static analysis unless they are declared here.
     "src/renderer/src/engine/worklets/master-bus.worklet.ts",
     "src/renderer/src/engine/worklets/echoform-delay.worklet.ts",
+    "src/renderer/src/engine/worklets/aetherform-reverb.worklet.ts",
     "src/renderer/src/engine/worklets/loudness.worklet.js"
   ],
   "ignorePatterns": [
@@ -23,7 +24,11 @@
   // verified call sites; none is dead code.
   "usedClassMembers": [
     "play", "pause", "stop", "setBpm", "previewSample", "undo", "redo",
-    "applyReturnSnapshot", "getMasterBusMeterSnapshot", "setMasterBusMetersActive",
+    "applyReturnSnapshot", "clearReturnTail", "getMasterBusMeterSnapshot", "setMasterBusMetersActive",
+    // Return-effect core lifecycle commands (EchoformDelayCore/AetherformReverbCore),
+    // dispatched through the shared worklet shell's `onMessage` facade
+    // (return-worklet-class.ts). Verified call sites in each `*.worklet.ts`.
+    "reset", "clearTail",
     // The BusModule contract (masterbus/dsp/module.ts), implemented by all
     // Master Bus processors and invoked polymorphically by the DSP chain.
     {

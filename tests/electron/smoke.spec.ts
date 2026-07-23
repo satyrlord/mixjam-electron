@@ -39,8 +39,17 @@ function minimumPlayerContentSize(snapshot: NativeWindowSnapshot): { width: numb
 }
 
 function centered(snapshot: NativeWindowSnapshot): boolean {
-  const expectedX = snapshot.workArea.x + Math.round((snapshot.workArea.width - snapshot.bounds.width) / 2)
-  const expectedY = snapshot.workArea.y + Math.round((snapshot.workArea.height - snapshot.bounds.height) / 2)
+  // A window larger than the work area cannot be truly centered: Chromium
+  // clamps the ideal (negative-offset) origin back into the work area along
+  // each overflowing axis, and the minimum-size hook keeps the size intact.
+  // GitHub's 1920x1080 runners hit this on the home window — the 1080p content
+  // plus native frame overflows the taskbar-reduced work area, so the OS pins
+  // the window at the work-area origin. The achievable "centered" position is
+  // therefore the ideal center clamped to the work-area origin per axis.
+  const idealX = snapshot.workArea.x + Math.round((snapshot.workArea.width - snapshot.bounds.width) / 2)
+  const idealY = snapshot.workArea.y + Math.round((snapshot.workArea.height - snapshot.bounds.height) / 2)
+  const expectedX = Math.max(idealX, snapshot.workArea.x)
+  const expectedY = Math.max(idealY, snapshot.workArea.y)
   return Math.abs(snapshot.bounds.x - expectedX) <= 1 && Math.abs(snapshot.bounds.y - expectedY) <= 1
 }
 
@@ -163,6 +172,9 @@ test.describe('Electron smoke', () => {
         maximizable: true,
         maximized: false
       })
+      // Poll: a Windows unmaximize can asynchronously reapply restore bounds
+      // after the explicit center(), so wait for the position to settle.
+      await expect.poll(async () => centered(await snapshot())).toBe(true)
       const returnedHome = await snapshot()
       expect(returnedHome.bounds.width).toBeGreaterThanOrEqual(1920)
       expect(returnedHome.bounds.height).toBeGreaterThanOrEqual(1080)

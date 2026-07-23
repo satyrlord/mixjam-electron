@@ -15,7 +15,7 @@ import { clamp } from '../lib/sample-utils'
 import { RotaryControl, RotaryDial } from './RotaryField'
 
 export interface MasterBusUiMeters {
-  /** Input VU in dBFS; needle position derives from vuDb + 18 on a -20..+3 VU scale. */
+  /** Input VU in dBFS; needle position derives from vuDb + 18 on a -10..+4 VU scale. */
   vuDb: number
   peakL: boolean
   peakR: boolean
@@ -254,24 +254,25 @@ function GrLedRow({
 
 /* ── Input meter (slot 01) ── */
 
+// Marks are evenly spaced (2 VU apart) across the whole arc so the scale reads
+// linearly. The sweep spans -10..+4 VU (-28..-14 dBFS): below -28 dBFS is not
+// musically useful for setting input gain, so it gets no space on the dial.
 const VU_MARKS: readonly (readonly [number, string])[] = [
-  [-20, '20'],
   [-10, '10'],
-  [-7, '7'],
-  [-5, '5'],
-  [-3, '3'],
-  [-1, '1'],
+  [-8, '8'],
+  [-6, '6'],
+  [-4, '4'],
+  [-2, '2'],
   [0, '0'],
-  [1, '+1'],
   [2, '+2'],
-  [3, '+3']
+  [4, '+4']
 ]
 
 const VU_CX = 100
 const VU_CY = 118
 
 function vuAngleRad(v: number): number {
-  return ((-46 + ((v + 20) / 23) * 92) * Math.PI) / 180
+  return ((-46 + ((v + 10) / 14) * 92) * Math.PI) / 180
 }
 
 function vuPoint(r: number, a: number): readonly [number, number] {
@@ -280,7 +281,7 @@ function vuPoint(r: number, a: number): readonly [number, number] {
 
 function VuScale() {
   const [x0, y0] = vuPoint(101, vuAngleRad(0))
-  const [x3, y3] = vuPoint(101, vuAngleRad(3))
+  const [x3, y3] = vuPoint(101, vuAngleRad(4))
   return (
     <svg className="mbs-vu-svg" viewBox="0 0 200 132" aria-hidden="true">
       <path
@@ -314,8 +315,8 @@ function VuScale() {
 
 function InputMeterModule({ meters }: { meters: MasterBusUiMeters }) {
   const finite = Number.isFinite(meters.vuDb)
-  const vuVal = clamp((finite ? meters.vuDb : -120) + 18, -20, 3)
-  const needleDeg = -46 + ((vuVal + 20) / 23) * 92
+  const vuVal = clamp((finite ? meters.vuDb : -120) + 18, -10, 4)
+  const needleDeg = -46 + ((vuVal + 10) / 14) * 92
   return (
     <section className="mbs-module mbs-module-meter mbs-finish-meter mbs-fam-meter" aria-label="Input meter">
       <div className="mbs-mod-top">

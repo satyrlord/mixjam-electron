@@ -171,7 +171,8 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onSetChannelPan: noop,
   onSetChannelSend: noop,
   onSetReturnBus: noop,
-  onPreviewReturnBus: noop
+  onPreviewReturnBus: noop,
+  onClearReturnTail: noop
 }
 
 const DEFAULT_PROJECT: PlayerProjectProps = {

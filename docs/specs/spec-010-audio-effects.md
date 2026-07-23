@@ -13,14 +13,16 @@ persistence with v5→v6 migration, and unified project undo are implemented.
 ## Objective
 
 Define four independent, global FX modules as black boxes hosted by the four
-Mixer return buses. Each fixed slot contains either an Empty module or an
-Echoform Delay module. Users edit one slot in a blocking modal with live
-audition, while the host owns routing, power, return level, tail lifecycle, and a
-per-return safety limiter.
+Mixer return buses. Each fixed slot contains an Empty module, an Echoform Delay
+module, or an Aetherform Reverb module. Users edit one slot in a blocking modal
+with live audition, while the host owns routing, power, return level, tail
+lifecycle, and a per-return safety limiter.
 
-The Echoform Delay is the only effect module. It replaced the earlier native
-`delay` module; projects saved with that type are upgraded by the v5→v6
-migration (see Persistence). The serialized module type is `echoform-delay`.
+The effect modules are the Echoform Delay and the Aetherform Reverb
+(spec-013). The Echoform Delay replaced the earlier native `delay` module;
+projects saved with that type are upgraded by the v5→v6 migration (see
+Persistence). The serialized module types are `echoform-delay` and
+`aetherform-reverb`.
 
 ## User Stories
 
@@ -44,7 +46,8 @@ migration (see Persistence). The serialized module type is `echoform-delay`.
   one another.
 - Return bus N feeds FX slot N. Each slot receives only the sum of lane send N.
 - Every slot contains exactly one module record with a stable slot identity.
-  The supported module types are `empty` and `echoform-delay`.
+  The supported module types are `empty`, `echoform-delay`, and
+  `aetherform-reverb`.
 - A module is a black box to the host. The host provides stereo input, expects
   stereo wet-only output, supplies current project BPM, and owns power, return
   level, limiter, persistence, and disposal.
@@ -75,14 +78,18 @@ duplicate dry audio through an empty slot.
 ### Container menu and summary
 
 - Left-clicking a container opens its dropdown. An Empty slot offers
-  `Echoform Delay...`. A configured slot offers `Echoform Delay...` and
-  `Clear slot`.
-- Choosing `Echoform Delay...`, or the Edit button, opens the Echoform Delay
-  modal. In a configured slot it edits that slot's independent settings; in
-  Empty it begins a new Echoform Delay draft.
-- The closed container shows FX 1 through FX 4, Empty or Echoform Delay, Power
-  state, the Mix rotary (the shared return level), limiter state, and a compact
-  summary of time or division, Feedback, character, and Mix.
+  `Echoform Delay...` and `Aetherform Reverb...`. A configured slot offers both
+  effect entries and `Clear slot`.
+- Choosing an effect entry opens that module's modal. In a slot already
+  holding the chosen type it edits that slot's independent settings; otherwise
+  it begins a new draft of that module's default state. The Edit button
+  reopens the editor matching the module currently in the slot; on an Empty
+  slot it opens the effect picker instead of silently assigning a module.
+- The closed container shows FX 1 through FX 4, the module name (Empty,
+  Echoform Delay, or Aetherform Reverb), Power state, the Mix rotary (the
+  shared return level), limiter state, and a compact per-module summary: time
+  or division, Feedback, character, and Mix for the delay; space model, decay,
+  character, shimmer interval when enabled, and Mix for the reverb.
 
 ## Echoform Delay Module
 
@@ -113,9 +120,10 @@ are L 500 ms (1/4) and R 375 ms (1/8 dotted).
 | Mod rate | 0.05–8 Hz | 0.38 Hz |
 | Mod depth | 0–20 ms | 5.4 ms |
 | Character | Digital, Analog, Tape | Tape |
+| Drive | 0–100% | 0% |
 | Duck amount | 0–100% | 34% |
 | Duck release | 50–2500 ms | 620 ms |
-| Output level | -24 to +6 dB | -1.5 dB |
+| Output level | -24 to +12 dB | -1.5 dB |
 | Freeze/Hold | Off, On | Off |
 | Bypass | Off, On | Off |
 | Mix | 0–100% (shared FX-return level) | container-owned |
@@ -146,6 +154,14 @@ Conceptual stereo flow, all inside the module black box:
 6. Add the new input unless Freeze/Hold is active.
 7. The delayed taps are the wet output; apply post-loop mid/side Stereo width
    (0% mono, 100% unchanged, 200% doubled side).
+
+Freeze/Hold is a **true hold, not a slow fade**. While frozen the loop gain
+goes to near-unity, new input is gated, **and the recirculated signal bypasses
+the in-loop low/high-cut filters and character saturation** — those stages are
+lossy per circulation, so leaving them in the loop made a "frozen" tail decay
+audibly. The wet output tap stays filtered and coloured, so the held tail keeps
+its tone; only the copy fed back around the loop is un-toned. The filters keep
+running (their state stays warm) so releasing Freeze is click-free.
 8. Apply ducking gain to the wet only (soft knee, wet-only attenuation).
 9. Apply Output level.
 
@@ -177,6 +193,18 @@ Character changes the real algorithm, not only a label:
 Mod rate is the LFO rate and Mod depth is the peak delay-time deviation in ms.
 Left and right modulate 90° apart so the channels move differently. Depth 0
 disables audible time modulation in every character (no hidden tape drift).
+
+### Drive
+
+Drive ("Smash") is a gain-compensated soft saturation on the signal **entering**
+the delay, before the feedback network — an up-front distortion distinct from
+the in-loop Character coloration. It is applied after the ducking detector reads
+the input (so ducking follows the natural transient, not the smashed level) and
+before the network write, so driven material recirculates and the grit builds
+across repeats. The curve is `tanh(x·g)/g` with `g = 1 + drive·8` plus a mild
+makeup, then blended against the clean input by the Drive amount, so 0% is an
+exact bypass. Drive is smoothed per sample (click-free) and gated by Freeze like
+any other input, so a frozen tail holds without new driven input.
 
 ## Return Graph and Limiter
 
@@ -355,6 +383,64 @@ Undo and Redo restore the whole bus record without a second FX state owner.
 Project command-history tests cover complete Return-bus Undo and Redo, while
 persistence tests cover complete bus replacement on load and New.
 
+## Module Registration Contract
+
+New module types plug into the host through one descriptor, not by editing
+per-type branches scattered across the engine, the project loader, and the
+Mixer UI. Each effect owns a folder and exports a single descriptor; the host
+holds a registry keyed by module type and never names an individual effect.
+
+A module descriptor declares:
+
+- `type` — the serialized module-type string (for example `echoform-delay`).
+- `label` — the human name shown in the container menu and closed slot.
+- `tempoAware` — whether the effect reads project tempo, so the editor surfaces
+  tempo / Tap-Tempo controls (delay `true`, reverb `false`).
+- `supportsClearTail` — whether the effect exposes the Clear Tail momentary
+  command, so the editor surfaces the Clear Tail control (reverb `true`, delay
+  `false`).
+- `createProcessor(context, module, bpm)` — builds the black-box
+  `ReturnModuleProcessor` for the live graph.
+- `prepareWorklet(context)` — registers the effect's AudioWorklet before a
+  populated snapshot is materialized; resolves `false` where worklets are
+  unavailable so the identity fallback applies.
+- `createDefault(id)` — the default module record (its default preset).
+- `validate(module)` — the load-time guard proving every field is present,
+  correctly typed, and in range for that type.
+- `moduleKeys` — the exact serialized field allow-list for that type, so the
+  project parser rejects foreign or missing keys without a per-type branch.
+
+The built-in preset set and its atomic `applyPreset(module, name)` are **not**
+descriptor fields: they belong to the effect's own modal (an effect internal),
+so only that editor names its presets. The host never applies a preset.
+
+The host derives every effect-agnostic operation from the registry:
+
+- The processor factory looks up `createProcessor` by `module.type`; an
+  unknown type falls back to the Empty identity processor.
+- Load validation dispatches to the descriptor's `validate` and `moduleKeys`;
+  `empty` remains the built-in two-key record.
+- The container menu lists one entry per registered descriptor in registration
+  order, so adding an effect adds a menu item with no host edit.
+- Worklet preparation awaits every registered `prepareWorklet` at resume.
+- Editor commands surface from capability flags: the slot wires Clear Tail only
+  where `supportsClearTail`, and tempo controls only where `tempoAware`, rather
+  than inferring them from optional prop presence.
+
+The registry is the only place that enumerates concrete effect types. Adding a
+type means adding its folder and registering its descriptor; removing a type
+means deleting its folder and registry entry. No host file changes for either.
+
+The per-effect internals stay fully separate and are **not** shared across
+effects: the DSP core, the modal editor and its visualizer, the knob controls,
+the state interface, and the preset table each belong to one effect. Only the
+host-side plumbing is shared — the worklet-processor scaffolding (context
+registration bookkeeping, node creation, identity fallback, connect and
+dispose) is one `createReturnWorkletProcessor` factory, and the worklet-side
+input/output channel extraction and message dispatch is one worklet-class
+helper. Effects differ only in their core, their `toState` projection, and any
+extra commands (for example the reverb's Clear Tail).
+
 ## Black-Box Verification Contract
 
 Each module implementation must be testable behind the same host boundary:
@@ -384,6 +470,8 @@ release, stereo linking, and zero limiter latency while bypassed.
 | --- | --- |
 | Four fixed independent slots | The send/return model stays understandable and has no routing editor. |
 | Modules are black boxes | New module types can share one host lifecycle without exposing internal graphs. |
+| One descriptor registry, no per-type host branches | Adding an effect is a new folder plus one registry entry; the engine, project loader, and Mixer menu never enumerate concrete effect types. |
+| Share plumbing, not effect internals | Worklet scaffolding is identical contract code worth one copy; each effect's core, modal, state, and presets stay independent so they tune without coupling. |
 | Empty is explicit and silent | Saved slot identity is deterministic and cannot leak dry send audio. |
 | Echoform Delay renders 100% wet | Mix is the FX-return level, so there is no double dry/wet stage. |
 | Mix is the shared return level | One source of truth for the slot knob and editor Mix; automation targets one parameter. |
@@ -453,11 +541,12 @@ release, stereo linking, and zero limiter latency while bypassed.
 ## Non-Goals
 
 - No per-lane insert effects or ordered effect chains.
-- No Reverb, Compressor, third-party plugin, or spectrum analyzer as a module.
-  (The Echoform Delay ships built-in presets and a Custom entry; it must remain
-  recognizably a delay and adds no reverb or diffusion network.)
+- No Compressor, third-party plugin, or spectrum analyzer as a module.
+  Reverb ships only as the Aetherform Reverb module (spec-013). (The Echoform
+  Delay ships built-in presets and a Custom entry; it must remain recognizably
+  a delay and adds no reverb or diffusion network.)
 - No user-created FX slots, slot reordering, return crossfeed, or external
-  routing beyond the delay's own internal feedback.
+  routing beyond a module's own internal feedback.
 - No editable limiter ceiling, lookahead, release, linking, or metering.
 - No project-format-version-4-or-earlier compatibility or insert-effect
   migration; only version 5 upgrades to version 6.

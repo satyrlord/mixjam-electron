@@ -50,11 +50,17 @@ export interface EchoformDelayState {
   /** Peak modulation delay-time deviation, 0–20 ms. */
   modDepth: number
   character: EchoformDelayCharacter
+  /**
+   * Input drive ("Smash") percentage, 0–100. 0 = clean. A gain-compensated soft
+   * saturation on the signal entering the delay, before the feedback network —
+   * an up-front distortion distinct from the in-loop Character coloration.
+   */
+  drive: number
   /** Wet-only ducking depth percentage, 0–100. */
   duckAmount: number
   /** Ducking release, 50–2500 ms. */
   duckRelease: number
-  /** Output trim after all wet processing, -24 to +6 dB. */
+  /** Output trim after all wet processing, -24 to +12 dB. */
   outputDb: number
   freeze: boolean
   bypass: boolean

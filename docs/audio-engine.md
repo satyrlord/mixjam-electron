@@ -198,9 +198,11 @@ tests. The Return host provides input, output, level, limiter, lifecycle, and
 persistence. A module cannot reach another bus or the Master directly.
 
 `Empty` is the identity processor with no latency. The host gates an Empty bus
-to silence so a nonzero Send cannot duplicate the dry signal. The Echoform Delay
-(`echoform-delay`) is the only other module. It renders 100% wet; Mix is the
-FX-return level, not an in-module parameter. See spec-010 for the full contract.
+to silence so a nonzero Send cannot duplicate the dry signal. The effect
+modules are the Echoform Delay (`echoform-delay`) and the Aetherform Reverb
+(`aetherform-reverb`). Both render 100% wet; Mix is the FX-return level, not an
+in-module parameter. See spec-010 for the host contract and spec-013 for the
+reverb.
 
 The Echoform Delay runs in an `AudioWorkletProcessor` (`echoform-delay-processor`)
 backed by an allocation-free DSP core (`EchoformDelayCore`). The renderer sends
@@ -237,6 +239,21 @@ Real-time-safety and DSP notes worth recording at the point of confusion:
 
 The `tanh` transfer is the saturating nonlinearity used for character; see the
 [DAFx soft-clipping reference](https://dafx12.york.ac.uk/papers/dafx12_submission_45.pdf).
+
+The Aetherform Reverb runs in its own `AudioWorkletProcessor`
+(`aetherform-reverb-processor`) backed by the allocation-free
+`AetherformReverbCore`: stereo pre-delay, model-specific multi-tap early
+reflections, input diffusion, an eight-line Householder feedback delay network
+with in-loop TPT tone damping and per-line RT60 gains
+(`10^(-3 * lineSeconds / decay)`), character processing, a granular
+pitch-shifted shimmer feedback branch (band-limited before shifting, bounded by
+the in-loop soft limiter), equal-power early/late blend, mid/side width,
+wet-only ducking, and output trim. Retimes use dual read-head crossfades;
+modulation is deterministic (seeded, no RNG). Clear Tail is a momentary
+`clear-tail` port command exposed through `ReturnModuleProcessor.clearTail()`
+and `AudioEngine.clearReturnTail(index)`. The reverb worklet processes silence
+when its upstream input is inactive so tails ring out and Freeze sustains. Full
+DSP contract in spec-013.
 
 ## Master loudness metering
 

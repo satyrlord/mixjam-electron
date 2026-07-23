@@ -516,3 +516,104 @@ describe('v5 -> v6 Echoform delay migration', () => {
     expect(reparsed.fxBuses[0]!.module).toEqual(parsed.fxBuses[0]!.module)
   })
 })
+
+describe('Aetherform Reverb persistence', () => {
+  function reverbProject(overrides: Record<string, unknown> = {}): ProjectData {
+    const project = makeProject()
+    project.fxBuses[1] = {
+      ...project.fxBuses[1]!,
+      module: {
+        id: 'fx-2',
+        type: 'aetherform-reverb',
+        spaceModel: 'hall',
+        preDelayMs: 84,
+        decaySeconds: 12.4,
+        sizePercent: 100,
+        character: 'bloom',
+        drivePercent: 0,
+        widthPercent: 196,
+        lateBalancePercent: 94,
+        lowCutHz: 460,
+        highCutHz: 9800,
+        diffusionPercent: 98,
+        densityPercent: 100,
+        earlyReflectionsEnabled: false,
+        modRateHz: 0.1,
+        modDepthPercent: 36,
+        shimmerEnabled: true,
+        shimmerAmountPercent: 72,
+        shimmerIntervalSemitones: 12,
+        duckAmountPercent: 4,
+        duckReleaseMs: 2200,
+        outputDb: -6,
+        freeze: false,
+        bypass: false,
+        ...overrides
+      } as ProjectData['fxBuses'][number]['module'],
+      returnLevel: 0.98
+    }
+    return project
+  }
+
+  it('round-trips every persistent Aetherform parameter', () => {
+    const parsed = parseProject(serialize(reverbProject()))
+    const bus = parsed.fxBuses[1]!
+    expect(bus.returnLevel).toBe(0.98)
+    const module = bus.module
+    expect(module.type).toBe('aetherform-reverb')
+    if (module.type !== 'aetherform-reverb') throw new Error('expected aetherform-reverb')
+    expect(module).toMatchObject({
+      spaceModel: 'hall',
+      preDelayMs: 84,
+      decaySeconds: 12.4,
+      sizePercent: 100,
+      character: 'bloom',
+      widthPercent: 196,
+      lateBalancePercent: 94,
+      lowCutHz: 460,
+      highCutHz: 9800,
+      diffusionPercent: 98,
+      densityPercent: 100,
+      earlyReflectionsEnabled: false,
+      modRateHz: 0.1,
+      modDepthPercent: 36,
+      shimmerEnabled: true,
+      shimmerAmountPercent: 72,
+      shimmerIntervalSemitones: 12,
+      duckAmountPercent: 4,
+      duckReleaseMs: 2200,
+      outputDb: -6,
+      freeze: false,
+      bypass: false
+    })
+    // Identity is restored from the bus slot, and a second round-trip is stable.
+    expect(module.id).toBe('fx-2')
+    const reparsed = parseProject(serialize(parsed))
+    expect(reparsed.fxBuses[1]!.module).toEqual(module)
+  })
+
+  it('persists freeze and bypass according to the module-state contract', () => {
+    const parsed = parseProject(serialize(reverbProject({ freeze: true, bypass: true })))
+    const module = parsed.fxBuses[1]!.module
+    if (module.type !== 'aetherform-reverb') throw new Error('expected aetherform-reverb')
+    expect(module.freeze).toBe(true)
+    expect(module.bypass).toBe(true)
+  })
+
+  it('rejects out-of-range Aetherform values', () => {
+    expect(() => parseProject(serialize(reverbProject({ decaySeconds: 31 }))))
+      .toThrow(ProjectFileError)
+    expect(() => parseProject(serialize(reverbProject({ shimmerIntervalSemitones: 13 }))))
+      .toThrow(ProjectFileError)
+    expect(() => parseProject(serialize(reverbProject({ spaceModel: 'arena' }))))
+      .toThrow(ProjectFileError)
+  })
+
+  it('rejects unknown Aetherform fields (Clear Tail is never serialized)', () => {
+    const raw = JSON.parse(serialize(reverbProject())) as {
+      fxBuses: Array<{ module: Record<string, unknown> }>
+    }
+    raw.fxBuses[1]!.module.clearTail = true
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(ProjectFileError)
+  })
+})

@@ -216,7 +216,7 @@
                 type: 'echoform-delay', mode: 'sync', divisionL: '1/4', divisionR: '1/8.',
                 timeMsL: 420, timeMsR: 610, feedback: 68, pingPong: true, width: 142,
                 lowCut: 160, highCut: 7800, modRate: 0.38, modDepth: 5.4, character: 'tape',
-                duckAmount: 34, duckRelease: 620, outputDb: -1.5, freeze: false, bypass: false
+                drive: 0, duckAmount: 34, duckRelease: 620, outputDb: -1.5, freeze: false, bypass: false
               }
             : { type: 'empty' },
           powered: true,

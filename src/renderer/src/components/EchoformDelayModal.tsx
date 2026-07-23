@@ -11,6 +11,7 @@ import {
   type EchoformDelayCharacter,
   type EchoformDelayDivision
 } from '../engine/echoform-delay-types'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { BlockingDialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
 import {
   DropdownMenuContent,
@@ -34,7 +35,7 @@ import { LinearSlider } from './ui/Slider'
 
 type KnobKey =
   | 'feedback' | 'mix' | 'lowCut' | 'highCut'
-  | 'modRate' | 'modDepth' | 'duckAmount' | 'duckRelease'
+  | 'modRate' | 'modDepth' | 'drive' | 'duckAmount' | 'duckRelease'
   | 'outputDb' | 'timeMsL' | 'timeMsR'
 
 interface KnobSpec {
@@ -70,9 +71,10 @@ const KNOBS: Record<KnobKey, KnobSpec> = {
   highCut: { min: 1000, max: 20000, step: 10, curve: 'log', defaultValue: 7800, format: formatHz, tone: 'cool' },
   modRate: { min: 0.05, max: 8, step: 0.01, curve: 'log', defaultValue: 0.38, format: formatRate },
   modDepth: { min: 0, max: 20, step: 0.1, defaultValue: 5.4, format: formatDepth, tone: 'cool' },
+  drive: { min: 0, max: 100, step: 1, defaultValue: 0, format: formatPercent, tone: 'warm' },
   duckAmount: { min: 0, max: 100, step: 1, defaultValue: 34, format: formatPercent, tone: 'warm' },
   duckRelease: { min: 50, max: 2500, step: 10, defaultValue: 620, format: formatMs },
-  outputDb: { min: -24, max: 6, step: 0.1, defaultValue: -1.5, format: formatDb }
+  outputDb: { min: -24, max: 12, step: 0.1, defaultValue: -1.5, format: formatDb }
 }
 
 const CHARACTER_COPY: Record<EchoformDelayCharacter, string> = {
@@ -586,6 +588,8 @@ export default function EchoformDelayModal({
                   ))}
                 </div>
                 <p className="ef-character-desc">{CHARACTER_COPY[draft.character]}</p>
+                <Knob id="ef-drive" spec={KNOBS.drive} label="Drive" value={draft.drive}
+                  onChange={(v) => setKnob('drive', v)} onGestureStart={noop} onGestureEnd={noop} />
               </section>
 
               <section className="ef-card" aria-label="Ducking">
@@ -754,18 +758,3 @@ function Visualizer(props: VisualizerProps) {
   )
 }
 
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(() =>
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      : false
-  )
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const listener = () => setReduced(query.matches)
-    query.addEventListener('change', listener)
-    return () => query.removeEventListener('change', listener)
-  }, [])
-  return reduced
-}

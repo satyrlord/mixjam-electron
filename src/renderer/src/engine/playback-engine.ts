@@ -180,6 +180,11 @@ export class PlaybackEngine {
     }
   }
 
+  /** Momentary command: flush a Return module's audio history (Clear Tail). */
+  clearReturnTail(index: number): void {
+    if (this.engine.hasContext) this.engine.clearReturnTail(index)
+  }
+
   /**
    * Reconciles the complete project-owned graph snapshot. Callers provide
    * data; this graph-owning module handles lane identity, gating, Sends, and

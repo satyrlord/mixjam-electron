@@ -23,6 +23,7 @@ function baseState(overrides: Partial<EchoformDelayState> = {}): EchoformDelaySt
     modRate: 0.05,
     modDepth: 0,
     character: 'digital',
+    drive: 0,
     duckAmount: 0,
     duckRelease: 200,
     outputDb: 0,
@@ -122,6 +123,14 @@ function peak(buffer: Float32Array, from = 0, to = buffer.length): number {
   let p = 0
   for (let i = from; i < to; i += 1) p = Math.max(p, Math.abs(buffer[i]!))
   return p
+}
+
+/** RMS level of a window, in dBFS (-Infinity for pure silence). */
+function rmsDb(buffer: Float32Array, from: number, to: number): number {
+  let sum = 0
+  for (let i = from; i < to; i += 1) sum += buffer[i]! * buffer[i]!
+  const rms = Math.sqrt(sum / Math.max(1, to - from))
+  return rms > 0 ? 20 * Math.log10(rms) : -Infinity
 }
 
 function isFiniteBuffer(buffer: Float32Array): boolean {
@@ -390,6 +399,54 @@ describe('Echoform delay — character', () => {
   })
 })
 
+describe('Echoform delay — drive', () => {
+  it('is an exact bypass at drive 0', () => {
+    // drive: 0 must not alter the signal path at all (blend factor is 0).
+    const a = new EchoformDelayCore(FS, baseState({ timeMsL: 120, timeMsR: 120, feedback: 40, drive: 0 }), 120)
+    const b = new EchoformDelayCore(FS, baseState({ timeMsL: 120, timeMsR: 120, feedback: 40 }), 120)
+    const outA = renderImpulse(a, 0.4)
+    const outB = renderImpulse(b, 0.4)
+    for (let i = 0; i < outA.left.length; i += 1) {
+      expect(outA.left[i]).toBeCloseTo(outB.left[i]!, 10)
+    }
+  })
+
+  it('saturates a pure tone as drive rises (crest factor falls toward a clipped shape)', () => {
+    // A soft clipper flattens a sine's peaks, so its crest factor (peak / RMS)
+    // drops from a clean sine's ~1.41 toward a squarer wave's ~1.0. Crest
+    // factor is level-independent, so it isolates saturation from the gain
+    // compensation that also changes absolute level.
+    const crest = (drive: number): number => {
+      const core = new EchoformDelayCore(
+        FS, baseState({ timeMsL: 1, timeMsR: 1, feedback: 0, drive, lowCut: 20, highCut: 20000 }), 120
+      )
+      const out = renderTone(core, 0.4, 0.7)
+      const start = Math.round(0.2 * FS)
+      let peakAbs = 0
+      let sumSq = 0
+      for (let i = start; i < out.left.length; i += 1) {
+        peakAbs = Math.max(peakAbs, Math.abs(out.left[i]!))
+        sumSq += out.left[i]! * out.left[i]!
+      }
+      const rmsVal = Math.sqrt(sumSq / (out.left.length - start))
+      return peakAbs / Math.max(rmsVal, 1e-9)
+    }
+    const clean = crest(0)
+    const smashed = crest(90)
+    // Clean sine sits near sqrt(2); heavy drive flattens it measurably.
+    expect(clean).toBeGreaterThan(1.35)
+    expect(smashed).toBeLessThan(clean - 0.1)
+  })
+
+  it('stays finite under maximum drive and feedback', () => {
+    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 40, timeMsR: 40, feedback: 110, drive: 100 }), 120)
+    const out = renderTone(core, 0.6, 0.9)
+    expect(isFiniteBuffer(out.left)).toBe(true)
+    expect(isFiniteBuffer(out.right)).toBe(true)
+    expect(peak(out.left)).toBeLessThan(4) // bounded, no runaway
+  })
+})
+
 describe('Echoform delay — ducking', () => {
   it('reduces only the wet output and follows release', () => {
     const core = new EchoformDelayCore(FS, baseState({
@@ -426,6 +483,41 @@ describe('Echoform delay — freeze', () => {
     const latePeak = peak(held.left, Math.round(0.5 * FS), Math.round(0.8 * FS))
     expect(latePeak).toBeGreaterThan(0.001)
     expect(isFiniteBuffer(held.left)).toBe(true)
+  })
+
+  it('holds the frozen tail flat instead of fading (in-loop filters bypassed)', () => {
+    // Freeze must be a true hold, not a slow fade. Before the in-loop filter
+    // bypass, the always-active low/high-cut and character saturation shaved
+    // energy every circulation, so a "frozen" delay decayed ~0.5 dB/s. Prime
+    // with a tone, freeze, then hold on silence for 8 s and compare the level
+    // of the first hold second against the last. The windows are ~1 s (many
+    // delay periods) so the held signal's periodic RMS ripple averages out and
+    // only real drift is measured.
+    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 300, timeMsR: 300, feedback: 50 }), 120)
+    renderTone(core, 1.5, 0.5)
+    core.update(baseState({ timeMsL: 300, timeMsR: 300, feedback: 50, freeze: true }), 120)
+    const held = renderSilence(core, 8)
+    const early = rmsDb(held, Math.round(0.5 * FS), Math.round(1.5 * FS))
+    const late = rmsDb(held, Math.round(7.0 * FS), Math.round(8.0 * FS))
+    // A real hold: under 1 dB drift across ~6.5 s (was ~-3 dB before the fix).
+    expect(early).toBeGreaterThan(-40)
+    expect(Math.abs(late - early)).toBeLessThan(1)
+    expect(isFiniteBuffer(held)).toBe(true)
+  })
+
+  it('holds flat in Tape character (in-loop saturation bypassed while frozen)', () => {
+    // Tape recirculates the un-coloured tap while frozen (so the loop energy is
+    // held), while the wet OUTPUT stays tape-coloured. Same ~1 s averaging
+    // windows; a true hold, not the multi-dB monotonic fade the un-bypassed
+    // loop produced.
+    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 300, timeMsR: 300, feedback: 50, character: 'tape' }), 120)
+    renderTone(core, 1.5, 0.5)
+    core.update(baseState({ timeMsL: 300, timeMsR: 300, feedback: 50, character: 'tape', freeze: true }), 120)
+    const held = renderSilence(core, 8)
+    const early = rmsDb(held, Math.round(0.5 * FS), Math.round(1.5 * FS))
+    const late = rmsDb(held, Math.round(7.0 * FS), Math.round(8.0 * FS))
+    expect(Math.abs(late - early)).toBeLessThan(1)
+    expect(isFiniteBuffer(held)).toBe(true)
   })
 
   it('restores user feedback smoothly on release', () => {

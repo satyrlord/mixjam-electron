@@ -240,6 +240,7 @@ export default function PlayerView({
       onSetChannelSend={mixer.onSetChannelSend}
       onSetReturnBus={mixer.onSetReturnBus}
       onPreviewReturnBus={mixer.onPreviewReturnBus}
+      onClearReturnTail={mixer.onClearReturnTail}
       onSelectLane={setSelectedLaneId}
     />
   ), [arrangement.lanes, mixer, selectedLaneId, transport.bpm, transport.onSetBpm, setSelectedLaneId])

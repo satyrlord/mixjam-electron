@@ -1,11 +1,15 @@
 import { useCallback, useRef, useState } from 'react'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import {
-  createDefaultEchoformDelayReturnModule,
   createEmptyReturnModule,
-  type EchoformDelayModule
+  getReturnEffect,
+  returnEffectDescriptors,
+  type AetherformReverbModule,
+  type EchoformDelayModule,
+  type ReturnModule
 } from '../engine/return-effects'
 import EchoformDelayModal from './EchoformDelayModal'
+import AetherformReverbModal from './AetherformReverbModal'
 import { slotAccentStyle } from './mixer-accent'
 import { RotaryControl, RotaryDial } from './RotaryField'
 import { Tooltip } from './ui/Tooltip'
@@ -22,11 +26,17 @@ interface MixerFxSlotProps {
   onSetBpm?: (bpm: number) => void
   onSet: (bus: PlaybackReturnSnapshot) => void
   onPreview: (bus: PlaybackReturnSnapshot) => void
+  /**
+   * Momentary Clear Tail command for this Return bus. The host always supplies
+   * it; whether an editor exposes Clear Tail is decided by the effect
+   * descriptor's `supportsClearTail`, not by this prop's presence.
+   */
+  onClearTail?: (index: number) => void
   onGestureStart: () => void
   onGestureEnd: () => void
 }
 
-const LIMITER_TOOLTIP = 'Limiter\nCaps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.'
+const LIMITER_TOOLTIP = 'Limiter\nCaps this FX Return at −1 dBFS using stereo-linked peak limiting. Filled = engaged (default). Red = bypassed, so the return runs uncapped. Click to toggle. This does not limit the Master output.'
 
 function EditCog() {
   return (
@@ -45,18 +55,41 @@ function EditCog() {
   )
 }
 
+function moduleDisplayName(module: ReturnModule): string {
+  if (module.type === 'empty') return 'Empty'
+  return getReturnEffect(module.type)?.label ?? 'Empty'
+}
+
+function moduleSummary(module: ReturnModule, mix: number): string {
+  if (module.type === 'echoform-delay') {
+    return `${module.mode === 'sync' ? module.divisionL : `${Math.round(module.timeMsL)} ms`} · Feedback ${Math.round(module.feedback)}% · ${module.character} · Mix ${Math.round(mix * 100)}%`
+  }
+  if (module.type === 'aetherform-reverb') {
+    const decay = module.decaySeconds < 10
+      ? module.decaySeconds.toFixed(1)
+      : String(Math.round(module.decaySeconds))
+    const shimmer = module.shimmerEnabled ? ` · Shimmer +${module.shimmerIntervalSemitones}` : ''
+    return `${module.spaceModel} · ${decay} s · ${module.character}${shimmer} · Mix ${Math.round(mix * 100)}%`
+  }
+  return 'No effect assigned'
+}
+
+type EditingState =
+  | { kind: 'echoform-delay'; module: EchoformDelayModule; powered: boolean }
+  | { kind: 'aetherform-reverb'; module: AetherformReverbModule; powered: boolean }
+
 export default function MixerFxSlot({
   bus,
   bpm = 120,
   onSetBpm,
   onSet,
   onPreview,
+  onClearTail,
   onGestureStart,
   onGestureEnd
 }: MixerFxSlotProps) {
-  const [editing, setEditing] = useState<
-    { module: EchoformDelayModule; powered: boolean } | null
-  >(null)
+  const [editing, setEditing] = useState<EditingState | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const module = bus.module
 
@@ -69,7 +102,7 @@ export default function MixerFxSlot({
   const busRef = useRef(bus)
   busRef.current = bus
   const previewFromEditor = useCallback(
-    (next: EchoformDelayModule, nextPowered: boolean, nextMix: number) => {
+    (next: ReturnModule, nextPowered: boolean, nextMix: number) => {
       onPreview({
         ...busRef.current,
         module: next,
@@ -80,23 +113,39 @@ export default function MixerFxSlot({
     [onPreview]
   )
   const slot = bus.index + 1
-  const isDelay = module.type === 'echoform-delay'
-  const moduleName = isDelay ? 'Echoform Delay' : 'Empty'
-  const bypassed = isDelay && !bus.powered
+  const hasEffect = module.type !== 'empty'
+  const moduleName = moduleDisplayName(module)
+  const bypassed = hasEffect && !bus.powered
   const triggerName = `FX ${slot} ${moduleName}${bypassed ? ' bypassed' : ''}`
   // The FX-slot Mix knob and the editor Mix are ONE parameter: the bus return
-  // level. The delay always renders 100% wet; returnLevel is the single Mix.
+  // level. Effect modules always render 100% wet; returnLevel is the single Mix.
   const mix = bus.returnLevel
 
-  const chooseDelay = () => {
-    const next = module.type === 'echoform-delay'
-      ? { ...module }
-      : createDefaultEchoformDelayReturnModule(`fx-${slot}`)
+  // Menu entries come from the effect registry, so a new effect appears here
+  // with no edit. Choosing an effect reuses the slot's module when the type
+  // already matches, otherwise builds that effect's default. The modal to open
+  // is selected per type below (each editor is its own component).
+  const chooseEffect = (type: ReturnModule['type']) => {
+    const descriptor = returnEffectDescriptors().find((d) => d.type === type)
+    if (!descriptor) return
+    const next = module.type === type ? { ...module } : descriptor.createDefault(`fx-${slot}`)
     onPreview({ ...bus, module: next, powered: bus.powered })
-    setEditing({ module: next, powered: bus.powered })
+    if (next.type === 'echoform-delay') {
+      setEditing({ kind: 'echoform-delay', module: next, powered: bus.powered })
+    } else if (next.type === 'aetherform-reverb') {
+      setEditing({ kind: 'aetherform-reverb', module: next, powered: bus.powered })
+    }
   }
 
-  const saveDelay = (next: EchoformDelayModule, powered: boolean, returnLevel: number) => {
+  // Edit reopens the editor matching the module in the slot. An Empty slot has
+  // no module to edit, so Edit opens the effect picker instead of silently
+  // defaulting to an effect.
+  const edit = () => {
+    if (module.type === 'empty') setMenuOpen(true)
+    else chooseEffect(module.type)
+  }
+
+  const saveModule = (next: ReturnModule, powered: boolean, returnLevel: number) => {
     onSet({ ...bus, module: next, powered, returnLevel })
     setEditing(null)
   }
@@ -110,9 +159,7 @@ export default function MixerFxSlot({
     onSet({ ...bus, module: createEmptyReturnModule(`fx-${slot}`) })
   }
 
-  const summary = isDelay
-    ? `${module.mode === 'sync' ? module.divisionL : `${Math.round(module.timeMsL)} ms`} · Feedback ${Math.round(module.feedback)}% · ${module.character} · Mix ${Math.round(mix * 100)}%`
-    : 'No effect assigned'
+  const summary = moduleSummary(module, mix)
 
   return (
     <div className="mixer-fx-slot-wrap" style={slotAccentStyle(slot)}>
@@ -121,7 +168,7 @@ export default function MixerFxSlot({
         aria-label={`FX Return ${slot}`}
       >
         <div className="mixer-fx-head">
-          <DropdownMenuRoot>
+          <DropdownMenuRoot open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button ref={triggerRef} type="button" className="mixer-fx-slot" aria-label={triggerName}>
                 <span className="mixer-fx-num" aria-hidden="true">{String(slot).padStart(2, '0')}</span>
@@ -129,13 +176,17 @@ export default function MixerFxSlot({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="mixer-fx-menu" align="start">
-              <DropdownMenuItem onSelect={chooseDelay}>Echoform Delay...</DropdownMenuItem>
+              {returnEffectDescriptors().map((descriptor) => (
+                <DropdownMenuItem key={descriptor.type} onSelect={() => chooseEffect(descriptor.type)}>
+                  {descriptor.label}...
+                </DropdownMenuItem>
+              ))}
               {module.type !== 'empty' && (
                 <DropdownMenuItem onSelect={clear}>Clear slot</DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenuRoot>
-          {isDelay ? (
+          {hasEffect ? (
             <button
               type="button"
               className="mixer-fx-led"
@@ -153,7 +204,7 @@ export default function MixerFxSlot({
             type="button"
             className="mixer-fx-edit"
             aria-label={`Edit parameters for FX ${slot}`}
-            onClick={chooseDelay}
+            onClick={edit}
           >
             <EditCog />
             <span>Edit</span>
@@ -165,7 +216,9 @@ export default function MixerFxSlot({
               aria-label={`Limiter for FX Return ${slot}`}
               aria-pressed={bus.limiterEnabled}
               onClick={() => onSet({ ...bus, limiterEnabled: !bus.limiterEnabled })}
-            >L</button>
+            >
+              <span className="mixer-limiter-glyph" aria-hidden="true">L</span>
+            </button>
           </Tooltip>
           <div className="mixer-fx-mix">
             <span className="mixer-fx-mix-label" aria-hidden="true">Mix</span>
@@ -200,7 +253,7 @@ export default function MixerFxSlot({
           <span className="mixer-fx-summary">{summary}</span>
         </div>
       </section>
-      {editing && (
+      {editing?.kind === 'echoform-delay' && (
         <EchoformDelayModal
           value={editing.module}
           powered={editing.powered}
@@ -209,7 +262,26 @@ export default function MixerFxSlot({
           onSetBpm={onSetBpm}
           slot={slot}
           onCancel={cancel}
-          onSave={saveDelay}
+          onSave={saveModule}
+          onRestoreFocus={() => triggerRef.current?.focus()}
+          onPreview={previewFromEditor}
+        />
+      )}
+      {editing?.kind === 'aetherform-reverb' && (
+        <AetherformReverbModal
+          value={editing.module}
+          powered={editing.powered}
+          mix={bus.returnLevel}
+          slot={slot}
+          onCancel={cancel}
+          onSave={saveModule}
+          // Clear Tail is exposed only when the effect declares the capability
+          // in the registry, not merely because the host wired the command.
+          onClearTail={
+            getReturnEffect(editing.kind)?.supportsClearTail && onClearTail
+              ? () => onClearTail(bus.index)
+              : undefined
+          }
           onRestoreFocus={() => triggerRef.current?.focus()}
           onPreview={previewFromEditor}
         />

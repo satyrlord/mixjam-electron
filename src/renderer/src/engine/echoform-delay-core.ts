@@ -5,6 +5,18 @@ import {
   type EchoformDelayMode,
   type EchoformDelayState
 } from './echoform-delay-types'
+import {
+  clamp,
+  DriftGenerator,
+  driveInput,
+  feedbackSoftLimit,
+  flushDenormal,
+  readCubic,
+  smooth,
+  smoothCoefficient,
+  tptG,
+  TwoPoleFilter
+} from './return-dsp-primitives'
 
 const TWO_PI = Math.PI * 2
 const MIN_BPM = 20
@@ -19,7 +31,6 @@ const MAX_DELAY_SECONDS = 12
 const MIN_FREE_MS = 1
 const MAX_FREE_MS = 2000
 const MAX_MOD_DEPTH_MS = 20
-const DENORMAL_FLOOR = 1e-20
 /**
  * Feedback maps 0–110% → 0.0–1.10 loop gain (spec §13). The in-loop soft
  * limiter keeps the result finite above unity without hard-clipping repeats.
@@ -48,26 +59,6 @@ const DIVISION_BEATS: Record<EchoformDelayDivision, number> = {
   '1/16T': 1 / 6
 }
 
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value))
-}
-
-/** One-pole smoothing coefficient for a given time constant. */
-function smoothCoefficient(seconds: number, sampleRate: number): number {
-  if (seconds <= 0) return 1
-  return 1 - Math.exp(-1 / (seconds * sampleRate))
-}
-
-function smooth(current: number, target: number, coefficient: number): number {
-  const next = current + (target - current) * coefficient
-  return Math.abs(next) < DENORMAL_FLOOR ? 0 : next
-}
-
-function flushDenormal(value: number): number {
-  if (!Number.isFinite(value)) return 0
-  return Math.abs(value) < DENORMAL_FLOOR ? 0 : value
-}
-
 function divisionSeconds(division: EchoformDelayDivision, bpm: number): number {
   return (60 / clamp(bpm, MIN_BPM, MAX_BPM)) * DIVISION_BEATS[division]
 }
@@ -77,124 +68,6 @@ function delaySeconds(state: EchoformDelayState, bpm: number, side: 'L' | 'R'): 
     return clamp(side === 'L' ? state.timeMsL : state.timeMsR, MIN_FREE_MS, MAX_FREE_MS) / 1000
   }
   return divisionSeconds(side === 'L' ? state.divisionL : state.divisionR, bpm)
-}
-
-/**
- * Four-point (cubic) Lagrange interpolation. `delaySamples` is how far behind
- * the write head to read; the buffer is treated as a circular line of `length`.
- * Reads are bounds-safe: every index is wrapped into [0, length).
- */
-function readCubic(
-  buffer: Float32Array<ArrayBuffer>,
-  writeIndex: number,
-  delaySamples: number
-): number {
-  const length = buffer.length
-  const readPosition = writeIndex - delaySamples
-  const base = Math.floor(readPosition)
-  const fraction = readPosition - base
-  // Wrap the four taps (base-1 .. base+2) into range without a modulo per read.
-  const i0 = ((base - 1) % length + length) % length
-  const i1 = (i0 + 1) % length
-  const i2 = (i1 + 1) % length
-  const i3 = (i2 + 1) % length
-  const y0 = buffer[i0]!
-  const y1 = buffer[i1]!
-  const y2 = buffer[i2]!
-  const y3 = buffer[i3]!
-  const c0 = y1
-  const c1 = 0.5 * (y2 - y0)
-  const c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3
-  const c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2)
-  return ((c3 * fraction + c2) * fraction + c1) * fraction + c0
-}
-
-/**
- * Topology-preserving (TPT) one-pole filter. Unconditionally stable at any
- * cutoff, unlike a Chamberlin SVF near Nyquist. Exposes both low-pass and
- * high-pass outputs so two of these cascade into a 12 dB/oct response.
- */
-class OnePoleTPT {
-  private state = 0
-
-  reset(): void { this.state = 0 }
-
-  /** `gCoefficient` = G = g/(1+g) where g = tan(π·fc/fs). Returns [lp, hp]. */
-  process(input: number, gCoefficient: number): { lp: number; hp: number } {
-    const v = (input - this.state) * gCoefficient
-    const lp = v + this.state
-    this.state = flushDenormal(lp + v)
-    return { lp, hp: input - lp }
-  }
-}
-
-/** Two cascaded TPT one-poles = a stable ~12 dB/oct filter per stereo side. */
-class TwoPoleFilter {
-  private readonly a = new OnePoleTPT()
-  private readonly b = new OnePoleTPT()
-
-  reset(): void { this.a.reset(); this.b.reset() }
-
-  highPass(input: number, g: number): number {
-    return this.b.process(this.a.process(input, g).hp, g).hp
-  }
-
-  lowPass(input: number, g: number): number {
-    return this.b.process(this.a.process(input, g).lp, g).lp
-  }
-}
-
-/**
- * Bounded soft limiter used inside the feedback loop. It is effectively
- * transparent below the threshold and asymptotes toward ±ceiling, so extreme
- * feedback stays finite without hard-clipping ordinary repeats.
- */
-function feedbackSoftLimit(sample: number): number {
-  const ceiling = 1.35
-  if (sample > ceiling || sample < -ceiling) {
-    // Well past the knee: tanh guarantees a finite, bounded result.
-    return Math.tanh(sample)
-  }
-  const knee = 0.9
-  const abs = Math.abs(sample)
-  if (abs <= knee) return sample
-  const sign = sample < 0 ? -1 : 1
-  const over = (abs - knee) / (ceiling - knee)
-  // Smooth cubic knee from `knee` toward the ceiling.
-  const shaped = knee + (ceiling - knee) * (over - (over * over * over) / 3) * 1.5
-  return sign * Math.min(shaped, ceiling)
-}
-
-/** A single deterministic drift generator (smoothed value-noise), no RNG. */
-class DriftGenerator {
-  private phase: number
-  private current = 0
-  private target = 0
-  private readonly increment: number
-
-  constructor(rateHz: number, sampleRate: number, seed: number) {
-    this.increment = rateHz / sampleRate
-    // Deterministic seed so offline and real-time renders match.
-    this.phase = seed % 1
-  }
-
-  reset(): void {
-    this.current = 0
-    this.target = 0
-  }
-
-  /** Advance one sample and return a smoothed value in roughly [-1, 1]. */
-  next(): number {
-    this.phase += this.increment
-    if (this.phase >= 1) {
-      this.phase -= 1
-      // Next hold value from a hash of the running phase — stable per position.
-      const hashed = Math.sin(this.phase * 12.9898 + this.current * 78.233) * 43758.5453
-      this.target = (hashed - Math.floor(hashed)) * 2 - 1
-    }
-    this.current += (this.target - this.current) * 0.02
-    return this.current
-  }
 }
 
 /** Per-side delay line with dual read heads for click-free time changes. */
@@ -285,6 +158,7 @@ export class EchoformDelayCore {
   private width = 1
   private outputGain = 1
   private duckAmount = 0
+  private driveNorm = 0
   private bypassMix = 0
   private pingPongMix = 0
   private freezeMix = 0
@@ -326,8 +200,9 @@ export class EchoformDelayCore {
 
     this.feedback = this.feedbackTarget()
     this.width = clamp(this.target.width, 0, 200) / 100
-    this.outputGain = 10 ** (clamp(this.target.outputDb, -24, 6) / 20)
+    this.outputGain = 10 ** (clamp(this.target.outputDb, -24, 12) / 20)
     this.duckAmount = clamp(this.target.duckAmount, 0, 100) / 100
+    this.driveNorm = clamp(this.target.drive ?? 0, 0, 100) / 100
     this.bypassMix = this.target.bypass ? 1 : 0
     this.pingPongMix = this.target.pingPong ? 1 : 0
     this.freezeMix = this.target.freeze ? 1 : 0
@@ -359,8 +234,8 @@ export class EchoformDelayCore {
   ): void {
     const character = this.target.character
     // Per-block TPT filter coefficients (unconditionally stable at any cutoff).
-    const lowCutG = this.tptG(clamp(this.target.lowCut, 20, 2000))
-    const highCutG = this.tptG(clamp(this.target.highCut, 1000, 20000))
+    const lowCutG = tptG(clamp(this.target.lowCut, 20, 2000), this.sampleRate)
+    const highCutG = tptG(clamp(this.target.highCut, 1000, 20000), this.sampleRate)
 
     const duckReleaseCoefficient = smoothCoefficient(
       clamp(this.target.duckRelease, 50, 2500) / 1000,
@@ -379,8 +254,9 @@ export class EchoformDelayCore {
       // --- Smoothed parameters (per sample, click-free) ---
       this.feedback = smooth(this.feedback, this.feedbackTarget(), this.paramSmoothing)
       this.width = smooth(this.width, clamp(this.target.width, 0, 200) / 100, this.paramSmoothing)
-      this.outputGain = smooth(this.outputGain, 10 ** (clamp(this.target.outputDb, -24, 6) / 20), this.paramSmoothing)
+      this.outputGain = smooth(this.outputGain, 10 ** (clamp(this.target.outputDb, -24, 12) / 20), this.paramSmoothing)
       this.duckAmount = smooth(this.duckAmount, clamp(this.target.duckAmount, 0, 100) / 100, this.paramSmoothing)
+      this.driveNorm = smooth(this.driveNorm, clamp(this.target.drive ?? 0, 0, 100) / 100, this.paramSmoothing)
       this.bypassMix = smooth(this.bypassMix, this.target.bypass ? 1 : 0, this.modeSlew)
       this.pingPongMix = smooth(this.pingPongMix, this.target.pingPong ? 1 : 0, this.modeSlew)
       this.freezeMix = smooth(this.freezeMix, this.target.freeze ? 1 : 0, this.modeSlew)
@@ -395,10 +271,18 @@ export class EchoformDelayCore {
         this.lineR.retimeSlew(targetR, slew)
       }
 
-      // --- Ducking detector (keyed from the dry input, stereo-linked) ---
+      // --- Ducking detector (keyed from the UN-driven dry input) ---
+      // Read the detector before Drive so ducking still follows the natural
+      // input transient, not the compressed/smashed level.
       const detector = Math.max(Math.abs(dryL), Math.abs(dryR))
       const envCoefficient = detector > this.duckEnvelope ? this.duckAttack : duckReleaseCoefficient
       this.duckEnvelope = smooth(this.duckEnvelope, detector, envCoefficient)
+
+      // --- Input Drive ("Smash"): gain-compensated soft saturation on the
+      // signal ENTERING the network, before feedback. Distinct from in-loop
+      // Character. At 0 it is a true bypass (driveNorm ~ 0 -> input unchanged).
+      const drivenL = driveInput(dryL, this.driveNorm)
+      const drivenR = driveInput(dryR, this.driveNorm)
 
       // --- Modulation (character-scaled), zero when depth is zero ---
       const sinPhase = Math.sin(this.lfoPhase * TWO_PI)
@@ -430,15 +314,25 @@ export class EchoformDelayCore {
       const colouredL = this.colour(lpL, character, 'L')
       const colouredR = this.colour(lpR, character, 'R')
 
+      // --- Freeze recirculates the UNFILTERED, UNCOLOURED tap ---
+      // The in-loop filters and character saturation shave energy on every
+      // circulation. Under normal feedback that decay is intended; under Freeze
+      // it turns a "hold" into a slow fade (see spec-010 Freeze). While frozen,
+      // feed the raw delayed signal back so no per-pass filter/saturation loss
+      // accumulates. The wet OUTPUT tap below still uses the coloured signal, so
+      // the held tail keeps its tone; only the recirculated copy is un-toned.
+      const recircL = colouredL + (delayedL - colouredL) * this.freezeMix
+      const recircR = colouredR + (delayedR - colouredR) * this.freezeMix
+
       // --- Feedback matrix (normal vs ping-pong), crossfaded on change ---
-      const fbSourceL = colouredL * (1 - this.pingPongMix) + colouredR * this.pingPongMix
-      const fbSourceR = colouredR * (1 - this.pingPongMix) + colouredL * this.pingPongMix
+      const fbSourceL = recircL * (1 - this.pingPongMix) + recircR * this.pingPongMix
+      const fbSourceR = recircR * (1 - this.pingPongMix) + recircL * this.pingPongMix
 
       // --- Loop gain, with Freeze pushing gain toward unity and gating input ---
       const loopGain = this.feedback * (1 - this.freezeMix) + FREEZE_LOOP_GAIN * this.freezeMix
       const inputGate = 1 - this.freezeMix
-      const writeL = feedbackSoftLimit(dryL * inputGate + fbSourceL * loopGain)
-      const writeR = feedbackSoftLimit(dryR * inputGate + fbSourceR * loopGain)
+      const writeL = feedbackSoftLimit(drivenL * inputGate + fbSourceL * loopGain)
+      const writeR = feedbackSoftLimit(drivenR * inputGate + fbSourceR * loopGain)
       this.lineL.write(this.writeIndex, writeL)
       this.lineR.write(this.writeIndex, writeR)
 
@@ -484,18 +378,10 @@ export class EchoformDelayCore {
     return clamp(seconds * this.sampleRate, 1, this.maxDelaySamples - 2 - MAX_MOD_DEPTH_MS / 1000 * this.sampleRate)
   }
 
-  /** TPT one-pole integrator gain G = g/(1+g), g = tan(π·fc/fs). Always < 1. */
-  private tptG(cutoffHz: number): number {
-    const g = Math.tan((Math.PI * clamp(cutoffHz, 10, this.sampleRate * 0.49)) / this.sampleRate)
-    return g / (1 + g)
-  }
-
   /**
-   * Character coloration inside the feedback loop:
-   * - Digital: transparent.
-   * - Analog: mild soft saturation, gentle rounding.
-   * - Tape: stronger soft saturation with slight asymmetry, DC-removed.
-   * Apparent loudness is kept roughly matched across modes.
+   * Character coloration inside the feedback loop. Digital is transparent;
+   * Analog adds mild soft saturation; Tape adds stronger asymmetric saturation
+   * with a DC block. Apparent loudness stays roughly matched across modes.
    */
   private colour(sample: number, character: EchoformDelayCharacter, side: 'L' | 'R'): number {
     if (character === 'digital') return sample

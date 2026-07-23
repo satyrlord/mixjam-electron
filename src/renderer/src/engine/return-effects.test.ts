@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createMockContext } from '../test/mockAudioContext'
 import {
+  applyAetherformReverbPreset,
+  AETHERFORM_REVERB_PRESET_NAMES,
+  createDefaultAetherformReverbReturnModule,
   createDefaultEchoformDelayReturnModule,
   createEmptyReturnModule,
   createReturnModuleProcessor,
@@ -81,6 +84,94 @@ describe('return FX module contracts', () => {
     delay.update(createEmptyReturnModule('fx-2'), 120)
     delay.update({ ...createDefaultEchoformDelayReturnModule('fx-2'), mode: 'free', pingPong: false }, 60)
     delay.dispose()
+  })
+
+  it('creates the documented Aetherform (Warm Chamber) default', () => {
+    expect(createDefaultAetherformReverbReturnModule('fx-3')).toMatchObject({
+      id: 'fx-3',
+      type: 'aetherform-reverb',
+      spaceModel: 'chamber',
+      preDelayMs: 24,
+      decaySeconds: 2.8,
+      sizePercent: 68,
+      character: 'vintage',
+      widthPercent: 148,
+      lateBalancePercent: 72,
+      lowCutHz: 180,
+      highCutHz: 8600,
+      diffusionPercent: 78,
+      densityPercent: 84,
+      earlyReflectionsEnabled: true,
+      modRateHz: 0.32,
+      modDepthPercent: 18,
+      shimmerEnabled: false,
+      shimmerAmountPercent: 24,
+      shimmerIntervalSemitones: 12,
+      duckAmountPercent: 28,
+      duckReleaseMs: 720,
+      outputDb: -1.5,
+      freeze: false,
+      bypass: false
+    })
+  })
+
+  it('validates the Aetherform module ranges and enums', () => {
+    const reverb = createDefaultAetherformReverbReturnModule('fx-1')
+    expect(isReturnModule(reverb)).toBe(true)
+    expect(isReturnModule({ ...reverb, spaceModel: 'cathedral' })).toBe(false)
+    expect(isReturnModule({ ...reverb, character: 'digital' })).toBe(false)
+    expect(isReturnModule({ ...reverb, preDelayMs: 251 })).toBe(false)
+    expect(isReturnModule({ ...reverb, decaySeconds: 0.1 })).toBe(false)
+    expect(isReturnModule({ ...reverb, decaySeconds: 30 })).toBe(true)
+    expect(isReturnModule({ ...reverb, sizePercent: 4 })).toBe(false)
+    expect(isReturnModule({ ...reverb, widthPercent: 201 })).toBe(false)
+    expect(isReturnModule({ ...reverb, shimmerIntervalSemitones: 5 })).toBe(false)
+    expect(isReturnModule({ ...reverb, shimmerIntervalSemitones: 24 })).toBe(true)
+    expect(isReturnModule({ ...reverb, modRateHz: 3.5 })).toBe(false)
+    expect(isReturnModule({ ...reverb, duckReleaseMs: 40 })).toBe(false)
+    expect(isReturnModule({ ...reverb, freeze: 'yes' })).toBe(false)
+    // Mix is the FX-return level, never a module field.
+    expect(isReturnModule({ ...reverb, mix: 88 })).toBe(false)
+    // Clear Tail is a momentary command, never serialized state.
+    expect(isReturnModule({ ...reverb, clearTail: true })).toBe(false)
+  })
+
+  it('defines all seven Aetherform presets as complete valid modules', () => {
+    const base = createDefaultAetherformReverbReturnModule('fx-1')
+    expect(AETHERFORM_REVERB_PRESET_NAMES).toHaveLength(7)
+    for (const name of AETHERFORM_REVERB_PRESET_NAMES) {
+      const preset = applyAetherformReverbPreset(base, name)
+      expect(isReturnModule(preset)).toBe(true)
+      expect(preset.id).toBe('fx-1')
+      expect(preset.bypass).toBe(false)
+    }
+    expect(applyAetherformReverbPreset(base, 'Warm Chamber')).toEqual(base)
+    const frozen = applyAetherformReverbPreset(base, 'Frozen Cathedral')
+    expect(frozen).toMatchObject({
+      spaceModel: 'hall',
+      character: 'bloom',
+      decaySeconds: 18,
+      shimmerEnabled: true,
+      shimmerIntervalSemitones: 19,
+      earlyReflectionsEnabled: false,
+      freeze: true
+    })
+    const smallRoom = applyAetherformReverbPreset(base, 'Small Room')
+    expect(smallRoom).toMatchObject({ spaceModel: 'room', character: 'natural', decaySeconds: 0.7 })
+  })
+
+  it('builds, updates, and disposes the aetherform processor fallback', () => {
+    const context = createMockContext()
+    const ctx = context as unknown as BaseAudioContext
+    // Without a registered worklet the reverb processor uses an identity
+    // fallback; it must still expose input/output and survive update/dispose.
+    const reverb = createReturnModuleProcessor(ctx, createDefaultAetherformReverbReturnModule('fx-3'), 120)
+    expect(reverb.input).toBeDefined()
+    expect(reverb.output).toBeDefined()
+    reverb.update(createEmptyReturnModule('fx-3'), 120)
+    reverb.update({ ...createDefaultAetherformReverbReturnModule('fx-3'), freeze: true }, 120)
+    expect(() => reverb.clearTail?.()).not.toThrow()
+    reverb.dispose()
   })
 
   it('toggles and disposes the fixed safety limiter', () => {

@@ -49,6 +49,7 @@ function Harness({ onSet, onPreview, onGestureStart = vi.fn(), onGestureEnd = vi
       onGestureEnd={onGestureEnd}
       onSetReturnBus={handleSet}
       onPreviewReturnBus={onPreview}
+      onClearReturnTail={vi.fn()}
     />
   )
 }
@@ -157,7 +158,7 @@ describe('MixerColumn', () => {
     expect(limiter).not.toHaveAttribute('title')
     fireEvent.focus(limiter)
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Limiter Caps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.'
+      'Limiter Caps this FX Return at −1 dBFS using stereo-linked peak limiting. Filled = engaged (default). Red = bypassed, so the return runs uncapped. Click to toggle. This does not limit the Master output.'
     )
   })
 

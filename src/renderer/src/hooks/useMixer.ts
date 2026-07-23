@@ -30,6 +30,8 @@ export interface MixerState {
 export interface MixerActions {
   setVisualTelemetryActive: (active: boolean) => void
   previewReturnBus: (bus: PlaybackReturnSnapshot) => void
+  /** Momentary Aetherform command: flush a Return module's audio history. */
+  clearReturnTail: (index: number) => void
 }
 
 export type Mixer = MixerState & MixerActions
@@ -187,10 +189,15 @@ export function useMixer(
     ])
   }, [playbackEngineRef])
 
+  const clearReturnTail = useCallback((index: number) => {
+    playbackEngineRef.current?.clearReturnTail(index)
+  }, [playbackEngineRef])
+
   return {
     returnBuses,
     channelMetersStore,
     setVisualTelemetryActive,
-    previewReturnBus
+    previewReturnBus,
+    clearReturnTail
   }
 }

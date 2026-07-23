@@ -461,14 +461,37 @@
   min-width: var(--ui-size, 30px);
   min-height: var(--ui-size, 30px);
   padding: 0;
-  border: var(--edge-pill);
+  border: var(--border-width-pill) solid transparent;
   border-radius: 2px;
-  background: var(--pill-bg);
-  color: var(--text-muted);
   font: 700 9px var(--font-mono);
+  letter-spacing: 0.5px;
   cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
-.mixer-limiter-toggle[aria-pressed="true"] { color: var(--highlight); border-color: var(--accent); }
+/* Engaged (default): filled accent chip reads unambiguously as "protecting". */
+.mixer-limiter-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent-dark, var(--accent));
+  color: var(--on-accent, var(--highlight));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--highlight) 22%, transparent);
+}
+/* Bypassed: the risky state (return uncapped). A red-outlined hollow chip with
+   a slashed glyph is the loudest quiet cue available in the token set. */
+.mixer-limiter-toggle[aria-pressed="false"] {
+  background: color-mix(in srgb, var(--meter-red) 10%, var(--pill-bg));
+  border-color: var(--meter-red);
+  color: var(--meter-red);
+}
+.mixer-limiter-toggle[aria-pressed="false"] .mixer-limiter-glyph::after {
+  content: '';
+  position: absolute;
+  inset: 50% -1px auto -1px;
+  height: 1.5px;
+  background: currentColor;
+  transform: rotate(-24deg);
+}
+.mixer-limiter-glyph { position: relative; display: inline-flex; line-height: 1; }
+.mixer-limiter-toggle:focus-visible { outline: 2px solid var(--highlight); outline-offset: 1px; }
 .mixer-limiter-tooltip { white-space: pre-line; }
 
 .mixer-fx-menu { min-width: 160px; padding: 6px; background: var(--chrome); border: var(--edge); border-radius: var(--radius); }

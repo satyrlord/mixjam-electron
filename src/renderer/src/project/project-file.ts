@@ -1,4 +1,9 @@
-import { isReturnModule, RETURN_BUS_COUNT, type ReturnModule } from '../engine/return-effects'
+import {
+  getReturnEffect,
+  isReturnModule,
+  RETURN_BUS_COUNT,
+  type ReturnModule
+} from '../engine/return-effects'
 import {
   TRACKER_TOTAL_TICKS
 } from '../lib/arrangement'
@@ -424,6 +429,7 @@ function migrateLegacyDelayModule(module: Record<string, unknown>): Record<strin
     // Old "tapeDistortion" implied a tape character but wasn't a mod depth.
     modDepth: 5.4,
     character: 'tape',
+    drive: 0,
     duckAmount: 34,
     duckRelease: 620,
     outputDb: -1.5,
@@ -454,8 +460,9 @@ function migrateSketchEchoformDelayModule(module: Record<string, unknown>): Reco
   next.highCut = clampNumber(module.highCut, 1000, 20000, 7800)
   next.modRate = clampNumber(module.modRate, 0.05, 8, 0.38)
   next.modDepth = clampNumber(module.modDepth, 0, 20, 5.4)
+  next.drive = clampNumber(module.drive, 0, 100, 0)
   next.duckRelease = clampNumber(module.duckRelease, 50, 2500, 620)
-  next.outputDb = clampNumber(module.outputDb, -24, 6, -1.5)
+  next.outputDb = clampNumber(module.outputDb, -24, 12, -1.5)
   return next
 }
 
@@ -686,13 +693,10 @@ export function parseProject(text: string): ProjectDocument {
     if (value.index !== expectedIndex) fail(`${path}.index`, `must be ${expectedIndex}`)
     if (value.name !== expectedName) fail(`${path}.name`, `must be ${expectedName}`)
     if (!isRecord(value.module)) fail(`${path}.module`, 'must be an object')
-    const moduleKeys = value.module.type === 'echoform-delay'
-      ? [
-          'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR',
-          'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
-          'character', 'duckAmount', 'duckRelease', 'outputDb', 'freeze', 'bypass'
-        ]
-      : ['type']
+    // The per-effect field allow-list comes from the effect registry, so a new
+    // effect needs no edit here. Empty and unknown types allow only `type`.
+    const descriptor = getReturnEffect(value.module.type as string)
+    const moduleKeys = descriptor ? descriptor.moduleKeys : ['type']
     assertKeys(value.module, `${path}.module`, moduleKeys)
     let module: ProjectFxBusRecord['module']
     if (value.module.type === 'empty') {

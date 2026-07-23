@@ -184,11 +184,11 @@ function SupportedApp() {
     onBeginMixerGesture: app.beginMixerGesture, onCommitMixerGesture: app.commitMixerGesture,
     onSetChannelGain: app.setChannelGain, onSetChannelPan: app.setChannelPan,
     onSetChannelSend: app.setChannelSend, onSetReturnBus: app.setReturnBus,
-    onPreviewReturnBus: app.previewReturnBus
+    onPreviewReturnBus: app.previewReturnBus, onClearReturnTail: app.clearReturnTail
   }), [
     app.returnBuses, app.channelMetersStore, app.setVisualTelemetryActive,
     app.beginMixerGesture, app.commitMixerGesture, app.setChannelGain, app.setChannelPan,
-    app.setChannelSend, app.setReturnBus, app.previewReturnBus
+    app.setChannelSend, app.setReturnBus, app.previewReturnBus, app.clearReturnTail
   ])
 
   const projectProps = useMemo(() => ({
