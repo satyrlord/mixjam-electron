@@ -179,7 +179,7 @@
   width: calc(8px * var(--ui-scale, 1));
   min-height: 0;
   border: 0;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--text) 9%, var(--bg-grid));
   box-shadow: none;
 }
@@ -377,7 +377,7 @@
   min-height: var(--ui-size, 30px);
   padding: 0;
   border: var(--border-width-pill) solid transparent;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   font: 700 9px var(--font-mono);
   letter-spacing: 0.5px;
   cursor: pointer;

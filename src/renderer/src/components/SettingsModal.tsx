@@ -6,7 +6,13 @@ import {
   type ClipEdgeMicroFadeSettings
 } from '../engine/clip-edge-fades'
 import { UI_SIZE_LABELS, UI_SIZE_OPTIONS, type UiSize } from '../ui-size'
-import { BlockingDialogContent, DialogClose, DialogRoot, DialogTitle } from './ui/Dialog'
+import {
+  BlockingDialogContent,
+  DialogClose,
+  DialogCloseIcon,
+  DialogRoot,
+  DialogTitle
+} from './ui/Dialog'
 
 interface SettingsModalProps {
   userFolder: FolderView
@@ -78,7 +84,9 @@ export default function SettingsModal({
             </p>
           </div>
           <DialogClose asChild>
-            <button ref={closeRef} type="button" className="settings-close" aria-label="Close Settings">×</button>
+            <button ref={closeRef} type="button" className="settings-close" aria-label="Close Settings">
+              <DialogCloseIcon />
+            </button>
           </DialogClose>
         </header>
 

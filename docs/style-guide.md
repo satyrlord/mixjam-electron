@@ -302,6 +302,22 @@ weights, and line-heights.
   font-family token with the selected bundled family first. The token may end
   with the documented system safety fallback, but components must not name or
   select that fallback directly.
+- The fixed authored type scale is 10, 11, 12, 13, 14, 15, 16, and 18px:
+
+  | Size | Intended use |
+  | ---: | --- |
+  | 10px | Micro annotations and dense hardware labels |
+  | 11px | Lane names and compact labels |
+  | 12px | Helper text, status, and mono readouts |
+  | 13px | Body text and standard actions |
+  | 14px | Emphasized control labels |
+  | 15px | Compact dialog and panel titles |
+  | 16px | Application chrome and brand text |
+  | 18px | Section headings and fixed hardware displays |
+
+  The UI Size table may select larger generated endpoints. Icon dimensions do
+  not extend this type scale. Close controls use the shared SVG, not a text
+  glyph sized through `font-size`; 22px is therefore not a typography token.
 
 ### Text Transform Rules
 
@@ -386,6 +402,14 @@ Key behavioral rules:
 
 Geometry tokens for radii, border widths, and sample-bubble typography.
 See [DESIGN.md](../DESIGN.md) for the Emerald default values.
+
+Theme-owned `--radius`, `--radius-transport`, and
+`--radius-sample-bubble` shape normal surfaces. Embedded hardware detail uses
+the invariant micro-radius scale: `--radius-line` (1px),
+`--radius-indicator` (1.5px), `--radius-control` (2px), `--radius-track`
+(3px), `--radius-handle` (5px), and `--radius-pill` (999px). Use these only
+for lines, indicators, compact controls, tracks, handles, and true pills. They
+do not vary between themes.
 
 ### Sample Palette
 

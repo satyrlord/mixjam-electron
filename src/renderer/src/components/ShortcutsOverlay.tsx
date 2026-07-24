@@ -1,4 +1,10 @@
-import { BlockingDialogContent, DialogClose, DialogRoot, DialogTitle } from './ui/Dialog'
+import {
+  BlockingDialogContent,
+  DialogClose,
+  DialogCloseIcon,
+  DialogRoot,
+  DialogTitle
+} from './ui/Dialog'
 import { PLAYER_SHORTCUT_SECTIONS } from '../hooks/usePlayerShortcuts'
 
 interface ShortcutsOverlayProps {
@@ -21,7 +27,9 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
         <div className="shortcuts-head">
           <DialogTitle asChild><h2 className="shortcuts-title">Keyboard Shortcuts</h2></DialogTitle>
           <DialogClose asChild>
-            <button type="button" className="shortcuts-close" aria-label="Close shortcuts">×</button>
+            <button type="button" className="shortcuts-close" aria-label="Close shortcuts">
+              <DialogCloseIcon />
+            </button>
           </DialogClose>
         </div>
         <div className="shortcuts-sections">

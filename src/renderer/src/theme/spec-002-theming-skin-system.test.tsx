@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
@@ -22,6 +22,7 @@ const INDEX_CSS_PATH = resolve(REPO_ROOT, 'src/renderer/src/index.css')
 const UI_SIZE_CSS_PATH = resolve(REPO_ROOT, 'src/renderer/src/ui-size.css')
 const EMERALD_JSON_PATH = resolve(REPO_ROOT, 'public/themes/emerald.json')
 const PUBLIC_FONTS_PATH = resolve(REPO_ROOT, 'src/renderer/public/fonts')
+const RENDERER_SOURCE_PATH = resolve(REPO_ROOT, 'src/renderer/src')
 
 const EXPECTED_THEME_NAMES = [
   'Emerald',
@@ -144,6 +145,14 @@ function readUtf8(absolutePath: string): string {
   return readFileSync(absolutePath, 'utf8')
 }
 
+function listCssFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = resolve(directory, entry.name)
+    if (entry.isDirectory()) return listCssFiles(path)
+    return entry.isFile() && entry.name.endsWith('.css') ? [path] : []
+  })
+}
+
 function countKeyOccurrences(jsonText: string, key: string): number {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const matches = jsonText.match(new RegExp(`"${escaped}"\\s*:`, 'g'))
@@ -187,6 +196,30 @@ describe('Spec 002 - Theming & Skin System acceptance', () => {
     expect(emeraldTheme['border-width-header']).toBe('1px')
     expect(emeraldTheme['sample-bubble-font-weight']).toBe('400')
     expect(emeraldTheme['sample-bubble-case']).toBe('none')
+  })
+
+  it('AC-024: invariant hardware radii are tokenized once', () => {
+    const root = cssDeclarations(readUtf8(INDEX_CSS_PATH), ':root')
+    expect(Object.fromEntries([
+      '--radius-line',
+      '--radius-indicator',
+      '--radius-control',
+      '--radius-track',
+      '--radius-handle',
+      '--radius-pill'
+    ].map((name) => [name, root.get(name)]))).toEqual({
+      '--radius-line': '1px',
+      '--radius-indicator': '1.5px',
+      '--radius-control': '2px',
+      '--radius-track': '3px',
+      '--radius-handle': '5px',
+      '--radius-pill': '999px'
+    })
+
+    const localMicroRadius = /border-radius:\s*(?:1(?:\.5)?|2|3|5|999)px(?:\s|;|$)/
+    for (const cssPath of listCssFiles(RENDERER_SOURCE_PATH)) {
+      expect(readUtf8(cssPath), cssPath).not.toMatch(localMicroRadius)
+    }
   })
 
   it('AC-011: every theme authors a valid 8-slot palette plus unsorted', () => {

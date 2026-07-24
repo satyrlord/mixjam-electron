@@ -289,10 +289,18 @@
    strings), so the width is never actually unset — these compose the width
    with the matching border color once, instead of repeating
    "var(--border-width, 1px) solid var(--border)" at ~40 call sites. */
+/* Theme radii shape larger surfaces; the invariant micro radii below keep
+   hardware indicators, rails, handles, and pills consistent. */
 :root {
   --edge: var(--border-width) solid var(--border);
   --edge-pill: var(--border-width-pill) solid var(--pill-border);
   --edge-header: var(--border-width-header) solid var(--header-border);
+  --radius-line: 1px;
+  --radius-indicator: 1.5px;
+  --radius-control: 2px;
+  --radius-track: 3px;
+  --radius-handle: 5px;
+  --radius-pill: 999px;
   /* Derived surfaces */
   --bg-panel-quiet: color-mix(in srgb, var(--bg-panel) 72%, transparent);
 }
@@ -704,8 +712,13 @@ select option:disabled {
   border-radius: var(--radius);
   background: var(--pill-bg);
   color: var(--text-muted);
-  font: 22px/1 var(--font-label);
   cursor: pointer;
+}
+
+.dialog-close-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
 }
 
 .settings-close:hover,
@@ -1616,7 +1629,7 @@ select option:disabled {
   margin-left: -1.5px;
   margin-top: -13px;
   background: var(--highlight);
-  border-radius: 1.5px;
+  border-radius: var(--radius-indicator);
   box-shadow: 0 0 3px rgba(0, 0, 0, 0.45);
   transform-origin: 1.5px 13px;
   transform: rotate(var(--pan-angle, 0deg));
@@ -2209,7 +2222,7 @@ select option:disabled {
   overflow: hidden;
   flex: 1;
   border: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
-  border-radius: 3px;
+  border-radius: var(--radius-track);
   background: color-mix(in srgb, var(--bg-grid) 82%, black);
   box-shadow: var(--shadow-inset, none);
 }
@@ -2256,7 +2269,7 @@ select option:disabled {
   display: block;
   box-sizing: border-box;
   border: 1px solid var(--border-mixer-knob, var(--pill-border));
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--text) 16%, var(--pill-bg)),
@@ -2404,7 +2417,7 @@ select option:disabled {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-track);
   background: var(--bg-base);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent);
   pointer-events: none;
@@ -2430,7 +2443,7 @@ select option:disabled {
   right: 0;
   left: 0;
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-line);
   background: var(--text);
 }
 
@@ -2466,7 +2479,7 @@ select option:disabled {
   transform: translate(-50%, -50%);
   width: 10px;
   height: 48px;
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   border: var(--edge-pill);
   background:
     radial-gradient(circle at 50% 14px, var(--text-muted) 1.2px, transparent 1.8px),
@@ -2534,7 +2547,7 @@ select option:disabled {
   transform: translate(-50%, -50%);
   width: 48px;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background:
     radial-gradient(circle at 12px 50%, var(--text-muted) 1.2px, transparent 1.8px),
     radial-gradient(circle at 24px 50%, var(--text-muted) 1.2px, transparent 1.8px),
@@ -3454,7 +3467,7 @@ select option:disabled {
   display: flex;
   align-items: center;
   border: var(--edge-pill);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--pill-bg);
   box-shadow: var(--shadow-pill, none);
   transition: background 0.15s ease;
@@ -3578,7 +3591,7 @@ select option:disabled {
 
 
 .tracker-lane-actions { position: sticky; left: 0; z-index: 8; display: flex; align-items: center; justify-content: flex-end; width: var(--tracker-lane-head-width, 240px); gap: 8px; padding: 4px 8px; border-bottom: var(--edge); background: var(--chrome); box-sizing: border-box; }
-.lane-add-button, .lane-empty-delete { min-height: 28px; border: var(--edge-pill); border-radius: 3px; background: var(--pill-bg); color: var(--text-muted); font: 600 12px var(--font-label); padding: 0 8px; }
+.lane-add-button, .lane-empty-delete { min-height: 28px; border: var(--edge-pill); border-radius: var(--radius-track); background: var(--pill-bg); color: var(--text-muted); font: 600 12px var(--font-label); padding: 0 8px; }
 .lane-add-button:hover, .lane-empty-delete:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
 .lane-add-button:disabled, .lane-empty-delete:disabled { opacity: .45; cursor: not-allowed; }
 .lane-action-tooltip-trigger { display: inline-flex; }
@@ -3624,7 +3637,7 @@ select option:disabled {
 .generator-dialog-head { justify-content: space-between; margin-bottom: 18px; }
 .generator-dialog-head h2 { margin: 0 0 4px; color: var(--text); }
 .generator-dialog-head p { margin: 0; color: var(--text-muted); }
-.generator-close { border: 0; background: transparent; color: var(--text-muted); font-size: 22px; cursor: pointer; }
+.generator-close { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; }
 .generator-steps {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3906,7 +3919,7 @@ select option:disabled {
 
 ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--text) 22%, var(--bg-panel));
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   border: 2px solid transparent;
   background-clip: padding-box;
 }

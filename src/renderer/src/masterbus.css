@@ -106,7 +106,7 @@
 .mbs-drop-ind {
   flex: 0 0 4px;
   align-self: stretch;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: var(--mbs-amber);
   box-shadow: 0 0 10px var(--mbs-amber);
 }
@@ -395,7 +395,7 @@
   font: 700 9px var(--font-label);
   letter-spacing: 0.2em;
   padding: 2.5px 7px;
-  border-radius: 3px;
+  border-radius: var(--radius-track);
   color: #15161a;
   background: var(--mbs-fam);
 }
@@ -514,7 +514,7 @@
   font-family: var(--font-mono);
   letter-spacing: 0.05em;
   padding: 0 9px;
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   color: var(--mbs-ink);
   background: rgb(0 0 0 / 26%);
   border: 1px solid rgb(0 0 0 / 45%);
@@ -628,7 +628,7 @@
   height: 90px;
   background: linear-gradient(#1c1712, #4a3c22);
   transform-origin: 50% 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
 }
 
 .mbs-needle::after {
@@ -658,7 +658,7 @@
   font-size: 11px;
   background: var(--mbs-lcd-bg);
   color: var(--mbs-lcd-ink);
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   border: 1px solid #000;
   box-shadow: 0 2px 5px rgb(0 0 0 / 55%) inset;
   padding: 4px 8px;
@@ -714,7 +714,7 @@
   position: relative;
   width: 30px;
   height: 140px;
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   overflow: hidden;
   background: linear-gradient(#0c0f0d, #131714);
   border: 1px solid #000;
@@ -830,7 +830,7 @@
   font: 700 10px var(--font-mono);
   letter-spacing: 0.2em;
   padding: 4px 0;
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   color: #5a5d64;
   background: rgb(0 0 0 / 30%);
   border: 1px solid rgb(0 0 0 / 50%);

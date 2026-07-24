@@ -47,7 +47,9 @@ describe('ShortcutsOverlay', () => {
     const onClose = vi.fn()
     render(<ShortcutsOverlay onClose={onClose} />)
 
-    fireEvent.click(screen.getByLabelText('Close shortcuts'))
+    const closeButton = screen.getByLabelText('Close shortcuts')
+    expect(closeButton.querySelector('svg.dialog-close-icon')).toBeInTheDocument()
+    fireEvent.click(closeButton)
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

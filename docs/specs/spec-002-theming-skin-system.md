@@ -128,6 +128,19 @@ ruler row.
 | Spacing xs / sm / md / lg | 2 / 4 / 8 / 12px | 3 / 5 / 11 / 16px | 3 / 7 / 13 / 20px |
 | Supporting type xs / sm / md / lg | 10 / 11 / 12 / 14px | 13 / 15 / 16 / 19px | 17 / 18 / 20 / 23px |
 
+The fixed authored typography scale is 10, 11, 12, 13, 14, 15, 16, and 18px.
+The 15px compact-title and 18px heading/display steps are formal values. The
+19, 20, and 23px values above remain generated UI Size endpoints rather than
+new fixed roles. Icon paint does not extend the type scale: close controls use
+the shared inline SVG, so the former 22px text glyph is not a typography token.
+
+Themes own the general, transport, and sample-bubble radii. Invariant embedded
+hardware geometry instead uses `--radius-line` (1px), `--radius-indicator`
+(1.5px), `--radius-control` (2px), `--radius-track` (3px),
+`--radius-handle` (5px), and `--radius-pill` (999px). These tokens do not vary
+by theme and are limited to lines, indicators, compact controls, tracks,
+handles, and true pills.
+
 UI Size does not alter musical time, pixels per tick, project data, audio, clip
 placement, or sample-bubble width. It is app state and is not written to a
 `.mixjam` file. Bubble and lane heights are:
@@ -469,6 +482,10 @@ preset layer has one clear cascade boundary.
 - [x] **AC-023:** Built Chromium proof at 1920x1080, UI Size 50, and an open Mixer
   shows the full ruler and one complete lane with no vertical scrollbar,
   clipping, overlap, or shrunken interaction targets.
+- [x] **AC-024:** Fixed authored typography uses the documented 10–18px scale;
+  15px and 18px are formal type steps, while close icons are SVG paint rather
+  than a 22px text glyph. Embedded hardware radii resolve through the invariant
+  micro-radius tokens instead of local 1–5px or 999px literals.
 
 ## Non-Goals (deferred to later specs)
 

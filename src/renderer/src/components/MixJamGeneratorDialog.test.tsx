@@ -193,7 +193,9 @@ describe('MixJamGeneratorDialog', () => {
 
   it('routes the close button through planning cancellation', async () => {
     const { onClose } = renderDialog({ generating: true })
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    const closeButton = screen.getByRole('button', { name: 'Close' })
+    expect(closeButton.querySelector('svg.dialog-close-icon')).toBeInTheDocument()
+    fireEvent.click(closeButton)
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 

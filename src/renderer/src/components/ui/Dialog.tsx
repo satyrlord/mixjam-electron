@@ -5,6 +5,25 @@ export const DialogRoot = Primitive.Root
 export const DialogClose = Primitive.Close
 export const DialogTitle = Primitive.Title
 
+export function DialogCloseIcon() {
+  return (
+    <svg
+      className="dialog-close-icon"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M3 3l10 10M13 3 3 13"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof Primitive.Content> & {
   onOverlayClick?: React.MouseEventHandler<HTMLDivElement>
 }

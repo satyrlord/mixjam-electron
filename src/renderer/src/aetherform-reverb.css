@@ -264,7 +264,7 @@
   left: 50%;
   width: 13px;
   height: 1.5px;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: currentColor;
 }
 .af-close::before { transform: translate(-50%, -50%) rotate(45deg); }
@@ -329,7 +329,7 @@
   min-width: calc(70px * var(--af-scale));
   padding: var(--af-gap-xs) var(--af-gap-sm);
   border: 1px solid color-mix(in srgb, var(--af-accent) 27%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--af-accent-faint);
   color: var(--af-accent-ink);
   font-family: var(--af-mono);
@@ -442,7 +442,7 @@
   width: var(--node-size, 7px);
   height: var(--node-size, 7px);
   border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: var(--af-accent);
   opacity: var(--node-opacity, 0.65);
   filter: brightness(var(--node-brightness, 1));
@@ -455,15 +455,15 @@
   border-color: color-mix(in srgb, var(--text) 34%, transparent);
 }
 /* Space models arrange the field with different node shapes. */
-.af-dialog[data-space="room"] .af-field-node { border-radius: 2px; }
+.af-dialog[data-space="room"] .af-field-node { border-radius: var(--radius-control); }
 .af-dialog[data-space="hall"] .af-field-node { border-radius: 50%; }
 .af-dialog[data-space="plate"] .af-field-node {
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   width: calc(var(--node-size, 7px) * 0.55);
   height: calc(var(--node-size, 7px) * 1.9);
 }
 .af-dialog[data-space="chamber"] .af-field-node {
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   transform: translate(-50%, -50%) rotate(45deg);
 }
 .af-dialog[data-character="vintage"] .af-field-node {
@@ -478,7 +478,7 @@
   width: var(--shimmer-size, 5px);
   height: var(--shimmer-size, 5px);
   border: 1px solid color-mix(in srgb, var(--af-shimmer) 75%, var(--text) 25%);
-  border-radius: 2px 50% 2px 50%;
+  border-radius: var(--radius-control) 50% var(--radius-control) 50%;
   background: var(--af-shimmer);
   opacity: var(--shimmer-opacity, 0.65);
   transform: translate(-50%, -50%) rotate(45deg);
@@ -505,7 +505,7 @@
   place-items: center;
   width: calc(var(--af-unit) * 0.6);
   height: calc(var(--af-unit) * 0.6);
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   background: var(--af-control);
   color: var(--af-text-muted);
   font-family: var(--af-mono);
@@ -662,7 +662,7 @@
   min-height: var(--af-control-h);
   padding: 0 var(--af-gap-md);
   border-color: transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   background: transparent;
   box-shadow: none;
   color: var(--af-text-muted);
@@ -747,7 +747,7 @@
   z-index: 1;
   width: 2px;
   height: calc(var(--af-knob-size) * 0.227);
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: var(--af-knob-accent, var(--af-accent-strong));
   transform: translateX(-50%) rotate(var(--knob-angle, 0deg));
   transform-origin: 50% calc(var(--af-knob-size) * 0.341);
@@ -818,7 +818,7 @@
   flex: 0 0 auto;
   min-width: calc(29px * var(--af-scale));
   padding: 2px 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--af-text-muted);
   font-family: var(--af-mono);

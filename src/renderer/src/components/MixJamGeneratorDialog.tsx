@@ -12,7 +12,13 @@ import {
   MIXJAM_GENERATOR_PROFILE_IDS,
   MIXJAM_GENERATOR_PROFILE_LABELS
 } from '../../../shared/generator-templates'
-import { BlockingDialogContent, DialogClose, DialogRoot, DialogTitle } from './ui/Dialog'
+import {
+  BlockingDialogContent,
+  DialogClose,
+  DialogCloseIcon,
+  DialogRoot,
+  DialogTitle
+} from './ui/Dialog'
 
 export interface GeneratorResult {
   path: string
@@ -109,7 +115,9 @@ export default function MixJamGeneratorDialog({
             <p id="generator-description">Create a saved project from your current sample library.</p>
           </div>
           <DialogClose asChild>
-            <button type="button" className="generator-close" aria-label="Close" disabled={saving}>×</button>
+            <button type="button" className="generator-close" aria-label="Close" disabled={saving}>
+              <DialogCloseIcon />
+            </button>
           </DialogClose>
         </header>
 

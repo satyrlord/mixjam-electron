@@ -55,21 +55,54 @@ typography:
     fontSize: "11px"
     fontWeight: 400
     lineHeight: 1.3
-  # These catalogs enumerate selectable bundled families; they are not CSS
-  # fallback stacks. All eighteen families ship in src/renderer/public/fonts.
-  theme-family-catalog:
-    chrome: ["Josefin Sans", "IBM Plex Sans", "Space Grotesk", "Orbitron", "Chakra Petch", "Barlow", "Nunito", "Arimo", "Archivo Black", "Silkscreen", "Special Elite", "Space Mono", "JetBrains Mono"]
-    label: ["Ubuntu", "IBM Plex Sans", "Space Grotesk", "Exo 2", "Chakra Petch", "Barlow", "Nunito", "Arimo", "Archivo", "VT323", "Special Elite", "Space Mono", "JetBrains Mono"]
-    mono: ["JetBrains Mono", "Space Mono", "Cousine", "VT323"]
+  micro-label:
+    fontFamily: "Ubuntu, system-ui, sans-serif"
+    fontSize: "10px"
+    fontWeight: 400
+    lineHeight: 1.2
+  helper:
+    fontFamily: "Ubuntu, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.4
+  control-label:
+    fontFamily: "Ubuntu, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 600
+    lineHeight: 1.4
+  title-small:
+    fontFamily: "Josefin Sans, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.3
+  heading:
+    fontFamily: "Josefin Sans, system-ui, sans-serif"
+    fontSize: "18px"
+    fontWeight: 400
+    lineHeight: 1.3
+  # These three metadata roles enumerate selectable bundled families. The
+  # comma-separated values are catalogs for tooling, not CSS fallback stacks.
+  chrome-theme-alternates:
+    fontFamily: "Josefin Sans, IBM Plex Sans, Space Grotesk, Orbitron, Chakra Petch, Barlow, Nunito, Arimo, Archivo Black, Silkscreen, Special Elite, Space Mono, JetBrains Mono"
+  label-theme-alternates:
+    fontFamily: "Ubuntu, IBM Plex Sans, Space Grotesk, Exo 2, Chakra Petch, Barlow, Nunito, Arimo, Archivo, VT323, Special Elite, Space Mono, JetBrains Mono"
+  mono-theme-alternates:
+    fontFamily: "JetBrains Mono, Space Mono, Cousine, VT323"
   runtime-fallbacks:
     sans: "system-ui, sans-serif"
     mono: "Consolas, monospace"
 rounded:
+  line: "1px"
+  indicator: "1.5px"
+  control: "2px"
+  track: "3px"
+  handle: "5px"
   base: "0.22rem"
   transport: "8px"
   sample-bubble: "6px"
   module: "6px"
   rack: "14px"
+  pill: "999px"
 spacing:
   micro: "4px"
   base: "8px"
@@ -282,19 +315,25 @@ The exception is the rack, not a license.
 humanist sans for everything you read while working, and a mono for anything
 that represents a measured value. The pairing works on a contrast axis, and
 each theme may substitute its own bundled families for all three. Eighteen
-families ship in `src/renderer/public/fonts/`; `theme-family-catalog` in the
-frontmatter lists the allowed families for each role, while `runtime-fallbacks`
-records the separate safety fallback appended after the selected bundled
-family. All primary font files are bundled, with no CDN, Google Fonts, or other
-network dependency.
+families ship in `src/renderer/public/fonts/`; the three `*-theme-alternates`
+metadata roles in the frontmatter list the allowed families, while
+`runtime-fallbacks` records the separate safety fallback appended after the
+selected bundled family. All primary font files are bundled, with no CDN,
+Google Fonts, or other network dependency.
 
 ### Hierarchy
 
-Product UI, so the scale is fixed in pixels and tight. There is no fluid
-type and no clamp() anywhere in this system.
+Product UI, so the authored scale is fixed in pixels and tight: 10, 11, 12,
+13, 14, 15, 16, and 18px. There is no fluid type and no clamp() anywhere in
+this system. The UI Size presets may select larger generated endpoints; their
+full 30 / 40 / 50 table remains the geometry source of truth.
 
+- **Micro Label** (400, 10px, 1.2): Dense hardware annotations and panel counts.
 - **Chrome / Brand** (400, ~16px, 1.4): Header brand and shell labels. Uppercase is a per-theme decision applied via `[data-theme-key]`, never a color-token concern.
 - **Action Label** (400, 13px minimum, 1.4): Buttons, menu items, channel labels. 13px is a floor, not a target.
+- **Control Label** (600, 14px, 1.4): Emphasized controls and primary dialog actions.
+- **Compact Title** (400, 15px, 1.3): Compact dialog and panel titles.
+- **Heading** (400, 18px, 1.3): Section headings and fixed hardware displays.
 - **Status / Helper** (400, 12px minimum, 1.4): Tooltips, hints, secondary status.
 - **Lane Name** (400, 11px, 1.3): The densest text in the app; truncates with ellipsis and a tooltip.
 - **Mono Readout** (400, 12px, 1.2): Timer (`00:00.0`), bar numbers, compact
@@ -311,6 +350,10 @@ not rely on browser-default typography or introduce a private font family.
 **The Measured-Value Rule.** If a number represents something the audio engine
 measured — time, level, tempo, position, gain reduction — it renders in mono.
 If it is a label, it does not.
+
+**The Icon-Is-Geometry Rule.** Icon dimensions do not extend the type scale.
+Close controls use the shared inline SVG and size it as paint. The former 22px
+close glyph was icon geometry, not a typographic role.
 
 ## 4. Elevation
 
@@ -359,6 +402,10 @@ drag image. Change one, change all three.
 ### Buttons
 
 - **Shape:** Softly squared (`--radius`, 0.22rem in Emerald). Transport uses its own rounder corner (`--radius-transport`, 8px).
+- **Micro geometry:** invariant hardware paint uses `--radius-line` (1px),
+  `--radius-indicator` (1.5px), `--radius-control` (2px), `--radius-track`
+  (3px), `--radius-handle` (5px), and `--radius-pill` (999px). These values do
+  not change with the theme; theme-owned radii still shape normal surfaces.
 - **Transport:** The one filled accent family. Play is accent-colored when
   stopped, Pause when playing; the face uses `--gradient-transport` /
   `--gradient-transport-active` over the `--transport` / `--transport-active`
@@ -500,6 +547,8 @@ pixels.
 - **Do** honor `prefers-reduced-motion: reduce` — the scan spinner and locate-in-browser flash become static indicators and transitions are removed.
 - **Do** verify a change against all sixteen themes, light ones included. Vintage, Soft, and Riso are light; a change that only reads on dark is unfinished.
 - **Do** keep `--text-muted` genuinely readable. Muted is a hierarchy signal, not a license for low contrast.
+- **Do** use the invariant micro-radius tokens for hardware lines, indicators,
+  compact controls, tracks, handles, and true pills.
 
 ### Don't
 
@@ -510,6 +559,8 @@ pixels.
 - **Don't** put a second filled accent action on a surface that already has Play/Pause.
 - **Don't** rely on browser-default typography. Placeholder text and input values use the same tokenized font stacks as the rest of the surface.
 - **Don't** use fluid typography. No `clamp()` headings; this is product UI at a fixed minimum resolution.
+- **Don't** use font size to paint an icon. Use a code-native SVG with explicit
+  geometry and an accessible control name.
 - **Don't** overlap interactive containers or fight with z-index.
 - **Don't** invent hardware that no spec calls for. The reference board governs structure and density only — no invented screws, tape labels, or fake wear on the Mixer.
 - **Don't** apply full-saturation accent to inactive or disabled states.

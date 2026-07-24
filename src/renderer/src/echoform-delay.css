@@ -316,7 +316,7 @@
   left: 50%;
   width: 13px;
   height: 1.5px;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: currentColor;
 }
 .ef-close::before { transform: translate(-50%, -50%) rotate(45deg); }
@@ -383,7 +383,7 @@
   min-width: calc(70px * var(--ef-scale));
   padding: var(--ef-gap-xs) var(--ef-gap-sm);
   border: 1px solid color-mix(in srgb, var(--ef-accent) 27%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ef-accent-faint);
   /* Not raw `--ef-accent-strong`: a saturated highlight is sized for fills and
      large type, and as 8px uppercase ink on a faint wash it measured 3.08:1 on
@@ -461,12 +461,12 @@
   width: var(--tap-size, 9px);
   height: var(--tap-size, 9px);
   border: 1px solid color-mix(in srgb, var(--text) 30%, transparent);
-  border-radius: 3px;
+  border-radius: var(--radius-track);
   background: var(--tap-color, var(--ef-accent));
   opacity: var(--tap-opacity, 0.7);
   transform: translate(-50%, -50%);
 }
-.ef-dialog[data-character="digital"] .ef-tap { border-radius: 2px; }
+.ef-dialog[data-character="digital"] .ef-tap { border-radius: var(--radius-control); }
 .ef-dialog[data-character="analog"] .ef-tap { border-radius: 50%; }
 .ef-dialog[data-character="tape"] .ef-tap { border-radius: 45% 55% 48% 52%; filter: blur(0.25px); }
 
@@ -483,7 +483,7 @@
   place-items: center;
   width: calc(var(--ef-unit) * 0.6);
   height: calc(var(--ef-unit) * 0.6);
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   background: var(--ef-control);
   color: var(--ef-text-muted);
   font-family: var(--ef-mono);
@@ -603,7 +603,7 @@
   min-height: var(--ef-control-h);
   padding: 0 var(--ef-gap-md);
   border-color: transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   background: transparent;
   box-shadow: none;
   color: var(--ef-text-muted);
@@ -649,7 +649,7 @@
   place-items: center;
   width: calc(var(--ef-unit) * 0.67);
   height: calc(var(--ef-unit) * 0.67);
-  border-radius: 5px;
+  border-radius: var(--radius-handle);
   background: var(--ef-control);
   color: var(--ef-text-soft);
   font-family: var(--ef-mono);
@@ -734,7 +734,7 @@
   z-index: 1;
   width: 2px;
   height: calc(var(--ef-knob-size) * 0.227);
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: var(--ef-accent-strong);
   transform: translateX(-50%) rotate(var(--knob-angle, 0deg));
   transform-origin: 50% calc(var(--ef-knob-size) * 0.341);
