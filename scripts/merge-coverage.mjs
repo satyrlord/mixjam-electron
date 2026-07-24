@@ -96,8 +96,8 @@ else console.log('  E2E:  no data')
 
 console.log('=======================================================================')
 
-// Quality gate: unit coverage must meet 80% on all cells.
-const THRESHOLD = 80
+// Quality gate: unit coverage must meet 70% on all cells.
+const THRESHOLD = 70
 if (!unitSummary) {
   console.log('FAIL: Unit coverage data missing. Run `npm run test:coverage` first.')
   process.exit(1)

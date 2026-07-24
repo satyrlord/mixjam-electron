@@ -23,7 +23,6 @@ interface MixerColumnProps {
   /** Established tempo command; the delay editor's Tap Tempo routes through it. */
   onSetBpm?: (bpm: number) => void
   onSetChannelGain: (channelIndex: number, gain: number) => void
-  onSetChannelPan: (channelIndex: number, pan: number) => void
   onSetChannelSend: (channelIndex: number, sendIndex: number, value: number) => void
   onSelectLane: (laneId: string) => void
   onGestureStart: () => void
@@ -54,7 +53,6 @@ export default function MixerColumn({
   bpm = 120,
   onSetBpm,
   onSetChannelGain,
-  onSetChannelPan,
   onSetChannelSend,
   onSelectLane,
   onGestureStart,
@@ -89,9 +87,6 @@ export default function MixerColumn({
   )
   return (
     <div className="mixer-column mixer-column-scroll">
-      <div className="mixer-column-head">
-        <h2 className="tracker-zone-title mixer-column-title">Mixer</h2>
-      </div>
       <div
         className="mixer-strips"
         role="region"
@@ -127,7 +122,6 @@ export default function MixerColumn({
                     channelIndex={lane.index}
                     label={lane.name}
                     gain={lane.gain}
-                    pan={lane.pan}
                     sends={lane.sends}
                     sendModuleNames={[
                       returnModuleName(returnBuses[0]),
@@ -139,7 +133,6 @@ export default function MixerColumn({
                     meterStore={meterStores.get(lane.index) ?? silentMeterStore}
                     selected={selectedLaneId === lane.id}
                     onSetGain={onSetChannelGain}
-                    onSetPan={onSetChannelPan}
                     onSetSend={onSetChannelSend}
                     onSelect={onSelectLane}
                     onGestureStart={onGestureStart}

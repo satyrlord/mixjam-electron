@@ -102,6 +102,18 @@
     return { rows: rows.slice(offset, offset + limit), total: total }
   }
 
+  // Mirror the bundled-template registry versions so the persisted generator
+  // block is recognised as exactly regenerable (supportsExactGeneratorRegeneration
+  // requires generatorVersion === MIXJAM_GENERATOR_VERSION and profileVersion ===
+  // the running template version). Bump these alongside the constants they mock:
+  // MIXJAM_GENERATOR_VERSION in src/shared/backend-api.ts and each template's
+  // "version" in src/shared/generator-templates/templates/*.json.
+  var MOCK_GENERATOR_VERSION = 3
+  var MOCK_PROFILE_VERSIONS = {
+    techno: 5, trance: 5, house: 5,
+    'melodic-techno': 2, 'ambient-house': 2, 'tropical-house': 2
+  }
+
   function generatorPlan(parameters) {
     var bpm = parameters.bpmMode === 'fixed' ? parameters.bpm : 120
     var bars = Math.max(1, Math.floor(parameters.durationSeconds * bpm / 240 + 0.5))
@@ -122,9 +134,9 @@
       })
     }
     return {
-      generatorVersion: 1,
+      generatorVersion: MOCK_GENERATOR_VERSION,
       profileId: parameters.profileId,
-      profileVersion: 2,
+      profileVersion: MOCK_PROFILE_VERSIONS[parameters.profileId] || 1,
       seed: parameters.seed,
       parameters: { bpmMode: parameters.bpmMode, resolvedBpm: bpm, intensity: parameters.intensity, durationSeconds: parameters.durationSeconds },
       corpusFingerprint: 'e2e-fingerprint',

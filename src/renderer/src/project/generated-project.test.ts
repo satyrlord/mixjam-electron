@@ -4,9 +4,9 @@ import { materializeGeneratedProject } from './generated-project'
 import { parseProject, serializeProject } from './project-file'
 
 const plan: MixJamGeneratorPlan = {
-  generatorVersion: 1,
+  generatorVersion: 3,
   profileId: 'techno',
-  profileVersion: 2,
+  profileVersion: 5,
   seed: 'seed',
   parameters: { bpmMode: 'fixed', resolvedBpm: 140, intensity: 'medium', durationSeconds: 180 },
   corpusFingerprint: 'abc123',

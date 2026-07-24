@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 import MixJamGeneratorDialog from './MixJamGeneratorDialog'
 import type { MixJamGeneratorParameters, MixJamGeneratorReadiness } from '../../../shared/backend-api'
 import { MIXJAM_GENERATOR_INTENSITIES } from '../../../shared/backend-api'
-import { MIXJAM_GENERATOR_PROFILE_IDS } from '../../../shared/generator-templates'
+import {
+  MIXJAM_GENERATOR_DEFAULT_PROFILE_ID,
+  MIXJAM_GENERATOR_PROFILE_IDS
+} from '../../../shared/generator-templates'
 
 const READY: MixJamGeneratorReadiness = {
   status: 'ready',
@@ -63,10 +66,28 @@ describe('MixJamGeneratorDialog', () => {
     opener.remove()
   })
 
-  it('renders all profile options from constants', () => {
+  it('renders the six shipped profiles in registry order with Techno selected', () => {
     renderDialog()
-    const select = screen.getByLabelText('Profile')
-    expect(select.querySelectorAll('option')).toHaveLength(MIXJAM_GENERATOR_PROFILE_IDS.length)
+    const select = screen.getByLabelText<HTMLSelectElement>('Profile')
+    const options = [...select.querySelectorAll('option')]
+    expect(options).toHaveLength(MIXJAM_GENERATOR_PROFILE_IDS.length)
+    expect(options.map((option) => option.value)).toEqual([
+      'techno',
+      'trance',
+      'house',
+      'tropical-house',
+      'ambient-house',
+      'melodic-techno'
+    ])
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Techno',
+      'Trance',
+      'House',
+      'Tropical House',
+      'Ambient House',
+      'Melodic Techno'
+    ])
+    expect(select).toHaveValue(MIXJAM_GENERATOR_DEFAULT_PROFILE_ID)
   })
 
   it('renders all intensity options from constants', () => {

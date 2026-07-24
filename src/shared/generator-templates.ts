@@ -274,6 +274,21 @@ export function parseGeneratorTemplate(value: unknown, source = 'template'): Gen
   if (activeLanes.size !== GENERATOR_LANE_COUNT) {
     fail(source, `${path}.sections`, `must activate every lane from 0 to ${GENERATOR_LANE_COUNT - 1}`)
   }
+  // The generator's 80/80/80 density rule (80% of lanes populated for 80% of
+  // the song) is only achievable when the template keeps lanes schedulable for
+  // most of the arrangement. Require 85 weight of coverage — 80% density plus
+  // headroom for breakdown rests and ramp phrases — for at least 80% of
+  // non-transition lanes.
+  const nonTransitionLanes = lanes.flatMap((lane, laneIndex) => lane.role === 'transition' ? [] : [laneIndex])
+  const coveredLanes = nonTransitionLanes.filter((laneIndex) =>
+    sections.reduce((sum, section) => sum + (section.activeLanes.includes(laneIndex) ? section.weight : 0), 0) >= 85
+  )
+  if (coveredLanes.length < Math.ceil(0.8 * nonTransitionLanes.length - 1e-9)) {
+    fail(
+      source, `${path}.sections`,
+      'must keep at least 80% of non-transition lanes active in sections totalling 85 weight'
+    )
+  }
 
   const coreLanes = readUniqueLaneIndexes(template.coreLanes, source, `${path}.coreLanes`)
   for (const coreLane of coreLanes) {

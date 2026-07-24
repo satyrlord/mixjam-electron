@@ -236,7 +236,6 @@ export default function PlayerView({
       onGestureStart={mixer.onBeginMixerGesture}
       onGestureEnd={mixer.onCommitMixerGesture}
       onSetChannelGain={mixer.onSetChannelGain}
-      onSetChannelPan={mixer.onSetChannelPan}
       onSetChannelSend={mixer.onSetChannelSend}
       onSetReturnBus={mixer.onSetReturnBus}
       onPreviewReturnBus={mixer.onPreviewReturnBus}

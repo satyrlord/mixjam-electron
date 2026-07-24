@@ -126,7 +126,6 @@ export interface PlayerMixerProps {
   onBeginMixerGesture: () => void
   onCommitMixerGesture: () => void
   onSetChannelGain: (channelIndex: number, gain: number) => void
-  onSetChannelPan: (channelIndex: number, pan: number) => void
   onSetChannelSend: (channelIndex: number, sendIndex: number, value: number) => void
   onSetReturnBus: (bus: PlaybackReturnSnapshot) => void
   onPreviewReturnBus: (bus: PlaybackReturnSnapshot) => void

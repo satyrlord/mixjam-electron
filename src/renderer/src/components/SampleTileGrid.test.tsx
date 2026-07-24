@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SampleTileGrid from './SampleTileGrid'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
@@ -47,7 +47,6 @@ describe('SampleTileGrid', () => {
         bubblePixelsPerSecond={120}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -77,7 +76,6 @@ describe('SampleTileGrid', () => {
           bubblePixelsPerSecond={1}
           selectedSamplePath={null}
           flashSamplePath={null}
-          activeCategorySlot={undefined}
           categories={CATEGORIES}
           loading={false}
           error={null}
@@ -105,7 +103,6 @@ describe('SampleTileGrid', () => {
         durationTicksBySamplePath={new Map([['a.wav', 64]])}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -129,7 +126,6 @@ describe('SampleTileGrid', () => {
         durationTicksBySamplePath={new Map([['a.wav', 64]])}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -152,7 +148,6 @@ describe('SampleTileGrid', () => {
         samples={[]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -166,16 +161,18 @@ describe('SampleTileGrid', () => {
       />
     )
 
-    expect(container.querySelector('.tiles-empty')?.textContent).toContain('No samples found')
+    expect(container.querySelector('.tiles-empty')).toHaveTextContent('No samples yet')
+    expect(container.querySelector('.tiles-empty')).toHaveTextContent(
+      'This Sample Folder has no supported audio files.'
+    )
   })
 
   it('shows error message when error is set', () => {
-    const { container } = render(
+    render(
       <SampleTileGrid
         samples={[]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error="Custom error message"
@@ -189,16 +186,16 @@ describe('SampleTileGrid', () => {
       />
     )
 
-    expect(container.querySelector('.tiles-empty')?.textContent).toBe('Custom error message')
+    expect(screen.getByRole('alert')).toHaveTextContent('Samples could not load')
+    expect(screen.getByRole('alert')).toHaveTextContent('Custom error message')
   })
 
-  it('does not show empty message while loading', () => {
+  it('shows a labelled skeleton state while loading', () => {
     const { container } = render(
       <SampleTileGrid
         samples={[]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={true}
         error={null}
@@ -213,6 +210,37 @@ describe('SampleTileGrid', () => {
     )
 
     expect(container.querySelector('.tiles-empty')).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading samples')
+    expect(container.querySelectorAll('.tiles-skeleton span')).toHaveLength(4)
+    expect(container.querySelector('.tiles')).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('offers a quiet recovery action for a filtered empty result', () => {
+    const onClearFilters = vi.fn()
+    render(
+      <SampleTileGrid
+        samples={[]}
+        selectedSamplePath={null}
+        flashSamplePath={null}
+        categories={CATEGORIES}
+        loading={false}
+        error={null}
+        emptyTitle="No matching samples"
+        emptyDescription="Try a different search, category, or tag."
+        onClearFilters={onClearFilters}
+        hasMore={false}
+        onLoadMore={vi.fn()}
+        onSelectSampleDetail={vi.fn()}
+        onPreviewSample={vi.fn()}
+        onSampleDragStart={vi.fn()}
+        onSampleContextMenuOpen={vi.fn()}
+        renderSampleContextMenu={() => null}
+      />
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('No matching samples')
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(onClearFilters).toHaveBeenCalledOnce()
   })
 
   it('fires onSampleContextMenu on right-click', () => {
@@ -223,7 +251,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -253,7 +280,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -282,7 +308,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -309,7 +334,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath="a.wav"
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -334,7 +358,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath="a.wav"
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -352,14 +375,14 @@ describe('SampleTileGrid', () => {
     expect(button.classList.contains('sample-bubble-flash')).toBe(true)
   })
 
-  it('applies activeCategorySlot to all sample bubbles', () => {
-    const sample = makeSample()
+  it('keeps the sample category slot stable in the bubble and drag payload', () => {
+    const sample = makeSample({ categoryId: 2 })
+    const onSampleDragStart = vi.fn()
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={3}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -367,15 +390,20 @@ describe('SampleTileGrid', () => {
         onLoadMore={vi.fn()}
         onSelectSampleDetail={vi.fn()}
         onPreviewSample={vi.fn()}
-        onSampleDragStart={vi.fn()}
+        onSampleDragStart={onSampleDragStart}
         onSampleContextMenuOpen={vi.fn()}
         renderSampleContextMenu={() => null}
       />
     )
 
-    const button = container.querySelector('.sample-bubble') as HTMLElement
-    // The DOM adapter points the surface at the shared slot custom property.
-    expect(button.style.backgroundColor).toBe('var(--palette-3)')
+    const bubble = container.querySelector('.sample-bubble') as HTMLElement
+    expect(bubble.style.backgroundColor).toBe('var(--palette-0)')
+
+    fireEvent.dragStart(bubble)
+    expect(onSampleDragStart).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ slot: 0 })
+    )
   })
 
   it('does not call onLoadMore before the viewport is measured', () => {
@@ -386,7 +414,6 @@ describe('SampleTileGrid', () => {
         samples={[makeSample()]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={false}
         error={null}
@@ -420,7 +447,6 @@ describe('SampleTileGrid', () => {
           samples={samples}
           selectedSamplePath={null}
           flashSamplePath={null}
-          activeCategorySlot={undefined}
           categories={CATEGORIES}
           loading={false}
           error={null}
@@ -446,7 +472,6 @@ describe('SampleTileGrid', () => {
         samples={[makeSample()]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        activeCategorySlot={undefined}
         categories={CATEGORIES}
         loading={true}
         error={null}
@@ -463,29 +488,4 @@ describe('SampleTileGrid', () => {
     expect(onLoadMore).not.toHaveBeenCalled()
   })
 
-  it('uses the category slot when no activeCategorySlot and sample has a category', () => {
-    const sample = makeSample({ categoryId: 2 })
-    const { container } = render(
-      <SampleTileGrid
-        samples={[sample]}
-        selectedSamplePath={null}
-        flashSamplePath={null}
-        activeCategorySlot={undefined}
-        categories={CATEGORIES}
-        loading={false}
-        error={null}
-        hasMore={false}
-        onLoadMore={vi.fn()}
-        onSelectSampleDetail={vi.fn()}
-        onPreviewSample={vi.fn()}
-        onSampleDragStart={vi.fn()}
-        onSampleContextMenuOpen={vi.fn()}
-        renderSampleContextMenu={() => null}
-      />
-    )
-
-    const button = container.querySelector('.sample-bubble') as HTMLElement
-    // categorySlot('Drums') is slot 0, applied through the sample-bubble owner.
-    expect(button.style.backgroundColor).toBe('var(--palette-0)')
-  })
 })

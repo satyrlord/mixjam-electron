@@ -42,7 +42,6 @@ function Harness({ onSet, onPreview, onGestureStart = vi.fn(), onGestureEnd = vi
       channelMetersStore={channelMetersStore}
       selectedLaneId={lanes[0]!.id}
       onSetChannelGain={vi.fn()}
-      onSetChannelPan={vi.fn()}
       onSetChannelSend={vi.fn()}
       onSelectLane={vi.fn()}
       onGestureStart={onGestureStart}
@@ -60,7 +59,7 @@ describe('MixerColumn', () => {
     const onPreview = vi.fn()
     render(<Harness onSet={onSet} onPreview={onPreview} />)
 
-    expect(screen.getByRole('button', { name: 'Lane 1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lane 1, channel 1' })).toBeInTheDocument()
     const firstFxReturn = screen.getByRole('region', { name: 'FX Return 1' })
     expect(firstFxReturn).toContainElement(screen.getByRole('slider', { name: 'FX Return 1 Mix' }))
     expect(firstFxReturn).toContainElement(screen.getByRole('button', { name: 'Limiter for FX Return 1' }))
@@ -112,7 +111,7 @@ describe('MixerColumn', () => {
     expect(scrollport.scrollLeft).toBe(0)
     fireEvent.wheel(scrollport, { deltaY: 40, shiftKey: true })
     expect(scrollport.scrollLeft).toBe(40)
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Lane 1' }), { key: 'ArrowLeft' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Lane 1, channel 1' }), { key: 'ArrowLeft' })
     expect(scrollport.scrollLeft).toBe(40)
     fireEvent.keyDown(scrollport, { key: 'Home' })
     expect(scrollport.scrollLeft).toBe(40)
@@ -158,7 +157,7 @@ describe('MixerColumn', () => {
     expect(limiter).not.toHaveAttribute('title')
     fireEvent.focus(limiter)
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Limiter Caps this FX Return at −1 dBFS using stereo-linked peak limiting. Filled = engaged (default). Red = bypassed, so the return runs uncapped. Click to toggle. This does not limit the Master output.'
+      'Limiter Caps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.'
     )
   })
 

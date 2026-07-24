@@ -117,7 +117,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   ├── .category-tree      — expandable category/subcategory tree (left portion)
   ├── .browser-resize-v   — internal vertical split handle
   └── .sample-pane        — main browser workspace
-      ├── .filter-sort-row    — filters, result count, and sort controls
+      ├── .subcats-row        — filter/results toolbar
+      │   ├── .sample-filter-strip     — category and tag filter chips
+      │   └── .sample-results-controls — result count and sort controls
       └── .tiles              — virtualized rows of sample bubbles
 ```
 
@@ -139,6 +141,10 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   following spec-009.
 - Sort controls support filename, duration, and date added. Selecting the active
   sort again toggles ascending/descending.
+- Each browser bubble resolves its palette slot from that sample's own category.
+  The active category filter never recolors a result or replaces the category
+  slot stored in its drag payload. Bubble identity therefore stays stable while
+  users change category, tag, or search filters.
 - Selecting a bubble highlights it, previews its audio, and populates the Player
   footer with the path, assigned tags, and decoded waveform.
 - The grid does not use inline expansion.
@@ -167,12 +173,33 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   Re-scan recovery action. Cancel is exposed only while a job is active.
 - The Home Sample Folder card shows the same sync lifecycle while Home is
   visible. Progress follows the job across view changes without restarting it.
-- The Samples panel's filter/sort row owns category and tag filters, the result
-  count summary, and filename/duration/date-added sorting.
+- The Samples panel's filter/results toolbar owns category and tag filters, the
+  result count summary, and filename/duration/date-added sorting.
+- Those controls share one non-wrapping toolbar. The left side is a horizontally
+  scrollable filter strip; the right side keeps the result count and one compact
+  sort group visible. The count remains present at zero. The selected category
+  appears as a removable filter, tag filters expose pressed state and their
+  optional color indicator, and the active sort exposes both pressed state and
+  direction in its accessible name.
 - Contextual BPM, key, and type results are produced automatically by the one
   analyzer defined in spec-008. There is no separate analysis-management action.
 - These controls never bypass the SQLite-backed query/filter flow; they only
   change the current browser query state or trigger the indexed sync path.
+
+### Sample Browser States
+
+- An unindexed or actively syncing first library uses a quiet, non-modal loading
+  state in the Samples panel. It explains that MixJam is preparing the library
+  and exposes busy semantics without showing incomplete scan rows.
+- A filtered query with zero matches explains that no samples match and offers
+  one action that clears search, category, and tag filters together.
+- A completed folder with no supported audio files is a valid folder-empty state,
+  not an error and not a prompt to run another scan.
+- An unavailable Sample Folder directs the user to Home to restore or choose the
+  folder. A cancelled first sync points to the contextual Retry action in the
+  library-status surface. A failed first sync shows the worker-provided error and
+  the same recovery path. These states do not add permanent scan controls inside
+  the Samples panel.
 
 ### Dynamic Tagging
 
@@ -184,8 +211,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - The sample menu follows the standard context-menu keyboard model, remains
   inside the viewport, returns focus on dismissal, and opens sample analysis in
   a collision-aware modal popover anchored to the originating sample bubble.
-- All tags render as filter chips in the browser's subcategory row; clicking a
-  chip toggles that tag in the active filter.
+- All tags render as filter chips in the browser's filter/results toolbar;
+  clicking a chip toggles that tag in the active filter.
 - Tags have an optional color for visual identification. The manage panel can
   set or clear that color during creation or later editing, and colored tags
   carry the same indicator in filter chips and sample context menus.
@@ -215,6 +242,12 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   descendants (subcategories).
 - The category tree is displayed in the browser panel as an expandable tree:
   top-level categories as root nodes, subcategories as children.
+- The tree has one roving keyboard focus target. Up/Down move through visible
+  nodes, Home/End move to the first/last visible node, Right expands a branch or
+  moves to its first child, and Left collapses a branch or moves to its parent.
+  Enter or Space selects the focused category filter. Expansion and selection
+  remain distinct ARIA states, and every pointer action has the same keyboard
+  result.
 
 ### Libraries (Saved Queries)
 

@@ -33,7 +33,9 @@ export function bottomWorkspaceMinimumHeights(
     // gaps cover the chrome around that stack; six double-counted one gap and
     // clipped the first Tracker lane at UI Size 50.
     master: geometry.tabRowHeight + 420 + geometry.size + (5 * geometry.spaceMd) + geometry.spaceLg,
-    mixer: geometry.tabRowHeight + (4 * geometry.spaceMd) + (2 * geometry.size) +
+    // The active tab already names the Mixer, so its content starts directly
+    // with the channel and FX panels instead of repeating a title row.
+    mixer: geometry.tabRowHeight + (3 * geometry.spaceMd) + geometry.size +
       (2 * geometry.mixerFxHeight) + geometry.spaceSm + 14,
     samples: geometry.tabRowHeight + (2 * geometry.size) + (4 * geometry.spaceMd)
   }

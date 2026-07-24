@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react'
-import { nextPanCycle } from '../lib/sample-utils'
 import type { ReadableStore } from '../lib/value-store'
 import { VerticalFader } from './VerticalControls'
 import { RotaryControl, RotaryDial } from './RotaryField'
@@ -16,24 +15,16 @@ interface ChannelStripProps {
   channelIndex: number
   label: string
   gain: number
-  pan: number
   sends: readonly [number, number, number, number]
   sendModuleNames: readonly [string, string, string, string]
   muted?: boolean
   meterStore: ReadableStore<ChannelMeterValue>
   selected?: boolean
   onSetGain: (channelIndex: number, gain: number) => void
-  onSetPan: (channelIndex: number, pan: number) => void
   onSetSend: (channelIndex: number, sendIndex: number, value: number) => void
   onSelect: (laneId: string) => void
   onGestureStart: () => void
   onGestureEnd: () => void
-}
-
-function panValueText(pan: number): string {
-  const pct = Math.round(Math.abs(pan) * 100)
-  if (pct === 0) return 'Center'
-  return pan < 0 ? `${pct}% left` : `${pct}% right`
 }
 
 /** Fader-position readout in dB, e.g. 80% -> "-2 dB"; 0% -> "-inf dB" glyph. */
@@ -51,30 +42,32 @@ export default function ChannelStrip({
   channelIndex,
   label,
   gain,
-  pan,
   sends,
   sendModuleNames,
   muted,
   meterStore,
   selected = false,
   onSetGain,
-  onSetPan,
   onSetSend,
   onSelect,
   onGestureStart,
   onGestureEnd
 }: ChannelStripProps) {
+  const channelNumber = String(channelIndex + 1).padStart(2, '0')
+  const channelLabel = `${label}, channel ${channelIndex + 1}`
   return (
     <div className={`mixer-channel-strip${muted ? ' mixer-channel-strip-muted' : ''}${selected ? ' mixer-channel-strip-selected' : ''}`}>
-      <div className="mixer-channel-label">
-        <Tooltip content={label}>
-          <button type="button" className="mixer-channel-select" aria-pressed={selected} onClick={() => onSelect(laneId)}>
-            <span>{label}</span>
-          </button>
-        </Tooltip>
-      </div>
-
-      <span className="mixer-channel-num">CH {String(channelIndex + 1).padStart(2, '0')}</span>
+      <Tooltip content={`${label} · Channel ${channelIndex + 1}`}>
+        <button
+          type="button"
+          className="mixer-channel-select"
+          aria-label={channelLabel}
+          aria-pressed={selected}
+          onClick={() => onSelect(laneId)}
+        >
+          <span aria-hidden="true">{channelNumber}</span>
+        </button>
+      </Tooltip>
 
       <div className="mixer-channel-sends" role="group" aria-label={`${label} Sends`}>
         {[1, 2, 3, 4].map((slot) => {
@@ -106,33 +99,6 @@ export default function ChannelStrip({
           )
         })}
       </div>
-
-      <RotaryControl
-        className="mixer-channel-pan"
-        label={`Channel ${channelIndex + 1} Pan`}
-        value={pan}
-        min={-1}
-        max={1}
-        step={0.05}
-        valueText={panValueText(pan)}
-        defaultValue={0}
-        homeValue={0}
-        dragAxis="horizontal"
-        onGestureStart={onGestureStart}
-        onGestureEnd={onGestureEnd}
-        onChange={(value) => onSetPan(channelIndex, value)}
-        onContextMenu={(event) => {
-          event.preventDefault()
-          onSetPan(channelIndex, nextPanCycle(pan))
-        }}
-      >
-        <RotaryDial
-          className="mixer-pan-rotary"
-          value={(pan + 1) / 2}
-          defaultValue={0.5}
-          mode="bipolar"
-        />
-      </RotaryControl>
 
       <VerticalFader
         className="mixer-channel-vol-wrap"

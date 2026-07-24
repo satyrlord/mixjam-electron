@@ -44,17 +44,17 @@ describe('useBottomWorkspace', () => {
     // header and paddings (spec-012).
     expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[30])).toEqual({
       master: 546,
-      mixer: 378,
+      mixer: 340,
       samples: 136
     })
     expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[40])).toEqual({
       master: 590,
-      mixer: 500,
+      mixer: 449,
       samples: 183
     })
     expect(bottomWorkspaceMinimumHeights(UI_GEOMETRY[50])).toEqual({
       master: 628,
-      mixer: 620,
+      mixer: 557,
       samples: 225
     })
   })

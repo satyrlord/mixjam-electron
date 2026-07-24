@@ -51,8 +51,7 @@ export function RotaryDial({
         transform="rotate(135 32 32)"
       />
       <circle className="rotary-dial-cap" cx="32" cy="32" r="17" />
-      {/* After the cap in paint order so enlarged caps (Mixer knobs, r up to
-          26.25 with stroke) cannot occlude the default tick at radius 23-27. */}
+      {/* Paint after the cap so every theme keeps the default marker visible. */}
       <line
         className="rotary-dial-default-marker"
         x1="32"

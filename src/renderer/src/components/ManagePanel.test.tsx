@@ -48,6 +48,11 @@ describe('ManagePanel', () => {
       expect(screen.getByText('Beta')).toBeTruthy()
     })
 
+    it('shows an empty message when no tags exist', () => {
+      renderPanel({ tags: [] })
+      expect(screen.getByText('No tags yet.')).toBeInTheDocument()
+    })
+
     it('creates a tag on Enter and clears the input', async () => {
       const onCreateTag = vi.fn(async () => ({ id: 99, name: 'Funky', color: null }))
       const { container } = renderPanel({ onCreateTag })
@@ -105,6 +110,21 @@ describe('ManagePanel', () => {
       expect(input.value).toBe('Alpha')
       fireEvent.change(input, { target: { value: 'AlphaRenamed' } })
       fireEvent.keyDown(input, { key: 'Enter' })
+
+      await vi.waitFor(() => expect(onRenameTag).toHaveBeenCalledWith(1, 'AlphaRenamed'))
+    })
+
+    it('styles and runs the confirm-rename action as a managed control', async () => {
+      const onRenameTag = vi.fn(async () => undefined)
+      renderPanel({ onRenameTag })
+      fireEvent.click(screen.getByLabelText('Rename tag Alpha'))
+      fireEvent.change(screen.getByLabelText('Rename tag Alpha'), {
+        target: { value: 'AlphaRenamed' }
+      })
+
+      const confirm = screen.getByLabelText('Confirm rename')
+      expect(confirm).toHaveClass('manage-action')
+      fireEvent.click(confirm)
 
       await vi.waitFor(() => expect(onRenameTag).toHaveBeenCalledWith(1, 'AlphaRenamed'))
     })
@@ -221,6 +241,12 @@ describe('ManagePanel', () => {
       expect(names).toContain('Drums / Kicks')
       expect(names).toContain('Drums / Kicks / Acoustic')
       expect(names).not.toContain('Unsorted')
+    })
+
+    it('shows an empty message when only protected categories exist', () => {
+      renderPanel({ categories: [{ id: 3, name: 'Unsorted', parentId: null }] })
+      fireEvent.click(screen.getByText('Categories'))
+      expect(screen.getByText('No custom categories yet.')).toBeInTheDocument()
     })
 
     it('offers every category depth as a parent', () => {

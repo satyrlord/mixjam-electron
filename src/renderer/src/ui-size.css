@@ -37,8 +37,7 @@
 .bottom-workspace-tabs,
 .manage-list-item,
 .manage-create,
-.generator-actions,
-.fx-modal-actions {
+.generator-actions {
   gap: var(--ui-space-sm);
 }
 
@@ -68,7 +67,6 @@
 .tracker-lane-controls button,
 .manage-action,
 .manage-tag-color,
-.mixer-channel-pan,
 .mixer-channel-m,
 .mixer-channel-s,
 .mixer-limiter-toggle,
@@ -127,8 +125,7 @@
 .settings-card,
 .folder-card,
 .generator-dialog,
-.shortcuts-panel,
-.fx-modal {
+.shortcuts-panel {
   padding: var(--ui-space-lg);
 }
 
@@ -217,8 +214,6 @@
 .home-workflow-title,
 .home-recent-title,
 .tracker-zone-title,
-.mixer-column-title,
-.mixer-channel-label,
 .manage-tab,
 .shortcuts-section-title,
 .generator-dialog label {
@@ -394,7 +389,6 @@
 
 .mixer-column {
   padding: var(--ui-space-md);
-  gap: var(--ui-space-md);
 }
 
 .mixer-strips-row {
@@ -413,14 +407,6 @@
   font-size: var(--ui-font-sm);
 }
 
-.mixer-column-head {
-  min-height: calc(var(--ui-size) + var(--ui-space-md));
-}
-
-.mixer-channel-label {
-  height: var(--ui-size);
-}
-
 .mixer-channel-select {
   min-width: var(--ui-size);
   min-height: var(--ui-size);
@@ -435,7 +421,6 @@
   font-size: var(--ui-font-xs);
 }
 
-.mixer-channel-num,
 .mixer-channel-db,
 .mixer-send-label,
 .mixer-fx-num,
@@ -566,8 +551,7 @@
 }
 
 .generator-dialog,
-.shortcuts-panel,
-.fx-modal {
+.shortcuts-panel {
   gap: var(--ui-space-md);
   font-size: var(--ui-font-md);
 }
@@ -575,10 +559,7 @@
 .generator-dialog input,
 .generator-dialog select,
 .generator-dialog button,
-.shortcuts-panel button,
-.fx-modal input,
-.fx-modal select,
-.fx-modal button {
+.shortcuts-panel button {
   min-height: var(--ui-size);
   font-size: var(--ui-font-sm);
 }

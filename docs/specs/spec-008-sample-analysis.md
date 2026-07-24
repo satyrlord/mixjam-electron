@@ -133,8 +133,17 @@ key.
 
 - Raw BPM evidence comes from onset/IOI analysis; contextual inference combines
   it with duration-grid, structured path-label, and resolved-group support.
+- Loop-length files (1.4 s and longer) snap the raw estimate to the whole-bar
+  tempo grid implied by their duration, considering octave (half/double)
+  aliases, preferring the canonical 100–160 BPM band and power-of-two bar
+  counts. Loops are trimmed to whole beats, so duration constrains tempo more
+  reliably than the raw beat tracker, which scatters on real loop material.
 - Raw musical-key evidence comes from chromagram analysis; contextual inference
   combines it with structured path-label and resolved-group support.
+- A key is reported only when the best profile score exceeds the second-best by
+  the confidence margin (ratio 1.02). Wrong-key detections are almost always
+  near-ties, so a low-margin reading becomes NULL (unknown) instead of a
+  confidently wrong label that downstream compatibility rules would hard-reject.
 - Either field remains NULL when evidence is insufficient or contradictory.
 - Automatic values expose `analysis` provenance in existing sample surfaces;
   raw evidence and group summaries remain available to backend diagnostics and
@@ -156,6 +165,15 @@ retain its bounded audio scoring pass for arrangement-only measures such as:
 The acoustic type is one of Kick, Snare, Hi-hat, Percussion, Bass, Synth, FX,
 Vocal, Loop, Atmosphere, or Other. `sample_type` remains separate from
 `samples.category_id`; analysis never replaces organizational categories.
+
+Classification separates loop-shaped material from drum one-shots by duration
+shape, not duration alone: a file whose length is a whole number of bars at its
+detected tempo is never a one-shot, even when short (a 1-bar loop at 140 BPM
+lasts 1.7 s and previously misfiled as a snare). A hi-hat requires noise
+character — high spectral centroid AND high zero-crossing rate — because a
+bright tonal stab shares the centroid but not the noise. Dark whole-bar loops
+(low centroid, low zero-crossing rate) classify as Bass rather than generic
+Loop, and sustained low-transient beds stay Atmosphere even when bar-trimmed.
 
 Generate MixJam must consume persisted BPM, key, and sample type. Its bounded
 scoring pass must not derive competing semantic values for those fields.

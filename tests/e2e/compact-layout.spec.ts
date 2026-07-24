@@ -399,7 +399,6 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
           : []),
         ...(surfaceName.startsWith('Player Mixer')
           ? [
-              { name: 'Mixer pan controls', selector: '.mixer-channel-pan' },
               { name: 'Mixer return limiter controls', selector: '.mixer-limiter-toggle' }
             ]
           : [])
@@ -469,6 +468,9 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
         incorrectSliderTargets,
         incorrectSliderHandles,
         incorrectTrackerTarget,
+        mixerPanControls: surfaceName.startsWith('Player Mixer')
+          ? document.querySelectorAll('.mixer-channel-pan, [aria-label^="Channel "][aria-label$=" Pan"]').length
+          : 0,
         horizontalOverflow: root.scrollWidth > root.clientWidth,
         verticalOverflow: root.scrollHeight > root.clientHeight
       }
@@ -484,6 +486,7 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
     expect(audit.incorrectSliderTargets, `${surface} slider targets`).toEqual([])
     expect(audit.incorrectSliderHandles, `${surface} slider handles`).toEqual([])
     expect(audit.incorrectTrackerTarget, `${surface} Tracker seek target`).toEqual([])
+    expect(audit.mixerPanControls, `${surface} Mixer pan controls`).toBe(0)
     expect(audit.horizontalOverflow, `${surface} horizontal overflow`).toBe(false)
     expect(audit.verticalOverflow, `${surface} vertical overflow`).toBe(false)
   }

@@ -82,9 +82,9 @@ describe('generator transient analysis', () => {
     vi.mocked(resolveFileHandle).mockResolvedValue(readableHandle())
   })
 
-  it('caps attempts at 96 unique paths', async () => {
+  it('caps attempts at the unique-path read budget', async () => {
     vi.mocked(resolveFileHandle).mockResolvedValue(null)
-    const input = Array.from({ length: 120 }, (_, index) => candidate(index))
+    const input = Array.from({ length: MAX_GENERATOR_ATTEMPTS + 40 }, (_, index) => candidate(index))
 
     const result = await analyzeGeneratorCandidates({} as FileSystemDirectoryHandle, input, parameters, vi.fn(), () => true)
 
@@ -92,6 +92,30 @@ describe('generator transient analysis', () => {
     expect(resolveFileHandle).toHaveBeenCalledTimes(MAX_GENERATOR_ATTEMPTS)
     expect(new Set(vi.mocked(resolveFileHandle).mock.calls.map((call) => call[1])).size)
       .toBe(MAX_GENERATOR_ATTEMPTS)
+  })
+
+  it('admits authored-family siblings together within the bounded shortlist', async () => {
+    vi.mocked(resolveFileHandle).mockResolvedValue(null)
+    // 40 five-part bass families: far more than the read budget can cover. The
+    // lane queue orders by family so the shortlist admits several parts of a
+    // few families instead of one lone part from each of 96 families.
+    const input = Array.from({ length: 40 }, (_, familyIndex) =>
+      Array.from({ length: 5 }, (_, part) => ({
+        ...candidate(familyIndex * 10 + part, 'Bass'),
+        relpath: `Bass/fam${familyIndex}-${part + 1}.wav`,
+        filename: `fam${familyIndex}-${part + 1}.wav`
+      }))
+    ).flat()
+
+    await analyzeGeneratorCandidates({} as FileSystemDirectoryHandle, input, parameters, vi.fn(), () => true)
+
+    const attemptedFamilies = new Map<string, number>()
+    for (const call of vi.mocked(resolveFileHandle).mock.calls) {
+      const match = /fam(\d+)-\d\.wav$/.exec(String(call[1]))
+      if (!match) continue
+      attemptedFamilies.set(match[1]!, (attemptedFamilies.get(match[1]!) ?? 0) + 1)
+    }
+    expect(Math.max(...attemptedFamilies.values())).toBeGreaterThanOrEqual(3)
   })
 
   it('retains no more than 64 successful analyses', async () => {
@@ -122,8 +146,8 @@ describe('generator transient analysis', () => {
     expect(result).toHaveLength(MAX_GENERATOR_ANALYSES)
   })
 
-  it('applies cheap span filters before spending the 96-read budget', async () => {
-    const oversized = Array.from({ length: 120 }, (_, index) => ({
+  it('applies cheap span filters before spending the read budget', async () => {
+    const oversized = Array.from({ length: 160 }, (_, index) => ({
       ...candidate(index),
       duration: 10
     }))
@@ -175,7 +199,7 @@ describe('generator transient analysis', () => {
     const input = [
       ...Array.from({ length: 12 }, (_, index) => candidate(index, 'Kick')),
       ...Array.from({ length: 30 }, (_, index) => candidate(100 + index, 'Bass')),
-      ...Array.from({ length: 60 }, (_, index) => candidate(200 + index, 'Synth'))
+      ...Array.from({ length: 90 }, (_, index) => candidate(200 + index, 'Synth'))
     ]
     const tranceParameters = { ...parameters, profileId: 'trance' as const }
 

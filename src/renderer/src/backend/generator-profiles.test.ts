@@ -44,35 +44,132 @@ function mutableTemplate(id = 'custom-profile'): MutableTemplate {
 }
 
 describe('bundled generator templates', () => {
-  it('auto-discovers and keeps the three migrated baselines registered', () => {
-    expect(MIXJAM_GENERATOR_PROFILE_IDS).toEqual(expect.arrayContaining(['techno', 'trance', 'house']))
+  it('auto-discovers the six shipped templates in product order', () => {
+    expect(MIXJAM_GENERATOR_PROFILE_IDS).toEqual([
+      'techno',
+      'trance',
+      'house',
+      'tropical-house',
+      'ambient-house',
+      'melodic-techno'
+    ])
     expect(Object.keys(GENERATOR_PROFILES).sort()).toEqual([...MIXJAM_GENERATOR_PROFILE_IDS].sort())
-    expect(MIXJAM_GENERATOR_PROFILE_LABELS.techno).toBe('Techno')
-    expect(MIXJAM_GENERATOR_PROFILE_LABELS.trance).toBe('Trance')
-    expect(MIXJAM_GENERATOR_PROFILE_LABELS.house).toBe('House')
-    expect(MIXJAM_GENERATOR_PROFILE_VERSIONS.techno).toBe(2)
-    expect(MIXJAM_GENERATOR_PROFILE_VERSIONS.trance).toBe(2)
-    expect(MIXJAM_GENERATOR_PROFILE_VERSIONS.house).toBe(2)
+    expect(MIXJAM_GENERATOR_PROFILE_LABELS).toEqual({
+      techno: 'Techno',
+      trance: 'Trance',
+      house: 'House',
+      'tropical-house': 'Tropical House',
+      'ambient-house': 'Ambient House',
+      'melodic-techno': 'Melodic Techno'
+    })
+    expect(MIXJAM_GENERATOR_PROFILE_VERSIONS).toEqual({
+      techno: 5,
+      trance: 5,
+      house: 5,
+      'tropical-house': 2,
+      'ambient-house': 2,
+      'melodic-techno': 2
+    })
     expect(MIXJAM_GENERATOR_DEFAULT_PROFILE_ID).toBe('techno')
   })
 
-  it('preserves the shipped profile-specific data after the JSON migration', () => {
+  it('keeps the researched baseline arcs distinct', () => {
     expect(GENERATOR_PROFILES.techno).toMatchObject({
       bpmTolerance: 8,
       coreLanes: [0, 4, 6],
       sections: [
-        { name: 'Intro', weight: 8, phraseMode: 'sparse' },
-        { name: 'Groove', weight: 22, phraseMode: 'steady' },
-        { name: 'Build', weight: 15, phraseMode: 'build' },
-        { name: 'Breakdown', weight: 10, phraseMode: 'breakdown' },
-        { name: 'Drive', weight: 23, phraseMode: 'return' },
-        { name: 'Peak', weight: 14, phraseMode: 'peak' },
-        { name: 'Outro', weight: 8, phraseMode: 'outro' }
+        expect.objectContaining({ name: 'Intro', weight: 8, phraseMode: 'build' }),
+        expect.objectContaining({ name: 'Groove', weight: 22, phraseMode: 'steady' }),
+        expect.objectContaining({ name: 'Build', weight: 12, phraseMode: 'build' }),
+        expect.objectContaining({ name: 'Breakdown', weight: 12, phraseMode: 'breakdown' }),
+        expect.objectContaining({ name: 'Drive', weight: 24, phraseMode: 'return' }),
+        expect.objectContaining({ name: 'Peak', weight: 14, phraseMode: 'peak' }),
+        expect.objectContaining({ name: 'Outro', weight: 8, phraseMode: 'outro' })
       ]
     })
-    expect(GENERATOR_PROFILES.trance.lanes[0]).toMatchObject({ gain: 0.78, pan: 0 })
-    expect(GENERATOR_PROFILES.trance.lanes[6]).toMatchObject({ gain: 0.46, pan: -0.18 })
-    expect(GENERATOR_PROFILES.house.lanes[5]).toMatchObject({ gain: 0.46, pan: 0 })
+    expect(GENERATOR_PROFILES.trance).toMatchObject({
+      bpmTolerance: 6,
+      coreLanes: [0, 4, 5, 6],
+      sections: expect.arrayContaining([
+        expect.objectContaining({ name: 'Breakdown', weight: 12, phraseMode: 'breakdown' }),
+        expect.objectContaining({ name: 'Rebuild', weight: 8, phraseMode: 'build' }),
+        expect.objectContaining({ name: 'Main Theme', weight: 24, phraseMode: 'return' })
+      ])
+    })
+    expect(GENERATOR_PROFILES.house).toMatchObject({
+      bpmTolerance: 8,
+      coreLanes: [0, 2, 4],
+      sections: expect.arrayContaining([
+        expect.objectContaining({ name: 'Vocal Entry', weight: 12, phraseMode: 'steady' }),
+        expect.objectContaining({ name: 'Main Groove', weight: 16, phraseMode: 'return' }),
+        expect.objectContaining({ name: 'Rebuild', weight: 8, phraseMode: 'build' })
+      ])
+    })
+  })
+
+  it('keeps every template dense enough for the 80/80/80 rule with a Pareto quiet share', () => {
+    for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
+      const profile = GENERATOR_PROFILES[id]!
+      // Operationally quiet time (breakdown rest cadence and outro ramp) stays
+      // near the Pareto 20%.
+      const quiet = profile.sections
+        .filter((section) => section.phraseMode === 'breakdown' || section.phraseMode === 'outro')
+        .reduce((sum, section) => sum + section.weight, 0)
+      expect(quiet).toBeGreaterThanOrEqual(15)
+      expect(quiet).toBeLessThanOrEqual(25)
+      // At least 80% of non-transition lanes can be scheduled for 85% of bars.
+      const nonTransition = profile.lanes.flatMap((lane, index) => lane.role === 'transition' ? [] : [index])
+      const covered = nonTransition.filter((laneIndex) =>
+        profile.sections.reduce((sum, section) =>
+          sum + (section.activeLanes.includes(laneIndex) ? section.weight : 0), 0) >= 85
+      )
+      expect(covered.length).toBeGreaterThanOrEqual(Math.ceil(0.8 * nonTransition.length))
+    }
+  })
+
+  it('encodes distinct tropical-house, ambient-house, and melodic-techno plans', () => {
+    expect(GENERATOR_PROFILES['tropical-house']).toMatchObject({
+      bpmTolerance: 5,
+      coreLanes: [0, 4, 6],
+      sections: expect.arrayContaining([
+        expect.objectContaining({ name: 'Beach Intro', weight: 8, phraseMode: 'build' }),
+        expect.objectContaining({ name: 'Countermelody Peak', weight: 16, phraseMode: 'peak' })
+      ])
+    })
+    expect(GENERATOR_PROFILES['tropical-house'].lanes[2]).toMatchObject({
+      name: 'Swung Hi-hat', beatPattern: [5, 13, 21, 29], gain: 0.32
+    })
+
+    expect(GENERATOR_PROFILES['ambient-house']).toMatchObject({
+      bpmTolerance: 10,
+      coreLanes: [0, 6, 9],
+      sections: expect.arrayContaining([
+        expect.objectContaining({ name: 'Atmosphere Intro', weight: 10, phraseMode: 'sparse' }),
+        expect.objectContaining({ name: 'Dissolve', weight: 12, phraseMode: 'breakdown' })
+      ])
+    })
+    expect(GENERATOR_PROFILES['ambient-house'].lanes[1]).toMatchObject({
+      name: 'Sparse Clap', beatPattern: [24], beatMutation: [8, 24], gain: 0.24
+    })
+
+    expect(GENERATOR_PROFILES['melodic-techno']).toMatchObject({
+      bpmTolerance: 6,
+      coreLanes: [0, 4, 5, 6],
+      sections: expect.arrayContaining([
+        expect.objectContaining({ name: 'Motif Reveal', weight: 14, phraseMode: 'steady' }),
+        expect.objectContaining({ name: 'Atmospheric Break', weight: 12, phraseMode: 'breakdown' }),
+        expect.objectContaining({ name: 'Melodic Peak', weight: 14, phraseMode: 'peak' })
+      ])
+    })
+    expect(GENERATOR_PROFILES['melodic-techno'].lanes[3]).toMatchObject({
+      name: 'Shaker / Rim', beatPattern: [6, 10, 20, 24, 28]
+    })
+  })
+
+  it('keeps template pan centered until planner stereo evidence is available', () => {
+    expect(MIXJAM_GENERATOR_PROFILE_IDS.every((id) =>
+      GENERATOR_PROFILES[id]!.lanes.every((lane) => lane.pan === 0)
+    )).toBe(true)
   })
 
   it('ships an editor schema aligned with the runtime schema version and lane count', () => {
@@ -85,7 +182,7 @@ describe('bundled generator templates', () => {
 describe('parseGeneratorTemplate', () => {
   it('accepts a complete genre-neutral template', () => {
     const parsed = parseGeneratorTemplate(mutableTemplate(), 'custom-profile.json')
-    expect(parsed).toMatchObject({ id: 'custom-profile', label: 'Custom profile', version: 2 })
+    expect(parsed).toMatchObject({ id: 'custom-profile', label: 'Custom profile', version: 5 })
     expect(parsed.lanes).toHaveLength(16)
   })
 
@@ -100,7 +197,13 @@ describe('parseGeneratorTemplate', () => {
     ['unsupported schema version', (value: MutableTemplate) => { value.schemaVersion = 2 }, 'template.schemaVersion'],
     ['unsupported stereo pairing', (value: MutableTemplate) => { value.stereoPairRules = [] }, 'template.stereoPairRules'],
     ['duplicate lane name', (value: MutableTemplate) => { value.lanes[1]!.name = value.lanes[0]!.name }, 'template.lanes'],
-    ['duplicate section name', (value: MutableTemplate) => { value.sections[1]!.name = value.sections[0]!.name }, 'template.sections']
+    ['duplicate section name', (value: MutableTemplate) => { value.sections[1]!.name = value.sections[0]!.name }, 'template.sections'],
+    ['starved lane coverage', (value: MutableTemplate) => {
+      for (const section of value.sections) {
+        section.activeLanes = section.activeLanes.filter((lane) => lane !== 1)
+      }
+      value.sections[0]!.activeLanes.push(1)
+    }, 'template.sections']
   ])('rejects %s with a field-specific error', (_name, mutate, field) => {
     const value = mutableTemplate()
     mutate(value)
@@ -115,7 +218,7 @@ describe('createGeneratorProfileRegistry', () => {
     })
     expect(registry.ids).toEqual(['custom-profile'])
     expect(registry.labels).toEqual({ 'custom-profile': 'Custom profile' })
-    expect(registry.versions).toEqual({ 'custom-profile': 2 })
+    expect(registry.versions).toEqual({ 'custom-profile': 5 })
     expect(Object.isFrozen(registry.profiles['custom-profile'])).toBe(true)
   })
 

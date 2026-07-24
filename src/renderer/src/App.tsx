@@ -182,12 +182,12 @@ function SupportedApp() {
     returnBuses: app.returnBuses, channelMetersStore: app.channelMetersStore,
     onSetVisualTelemetryActive: app.setVisualTelemetryActive,
     onBeginMixerGesture: app.beginMixerGesture, onCommitMixerGesture: app.commitMixerGesture,
-    onSetChannelGain: app.setChannelGain, onSetChannelPan: app.setChannelPan,
+    onSetChannelGain: app.setChannelGain,
     onSetChannelSend: app.setChannelSend, onSetReturnBus: app.setReturnBus,
     onPreviewReturnBus: app.previewReturnBus, onClearReturnTail: app.clearReturnTail
   }), [
     app.returnBuses, app.channelMetersStore, app.setVisualTelemetryActive,
-    app.beginMixerGesture, app.commitMixerGesture, app.setChannelGain, app.setChannelPan,
+    app.beginMixerGesture, app.commitMixerGesture, app.setChannelGain,
     app.setChannelSend, app.setReturnBus, app.previewReturnBus, app.clearReturnTail
   ])
 

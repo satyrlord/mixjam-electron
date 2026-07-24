@@ -439,7 +439,7 @@ export function createBackendJobCoordinator(
         if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
         generatorProgress = { identity, status: 'running', phase: 'arranging', completed: analyzed.length, total: analyzed.length }
         emitEvent({ type: 'generator-progress', progress: generatorProgress })
-        const plan = createMixJamGeneratorPlan(rootKey, fingerprint, analyzed, selection.parameters, { attemptedFiles, analyzedFiles: analyzed.length, uniqueReads: attemptedFiles }, selection.detectedBpm)
+        const plan = createMixJamGeneratorPlan(rootKey, fingerprint, analyzed, selection.parameters, { attemptedFiles, analyzedFiles: analyzed.length, uniqueReads: attemptedFiles }, selection.detectedBpm, undefined, selection.candidates)
         if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
         activeGenerator = null
         generatorProgress = { ...GENERATOR_IDLE }

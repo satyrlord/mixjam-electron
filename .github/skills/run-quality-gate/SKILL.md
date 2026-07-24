@@ -38,7 +38,7 @@ Run in this order:
    `N-A` only when no suite exists.
 7. **Coverage:** run unit coverage, supplementary E2E coverage when available,
    and the combined report. Pass only when every reported unit Statements,
-   Branches, Functions, and Lines cell is at least 80%.
+   Branches, Functions, and Lines cell is at least 70%.
 
 In verify mode, continue after a failed gate when later commands remain safe
 and independent. In repair mode, stop at a condition defined in

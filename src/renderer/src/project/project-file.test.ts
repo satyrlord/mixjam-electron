@@ -30,9 +30,9 @@ type RawMasterBusProject = Record<string, unknown> & {
   }
 }
 const GENERATOR: ProjectGeneratorMetadata = {
-  generatorVersion: 1,
+  generatorVersion: 3,
   profileId: 'techno',
-  profileVersion: 2,
+  profileVersion: 5,
   seed: 'safe-seed_42',
   parameters: {
     bpmMode: 'follow-detected',
@@ -96,8 +96,8 @@ describe('project file format', () => {
     expect(supportsExactGeneratorRegeneration({ ...GENERATOR, profileVersion: 1 })).toBe(false)
     expect(supportsExactGeneratorRegeneration({
       ...GENERATOR,
-      generatorVersion: 2,
-      profileVersion: 2
+      generatorVersion: 4,
+      profileVersion: 6
     })).toBe(false)
     expect(supportsExactGeneratorRegeneration({
       ...GENERATOR,

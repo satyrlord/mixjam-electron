@@ -42,7 +42,10 @@ function MeterTrack({ valueDb, peakDb, fillClassName, peakClassName }: MeterTrac
       {peakDb !== undefined && (
         <div
           className={joinClasses('vertical-meter-peak', peakClassName)}
-          style={{ bottom: `${Math.min(peakPct, 99)}%` }}
+          style={{
+            bottom: `${Math.min(peakPct, 99)}%`,
+            background: meterZoneVar(peakDb)
+          }}
         />
       )}
     </div>

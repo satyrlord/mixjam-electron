@@ -156,7 +156,12 @@ export type MixJamGeneratorIntensity = 'low' | 'medium' | 'high'
 export type MixJamGeneratorBpmMode = 'follow-detected' | 'fixed'
 export type MixJamGeneratorProfileId = string
 
-export const MIXJAM_GENERATOR_VERSION = 1 as const
+// Version 2: family/kit-coherent selection, tonal-only RMS compensation, and
+// the 8-32 populated-lane contract changed generated output for equal inputs.
+// Version 3: intensity-scaled family-coherence ratios, hard-panned stereo pair
+// lanes, the 80/80/80 density rule, whole-8-bar arrangements, and Pareto
+// phrase grammar changed generated output for equal inputs again.
+export const MIXJAM_GENERATOR_VERSION = 3 as const
 export const SAFE_GENERATOR_TOKEN = /^[A-Za-z0-9_-]+$/
 export const SAFE_SEED = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -274,7 +279,7 @@ export interface MixJamGeneratorSelectionPlan {
 }
 
 export interface MixJamGeneratorPlan {
-  generatorVersion: 1
+  generatorVersion: 3
   profileId: MixJamGeneratorProfileId
   profileVersion: number
   seed: string

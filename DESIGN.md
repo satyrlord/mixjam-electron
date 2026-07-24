@@ -288,7 +288,8 @@ type and no clamp() anywhere in this system.
 - **Action Label** (400, 13px minimum, 1.4): Buttons, menu items, channel labels. 13px is a floor, not a target.
 - **Status / Helper** (400, 12px minimum, 1.4): Tooltips, hints, secondary status.
 - **Lane Name** (400, 11px, 1.3): The densest text in the app; truncates with ellipsis and a tooltip.
-- **Mono Readout** (400, 12px, 1.2): Timer (`00:00.0`), bar numbers, `CH 01` position lines, dB values (`-2 dB`, `−∞ dB`), FX slot summaries.
+- **Mono Readout** (400, 12px, 1.2): Timer (`00:00.0`), bar numbers, compact
+  Mixer headers (`01`), dB values (`-2 dB`, `−∞ dB`), FX slot summaries.
 
 ### Typography Named Rules
 
@@ -409,15 +410,18 @@ height (24 / 33 / 41px by UI Size), the same width, the same treatment.
 
 ### Channel Strip and FX Slot
 
-- **Channel strip:** 76px wide at UI Size 30. Lane name verbatim (ellipsis +
-  tooltip when long), a mono `CH 01` position line beneath it, a 2x2 group of four
-  send dials each tinted with its matching slot accent, pan, then the fader with a
-  segmented dry-RMS meter column beside it and a mono dB readout at the foot.
+- **Channel strip:** 76px wide at UI Size 30. Its compact selectable header
+  visibly shows only the zero-padded derived number (`01`); the lane-owned name
+  remains in its tooltip and accessible text. A 2x2 group of four send dials,
+  each tinted with its matching slot accent, precedes the fader, segmented
+  dry-RMS meter column, and mono dB readout. Pan is controlled only in the lane
+  header.
 - **FX slot:** 160x112px at UI Size 30. Header carries the mono slot number, the
   module name, and a round power LED tinted with the slot accent — on a populated
   slot the LED *is* the toggle (`aria-pressed`, unlit when bypassed). Body holds
   Edit (cog, slot-tinted), the square limiter toggle, and a Mix rotary. Foot is a
-  one-line mono summary.
+  one-line mono summary. The FX picker and editor are registry-driven; the
+  current modules are Echoform Delay and Aetherform Reverb.
 - **Bypass:** dims the container to half opacity and desaturates. It stops new input but lets the current tail finish.
 
 ### Master Bus Rack
@@ -445,12 +449,12 @@ at 46px (standard) or 74px (large).
 | night | #26272e to #1c1d23 | #efecf1 | #131317/#0a0a0d | #f2e4e4 | Limiter |
 | meter | #2c2d33 to #212227 | #e7e7e3 | — | — | Input and Output meters |
 
-### Echoform Delay editor
+### FX module editors
 
-See [docs/style-guide.md](docs/style-guide.md) for the full editor modal
-specification (layout, control grid, preset behavior, keyboard model, live
-audition lifecycle). The editor uses local accent roles for warm and cool
-parameters; Mix is the shared FX Return level, not duplicated in DSP state.
+The FX picker and editor resolve their choices from the module registry, which
+currently provides Echoform Delay and Aetherform Reverb. See
+[docs/style-guide.md](docs/style-guide.md) for the full editor-modal
+specification. Mix is the shared FX Return level, not duplicated in DSP state.
 
 ### Modals
 

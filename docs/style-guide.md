@@ -223,9 +223,32 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
   cards. The active panel owns a defensive vertical scrollport so future
   content growth beyond the documented minimum remains reachable; clipping
   interactive controls is not an accepted fallback.
+- The active tab already names its surface. Mixer has no redundant internal
+  title band, so its content-safe minimum is one title row lower at every UI
+  Size.
 - At 1920x1080 and UI Size 50, an open Mixer must leave the complete ruler and at
   least one complete lane visible. The Player never gains a vertical scrollbar,
   and Mixer needs no vertical fallback scrollbar at this supported size.
+
+### Sample Browser
+
+- The Samples panel is one continuous two-column surface: category tree, 5px
+  resize handle, and virtualized sample list. It has no internal title band,
+  third detail pane, or permanent scan action.
+- Filters, result count, and sorting share one non-wrapping toolbar above the
+  list. Category and tag filters form a horizontally scrollable quiet group on
+  the left. The always-visible count and the Name/Duration/Added sort group stay
+  together on the right. Active filters and the active sort use clear pressed
+  treatment; inactive controls remain quiet until hover or focus.
+- The category tree uses compact branch disclosure without reserving an empty
+  toggle gutter for leaves. It has one roving keyboard focus target: Up/Down and
+  Home/End traverse visible nodes, Right expands or enters a branch, Left
+  collapses or returns to its parent, and Enter/Space selects the category.
+- Loading, filtered-zero, folder-empty, unavailable, cancelled, and error states
+  occupy the sample-list surface instead of changing the two-column layout.
+  Their copy explains the state and the next valid action. Only filtered-zero
+  adds a local Clear filters action; recovery for folder access or first-sync
+  failure stays in Home or the shared library-status surface.
 
 ### Resize Handles
 
@@ -418,7 +441,9 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Pills use `--pill-bg` and `--pill-border`.
 - `--shadow-pill` provides theme-dependent bevel/extrusion (neumorphic Soft,
   Win9x bevel Vintage, offset slab Arcade, riso overprint).
-- Tag filter chips appear in the browser's subcategory row.
+- Category and tag filter chips appear in the Sample Browser's single
+  filter/results toolbar. Optional tag colors use a small indicator rather than
+  recoloring the full control.
 
 ### Cards & Panels
 
@@ -483,6 +508,9 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Width: musical span in pixels-per-tick, 12px minimum.
 - Label: filename, truncated, font weight and case from theme tokens.
 - Color: resolved from active palette by category slot.
+- A browser bubble always uses the sample's own category slot. Filtering by a
+  different category never recolors it, and the same sample-owned slot is used
+  in the drag payload and resulting Tracker placement.
 - Missing samples render 45-degree hazard stripes in `--sample-bubble-missing`
   over a darkened variant.
 - Selection highlight uses `--sample-bubble-select`.
@@ -518,15 +546,17 @@ present. Native light Windows scrollbars never appear on dark themes.
   slider behavior and hardware handle, but its fixed 33px timeline row keeps a
   compact 10-by-22px seek target instead of the parameter-slider UI Size target.
 
-### Rotary Controls (Sends, Returns, Pan, FX Parameters)
+### Rotary Controls (Sends, Return Mix, Lane-Header Pan, FX Parameters)
 
 - Shared project-owned SVG control: 270-degree range track, high-contrast
   value arc, inset cap, short pointer inside cap.
-- Compact Mixer dials and full FX parameter dials use the same SVG structure.
-  Size changes only the rendered dimensions; it does not replace the visual
-  with a CSS-only circle or pointer.
-- Unipolar Sends, Returns, and FX parameters fill from the minimum. Bipolar Pan
-  fills outward from its center point. A short outer marker shows the default.
+- Compact Mixer Sends and Return Mix, lane-header Pan, and full FX parameter
+  dials use the same complete SVG structure: range track, value arc, inset cap,
+  default marker, and pointer. Size changes only the rendered dimensions; it
+  does not replace any of that structure with a CSS-only circle or pointer.
+- Unipolar Sends, Return Mix, and FX parameters fill from the minimum. Bipolar
+  lane-header Pan fills outward from its center point. A short outer marker
+  shows the default.
 - Interaction: vertical pointer drag, mouse-wheel steps, Shift fine
   adjustment, Arrow keys, Home/End, double-click reset.
 - Wheel up increases, wheel down decreases. Handled wheel events do not
@@ -558,23 +588,23 @@ present. Native light Windows scrollbars never appear on dark themes.
 - All strips sit inside a Channels panel whose small uppercase mono header
   reads "N × Channels" on the left and a status LED plus "4 Sends" on the
   right. The FX bank is a sibling panel with the same header grammar.
-- The header shows the inherited lane name exactly; the name never gains a
-  prefix. Long names use an ellipsis and a tooltip. Renaming the lane updates
-  the channel immediately. A separate mono position line beneath the name
-  shows the derived channel number ("CH 01"); it recompacts when lanes are
-  deleted and is not part of the lane name.
+- The compact selectable header visibly shows only the zero-padded derived
+  channel number ("01"); it recompacts when lanes are deleted. The lane-owned
+  name remains available through the header's tooltip and accessible text, but
+  is not visibly duplicated in the Mixer.
 - Four numbered Sends form a 2x2 group. Each send dial is tinted with its
   matching FX slot accent (`--fx-accent-1` through `--fx-accent-4`, falling
   back to `--accent`), mapping sends to FX slots 1:1 by color. Each tooltip
   shows the current module type and Send percentage. Sends remain adjustable
   when their bus is Empty.
-- Pan edits the lane-owned pan value.
+- Pan edits the lane-owned pan value only in the lane header; it is not
+  repeated in the Mixer.
 - Volume defaults to 80 percent. The fader is a rectangular track with an
   accent value fill and a low-profile rail thumb; the dry RMS dBFS meter with
   peak hold renders beside it as a narrow segmented LED-style column.
 - A mono dB readout at the strip foot shows the fader position in dB
   ("-2 dB"; "−∞ dB" at zero).
-- There are no EQ, Mute, Solo, remove, routing, or reorder controls in the
+- There are no EQ, Pan, Mute, Solo, remove, routing, or reorder controls in the
   Mixer.
 
 ### Return and FX Containers (Mixer)
@@ -594,21 +624,22 @@ present. Native light Windows scrollbars never appear on dark themes.
   the selected UI Size while the compact height keeps both rows inside the
   1080p Mixer without a vertical scrollbar.
 - Container anatomy, top to bottom:
-  - Header: mono slot number ("01"), the Empty or Echoform Delay name, and a
+  - Header: mono slot number ("01"), the current registry module name or Empty,
+    and a
     round power LED tinted with the slot accent. On a populated slot the LED is
     the power toggle (`aria-pressed`, unlit when bypassed): a UI-Size hit box
     that paints its compact dot centered inside. An Empty slot shows a
     static unlit dot.
   - Body: an Edit button (cog icon tinted with the slot accent), the square
     limiter toggle, and a Mix rotary that edits the wet Return level
-    (default 100%) — the same shared Mix parameter the editor exposes. Edit
-    opens the Echoform Delay editor; on an Empty slot it auditions a default
-    Echoform Delay in the same editor.
+    (default 100%) — the same shared Mix parameter the editor exposes. The
+    registry-driven editor opens the selected module; on an Empty slot it opens
+    the registry-driven picker.
   - Foot: a one-line mono summary of time/division, feedback, character, and
     Mix.
-- Left-click on the name opens a dropdown. Empty offers `Echoform Delay...`. A
-  configured slot offers `Echoform Delay...` and `Clear slot`. Clear is
-  immediate and undoable.
+- Left-click on the name opens the registry-driven picker. It currently offers
+  `Echoform Delay...`, `Aetherform Reverb...`, and `Clear slot` for a configured
+  slot. Clear is immediate and undoable.
 - Bypass stops new input but lets the current tail finish. A bypassed
   container dims to half opacity and desaturates.
 - Slot accents come from the theme tokens `--fx-accent-1` through
@@ -823,6 +854,8 @@ Bottom Workspace expansion shows the rack full-height.
   unit-aware values.
 - Rotary controls expose `aria-valuetext` with position.
 - Resize handles expose separator value/min/max semantics.
+- The Sample Browser category tree exposes distinct selection and expansion
+  state and supports its roving keyboard model.
 - Context menus follow standard keyboard model, remain in viewport, return
   focus on dismiss.
 - Global shortcuts are suppressed while text inputs, textareas, selects, or

@@ -62,11 +62,14 @@ interface SampleTileGridProps {
   durationTicksBySamplePath?: ReadonlyMap<string, number>
   selectedSamplePath: string | null
   flashSamplePath: string | null
-  /** Palette-slot override when a category filter is active — all visible samples share it. */
-  activeCategorySlot: number | undefined
   categories: CategoryItem[]
   loading: boolean
+  loadingTitle?: string
+  loadingDescription?: string
   error: string | null
+  emptyTitle?: string
+  emptyDescription?: string
+  onClearFilters?: () => void
   /** True while more windowed pages exist beyond the loaded prefix. */
   hasMore: boolean
   onLoadMore: () => void
@@ -94,10 +97,14 @@ function SampleTileGrid({
   durationTicksBySamplePath,
   selectedSamplePath,
   flashSamplePath,
-  activeCategorySlot,
   categories,
   loading,
+  loadingTitle = 'Loading samples',
+  loadingDescription = 'Loading the current library view.',
   error,
+  emptyTitle = 'No samples yet',
+  emptyDescription = 'This Sample Folder has no supported audio files.',
+  onClearFilters,
   hasMore,
   onLoadMore,
   onSelectSampleDetail,
@@ -156,10 +163,10 @@ function SampleTileGrid({
           ? sampleBubbleWidthFromTicks(durationTicks, pixelsPerTick)
           : sampleBubbleWidth(sample.durationSeconds, bubblePixelsPerSecond)
         const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
-        const slot = activeCategorySlot ?? (catName ? categorySlot(catName) : undefined)
+        const slot = catName ? categorySlot(catName) : undefined
         return { sample, width, hitWidth: Math.max(width, uiGeometry.size), slot }
       }),
-    [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, activeCategorySlot, categoryNames, uiGeometry.size]
+    [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, categoryNames, uiGeometry.size]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.
@@ -202,7 +209,12 @@ function SampleTileGrid({
   }, [active, hasMore, loading, lastVisibleRow, rows.length, onLoadMore, viewport.hidden, viewport.height, virtualRows.length])
 
   return (
-    <div className="tiles" ref={scrollRef} data-active={active ? 'true' : 'false'}>
+    <div
+      className="tiles"
+      ref={scrollRef}
+      data-active={active ? 'true' : 'false'}
+      aria-busy={loading}
+    >
       <div className="tiles-virtual-canvas" style={{ height: rows.length * uiGeometry.browserRowPitch }}>
         {virtualRows.map(({ index, start }) => {
           const row = rows[index]
@@ -267,10 +279,28 @@ function SampleTileGrid({
           )
         })}
       </div>
-      {!loading && samples.length === 0 && (
-        <p className="tiles-empty">
-          {error ?? 'No samples found. Choose a Sample Folder and Re-scan.'}
-        </p>
+      {samples.length === 0 && loading && (
+        <div className="tiles-state tiles-loading" role="status">
+          <div className="tiles-skeleton" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+          <strong>{loadingTitle}</strong>
+          <p>{loadingDescription}</p>
+        </div>
+      )}
+      {samples.length === 0 && !loading && (
+        <div className="tiles-state tiles-empty" role={error ? 'alert' : 'status'}>
+          <strong>{error ? 'Samples could not load' : emptyTitle}</strong>
+          <p>{error ?? emptyDescription}</p>
+          {!error && onClearFilters && (
+            <button type="button" className="tiles-clear-filters" onClick={onClearFilters}>
+              Clear filters
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

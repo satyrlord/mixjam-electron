@@ -11,6 +11,7 @@ import {
   getCanonicalRootAnalysisSummary,
   type CanonicalRootAnalysisSummary
 } from './analysis-persistence'
+import { compareCodeUnits } from './generator-planning-core'
 import { ANALYSIS_REVISION, METADATA_REVISION } from './schema'
 import type { DB } from './sql'
 
@@ -33,10 +34,6 @@ export interface GeneratorRootSnapshot {
   rootKey: string
   candidates: GeneratorCandidate[]
   analysisSummary: CanonicalRootAnalysisSummary
-}
-
-function compareCodeUnits(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
 }
 
 function rootRow(db: DB, rootKey: string): { id: number; last_completed_at: number | null } | undefined {

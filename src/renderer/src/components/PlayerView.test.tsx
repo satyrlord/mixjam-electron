@@ -171,7 +171,6 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onBeginMixerGesture: noop,
   onCommitMixerGesture: noop,
   onSetChannelGain: noop,
-  onSetChannelPan: noop,
   onSetChannelSend: noop,
   onSetReturnBus: noop,
   onPreviewReturnBus: noop,
@@ -880,8 +879,8 @@ describe('PlayerView', () => {
     }))
     const { rerender } = renderPlayer({ arrangement: { lanes } })
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
-    fireEvent.click(screen.getByRole('button', { name: 'C' }))
-    expect(screen.getByRole('button', { name: 'C' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'C, channel 3' }))
+    expect(screen.getByRole('button', { name: 'C, channel 3' })).toHaveAttribute('aria-pressed', 'true')
 
     const compacted = [
       { ...lanes[1]!, index: 0 },
@@ -889,8 +888,8 @@ describe('PlayerView', () => {
     ]
     rerender(playerView({ arrangement: { lanes: compacted } }))
 
-    expect(screen.getByRole('button', { name: 'C' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('slider', { name: 'Channel 2 Pan' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'C, channel 2' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'C, channel 2' })).toBeInTheDocument()
   })
 
   it('disables Add Lane at the 64-lane limit', () => {
@@ -1274,7 +1273,7 @@ describe('PlayerView', () => {
     expect(tile.style.backgroundColor).toBe('var(--palette-0)')
   })
 
-  it('renders subcategory chips and All button when a category is selected', () => {
+  it('renders the selected category filter and nested categories', () => {
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
       { id: 9, name: 'SubBass', parentId: 1 }
@@ -1286,7 +1285,8 @@ describe('PlayerView', () => {
       }
     })
 
-    expect(screen.getByText('All')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
+    expect(screen.getByRole('button', { name: 'Clear category filter' })).toHaveTextContent('Bass')
     expect(screen.getByText('SubBass')).toBeInTheDocument()
   })
 
@@ -1300,6 +1300,7 @@ describe('PlayerView', () => {
       }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     const chip = screen.getByText(/Cool/)
     fireEvent.click(chip.closest('button')!)
     expect(onToggleTagFilter).toHaveBeenCalledWith(5)
@@ -1308,6 +1309,7 @@ describe('PlayerView', () => {
   it('shows error message when samples fail to load', () => {
     renderPlayer({ browser: { error: 'Database locked', loading: false, samples: [] } })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     expect(screen.getByText('Database locked')).toBeInTheDocument()
   })
 
@@ -1343,7 +1345,7 @@ describe('PlayerView', () => {
     expect(onTransportSkipBack).toHaveBeenCalled()
   })
 
-  it('calls onSelectCategory(undefined) when All button is clicked', () => {
+  it('clears the selected category from its filter chip', () => {
     const onSelectCategory = vi.fn()
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
@@ -1357,11 +1359,12 @@ describe('PlayerView', () => {
       }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     fireEvent.click(screen.getByLabelText('Clear category filter'))
     expect(onSelectCategory).toHaveBeenCalledWith(undefined)
   })
 
-  it('calls onSelectCategory with subcategory id when subcategory chip is clicked', () => {
+  it('calls onSelectCategory with a nested category id when clicked', () => {
     const onSelectCategory = vi.fn()
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
@@ -1375,11 +1378,12 @@ describe('PlayerView', () => {
       }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     fireEvent.click(screen.getByText('SubBass'))
     expect(onSelectCategory).toHaveBeenCalledWith(9)
   })
 
-  it('selects a deeper subcategory chip while its parent subcategory is selected', () => {
+  it('selects a deeper category while its parent is selected', () => {
     const onSelectCategory = vi.fn()
     // Bass (id:1) -> SubBass (id:9) -> DeepBass (id:10). With 9 selected the
     // chips are the children of 9, so a chip never equals the selection —
@@ -1397,6 +1401,7 @@ describe('PlayerView', () => {
       }
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     fireEvent.click(screen.getByText('DeepBass'))
     expect(onSelectCategory).toHaveBeenCalledWith(10)
   })
@@ -1819,18 +1824,17 @@ describe('PlayerView', () => {
     expect(screen.queryByRole('button', { name: 'Restore removed channel' })).toBeNull()
   })
 
-  it('uses lane-owned names for Mixer strip labels', () => {
+  it('uses compact Mixer strip numbers without visually duplicating lane names', () => {
     renderPlayer({ arrangement: { lanes: [LANES[0]!, LANES[2]!] } })
     fireEvent.click(screen.getByRole('tab', { name: 'Mixer' }))
 
-    const labelElements = Array.from(
-      document.querySelectorAll('.mixer-channel-select > span')
-    )
-    expect(labelElements.map((element) => element.textContent)).toEqual(['Lane 1', 'Lane 3'])
-    expect(labelElements.every((element) => !element.hasAttribute('data-channel-number'))).toBe(true)
-    // The aria-labels agree with the visible labels.
-    expect(screen.getByRole('slider', { name: 'Channel 1 Pan' })).toBeInTheDocument()
-    expect(screen.getByRole('slider', { name: 'Channel 3 Pan' })).toBeInTheDocument()
+    const visibleLabels = Array.from(document.querySelectorAll('.mixer-channel-select > span'))
+      .map((element) => element.textContent)
+    expect(visibleLabels).toEqual(['01', '03'])
+    expect(document.querySelector('.mixer-channel-select')?.textContent).not.toContain('Lane')
+    expect(screen.getByRole('button', { name: 'Lane 1, channel 1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lane 3, channel 3' })).toBeInTheDocument()
+    expect(screen.queryByRole('slider', { name: /Channel .* Pan/ })).toBeNull()
   })
 
   it('AC-024: master output metering lives in the Master Bus Strip OUTPUT module', () => {

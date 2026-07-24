@@ -137,7 +137,9 @@ describe('sample analysis DSP', () => {
     expect(decoded?.samples).toHaveLength(source.length)
     const result = analyzeDecodedAudio(decoded!)
     expect(Math.abs((result.bpm ?? 0) - 120)).toBeLessThanOrEqual(5)
-    expect(result.sampleType).toBe('Loop')
+    // The 80 Hz pulse train is a dark whole-bar loop: a bassline, not a
+    // generic loop.
+    expect(result.sampleType).toBe('Bass')
   })
 
   it('returns null for unsupported or damaged data', () => {
@@ -237,9 +239,29 @@ describe('classifySample edge cases', () => {
       .toBe('Other')
   })
 
-  it('returns Loop for long samples with detected BPM', () => {
-    expect(classifySample({ rms: 0.1, spectralCentroid: 500, zeroCrossingRate: 0.1, transientRatio: 3 }, 5, 120))
+  it('returns Loop for a bright whole-bar loop and Bass for a dark one', () => {
+    // 4 s at 120 BPM is exactly 2 bars: loop-shaped material.
+    expect(classifySample({ rms: 0.1, spectralCentroid: 1500, zeroCrossingRate: 0.05, transientRatio: 3 }, 4, 120))
       .toBe('Loop')
+    expect(classifySample({ rms: 0.1, spectralCentroid: 500, zeroCrossingRate: 0.1, transientRatio: 3 }, 4, 120))
+      .toBe('Bass')
+  })
+
+  it('never classifies whole-bar material as a drum one-shot', () => {
+    // A 1-bar loop at 140 BPM lasts 1.714 s; even with strong transients it is
+    // a loop, not a snare.
+    const oneBar = 240 / 140
+    expect(classifySample({ rms: 0.1, spectralCentroid: 2400, zeroCrossingRate: 0.02, transientRatio: 8 }, oneBar, 140))
+      .toBe('Loop')
+  })
+
+  it('requires noise character for a hi-hat, not brightness alone', () => {
+    // Bright but tonal stab (near-zero crossing rate) must not become a hat.
+    expect(classifySample({ rms: 0.05, spectralCentroid: 4700, zeroCrossingRate: 0.01, transientRatio: 9 }, 0.43, null))
+      .not.toBe('Hi-hat')
+    // A true hat is bright AND noisy.
+    expect(classifySample({ rms: 0.05, spectralCentroid: 5700, zeroCrossingRate: 0.25, transientRatio: 6 }, 0.43, null))
+      .toBe('Hi-hat')
   })
 
   it('returns Atmosphere for long quiet samples', () => {
@@ -300,6 +322,30 @@ describe('detectBpm edge cases', () => {
     for (let i = 0; i < samples.length; i++) samples[i] = 0.0001 * Math.sin(i * 0.01)
     expect(detectBpm(samples, 8000)).toBeNull()
   })
+
+  it('snaps a whole-bar loop to a tempo that resolves to exact bars', () => {
+    // A 2-bar loop at 140 BPM is exactly 8 beats = 3.4286 s. The detected tempo
+    // must make that duration a whole number of bars so the generator's
+    // whole-bar filter accepts the loop instead of discarding it.
+    const sampleRate = 8000
+    const duration = 8 * 60 / 140
+    const loop = pulseTrain(140, duration, sampleRate)
+    const bpm = detectBpm(loop, sampleRate)
+    expect(bpm).not.toBeNull()
+    const spanTicks = Math.max(1, Math.round(duration * bpm! * 8 / 60))
+    expect([32, 64, 128, 256]).toContain(spanTicks) // 1/2/4/8 bars at TICKS_PER_BAR=32
+    expect(bpm!).toBeGreaterThanOrEqual(100)
+    expect(bpm!).toBeLessThanOrEqual(160)
+  })
+
+  it('resolves same-tempo loops of different bar lengths to the same tempo', () => {
+    const sampleRate = 8000
+    const oneBar = detectBpm(pulseTrain(140, 4 * 60 / 140, sampleRate), sampleRate)
+    const twoBar = detectBpm(pulseTrain(140, 8 * 60 / 140, sampleRate), sampleRate)
+    expect(oneBar).not.toBeNull()
+    expect(twoBar).not.toBeNull()
+    expect(Math.abs(oneBar! - twoBar!)).toBeLessThanOrEqual(2)
+  })
 })
 
 describe('detectMusicalKey edge cases', () => {
@@ -316,6 +362,13 @@ describe('detectMusicalKey edge cases', () => {
   it('detects A minor from a sustained Am triad', () => {
     const key = detectMusicalKey(sineMix([220, 261.63, 329.63], 4), 8000)
     expect(key).toBe('Am')
+  })
+
+  it('reports an ambiguous chromatic signal as unknown instead of guessing', () => {
+    // All 12 semitones at equal level: every key profile scores nearly the same,
+    // so the confidence margin is a near-tie and the reading must be withheld.
+    const chromatic = Array.from({ length: 12 }, (_, i) => 220 * 2 ** (i / 12))
+    expect(detectMusicalKey(sineMix(chromatic, 4), 8000)).toBeNull()
   })
 })
 

@@ -36,7 +36,7 @@ interface MixerFxSlotProps {
   onGestureEnd: () => void
 }
 
-const LIMITER_TOOLTIP = 'Limiter\nCaps this FX Return at −1 dBFS using stereo-linked peak limiting. Filled = engaged (default). Red = bypassed, so the return runs uncapped. Click to toggle. This does not limit the Master output.'
+const LIMITER_TOOLTIP = 'Limiter\nCaps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.'
 
 function EditCog() {
   return (
@@ -250,7 +250,9 @@ export default function MixerFxSlot({
         </div>
 
         <div className="mixer-fx-foot">
-          <span className="mixer-fx-summary">{summary}</span>
+          <Tooltip content={summary}>
+            <span className="mixer-fx-summary">{summary}</span>
+          </Tooltip>
         </div>
       </section>
       {editing?.kind === 'echoform-delay' && (

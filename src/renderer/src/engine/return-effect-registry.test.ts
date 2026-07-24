@@ -9,17 +9,22 @@ import {
   type ReturnEffectDescriptor
 } from './return-effect-registry'
 
+// A synthetic effect type that never collides with a real effect, cast once to
+// the descriptor's closed type union so both descriptor creation and the
+// findIndex comparisons below stay type-checked against the same value.
+const TEST_EFFECT_TYPE = '__test-effect__' as ReturnEffectDescriptor['type']
+
 // A throwaway descriptor whose type never collides with a real effect, so
 // registering it cannot corrupt the built-in registration used elsewhere.
 function fakeDescriptor(overrides: Partial<ReturnEffectDescriptor> = {}): ReturnEffectDescriptor {
   return {
-    type: '__test-effect__' as ReturnEffectDescriptor['type'],
+    type: TEST_EFFECT_TYPE,
     label: 'Test Effect',
     tempoAware: false,
     supportsClearTail: false,
     createProcessor: () => { throw new Error('not used') },
     prepareWorklet: () => Promise.resolve(false),
-    createDefault: (id) => ({ id, type: '__test-effect__' } as never),
+    createDefault: (id) => ({ id, type: TEST_EFFECT_TYPE } as never),
     validate: () => false,
     moduleKeys: ['type'],
     ...overrides
@@ -51,7 +56,7 @@ describe('return effect registry', () => {
     const afterFirst = returnEffectDescriptors()
     expect(afterFirst.length).toBe(before + 1)
     expect(getReturnEffect('__test-effect__')?.label).toBe('First')
-    const position = afterFirst.findIndex((d) => d.type === '__test-effect__')
+    const position = afterFirst.findIndex((d) => d.type === TEST_EFFECT_TYPE)
 
     // Re-registering the same type replaces the descriptor without growing the
     // list or changing its menu position.
@@ -59,6 +64,6 @@ describe('return effect registry', () => {
     const afterReplace = returnEffectDescriptors()
     expect(afterReplace.length).toBe(before + 1)
     expect(getReturnEffect('__test-effect__')?.label).toBe('Replaced')
-    expect(afterReplace.findIndex((d) => d.type === '__test-effect__')).toBe(position)
+    expect(afterReplace.findIndex((d) => d.type === TEST_EFFECT_TYPE)).toBe(position)
   })
 })

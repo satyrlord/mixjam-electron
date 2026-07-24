@@ -6,9 +6,9 @@ import {
 } from './generator-support'
 
 const METADATA: ProjectGeneratorMetadata = {
-  generatorVersion: 1,
+  generatorVersion: 3,
   profileId: 'techno',
-  profileVersion: 2,
+  profileVersion: 5,
   seed: 'stable-seed',
   parameters: {
     bpmMode: 'fixed',
@@ -43,7 +43,7 @@ describe('persisted generator interpretation', () => {
   })
 
   it.each([
-    ['generator version', { ...METADATA, generatorVersion: 2 }],
+    ['generator version', { ...METADATA, generatorVersion: 4 }],
     ['profile version', { ...METADATA, profileVersion: 1 }],
     ['unknown profile', { ...METADATA, profileId: 'unknown' as ProjectGeneratorMetadata['profileId'] }]
   ])('rejects unsupported %s', (_name, metadata) => {

@@ -2,18 +2,21 @@
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** PARTIAL — the generator produces lane-owned
-projects, excludes FX, removes empty lanes, and persists the format-4 output.
-Some profile-level selection and stereo-evidence rules remain incomplete.
+projects, excludes FX, removes empty lanes, persists the current spec-011
+format output, and implements the family-coherence, stereo-pair, and density
+contracts. Human listening sign-off remains open.
 **Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
 spec-008 (Sample Analysis), spec-011 (Project Save & Load, including its
-version-4 generator metadata contract)
+generator metadata contract)
 
 ## Objective
 
 Add a one-click **MixJam Generator** wizard in the Home view. It turns an
 analyzed Sample Folder into a ready-to-play `.mixjam` project. Repository-owned
 profiles are bundled as auto-discovered JSON templates. **Techno**, **trance**,
-and **house** remain the shipped baselines, but adding another valid template
+and **house** remain the normative baselines; **tropical-house**,
+**ambient-house**, and **melodic-techno** ship as additional bundled templates
+composed purely from the same schema primitives. Adding another valid template
 must require only one new JSON file, with no TypeScript, engine, worker, or UI
 registration change.
 
@@ -119,16 +122,17 @@ Genre is not inferred from folders or acoustic analysis. Intensity is a fixed
 medium default because the analysis pipeline has no arrangement-intensity
 signal.
 
-The duration target is converted to bars with:
+The duration target is converted to whole 8-bar phrases with:
 
 ```text
-targetBars = roundHalfUp(durationSeconds * bpm / 240)
+targetBars = 8 * roundHalfUp(durationSeconds * bpm / 1920)
 ```
 
-The result is at least one bar. The generated project ends exactly at
-`targetBars * TICKS_PER_BAR`. At 140 BPM and 180 seconds this is 105 bars,
-3,360 ticks, and exactly 180 seconds. At other values the wizard reports the
-quantized duration produced by the nearest whole-bar result.
+The result is at least eight bars, so every arrangement is phrased in eights —
+a trailing partial phrase reads as a mistake in dance music. The generated
+project ends exactly at `targetBars * TICKS_PER_BAR`. At 140 BPM and 180
+seconds this is 104 bars and 3,328 ticks. The wizard reports the quantized
+duration produced by the nearest whole-phrase result.
 
 ### Bundled template discovery and schema
 
@@ -169,8 +173,8 @@ ranges. A lane pan may be non-center only when every distinct selected sample
 on that lane has validated stereo-side evidence and all evidence consistently
 identifies the same side. Uncertain, unpaired, mixed-side, or filename-only
 evidence produces centered pan. Core lanes must be active. Empty removable
-support lanes are deleted before save, while the project retains at least one
-lane.
+support lanes are deleted before save, while the project retains from 8
+through 32 populated lanes.
 
 The filename stem must equal `id` exactly, so `techno.json` contains
 `"id": "techno"`. IDs must be unique across all discovered files. A filename
@@ -210,26 +214,43 @@ they are not aliases over one shared arrangement arc.
 
 The shipped baseline profile contracts are:
 
-| Profile | Core roles | Fallback/support roles | Section weights (in order) |
-| --- | --- | --- | --- |
-| `techno` | Kick, Bass, Synth | Hi-hat → Percussion; Loop → Atmosphere; FX → Other | Intro 8%, Groove 22%, Build 15%, Breakdown 10%, Drive 23%, Peak 14%, Outro 8% |
-| `trance` | Kick, Bass, Synth, Loop | Synth → Loop; Loop → Synth; FX → Other | Intro 8%, Theme 18%, Lift 16%, Breakdown 12%, Main Theme 20%, Peak 18%, Outro 8% |
-| `house` | Kick, Bass, Hi-hat | Hi-hat → Percussion; Vocal → Atmosphere; Loop → Synth; FX → Other | Intro 8%, Groove 24%, Vocal Entry 16%, Breakdown 10%, Groove Return 22%, Peak 12%, Outro 8% |
+| Profile | Core roles | Fallback/support roles |
+| --- | --- | --- |
+| `techno` | Kick, Bass, Synth | Hi-hat → Percussion; Loop → Atmosphere; FX → Other |
+| `trance` | Kick, Bass, Synth, Loop | Synth → Loop; Loop → Synth; FX → Other |
+| `house` | Kick, Bass, Hi-hat | Hi-hat → Percussion; Vocal → Atmosphere; Loop → Synth; FX → Other |
+
+The shipped template JSON is the single source of truth for the exact per-
+section weights, phrase modes, and active-lane sets; the values below are a
+reference snapshot and the JSON wins on any disagreement. Section weights, in
+order:
+
+- `techno` — Intro 8%, Groove 22%, Build 12%, Breakdown 12%, Drive 24%,
+  Peak 14%, Outro 8%
+- `trance` — Intro 8%, Theme 18%, Lift 10%, Breakdown 12%, Rebuild 8%,
+  Main Theme 24%, Peak 12%, Outro 8%
+- `house` — Intro 8%, Groove 16%, Vocal Entry 12%, Build 10%, Main Groove 16%,
+  Breakdown 10%, Rebuild 8%, Peak 12%, Outro 8%
 
 The normative `coreLanes` are techno `0,4,6`, trance `0,4,5,6`, and house
 `0,2,4`. Those lanes are the continuous profile anchors. Every other declared
 lane is a support-lane opportunity. The planner creates only purposeful lanes:
 it keeps populated lanes, removes empty removable support lanes before save,
-and never emits fewer than 1 or more than 64 lanes. Compatible secondary types
+and never emits fewer than 8 or more than 32 populated lanes. Compatible
+secondary types
 may add contrast even when the primary type exists. The Generate result reports
 each used secondary type as a substitution. If bounded analysis cannot fill a
 required core role, generation fails before save and names that role and its
-compatible types. BPM only ranks compatible candidates.
-Section rules add and remove layers according to the profile contract: every
-profile starts sparse, increases density through its lift/build sections,
-creates a lower-density breakdown, and restores its core roles before the
-outro. The individual role gates and transition-sample placements are profile data,
-not engine branches.
+compatible types. A support lane without compatible material stays unfilled
+and is pruned; generation fails with a lane-floor error only when fewer than
+8 lanes can be populated. BPM only ranks compatible candidates.
+Section rules add and remove layers according to the profile contract: each
+profile builds from its intro through its lift/build sections, creates a
+lower-density breakdown, and restores its core roles before the outro. The
+80/80/80 density rule (below) requires most lanes to be active across most of
+the arrangement, so density contrast comes chiefly from the breakdown and the
+Pareto phrase grammar rather than from a thin intro. The individual role gates
+and transition-sample placements are profile data, not engine branches.
 
 Transition left and Transition right are independent riser and impact roles,
 not two halves of one stereo file. A lane name or filename suffix never implies
@@ -281,11 +302,23 @@ not combine conflicting known keys.
 
 Profile BPM tolerances and section role gates are:
 
-| Profile | BPM tolerance | Section active lanes |
-| --- | ---: | --- |
-| `techno` | ±8 BPM | Intro `2,3,5,9,10`; Groove `0,1,2,3,4,5,11`; Build `0,1,2,3,4,5,6,10,11,12,14,15`; Breakdown `6,7,8,9,10,13,14,15`; Drive `0–7,9–15`; Peak `0–15`; Outro `0,2,3,5,9,10,12,14,15` |
-| `trance` | ±6 BPM | Intro `0,2,5,9,10`; Theme `0–2,4–7,9`; Lift `0–7,10,12,14,15`; Breakdown `6–10,13–15`; Main Theme `0–10,12–15`; Peak `0–15`; Outro `0,2,5,6,9,10,14,15` |
-| `house` | ±8 BPM | Intro `0,2,3,5,9,10`; Groove `0–5,11,12`; Vocal Entry `0–5,8,12`; Breakdown `5,6,8–10,13`; Groove Return `0–6,8,11,12`; Peak `0–15`; Outro `0,2,3,5,9,10,12,14,15` |
+BPM tolerances are techno ±8, trance ±6, and house ±8. The template JSON is
+authoritative for the exact active-lane sets; the reference snapshot below (and
+every template) must keep at least 80% of non-transition lanes active in
+sections totalling at least 85 weight, so the 80/80/80 density rule is
+achievable — the parser rejects any template that does not. Section active
+lanes:
+
+- `techno` — Intro `0–5,9,10,11,12`; Groove `0–7,10,11,12,13`;
+  Build `0–7,10–15`; Breakdown `6,7,8,9,10,13,14,15`; Drive `0–15`;
+  Peak `0–15`; Outro `0–7,9–15`
+- `trance` — Intro `0–5,9,10,11`; Theme `0–7,10,11,12,13`; Lift `0–7,10–15`;
+  Breakdown `5,6,7,8,9,10,12,13,14,15`; Rebuild `0–7,9–15`; Main Theme `0–15`;
+  Peak `0–15`; Outro `0–7,9–15`
+- `house` — Intro `0–5,9,10,11,12`; Groove `0–7,10,11,12,13`;
+  Vocal Entry `0–8,10,11,12,13`; Build `0–7,10–15`; Main Groove `0–15`;
+  Breakdown `5,6,7,8,9,10,13,14,15`; Rebuild `0–7,9–15`; Peak `0–15`;
+  Outro `0–7,9–15`
 
 Intensity applies one deterministic transformation after the section gate:
 
@@ -308,13 +341,17 @@ beyond a role's base count.
 Indexed metadata from the selected analyzer context key creates
 deterministic per-lane and per-category candidate queues. Core lanes receive the
 first reservation, then category and lane queues advance in balanced passes.
-Type and musical-span eligibility run before the 96-read shortlist is fixed.
-The worker reads and decodes each shortlisted relative path at most once. One
-planning job attempts at most 96 unique files and retains at most 64 successful,
-role-compatible scoring results. Reservations cover every feasible lane and
-primary category, so abundant core material cannot starve support lanes or
-smaller categories. Failure to fill a required core role aborts before save;
-an unfilled removable support lane is pruned before persistence.
+Type and musical-span eligibility run before the bounded-read shortlist is
+fixed. The worker reads and decodes each shortlisted relative path at most
+once. One planning job attempts at most 160 unique files and retains at most 96
+successful, role-compatible scoring results. Lane and category queues are
+family-ordered so numbered siblings are admitted together, and a dedicated
+stereo-pair queue rotates alongside the lane queues so left halves of complete
+`-l`/`-r` pairs keep arriving throughout the budget (pair lanes cannot
+designate without them). Reservations cover every feasible lane and primary
+category, so abundant core material cannot starve support lanes or smaller
+categories. Failure to fill a required core role aborts before save; an
+unfilled removable support lane is pruned before persistence.
 
 The transient scoring records no database state. It may derive arrangement
 metrics such as RMS, peak, spectral centroid, transient density, attack strength,
@@ -329,8 +366,11 @@ does not rewrite the sample's stored acoustic type.
 
 ### Phrase grammar
 
-Section boundaries remain those in the profile tables. Each non-empty section
-is divided into phrases of at most eight bars; a section tail may be shorter.
+The arrangement length is quantized to whole 8-bar phrases (minimum 8 bars),
+and section boundaries are allocated in whole phrases by weight — never in
+bars. A 23-bar section would end in a tail phrase that whole-bar loops cannot
+fill, which left lanes just short of the density rule on every odd section; a
+low-weight section may receive zero phrases in a short song and simply vanish.
 All loop entries start on bar boundaries. Profile data selects phrase variants;
 the engine contains no genre-name branches.
 
@@ -344,9 +384,10 @@ The shared role rules are:
   Compatible samples tile at their complete source span within an active phrase,
   and different lanes do not share one lockstep candidate index.
 - A tonal motif introduced before a breakdown returns after the breakdown.
-- Vocal entries use call and response and cannot occupy consecutive phrases.
-- Atmosphere and texture entries support selected phrases and do not run for an
-  entire multi-section arc.
+- Vocal entries use call and response and cannot occupy consecutive phrases;
+  the vocal lane is the arrangement's deliberate sparse voice.
+- Atmosphere entries sustain continuously through their active sections;
+  skipping alternate phrases left half the song padless.
 - A riser ends at a section boundary. An impact starts at a section boundary.
   Transition left is the riser lane and Transition right is the impact lane.
   Both transition lanes contain boundary events only.
@@ -365,15 +406,80 @@ The shipped baseline character is normative and comes from the JSON data:
 
 The seed selects compatible samples, A/B ordering, fills, and allowed dropouts.
 It does not change section boundaries or remove the profile's required musical
-arc. Low intensity uses fewer optional phrases and no B motif when one motif is
-sufficient; its phrase DTOs therefore contain only A and rest motifs. Medium
-uses at least three distinct samples per role when compatible material exists.
-High uses at least four and adds optional rhythmic detail and fills but does not
-add incompatible tonal material. Selection prefers unique files across lanes
-before supply-constrained reuse. If the normal
-phrase schedule does not reach the exact song end, the final anchor must still
-obey the selected lane's beat-grid, bar-alignment, or transition-boundary rule.
-Generation fails rather than inserting an off-grid repair placement.
+arc. Phrase grammar follows the Pareto 80/20 principle at every intensity: the
+anchor motif owns roughly four non-rest phrases in five and the contrast motif
+the remaining one in five (a seeded one-in-five pick, never two B phrases in a
+row). Breakdown sections keep their alternating rest cadence as the song's
+deliberate quiet time. Intensity scales the distinct-sample quota per lane —
+low uses at least three, medium four, high five when compatible material
+exists — plus high-intensity percussion fills and the family-coherence targets
+below. Selection never places one sample (or either half of one stereo pair)
+on two different lanes; cross-lane reuse is permitted only when a lane would
+otherwise be empty. If the normal phrase schedule does not reach the exact
+song end, the final anchor must still obey the selected lane's beat-grid,
+bar-alignment, or transition-boundary rule. Generation fails rather than
+inserting an off-grid repair placement.
+
+Sample libraries author numbered families (`babylon-1` … `babylon-5`) whose
+parts belong together, with `-l`/`-r` suffixed files as stereo halves of one
+sample. Selection and phrase walking honor that authorship:
+
+- A lane fills its distinct-sample quota with numbered parts of one anchor
+  family first; A phrases walk that family's parts in order, so the anchor
+  motif recurs and returns after a breakdown.
+- A second contrast family feeds B phrases, so contrast also walks coherent
+  siblings instead of tiling one lone sample.
+- Non-core tonal lanes prefer the anchor families already chosen by the core
+  tonal lanes (the song is built from one or two authored kits, not a collage).
+- Percussion lanes take distinct anchor families so the snare, hat, and
+  percussion lanes do not all rotate one kit sample.
+- A lone right stereo half ranks below its left or mono twin, and the bounded
+  shortlist orders lane queues by family so a family's numbered parts are
+  admitted together within the read budget.
+- Within one tempo/key compatibility band, a multi-part family outranks a
+  singleton outright when anchoring a lane: family size is a primary criterion,
+  not a tiebreak. Percussion lanes likewise prefer distinct multi-part anchor
+  families.
+
+Family coherence is a validated, intensity-scaled floor over the material
+actually placed. Collapsing stereo twins and duplicate spellings to logical
+samples, the share of distinct placed samples whose family has at least two
+distinct placed parts must reach 80% at low intensity, 70% at medium, and 60%
+at high. Selection repairs toward the floor (adding unused siblings, then
+trimming redundant singletons whose category stays covered), and a placement
+pass afterwards places unplaced siblings of placed singletons — drawing from
+the lane's full eligible pool when its selection has none, and recording such
+additions in the lane's selection. Validation excuses the floor only when both
+repairs exhausted every legal move: a corpus without numbered families must
+stay generatable.
+
+One populated lane in five plays as a hard-panned stereo pair; every other
+lane is perfectly centered, so pan is a three-way decision (-1, 0, +1) and
+variable panning never occurs. Pair lanes are designated before selection —
+preferring atmosphere, then vocal, then non-bass motif lanes, support before
+core — and their pools are restricted to left halves of complete `-l`/`-r`
+pairs, so everything that lands on the lane can mirror. After gain
+compensation the lane is renamed `<name> L` at pan -1 and a mirror lane
+`<name> R` is appended at pan +1 with identical timing, the right-twin files,
+and the same gain. Twins resolve against the full library listing, so a mirror
+never spends analysis budget. A lane with no qualifying material simply stays
+centered; the target count is one designated lane per nine populated lanes.
+
+Density follows the Pareto rule at every intensity: at least 80% of populated
+non-transition lanes must be populated for at least 80% of the song's bars. A
+bar counts as populated role-aware: percussion bars must land at least 60% of
+the hits their authored pattern can physically realize at the lane's typical
+one-shot span (ring-out overlap and bar-end drops shrink dense patterns);
+every other role must sound on at least three of the bar's four beats. A
+dedicated fill pass closes scheduling gaps inside phrases where the lane is
+active and not resting — walking the phrase's own pool first, then the lane's
+full selection, keeping whole-bar material on the bar grid — and never fills
+authored quiet time (breakdown rests, ramp phrases, sections that exclude the
+lane). Lanes that stay short after every legal fill slot are excused, so a
+sparse corpus cannot make generation impossible. Templates must keep at least
+80% of non-transition lanes active in sections totalling at least 85 weight
+(validated at template parse time), and quiet phrase modes (breakdown plus
+outro) stay near the Pareto 20% share.
 
 Generated lane state uses the following volume defaults. Every lane starts
 unmuted and unsoloed. The generator may set lane volume, but it always emits
@@ -382,11 +488,11 @@ all four sends at `0` and all four project FX slots as Empty.
 | Role | Volume |
 | --- | ---: |
 | Kick | 0.78 |
-| Snare/Clap | 0.50 |
-| Hi-hat | 0.46 |
-| Percussion | 0.42 |
+| Snare/Clap | 0.46 |
+| Hi-hat | 0.40 |
+| Percussion | 0.36 |
 | Bass | 0.58 |
-| Loop / Loop alternate | 0.46 / 0.40 |
+| Loop / Loop alternate | 0.54 / 0.46 |
 | Synth A / Synth B / Synth alternate | 0.46 / 0.42 / 0.38 |
 | Vocal | 0.38 |
 | Atmosphere | 0.34 |
@@ -395,17 +501,24 @@ all four sends at `0` and all four project FX slots as Empty.
 | Transition left / right | 0.34 |
 
 Transient RMS values compensate for level differences between the selected
-files. Each lane targets the median RMS of the selected set while preserving the
-profile's base volume. Compensation is clamped to plus or minus 6 dB, and the
-final lane volume is clamped to the existing 0–1 control range. Missing or
+files on tonal lanes only (motif, vocal, and atmosphere roles), targeting the
+median RMS of the tonal selections. Percussion and transition lanes keep their
+template gains: a drum one-shot's RMS is transient-shaped and not comparable to
+a loop's, and compensating it against a global median inverted the template's
+mix hierarchy. Compensation is clamped to plus or minus 6 dB, and the
+final lane volume is clamped to the existing 0–1 control range. Non-core tonal
+lanes are additionally capped at 0.60 after compensation: +6 dB on a quiet
+source pushed support loops above the kick in real projects. Missing or
 silent RMS data leaves the profile volume unchanged. Seeded volume
 randomization is not allowed.
 
-The product generator creates from 1 through 64 populated, purposeful lanes.
+The product generator creates from 8 through 32 populated, purposeful lanes.
 Before serialization, it removes every removable empty lane and validates the
-remaining count. It keeps at least one lane. Mixer tracks follow those lanes
-1:1. Generated output never selects a non-Empty FX module and never raises a
-send above `0`.
+remaining count. A support lane without compatible material stays unfilled and
+is pruned, but generation fails with a clear lane-floor error when fewer than
+8 lanes can be populated; it also fails above 32. Mixer tracks follow the
+retained lanes 1:1. Generated output never selects a non-Empty FX module and
+never raises a send above `0`.
 
 ### Runtime and query ownership
 
@@ -445,7 +558,9 @@ The candidate query also joins the primary organizational category name. The
 shared palette-slot helper converts that name to a slot from 0 through 8. A
 category never fills or replaces an acoustic role, but it is a diversity
 constraint after role compatibility: every primary category with a compatible
-candidate in the bounded analyzed set must appear in the arrangement. Category
+candidate in the bounded analyzed set must appear in the arrangement unless no
+legal placement window remains for any of its candidates after every legal
+grid slot was tried. Category
 queues receive bounded-analysis reservations, and candidate assignment covers
 scarce categories before filling per-lane variety. Every generated placement
 DTO carries the selected sample's slot, and the renderer persists it through the
@@ -562,14 +677,16 @@ click **Open in Player** explicitly.
 
 ### Generator metadata and regeneration
 
-Generated projects use the strict spec-011 version-4 format and persist:
+Generated projects use the strict spec-011 project format (the generator
+block was introduced in format 4; spec-011 owns the current format number)
+and persist:
 
 ```json
 {
   "generator": {
-    "generatorVersion": 1,
+    "generatorVersion": 3,
     "profileId": "techno",
-    "profileVersion": 2,
+    "profileVersion": 5,
     "seed": "safe-token",
     "parameters": {
       "bpmMode": "follow-detected",
@@ -648,20 +765,23 @@ command.
 - [ ] **AC-007:** Every discovered profile JSON contains normative section
   tables and phrase modes, required/fallback roles, beat patterns, optional
   lane-volume state, and a profile version without engine-specific genre branches.
-  Techno, trance, and house remain the shipped baseline templates.
+  Techno, trance, and house remain the normative baselines; tropical-house,
+  ambient-house, and melodic-techno ship alongside them as schema-only
+  compositions.
 - [x] **AC-008:** Candidate selection uses worker-side validated type, duration,
   readability, BPM, key, root, selected context key, and group confidence;
   organizational categories are not acoustic types.
 - [ ] **AC-009:** Missing compatible material for a required or core lane fails
   clearly. An unfilled removable support lane is pruned, secondary role types
-  are reported, and no required lane is omitted.
+  are reported, and no required lane is omitted. Generation fails with a
+  lane-floor error when fewer than 8 lanes can be populated.
 - [ ] **AC-010:** With the same seed, registered profile ID and profile version,
   generator version, and indexed-root fingerprint, repeated planning produces
   semantically equivalent stable lane IDs, sample references, placements,
   spans, lanes, volume, validated pan, zeroed sends, and Empty FX slots.
-- [ ] **AC-011:** The project format-4 generator block roundtrips through the
+- [ ] **AC-011:** The project generator block roundtrips through the
   production parser and preserves all metadata needed for regeneration.
-- [ ] **AC-012:** Generated projects contain from 1 through 64 populated,
+- [ ] **AC-012:** Generated projects contain from 8 through 32 populated,
   purposeful lanes and the same number of 1:1 mixer tracks. Every removable
   empty lane is deleted before save, relative sample references remain valid,
   all sends are `0`, and all four FX slots are Empty.
@@ -683,8 +803,8 @@ command.
 - [ ] **AC-016:** The generated project passes focused unit tests, a real-corpus
   production-parser roundtrip, built-Chromium open/playback proof, and manual
   listening sign-off for techno, trance, and house.
-- [ ] **AC-017:** One planning job attempts no more than 96 unique files, retains
-  no more than 64 role-compatible scoring results, reserves candidates for
+- [ ] **AC-017:** One planning job attempts no more than 160 unique files, retains
+  no more than 96 role-compatible scoring results, reserves candidates for
   unfilled lanes and categories, reads each relative path at most once, and can
   be cancelled before save without leaving a file or recent-project entry.
   Parameters are validated before snapshot, fingerprint, or audio-file work.
@@ -883,5 +1003,5 @@ runs.
   User Folder access.
 - [spec-004](spec-004-sample-library.md) — sample querying and indexing.
 - [spec-008](spec-008-sample-analysis.md) — BPM, key, and acoustic type analysis.
-- [spec-011](spec-011-project-save-load.md) — strict version-4 `.mixjam`
-  persistence and generator metadata validation.
+- [spec-011](spec-011-project-save-load.md) — strict `.mixjam` persistence
+  and generator metadata validation.

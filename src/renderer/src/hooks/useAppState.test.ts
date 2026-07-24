@@ -614,19 +614,17 @@ describe('useAppState', () => {
     expect(result.current.lanes[3].pan).toBe(-0.5)
   })
 
-  it('keeps lane and mixer controls synchronized and starts a clean project', async () => {
+  it('keeps lane and mixer gain/send controls synchronized and starts a clean project', async () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     act(() => {
       result.current.setChannelGain(0, 0.45)
-      result.current.setChannelPan(0, -0.25)
       result.current.setChannelSend(0, 2, 2)
     })
 
     expect(result.current.lanes[0]!.gain).toBe(0.45)
     expect(result.current.lanes[0]!.gain).toBe(0.45)
-    expect(result.current.lanes[0]!.pan).toBe(-0.25)
     expect(result.current.lanes[0]!.sends).toEqual([0, 0, 1, 0])
     expect(result.current.lanes[0]!.sends).toEqual([0, 0, 1, 0])
 

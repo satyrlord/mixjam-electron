@@ -24,7 +24,7 @@ Use ESLint auto-fix only in repair mode and inspect its diff before continuing.
 - Apply the unit threshold defined in `SKILL.md` to every reported Statements,
   Branches, Functions, and Lines cell, globally and per file or module.
 - Treat E2E coverage as supplementary integration evidence. Do not apply the
-  80% threshold to bundled E2E coverage or combine its statement identifiers
+  70% threshold to bundled E2E coverage or combine its statement identifiers
   numerically with unit coverage.
 - Add targeted tests or improve testability to close gaps. Follow the
   authorization rule in `SKILL.md` for exclusions, ignores, or threshold

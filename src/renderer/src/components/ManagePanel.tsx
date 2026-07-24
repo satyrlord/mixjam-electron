@@ -125,9 +125,10 @@ export default function ManagePanel({
   }
 
   const categoryTree = flattenCategoryTree(categories)
+  const editableCategories = categoryTree.filter(({ category }) => !isProtectedCategory(category))
 
   return (
-    <div className="manage-panel" style={{ left: leftOffset }}>
+    <div id="sample-browser-manage-panel" className="manage-panel" style={{ left: leftOffset }}>
       <TabsRoot value={tab} onValueChange={(value) => setTab(value as ManageTab)} activationMode="automatic">
       <TabsList className="manage-tabs" aria-label="Manage sample metadata">
         {(['tags', 'libraries', 'categories'] as const).map((t) => (
@@ -175,7 +176,12 @@ export default function ManagePanel({
                       }}
                       autoFocus
                     />
-                    <button type="button" onClick={() => void handleCommitRename(tag.id)} aria-label="Confirm rename">
+                    <button
+                      type="button"
+                      className="manage-action"
+                      onClick={() => void handleCommitRename(tag.id)}
+                      aria-label="Confirm rename"
+                    >
                       <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16">
                         <path d="m3 8.5 3 3L13 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
                       </svg>
@@ -205,6 +211,9 @@ export default function ManagePanel({
                 )}
               </li>
             ))}
+            {tags.length === 0 && (
+              <li className="manage-empty">No tags yet.</li>
+            )}
           </ul>
           <div className="manage-create manage-create-tag">
             <input
@@ -261,7 +270,7 @@ export default function ManagePanel({
               </li>
             ))}
             {libraries.length === 0 && (
-              <p className="manage-empty">No saved libraries yet.</p>
+              <li className="manage-empty">No saved libraries yet.</li>
             )}
           </ul>
           <div className="manage-create">
@@ -285,7 +294,7 @@ export default function ManagePanel({
 
       <TabsContent value="categories" className="manage-content">
           <ul className="manage-list">
-            {categoryTree.filter(({ category }) => !isProtectedCategory(category)).map(({ category, path }) => (
+            {editableCategories.map(({ category, path }) => (
               <li key={category.id} className="manage-list-item">
                 <span className="manage-name">{path}</span>
                 <button
@@ -296,6 +305,9 @@ export default function ManagePanel({
                 >×</button>
               </li>
             ))}
+            {editableCategories.length === 0 && (
+              <li className="manage-empty">No custom categories yet.</li>
+            )}
           </ul>
           <div className="manage-create">
             <input

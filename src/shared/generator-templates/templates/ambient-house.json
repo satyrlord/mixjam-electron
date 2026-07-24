@@ -1,0 +1,37 @@
+{
+  "$schema": "../schema.json",
+  "schemaVersion": 1,
+  "id": "ambient-house",
+  "label": "Ambient House",
+  "version": 2,
+  "order": 50,
+  "bpmTolerance": 10,
+  "coreLanes": [0, 6, 9],
+  "sections": [
+    { "name": "Atmosphere Intro", "weight": 10, "activeLanes": [0, 1, 2, 4, 5, 6, 7, 9, 10, 11, 12, 13], "phraseMode": "sparse" },
+    { "name": "Pulse In", "weight": 12, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13], "phraseMode": "build" },
+    { "name": "Drift", "weight": 20, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], "phraseMode": "steady" },
+    { "name": "Dissolve", "weight": 12, "activeLanes": [5, 6, 7, 8, 9, 10, 12, 13, 14, 15], "phraseMode": "breakdown" },
+    { "name": "Pulse Return", "weight": 22, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "return" },
+    { "name": "Open Sky", "weight": 14, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "peak" },
+    { "name": "Fade", "weight": 10, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "outro" }
+  ],
+  "lanes": [
+    { "name": "Soft Pulse", "types": ["Kick"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [0, 8, 16, 24], "beatMutation": [0, 16], "intentionalAnchor": true, "gain": 0.52, "pan": 0 },
+    { "name": "Sparse Clap", "types": ["Snare", "Percussion"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [24], "beatMutation": [8, 24], "gain": 0.24, "pan": 0 },
+    { "name": "Shimmer Hi-hat", "types": ["Hi-hat", "Percussion"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [4, 20], "beatMutation": [4, 12, 20, 28], "gain": 0.24, "pan": 0 },
+    { "name": "Soft Percussion", "types": ["Percussion", "Other"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [6, 22], "beatMutation": [6, 14, 22, 30], "gain": 0.24, "pan": 0 },
+    { "name": "Warm Bass", "types": ["Bass"], "maxBars": 8, "role": "motif", "gain": 0.42, "pan": 0 },
+    { "name": "Ambient Loop", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.48, "pan": 0 },
+    { "name": "Pad A", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.52, "pan": 0 },
+    { "name": "Pad B", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.46, "pan": 0 },
+    { "name": "Vocal Drift", "types": ["Vocal", "Atmosphere"], "maxBars": 8, "role": "vocal", "gain": 0.34, "pan": 0 },
+    { "name": "Atmosphere", "types": ["Atmosphere", "Other"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.5, "pan": 0 },
+    { "name": "Field Texture", "types": ["FX", "Other"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.38, "pan": 0 },
+    { "name": "Pulse Loop", "types": ["Percussion", "Hi-hat", "Snare"], "maxBars": 4, "role": "motif", "preferLong": true, "gain": 0.26, "pan": 0 },
+    { "name": "Filtered Arpeggio", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.38, "pan": 0 },
+    { "name": "Strings / Drone", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.42, "pan": 0 },
+    { "name": "Swell", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "riser", "gain": 0.28, "pan": 0 },
+    { "name": "Soft Impact", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "impact", "gain": 0.28, "pan": 0 }
+  ]
+}

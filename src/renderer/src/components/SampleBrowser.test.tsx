@@ -125,14 +125,18 @@ describe('SampleBrowser', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear category filter' }))
     fireEvent.click(screen.getByRole('button', { name: 'Kicks' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Punchy ×' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Date' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Punchy' }))
+    fireEvent.click(screen.getByRole('button', { name: /sort by date added/i }))
 
     expect(onSelectCategory).toHaveBeenCalledWith(undefined)
     expect(onSelectCategory).toHaveBeenCalledWith(2)
     expect(onToggleTagFilter).toHaveBeenCalledWith(10)
     expect(onSortChange).toHaveBeenCalledWith('dateAdded')
-    expect(screen.getByRole('button', { name: /dur/i })).toHaveAttribute('aria-sort', 'descending')
+    expect(screen.getByRole('button', { name: /sort by duration, descending/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByText('1 sample')).toBeInTheDocument()
   })
 
   it('renders an expandable category tree with nested children', () => {
@@ -152,22 +156,150 @@ describe('SampleBrowser', () => {
     expect(screen.getByRole('button', { name: 'Kicks' })).toBeInTheDocument()
   })
 
-  it('shows tag colors on filter chips', () => {
+  it('keeps one visible category in the sequential tab order', () => {
     renderBrowser()
 
+    expect(screen.getByRole('button', { name: 'Drums' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('button', { name: 'Kicks' })).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByRole('button', { name: 'Snares' })).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByRole('button', { name: 'Bass' })).toHaveAttribute('tabindex', '-1')
+    expect(screen.getByRole('button', { name: 'Collapse Drums' })).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('moves category focus through the visible tree with arrow, Home, and End keys', () => {
+    renderBrowser()
+
+    const drums = screen.getByRole('button', { name: 'Drums' })
+    const kicks = screen.getByRole('button', { name: 'Kicks' })
+    const snares = screen.getByRole('button', { name: 'Snares' })
+    const bass = screen.getByRole('button', { name: 'Bass' })
+
+    drums.focus()
+    fireEvent.keyDown(drums, { key: 'ArrowDown' })
+    expect(kicks).toHaveFocus()
+    expect(kicks).toHaveAttribute('tabindex', '0')
+    expect(drums).toHaveAttribute('tabindex', '-1')
+
+    fireEvent.keyDown(kicks, { key: 'ArrowDown' })
+    expect(snares).toHaveFocus()
+    fireEvent.keyDown(snares, { key: 'End' })
+    expect(bass).toHaveFocus()
+    fireEvent.keyDown(bass, { key: 'ArrowUp' })
+    expect(snares).toHaveFocus()
+    fireEvent.keyDown(snares, { key: 'Home' })
+    expect(drums).toHaveFocus()
+  })
+
+  it('expands, collapses, and enters category branches with arrow keys', () => {
+    renderBrowser()
+
+    const drums = screen.getByRole('button', { name: 'Drums' })
+    drums.focus()
+    fireEvent.keyDown(drums, { key: 'ArrowLeft' })
+    expect(screen.queryByRole('button', { name: 'Kicks' })).not.toBeInTheDocument()
+    expect(drums).toHaveFocus()
+
+    fireEvent.keyDown(drums, { key: 'ArrowRight' })
+    const kicks = screen.getByRole('button', { name: 'Kicks' })
+    expect(drums).toHaveFocus()
+    fireEvent.keyDown(drums, { key: 'ArrowRight' })
+    expect(kicks).toHaveFocus()
+
+    fireEvent.keyDown(kicks, { key: 'ArrowLeft' })
+    expect(drums).toHaveFocus()
+  })
+
+  it('selects the focused category with Enter or Space', () => {
+    const onSelectCategory = vi.fn()
+    renderBrowser({ onSelectCategory })
+
+    const drums = screen.getByRole('button', { name: 'Drums' })
+    drums.focus()
+    fireEvent.keyDown(drums, { key: 'Enter' })
+    expect(onSelectCategory).toHaveBeenCalledWith(1)
+
+    fireEvent.keyDown(drums, { key: 'ArrowDown' })
+    const kicks = screen.getByRole('button', { name: 'Kicks' })
+    fireEvent.keyDown(kicks, { key: ' ' })
+    expect(onSelectCategory).toHaveBeenCalledWith(2)
+  })
+
+  it('shows tag colors on filter chips', () => {
+    const { container } = renderBrowser()
+
     const tag = screen.getByRole('button', { name: 'Punchy' })
-    expect(tag).toHaveAttribute('data-has-color', 'true')
-    expect(tag.style.getPropertyValue('--tag-color')).toBe('#ff0000')
+    expect(tag.querySelector('.tag-color-dot')).toHaveStyle({ backgroundColor: '#ff0000' })
+    // The chip itself carries no inline color; color lives only on the dot.
+    expect(container.querySelector('.subcat[data-has-color]')).not.toBeInTheDocument()
   })
 
   it('opens and closes the manage panel', () => {
     renderBrowser()
 
-    fireEvent.click(screen.getByRole('button', { name: /manage tags, libraries, and categories/i }))
+    const manage = screen.getByRole('button', { name: /manage tags, libraries, and categories/i })
+    expect(manage).toHaveAttribute('aria-expanded', 'false')
+    expect(manage).toHaveAttribute('aria-controls', 'sample-browser-manage-panel')
+    fireEvent.click(manage)
+    expect(manage).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('tab', { name: /tags/i })).toBeInTheDocument()
+    expect(document.getElementById('sample-browser-manage-panel')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /close manage panel/i }))
     expect(screen.queryByRole('tab', { name: /tags/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps each sample bubble on its own category palette while filtering', () => {
+    const { container } = renderBrowser({ selectedCategoryId: 2 })
+
+    expect(container.querySelector('.tiles .sample-bubble')).toHaveStyle({
+      backgroundColor: 'var(--palette-0)'
+    })
+  })
+
+  it('clears search, category, and tag filters from the zero-results state', () => {
+    const onSearchChange = vi.fn()
+    const onSelectCategory = vi.fn()
+    const onToggleTagFilter = vi.fn()
+    renderBrowser({
+      samples: [],
+      totalCount: 0,
+      searchQuery: 'missing',
+      selectedCategoryId: 1,
+      selectedTagIds: [10],
+      onSearchChange,
+      onSelectCategory,
+      onToggleTagFilter
+    })
+
+    expect(screen.getByText('0 samples')).toBeInTheDocument()
+    expect(screen.getByText('No matching samples')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+    expect(onSearchChange).toHaveBeenCalledWith('')
+    expect(onSelectCategory).toHaveBeenCalledWith(undefined)
+    expect(onToggleTagFilter).toHaveBeenCalledWith(10)
+  })
+
+  it('shows first-sync progress inside the Samples panel', () => {
+    const { container } = renderBrowser({
+      samples: [],
+      totalCount: 0,
+      loading: false,
+      librarySyncState: {
+        status: 'syncing',
+        rootKey: 'samples',
+        jobId: 'sync-1',
+        hasUsableIndex: false,
+        phase: 1,
+        found: 12,
+        processed: 0,
+        total: 0
+      }
+    })
+
+    expect(screen.getByText('Preparing your sample library')).toBeInTheDocument()
+    expect(container.querySelector('.tiles')).toHaveAttribute('aria-busy', 'true')
+    expect(container.querySelector('.tiles-skeleton')).toBeInTheDocument()
   })
 
   it('exposes an accessible category-tree resize separator', () => {
@@ -184,6 +316,7 @@ describe('SampleBrowser', () => {
     const { container } = renderBrowser({ onAssignTagToSample, onUnassignTagFromSample })
 
     fireEvent.contextMenu(container.querySelector('.tiles .sample-bubble')!, { clientX: 20, clientY: 30 })
+    expect(screen.getByRole('menu', { name: 'Sample actions for kick.wav' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Punchy' }))
     await waitFor(() => expect(onUnassignTagFromSample).toHaveBeenCalledWith(SAMPLE, 10))
 

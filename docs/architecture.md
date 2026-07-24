@@ -112,9 +112,10 @@ Rules of the process model:
   types or reconstruct project defaults.
 - **Mixer channels are derived from lanes.** Adding a lane appends its channel;
   deleting a lane removes it. Array order defines channel position while the
-  stable lane id preserves relationships. A channel label is exactly its lane
-  name, with no derived prefix. No Mixer command adds, removes, routes, or
-  reorders channels.
+  stable lane id preserves relationships. The compact Mixer header visibly
+  shows only the derived channel number; its accessible name and tooltip retain
+  the lane-owned name. Pan is edited only in the lane header. No Mixer command
+  adds, removes, routes, or reorders channels.
 - **Graph reconciliation belongs to playback.** Playback consumes one complete
   project snapshot and reconciles lane gain, pan, mute/solo gating, dry output,
   four post-fader/post-pan Sends, four modular Return processors, Return levels,

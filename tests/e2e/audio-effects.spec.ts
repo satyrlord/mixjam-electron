@@ -5,7 +5,8 @@ test('the Mixer edits, saves, clears, and resets a return Echoform Delay', async
   await page.getByRole('tab', { name: 'Mixer' }).click()
 
   const firstLaneLabel = page.locator('.mixer-channel-select > span').first()
-  await expect(firstLaneLabel).toHaveText('Lane 1')
+  await expect(firstLaneLabel).toHaveText('01')
+  await expect(page.getByRole('button', { name: 'Lane 1, channel 1' })).toBeVisible()
   expect(await firstLaneLabel.evaluate((element) =>
     getComputedStyle(element, '::before').content
   )).toMatch(/^(none|normal|""|)$/)
@@ -97,7 +98,9 @@ test('return controls stay contained at the supported viewport size', async ({ s
   await limiter.evaluate((element) => element.focus({ preventScroll: true }))
   await expect(limiter).toBeFocused()
   await expect(limiter).toHaveAttribute('data-state', 'instant-open')
-  await expect(page.getByRole('tooltip')).toContainText('Caps this FX Return at −1 dBFS')
+  await expect(page.getByRole('tooltip')).toHaveText(
+    'Limiter\nCaps this FX Return at −1 dBFS using stereo-linked peak limiting. Enabled by default. Click to bypass. This does not limit the Master output.'
+  )
   const contained = await page.evaluate(() => {
     const scrollport = document.querySelector('.mixer-column-scroll')
     const strips = document.querySelector('.mixer-strips')

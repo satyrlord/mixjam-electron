@@ -3,10 +3,12 @@ import { decodeWav, extractDecodedAudioFeatures, type DecodedPcm } from './analy
 import { resolveFileHandle } from './folder-access'
 import { generatorCandidateMatchesLane } from './generator-candidate'
 import type { GeneratorCandidate } from './generator-library'
+import { parseMotifKey, stereoTwinMap } from './generator-motif'
+import { compareCodeUnits, hashText } from './generator-planning-core'
 import { GENERATOR_PROFILES } from './generator-profiles'
 
-export const MAX_GENERATOR_ATTEMPTS = 96
-export const MAX_GENERATOR_ANALYSES = 64
+export const MAX_GENERATOR_ATTEMPTS = 160
+export const MAX_GENERATOR_ANALYSES = 96
 
 export type GeneratorPlannerKind =
   | 'one-shot'
@@ -42,25 +44,44 @@ const TONAL_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop'])
 const RISER_NAME = /(?:^|[\s_.-])(?:riser?|swish(?:es)?|sweep(?:er)?|whoosh(?:es)?|swoosh(?:es)?|uplift(?:er)?|reverse)(?:[lr])?(?:[\s_.-]|$)/i
 const IMPACT_NAME = /(?:^|[\s_.-])(?:impact|hit|crash|slam(?:mer)?|boom(?:er)?|drop|downlift)(?:[lr])?(?:[\s_.-]|$)/i
 
-function clamp(value: number, minimum = 0, maximum = 1): number {
+// Clamp an audio metric to the unit interval, treating non-finite values as the
+// floor. Distinct from the planning-core clamp, which takes explicit bounds and
+// no finite guard.
+function clampUnit(value: number, minimum = 0, maximum = 1): number {
   return Math.max(minimum, Math.min(maximum, Number.isFinite(value) ? value : minimum))
 }
 
-function compareCodeUnits(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
+// Order candidates so a family's numbered parts sit adjacent in the queue: hash
+// the family stem with the given role seed (so different queues interleave
+// families differently), then part, then relpath. The bounded-read shortlist
+// then admits siblings together, giving the engine whole families to walk.
+function familyOrder(
+  roleSeed: string
+): (left: GeneratorCandidate, right: GeneratorCandidate) => number {
+  return (left, right) => {
+    const leftKey = parseMotifKey(left.filename)
+    const rightKey = parseMotifKey(right.filename)
+    const familyDifference =
+      hashText(`${roleSeed}:${leftKey.family}`) - hashText(`${roleSeed}:${rightKey.family}`)
+    if (familyDifference !== 0) return familyDifference
+    return leftKey.part - rightKey.part || compareCodeUnits(left.relpath, right.relpath)
+  }
 }
 
-function hashText(value: string): number {
-  let hash = 0x811c9dc5
-  for (let index = 0; index < value.length; index++) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193)
+// Cancellation is a nominal error so it can be recognised by identity rather
+// than by matching its message text. The message is kept fixed because the
+// worker surfaces it verbatim and job-coordinator throws the same string.
+const CANCELLED_MESSAGE = 'MixJam generator planning was cancelled.'
+
+class GeneratorCancelledError extends Error {
+  constructor() {
+    super(CANCELLED_MESSAGE)
+    this.name = 'GeneratorCancelledError'
   }
-  return hash >>> 0
 }
 
 function cancellationError(): Error {
-  return new Error('MixJam generator planning was cancelled.')
+  return new GeneratorCancelledError()
 }
 
 interface ShortlistedCandidate {
@@ -81,6 +102,7 @@ function shortlistCandidates(
     .sort((left, right) => Number(core.has(right)) - Number(core.has(left)) || left - right)
   const queues = laneOrder.map((laneIndex) => {
     const lane = profile.lanes[laneIndex]!
+    const orderByFamily = familyOrder(`${parameters.seed}:${profile.id}:${profile.version}:lane-${laneIndex}`)
     return [...candidates]
       .filter((candidate) => lane.types.includes(candidate.sampleType) &&
         generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm))
@@ -88,11 +110,23 @@ function shortlistCandidates(
         const leftType = lane.types.indexOf(left.sampleType)
         const rightType = lane.types.indexOf(right.sampleType)
         if (leftType !== rightType) return leftType - rightType
-        const roleSeed = `${parameters.seed}:${profile.id}:${profile.version}:lane-${laneIndex}`
-        const hashDifference = hashText(`${roleSeed}:${left.relpath}`) - hashText(`${roleSeed}:${right.relpath}`)
-        return hashDifference || compareCodeUnits(left.relpath, right.relpath)
+        return orderByFamily(left, right)
       })
   })
+  // A dedicated stereo-pair queue: left halves of complete l/r pairs that fit
+  // a sustained tonal lane, family-ordered. Without it the bounded budget
+  // rarely admits two complete pairs for any one lane, and the engine's pair
+  // lanes never designate.
+  const twins = stereoTwinMap(candidates)
+  const pairedQueue = [...candidates]
+    .filter((candidate) => twins.has(candidate.relpath) &&
+      parseMotifKey(candidate.filename).side === 'left' &&
+      profile.lanes.some((lane) =>
+        (lane.role === 'motif' || lane.role === 'vocal' || lane.role === 'atmosphere') &&
+        lane.types.includes(candidate.sampleType) &&
+        generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
+      ))
+    .sort(familyOrder(`${parameters.seed}:${profile.id}:${profile.version}:stereo-pairs`))
   const categoryNames = [...new Set(candidates.map((candidate) => candidate.categoryName))]
     .sort(compareCodeUnits)
   const categoryQueues = categoryNames.map((categoryName) => [...candidates]
@@ -100,15 +134,14 @@ function shortlistCandidates(
       lane.types.includes(candidate.sampleType) &&
       generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
     ))
-    .sort((left, right) => {
-      const roleSeed = `${parameters.seed}:${profile.id}:${profile.version}:category-${categoryName}`
-      const hashDifference = hashText(`${roleSeed}:${left.relpath}`) - hashText(`${roleSeed}:${right.relpath}`)
-      return hashDifference || compareCodeUnits(left.relpath, right.relpath)
-    }))
+    // Category queues are family-ordered like lane queues: a category's
+    // coverage pick can then be buddied with an admitted sibling, instead of
+    // arriving as the lone analyzed member of its family.
+    .sort(familyOrder(`${parameters.seed}:${profile.id}:${profile.version}:category-${categoryName}`)))
 
   const result: ShortlistedCandidate[] = []
   const seen = new Set<string>()
-  const allQueues = [...queues, ...categoryQueues]
+  const allQueues = [...queues, ...categoryQueues, pairedQueue]
   const positions = allQueues.map(() => 0)
   const addQueuePass = (queueIndexes: readonly number[]): boolean => {
     let advanced = false
@@ -134,7 +167,9 @@ function shortlistCandidates(
     return advanced
   }
   const coreQueueIndexes = laneOrder.flatMap((laneIndex, queueIndex) => core.has(laneIndex) ? [queueIndex] : [])
-  const laneQueueIndexes = queues.map((_, index) => index)
+  // The paired queue rotates alongside the lane queues so complete stereo
+  // pairs keep arriving throughout the budget, not only in one early burst.
+  const laneQueueIndexes = [...queues.map((_, index) => index), allQueues.length - 1]
   const categoryQueueIndexes = categoryQueues.map((_, index) => queues.length + index)
   addQueuePass(coreQueueIndexes)
   addQueuePass(categoryQueueIndexes)
@@ -192,7 +227,7 @@ function energyMetrics(decoded: DecodedPcm): EnergyMetrics {
   ) / Math.max(1, intervals.length)
   const rhythmicRegularity = intervals.length < 2 || intervalMean === 0
     ? 0
-    : clamp(1 - Math.sqrt(intervalVariance) / intervalMean)
+    : clampUnit(1 - Math.sqrt(intervalVariance) / intervalMean)
 
   const edgeSize = Math.max(1, Math.min(samples.length, Math.round(sampleRate * 0.02)))
   let firstSquares = 0
@@ -207,11 +242,11 @@ function energyMetrics(decoded: DecodedPcm): EnergyMetrics {
   const endpointDifference = Math.abs(samples[0]! - samples[samples.length - 1]!) / 2
 
   return {
-    transientDensity: clamp(rises.length / Math.max(1, frameCount)),
-    attackStrength: clamp(maximumRise / Math.max(maximumEnergy, 1e-9)),
+    transientDensity: clampUnit(rises.length / Math.max(1, frameCount)),
+    attackStrength: clampUnit(maximumRise / Math.max(maximumEnergy, 1e-9)),
     rhythmicRegularity,
-    boundaryContinuity: clamp(1 - (levelDifference + endpointDifference) / 2),
-    energySlope: clamp(
+    boundaryContinuity: clampUnit(1 - (levelDifference + endpointDifference) / 2),
+    energySlope: clampUnit(
       (lastRms - firstRms) / Math.max(firstRms, lastRms, 1e-9),
       -1,
       1
@@ -254,15 +289,15 @@ function enrichCandidate(
   const bpm = candidate.bpm ?? parameters.bpm ?? null
   const bars = bpm && bpm > 0 ? analysis.durationSeconds * bpm / 240 : 0
   const nearestWholeBar = Math.max(1, Math.round(bars))
-  const durationConfidence = bars > 0 ? clamp(1 - Math.abs(bars - nearestWholeBar) / 0.125) : 0
-  const loopConfidence = clamp(
+  const durationConfidence = bars > 0 ? clampUnit(1 - Math.abs(bars - nearestWholeBar) / 0.125) : 0
+  const loopConfidence = clampUnit(
     durationConfidence * 0.5 + metrics.boundaryContinuity * 0.3 + metrics.rhythmicRegularity * 0.2
   )
   return {
     ...candidate,
-    rms: clamp(analysis.features.rms),
-    peak: clamp(peak),
-    spectralCentroid: clamp(analysis.features.spectralCentroid, 0, decoded.sampleRate / 2),
+    rms: clampUnit(analysis.features.rms),
+    peak: clampUnit(peak),
+    spectralCentroid: clampUnit(analysis.features.spectralCentroid, 0, decoded.sampleRate / 2),
     transientDensity: metrics.transientDensity,
     attackStrength: metrics.attackStrength,
     rhythmicRegularity: metrics.rhythmicRegularity,
@@ -325,7 +360,7 @@ export async function analyzeGeneratorCandidates(
       }
     } catch (error) {
       if (!isCurrent()) throw cancellationError()
-      if (error instanceof Error && error.message === cancellationError().message) throw error
+      if (error instanceof GeneratorCancelledError) throw error
     }
     emit({ phase: 'analyzing', completed: attempts, total: shortlist.length })
   }

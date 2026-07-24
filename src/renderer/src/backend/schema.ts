@@ -7,8 +7,12 @@ const SCHEMA_VERSION = 4
 /** Bump when metadata parsing semantics change for unchanged file bytes. */
 export const METADATA_REVISION = 1
 
-/** Bump when automatic BPM, key, or sample-type analysis semantics change. */
-export const ANALYSIS_REVISION = 2
+/**
+ * Bump when automatic BPM, key, or sample-type analysis semantics change.
+ * Revision 3: whole-bar loop tempo snapping in detectBpm and the confidence
+ * margin gate in detectMusicalKey.
+ */
+export const ANALYSIS_REVISION = 3
 
 const PRE_CONTEXT_ANALYSIS_REVISION = 1
 

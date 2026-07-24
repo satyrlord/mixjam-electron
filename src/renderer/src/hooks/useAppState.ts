@@ -10,7 +10,6 @@ const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
 export type AppState = LibraryData & TransportEngine & Mixer & ProjectPersistence & {
   setChannelGain: (channelIndex: number, gain: number) => void
-  setChannelPan: (channelIndex: number, pan: number) => void
   setChannelSend: (channelIndex: number, sendIndex: number, value: number) => void
   startNewProject: () => Promise<void>
   goToPlayer: () => Promise<void>
@@ -62,9 +61,6 @@ export function useAppState(
   const { setSelectedSampleDetail } = lib
   const setChannelGain = useCallback((channelIndex: number, gain: number) => {
     engine.setLaneGain(channelIndex, gain)
-  }, [engine])
-  const setChannelPan = useCallback((channelIndex: number, pan: number) => {
-    engine.setLanePan(channelIndex, pan)
   }, [engine])
   const setChannelSend = useCallback((channelIndex: number, sendIndex: number, value: number) => {
     const next = Math.max(0, Math.min(1, value))
@@ -128,7 +124,6 @@ export function useAppState(
     ...engine,
     ...mixer,
     setChannelGain,
-    setChannelPan,
     setChannelSend,
     ...project,
     missingSamplePaths,

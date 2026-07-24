@@ -23,9 +23,9 @@ const PARAMETERS: MixJamGeneratorParameters = {
 const SECOND_SAMPLE_FOLDER = { id: 'second-sample-folder', name: 'Other Samples' }
 
 const PLAN: MixJamGeneratorPlan = {
-  generatorVersion: 1,
+  generatorVersion: 3,
   profileId: 'techno',
-  profileVersion: 2,
+  profileVersion: 5,
   seed: PARAMETERS.seed,
   parameters: {
     bpmMode: 'fixed',
@@ -162,9 +162,9 @@ describe('useMixJamGenerator', () => {
     vi.mocked(backendAPI.planMixJam).mockImplementation(() => new Promise(() => {}))
     const app = appState({
       projectGenerator: {
-        generatorVersion: 1,
+        generatorVersion: 3,
         profileId: 'techno',
-        profileVersion: 2,
+        profileVersion: 5,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: PARAMETERS.bpmMode,
@@ -195,9 +195,9 @@ describe('useMixJamGenerator', () => {
     const backendAPI = createBackendAPI()
     const app = appState({
       projectGenerator: {
-        generatorVersion: 2,
+        generatorVersion: 4,
         profileId: 'techno',
-        profileVersion: 2,
+        profileVersion: 6,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: PARAMETERS.bpmMode,
@@ -310,9 +310,9 @@ describe('useMixJamGenerator', () => {
     const backendAPI = createBackendAPI()
     const app = appState({
       projectGenerator: {
-        generatorVersion: 1,
+        generatorVersion: 3,
         profileId: 'techno',
-        profileVersion: 2,
+        profileVersion: 5,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: 'fixed',

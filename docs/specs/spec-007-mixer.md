@@ -41,20 +41,19 @@ The Mixer also hosts four fixed send/return buses and four fixed FX containers.
   routed independently.
 - Mute and Solo controls appear only in the lane header. They are not repeated
   in the Mixer.
-- Renaming a lane updates the Mixer label immediately because both surfaces
-  display the same lane-owned name.
+- Renaming a lane updates the Mixer header's accessible name and tooltip
+  immediately. The name is not visibly duplicated in the Mixer.
 
 ### Stable identity and visible order
 
 Every lane has a project-owned stable ID that does not change when another lane
 is inserted or deleted. Mixer positions are derived from current array order
-and remain contiguous from 1 through N. The visible Mixer strip label is exactly
-the lane-owned name; the name itself never adds a position, number, or channel
-prefix. A separate derived position line beneath the name ("CH 01" through
-"CH NN") displays the current strip position; it recompacts on deletion and is
-never part of the lane name. Deleting an earlier lane therefore compacts strip
-positions without changing a surviving lane's name, stable ID, or saved Mixer
-values.
+and remain contiguous from 1 through N. A strip's compact selectable header
+visibly shows only the zero-padded derived position ("01" through "NN"). Its
+accessible name and tooltip retain the lane-owned name, but that name is not
+visibly duplicated in the Mixer. Deleting an earlier lane therefore compacts
+strip positions without changing a surviving lane's name, stable ID, or saved
+Mixer values.
 
 Adding a lane appends it after the final lane. It receives a new stable ID,
 the next visible default name, no placements, volume 80%, centered pan, mute
@@ -100,6 +99,9 @@ Lane strip 1 ... Lane strip N | FX + Return 1  FX + Return 2
   growth beyond that documented minimum and is not active in normal Mixer
   operation.
 - Keyboard focus scrolls a clipped control into view.
+- The active Bottom Workspace tab already names this surface. The Mixer has no
+  redundant internal `Mixer` title band, so its content-safe minimum excludes
+  one title row at every UI Size.
 - Geometry uses the 30 px base control size. A lane strip is 76 px wide and
   each combined FX and Return container is 160 px wide. These widths scale
   consistently at UI Size 40 and 50. At a selected UI Size each width is fixed;
@@ -111,27 +113,29 @@ Lane strip 1 ... Lane strip N | FX + Return 1  FX + Return 2
   FX bank panel. Each panel has a decorative header (channel count and "4
   Sends"; "4 × FX Slots" and "Active") with a status LED. Both panels share
   the single scrolling row.
-- Sends, Returns, and Pan use the same project-owned SVG rotary visual as FX
-  parameters. Compact sizing does not replace the range track, value arc,
-  inset cap, default marker, or pointer with a separate CSS-only dial.
+- Sends and Return Mix use the same project-owned SVG rotary visual as FX
+  parameters. Compact sizing retains the complete range track, value arc,
+  inset cap, default marker, and pointer; it does not replace any of them with
+  a CSS-only dial. Pan uses the same shared bipolar rotary only in the lane
+  header.
 
 ### Lane strip
 
 Each lane strip contains, from top to bottom:
 
-1. The exact lane-owned name, with no derived prefix inside the name.
-2. The derived channel position line ("CH 01").
-3. Four rotary sends labelled 1 through 4, each tinted with its matching FX
+1. A compact selectable header that visibly shows only the zero-padded derived
+   channel number ("01"). The lane-owned name remains its tooltip and
+   accessible text.
+2. Four rotary sends labelled 1 through 4, each tinted with its matching FX
   slot accent so sends map to FX slots 1:1 by color.
-4. The lane pan control.
-5. A vertical volume fader with a unity mark and drag value, beside one
+3. A vertical volume fader with a unity mark and drag value, beside one
   post-fader lane RMS meter with peak hold rendered as a segmented LED-style
   column. Its recessed rectangular rail, accent fill, and low-profile hardware
   handle are the canonical visual for every numeric linear slider in MixJam.
-6. A read-only dB readout of the fader position.
+4. A read-only dB readout of the fader position.
 
-There is no EQ section. Mute and Solo remain in the lane header and are
-intentionally absent here.
+There is no EQ or Pan section. Pan, Mute, and Solo remain in the lane header
+and are intentionally absent here.
 
 ### Send controls
 
@@ -151,11 +155,12 @@ intentionally absent here.
 
 There are exactly four global return buses. Each FX container exposes the level
 and limiter controls for its matching return bus. There is no separate Return
-section. The container also shows the current module display name, Empty or
-Echoform Delay. The Return level presents as the container's Mix rotary — the
-same shared Mix parameter the editor exposes; power state presents as a
+section. The container also shows the current module display name. Its picker
+and editor are registry-driven; the current modules are Echoform Delay and
+Aetherform Reverb. The Return level presents as the container's Mix rotary —
+the same shared Mix parameter the editor exposes; power state presents as a
 slot-accent LED toggle in the container header; a dedicated Edit control opens
-the module editor.
+the selected module's editor.
 
 - Each return is wet-only. Dry audio remains on the lane's normal path.
 - Return level ranges from 0% to 100%, defaults to 100%, and resets to 100%.
@@ -224,12 +229,14 @@ missing or malformed lane-owned Mixer data.
 | Decision | Reason |
 | --- | --- |
 | Lane state owns Mixer values | Tracker and Mixer cannot drift or require routing reconciliation. |
-| Stable IDs, derived positions | Deletion can compact order without changing lane identity or its visible name. |
+| Stable IDs, derived positions | Deletion can compact order without changing lane identity or duplicating its name in the Mixer. |
 | Add appends | Structural editing stays predictable and does not require insertion UI. |
 | One structural undo entry | Lane content and its sound settings are restored together. |
 | Four post-fader, post-pan sends | A send follows the audible lane balance and stereo position. |
 | Four fixed global returns | The compact Mixer remains understandable and has no routing editor. |
 | Return controls live in their matching FX containers | Bus identity stays visible while removing a redundant standalone column. |
+| Numeric Mixer headers and lane-header Pan | Removes duplicated labels and controls while preserving lane context where it is edited. |
+| No internal Mixer title band | The active Bottom Workspace tab already names the surface, freeing one title row at every UI Size. |
 | One scrolling row | Every strip and fixed bus remains reachable without pinning or wrapping. |
 | No EQ section | The governing reference board (REV 07) has no EQ; nothing decorative is invented. |
 | Master path is unchanged | The overhaul ends at the existing Master input boundary. |
@@ -250,8 +257,9 @@ removed solo cannot keep the remaining lanes gated.
 ## Acceptance Criteria
 
 - [ ] **AC-001:** A new project shows eight lanes and eight matching Mixer
-  strips with stable IDs, contiguous positions, and labels exactly equal to
-  their lane-owned names.
+  strips with stable IDs and contiguous positions. Each strip visibly shows
+  only its zero-padded derived number; its lane-owned name remains available as
+  tooltip and accessible text.
 - [ ] **AC-002:** Adding appends one lane and strip with the documented
   defaults; Add is disabled at 64.
 - [ ] **AC-003:** Empty-lane deletion is immediate, non-empty deletion requires
@@ -264,9 +272,10 @@ removed solo cannot keep the remaining lanes gated.
 - [ ] **AC-006:** Mixer strips cannot be independently added, deleted,
   reordered, or routed, and no Mixer Mute or Solo controls are rendered.
 - [ ] **AC-007:** At UI Size 30 each compact strip is 76 px wide and exposes
-  the name, derived channel number, four sends, pan, volume beside its lane
-  meter, and the dB readout in the documented order. UI Size 40 and 50 scale
-  the full strip consistently.
+  only its zero-padded derived number as the selectable header, four sends,
+  volume beside its lane meter, and the dB readout in the documented order.
+  Pan is controlled only in the lane header. UI Size 40 and 50 scale the full
+  strip consistently.
 - [ ] **AC-008:** Sends range from 0% to 100%, default and reset to 0%, and use
   the post-volume, post-pan signal.
 - [ ] **AC-009:** Mute and solo stop new dry and send input according to the
@@ -274,7 +283,8 @@ removed solo cannot keep the remaining lanes gated.
 - [ ] **AC-010:** The row order is all lane strips, then the 2x2 combined FX and
   Return containers 1 through 4, using base widths 76/160 px and one continuous
   horizontal scrollbar with no wrap, pinning, or vertical scroll at supported
-  1920x1080 geometry and the active UI Size minimum.
+  1920x1080 geometry and the active UI Size minimum. The minimum excludes the
+  removed internal Mixer title row.
 - [ ] **AC-011:** Each wet-only return ranges from 0% to 100%, defaults and
   resets to 100%, and has no pan, Mute, Solo, meter, send, or crossfeed.
 - [ ] **AC-012:** All four returns sum before the unchanged Master path.
@@ -288,9 +298,10 @@ removed solo cannot keep the remaining lanes gated.
   rotary hit rectangles do not collide with adjacent controls at UI Size 30,
   40, and 50. The lane fader uses the shared linear-slider structure and each
   rotary SVG remains inside its owning slider.
-- [ ] **AC-016:** Sends, Returns, Pan, and FX parameters render the shared SVG
-  rotary structure; Pan uses a bipolar center arc and other Mixer dials use a
-  unipolar minimum-to-value arc.
+- [ ] **AC-016:** Mixer Sends, Return Mix, and FX parameters render the complete
+  shared SVG rotary structure: range track, value arc, inset cap, default
+  marker, and pointer. Lane-header Pan uses that shared bipolar center arc;
+  Mixer dials use a unipolar minimum-to-value arc.
 
 ## Non-Goals
 

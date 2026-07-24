@@ -168,7 +168,6 @@ const DEFAULT_MIXER: PlayerMixerProps = {
   onBeginMixerGesture: noop,
   onCommitMixerGesture: noop,
   onSetChannelGain: noop,
-  onSetChannelPan: noop,
   onSetChannelSend: noop,
   onSetReturnBus: noop,
   onPreviewReturnBus: noop,
@@ -440,7 +439,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   it('sync progress is hidden when the library is ready', () => {
     renderPlayer({ librarySyncState: READY_LIBRARY_STATE })
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText(/finding changes/i)).not.toBeInTheDocument()
   })
 
   it('Re-scan is disabled while syncing', () => {
@@ -507,25 +506,25 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     const samples = makeDbSamples(3)
     renderPlayer({ samples, totalCount: 3, onSortChange })
 
-    fireEvent.click(screen.getByRole('button', { name: /^name/i }))
+    fireEvent.click(screen.getByRole('button', { name: /sort by name/i }))
     expect(onSortChange).toHaveBeenCalledWith('filename')
   })
 
-  it('AC-016: clicking Dur sort button calls onSortChange with duration', () => {
+  it('AC-016: clicking Duration sort button calls onSortChange with duration', () => {
     const onSortChange = vi.fn()
     const samples = makeDbSamples(3)
     renderPlayer({ samples, totalCount: 3, onSortChange })
 
-    fireEvent.click(screen.getByRole('button', { name: /^dur/i }))
+    fireEvent.click(screen.getByRole('button', { name: /sort by duration/i }))
     expect(onSortChange).toHaveBeenCalledWith('duration')
   })
 
-  it('AC-016: clicking Date sort button calls onSortChange with dateAdded', () => {
+  it('AC-016: clicking Added sort button calls onSortChange with dateAdded', () => {
     const onSortChange = vi.fn()
     const samples = makeDbSamples(3)
     renderPlayer({ samples, totalCount: 3, onSortChange })
 
-    fireEvent.click(screen.getByRole('button', { name: /^date/i }))
+    fireEvent.click(screen.getByRole('button', { name: /sort by date added/i }))
     expect(onSortChange).toHaveBeenCalledWith('dateAdded')
   })
 
