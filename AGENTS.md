@@ -35,6 +35,8 @@ Use simple English: short sentences, common words, plain structure. No idioms or
 
 ## Before material work
 
+- Use authoritative, current, primary documentation. Use the available documentation, search, and
+  retrieval tools rather than relying on memory.
 - Inspect all applicable project documentation that exists. This may include:
   - Overview and setup documentation.
   - Terminology or glossary documentation.
@@ -46,6 +48,9 @@ Use simple English: short sentences, common words, plain structure. No idioms or
   - User interface and user experience documentation.
   - Testing, deployment, and operations documentation.
 - Do not assume every project uses these document names or has every document type.
+- When instructions conflict, follow the newer and more specific instruction unless a higher-priority
+  instruction overrides it.
+- After resolving a documentation conflict, update the affected documents so they no longer disagree.
 - Use the Microsoft Learn MCP server for the most up-to-date coding information and advice on Microsoft and Azure technologies.
 
 ## Spec status
@@ -91,7 +96,10 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 - Electron renderer: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. Preload exposes only `ShellAPI` via `contextBridge`. Everything must work without the shell.
 - Audio on the renderer main thread (Web Audio API). Load bytes via `readSampleBytes(rootId, relpath)`.
 - No emoji in code, docs, specs, or skills.
-- Update specs after each bug fix or change request. User requests overrule spec decisions.
+- The user's latest explicit request overrides earlier specification choices, subject to higher-priority
+  safety and system constraints.
+- After each bug fix or change request, update the relevant specifications and documentation.
+- Keep implementation, tests, specifications, and user-facing behavior consistent.
 - Sample bubbles must be identical everywhere in the UI: same height, same width, in every view.
 - No archaeological data. The current implementation is the only implementation. Do not keep or reference prior iterations, dead code paths, or historical artifacts that do not serve the end user.
 - Do not consider backward compatibility. Ignore legacy code and libraries.
@@ -116,27 +124,53 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
   for the user to interrupt without blocking background work.
 - **Delegation.** Give each delegated worker a clear scope, expected output, and verification method.
   Delegate independent work concurrently when the environment supports it.
-- **Working tree is shared.** Re-read files before editing if any time has
-  passed since your last read. Check `git log`/`git status` before summarizing
-  changes. Avoid overlapping edits unless ownership and merge order are
-  explicit. Assume concurrent workers may share the same workspace.
-- **Newer, more specific doc wins** in conflicts with this file. Follow the newer doc, then update both.
+- **Code Mode batching.** Within each bounded stage, run independent, `functions.exec`-available tool
+  calls concurrently in one `functions.exec` call. Use `await Promise.allSettled([...])` when partial
+  results are useful, and inspect every result; use `await Promise.all([...])` only when any failure
+  should abort the batch. Keep dependencies, waits/resumes, approvals, conflicting or interdependent
+  mutations, and adaptive investigations where each result may change the next step sequential. Do not
+  split otherwise batchable inspections across outer tool calls.
+- **Working tree is shared.** Assume concurrent workers may share the same workspace. Avoid overlapping
+  edits unless ownership and merge order are explicit. Re-read a file immediately before editing when:
+  - Time has passed since the last read.
+  - Another worker may have changed it.
+  - Related changes have landed.
+- **Current-state review.** Before summarizing completed work, inspect the current workspace state and
+  recent change history using the available version-control or change-tracking system.
 - **Skip scaffolding** that only exists to keep intermediate states shippable
   across sessions when all phases land in one session. Retain temporary
   compatibility or migration work only when it serves a real deployment,
   review, rollback, or risk-control need.
-- **Performance claims need real data.** Use `tmp/test-samples` fixtures, not synthetic files. Flag missing measurements explicitly.
-- **Production-surface checks:** verify the built renderer inside Electron at
-  the `app://bundle` origin. Do not publish a release merely to reproduce an
-  origin condition that can be tested locally.
-- **Close-out before finishing:** run a self-critique pass. List: (1) least confident items with concrete verification commands, (2) skipped or deferred work, (3) unstated assumptions,
-  (4) biggest blind spot for the user. Log results in the handoff. Do not start fixing gaps — let the handoff carry them.
-- **Fresh-eyes audit** for large/risky changes: paste the handoff into a new agent context and ask
-  "Evaluate this work. Anything missed?" Include the review findings in the final handoff.
-- **Anti-pattern:** asking the agent to investigate its own doubts without a concrete check. Always pair uncertainty with a specific verification step.
-- **Anti-pattern:** repeated "are you sure?" — use the concrete verification step instead.
 
-## Evidence and uncertainty
+## Testing and performance
+
+- Every implementation task must have an objective verification method.
+- Prefer automated checks when practical.
+- Use representative, real-world fixtures for performance measurements. Use `tmp/test-samples`, not
+  synthetic files.
+- Do not make performance claims from invented or unrepresentative inputs.
+- Record the test environment, workload, method, and result for each performance claim.
+- When a required measurement is missing, state that explicitly. Do not replace it with an estimate
+  presented as fact.
+- For environment-sensitive behavior, test the built artifact in a minimal local runtime that reflects
+  the least-capable supported production environment. Verify the built renderer inside Electron at the
+  `app://bundle` origin.
+- Do not rely on development-only behavior, permissions, configuration, or infrastructure unless the
+  target environment guarantees them.
+- Do not publish changes solely to reproduce an environment condition that can be tested locally.
+
+## Uncertainty and verification
+
+- Never assign a worker to investigate a vague doubt without defining a concrete verification step.
+- Pair every uncertainty with at least one specific check, such as:
+  - A command to run.
+  - A test to execute.
+  - A file or record to inspect.
+  - A query to perform.
+  - A source to consult.
+  - A behavior to reproduce.
+- Do not repeatedly ask whether a result is correct. Replace repeated confirmation requests with direct,
+  objective verification.
 
 - Distinguish clearly between:
   - Verified facts.
@@ -149,6 +183,20 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
   3. Running a specific test, command, query, or experiment.
   4. Asking the user when the ambiguity cannot be resolved from available evidence.
 - State any uncertainty that remains after verification.
+
+## Close-out and handoff
+
+- Before finishing, run a self-critique pass.
+- Record the following in the handoff:
+  1. The least-confident findings or changes, each paired with a concrete verification command or procedure.
+  2. Any skipped, incomplete, or deferred work.
+  3. Any assumptions that were not previously stated.
+  4. The largest remaining blind spot for the user.
+- Do not begin a new remediation cycle during the close-out pass. Carry newly identified gaps into the handoff.
+- For large, high-risk, or difficult changes, request an independent review from a clean context.
+- Give the independent reviewer the plan, evidence, changes, verification results, and handoff.
+- Ask the reviewer: **“Evaluate this work. What may have been missed?”**
+- Include the independent review findings in the final handoff.
 
 ## Test gotchas
 

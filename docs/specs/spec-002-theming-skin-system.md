@@ -233,6 +233,9 @@ fonts.
 
 All fonts must be bundled with the app and loaded from local files (no
 external CDN or Google Fonts dependency). Font files live in `src/renderer/public/fonts/`.
+Runtime font tokens put the selected bundled family first and append the
+documented system family only as a safety fallback if that local resource fails.
+The fallback is not a selectable theme family.
 
 ### Sixteen Themes
 

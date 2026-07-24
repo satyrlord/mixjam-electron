@@ -55,6 +55,15 @@ typography:
     fontSize: "11px"
     fontWeight: 400
     lineHeight: 1.3
+  # These catalogs enumerate selectable bundled families; they are not CSS
+  # fallback stacks. All eighteen families ship in src/renderer/public/fonts.
+  theme-family-catalog:
+    chrome: ["Josefin Sans", "IBM Plex Sans", "Space Grotesk", "Orbitron", "Chakra Petch", "Barlow", "Nunito", "Arimo", "Archivo Black", "Silkscreen", "Special Elite", "Space Mono", "JetBrains Mono"]
+    label: ["Ubuntu", "IBM Plex Sans", "Space Grotesk", "Exo 2", "Chakra Petch", "Barlow", "Nunito", "Arimo", "Archivo", "VT323", "Special Elite", "Space Mono", "JetBrains Mono"]
+    mono: ["JetBrains Mono", "Space Mono", "Cousine", "VT323"]
+  runtime-fallbacks:
+    sans: "system-ui, sans-serif"
+    mono: "Consolas, monospace"
 rounded:
   base: "0.22rem"
   transport: "8px"
@@ -272,12 +281,12 @@ The exception is the rack, not a license.
 **Character:** Three roles, one job each. A geometric sans for the shell, a
 humanist sans for everything you read while working, and a mono for anything
 that represents a measured value. The pairing works on a contrast axis, and
-each theme may substitute its own bundled families for all three (Special
-Elite, Space Grotesk, Space Mono, Orbitron, IBM Plex Sans and others ship in
-`public/fonts/`). All primary font files are bundled — no CDN, no Google Fonts,
-and no network dependency. Runtime stacks keep an explicit fallback after the
-theme family so a missing font resource does not collapse into browser-default
-typography.
+each theme may substitute its own bundled families for all three. Eighteen
+families ship in `src/renderer/public/fonts/`; `theme-family-catalog` in the
+frontmatter lists the allowed families for each role, while `runtime-fallbacks`
+records the separate safety fallback appended after the selected bundled
+family. All primary font files are bundled, with no CDN, Google Fonts, or other
+network dependency.
 
 ### Hierarchy
 

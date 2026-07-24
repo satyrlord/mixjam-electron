@@ -59,11 +59,10 @@ visual feature, consult both.
 6. **Dark by default, light supported.** The default Emerald theme is dark.
    Light themes (Vintage, Soft, Riso) work within the same token system.
 
-7. **No system font fallbacks.** Every text label, button, link, and
-   piece of chrome must use theme fonts (font roles defined in the
-   Typography section). No element may render in a system font or
-   browser default. Every text-bearing element must inherit or
-   explicitly reference a theme font-family token.
+7. **Bundled theme fonts first.** Every text label, button, link, and piece of
+   chrome must inherit or explicitly reference a theme font-family token whose
+   first family is bundled. A system family may appear only as the final safety
+   fallback if the local font resource cannot load; it is never theme identity.
 
 8. **No overlapping control containers.** No interactive control
    container (button, input, fader, knob, menu, panel) may overlap any
@@ -298,12 +297,11 @@ weights, and line-heights.
   through the UI. Do not repeat as component-level font-size overrides.
 - A theme's typeface is part of its identity. Each theme may override any
   role with a different bundled font.
-- **No system font fallbacks.** Every text-bearing element (labels,
-  buttons, links, chrome, status text, tooltips, menu items, placeholder
-  text, input values) must render in a theme font via a font-family token.
-  No element may fall back to a system font or browser default. The
-  `font-family` chain must resolve to a bundled theme font for every
-  visible glyph.
+- Every text-bearing element (labels, buttons, links, chrome, status text,
+  tooltips, menu items, placeholder text, input values) must use a theme
+  font-family token with the selected bundled family first. The token may end
+  with the documented system safety fallback, but components must not name or
+  select that fallback directly.
 
 ### Text Transform Rules
 
@@ -561,6 +559,8 @@ present. Native light Windows scrollbars never appear on dark themes.
   adjustment, Arrow keys, Home/End, double-click reset.
 - Wheel up increases, wheel down decreases. Handled wheel events do not
   scroll the page.
+- The non-passive wheel listener binds once and reads only the latest committed
+  value, range, step, and callback; render work never publishes event inputs.
 - Values are read-only text. Controls accept pointer, wheel, and discrete
   keyboard events; there is no typed numeric entry.
 - `aria-valuetext` with unit-aware position (e.g. "Center", "40% left",

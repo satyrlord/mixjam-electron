@@ -34,6 +34,9 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
   const [flashVisible, setFlashVisible] = useState(false)
   const totalTicks = TRACKER_TOTAL_TICKS
   const clearSelection = useCallback(() => setSelectedPlacementIds(new Set()), [])
+  // Stable identity: LaneRow is memoized, so an inline arrow here would fail
+  // its shallow compare and re-render every lane on every PlayerView render.
+  const cancelLaneRename = useCallback(() => setRenamingLaneIndex(null), [])
   const trackDragCleanup = useDragCleanups()
 
   useEffect(() => {
@@ -147,6 +150,6 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
     handlePlacementDragStart: drag.handlePlacementDragStart, handleLaneCanvasDragOver: drag.handleLaneCanvasDragOver,
     handleLaneCanvasDrop: drag.handleLaneCanvasDrop, onTransportStop, onTransportSkipBack, onTransportJumpToEnd,
     onContextDelete, onContextLocate, onLaneContextMenu, onRenameLane, onDeleteLane, onCommitLaneName,
-    onCancelLaneRename: () => setRenamingLaneIndex(null)
+    onCancelLaneRename: cancelLaneRename
   }
 }

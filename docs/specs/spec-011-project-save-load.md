@@ -263,6 +263,10 @@ the same coherent sample population. It is never an absolute filesystem path.
 - Project-owned values must not be stored in or restored from `localStorage`,
   IndexedDB, OPFS app state, the recent-project registry, or another app-level
   persistence mechanism.
+- The first project-state change marks the document dirty immediately. Exact
+  fingerprint serialization may settle after a continuous gesture so returning
+  to the saved state through Undo can clear the indicator without serializing
+  every pointer move. Save and project replacement remain exact and immediate.
 - Starting a blank project initializes BPM to 120, preserves the documented
   Master defaults, creates exactly eight lanes with default Mixer state and four
   0% sends, and creates the four fixed buses with Empty modules, module-host
@@ -436,9 +440,10 @@ generator, its tests, and this contract are the durable repository assets.
 - [ ] **AC-002:** Saving, closing the app, reopening, and loading the project
   restores all stable-ID lanes, placements, unchanged Song settings, lane Mixer
   state, exactly four sends per lane, and exactly four fixed return buses.
-- [ ] **AC-003:** The unsaved changes indicator appears after any arrangement
-  change, including lane add/delete/rename, or Song, lane Mixer, send, or return-FX modification
-  and disappears after save.
+- [ ] **AC-003:** The unsaved changes indicator appears immediately after any
+  arrangement change, including lane add/delete/rename, or Song, lane Mixer,
+  send, or return-FX modification. It does not wait for deferred fingerprint
+  serialization and disappears after save.
 - [x] **AC-004:** Ctrl+S saves to the current path; Ctrl+Shift+S triggers "Save As…".
 - [x] **AC-005:** Loading a project with a missing sample file shows a warning badge on the affected lane(s) — other lanes load correctly.
 - [ ] **AC-006:** Loading any project whose `formatVersion` is not 6 shows the
@@ -530,7 +535,8 @@ do not synthesize or replace a second top-level channel array.
   relative paths, and unchanged placement validation.
 - Project-state tests cover the exactly-eight-lane blank default, isolated
   cloning of lane mixer and return state, and atomic lane add/delete snapshots.
-- Persistence integration tests cover complete replacement, dirty fingerprints,
+- Persistence integration tests cover complete replacement, immediate dirty
+  state during continuous edits, exact baseline reconciliation after settling,
   unsupported-format failure without state mutation, external Save As, and no
   app-level persistence of project-owned audio state.
 - Built Chromium verification covers save/load roundtrips, missing-sample

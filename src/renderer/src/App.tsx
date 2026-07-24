@@ -79,11 +79,14 @@ function SupportedApp() {
     setActiveTheme(selectTheme(requestedThemeKey))
   }, [])
 
+  // `app` is a fresh object every render, so depending on it here would rebuild
+  // this callback on every edit and invalidate the memoized browser props.
+  const { setSelectedTagIds } = app
   const handleToggleTagFilter = useCallback((id: number) => {
-    app.setSelectedTagIds((current) =>
+    setSelectedTagIds((current) =>
       current.includes(id) ? current.filter((tagId) => tagId !== id) : [...current, id]
     )
-  }, [app])
+  }, [setSelectedTagIds])
 
   const handleOpenGenerator = useCallback(() => {
     generatorRestoreFocusTargetRef.current = document.activeElement instanceof HTMLElement

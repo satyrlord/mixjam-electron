@@ -1,10 +1,22 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import {
+  memo,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent
+} from 'react'
 import { clamp } from '../lib/sample-utils'
 import { Tooltip } from './ui/Tooltip'
 
 type RotaryDialMode = 'unipolar' | 'bipolar'
 
-export function RotaryDial({
+// Memoized: all four props are primitives, and this SVG is the single heaviest
+// leaf in the Master rack (23 instances, ~7 nodes each). A meter frame must not
+// rebuild the dials.
+export const RotaryDial = memo(function RotaryDial({
   value,
   defaultValue = 0,
   mode = 'unipolar',
@@ -71,7 +83,7 @@ export function RotaryDial({
       <circle className="rotary-dial-center" cx="32" cy="32" r="2" />
     </svg>
   )
-}
+})
 
 export function ToggleField({ label, help, checked, onChange }: {
   label: string
@@ -146,6 +158,15 @@ export function RotaryControl({
     dragAxis === 'vertical' ? event.clientY : event.clientX
   const direction = dragAxis === 'vertical' ? -1 : 1
 
+  // The wheel handler needs a non-passive listener, which React cannot attach.
+  // Its committed inputs live in a ref so the listener binds once per mount
+  // instead of rebinding on every render: a rack of knobs re-rendering at the
+  // meter cadence otherwise churns thousands of listener mutations per second.
+  const wheelInputsRef = useRef({ value, min, max, step, onChange })
+  useLayoutEffect(() => {
+    wheelInputsRef.current = { value, min, max, step, onChange }
+  }, [max, min, onChange, step, value])
+
   useEffect(() => {
     const control = controlRef.current
     if (!control) return
@@ -153,14 +174,19 @@ export function RotaryControl({
     const handleWheel = (event: WheelEvent) => {
       if (event.deltaY === 0) return
       event.preventDefault()
-      const quantum = event.shiftKey ? step / 10 : step
+      const inputs = wheelInputsRef.current
+      const quantum = event.shiftKey ? inputs.step / 10 : inputs.step
       const increment = event.deltaY < 0 ? quantum : -quantum
-      onChange(clamp(Math.round((value + increment) / quantum) * quantum, min, max))
+      inputs.onChange(clamp(
+        Math.round((inputs.value + increment) / quantum) * quantum,
+        inputs.min,
+        inputs.max
+      ))
     }
 
     control.addEventListener('wheel', handleWheel, { passive: false })
     return () => control.removeEventListener('wheel', handleWheel)
-  }, [max, min, onChange, step, value])
+  }, [])
 
   return (
     <div
@@ -186,8 +212,12 @@ export function RotaryControl({
       onPointerMove={(event) => {
         if (!dragRef.current) return
         const delta = (coordinate(event) - dragRef.current.coordinate) * direction
-        const next = dragRef.current.value + delta * ((max - min) / 150) * (event.shiftKey ? 0.1 : 1)
-        onChange(quantize(next, event.shiftKey ? step / 10 : step))
+        const raw = dragRef.current.value + delta * ((max - min) / 150) * (event.shiftKey ? 0.1 : 1)
+        const next = quantize(raw, event.shiftKey ? step / 10 : step)
+        // A pointer move that lands on the value already shown is not an edit.
+        // Skipping it stops a drag held at a range limit from committing state.
+        if (next === value) return
+        onChange(next)
       }}
       onPointerUp={(event) => {
         const gestureActive = dragRef.current !== null

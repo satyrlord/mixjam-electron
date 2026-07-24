@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type ReactNode } from 'react'
+import { memo, useCallback, useState, type DragEvent, type ReactNode } from 'react'
 import {
   MASTER_BUS_PARAMS,
   type MasterBusModuleId,
@@ -128,6 +128,22 @@ const MODULE_META: Record<MasterBusModuleId, ModuleMeta> = {
 
 const DRAG_MIME = 'application/mixjam-masterbus-slot'
 
+/** The flat parameter registry grouped by owning module, built once at module
+ *  scope. Filtering MASTER_BUS_PARAMS per module per render ran the predicate
+ *  264 times on every meter frame, 30 times a second, for a result that never
+ *  changes. */
+function groupParamsByModule(): Record<MasterBusModuleId, readonly MasterBusParamDef[]> {
+  const groups = {} as Record<MasterBusModuleId, MasterBusParamDef[]>
+  for (const def of MASTER_BUS_PARAMS) {
+    const existing = groups[def.processor]
+    if (existing) existing.push(def)
+    else groups[def.processor] = [def]
+  }
+  return groups
+}
+
+const PARAMS_BY_MODULE = groupParamsByModule()
+
 function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
@@ -141,7 +157,9 @@ function formatParamValue(def: MasterBusParamDef, value: number): string {
   return def.unit ? `${s} ${def.unit}` : s
 }
 
-function ModuleKnob({
+// Memoized: every prop is a primitive or a stable callback, so a meter frame
+// re-rendering the rack shell leaves all 23 knobs and their SVG dials untouched.
+const ModuleKnob = memo(function ModuleKnob({
   def,
   moduleName,
   value,
@@ -158,6 +176,10 @@ function ModuleKnob({
   onGestureStart: () => void
   onGestureEnd: () => void
 }) {
+  const handleChange = useCallback(
+    (next: number) => onSetParam(def.id, next),
+    [def.id, onSetParam]
+  )
   const step = Math.pow(10, -def.dp)
   const bipolar = def.min < 0 && def.max > 0
   const span = def.max - def.min
@@ -184,7 +206,7 @@ function ModuleKnob({
           defaultValue={def.def}
           onGestureStart={onGestureStart}
           onGestureEnd={onGestureEnd}
-          onChange={(next) => onSetParam(def.id, next)}
+          onChange={handleChange}
         >
           {dial}
         </RotaryControl>
@@ -199,9 +221,9 @@ function ModuleKnob({
       <span className="mbs-knob-value">{formatParamValue(def, value)}</span>
     </div>
   )
-}
+})
 
-function SpeedSwitch({
+const SpeedSwitch = memo(function SpeedSwitch({
   moduleName,
   value,
   powered,
@@ -231,9 +253,9 @@ function SpeedSwitch({
       </span>
     </div>
   )
-}
+})
 
-function GrLedRow({
+const GrLedRow = memo(function GrLedRow({
   thresholds,
   grDb,
   powered
@@ -250,7 +272,7 @@ function GrLedRow({
       ))}
     </div>
   )
-}
+})
 
 /* ── Input meter (slot 01) ── */
 
@@ -279,7 +301,9 @@ function vuPoint(r: number, a: number): readonly [number, number] {
   return [VU_CX + r * Math.sin(a), VU_CY - r * Math.cos(a)]
 }
 
-function VuScale() {
+// Memoized with no props: the arc, the eight tick marks, and their labels are
+// static, so the needle can move at the meter cadence without rebuilding them.
+const VuScale = memo(function VuScale() {
   const [x0, y0] = vuPoint(101, vuAngleRad(0))
   const [x3, y3] = vuPoint(101, vuAngleRad(4))
   return (
@@ -311,7 +335,7 @@ function VuScale() {
       })}
     </svg>
   )
-}
+})
 
 function InputMeterModule({ meters }: { meters: MasterBusUiMeters }) {
   const finite = Number.isFinite(meters.vuDb)
@@ -459,7 +483,7 @@ function OutputMeterModule({
 
 /* ── Pinned Gain Stage (slot 01) ── */
 
-function GainStageModule({
+const GainStageModule = memo(function GainStageModule({
   params,
   onSetParam,
   onGestureStart,
@@ -471,7 +495,7 @@ function GainStageModule({
   onGestureEnd: () => void
 }) {
   const meta = MODULE_META.gain
-  const defs = MASTER_BUS_PARAMS.filter((def) => def.processor === 'gain')
+  const defs = PARAMS_BY_MODULE.gain
   return (
     <section
       className="mbs-module mbs-finish-cream mbs-fam-gain"
@@ -503,12 +527,18 @@ function GainStageModule({
       </div>
     </section>
   )
-}
+})
 
 /* ── Reorderable processor modules (slots 03..12) ── */
 
-function ProcessorModule({
+// Memoized. `grDb` is the constant 0 for every module without a GR row, and the
+// rest of the props are primitives or stable callbacks, so a meter frame
+// re-renders only the two modules whose gain reduction actually moved. The
+// drop-target index is a prop rather than a bound closure so the drag handler
+// identity stays stable across renders.
+const ProcessorModule = memo(function ProcessorModule({
   id,
+  index,
   ordinal,
   powered,
   params,
@@ -525,6 +555,7 @@ function ProcessorModule({
   onDrop
 }: {
   id: ProcessorId
+  index: number
   ordinal: number
   powered: boolean
   params: MasterBusState['params']
@@ -537,11 +568,11 @@ function ProcessorModule({
   onGripKeyDown: (id: ProcessorId, key: string) => boolean
   onDragStart: (id: ProcessorId, event: DragEvent<HTMLElement>) => void
   onDragEnd: () => void
-  onDragOver: (event: DragEvent<HTMLElement>) => void
+  onDragOver: (index: number, event: DragEvent<HTMLElement>) => void
   onDrop: (event: DragEvent<HTMLElement>) => void
 }) {
   const meta = MODULE_META[id]
-  const defs = MASTER_BUS_PARAMS.filter((def) => def.processor === id)
+  const defs = PARAMS_BY_MODULE[id]
   const classes = [
     'mbs-module',
     `mbs-finish-${meta.finish}`,
@@ -556,7 +587,7 @@ function ProcessorModule({
     <section
       className={classes}
       aria-label={meta.name}
-      onDragOver={onDragOver}
+      onDragOver={(event) => onDragOver(index, event)}
       onDrop={onDrop}
     >
       <div className="mbs-mod-top">
@@ -616,7 +647,7 @@ function ProcessorModule({
       </div>
     </section>
   )
-}
+})
 
 /* ── Strip ── */
 
@@ -634,53 +665,58 @@ export default function MasterBusStrip({
   const [dragId, setDragId] = useState<ProcessorId | null>(null)
   const [dropIndex, setDropIndex] = useState<number | null>(null)
 
+  // Every handler passed down to a memoized module is stabilized, otherwise the
+  // memo boundaries below never hold: a fresh closure per render fails the
+  // shallow compare exactly as if nothing were memoized at all.
+  const { order } = state
+
   /** Keyboard reorder: swap with the neighbor, clamped at the rack ends. */
-  const handleGripKey = (id: ProcessorId, key: string): boolean => {
+  const handleGripKey = useCallback((id: ProcessorId, key: string): boolean => {
     if (key !== 'ArrowLeft' && key !== 'ArrowRight') return false
-    const from = state.order.indexOf(id)
+    const from = order.indexOf(id)
     const to = from + (key === 'ArrowLeft' ? -1 : 1)
-    if (from < 0 || to < 0 || to >= state.order.length) return true
-    const next = [...state.order]
+    if (from < 0 || to < 0 || to >= order.length) return true
+    const next = [...order]
     next[from] = next[to]
     next[to] = id
     onReorder(next)
     return true
-  }
+  }, [onReorder, order])
 
-  const handleDragStart = (id: ProcessorId, event: DragEvent<HTMLElement>) => {
+  const handleDragStart = useCallback((id: ProcessorId, event: DragEvent<HTMLElement>) => {
     event.dataTransfer.setData(DRAG_MIME, id)
     event.dataTransfer.effectAllowed = 'move'
     setDragId(id)
-  }
+  }, [])
 
-  const clearDrag = () => {
+  const clearDrag = useCallback(() => {
     setDragId(null)
     setDropIndex(null)
-  }
+  }, [])
 
   /** Midpoint rule: hovering the left half inserts before the module. */
-  const handleDragOverModule = (index: number) => (event: DragEvent<HTMLElement>) => {
+  const handleDragOverModule = useCallback((index: number, event: DragEvent<HTMLElement>) => {
     if (dragId === null) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     const rect = event.currentTarget.getBoundingClientRect()
     const before = event.clientX < rect.left + rect.width / 2
     setDropIndex(before ? index : index + 1)
-  }
+  }, [dragId])
 
-  const handleDrop = (event: DragEvent<HTMLElement>) => {
+  const handleDrop = useCallback((event: DragEvent<HTMLElement>) => {
     event.preventDefault()
     if (dragId === null || dropIndex === null) {
       clearDrag()
       return
     }
-    const from = state.order.indexOf(dragId)
-    const next = state.order.filter((p) => p !== dragId)
+    const from = order.indexOf(dragId)
+    const next = order.filter((p) => p !== dragId)
     const insertAt = dropIndex > from ? dropIndex - 1 : dropIndex
     next.splice(insertAt, 0, dragId)
     clearDrag()
-    if (from >= 0 && next.some((p, i) => p !== state.order[i])) onReorder(next)
-  }
+    if (from >= 0 && next.some((p, i) => p !== order[i])) onReorder(next)
+  }, [clearDrag, dragId, dropIndex, onReorder, order])
 
   const slots: ReactNode[] = [
     <GainStageModule
@@ -692,16 +728,16 @@ export default function MasterBusStrip({
     />,
     <InputMeterModule key="meter-in" meters={meters} />
   ]
-  state.order.forEach((id, index) => {
+  order.forEach((id, index) => {
     if (dragId !== null && dropIndex === index) {
       slots.push(<div key={`ind-${index}`} className="mbs-drop-ind" aria-hidden="true" />)
     }
-    const ordinal = index + 3
     slots.push(
       <ProcessorModule
         key={id}
         id={id}
-        ordinal={ordinal}
+        index={index}
+        ordinal={index + 3}
         powered={state.power[id]}
         params={state.params}
         grDb={id === 'comp' ? meters.compGrDb : id === 'lim' ? meters.limGrDb : 0}
@@ -713,12 +749,12 @@ export default function MasterBusStrip({
         onGripKeyDown={handleGripKey}
         onDragStart={handleDragStart}
         onDragEnd={clearDrag}
-        onDragOver={handleDragOverModule(index)}
+        onDragOver={handleDragOverModule}
         onDrop={handleDrop}
       />
     )
   })
-  if (dragId !== null && dropIndex === state.order.length) {
+  if (dragId !== null && dropIndex === order.length) {
     slots.push(<div key="ind-end" className="mbs-drop-ind" aria-hidden="true" />)
   }
   slots.push(<OutputMeterModule key="meter-out" meters={meters} onResetOver={onResetOver} />)

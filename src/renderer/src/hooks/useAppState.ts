@@ -52,6 +52,8 @@ export function useAppState(
   const {
     resolvePendingPlacementBpms,
     setView,
+    setLaneGain,
+    setLaneSend,
     transportPlay,
     transportPause,
     transportSkipBack,
@@ -59,13 +61,16 @@ export function useAppState(
   } = engine
   useMediaSessionControls({ transportPlay, transportPause, transportSkipBack, transportJumpToEnd })
   const { setSelectedSampleDetail } = lib
+  // Depend on the individual actions, not the whole `engine` object: that object
+  // is a fresh literal every render, so an `[engine]` dependency would rebuild
+  // these callbacks on every edit and invalidate the memoized Mixer panel props.
   const setChannelGain = useCallback((channelIndex: number, gain: number) => {
-    engine.setLaneGain(channelIndex, gain)
-  }, [engine])
+    setLaneGain(channelIndex, gain)
+  }, [setLaneGain])
   const setChannelSend = useCallback((channelIndex: number, sendIndex: number, value: number) => {
     const next = Math.max(0, Math.min(1, value))
-    engine.setLaneSend(channelIndex, sendIndex, next)
-  }, [engine])
+    setLaneSend(channelIndex, sendIndex, next)
+  }, [setLaneSend])
   const {
     beginNewProject,
     openProjectPicker: openProjectFromPicker,

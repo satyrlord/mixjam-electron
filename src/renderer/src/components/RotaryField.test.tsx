@@ -1,6 +1,6 @@
 import { createEvent, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { RotaryField, ToggleField } from './RotaryField'
+import { RotaryControl, RotaryField, ToggleField } from './RotaryField'
 
 describe('ToggleField', () => {
   it('renders unchecked and toggles on change', () => {
@@ -106,6 +106,42 @@ describe('RotaryField', () => {
 
     expect(event.defaultPrevented).toBe(true)
     expect(onChange).toHaveBeenCalledWith(376)
+  })
+
+  it('keeps one native wheel listener and reads the latest committed inputs', () => {
+    const firstOnChange = vi.fn()
+    const latestOnChange = vi.fn()
+    const addEventListener = vi.spyOn(EventTarget.prototype, 'addEventListener')
+    try {
+      const control = (value: number, onChange: (next: number) => void) => (
+        <RotaryControl
+          className="rotary-control"
+          label="Stable wheel"
+          value={value}
+          min={0}
+          max={20}
+          step={1}
+          valueText={String(value)}
+          defaultValue={0}
+          onChange={onChange}
+        />
+      )
+      const { rerender } = render(control(5, firstOnChange))
+      const slider = screen.getByRole('slider', { name: 'Stable wheel' })
+      const wheelBindingCount = () => addEventListener.mock.calls.filter(
+        (call, index) => addEventListener.mock.instances[index] === slider && call[0] === 'wheel'
+      ).length
+
+      expect(wheelBindingCount()).toBe(1)
+      rerender(control(10, latestOnChange))
+      expect(wheelBindingCount()).toBe(1)
+
+      fireEvent.wheel(slider, { deltaY: -100 })
+      expect(firstOnChange).not.toHaveBeenCalled()
+      expect(latestOnChange).toHaveBeenCalledWith(11)
+    } finally {
+      addEventListener.mockRestore()
+    }
   })
 
   it('decrements on wheel down', () => {

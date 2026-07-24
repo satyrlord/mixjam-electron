@@ -14,6 +14,7 @@ import { _electron as electron } from 'playwright'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { electronSandboxPolicy } from '../electron/packaged-launch'
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -23,7 +24,6 @@ import { join, resolve } from 'node:path'
 // Tests are always started from the repo root by the npm scripts.
 const RAW_COVERAGE_DIR = resolve(process.cwd(), 'coverage-e2e', 'raw')
 const MOCK_BACKEND_PATH = resolve(process.cwd(), 'tests', 'e2e', 'mock-backend.js')
-const MAIN_ENTRY = resolve(process.cwd(), 'out', 'main', 'index.js')
 
 interface E2EFixtures {
   seededPage: Page
@@ -36,10 +36,10 @@ export const test = base.extend<E2EFixtures>({
     const env = { ...process.env } as Record<string, string>
     delete env.ELECTRON_RUN_AS_NODE
     const userDataDir = mkdtempSync(join(tmpdir(), 'mixjam-e2e-'))
-    const args = [MAIN_ENTRY, `--user-data-dir=${userDataDir}`]
-    if (process.env['CI']) args.push('--no-sandbox')
+    const sandboxPolicy = electronSandboxPolicy(undefined, userDataDir)
     const electronApp = await electron.launch({
-      args,
+      args: sandboxPolicy.launchArguments,
+      chromiumSandbox: sandboxPolicy.chromiumSandbox,
       env
     })
     const page = await electronApp.firstWindow()

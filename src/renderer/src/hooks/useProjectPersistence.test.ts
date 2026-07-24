@@ -195,6 +195,29 @@ describe('useProjectPersistence', () => {
     expect(api.recordRecentProject).toHaveBeenCalledWith('sets/new-song.mixjam')
   })
 
+  it('marks continuous edits dirty immediately and reconciles an exact undo after settling', () => {
+    vi.useFakeTimers()
+    try {
+      const { result } = renderHook(() => useHarness(api))
+
+      act(() => result.current.setBpm(121))
+      expect(result.current.project.projectDirty).toBe(true)
+
+      act(() => {
+        vi.advanceTimersByTime(199)
+        result.current.setBpm(122)
+      })
+      expect(result.current.project.projectDirty).toBe(true)
+
+      act(() => result.current.setBpm(120))
+      expect(result.current.project.projectDirty).toBe(true)
+      act(() => vi.advanceTimersByTime(200))
+      expect(result.current.project.projectDirty).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('loads and fully replaces arrangement, Song, Mixer, routing, and FX state', async () => {
     const loaded = makeProject(140, 0.61)
     loaded.song.clipEdgeMicroFades = { enabled: false, fadeInMs: 1, fadeOutMs: 6.5 }

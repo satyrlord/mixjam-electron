@@ -58,6 +58,11 @@ interface UseProjectPersistenceParams {
   reloadMixJamFiles: () => Promise<void>
 }
 
+/** Trailing debounce for the dirty-flag fingerprint. Long enough that a
+ *  continuous knob or fader drag serializes once at the end instead of on
+ *  every pointer move, short enough to feel immediate in the title bar. */
+const FINGERPRINT_SETTLE_MS = 200
+
 function displayNameForPath(relpath: string): string {
   const filename = relpath.split('/').pop() ?? relpath
   return filename.toLowerCase().endsWith('.mixjam')
@@ -86,12 +91,15 @@ export function useProjectPersistence({
     ...project,
     ...(projectGenerator === null ? {} : { generator: projectGenerator })
   }), [project, projectGenerator])
-  const currentFingerprint = useMemo(
-    () => projectFingerprint(currentProject),
-    [currentProject]
-  )
   const currentProjectRef = useSyncedRef(currentProject)
-
+  // A changed project reference marks the document dirty immediately. The
+  // expensive JSON fingerprint settles after edits stop so an exact undo back
+  // to the saved document can clear the flag without serializing every pointer
+  // move on the renderer main thread, where the audio scheduler also runs.
+  const [fingerprintSnapshot, setFingerprintSnapshot] = useState(() => ({
+    project: currentProject,
+    value: projectFingerprint(currentProject)
+  }))
   const [metadata, setMetadata] = useState<ProjectMetadata>({
     path: null,
     displayName: 'Untitled',
@@ -99,7 +107,7 @@ export function useProjectPersistence({
     modifiedAt: null
   })
   const metadataRef = useSyncedRef(metadata)
-  const [baselineFingerprint, setBaselineFingerprint] = useState(currentFingerprint)
+  const [baselineFingerprint, setBaselineFingerprint] = useState(fingerprintSnapshot.value)
   const [replacementTarget, setReplacementTarget] = useState<string | null>(null)
   const [operation, setOperation] = useState<'idle' | 'loading' | 'saving'>('idle')
   const [projectError, setProjectError] = useState<string | null>(null)
@@ -108,10 +116,35 @@ export function useProjectPersistence({
     useState<ReadonlySet<string>>(new Set())
 
   useEffect(() => {
-    if (replacementTarget === null || currentFingerprint !== replacementTarget) return
+    // A pending replacement is waiting for this fingerprint to match the
+    // document that was just loaded, so it has to be exact rather than settled:
+    // an edit arriving inside the settle window would skip the matching value
+    // and strand the handshake below, leaving the project permanently busy.
+    // Loads and new-project resets are rare and never happen mid-gesture, so
+    // serializing on the spot there costs nothing that matters.
+    if (replacementTarget !== null) {
+      const nextProject = currentProjectRef.current
+      setFingerprintSnapshot({
+        project: nextProject,
+        value: projectFingerprint(nextProject)
+      })
+      return
+    }
+    const handle = window.setTimeout(() => {
+      const nextProject = currentProjectRef.current
+      setFingerprintSnapshot({
+        project: nextProject,
+        value: projectFingerprint(nextProject)
+      })
+    }, FINGERPRINT_SETTLE_MS)
+    return () => window.clearTimeout(handle)
+  }, [currentProject, currentProjectRef, replacementTarget])
+
+  useEffect(() => {
+    if (replacementTarget === null || fingerprintSnapshot.value !== replacementTarget) return
     setBaselineFingerprint(replacementTarget)
     setReplacementTarget(null)
-  }, [currentFingerprint, replacementTarget])
+  }, [fingerprintSnapshot.value, replacementTarget])
 
   const clearProjectNotice = useCallback(() => {
     setProjectError(null)
@@ -199,6 +232,7 @@ export function useProjectPersistence({
     path: string,
     createdAt: string,
     modifiedAt: string,
+    savedProject: ProjectData,
     fingerprint: string
   ) => {
     setMetadata({
@@ -208,6 +242,7 @@ export function useProjectPersistence({
       modifiedAt
     })
     setBaselineFingerprint(fingerprint)
+    setFingerprintSnapshot({ project: savedProject, value: fingerprint })
     setReplacementTarget(null)
     await backendAPI.recordRecentProject(path)
     await reloadMixJamFiles()
@@ -236,7 +271,7 @@ export function useProjectPersistence({
         contents
       )
       if (!saved) return false
-      await commitSavedProject(saved.path, createdAt, now, projectFingerprint(current))
+      await commitSavedProject(saved.path, createdAt, now, current, projectFingerprint(current))
       return true
     } catch (error) {
       setProjectError(errorMessage(error))
@@ -265,7 +300,7 @@ export function useProjectPersistence({
         modifiedAt: now
       })
       await backendAPI.writeMixJamFile(userFolder, meta.path, contents)
-      await commitSavedProject(meta.path, createdAt, now, projectFingerprint(current))
+      await commitSavedProject(meta.path, createdAt, now, current, projectFingerprint(current))
       return true
     } catch (error) {
       setProjectError(errorMessage(error))
@@ -344,7 +379,10 @@ export function useProjectPersistence({
   return {
     projectPath: metadata.path,
     projectName: metadata.displayName,
-    projectDirty: replacementTarget === null && currentFingerprint !== baselineFingerprint,
+    projectDirty: replacementTarget === null && (
+      fingerprintSnapshot.project !== currentProject ||
+      fingerprintSnapshot.value !== baselineFingerprint
+    ),
     projectBusy: operation !== 'idle' || replacementTarget !== null,
     projectError,
     projectWarning,
