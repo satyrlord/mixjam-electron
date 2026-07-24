@@ -2,9 +2,7 @@
  * Shared Echoform Delay state. This file has no Web Audio imports so the same
  * contract can be used by the renderer controller, the worklet, and the
  * headless DSP tests.
- *
- * The serialized module type is `echoform-delay`. Older projects that used the
- * native `delay` module are upgraded to it by the v5→v6 project migration.
+ * The serialized module type is `echoform-delay`.
  */
 
 /**

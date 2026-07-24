@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Polished, business-ready design with modern typography, structured layouts, and a trustworthy visual identity.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern
 

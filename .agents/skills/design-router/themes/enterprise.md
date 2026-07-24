@@ -137,7 +137,7 @@ When generating design-system guidance, use this structure:
 
 Dark-themed cloud-platform aesthetic with modular grids, glass-like panels, and strong data hierarchy for productivity dashboards.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, cloud-platform aesthetic (Heroku/Vercel/GitHub inspired), dark theme, subtle gradients, soft shadows, glass-like panels, rounded components
 

@@ -134,7 +134,7 @@ When generating design-system guidance, use this structure:
 
 Clean, high-contrast enterprise design for data-driven workflows with intuitive drag-and-drop patterns and structured layouts.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** clean, high-contrast, enterprise
 

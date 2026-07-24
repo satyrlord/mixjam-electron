@@ -126,7 +126,7 @@ When generating design-system guidance, use this structure:
 
 Simplicity-focused design with ample whitespace, legible typography, and a limited color palette to reduce visual clutter.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean
 

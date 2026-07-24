@@ -2,9 +2,10 @@
 
 **Spec Validation Status:** VALIDATED
 
-**Spec Implementation Status:** IMPLEMENTED — four send/return buses, Empty and
+**Spec Implementation Status:** PARTIAL — four send/return buses, Empty and
 Echoform Delay modules, modal editing with live draft audition, limiter toggles,
-persistence with v5→v6 migration, and unified project undo are implemented.
+persistence, and unified project undo are implemented; see unchecked acceptance
+criteria for remaining proof.
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-007 (Lane-Bound Mixer)
 
@@ -19,9 +20,7 @@ with live audition, while the host owns routing, power, return level, tail
 lifecycle, and a per-return safety limiter.
 
 The effect modules are the Echoform Delay and the Aetherform Reverb
-(spec-013). The Echoform Delay replaced the earlier native `delay` module;
-projects saved with that type are upgraded by the v5→v6 migration (see
-Persistence). The serialized module types are `echoform-delay` and
+(spec-013). The serialized module types are `echoform-delay` and
 `aetherform-reverb`.
 
 ## User Stories
@@ -363,18 +362,8 @@ Parsing rejects:
 - a non-boolean Power, Ping-pong, Freeze, Bypass, or limiter-enabled value; and
 - delay parameter fields attached to Empty.
 
-**Migration.** Loading a version-5 project transforms each FX module in place:
-
-- A legacy native `delay` module upgrades to `echoform-delay`. Mode, feedback,
-  ping-pong, and time carry over (a single old time seeds both L and R; the old
-  note division maps onto the Echoform set or falls back to 1/4). Fields the old
-  module lacked take Echoform defaults; the removed Tape Distortion field is
-  dropped.
-- A pre-release `opus-delay` sketch normalizes to `echoform-delay`: the dropped
-  `link` and `mix` fields are removed and widened ranges are re-clamped.
-
-Versions below 5 remain breaking and are not migrated. Version 6 is the current
-format.
+Version 6 is the current format. Spec-011 owns strict version validation; older
+project formats are rejected rather than migrated.
 
 Return modules, Power, Return level, and limiter state live in the same project
 command history as lanes. Saving a modal draft, clearing a slot, toggling Power,
@@ -530,8 +519,8 @@ release, stereo linking, and zero limiter latency while bypassed.
   Power, and in-module Bypass preserve tails; Clear, project replacement, and
   engine close cut them; Freeze holds the loop and blocks new input.
 - [ ] **AC-015:** Version-6 parsing and roundtrip enforce exactly four complete
-  valid slots and limiter records; version-5 native `delay` and sketch
-  `opus-delay` modules migrate to `echoform-delay`; versions below 5 reject.
+  valid slots and limiter records; version 5 and all other older formats reject
+  without migration.
 - [ ] **AC-016:** Headless DSP and Chromium offline-render tests prove division
   timing, independent L/R routing, ping-pong vs stereo feedback, in-loop
   filtering, width, modulation bounds, ducking, freeze, tail-preserving bypass,
@@ -548,5 +537,4 @@ release, stereo linking, and zero limiter latency while bypassed.
 - No user-created FX slots, slot reordering, return crossfeed, or external
   routing beyond a module's own internal feedback.
 - No editable limiter ceiling, lookahead, release, linking, or metering.
-- No project-format-version-4-or-earlier compatibility or insert-effect
-  migration; only version 5 upgrades to version 6.
+- No compatibility or migration for older project formats or insert effects.

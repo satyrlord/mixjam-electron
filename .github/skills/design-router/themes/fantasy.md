@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Game-inspired fantasy aesthetic with bold, premium visuals, rich color palettes, and immersive thematic elements.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** bold, premium
 

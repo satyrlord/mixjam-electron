@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Strong visual presence with heavyweight typography, high-contrast colors, and commanding layouts.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** bold
 

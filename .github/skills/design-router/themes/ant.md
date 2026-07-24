@@ -136,7 +136,7 @@ When generating design-system guidance, use this structure:
 
 Structured, enterprise-focused design system emphasizing clarity, consistency, and efficiency for data-dense web applications.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** data-dense, enterprise
 

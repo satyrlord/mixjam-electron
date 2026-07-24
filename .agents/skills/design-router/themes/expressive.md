@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Vibrant, personality-driven design with bold colors, playful graphics, and dynamic layouts that balance creativity with structure.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, playful
 

@@ -134,7 +134,7 @@ When generating design-system guidance, use this structure:
 
 Soft, extruded UI elements with inner and outer shadows on monochromatic surfaces for a tactile, embedded look.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean, high-contrast, playful, matrix
 

@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Apple-inspired premium aesthetic with precise spacing, modern typography, and a refined, polished visual language.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern
 

@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 1950s-1990s nostalgia with skeuomorphic touches, grainy textures, retro color palettes, and pixel-style typography.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** clean, vintage, retro
 

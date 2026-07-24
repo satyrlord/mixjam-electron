@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Modern take on brutalism with bold borders, vivid accent colors, and raw, high-contrast layouts on warm surfaces.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast
 

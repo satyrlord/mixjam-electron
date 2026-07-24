@@ -136,7 +136,7 @@ When generating design-system guidance, use this structure:
 
 Professional, brand-aligned design with structured grids, minimalist layouts, and consistent enterprise patterns.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** enterprise, premium
 

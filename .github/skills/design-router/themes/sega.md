@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Arcade-inspired game interface with pixel typography, hard edges, and physically punchy, offset-shadow controls.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, playful
 

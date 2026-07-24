@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Playful two-color risograph-inspired system with paper-like warmth, vivid pink actions, and bold blue structure.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** clean, high-contrast
 

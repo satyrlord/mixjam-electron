@@ -97,10 +97,7 @@ describe('project file validation coverage', () => {
     })
   })
 
-  it('rejects malformed channel records and effects', () => {
-    // Channels are derived from lanes in the current format.
-    // Channel records are no longer stored in the serialized document.
-    // Verify malformed lanes propagate to derived channel validation.
+  it('rejects malformed lane-owned Mixer fields', () => {
     expectInvalid((raw) => { raw.lanes[0]!.gain = 99 })
     expectInvalid((raw) => { raw.lanes[0]!.sends = 'bad' })
   })

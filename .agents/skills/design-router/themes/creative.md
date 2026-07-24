@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Playful, character-driven design with expressive typography and bold graphics for landing pages and creative projects.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** playful
 

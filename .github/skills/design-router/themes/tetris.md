@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Classic block-game inspired design with playful colors, bold display fonts, and compact, high-energy layouts.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** high-contrast, playful, premium
 

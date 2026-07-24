@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Futuristic sci-fi aesthetic with dark themes, vibrant neon accents, and immersive spatial elements.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** playful, premium
 

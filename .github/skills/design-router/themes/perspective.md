@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Spatial depth design with isometric views, vanishing points, and layered elements that guide attention through 3D-like realism.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast
 

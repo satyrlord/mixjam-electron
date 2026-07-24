@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Sun-baked, clay-toned editorial system with warm cream surfaces, serif headlines, and a single terracotta accent.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast, playful
 

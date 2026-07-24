@@ -136,7 +136,7 @@ When generating design-system guidance, use this structure:
 
 Print-inspired visual language for books, magazines, and reports with editorial grids and expressive typography.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, editorial
 

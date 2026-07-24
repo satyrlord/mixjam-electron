@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Hand-drawn sketch aesthetic on warm paper with soft teal accents, dashed outlines, and tactile illustrated shadows.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast
 

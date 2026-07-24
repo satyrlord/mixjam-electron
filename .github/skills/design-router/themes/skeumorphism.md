@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Real-world mimicry with textured surfaces, 3D effects, and familiar physical metaphors for intuitive digital interfaces.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** playful
 

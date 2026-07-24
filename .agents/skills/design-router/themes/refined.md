@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Carefully curated, modern minimal style with elegant serif typography and understated, sophisticated palettes.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal
 

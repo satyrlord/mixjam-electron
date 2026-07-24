@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Playful, storybook-inspired interface with warm surfaces, chunky outlines, and expressive display typography.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** playful
 

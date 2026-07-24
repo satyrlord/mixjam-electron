@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Contemporary editorial style with serif typography, minimal palettes, and clean layouts for polished digital products.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal, clean, editorial
 

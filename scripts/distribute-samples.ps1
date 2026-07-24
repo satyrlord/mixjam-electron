@@ -5,7 +5,7 @@
 #   1. Close MixJam Electron
 #   2. Run this script from the repo root:
 #      pwsh -File scripts\distribute-samples.ps1
-#   3. Launch MixJam, enter the Player, click Re-scan
+#   3. Launch MixJam, enter the Player, click Re-scan Sample Folder
 #
 # The 8 root categories are: Bass, Drums, FX, Synth, Vocal, Loop, Percussion, Atmosphere
 # Each sample belongs to exactly one category (folder).
@@ -113,5 +113,5 @@ Write-Host "Done. Moved $total samples into $($categories.Keys.Count) category f
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Launch MixJam, enter the Player" -ForegroundColor White
-Write-Host "  2. Click Re-scan to re-index with the new folder layout" -ForegroundColor White
+Write-Host "  2. Click Re-scan Sample Folder to re-index with the new folder layout" -ForegroundColor White
 Write-Host "     (moved files are marked missing and re-added under their new paths)" -ForegroundColor Gray

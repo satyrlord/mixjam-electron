@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Graceful, refined aesthetic with delicate typography, minimal palettes, and polished layouts that exude sophistication.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean
 

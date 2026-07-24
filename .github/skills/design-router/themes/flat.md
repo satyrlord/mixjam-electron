@@ -133,7 +133,7 @@ When generating design-system guidance, use this structure:
 
 Two-dimensional minimalist style with vibrant colors, clean typography, and no 3D effects for fast, user-friendly interfaces.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, enterprise
 

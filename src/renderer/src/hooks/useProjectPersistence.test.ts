@@ -344,22 +344,27 @@ describe('useProjectPersistence', () => {
     expect(result.current.project.projectDirty).toBe(false)
   })
 
-  it('does not replace live state when a newer project version is rejected', async () => {
-    const newer = JSON.parse(projectText(makeProject())) as Record<string, unknown>
-    newer.formatVersion = 99
+  it.each([
+    [5, 'old.mixjam', 'This MixJam project uses an unsupported format version. Only format version 6 is supported.'],
+    [99, 'future.mixjam', 'This project was created with a newer version of MixJam. Please update the app.']
+  ])('does not replace live state when project format %i is rejected', async (
+    formatVersion,
+    path,
+    expectedError
+  ) => {
+    const project = JSON.parse(projectText(makeProject())) as Record<string, unknown>
+    project.formatVersion = formatVersion
     vi.mocked(api.readMixJamFile).mockResolvedValue({
-      path: 'future.mixjam',
-      contents: JSON.stringify(newer)
+      path,
+      contents: JSON.stringify(project)
     })
     const { result } = renderHook(() => useHarness(api))
 
-    await act(async () => { await result.current.project.openProjectPath('future.mixjam') })
+    await act(async () => { await result.current.project.openProjectPath(path) })
 
     expect(result.current.bpm).toBe(120)
     expect(result.current.lanes).toHaveLength(8)
-    expect(result.current.project.projectError).toBe(
-      'This project was created with a newer version of MixJam. Please update the app.'
-    )
+    expect(result.current.project.projectError).toBe(expectedError)
     expect(api.recordRecentProject).not.toHaveBeenCalled()
   })
 

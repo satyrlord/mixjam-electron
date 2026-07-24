@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Shadcn/ui-inspired design with minimal, clean components, monochrome palette, and utility-first patterns.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean
 

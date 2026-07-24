@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Stripped-back design emphasizing whitespace, clean typography, and restrained color for maximum clarity and focus.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean, bold
 

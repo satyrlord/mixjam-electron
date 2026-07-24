@@ -136,7 +136,7 @@ When generating design-system guidance, use this structure:
 
 Generous whitespace, consistent padding, and grid-based layouts for clean, readable, and breathing interfaces.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean
 

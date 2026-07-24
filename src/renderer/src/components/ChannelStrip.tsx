@@ -1,7 +1,7 @@
-import type { CSSProperties } from 'react'
 import type { ReadableStore } from '../lib/value-store'
 import { VerticalFader } from './VerticalControls'
 import { RotaryControl, RotaryDial } from './RotaryField'
+import { slotAccentStyle } from './mixer-accent'
 import { Tooltip } from './ui/Tooltip'
 
 /** RMS level and peak-hold in dBFS for one channel's meter. */
@@ -31,10 +31,6 @@ interface ChannelStripProps {
 function gainDbText(gain: number): string {
   if (gain <= 0) return '−∞ dB'
   return `${Math.round(20 * Math.log10(gain))} dB`
-}
-
-function slotAccentStyle(slot: number): CSSProperties {
-  return { '--fx-slot-accent': `var(--fx-accent-${slot}, var(--accent))` } as CSSProperties
 }
 
 export default function ChannelStrip({

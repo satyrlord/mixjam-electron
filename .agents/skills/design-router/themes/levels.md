@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Conversion-focused design that removes friction and guides users toward action through clarity, trust, and speed.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean
 

@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Approachable, intuitive design with rounded elements, ample whitespace, and soft pastel color palettes.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** bold, playful, premium
 

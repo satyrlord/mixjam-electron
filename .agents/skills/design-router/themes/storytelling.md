@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Narrative-driven design using visuals, copy, and interaction to guide users through engaging, emotionally resonant journeys.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** playful
 

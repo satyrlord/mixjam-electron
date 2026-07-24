@@ -133,7 +133,7 @@ When generating design-system guidance, use this structure:
 
 Dot-pattern rendering technique that simulates shades with a limited palette for nostalgic, retro, high-contrast visuals.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal
 

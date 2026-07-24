@@ -127,7 +127,7 @@ When generating design-system guidance, use this structure:
 
 App dashboard with purple-themed aesthetic, top-bar navigation, card-based layouts, and developer-first workflows.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast, glass-like panels, soft shadows, rounded components
 

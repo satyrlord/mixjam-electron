@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Google's Material Design with layered surfaces, dynamic theming, built-in motion, and responsive cross-platform patterns.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal, clean
 

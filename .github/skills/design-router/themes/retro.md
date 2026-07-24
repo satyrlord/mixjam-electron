@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Throwback design with vintage-inspired typography, high-contrast retro palettes, and nostalgic visual elements.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** high-contrast, retro
 

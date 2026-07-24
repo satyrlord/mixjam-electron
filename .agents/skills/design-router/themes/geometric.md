@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Geometric, structured design with clean typography, neutral colors, precise shapes, and intuitive layouts that stay out of the way.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** geometric, structured, clean
 

@@ -127,7 +127,7 @@ When generating design-system guidance, use this structure:
 
 Retro arcade-inspired design with pixel fonts, dotted borders, playful high-contrast colors, and 8-bit game aesthetics.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** high-contrast, playful, dotted borders
 

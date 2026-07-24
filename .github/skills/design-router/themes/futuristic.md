@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Forward-looking design with tech-inspired typography, modern layouts, and a sleek, innovation-driven aesthetic.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern
 

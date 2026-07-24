@@ -131,7 +131,7 @@ When generating design-system guidance, use this structure:
 
 Frosted glass effect with translucent layers, subtle blur, and luminous borders for depth and modern elegance.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** clean, high-contrast, bold, enterprise, liquidglass effect, glassmorphism
 

@@ -196,7 +196,7 @@ is:
   trimmed and non-empty. Numeric Mixer fields must be
   finite and within their documented ranges. Every lane must contain exactly
   four finite send values in the inclusive 0 through 1 range.
-- A lane owns its Mixer state. Version 5 rejects `channelId`, a top-level
+- A lane owns its Mixer state. Format version 6 rejects `channelId`, a top-level
   `channels` array, lane routing data, and per-channel insert FX.
 - `fxBuses` must contain exactly four entries with no additions, omissions, or
   reordering. Their identities, indices, and names must be exactly
@@ -446,7 +446,7 @@ generator, its tests, and this contract are the durable repository assets.
   serialization and disappears after save.
 - [x] **AC-004:** Ctrl+S saves to the current path; Ctrl+Shift+S triggers "Save As…".
 - [x] **AC-005:** Loading a project with a missing sample file shows a warning badge on the affected lane(s) — other lanes load correctly.
-- [ ] **AC-006:** Loading any project whose `formatVersion` is not 6 shows the
+- [x] **AC-006:** Loading any project whose `formatVersion` is not 6 shows the
   clear unsupported-format error and does not change the active project. There
   is no version-5 migration.
 - [x] **AC-007:** `sampleRef` fields are relative paths, never absolute paths, never base64-encoded audio.
@@ -507,7 +507,7 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-028:** New, load, save, transport replacement, and the generated test
   project use one complete nested Song-state contract and canonical default
   factory rather than independently listing Song fields.
-- [ ] **AC-029:** Versions 5 and earlier are rejected clearly and atomically;
+- [x] **AC-029:** Versions 5 and earlier are rejected clearly and atomically;
   the parser exposes no migration path into version 6.
 - [ ] **AC-030:** A version-6 generator block validates, survives a load/save
   roundtrip, and preserves the profile, profile version, generator version,

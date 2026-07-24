@@ -149,7 +149,7 @@ describe('generateMixerTestSong', () => {
     { metadata: undefined, name: 'kick BPM 401.wav', expected: null },
     { metadata: undefined, name: 'kick_128_loop.wav', expected: null },
     { metadata: undefined, name: 'kick_01_loop.wav', expected: null }
-  ])('accepts only plausible metadata or explicitly labeled filename BPM: $name', ({ metadata, name, expected }) => {
+  ])('resolves metadata $metadata and filename $name to $expected BPM', ({ metadata, name, expected }) => {
     expect(bpmFromMetadataOrName(metadata, name)).toBe(expected)
   })
 

@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 High-end dark aesthetic with bold headings, monochromatic palette, and premium feel for premium brand experiences.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, bold, big headings
 

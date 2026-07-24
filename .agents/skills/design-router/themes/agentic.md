@@ -136,7 +136,7 @@ When generating design-system guidance, use this structure:
 
 Conversational AI-first interface with minimal controls, clear outcomes, and delegated task flows for agentic workflows.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, bold
 

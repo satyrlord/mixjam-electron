@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Paper-textured, print-inspired design with minimal colors, clean serif/sans typography, and tactile surface qualities.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean
 

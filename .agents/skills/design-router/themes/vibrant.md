@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Lively, colorful design with bold playful typography, warm accents, and dynamic visual energy.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, bold, playful
 

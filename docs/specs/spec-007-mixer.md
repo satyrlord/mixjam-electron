@@ -2,7 +2,7 @@
 
 **Spec Validation Status:** VALIDATED
 
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — see the unchecked acceptance criteria.
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline & Panel Layout)
 
@@ -219,8 +219,8 @@ Spec-011 owns the physical format. The saved project must preserve:
 - four return levels; and
 - the four FX and limiter records defined by spec-010.
 
-Project format version 4 is a breaking format. Version-3 projects are rejected;
-there is no version-3 migration or legacy channel/insert-FX interpretation.
+Project format version 6 is a breaking format. Older projects are rejected;
+there is no migration or channel/insert-FX interpretation for earlier formats.
 Project parsing rejects zero lanes, more than 64 lanes, duplicate lane IDs, or
 missing or malformed lane-owned Mixer data.
 
@@ -291,9 +291,9 @@ removed solo cannot keep the remaining lanes gated.
 - [ ] **AC-013:** Lane meters are RMS dBFS with peak hold, Mixer visibility
   gates only their shared telemetry loop, and master loudness metering stays
   exclusive to the Master panel (the spec-012 strip output meter).
-- [ ] **AC-014:** Format-version-4 roundtrip preserves all lane-bound Mixer,
+- [ ] **AC-014:** Format-version-6 roundtrip preserves all lane-bound Mixer,
   return, FX, and limiter state; invalid lane counts and malformed lane-owned
-  Mixer values are rejected; version 3 is rejected without migration.
+  Mixer values are rejected; older formats are rejected without migration.
 - [ ] **AC-015:** Lane-strip and combined FX and Return buttons, sliders, and
   rotary hit rectangles do not collide with adjacent controls at UI Size 30,
   40, and 50. The lane fader uses the shared linear-slider structure and each
@@ -311,4 +311,4 @@ removed solo cannot keep the remaining lanes gated.
 - No return pan, mute, solo, metering, sends, crossfeed, or feedback routing.
 - No change to Master bus behavior beyond what spec-012 defines for the
   Master Bus Strip.
-- No compatibility path for project format version 3.
+- No compatibility path for older project formats.

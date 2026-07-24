@@ -127,7 +127,7 @@ When generating design-system guidance, use this structure:
 
 Radically minimal blank-canvas interface where black carries structure and typography drives hierarchy.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal, clean
 

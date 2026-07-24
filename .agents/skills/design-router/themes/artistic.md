@@ -134,7 +134,7 @@ When generating design-system guidance, use this structure:
 
 High-contrast, expressive style with creative typography and bold color choices for visually striking interfaces.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** high-contrast, artistic
 

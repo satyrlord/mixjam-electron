@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Cozy cafe-inspired interface with warm tones, soft typography, and clean layouts for a relaxed browsing experience.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean
 

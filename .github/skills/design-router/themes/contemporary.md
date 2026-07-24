@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Current-era minimalist design with bento grids, dark mode support, and high-performance accessible layouts.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal, bold, playful
 

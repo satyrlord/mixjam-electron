@@ -128,7 +128,7 @@ When generating design-system guidance, use this structure:
 
 Exhibit-style interface that blends storytelling and game-like interaction on a continuous deep-green canvas.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast
 

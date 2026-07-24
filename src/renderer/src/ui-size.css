@@ -67,8 +67,6 @@
 .tracker-lane-controls button,
 .manage-action,
 .manage-tag-color,
-.mixer-channel-m,
-.mixer-channel-s,
 .mixer-limiter-toggle,
 .shortcuts-close,
 .generator-close {
@@ -375,7 +373,6 @@
   height: calc(var(--ui-size) * 0.5333);
 }
 
-.vertical-control,
 .mixer-channel-vol {
   min-width: var(--ui-size);
 }

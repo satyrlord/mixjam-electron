@@ -127,7 +127,7 @@ When generating design-system guidance, use this structure:
 
 Research-journal aesthetic on warm stone with near-black ink, restrained earthy accents, and editorially strict contrast.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal, clean
 

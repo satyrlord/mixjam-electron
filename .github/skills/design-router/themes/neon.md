@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Electric neon glow effects with high-contrast color pairings for bold, attention-grabbing interfaces.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** high-contrast
 

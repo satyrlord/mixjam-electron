@@ -128,7 +128,7 @@ When generating design-system guidance, use this structure:
 
 Dark cyber-terminal visual language with mono typography, dense data layouts, and one green interaction accent.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** high-contrast
 

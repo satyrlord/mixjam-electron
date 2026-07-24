@@ -2332,8 +2332,7 @@ select option:disabled {
 }
 
 /* Shared by every Mixer channel fader. */
-.vertical-fader,
-.vertical-meter {
+.vertical-fader {
   flex: 1;
   min-width: 44px;
   min-height: 0;

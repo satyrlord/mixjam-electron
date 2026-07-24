@@ -131,7 +131,7 @@ When generating design-system guidance, use this structure:
 
 Dynamic, vibrant style with thick borders, geometric shapes, high-contrast colors, and expressive typography conveying motion and vitality.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** bold, geometric, vibrant, thick-bordered
 

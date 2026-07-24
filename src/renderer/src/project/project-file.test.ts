@@ -183,10 +183,9 @@ describe('project file format', () => {
     expect(parsed.masterBus).toEqual(project.masterBus)
   })
 
-  it('rejects version 4 projects (below the v5 migration floor)', () => {
+  it('rejects version 5 projects', () => {
     const raw = JSON.parse(serialize()) as Record<string, unknown>
-    raw.formatVersion = 4
-    delete raw.masterBus
+    raw.formatVersion = 5
 
     expect(() => parseProject(JSON.stringify(raw))).toThrow(
       'This MixJam project uses an unsupported format version. Only format version 6 is supported.'
@@ -401,119 +400,6 @@ describe('project file format', () => {
       ...project,
       masterBus: { ...project.masterBus, preset: null }
     })).not.toBe(baseline)
-  })
-})
-
-describe('v5 -> v6 Echoform delay migration', () => {
-  /** Build a raw v5 document (serialize current, then downgrade the version). */
-  function rawV5(module: Record<string, unknown>): Record<string, unknown> {
-    const raw = JSON.parse(serialize()) as Record<string, unknown>
-    raw.formatVersion = 5
-    const buses = raw.fxBuses as Array<{ module: Record<string, unknown> }>
-    buses[0]!.module = module
-    return raw
-  }
-
-  it('upgrades a legacy native delay module to an Echoform delay', () => {
-    const raw = rawV5({
-      type: 'delay',
-      mode: 'sync',
-      timeMs: 500,
-      noteDivision: '1/8T',
-      feedback: 40,
-      tapeDistortion: 5,
-      pingPong: true
-    })
-    const parsed = parseProject(JSON.stringify(raw))
-    expect(parsed.formatVersion).toBe(6)
-    const module = parsed.fxBuses[0]!.module
-    expect(module.type).toBe('echoform-delay')
-    if (module.type !== 'echoform-delay') throw new Error('expected echoform-delay')
-    // Semantically equivalent values carry over.
-    expect(module.mode).toBe('sync')
-    expect(module.feedback).toBe(40)
-    expect(module.pingPong).toBe(true)
-    // One old time seeds both L and R; the triplet division is preserved.
-    expect(module.divisionL).toBe('1/8T')
-    expect(module.divisionR).toBe('1/8T')
-    expect(module.timeMsL).toBe(500)
-    expect(module.timeMsR).toBe(500)
-    // Fields absent from the old module get Echoform defaults.
-    expect(module.width).toBe(142)
-    expect(module.character).toBe('tape')
-    // No dropped fields leak through.
-    expect('mix' in module).toBe(false)
-    expect('link' in module).toBe(false)
-  })
-
-  it('re-clamps a legacy division that has no Echoform equivalent', () => {
-    const raw = rawV5({
-      type: 'delay',
-      mode: 'free',
-      timeMs: 375,
-      noteDivision: '1/32', // not in the Echoform set
-      feedback: 35,
-      tapeDistortion: 0,
-      pingPong: false
-    })
-    const module = parseProject(JSON.stringify(raw)).fxBuses[0]!.module
-    if (module.type !== 'echoform-delay') throw new Error('expected echoform-delay')
-    expect(module.divisionL).toBe('1/4') // safe fallback
-  })
-
-  it('normalizes a pre-release opus-delay sketch (drops link/mix, re-clamps ranges)', () => {
-    const raw = rawV5({
-      type: 'opus-delay',
-      mode: 'sync',
-      divisionL: '1/8',
-      divisionR: '1/4',
-      timeMsL: 350,
-      timeMsR: 500,
-      link: true,
-      feedback: 38,
-      pingPong: true,
-      width: 62,
-      lowCut: 120,
-      highCut: 7500,
-      modRate: 0.35,
-      modDepth: 18, // old sketch stored depth as a 0..100 value; re-clamped to 0..20
-      character: 'tape',
-      duckAmount: 0,
-      duckRelease: 220,
-      mix: 100,
-      outputDb: 0,
-      freeze: false,
-      bypass: false
-    })
-    const module = parseProject(JSON.stringify(raw)).fxBuses[0]!.module
-    expect(module.type).toBe('echoform-delay')
-    if (module.type !== 'echoform-delay') throw new Error('expected echoform-delay')
-    expect('link' in module).toBe(false)
-    expect('mix' in module).toBe(false)
-    expect(module.feedback).toBe(38)
-    expect(module.divisionL).toBe('1/8')
-    // Sketch modDepth 18 is already within the 0..20 range, so it is preserved.
-    expect(module.modDepth).toBe(18)
-    expect(module.modDepth).toBeLessThanOrEqual(20)
-  })
-
-  it('re-serializes a migrated project as version 6 and round-trips', () => {
-    const raw = rawV5({
-      type: 'delay',
-      mode: 'free',
-      timeMs: 375,
-      noteDivision: '1/8',
-      feedback: 35,
-      tapeDistortion: 0,
-      pingPong: false
-    })
-    const parsed = parseProject(JSON.stringify(raw))
-    const reserialized = serialize(parsed)
-    const reparsed = parseProject(reserialized)
-    expect(reparsed.formatVersion).toBe(6)
-    expect(reparsed.fxBuses[0]!.module.type).toBe('echoform-delay')
-    // Idempotent: a second parse leaves the migrated module unchanged.
-    expect(reparsed.fxBuses[0]!.module).toEqual(parsed.fxBuses[0]!.module)
   })
 })
 

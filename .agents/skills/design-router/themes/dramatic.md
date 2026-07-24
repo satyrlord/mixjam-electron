@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 High-contrast, theatrical design with bold layouts, immersive visuals, and unconventional compositions that command attention.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast
 

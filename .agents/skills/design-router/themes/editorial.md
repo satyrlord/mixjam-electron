@@ -128,7 +128,7 @@ When generating design-system guidance, use this structure:
 
 Magazine-inspired editorial layout with refined serif typography, structured grids, and elegant reading experiences.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, editorial
 

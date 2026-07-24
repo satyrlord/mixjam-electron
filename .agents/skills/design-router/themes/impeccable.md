@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Graphic editorial-poster aesthetic with warm cream and burnt-orange rhythm plus a sharp amber accent.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, clean, high-contrast
 

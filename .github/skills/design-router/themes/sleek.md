@@ -125,7 +125,7 @@ When generating design-system guidance, use this structure:
 
 Modern minimalist aesthetic with clean lines, intentional color palette, subtle interactions, and consistent spacing.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, minimal, clean
 

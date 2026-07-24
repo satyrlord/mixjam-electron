@@ -11,11 +11,7 @@ permissions:
 
 jobs:
   build-electron:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
+    runs-on: windows-latest
 
     steps:
       - name: Check out repository
@@ -30,16 +26,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Linux window manager
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          fuse_package=libfuse2
-          if apt-cache show libfuse2t64 >/dev/null 2>&1; then
-            fuse_package=libfuse2t64
-          fi
-          sudo apt-get install --no-install-recommends --yes openbox x11-utils "$fuse_package"
-
       - name: Run unit tests
         run: npm test
 
@@ -49,27 +35,16 @@ jobs:
       - name: Package Electron app
         run: npm run package:electron
 
-      - name: Smoke test Electron app on Linux
-        if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum --server-args="-screen 0 2560x1440x24" bash scripts/run-electron-with-openbox.sh bash scripts/run-linux-appimage-smoke.sh npx playwright test --project=electron-smoke
-
-      - name: Smoke test Electron app on macOS
-        if: runner.os == 'macOS'
-        run: bash scripts/run-macos-dmg-smoke.sh npx playwright test --project=electron-smoke
-
       - name: Verify portable bootstrap and smoke test packaged Electron app on Windows
-        if: runner.os == 'Windows'
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-windows-packaged-smoke.ps1 npx playwright test --project=electron-smoke
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mixjam-electron-${{ matrix.os }}
+          name: mixjam-electron-windows-latest
           path: |
             dist-electron/*.exe
-            dist-electron/*.AppImage
-            dist-electron/*.dmg
             tmp/package-smoke/**
             tmp/verify-electron-window-state/**
             tmp/verify-packaged-ui-size-50-many-lanes/**

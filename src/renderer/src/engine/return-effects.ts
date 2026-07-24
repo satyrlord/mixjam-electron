@@ -21,8 +21,7 @@ export const RETURN_BUS_COUNT = 4
 /**
  * Return modules are black boxes hosted by the four fixed FX buses. The effect
  * modules are the Echoform Delay (`echoform-delay`) and the Aetherform Reverb
- * (`aetherform-reverb`); the legacy native `delay` was replaced by the delay
- * and is migrated on project load.
+ * (`aetherform-reverb`).
  */
 export type ReturnModule = EmptyReturnModule | EchoformDelayModule | AetherformReverbModule
 

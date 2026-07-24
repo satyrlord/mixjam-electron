@@ -134,7 +134,7 @@ When generating design-system guidance, use this structure:
 
 Monospace-driven, matrix-inspired design with high-contrast elements, compact density, and a hacker-chic aesthetic.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** minimal, clean, high-contrast, playful, matrix
 

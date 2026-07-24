@@ -122,7 +122,7 @@ When generating design-system guidance, use this structure:
 
 Vibrant, high-contrast palettes and gradients for engaging, memorable, and modern user experiences.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** high-contrast, playful, premium
 

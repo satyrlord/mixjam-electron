@@ -126,7 +126,7 @@ When generating design-system guidance, use this structure:
 
 Soft, rounded 3D-like shapes mimicking malleable clay with playful, puffy elements and colorful surfaces.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, high-contrast, playful
 

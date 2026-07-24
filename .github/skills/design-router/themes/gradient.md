@@ -124,7 +124,7 @@ When generating design-system guidance, use this structure:
 
 Smooth color transitions and gradient-rich surfaces for modern, playful interfaces with visual depth.
 
-## Style Foundations (from DESIGN.md) (from DESIGN.md)
+## Style Foundations (from DESIGN.md)
 
 - **Visual style:** modern, playful
 

@@ -468,6 +468,15 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
         incorrectSliderTargets,
         incorrectSliderHandles,
         incorrectTrackerTarget,
+        mixerLaneCount: surfaceName.startsWith('Player Mixer')
+          ? [...document.querySelectorAll('.mixer-channel-strip')].filter(isVisible).length
+          : 0,
+        mixerSendCount: surfaceName.startsWith('Player Mixer')
+          ? [...document.querySelectorAll('.mixer-send-control')].filter(isVisible).length
+          : 0,
+        mixerFaderCount: surfaceName.startsWith('Player Mixer')
+          ? [...document.querySelectorAll('.mixer-channel-vol')].filter(isVisible).length
+          : 0,
         mixerPanControls: surfaceName.startsWith('Player Mixer')
           ? document.querySelectorAll('.mixer-channel-pan, [aria-label^="Channel "][aria-label$=" Pan"]').length
           : 0,
@@ -486,6 +495,11 @@ test('UI Size scales controls across the app without breaking the 1080p frame', 
     expect(audit.incorrectSliderTargets, `${surface} slider targets`).toEqual([])
     expect(audit.incorrectSliderHandles, `${surface} slider handles`).toEqual([])
     expect(audit.incorrectTrackerTarget, `${surface} Tracker seek target`).toEqual([])
+    if (surface.startsWith('Player Mixer')) {
+      expect(audit.mixerLaneCount, `${surface} lane strips`).toBeGreaterThan(0)
+      expect(audit.mixerSendCount, `${surface} lane Sends`).toBe(audit.mixerLaneCount * 4)
+      expect(audit.mixerFaderCount, `${surface} lane faders`).toBe(audit.mixerLaneCount)
+    }
     expect(audit.mixerPanControls, `${surface} Mixer pan controls`).toBe(0)
     expect(audit.horizontalOverflow, `${surface} horizontal overflow`).toBe(false)
     expect(audit.verticalOverflow, `${surface} vertical overflow`).toBe(false)
