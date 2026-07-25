@@ -16,12 +16,15 @@ test('999-bar lanes use a viewport-bounded canvas while scrolling', async ({ see
     return {
       logicalWidth: laneContainer.getBoundingClientRect().width,
       backingWidth: element.width,
-      visibleLaneWidth: tracker.clientWidth - 240
+      canvasWidth: element.getBoundingClientRect().width,
+      visibleLaneWidth: tracker.clientWidth - 240,
+      devicePixelRatio: window.devicePixelRatio || 1
     }
   })
   expect(initial.logicalWidth).toBe(127_872)
-  expect(initial.backingWidth).toBe(initial.visibleLaneWidth)
-  expect(initial.backingWidth).toBeLessThan(initial.logicalWidth)
+  expect(initial.canvasWidth).toBe(initial.visibleLaneWidth * 2)
+  expect(initial.backingWidth).toBe(Math.round(initial.canvasWidth * initial.devicePixelRatio))
+  expect(initial.canvasWidth).toBeLessThan(initial.logicalWidth)
 
   await lane.evaluate((element) => {
     const rect = element.getBoundingClientRect()
@@ -56,8 +59,22 @@ test('999-bar lanes use a viewport-bounded canvas while scrolling', async ({ see
   expect(opaquePixels).toBeGreaterThan(0)
 
   await scrollport.evaluate((element) => { element.scrollLeft = 50_000 })
-  await expect.poll(() => canvas.evaluate((element) => Number.parseFloat(element.style.left)))
-    .toBe(50_000)
-  await expect.poll(() => canvas.evaluate((element) => element.width))
-    .toBe(initial.visibleLaneWidth)
+  await expect.poll(() => canvas.evaluate((element) => {
+    const tracker = element.closest('.tracker-lanes')
+    if (!(tracker instanceof HTMLElement)) throw new Error('Tracker scrollport is missing')
+    const canvasLeft = Number.parseFloat(element.style.left)
+    const canvasWidth = Number.parseFloat(element.style.width)
+    const visibleLaneWidth = tracker.clientWidth - 240
+    const centeredOverscanLeft = tracker.scrollLeft - (canvasWidth - visibleLaneWidth) / 2
+    return Math.abs(canvasLeft - centeredOverscanLeft)
+  })).toBeLessThan(0.01)
+  await expect.poll(() => canvas.evaluate((element) => ({
+    backingWidth: element.width,
+    canvasWidth: Number.parseFloat(element.style.width),
+    devicePixelRatio: window.devicePixelRatio || 1
+  }))).toEqual({
+    backingWidth: Math.round(initial.canvasWidth * initial.devicePixelRatio),
+    canvasWidth: initial.canvasWidth,
+    devicePixelRatio: initial.devicePixelRatio
+  })
 })
