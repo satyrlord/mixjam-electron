@@ -72,16 +72,8 @@ evidence.
 
 ## Commands
 
-See [docs/README.md](docs/README.md) for the full command table. Key commands:
-
-```sh
-npm run dev           # Electron with hot reload
-npm run build         # production build
-npm test              # vitest (single pass)
-npm run typecheck     # tsc -b
-npm run lint          # eslint .
-npm run fallow        # dead-code audit
-```
+See [docs/README.md](docs/README.md) for the full command table and
+[package.json](package.json) for the script definitions.
 
 Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launch.
 

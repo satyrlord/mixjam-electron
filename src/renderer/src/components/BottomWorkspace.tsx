@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from './ui/Tabs'
 import {
   BOTTOM_WORKSPACE_TABS,
@@ -98,16 +98,15 @@ export function useBottomWorkspace(): BottomWorkspaceController {
     setBottomTabState(tab)
     playerWorkspacePreferences.saveBottomTab(tab)
   }, [bottomTab])
-  useEffect(() => {
-    // Restore this tab's remembered size, lifted to its own content budget.
-    // The Panel's minSize is tab-independent, so this imperative resize is what
-    // enforces the per-tab floor — and it runs on the next frame so it lands
-    // after the tab's own commit rather than fighting it.
-    const frame = requestAnimationFrame(() => {
-      const targetPercentage = bottomTabSizesRef.current[bottomTab]
-      resizeBottomTab(bottomTab, targetPercentage)
-    })
-    return () => cancelAnimationFrame(frame)
+  useLayoutEffect(() => {
+    // Restore this tab's remembered size in the SAME commit as the tab flip, so
+    // the reveal paint and this resize coalesce into one frame. The old version
+    // deferred to the next frame to avoid fighting the per-tab minSize clamp —
+    // but minSize is now a constant (below), so there is no clamp to fight, and
+    // splitting the switch across two frames was what let a stall breach the
+    // audio scheduler's lookahead margin and glitch playback.
+    const targetPercentage = bottomTabSizesRef.current[bottomTab]
+    resizeBottomTab(bottomTab, targetPercentage)
   }, [bottomTab, resizeBottomTab])
   const toggleExpanded = useCallback(() => {
     const panel = bottomPanelRef.current
@@ -157,13 +156,24 @@ export function useBottomWorkspace(): BottomWorkspaceController {
     setExpanded(false)
     playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: bottomSize })
   }, [bottomTab])
-  // The Panel constraint stays per-tab: it is what stops a drag from squeezing
-  // a tab below its content budget, and enforcing that after the fact would
-  // fight the user's pointer mid-gesture. What it must not do is churn — the
-  // value is memoized per tab so React sees a stable string across unrelated
-  // re-renders, and only a genuine tab change (or a UI Size change) makes the
-  // panel group recompute the Tracker's layout.
-  const bottomPanelMinimumHeight = bottomMinimumHeights[bottomTab]
+  // The Panel drag-floor is a CONSTANT (the smallest tab budget), not per-tab.
+  // A per-tab value changed on every switch, and because the three budgets
+  // differ that re-registered the panel-group constraint — a forced synchronous
+  // layout + clamp inside the switch's commit frame — which, split across a
+  // second (rAF) frame from the resize, let a stall breach the audio scheduler's
+  // margin and glitch playback. Holding it constant keeps the group from
+  // re-clamping on a tab change. The per-tab CONTENT floor is still enforced by
+  // the CSS `min-height` on `.bottom-workspace-panel > *` (driven by
+  // `bottomMinimumHeight` below), so a tab dragged below its budget SCROLLS with
+  // every control still reachable rather than clipping; the imperative resize
+  // still lifts each tab to its own remembered budget. Not the MAX budget: that
+  // would clamp the shorter tabs up to the Master rack's height and break their
+  // remembered sizes.
+  const bottomPanelMinimumHeight = Math.min(
+    bottomMinimumHeights.master,
+    bottomMinimumHeights.mixer,
+    bottomMinimumHeights.samples
+  )
 
   return {
     browserPanelRef, bottomPanelRef, bottomTab, expanded,

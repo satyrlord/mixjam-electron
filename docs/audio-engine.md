@@ -20,16 +20,25 @@ standard lookahead-scheduler pattern:
 
 - A coarse `setInterval` "ticks" every ~25 ms.
 - Each tick, schedule every step whose time falls within a lookahead window
-  (~100 ms ahead) by calling `source.start(when)` with an absolute `AudioContext`
-  time — never `start(0)` / "now".
+  (600 ms ahead, `SCHEDULER_LOOKAHEAD_MS` in `playback-engine.ts`) by calling
+  `source.start(when)` with an absolute `AudioContext` time — never `start(0)` /
+  "now".
 - Keep a `nextStepTime` cursor advanced by the step duration derived from BPM.
 
 This gives sample-accurate playback timing regardless of timer jitter, which is more
 than enough for an eJay/Acid-style tracker.
 
 The timer runs on the renderer main thread, so its budget is finite: the
-lookahead minus one interval, about 75 ms of main-thread stall before a step
-would be scheduled late. Two rules protect that budget.
+lookahead minus one interval, about 575 ms of main-thread stall before a step
+would be scheduled late. On a dense project a single UI interaction — a tab
+switch, a knob drag, opening an effect editor — can block the renderer for
+several hundred ms; the earlier 100 ms window was far too small to ride through
+that, so playback glitched whenever the user touched the UI. The cost of the
+larger window is that an ARRANGEMENT edit made mid-playback (moving a placement,
+changing tempo) takes up to the lookahead to be heard; Master-bus and Mixer
+edits do not go through the scheduler (they reach the audio graph in real time),
+so a mastering or mixing session pays no audible latency for it. Two rules
+protect the budget.
 
 - **Steps whose time already passed are dropped, not fired late.** Handing Web
   Audio a start time in the past makes it play immediately, so a stalled event

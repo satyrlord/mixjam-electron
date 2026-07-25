@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { MixJamFileItem } from '../../../shared/backend-api'
 import type {
   TrackerArrangementProps,
@@ -116,8 +116,7 @@ function MasterBusStripPanel({
   onGestureStart: () => void
   onGestureEnd: () => void
 }) {
-  const masterMeter = useStoreValue(masterMeterStore)
-  const { meters, onResetOver } = useMasterBusMeters(active, masterBus.getMeterSnapshot, masterMeter)
+  const { metersStore, onResetOver } = useMasterBusMeters(active, masterBus.getMeterSnapshot, masterMeterStore)
   const { onSetMetersActive } = masterBus
   useEffect(() => {
     onSetMetersActive(active)
@@ -126,7 +125,7 @@ function MasterBusStripPanel({
   return (
     <MasterBusStrip
       state={masterBus.state}
-      meters={meters}
+      metersStore={metersStore}
       onSetParam={masterBus.onSetParam}
       onGestureStart={onGestureStart}
       onGestureEnd={onGestureEnd}
@@ -148,7 +147,7 @@ export interface PlayerViewProps {
   project: PlayerProjectProps
 }
 
-export default function PlayerView({
+function PlayerView({
   mixJamFiles,
   browser,
   arrangement,
@@ -495,3 +494,8 @@ export default function PlayerView({
     </PanelGroup>
   )
 }
+
+// App re-renders when telemetry-active state flips on Mixer enter/leave, but all
+// props App passes are memoized and referentially stable across that flip, so
+// memo keeps a tab switch from re-executing this whole tree a second time.
+export default memo(PlayerView)

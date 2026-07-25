@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
@@ -185,7 +185,7 @@ function CategoryTreeNode({
   )
 }
 
-export default function SampleBrowser({
+function SampleBrowser({
   active,
   browser,
   bubblePixelsPerSecond = DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
@@ -545,3 +545,5 @@ export default function SampleBrowser({
     </section>
   )
 }
+
+export default memo(SampleBrowser)

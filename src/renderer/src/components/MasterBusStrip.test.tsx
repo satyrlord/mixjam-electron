@@ -1,7 +1,8 @@
-import { createEvent, fireEvent, render, screen } from '@testing-library/react'
+import { act, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { MASTER_BUS_PARAMS } from '../engine/masterbus/params'
 import { defaultMasterBusState, type MasterBusState } from '../engine/masterbus/presets'
+import { createValueStore } from '../lib/value-store'
 import MasterBusStrip, { type MasterBusStripProps, type MasterBusUiMeters } from './MasterBusStrip'
 
 function neutralMeters(overrides: Partial<MasterBusUiMeters> = {}): MasterBusUiMeters {
@@ -19,10 +20,14 @@ function neutralMeters(overrides: Partial<MasterBusUiMeters> = {}): MasterBusUiM
   }
 }
 
-function renderStrip(overrides: Partial<MasterBusStripProps> = {}) {
+type StripOverrides = Partial<Omit<MasterBusStripProps, 'metersStore'>> & { meters?: MasterBusUiMeters }
+
+function renderStrip(overrides: StripOverrides = {}) {
+  const { meters = neutralMeters(), ...rest } = overrides
+  const metersStore = createValueStore<MasterBusUiMeters>(meters)
   const props: MasterBusStripProps = {
     state: defaultMasterBusState(),
-    meters: neutralMeters(),
+    metersStore,
     onSetParam: vi.fn(),
     onGestureStart: vi.fn(),
     onGestureEnd: vi.fn(),
@@ -30,9 +35,9 @@ function renderStrip(overrides: Partial<MasterBusStripProps> = {}) {
     onReorder: vi.fn(),
     onApplyPreset: vi.fn(),
     onResetOver: vi.fn(),
-    ...overrides
+    ...rest
   }
-  return { ...render(<MasterBusStrip {...props} />), props }
+  return { ...render(<MasterBusStrip {...props} />), props, metersStore }
 }
 
 describe('MasterBusStrip', () => {
@@ -145,13 +150,11 @@ describe('MasterBusStrip', () => {
   })
 
   it('lights the OVER lamp from overLatched and resets it on click', () => {
-    const { props, rerender } = renderStrip()
+    const { props, metersStore } = renderStrip()
     const over = screen.getByRole('button', { name: 'TP OVER' })
     expect(over.className).not.toContain('mbs-over-led-lit')
 
-    rerender(
-      <MasterBusStrip {...props} meters={neutralMeters({ overLatched: true })} />
-    )
+    act(() => metersStore.set(neutralMeters({ overLatched: true })))
     expect(screen.getByRole('button', { name: 'TP OVER' }).className).toContain('mbs-over-led-lit')
     fireEvent.click(screen.getByRole('button', { name: 'TP OVER' }))
     expect(props.onResetOver).toHaveBeenCalledTimes(1)

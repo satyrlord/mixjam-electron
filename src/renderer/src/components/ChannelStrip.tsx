@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { ReadableStore } from '../lib/value-store'
 import { VerticalFader } from './VerticalControls'
 import { RotaryControl, RotaryDial } from './RotaryField'
@@ -33,7 +34,7 @@ function gainDbText(gain: number): string {
   return `${Math.round(20 * Math.log10(gain))} dB`
 }
 
-export default function ChannelStrip({
+function ChannelStrip({
   laneId,
   channelIndex,
   label,
@@ -122,3 +123,5 @@ export default function ChannelStrip({
     </div>
   )
 }
+
+export default memo(ChannelStrip)

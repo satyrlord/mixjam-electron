@@ -28,6 +28,7 @@ function makePlaybackEngine(opts: {
   audioTime?: number
   sampleCache?: { maxEntries: number }
   clipEdgeMicroFades?: ClipEdgeMicroFadeSettings
+  lookaheadMs?: number
 }) {
   const context = opts.context ?? createMockContext()
   const clock = mockClock()
@@ -40,6 +41,10 @@ function makePlaybackEngine(opts: {
     loadSampleBytes: opts.loadSampleBytes ?? (async () => new ArrayBuffer(8)),
     sampleCache: opts.sampleCache,
     clipEdgeMicroFades: opts.clipEdgeMicroFades,
+    // Pin the classic 100 ms window so tick-window-dependent behaviour (preload
+    // working set) is deterministic, independent of the larger production
+    // lookahead. The lookahead mechanism itself is covered by scheduler.test.ts.
+    lookaheadMs: opts.lookaheadMs ?? 100,
     bpm: 120
   })
   return { playbackEngine, context, clock }

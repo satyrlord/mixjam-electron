@@ -1,4 +1,4 @@
-import { memo, useCallback, useState, type DragEvent, type ReactNode } from 'react'
+import { memo, useCallback, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import {
   MASTER_BUS_PARAMS,
   type MasterBusModuleId,
@@ -12,6 +12,7 @@ import {
   type MasterBusState
 } from '../engine/masterbus/presets'
 import { clamp } from '../lib/sample-utils'
+import { deriveStore, useStoreValue, type ReadableStore } from '../lib/value-store'
 import { RotaryControl, RotaryDial } from './RotaryField'
 
 export interface MasterBusUiMeters {
@@ -27,9 +28,12 @@ export interface MasterBusUiMeters {
   overLatched: boolean
 }
 
+/** GR-row source field on the meter snapshot, per module. */
+type GrField = 'compGrDb' | 'limGrDb'
+
 export interface MasterBusStripProps {
   state: MasterBusState
-  meters: MasterBusUiMeters
+  metersStore: ReadableStore<MasterBusUiMeters>
   onSetParam: (id: MasterBusParamId, value: number) => void
   onGestureStart: () => void
   onGestureEnd: () => void
@@ -255,15 +259,24 @@ const SpeedSwitch = memo(function SpeedSwitch({
   )
 })
 
+// Leaf: subscribes to only its own gain-reduction value, so a GR frame lights
+// LEDs without touching the owning ProcessorModule or the rest of the rack.
 const GrLedRow = memo(function GrLedRow({
+  metersStore,
+  field,
   thresholds,
-  grDb,
   powered
 }: {
+  metersStore: ReadableStore<MasterBusUiMeters>
+  field: GrField
   thresholds: readonly number[]
-  grDb: number
   powered: boolean
 }) {
+  const grStore = useMemo(
+    () => deriveStore(metersStore, (m) => m[field]),
+    [metersStore, field]
+  )
+  const grDb = useStoreValue(grStore)
   return (
     <div className="mbs-gr" aria-hidden="true">
       <span className="mbs-gr-lbl">GR</span>
@@ -337,7 +350,32 @@ const VuScale = memo(function VuScale() {
   )
 })
 
-function InputMeterModule({ meters }: { meters: MasterBusUiMeters }) {
+interface InputMeterValue {
+  vuDb: number
+  peakL: boolean
+  peakR: boolean
+}
+
+function inputMeterEquals(a: InputMeterValue, b: InputMeterValue): boolean {
+  return a.vuDb === b.vuDb && a.peakL === b.peakL && a.peakR === b.peakR
+}
+
+// Leaf: re-renders only when the input VU or peak LEDs change, not on loudness
+// or GR frames.
+const InputMeterModule = memo(function InputMeterModule({
+  metersStore
+}: {
+  metersStore: ReadableStore<MasterBusUiMeters>
+}) {
+  const inputStore = useMemo(
+    () => deriveStore(
+      metersStore,
+      (m) => ({ vuDb: m.vuDb, peakL: m.peakL, peakR: m.peakR }),
+      inputMeterEquals
+    ),
+    [metersStore]
+  )
+  const meters = useStoreValue(inputStore)
   const finite = Number.isFinite(meters.vuDb)
   const vuVal = clamp((finite ? meters.vuDb : -120) + 18, -10, 4)
   const needleDeg = -46 + ((vuVal + 10) / 14) * 92
@@ -377,7 +415,7 @@ function InputMeterModule({ meters }: { meters: MasterBusUiMeters }) {
       </div>
     </section>
   )
-}
+})
 
 /* ── Output meter (slot 13) ── */
 
@@ -386,13 +424,43 @@ function lufsTopPct(v: number): number {
   return (1 - (v + 24) / 18) * 100
 }
 
-function OutputMeterModule({
-  meters,
+interface OutputMeterValue {
+  momentaryLufs: number | null
+  integratedLufs: number | null
+  truePeakDbtp: number | null
+  overLatched: boolean
+}
+
+function outputMeterEquals(a: OutputMeterValue, b: OutputMeterValue): boolean {
+  return a.momentaryLufs === b.momentaryLufs &&
+    a.integratedLufs === b.integratedLufs &&
+    a.truePeakDbtp === b.truePeakDbtp &&
+    a.overLatched === b.overLatched
+}
+
+// Leaf: re-renders on loudness/latch frames only. onResetOver is stable, so the
+// rack re-rendering for a param change leaves this untouched.
+const OutputMeterModule = memo(function OutputMeterModule({
+  metersStore,
   onResetOver
 }: {
-  meters: MasterBusUiMeters
+  metersStore: ReadableStore<MasterBusUiMeters>
   onResetOver: () => void
 }) {
+  const outputStore = useMemo(
+    () => deriveStore(
+      metersStore,
+      (m) => ({
+        momentaryLufs: m.momentaryLufs,
+        integratedLufs: m.integratedLufs,
+        truePeakDbtp: m.truePeakDbtp,
+        overLatched: m.overLatched
+      }),
+      outputMeterEquals
+    ),
+    [metersStore]
+  )
+  const meters = useStoreValue(outputStore)
   const m = meters.momentaryLufs
   const lufsPct = m === null ? 0 : clamp((m + 24) / 18, 0, 1) * 100
   const lufsHot = m !== null && m > -11
@@ -479,7 +547,7 @@ function OutputMeterModule({
       </div>
     </section>
   )
-}
+})
 
 /* ── Pinned Gain Stage (slot 01) ── */
 
@@ -531,9 +599,9 @@ const GainStageModule = memo(function GainStageModule({
 
 /* ── Reorderable processor modules (slots 03..12) ── */
 
-// Memoized. `grDb` is the constant 0 for every module without a GR row, and the
-// rest of the props are primitives or stable callbacks, so a meter frame
-// re-renders only the two modules whose gain reduction actually moved. The
+// Memoized. Every prop is a primitive, the stable `metersStore` handle, or a
+// stable callback, so a meter frame re-renders none of these modules — the GR
+// row inside subscribes to its own value and updates on its own. The
 // drop-target index is a prop rather than a bound closure so the drag handler
 // identity stays stable across renders.
 const ProcessorModule = memo(function ProcessorModule({
@@ -542,7 +610,7 @@ const ProcessorModule = memo(function ProcessorModule({
   ordinal,
   powered,
   params,
-  grDb,
+  metersStore,
   dragging,
   onSetParam,
   onGestureStart,
@@ -559,7 +627,7 @@ const ProcessorModule = memo(function ProcessorModule({
   ordinal: number
   powered: boolean
   params: MasterBusState['params']
-  grDb: number
+  metersStore: ReadableStore<MasterBusUiMeters>
   dragging: boolean
   onSetParam: (paramId: MasterBusParamId, value: number) => void
   onGestureStart: () => void
@@ -642,7 +710,14 @@ const ProcessorModule = memo(function ProcessorModule({
             )
           )}
         </div>
-        {meta.gr && <GrLedRow thresholds={meta.gr} grDb={grDb} powered={powered} />}
+        {meta.gr && (
+          <GrLedRow
+            metersStore={metersStore}
+            field={id === 'lim' ? 'limGrDb' : 'compGrDb'}
+            thresholds={meta.gr}
+            powered={powered}
+          />
+        )}
         <p className="mbs-mod-desc">{meta.desc}</p>
       </div>
     </section>
@@ -653,7 +728,7 @@ const ProcessorModule = memo(function ProcessorModule({
 
 export default function MasterBusStrip({
   state,
-  meters,
+  metersStore,
   onSetParam,
   onGestureStart,
   onGestureEnd,
@@ -726,7 +801,7 @@ export default function MasterBusStrip({
       onGestureStart={onGestureStart}
       onGestureEnd={onGestureEnd}
     />,
-    <InputMeterModule key="meter-in" meters={meters} />
+    <InputMeterModule key="meter-in" metersStore={metersStore} />
   ]
   order.forEach((id, index) => {
     if (dragId !== null && dropIndex === index) {
@@ -740,7 +815,7 @@ export default function MasterBusStrip({
         ordinal={index + 3}
         powered={state.power[id]}
         params={state.params}
-        grDb={id === 'comp' ? meters.compGrDb : id === 'lim' ? meters.limGrDb : 0}
+        metersStore={metersStore}
         dragging={dragId === id}
         onSetParam={onSetParam}
         onGestureStart={onGestureStart}
@@ -757,7 +832,7 @@ export default function MasterBusStrip({
   if (dragId !== null && dropIndex === order.length) {
     slots.push(<div key="ind-end" className="mbs-drop-ind" aria-hidden="true" />)
   }
-  slots.push(<OutputMeterModule key="meter-out" meters={meters} onResetOver={onResetOver} />)
+  slots.push(<OutputMeterModule key="meter-out" metersStore={metersStore} onResetOver={onResetOver} />)
 
   return (
     <div className="mbs-strip">

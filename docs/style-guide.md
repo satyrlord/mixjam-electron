@@ -216,12 +216,15 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 - Tablist uses automatic activation with arrow-key navigation.
 - Mixer and the other tabs remember separate app-local heights. Entering Mixer
   expands it to its last usable height; leaving restores the other tab height.
-- Each tab has a content-safe minimum derived from the selected UI Size.
-  Manual resizing, saved layouts, tab changes, and UI Size changes clamp the
-  active panel to that minimum instead of letting controls paint outside their
-  cards. The active panel owns a defensive vertical scrollport so future
-  content growth beyond the documented minimum remains reachable; clipping
-  interactive controls is not an accepted fallback.
+- Each tab has a content-safe minimum derived from the selected UI Size,
+  enforced as a CSS content floor so the active panel's content always stays
+  laid out at its full budget instead of letting controls paint outside their
+  cards. The panel's drag floor is a single constant (the smallest tab's
+  minimum) so a tab switch never re-clamps the panel group (which glitched
+  playback); dragging a taller tab below its own budget scrolls the panel
+  through its defensive vertical scrollport. Every interactive control stays
+  reachable — visible at or above the budget, scroll-reachable below it; clipping
+  a control is not an accepted fallback.
 - The active tab already names its surface. Mixer has no redundant internal
   title band, so its content-safe minimum is one title row lower at every UI
   Size.

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import {
   createEmptyReturnModule,
@@ -78,7 +78,7 @@ type EditingState =
   | { kind: 'echoform-delay'; module: EchoformDelayModule; powered: boolean }
   | { kind: 'aetherform-reverb'; module: AetherformReverbModule; powered: boolean }
 
-export default function MixerFxSlot({
+function MixerFxSlot({
   bus,
   bpm = 120,
   onSetBpm,
@@ -291,3 +291,5 @@ export default function MixerFxSlot({
     </div>
   )
 }
+
+export default memo(MixerFxSlot)

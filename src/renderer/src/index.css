@@ -2639,9 +2639,19 @@ select option:disabled {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Bound the reveal repaint and reflow to the panel box so switching tabs does
+     not invalidate the tracker's layout or paint (and vice versa). Not
+     content-visibility: the panels stay mounted with live control geometry
+     (spec-012 metering, the OVER latch), which content-visibility would skip. */
+  contain: layout paint;
 }
 
-.bottom-workspace-panel > * {
+/* Higher specificity than a panel root's own `min-height: 0` (e.g. .mbs-strip),
+   so the per-tab content floor actually holds. Without this the strip collapses
+   to the shrunk panel height and its inner `overflow-y: hidden` scroller clips
+   the rack with no way to scroll to it. With it, the content stays laid out at
+   its full budget and the panel scrolls to reveal every control. */
+.bottom-workspace .bottom-workspace-panel > * {
   min-height: var(--bottom-workspace-content-min-height);
 }
 

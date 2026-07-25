@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import type { LaneState } from '../project/project-state'
 import type { PlaybackReturnSnapshot } from '../engine/playback-engine'
 import { getReturnEffect } from '../engine/return-effects'
@@ -44,8 +44,10 @@ function returnModuleName(bus: PlaybackReturnSnapshot): string {
   return getReturnEffect(bus.module.type)?.label ?? 'Empty'
 }
 
-/** Full-width, horizontally scrollable Mixer workspace derived from lanes. */
-export default function MixerColumn({
+/** Full-width, horizontally scrollable Mixer workspace derived from lanes.
+ *  Memoized: the host re-renders on unrelated edits (a Master knob move, a tab
+ *  switch), and this subtree must not reconcile unless its own props change. */
+function MixerColumn({
   lanes,
   returnBuses,
   channelMetersStore,
@@ -171,3 +173,5 @@ export default function MixerColumn({
     </div>
   )
 }
+
+export default memo(MixerColumn)

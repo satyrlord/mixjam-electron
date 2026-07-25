@@ -101,20 +101,31 @@ describe('useBottomWorkspace', () => {
     await waitFor(() => expect(panel.resize).toHaveBeenLastCalledWith('590px'))
   })
 
-  // The Panel constraint is what stops a drag from squeezing a tab below its
-  // content budget (e2e: "each Bottom Workspace tab keeps its content inside
-  // the active minimum height"), so it must track the active tab exactly.
-  it('constrains the panel to the active tab content budget', () => {
+  // The Panel drag-floor is a CONSTANT (the smallest tab budget), not per-tab: a
+  // per-tab floor re-registered the panel-group constraint inside the switch's
+  // commit frame, which was half of the tab-switch playback stall. The per-tab
+  // content floor is still enforced by the CSS min-height (`bottomMinimumHeight`
+  // tracks the active tab), and the imperative resize still lifts each tab to
+  // its own budget; a drag below the active budget now scrolls instead of
+  // hard-stopping (e2e: "a tab dragged below its budget scrolls without clipping
+  // any control").
+  it('holds the drag floor at the smallest tab budget across switches', () => {
     const { result } = renderHook(() => useBottomWorkspace())
-
-    act(() => result.current.setBottomTab('master'))
-    expect(result.current.bottomPanelMinimumHeight).toBe(
-      result.current.bottomMinimumHeights.master
-    )
-    act(() => result.current.setBottomTab('samples'))
-    expect(result.current.bottomPanelMinimumHeight).toBe(
+    const floor = Math.min(
+      result.current.bottomMinimumHeights.master,
+      result.current.bottomMinimumHeights.mixer,
       result.current.bottomMinimumHeights.samples
     )
+
+    act(() => result.current.setBottomTab('master'))
+    expect(result.current.bottomPanelMinimumHeight).toBe(floor)
+    // The content floor still tracks the active tab.
+    expect(result.current.bottomMinimumHeight).toBe(result.current.bottomMinimumHeights.master)
+
+    act(() => result.current.setBottomTab('samples'))
+    // The drag floor does NOT change on a switch — that stability is the fix.
+    expect(result.current.bottomPanelMinimumHeight).toBe(floor)
+    expect(result.current.bottomMinimumHeight).toBe(result.current.bottomMinimumHeights.samples)
   })
 
   it('clamps an undersized restored tab and an unmeasured panel to pixels', async () => {

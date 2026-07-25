@@ -33,6 +33,19 @@ import { ClipEdgeBoundaryPolicy } from './clip-edge-boundary-policy'
 const PRELOAD_CONCURRENCY = 4
 type SamplePreparation = 'ready' | 'failed'
 
+// How far ahead the scheduler queues note triggers. This is the app's tolerance
+// for main-thread stalls: a UI stall shorter than this never makes a note late,
+// because the notes covering the stall were already scheduled before it. On a
+// dense project a tab switch, a knob drag, or opening an effect editor can block
+// the (main-thread) renderer for several hundred ms; 100 ms was far too small to
+// ride through that, so playback glitched whenever the user touched the UI.
+//
+// The cost is that an ARRANGEMENT edit made mid-playback (moving a placement,
+// changing tempo) takes up to this long to be heard. Master-bus and Mixer edits
+// do NOT go through the scheduler — they reach the audio graph in real time — so
+// a mastering/mixing session pays no audible latency for this.
+const SCHEDULER_LOOKAHEAD_MS = 600
+
 // Returns the raw bytes for a sample path, or null if unreadable.
 export type LoadSampleBytes = (samplePath: string) => Promise<ArrayBuffer | null>
 
@@ -45,6 +58,10 @@ export interface PlaybackEngineOptions extends AudioEngineOptions {
   clock?: SchedulerClock
   // Audio clock override for tests (defaults to engine.currentTime).
   now?: () => number
+  // Scheduler lookahead in ms (defaults to SCHEDULER_LOOKAHEAD_MS). Tests that
+  // exercise tick-window-dependent behaviour (preload working set) pin a small
+  // value so they stay deterministic and decoupled from the production tuning.
+  lookaheadMs?: number
   clipEdgeMicroFades?: ClipEdgeMicroFadeSettings
 }
 
@@ -114,6 +131,7 @@ export class PlaybackEngine {
       now,
       transport: { get bpm() { return self.currentBpm } },
       onSchedule: (tick, when) => this.handleScheduledTick(tick, when),
+      lookaheadMs: options.lookaheadMs ?? SCHEDULER_LOOKAHEAD_MS,
       clock: options.clock
     })
   }

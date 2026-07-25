@@ -148,17 +148,28 @@ browser adjacencies.
   changes, expansion restores, and UI Size changes all clamp through the same
   content-safe minimum. The root Player supplies content and layout regions but
   does not duplicate this state machine.
-- The active tab's content-safe minimum constrains the resizable Panel itself,
-  because that constraint is what prevents a manual drag from squeezing a tab
-  below its budget. Enforcing the floor after a drag instead would fight the
-  user's pointer mid-gesture. The cost is that a tab change is also a layout
-  change; it is kept affordable by memoizing the three panel subtrees so a switch
-  re-renders the tab chrome and the panel group, not the Mixer strips, Master
-  rack, Sample Browser, and Tracker as well.
-- At supported 1920x1080 geometry, every visible Master, Mixer, and Samples
-  control stays within its card and the Bottom Workspace. The active panel is
-  also a defensive vertical scrollport so later content growth beyond its
-  documented minimum remains reachable instead of being clipped.
+- The resizable Panel's drag floor is a single constant (the smallest tab's
+  content-safe minimum), not the active tab's minimum. A per-tab floor made the
+  Panel's `minSize` change on every tab switch, which re-registered the panel
+  group's size constraint — a forced synchronous layout and clamp — inside the
+  switch's commit frame. Split across a second (rAF-deferred) frame from the
+  size restore, that two-frame stall breached the audio scheduler's lookahead
+  margin and glitched playback during a switch. Holding the drag floor constant
+  keeps the group from re-clamping on a tab change, and the size restore now runs
+  in the same commit as the tab flip, so a switch is one frame, not two.
+- The per-tab content floor is instead enforced by a CSS `min-height` on the
+  active panel's content (`--bottom-workspace-content-min-height`), specific
+  enough to hold even when a panel root sets its own `min-height: 0`. The content
+  stays laid out at the active tab's full budget, and the panel is a vertical
+  scrollport, so a tab dragged below its budget SCROLLS — every control remains
+  reachable rather than being clipped or hard-stopped. Tab restoration still
+  lifts each tab to its own remembered budget through the imperative resize.
+- At supported 1920x1080 geometry, every Master, Mixer, and Samples control
+  stays within its card and is reachable — visible when the panel is at or above
+  the tab's budget, and reachable by scrolling the panel when it is dragged
+  below. The three panel subtrees stay memoized so a switch re-renders the tab
+  chrome and the panel group, not the Mixer strips, Master rack, Sample Browser,
+  and Tracker as well.
 - Mixer effect selection and editing remain inside Mixer. There is no FX tab or
   cross-tab FX transition.
 - Samples exposes an explicit expand/restore action. Expansion grows the Bottom
@@ -539,8 +550,10 @@ Sizing and visual treatment follow the [Style Guide](../style-guide.md#resize-ha
   between the upper work area and the full-width Bottom Workspace.
 - Supports pointer, touch, and keyboard resizing, exposes separator value/min/max
   semantics, and persists the resulting layout as
-  `mixjam:bottom-workspace-layout-v2`. Its drag floor and accessible bounds
-  follow the active tab's UI-Size-derived content minimum.
+  `mixjam:bottom-workspace-layout-v2`. Its drag floor is the smallest tab's
+  UI-Size-derived content minimum (constant across tab switches); the active
+  tab's own minimum is enforced as a CSS content floor, so dragging a taller tab
+  below its budget scrolls the panel with every control reachable.
 
 All three split handles use the shared resizable-panel primitive rather than
 window-level mouse listeners.
