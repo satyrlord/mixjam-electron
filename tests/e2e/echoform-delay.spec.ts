@@ -99,8 +99,7 @@ test.describe('Echoform Delay editor', () => {
     expect(geometry.clippedCards, 'no card clips its own controls').toEqual([])
     expect(geometry.gridScrolls).toBe('auto')
 
-    // Freeze / Hold is the last control in the last card — the one the old
-    // fixed-height layout cut off.
-    await expect(seededPage.getByRole('button', { name: /Freeze \/ Hold/ })).toBeVisible()
+    // Tap Tempo is the last control in the last card; it must stay reachable.
+    await expect(seededPage.getByRole('button', { name: /Tap Tempo/ })).toBeVisible()
   })
 })

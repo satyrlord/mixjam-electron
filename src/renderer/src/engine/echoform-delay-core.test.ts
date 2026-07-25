@@ -27,7 +27,6 @@ function baseState(overrides: Partial<EchoformDelayState> = {}): EchoformDelaySt
     duckAmount: 0,
     duckRelease: 200,
     outputDb: 0,
-    freeze: false,
     bypass: false,
     ...overrides
   }
@@ -123,14 +122,6 @@ function peak(buffer: Float32Array, from = 0, to = buffer.length): number {
   let p = 0
   for (let i = from; i < to; i += 1) p = Math.max(p, Math.abs(buffer[i]!))
   return p
-}
-
-/** RMS level of a window, in dBFS (-Infinity for pure silence). */
-function rmsDb(buffer: Float32Array, from: number, to: number): number {
-  let sum = 0
-  for (let i = from; i < to; i += 1) sum += buffer[i]! * buffer[i]!
-  const rms = Math.sqrt(sum / Math.max(1, to - from))
-  return rms > 0 ? 20 * Math.log10(rms) : -Infinity
 }
 
 function isFiniteBuffer(buffer: Float32Array): boolean {
@@ -468,64 +459,6 @@ describe('Echoform delay — ducking', () => {
     const core = new EchoformDelayCore(FS, baseState({ duckAmount: 100, duckRelease: 100 }), 120)
     const silent = renderImpulse(core, 0.2) // impulse then silence
     expect(isFiniteBuffer(silent.left)).toBe(true)
-  })
-})
-
-describe('Echoform delay — freeze', () => {
-  it('sustains existing repeats and blocks new input', () => {
-    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 100, timeMsR: 100, feedback: 40 }), 120)
-    // Prime the buffer with an impulse.
-    renderImpulse(core, 0.3)
-    // Engage freeze, then feed new input — the new input must not accumulate.
-    core.update(baseState({ timeMsL: 100, timeMsR: 100, feedback: 40, freeze: true }), 120)
-    const held = renderTone(core, 0.8, 0.5)
-    // The sustained loop stays present (does not decay to silence).
-    const latePeak = peak(held.left, Math.round(0.5 * FS), Math.round(0.8 * FS))
-    expect(latePeak).toBeGreaterThan(0.001)
-    expect(isFiniteBuffer(held.left)).toBe(true)
-  })
-
-  it('holds the frozen tail flat instead of fading (in-loop filters bypassed)', () => {
-    // Freeze must be a true hold, not a slow fade. Before the in-loop filter
-    // bypass, the always-active low/high-cut and character saturation shaved
-    // energy every circulation, so a "frozen" delay decayed ~0.5 dB/s. Prime
-    // with a tone, freeze, then hold on silence for 8 s and compare the level
-    // of the first hold second against the last. The windows are ~1 s (many
-    // delay periods) so the held signal's periodic RMS ripple averages out and
-    // only real drift is measured.
-    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 300, timeMsR: 300, feedback: 50 }), 120)
-    renderTone(core, 1.5, 0.5)
-    core.update(baseState({ timeMsL: 300, timeMsR: 300, feedback: 50, freeze: true }), 120)
-    const held = renderSilence(core, 8)
-    const early = rmsDb(held, Math.round(0.5 * FS), Math.round(1.5 * FS))
-    const late = rmsDb(held, Math.round(7.0 * FS), Math.round(8.0 * FS))
-    // A real hold: under 1 dB drift across ~6.5 s (was ~-3 dB before the fix).
-    expect(early).toBeGreaterThan(-40)
-    expect(Math.abs(late - early)).toBeLessThan(1)
-    expect(isFiniteBuffer(held)).toBe(true)
-  })
-
-  it('holds flat in Tape character (in-loop saturation bypassed while frozen)', () => {
-    // Tape recirculates the un-coloured tap while frozen (so the loop energy is
-    // held), while the wet OUTPUT stays tape-coloured. Same ~1 s averaging
-    // windows; a true hold, not the multi-dB monotonic fade the un-bypassed
-    // loop produced.
-    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 300, timeMsR: 300, feedback: 50, character: 'tape' }), 120)
-    renderTone(core, 1.5, 0.5)
-    core.update(baseState({ timeMsL: 300, timeMsR: 300, feedback: 50, character: 'tape', freeze: true }), 120)
-    const held = renderSilence(core, 8)
-    const early = rmsDb(held, Math.round(0.5 * FS), Math.round(1.5 * FS))
-    const late = rmsDb(held, Math.round(7.0 * FS), Math.round(8.0 * FS))
-    expect(Math.abs(late - early)).toBeLessThan(1)
-    expect(isFiniteBuffer(held)).toBe(true)
-  })
-
-  it('restores user feedback smoothly on release', () => {
-    const core = new EchoformDelayCore(FS, baseState({ timeMsL: 80, timeMsR: 80, feedback: 30, freeze: true }), 120)
-    renderImpulse(core, 0.4)
-    core.update(baseState({ timeMsL: 80, timeMsR: 80, feedback: 30, freeze: false }), 120)
-    const released = renderTone(core, 0.5, 0.3)
-    expect(isFiniteBuffer(released.left)).toBe(true)
   })
 })
 

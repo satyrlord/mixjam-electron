@@ -123,7 +123,6 @@ are L 500 ms (1/4) and R 375 ms (1/8 dotted).
 | Duck amount | 0–100% | 34% |
 | Duck release | 50–2500 ms | 620 ms |
 | Output level | -24 to +12 dB | -1.5 dB |
-| Freeze/Hold | Off, On | Off |
 | Bypass | Off, On | Off |
 | Mix | 0–100% (shared FX-return level) | container-owned |
 
@@ -150,17 +149,9 @@ Conceptual stereo flow, all inside the module black box:
 5. Normal-stereo or cross-coupled (ping-pong) feedback matrix, crossfaded on
    change; loop signal × Feedback; a bounded soft limiter inside the loop keeps
    over-unity feedback finite without hard-clipping ordinary repeats.
-6. Add the new input unless Freeze/Hold is active.
+6. Add the new input.
 7. The delayed taps are the wet output; apply post-loop mid/side Stereo width
    (0% mono, 100% unchanged, 200% doubled side).
-
-Freeze/Hold is a **true hold, not a slow fade**. While frozen the loop gain
-goes to near-unity, new input is gated, **and the recirculated signal bypasses
-the in-loop low/high-cut filters and character saturation** — those stages are
-lossy per circulation, so leaving them in the loop made a "frozen" tail decay
-audibly. The wet output tap stays filtered and coloured, so the held tail keeps
-its tone; only the copy fed back around the loop is un-toned. The filters keep
-running (their state stays warm) so releasing Freeze is click-free.
 8. Apply ducking gain to the wet only (soft knee, wet-only attenuation).
 9. Apply Output level.
 
@@ -202,8 +193,7 @@ the input (so ducking follows the natural transient, not the smashed level) and
 before the network write, so driven material recirculates and the grit builds
 across repeats. The curve is `tanh(x·g)/g` with `g = 1 + drive·8` plus a mild
 makeup, then blended against the clean input by the Drive amount, so 0% is an
-exact bypass. Drive is smoothed per sample (click-free) and gated by Freeze like
-any other input, so a frozen tail holds without new driven input.
+exact bypass. Drive is smoothed per sample (click-free).
 
 ## Return Graph and Limiter
 
@@ -243,7 +233,7 @@ sum of lane sends N
 - **Bypass** follows the FX-return contract. The in-module Bypass crossfades the
   audible return to silence while the delay loop keeps running internally
   (tail-preserving); un-bypassing reveals the still-ringing tail. It never clears
-  frozen or normal delay buffers. Container Power gates input the same
+  delay buffers. Container Power gates input the same
   tail-preserving way.
 
 ## FX Edit Modal
@@ -288,7 +278,7 @@ sum of lane sends N
   Left area: tempo and mode chip. Center: a two-lane echo grid (L amber, R teal)
   with mock tap markers placed from the current delay times and feedback —
   alternating lanes in ping-pong, independent taps in normal stereo, more taps
-  with more feedback, a sustained pattern under Freeze. Right: L/R time readouts
+  with more feedback, a longer sustained pattern. Right: L/R time readouts
   and stereo state. Marker shape follows character (Digital squared, Analog
   round, Tape irregular). A restrained playhead scans unless bypassed or
   reduced-motion is set. It is derived entirely from parameter state (no audio
@@ -306,7 +296,7 @@ sum of lane sends N
 - Knob keyboard: Arrow Up/Right increases one step, Arrow Down/Left decreases,
   Shift + arrow is fine, Page Up/Down move ten steps, Home/End set
   minimum/maximum. Values clamp to their documented ranges.
-- Bypass, Ping-pong, Freeze/Hold, Sync/Free, and Character are real buttons with
+- Bypass, Ping-pong, Sync/Free, and Character are real buttons with
   `aria-pressed`; Character is a single-selection group. Hidden Sync or Free
   controls are removed from the tab order.
 - Tap Tempo records tap timestamps, resets after a >2000 ms gap, keeps the six
@@ -347,7 +337,7 @@ audition continues against the resulting transport position.
 
 ## Persistence and Validation
 
-Spec-011 owns the wire format, now **version 6**. It saves exactly four slot
+Spec-011 owns the wire format, now **version 7**. It saves exactly four slot
 records and four limiter settings. Each slot saves its stable position, module
 type, container Power, return level, and complete Echoform Delay settings when
 the type is `echoform-delay`. Empty is saved explicitly. Return levels and lane
@@ -359,10 +349,10 @@ Parsing rejects:
 - duplicate or out-of-range slot positions;
 - unknown module types or unknown note divisions;
 - missing settings, non-finite values, or values outside documented ranges;
-- a non-boolean Power, Ping-pong, Freeze, Bypass, or limiter-enabled value; and
+- a non-boolean Power, Ping-pong, Bypass, or limiter-enabled value; and
 - delay parameter fields attached to Empty.
 
-Version 6 is the current format. Spec-011 owns strict version validation; older
+Version 7 is the current format. Spec-011 owns strict version validation; older
 project formats are rejected rather than migrated.
 
 Return modules, Power, Return level, and limiter state live in the same project
@@ -448,7 +438,7 @@ timing, free min/max, ping-pong cross-channel routing vs normal-stereo routing,
 feedback decay below 100% and bounded behavior at 100–110%, no NaN/Inf under
 extreme settings, low/high-cut accumulation across repeats, width at 0/100/200%,
 modulation staying in bounds and disabled at depth 0, character differences,
-wet-only ducking, Freeze holding the loop while blocking input, tail-preserving
+wet-only ducking, tail-preserving
 bypass, output-gain conversion, and sample-rate reinitialization. Limiter
 verification uses stereo fixtures to check the -1 dBFS ceiling, lookahead,
 release, stereo linking, and zero limiter latency while bypassed.
@@ -485,7 +475,7 @@ release, stereo linking, and zero limiter latency while bypassed.
   audible dry path.
 - [ ] **AC-003:** Echoform Delay defaults (Wide Tape Echo), ranges, the 15
   divisions, independent L/R Sync and Free retained values, feedback to 110%,
-  character, ducking, freeze, and bypass roundtrip exactly as specified.
+  character, ducking, and bypass roundtrip exactly as specified.
 - [ ] **AC-004:** Free and sync timing respond live and independently per side,
   sync follows project BPM, and the module produces stereo 100%-wet output.
 - [ ] **AC-005:** Feedback maps 0–110% → loop gain 0.0–1.10; over-unity feedback
@@ -517,13 +507,13 @@ release, stereo linking, and zero limiter latency while bypassed.
   in-DSP crossfade.
 - [ ] **AC-014:** Stop, Pause, natural end, Jump to End, seek, lane gating,
   Power, and in-module Bypass preserve tails; Clear, project replacement, and
-  engine close cut them; Freeze holds the loop and blocks new input.
-- [ ] **AC-015:** Version-6 parsing and roundtrip enforce exactly four complete
-  valid slots and limiter records; version 5 and all other older formats reject
+  engine close cut them.
+- [ ] **AC-015:** Version-7 parsing and roundtrip enforce exactly four complete
+  valid slots and limiter records; version 6 and all other older formats reject
   without migration.
 - [ ] **AC-016:** Headless DSP and Chromium offline-render tests prove division
   timing, independent L/R routing, ping-pong vs stereo feedback, in-loop
-  filtering, width, modulation bounds, ducking, freeze, tail-preserving bypass,
+  filtering, width, modulation bounds, ducking, tail-preserving bypass,
   sample-rate reinitialization, limiter ceiling/linking/latency, slot isolation,
   and complete node cleanup.
 

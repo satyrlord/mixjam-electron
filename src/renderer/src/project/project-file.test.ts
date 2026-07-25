@@ -158,7 +158,7 @@ describe('project file format', () => {
     const project = { ...makeProject(), generator: GENERATOR }
     const parsed = parseProject(serialize(project))
 
-    expect(parsed.formatVersion).toBe(6)
+    expect(parsed.formatVersion).toBe(7)
     expect(parsed.generator).toEqual(GENERATOR)
 
     const serialized = JSON.parse(serializeProject(parsed, {
@@ -183,12 +183,12 @@ describe('project file format', () => {
     expect(parsed.masterBus).toEqual(project.masterBus)
   })
 
-  it('rejects version 5 projects', () => {
+  it('rejects version 6 projects', () => {
     const raw = JSON.parse(serialize()) as Record<string, unknown>
-    raw.formatVersion = 5
+    raw.formatVersion = 6
 
     expect(() => parseProject(JSON.stringify(raw))).toThrow(
-      'This MixJam project uses an unsupported format version. Only format version 6 is supported.'
+      'This MixJam project uses an unsupported format version. Only format version 7 is supported.'
     )
   })
 
@@ -432,7 +432,6 @@ describe('Aetherform Reverb persistence', () => {
         duckAmountPercent: 4,
         duckReleaseMs: 2200,
         outputDb: -6,
-        freeze: false,
         bypass: false,
         ...overrides
       } as ProjectData['fxBuses'][number]['module'],
@@ -469,7 +468,6 @@ describe('Aetherform Reverb persistence', () => {
       duckAmountPercent: 4,
       duckReleaseMs: 2200,
       outputDb: -6,
-      freeze: false,
       bypass: false
     })
     // Identity is restored from the bus slot, and a second round-trip is stable.
@@ -478,11 +476,10 @@ describe('Aetherform Reverb persistence', () => {
     expect(reparsed.fxBuses[1]!.module).toEqual(module)
   })
 
-  it('persists freeze and bypass according to the module-state contract', () => {
-    const parsed = parseProject(serialize(reverbProject({ freeze: true, bypass: true })))
+  it('persists bypass according to the module-state contract', () => {
+    const parsed = parseProject(serialize(reverbProject({ bypass: true })))
     const module = parsed.fxBuses[1]!.module
     if (module.type !== 'aetherform-reverb') throw new Error('expected aetherform-reverb')
-    expect(module.freeze).toBe(true)
     expect(module.bypass).toBe(true)
   })
 

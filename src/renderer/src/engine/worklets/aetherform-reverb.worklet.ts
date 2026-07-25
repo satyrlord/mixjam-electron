@@ -10,7 +10,7 @@ type AetherformReverbWorkletMessage =
 registerReturnWorklet<AetherformReverbState, AetherformReverbCore>({
   name: 'aetherform-reverb-processor',
   // A silent or inactive upstream must not cut the tail: the network keeps
-  // ringing (and Freeze keeps sustaining), so process silence instead.
+  // ringing after input stops, so process silence instead.
   processSilentInput: true,
   createCore: (sampleRate, state) => new AetherformReverbCore(sampleRate, state),
   onMessage: (core, data) => {

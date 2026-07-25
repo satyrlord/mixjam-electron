@@ -205,14 +205,12 @@ describe('EchoformDelayModal', () => {
     expect(screen.getAllByText('375 ms').length).toBeGreaterThan(0)
   })
 
-  it('toggles ping-pong, bypass, freeze, and character with aria-pressed', () => {
-    const { onPreview } = renderModal(defaultModule({ pingPong: true, bypass: false, freeze: false, character: 'tape' }))
+  it('toggles ping-pong, bypass, and character with aria-pressed', () => {
+    const { onPreview } = renderModal(defaultModule({ pingPong: true, bypass: false, character: 'tape' }))
     fireEvent.click(screen.getByRole('button', { name: 'Ping-pong' }))
     expect(onPreview.mock.calls.at(-1)![0].pingPong).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Bypass' }))
     expect(onPreview.mock.calls.at(-1)![0].bypass).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: /Freeze/ }))
-    expect(onPreview.mock.calls.at(-1)![0].freeze).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Digital' }))
     expect(onPreview.mock.calls.at(-1)![0].character).toBe('digital')
     expect(screen.getByRole('button', { name: 'Digital' })).toHaveAttribute('aria-pressed', 'true')
@@ -282,7 +280,7 @@ describe('EchoformDelayModal', () => {
   })
 
   it('shows a live footer state string', () => {
-    renderModal(defaultModule({ character: 'tape', mode: 'sync', bypass: false, freeze: false }))
+    renderModal(defaultModule({ character: 'tape', mode: 'sync', bypass: false }))
     expect(screen.getByText('Active / Tape / Sync')).toBeInTheDocument()
   })
 

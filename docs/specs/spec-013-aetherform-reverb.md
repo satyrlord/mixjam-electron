@@ -4,7 +4,7 @@
 
 **Spec Implementation Status:** IMPLEMENTED — the `aetherform-reverb` Return FX
 module, its 760x680 modal editor with the spatial decay visualizer, the
-FDN-based DSP core with shimmer, freeze, ducking, and Clear Tail, seven built-in
+FDN-based DSP core with shimmer, ducking, and Clear Tail, seven built-in
 presets, and persistence are implemented with headless DSP, component, and
 persistence tests.
 
@@ -16,7 +16,7 @@ persistence tests.
 
 Add the Aetherform Reverb as the second effect module hosted by the four Return
 FX buses. It is an algorithmic stereo reverb with four space models, three tail
-characters, a pitch-shifted shimmer feedback branch, freeze/hold, wet-only
+characters, a pitch-shifted shimmer feedback branch, wet-only
 ducking, and a momentary Clear Tail command. Every displayed control drives real
 DSP. The module follows the spec-010 black-box host contract: the host owns
 routing, power, the shared Mix (return level), the limiter, persistence, and
@@ -24,7 +24,7 @@ disposal.
 
 The serialized module type is `aetherform-reverb`. No earlier reverb module or
 prototype ever shipped, so there is no migration; the type is new inside the
-existing format version 6.
+existing format version 7.
 
 ## Module Identity and Parameters
 
@@ -60,7 +60,6 @@ preset):
 | Ducking amount | `duckAmountPercent` | 0–100% | 28 |
 | Ducking release | `duckReleaseMs` | 50–2500 ms, log control | 720 |
 | Output | `outputDb` | -24 to +12 dB | -1.5 |
-| Freeze/Hold | `freeze` | boolean | off |
 | Bypass | `bypass` | boolean (spec-010 module bypass) | off |
 
 Readout conventions:
@@ -77,8 +76,7 @@ Clear Tail is a momentary command, not a parameter. It is routed as a
 the playback engine, and the `useMixer` hook. It is never serialized, never an
 undo entry, and never marks the preset Custom. In DSP it ramps the wet output
 down over ~12 ms, wipes every buffer (pre-delay, early, diffusion, FDN lines,
-filter state, shimmer history and voices), and ramps back up. Clearing while
-frozen stays silent until Freeze is released, because injection is still gated.
+filter state, shimmer history and voices), and ramps back up.
 
 ## DSP Architecture
 
@@ -87,7 +85,7 @@ backed by the allocation-free `AetherformReverbCore`. The renderer posts the
 full parameter state; the audio thread smooths toward targets. Contexts without
 worklet support fall back to identity passthrough. A silent or inactive
 upstream input does not stop processing: the worklet feeds the core silence so
-tails ring out and Freeze sustains.
+tails ring out.
 
 Signal flow: stereo pre-delay -> model-specific multi-tap early reflections
 (toned once on output) in parallel with input diffusion -> eight-line
@@ -109,7 +107,7 @@ Real-time-safety and DSP notes:
   Feedback uses a Householder matrix; per-line gain is
   `10 ^ (-3 * lineSeconds / decaySeconds)` so the displayed Decay is the RT60
   target independent of Size. A bounded in-loop soft limiter keeps extreme
-  Decay + Shimmer + Freeze combinations finite without clipping normal tails.
+  Decay + Shimmer combinations finite without clipping normal tails.
 - Retimes (Size, model, Pre-delay) use dual read-head crossfades — never pitch
   glides. Early reflections retarget through a crossfaded tap-set pair. Model
   and character scalar changes are weight-smoothed; every externally
@@ -135,18 +133,7 @@ Real-time-safety and DSP notes:
   so the root tail stays audible at 100%. Enable/disable and interval changes
   crossfade (~120 ms) between voice pairs; while faded out the shifter work is
   suspended (history stays warm at negligible cost). Shimmer keeps circulating
-  during bypass and freeze; the loop stays bounded.
-- Freeze/Hold is a **true hold, not a slow fade**. It ramps input injection
-  (and new early reflections) to zero and loop gain toward 0.9995 while
-  preserving all buffers, **and the recirculated signal bypasses the in-loop
-  low/high-cut damping and vintage saturation** (the energy-preserving in-loop
-  all-pass stays in, so diffusion is unchanged). Those damping stages are lossy
-  per circulation; leaving them in the loop made a "frozen" tail decay several
-  dB per second. The wet output still reads the damped/character-shaped taps, so
-  the held field keeps its tone; only the feedback copy is undamped. The filters
-  keep running so release is click-free. Modulation and Shimmer keep shaping the
-  held field. After freeze engages the FDN energy redistributes for ~2 s, then
-  holds flat. Release restores the Decay-derived gains from the current buffers.
+  during bypass; the loop stays bounded.
 - Ducking keys from the unprocessed input (stereo-linked, ~7 ms attack,
   50–2500 ms release), soft knee, up to ~24 dB of wet-only attenuation.
 - Drive ("Smash") is a gain-compensated soft saturation on the signal entering
@@ -154,7 +141,7 @@ Real-time-safety and DSP notes:
   shaping. Applied after the ducking detector reads the input (ducking follows
   the natural transient), curve `tanh(x·g)/g` with `g = 1 + drive·8` plus a mild
   makeup, blended against the clean input by the Drive amount so 0% is an exact
-  bypass. Smoothed per sample and gated by Freeze like any other input. Matches
+  bypass. Smoothed per sample. Matches
   the Echoform Drive curve so both effects "smash" alike.
 - Bypass is tail-preserving: the loop keeps running and the audible return
   crossfades to silence, matching the spec-010 return bypass contract.
@@ -181,7 +168,7 @@ Controls use the shared editor-knob contract (`role="slider"`, vertical drag,
 Shift fine, wheel, double-click reset, Arrow/Page/Home/End keys, full ARIA
 value reporting, log curves where the table above says so), native selects for
 the space model and shimmer interval, `aria-pressed` toggles for character,
-early reflections, shimmer, freeze, and bypass, and the shared LinearSlider for
+early reflections, shimmer, and bypass, and the shared LinearSlider for
 early/late balance. The Motion card holds the Rate, Depth, and Shimmer knobs
 plus the shimmer toggle (with its contained On/Off pill) stacked above the
 interval selector.
@@ -193,7 +180,7 @@ reflection nodes, shimmer particles, scanning playhead); pre-delay, size, and
 width/late/shimmer readouts on the right. Models change node shapes, Size and
 Decay scale the field, Diffusion/Density change node spread and count, Vintage
 softens and Bloom enlarges nodes, shimmer particles rise with interval and
-amount, Freeze pauses the playhead and sustains the field, Clear Tail briefly
+amount, Clear Tail briefly
 empties it, Bypass desaturates and pauses it. It renders through CSS animations
 only (no rAF loop), stops when the editor unmounts, honors
 `prefers-reduced-motion`, and carries a full text description
@@ -208,18 +195,17 @@ private palette.
 ## Presets
 
 Seven built-in presets plus a Custom label: Warm Chamber (default), Vocal
-Plate, Dark Hall, Small Room, Ambient Bloom, Shimmer Cloud, Frozen Cathedral.
+Plate, Dark Hall, Small Room, Ambient Bloom, Shimmer Cloud, Endless Cathedral.
 Preset definitions live in `return-effects.ts`
 (`applyAetherformReverbPreset`); the preset Mix percentages (88, 82, 92, 74,
 96, 98, 100) live with the editor and apply to the shared return level. A
 preset load sets every field atomically in one draft update, clears Bypass, and
 updates both Mix controls; any manual sound edit flips the selector to Custom
-(exact-match detection, including Mix). Frozen Cathedral is the only preset
-that loads with Freeze on.
+(exact-match detection, including Mix).
 
 ## Persistence
 
-The module serializes inside `ProjectFxBusState.module` under format version 6
+The module serializes inside `ProjectFxBusState.module` under format version 7
 with the strict key allowlist and range validation in `return-effects.ts`
 (`isReturnModule`) and `project-file.ts`. Clear Tail activation, visualizer
 phase, and modal state are never serialized. Slot duplication through
@@ -232,11 +218,10 @@ phase, and modal state are never serialized. Slot duplication through
   and per-character IR differences, click-free live model/size/character/
   density changes, early-off behavior, balance endpoints, tone accumulation,
   modulation determinism and bounds, width endpoints, ducking depth and
-  release, freeze capture/hold/release, clear-tail flush, tail-preserving
+  release, clear-tail flush, tail-preserving
   bypass, output trim, non-finite input hygiene, and the full shimmer battery
   (interval ratios, +12/+24 spectral lift, root retention, zero-amount
-  null, early-path isolation, band-limiting, mono sum, 30 s decay and
-  freeze boundedness).
+  null, early-path isolation, band-limiting, mono sum, and 30 s decay).
 - `aetherform-reverb-performance.test.ts` — no allocation on the processing
   path; 20%-of-real-time CPU budget with shimmer off and on.
 - `aetherform-reverb-processor.test.ts` — registration memoization, state

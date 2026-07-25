@@ -170,14 +170,12 @@ describe('AetherformReverbModal', () => {
       .toHaveAttribute('aria-valuetext', '70% Early')
   })
 
-  it('toggles early reflections, shimmer, freeze, and bypass with aria-pressed', () => {
+  it('toggles early reflections, shimmer, and bypass with aria-pressed', () => {
     const { onPreview } = renderModal()
     fireEvent.click(screen.getByRole('button', { name: 'Early reflections' }))
     expect(onPreview.mock.calls.at(-1)![0].earlyReflectionsEnabled).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: /^Shimmer/ }))
     expect(onPreview.mock.calls.at(-1)![0].shimmerEnabled).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: /Freeze/ }))
-    expect(onPreview.mock.calls.at(-1)![0].freeze).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Bypass' }))
     expect(onPreview.mock.calls.at(-1)![0].bypass).toBe(true)
   })
@@ -261,9 +259,9 @@ describe('AetherformReverbModal', () => {
 
   it('shows a live footer state string including shimmer', () => {
     renderModal(defaultModule({
-      shimmerEnabled: true, shimmerIntervalSemitones: 19, freeze: true, character: 'bloom', spaceModel: 'hall'
+      shimmerEnabled: true, shimmerIntervalSemitones: 19, character: 'bloom', spaceModel: 'hall'
     }))
-    expect(screen.getByText('Held / Hall / Bloom / Shimmer +19')).toBeInTheDocument()
+    expect(screen.getByText('Active / Hall / Bloom / Shimmer +19')).toBeInTheDocument()
   })
 
   it('shows the bypassed footer state', () => {

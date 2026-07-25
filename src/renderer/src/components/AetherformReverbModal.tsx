@@ -112,7 +112,7 @@ const PRESET_MIX: Record<AetherformReverbPresetName, number> = {
   'Small Room': 74,
   'Ambient Bloom': 96,
   'Shimmer Cloud': 98,
-  'Frozen Cathedral': 100
+  'Endless Cathedral': 100
 }
 
 // ---------------------------------------------------------------------------
@@ -369,7 +369,7 @@ export default function AetherformReverbModal({
 
   const characterLabel = draft.character.charAt(0).toUpperCase() + draft.character.slice(1)
   const spaceLabel = SPACE_LABEL[draft.spaceModel]
-  const stateWord = draft.bypass ? 'Bypassed' : draft.freeze ? 'Held' : 'Active'
+  const stateWord = draft.bypass ? 'Bypassed' : 'Active'
   const stateText = `${stateWord} / ${spaceLabel} / ${characterLabel}${draft.shimmerEnabled ? ` / Shimmer +${draft.shimmerIntervalSemitones}` : ''}`
   const lateBalanceText = draft.lateBalancePercent === 50
     ? 'Balanced'
@@ -387,7 +387,6 @@ export default function AetherformReverbModal({
         data-space={draft.spaceModel}
         data-character={draft.character}
         data-shimmer={draft.shimmerEnabled && draft.shimmerAmountPercent > 0 ? '1' : undefined}
-        data-held={draft.freeze ? '1' : undefined}
         data-bypassed={draft.bypass ? '1' : undefined}
         data-clearing={clearing ? '1' : undefined}
         data-reduced-motion={reducedMotion ? '1' : undefined}
@@ -607,12 +606,6 @@ export default function AetherformReverbModal({
                   <div className="af-performance-stack">
                     <button
                       type="button"
-                      className="af-performance"
-                      aria-pressed={draft.freeze}
-                      onClick={() => setField('freeze', !draft.freeze)}
-                    >Freeze / Hold<small>Capture tail</small></button>
-                    <button
-                      type="button"
                       className={`af-performance${clearing ? ' af-performance-flash' : ''}`}
                       onClick={handleClearTail}
                     >Clear tail<small>Flush reflections</small></button>
@@ -692,7 +685,6 @@ interface FieldInputs {
   modDepthPercent: number
   lateBalancePercent: number
   earlyReflectionsEnabled: boolean
-  freeze: boolean
   character: AetherformCharacter
   shimmerEnabled: boolean
   shimmerAmountPercent: number
@@ -703,19 +695,19 @@ function buildField(inputs: FieldInputs): { early: FieldNode[]; late: FieldNode[
   const {
     preDelayMs, decaySeconds, sizePercent, widthPercent, diffusionPercent,
     densityPercent, highCutHz, modRateHz, modDepthPercent, lateBalancePercent,
-    earlyReflectionsEnabled, freeze, character, shimmerEnabled,
+    earlyReflectionsEnabled, character, shimmerEnabled,
     shimmerAmountPercent, shimmerIntervalSemitones
   } = inputs
 
   const preX = clamp(7 + (preDelayMs / 250) * 13, 7, 20)
-  const tailEnd = freeze ? 96 : clamp(50 + Math.sqrt(decaySeconds / 30) * 46, 50, 96)
+  const tailEnd = clamp(50 + Math.sqrt(decaySeconds / 30) * 46, 50, 96)
   const spread = clamp(13 + (widthPercent / 200) * 31 + (sizePercent / 100) * 5, 16, 49)
   const earlyWeight = clamp((100 - lateBalancePercent) / 50, 0.2, 1.55)
   const lateWeight = clamp(lateBalancePercent / 50, 0.2, 1.85)
   const dampingBrightness = clamp(0.58 + (highCutHz / 20000) * 0.72, 0.58, 1.3)
   const motionPeriod = clamp(1 / modRateHz, 0.7, 8)
   const earlyCount = earlyReflectionsEnabled ? Math.round(3 + diffusionPercent * 0.07) : 0
-  const lateCount = Math.round(12 + densityPercent * 0.27 + Math.min(decaySeconds, 12) * 0.55 + (freeze ? 7 : 0))
+  const lateCount = Math.round(12 + densityPercent * 0.27 + Math.min(decaySeconds, 12) * 0.55)
 
   const early: FieldNode[] = []
   for (let index = 0; index < earlyCount; index += 1) {
@@ -737,14 +729,14 @@ function buildField(inputs: FieldInputs): { early: FieldNode[]; late: FieldNode[
     const progress = (index + 1) / (lateCount + 1)
     const jitter = (pseudoRandom(index, 5) - 0.5) * (3 + diffusionPercent * 0.035)
     const motion = (pseudoRandom(index, 6) - 0.5) * modDepthPercent * 0.09
-    const decayShape = freeze ? 0.66 : Math.pow(1 - progress, 0.72 + decaySeconds * 0.012)
+    const decayShape = Math.pow(1 - progress, 0.72 + decaySeconds * 0.012)
     const bloomScale = character === 'bloom' ? 1.3 : character === 'vintage' ? 1.06 : 0.94
     const baseSize = 3.2 + (densityPercent / 100) * 2.5 + pseudoRandom(index, 8) * 2.2
     late.push({
       x: clamp(preX + 12 + progress * (tailEnd - preX - 12) + jitter, preX + 7, 96),
       y: clamp(50 + (pseudoRandom(index, 7) - 0.5) * spread * (0.7 + progress * 0.6) + motion, 8, 92),
       size: baseSize * bloomScale * (1 - progress * 0.22),
-      opacity: clamp((0.12 + decayShape * 0.68) * lateWeight, freeze ? 0.28 : 0.06, 0.9),
+      opacity: clamp((0.12 + decayShape * 0.68) * lateWeight, 0.06, 0.9),
       early: false,
       cool: character === 'bloom' && index % 3 === 0,
       brightness: clamp(dampingBrightness - progress * (1.05 - dampingBrightness * 0.55), 0.45, 1.22),
@@ -761,7 +753,7 @@ function buildField(inputs: FieldInputs): { early: FieldNode[]; late: FieldNode[
     for (let index = 0; index < shimmerCount; index += 1) {
       const progress = (index + 1) / (shimmerCount + 1)
       const lift = (7 + intervalLift * 16) * progress
-      const decayShape = freeze ? 0.78 : Math.pow(1 - progress, 0.5)
+      const decayShape = Math.pow(1 - progress, 0.5)
       shimmer.push({
         x: clamp(shimmerStart + progress * (tailEnd - shimmerStart) + (pseudoRandom(index, 13) - 0.5) * 4, shimmerStart, 97),
         y: clamp(48 - lift + (pseudoRandom(index, 14) - 0.5) * spread * 0.55, 7, 74),
@@ -788,7 +780,7 @@ function Visualizer({ draft, clearing, reducedMotion }: VisualizerProps) {
     spaceModel, character, preDelayMs, decaySeconds, sizePercent, widthPercent,
     lateBalancePercent, diffusionPercent, densityPercent, earlyReflectionsEnabled,
     modRateHz, modDepthPercent, highCutHz, shimmerEnabled, shimmerAmountPercent,
-    shimmerIntervalSemitones, freeze, bypass
+    shimmerIntervalSemitones, bypass
   } = draft
 
   // Depends on the exact values that shape the field, so unrelated edits
@@ -797,12 +789,12 @@ function Visualizer({ draft, clearing, reducedMotion }: VisualizerProps) {
     () => buildField({
       preDelayMs, decaySeconds, sizePercent, widthPercent, diffusionPercent,
       densityPercent, highCutHz, modRateHz, modDepthPercent, lateBalancePercent,
-      earlyReflectionsEnabled, freeze, character, shimmerEnabled,
+      earlyReflectionsEnabled, character, shimmerEnabled,
       shimmerAmountPercent, shimmerIntervalSemitones
     }),
     [preDelayMs, decaySeconds, sizePercent, widthPercent, diffusionPercent,
       densityPercent, highCutHz, modRateHz, modDepthPercent, lateBalancePercent,
-      earlyReflectionsEnabled, freeze, character, shimmerEnabled,
+      earlyReflectionsEnabled, character, shimmerEnabled,
       shimmerAmountPercent, shimmerIntervalSemitones]
   )
 
@@ -833,8 +825,8 @@ function Visualizer({ draft, clearing, reducedMotion }: VisualizerProps) {
             <span>s</span>
           </div>
         </div>
-        <span className={`af-mode-chip${freeze ? ' af-mode-chip-held' : ''}`}>
-          {freeze ? `Held / ${characterLabel}` : `${spaceLabel} / ${characterLabel}`}
+        <span className="af-mode-chip">
+          {`${spaceLabel} / ${characterLabel}`}
         </span>
       </div>
 

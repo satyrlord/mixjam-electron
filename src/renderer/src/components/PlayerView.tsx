@@ -137,7 +137,7 @@ function MasterBusStripPanel({
   )
 }
 
-export interface PlayerViewProps {
+interface PlayerViewProps {
   mixJamFiles: MixJamFileItem[]
   browser: PlayerBrowserProps
   arrangement: TrackerArrangementProps

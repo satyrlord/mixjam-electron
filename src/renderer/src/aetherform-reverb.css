@@ -339,11 +339,6 @@
   text-align: center;
   text-transform: uppercase;
 }
-.af-mode-chip-held {
-  border-color: color-mix(in srgb, var(--af-secondary) 38%, transparent);
-  background: var(--af-secondary-soft);
-  color: var(--af-secondary-ink);
-}
 
 .af-field-plot {
   position: relative;
@@ -537,10 +532,6 @@
 .af-dialog[data-bypassed="1"] .af-field-playhead,
 .af-dialog[data-bypassed="1"] .af-field-node,
 .af-dialog[data-bypassed="1"] .af-shimmer-node { animation-play-state: paused; }
-/* Freeze pauses the scan and sustains the field. */
-.af-dialog[data-held="1"] .af-field-playhead { animation-play-state: paused; }
-.af-dialog[data-held="1"] .af-field-node,
-.af-dialog[data-held="1"] .af-shimmer-node { animation-duration: 4.2s; }
 
 @keyframes af-field-scan {
   from { transform: translateX(0); opacity: 0; }

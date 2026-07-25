@@ -33,7 +33,6 @@ describe('return FX module contracts', () => {
       duckAmount: 34,
       duckRelease: 620,
       outputDb: -1.5,
-      freeze: false,
       bypass: false
     })
   })
@@ -110,7 +109,6 @@ describe('return FX module contracts', () => {
       duckAmountPercent: 28,
       duckReleaseMs: 720,
       outputDb: -1.5,
-      freeze: false,
       bypass: false
     })
   })
@@ -129,7 +127,8 @@ describe('return FX module contracts', () => {
     expect(isReturnModule({ ...reverb, shimmerIntervalSemitones: 24 })).toBe(true)
     expect(isReturnModule({ ...reverb, modRateHz: 3.5 })).toBe(false)
     expect(isReturnModule({ ...reverb, duckReleaseMs: 40 })).toBe(false)
-    expect(isReturnModule({ ...reverb, freeze: 'yes' })).toBe(false)
+    // Freeze was removed; the key is no longer part of the module.
+    expect(isReturnModule({ ...reverb, freeze: false })).toBe(false)
     // Mix is the FX-return level, never a module field.
     expect(isReturnModule({ ...reverb, mix: 88 })).toBe(false)
     // Clear Tail is a momentary command, never serialized state.
@@ -146,15 +145,14 @@ describe('return FX module contracts', () => {
       expect(preset.bypass).toBe(false)
     }
     expect(applyAetherformReverbPreset(base, 'Warm Chamber')).toEqual(base)
-    const frozen = applyAetherformReverbPreset(base, 'Frozen Cathedral')
-    expect(frozen).toMatchObject({
+    const endless = applyAetherformReverbPreset(base, 'Endless Cathedral')
+    expect(endless).toMatchObject({
       spaceModel: 'hall',
       character: 'bloom',
-      decaySeconds: 18,
+      decaySeconds: 30,
       shimmerEnabled: true,
       shimmerIntervalSemitones: 19,
-      earlyReflectionsEnabled: false,
-      freeze: true
+      earlyReflectionsEnabled: false
     })
     const smallRoom = applyAetherformReverbPreset(base, 'Small Room')
     expect(smallRoom).toMatchObject({ spaceModel: 'room', character: 'natural', decaySeconds: 0.7 })
@@ -169,7 +167,7 @@ describe('return FX module contracts', () => {
     expect(reverb.input).toBeDefined()
     expect(reverb.output).toBeDefined()
     reverb.update(createEmptyReturnModule('fx-3'), 120)
-    reverb.update({ ...createDefaultAetherformReverbReturnModule('fx-3'), freeze: true }, 120)
+    reverb.update({ ...createDefaultAetherformReverbReturnModule('fx-3'), decaySeconds: 12 }, 120)
     expect(() => reverb.clearTail?.()).not.toThrow()
     reverb.dispose()
   })

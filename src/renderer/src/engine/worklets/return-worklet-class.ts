@@ -40,7 +40,7 @@ export interface ReturnWorkletClassConfig<S, C extends ReturnWorkletCore, O = un
   readonly onMessage: (core: C, message: unknown) => void
   /**
    * Silent-input policy. `true` (default) processes a silence buffer so a
-   * ringing tail (delay repeats, reverb decay, Freeze) keeps sounding when the
+   * ringing tail (delay repeats, reverb decay) keeps sounding when the
    * upstream goes quiet. `false` writes silence and returns — for effects with
    * no self-sustaining tail.
    */

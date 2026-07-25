@@ -3,7 +3,7 @@
 **Spec Validation Status:** VALIDATED
 
 **Spec Implementation Status:** IMPLEMENTED — DSP core, worklet integration,
-rack UI, format-6 persistence, and unified undo are in place. Unit evidence:
+rack UI, format-7 persistence, and unified undo are in place. Unit evidence:
 `src/renderer/src/engine/masterbus/**` (chain, modules, null/THD/limiter,
 EBU compliance via the production loudness meter, calibration, allocation
 and CPU gates), `MasterBusStrip.test.tsx`, `master-bus-chain.test.ts`,
@@ -256,7 +256,7 @@ Owned in detail by [audio-engine.md](../audio-engine.md#master-bus-strip):
   ids), one power flag for each downstream processor, every parameter value
   including `gain.trim`, and the selected preset name (or none after manual
   edits). Gain has no persisted order entry or power flag.
-- This record is required by project **format version 6** (spec-011 owns the
+- This record is required by project **format version 7** (spec-011 owns the
   wire format).
 - Parsing rejects: a slot order that is not a permutation of the ten
   downstream processor ids; `gain` in the order or power map; unknown module
@@ -318,7 +318,7 @@ These suites gate the DSP phase and the integration phase:
 | Chain sits after masterGain | Master Volume becomes the trim into the chain, and the Limiter ceiling protects the real output. |
 | Output meter reuses the loudness measurement engine | One BS.1770 implementation serves the Middle Strip readouts and the strip meter; no duplicate gated-LUFS DSP. |
 | No auto-makeup on the Bus Compressor | Makeup would silently shift the calibrated loudness budget; the Maximizer and Limiter Gain own loudness recovery. |
-| Format version 6 strict Master Bus record | Spec-011 owns the current wire format; Gain persists only through `gain.trim`, never topology state. |
+| Format version 7 strict Master Bus record | Spec-011 owns the current wire format; Gain persists only through `gain.trim`, never topology state. |
 | Fixed hardware finishes, not theme tokens | The rack reads as physical gear; finishes are module identity, like the sample palette's fixed slots. Sanctioned in the Style Guide. |
 | Rack hit targets are UI Size boxes around compact painted controls | Mockup control sizes are below the repo minimum; the Mixer FX LED precedent applies. |
 | Latency is reported, not compensated in the playhead | Total chain latency is a few milliseconds at 48 kHz, below the 10 ms threshold the project already accepts for timing. |
@@ -357,7 +357,7 @@ These suites gate the DSP phase and the integration phase:
 - [x] **AC-011:** The four factory presets apply their documented power
   maps and overrides; only Cheat Sheet restores default order; each recall
   is one undoable edit.
-- [x] **AC-012:** Strip state round-trips through the version-6 project
+- [x] **AC-012:** Strip state round-trips through the version-7 project
   format; invalid records are rejected per the Persistence rules; Undo and
   Redo restore the complete strip record.
 - [x] **AC-013:** Meters refresh at 30 Hz or better from real engine data

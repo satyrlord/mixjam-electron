@@ -42,7 +42,6 @@ function state(overrides: Partial<AetherformReverbState> = {}): AetherformReverb
     duckAmountPercent: 28,
     duckReleaseMs: 720,
     outputDb: -1.5,
-    freeze: false,
     bypass: false,
     ...overrides
   }

@@ -10,13 +10,6 @@ import { createBackendAPI } from './backend/client'
 import { bootstrapTheme } from './theme/themes'
 import { applyUiSize, loadUiSize } from './ui-size'
 
-// Dev-only audio-scheduler probe (on-screen panel). Stripped from production by
-// the import.meta.env.DEV guard; installs its timing hooks before the app mounts
-// so they are in place before the scheduler's interval is created.
-if (import.meta.env.DEV) {
-  void import('./dev/scheduler-probe').then(({ installSchedulerProbe }) => installSchedulerProbe())
-}
-
 const rootElement = document.getElementById('root') as HTMLElement
 
 // opfs-sahpool allows exactly one DB connection. The lock is held for the

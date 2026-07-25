@@ -97,7 +97,7 @@ const PRESET_LABEL: Record<EchoformDelayPresetName, string> = {
   'Dotted Motion': 'Dotted Motion',
   'Dub Feedback': 'Dub Feedback',
   'Ducked Eighths': 'Ducked Eighths',
-  'Frozen Wash': 'Frozen Wash'
+  'Endless Wash': 'Endless Wash'
 }
 
 // Preset Mix percentages (spec §22), applied to the shared FX-return level.
@@ -107,7 +107,7 @@ const PRESET_MIX: Record<EchoformDelayPresetName, number> = {
   'Dotted Motion': 78,
   'Dub Feedback': 90,
   'Ducked Eighths': 86,
-  'Frozen Wash': 96
+  'Endless Wash': 96
 }
 
 const TAP_TIMEOUT_MS = 2000
@@ -382,7 +382,7 @@ export default function EchoformDelayModal({
 
   const characterLabel = draft.character.charAt(0).toUpperCase() + draft.character.slice(1)
   const modeLabel = draft.mode.charAt(0).toUpperCase() + draft.mode.slice(1)
-  const stateWord = draft.bypass ? 'Bypassed' : draft.freeze ? 'Held' : 'Active'
+  const stateWord = draft.bypass ? 'Bypassed' : 'Active'
 
   return (
     <DialogRoot open modal>
@@ -392,7 +392,6 @@ export default function EchoformDelayModal({
         restoreFocus={onRestoreFocus}
         aria-labelledby={TITLE_ID}
         data-character={draft.character}
-        data-held={draft.freeze ? '1' : undefined}
         data-bypassed={draft.bypass ? '1' : undefined}
         data-reduced-motion={reducedMotion ? '1' : undefined}
         onKeyDown={handleModalKeyDown}
@@ -465,7 +464,6 @@ export default function EchoformDelayModal({
               feedback={draft.feedback}
               width={draft.width}
               pingPong={draft.pingPong}
-              freeze={draft.freeze}
               bypass={draft.bypass}
               reducedMotion={reducedMotion}
             />
@@ -609,12 +607,6 @@ export default function EchoformDelayModal({
                   className={`ef-performance${tapFlash ? ' ef-performance-flash' : ''}`}
                   onClick={handleTap}
                 >Tap Tempo<small>{localBpm} BPM</small></button>
-                <button
-                  type="button"
-                  className="ef-performance"
-                  aria-pressed={draft.freeze}
-                  onClick={() => setField('freeze', !draft.freeze)}
-                >Freeze / Hold<small>Capture repeats</small></button>
               </section>
             </div>
 
@@ -659,7 +651,6 @@ interface VisualizerProps {
   feedback: number
   width: number
   pingPong: boolean
-  freeze: boolean
   bypass: boolean
   reducedMotion: boolean
 }
@@ -672,12 +663,12 @@ interface Tap {
   size: number
 }
 
-/* Only the five fields that actually shape the taps, so the memo in Visualizer
+/* Only the four fields that actually shape the taps, so the memo in Visualizer
    can depend on values rather than on the whole (always-fresh) props object. */
-type TapInputs = Pick<VisualizerProps, 'times' | 'feedback' | 'width' | 'pingPong' | 'freeze'>
+type TapInputs = Pick<VisualizerProps, 'times' | 'feedback' | 'width' | 'pingPong'>
 
-function buildTaps({ times, feedback, width, pingPong, freeze }: TapInputs): Tap[] {
-  const repeats = freeze ? 12 : clamp(Math.round(3 + feedback / 10.5), 3, 12)
+function buildTaps({ times, feedback, width, pingPong }: TapInputs): Tap[] {
+  const repeats = clamp(Math.round(3 + feedback / 10.5), 3, 12)
   const events: { index: number; side: 'left' | 'right'; time: number }[] = []
   if (pingPong) {
     let elapsed = 0
@@ -699,18 +690,18 @@ function buildTaps({ times, feedback, width, pingPong, freeze }: TapInputs): Tap
     side: e.side,
     x: 7 + (e.time / maxTime) * 88,
     y: e.side === 'left' ? 50 - spread : 50 + spread,
-    opacity: freeze ? 0.92 : clamp(Math.pow(feedbackRatio, e.index * 0.72), 0.13, 0.92),
+    opacity: clamp(Math.pow(feedbackRatio, e.index * 0.72), 0.13, 0.92),
     size: clamp(10 - e.index * 0.35, 5, 10)
   }))
 }
 
 function Visualizer(props: VisualizerProps) {
-  const { times, bpm, mode, character, feedback, pingPong, width, freeze, bypass, reducedMotion } = props
-  // Depends on the values that shape the taps. The previous `[props]` was a
-  // no-op: the props object is fresh on every render, so the memo never hit.
+  const { times, bpm, mode, character, feedback, pingPong, width, bypass, reducedMotion } = props
+  // Depend on the values that shape the taps, not the always-fresh props
+  // object, so the memo actually hits.
   const taps = useMemo(
-    () => buildTaps({ times, feedback, width, pingPong, freeze }),
-    [times, feedback, width, pingPong, freeze]
+    () => buildTaps({ times, feedback, width, pingPong }),
+    [times, feedback, width, pingPong]
   )
   const modeLabel = mode === 'sync' ? 'Sync' : 'Free'
   const characterLabel = character.charAt(0).toUpperCase() + character.slice(1)
@@ -726,8 +717,8 @@ function Visualizer(props: VisualizerProps) {
           <span className="ef-vis-label">Tempo</span>
           <div className="ef-vis-tempo"><strong>{bpm}</strong><span>BPM</span></div>
         </div>
-        <span className={`ef-mode-chip${freeze ? ' ef-mode-chip-held' : ''}`}>
-          {freeze ? `Held / ${characterLabel}` : `${modeLabel} / ${characterLabel}`}
+        <span className="ef-mode-chip">
+          {`${modeLabel} / ${characterLabel}`}
         </span>
       </div>
       <div className="ef-echo-plot" role="img" aria-label={description}>

@@ -204,7 +204,6 @@ function workletState(overrides: Record<string, unknown> = {}): Record<string, u
     duckAmount: 0,
     duckRelease: 200,
     outputDb: 0,
-    freeze: false,
     bypass: false,
     ...overrides
   }

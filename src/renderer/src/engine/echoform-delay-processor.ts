@@ -28,7 +28,6 @@ function toState(module: EchoformDelayModule): EchoformDelayState {
     duckAmount: module.duckAmount,
     duckRelease: module.duckRelease,
     outputDb: module.outputDb,
-    freeze: module.freeze,
     bypass: module.bypass
   }
 }

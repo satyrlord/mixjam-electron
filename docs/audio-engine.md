@@ -240,9 +240,8 @@ Real-time-safety and DSP notes worth recording at the point of confusion:
   all time modulation, including any tape drift.
 - Ducking keys from the unprocessed input (stereo-linked, ~7 ms attack,
   50–2500 ms release) and attenuates the wet output only, with a soft knee.
-- Freeze/Hold ramps input injection to zero and loop gain toward unity while
-  preserving the buffer; Bypass crossfades the audible return to silence while the
-  loop keeps running (tail-preserving). Neither clears the buffers.
+- Bypass crossfades the audible return to silence while the loop keeps running
+  (tail-preserving). It does not clear the buffers.
 - Stereo width is applied post-loop via mid/side (0% mono, 100% unchanged,
   200% doubled side), then Output level.
 
@@ -261,7 +260,7 @@ wet-only ducking, and output trim. Retimes use dual read-head crossfades;
 modulation is deterministic (seeded, no RNG). Clear Tail is a momentary
 `clear-tail` port command exposed through `ReturnModuleProcessor.clearTail()`
 and `AudioEngine.clearReturnTail(index)`. The reverb worklet processes silence
-when its upstream input is inactive so tails ring out and Freeze sustains. Full
+when its upstream input is inactive so tails ring out. Full
 DSP contract in spec-013.
 
 ## Master loudness metering
@@ -541,7 +540,7 @@ implementation. The OVER lamp latches in the UI when true peak exceeds
 
 ### Serialization
 
-The strip state is one `masterBus` JSON object inside the version-6
+The strip state is one `masterBus` JSON object inside the version-7
 project format: the ten downstream processor IDs in slot order, their ten
 power flags, all parameter values including Gain Trim, and the selected preset
 name. Gain has no order entry or power flag. Spec-011 owns the wire format and validation;

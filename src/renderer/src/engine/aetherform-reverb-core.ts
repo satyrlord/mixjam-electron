@@ -31,8 +31,6 @@ const MAX_EARLY_SECONDS = 0.16
 const SHIMMER_BUFFER_SECONDS = 0.25
 /** Peak delay modulation at 100% depth before per-character scaling. */
 const MAX_MOD_DEPTH_MS = 4
-/** Loop gain approached while Freeze/Hold is engaged. */
-const FREEZE_LOOP_GAIN = 0.9995
 /** Read-head crossfade for click-free retimes (size, model, pre-delay). */
 const RETIME_CROSSFADE_MS = 30
 /** Early tap-set crossfade when model or size retargets the pattern. */
@@ -428,7 +426,6 @@ export class AetherformReverbCore {
   private shimmerSend: number
   private modDepthSamples: number
   private bypassMix: number
-  private freezeMix: number
   private vintageWeight: number
   private bloomWeight: number
   private plateWeight: number
@@ -521,7 +518,6 @@ export class AetherformReverbCore {
     this.shimmerSend = aetherformShimmerSend(state.shimmerAmountPercent)
     this.modDepthSamples = (aetherformModDepthMs(state.modDepthPercent) / 1000) * this.sampleRate
     this.bypassMix = state.bypass ? 1 : 0
-    this.freezeMix = state.freeze ? 1 : 0
     this.vintageWeight = state.character === 'vintage' ? 1 : 0
     this.bloomWeight = state.character === 'bloom' ? 1 : 0
     this.plateWeight = state.spaceModel === 'plate' ? 1 : 0
@@ -677,7 +673,6 @@ export class AetherformReverbCore {
       this.earlyMix = smooth(this.earlyMix, state.earlyReflectionsEnabled ? 1 : 0, this.modeSlew)
       this.shimmerMix = smooth(this.shimmerMix, shimmerActive ? 1 : 0, this.modeSlew)
       this.bypassMix = smooth(this.bypassMix, state.bypass ? 1 : 0, this.modeSlew)
-      this.freezeMix = smooth(this.freezeMix, state.freeze ? 1 : 0, this.modeSlew)
       this.vintageWeight = smooth(this.vintageWeight, vintageTarget, this.modeSlew)
       this.bloomWeight = smooth(this.bloomWeight, bloomTarget, this.modeSlew)
       this.plateWeight = smooth(this.plateWeight, plateTarget, this.modeSlew)
@@ -712,8 +707,6 @@ export class AetherformReverbCore {
       this.preDelayL.writeAndAdvance(drivenL)
       this.preDelayR.writeAndAdvance(drivenR)
 
-      const inputGate = 1 - this.freezeMix
-
       // ---- Early reflections: multi-tap, tap-set crossfaded ----
       this.earlyBufferL.writeAndAdvance(preL)
       this.earlyBufferR.writeAndAdvance(preR)
@@ -744,8 +737,8 @@ export class AetherformReverbCore {
         // Tone applied once so the early sound matches the late-tail color.
         earlyL = this.earlyHighCutL.lowPass(this.earlyLowCutL.highPass(earlyL, lowCutG), highCutG)
         earlyR = this.earlyHighCutR.lowPass(this.earlyLowCutR.highPass(earlyR, lowCutG), highCutG)
-        earlyL *= this.earlyMix * inputGate
-        earlyR *= this.earlyMix * inputGate
+        earlyL *= this.earlyMix
+        earlyR *= this.earlyMix
       }
 
       // ---- Input diffusion into the late network ----
@@ -825,20 +818,16 @@ export class AetherformReverbCore {
         lateR += tapOut * OUT_SIGN_R[line]! * (line >= 4 ? densityInjection : 1)
 
         // Damping and character processing inside the feedback path. The
-        // low/high-cut filters and vintage damping are lossy: under normal
-        // decay their per-pass energy loss is intended, but under Freeze it
-        // makes a "hold" fade out (see spec-010 Freeze). While frozen, feed the
-        // undamped tap so no filter/saturation loss accumulates; the in-loop
-        // all-pass is energy-preserving and stays in for both, so the diffused
-        // character of the held tail is unchanged.
+        // low/high-cut filters and vintage damping are lossy; their per-pass
+        // energy loss shapes the decay. The in-loop all-pass is energy-
+        // preserving and follows the damping to diffuse the tail.
         let damped = this.loopHighCut[line]!.lowPass(this.loopLowCut[line]!.highPass(raw, lowCutG), highCutG)
         if (this.vintageWeight > 1e-4) {
           const saturated = Math.tanh(damped * 1.4) / 1.4
           const extraDamp = this.vintageDamp[line]!.lowPass(saturated, vintageDampG)
           damped = damped + (extraDamp - damped) * this.vintageWeight
         }
-        const preDiffusion = damped + (raw - damped) * this.freezeMix
-        const diffused = this.loopAllpass[line]!.process(preDiffusion, loopDiffusion)
+        const diffused = this.loopAllpass[line]!.process(damped, loopDiffusion)
         this.lineOuts[line] = diffused
         matrixSum += diffused
       }
@@ -847,14 +836,12 @@ export class AetherformReverbCore {
 
       // Householder feedback matrix: y_i = x_i - (2/N)·sum. Energy-preserving.
       const householder = matrixSum * (2 / LINE_COUNT)
-      const freezeGate = inputGate * this.clearGain
       for (let line = 0; line < LINE_COUNT; line += 1) {
         const lineSeconds = this.lineTargetSamples[line]! / this.sampleRate
         const decayGain = aetherformRt60Gain(lineSeconds, this.decaySmoothed)
-        const loopGain = decayGain * (1 - this.freezeMix) + FREEZE_LOOP_GAIN * this.freezeMix
-        const feedback = (this.lineOuts[line]! - householder) * loopGain
+        const feedback = (this.lineOuts[line]! - householder) * decayGain
         const injection = (line % 2 === 0 ? diffL : diffR) * 0.35 *
-          (line >= 4 ? densityInjection : 1) * freezeGate
+          (line >= 4 ? densityInjection : 1) * this.clearGain
         const shimmerInjection = (line % 2 === 0 ? shimmerL : shimmerR) * 0.5
         this.lines[line]!.writeAndAdvance(feedbackSoftLimit(injection + shimmerInjection + feedback))
       }

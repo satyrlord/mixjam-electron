@@ -166,7 +166,7 @@ renderer stays sandboxed with no `nodeIntegration`.
 Feature specifications live in `docs/specs/`. They describe the target product
 contract; an acceptance criterion is implemented only when its own evidence or
 the linked test suite proves it. The lane-bound Mixer, four-bus send/return FX,
-format-6 project model, dynamic lane count, and global UI Size contracts are a
+format-7 project model, dynamic lane count, and global UI Size contracts are a
 coordinated overhaul. Mixer routing and a standalone FX tab are outside the
 product model and have no separate specification. Check each spec for its
 acceptance wording and evidence; tests live beside the relevant source domain

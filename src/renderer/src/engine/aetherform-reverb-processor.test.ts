@@ -92,7 +92,6 @@ describe('Aetherform Reverb worklet processor', () => {
       decaySeconds: 2.8,
       shimmerEnabled: false,
       shimmerIntervalSemitones: 12,
-      freeze: false,
       bypass: false
     })
     expect(sent.state).not.toHaveProperty('id')
@@ -116,13 +115,13 @@ describe('Aetherform Reverb worklet processor', () => {
     expect(post).not.toHaveBeenCalled()
 
     processor.update(
-      { ...createDefaultAetherformReverbReturnModule('fx-1'), decaySeconds: 12, freeze: true },
+      { ...createDefaultAetherformReverbReturnModule('fx-1'), decaySeconds: 12 },
       120
     )
     expect(post).toHaveBeenCalledTimes(1)
     expect(post).toHaveBeenCalledWith({
       type: 'state',
-      state: expect.objectContaining({ decaySeconds: 12, freeze: true })
+      state: expect.objectContaining({ decaySeconds: 12 })
     })
 
     processor.clearTail?.()

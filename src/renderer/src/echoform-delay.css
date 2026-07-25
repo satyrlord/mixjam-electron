@@ -64,7 +64,7 @@
      pulled toward the theme's ink — the same readable-floor treatment as
      `--ef-text-muted`. Keeps the accent hue, clears AA on every skin. */
   --ef-accent-ink: color-mix(in srgb, var(--ef-accent-strong) 62%, var(--text));
-  /* The cool counterpart (right-channel taps, high-cut, mod depth, Freeze).
+  /* The cool counterpart (right-channel taps, high-cut, mod depth).
      Slot accent 2 is the project's own second accent: themes with a genuine
      multi-accent system ship a distinct value, single-voice themes repeat one. */
   --ef-secondary: var(--fx-accent-2, var(--highlight));
@@ -84,21 +84,12 @@
   --ef-font: var(--font-label, Inter, system-ui, sans-serif);
 
   /* ── Geometry bridge (DESIGN.md, The Token Rule applies to size too) ──
-     This module used to be exempt from UI Size: a fixed 760×680 box with a
-     fixed 44px knob and a fixed 8/9/10px type tier. That exemption was not
-     stable, because the exemption was never total — the shared linear slider
-     scales, and the global `:root[data-ui-size] :is(button, [role=button], …)`
-     rule in ui-size.css forces `min-height: var(--ui-size)` and
-     `font-size: var(--ui-font-sm)` onto every button in the app, this one
-     included. So the controls grew with UI Size while the box did not, and
-     `.ef-card`'s `overflow: hidden` silently ate the difference (measured
-     10px lost at size 30, 21px at 40, 41px at 50 — clipping Freeze/Hold and
-     the Stereo Width slider). A surface cannot half-scale; either the whole
-     module follows UI Size or it clips.
-
-     `--ui-scale` is 1 / 4:3 / 5:3 for sizes 30 / 40 / 50 and is the same
-     multiplier the rest of the app uses for bespoke geometry. Fallbacks keep
-     the module rendering standalone (tests, storybook) when no size is set. */
+     The whole module scales with UI Size so it never half-scales and clips:
+     the global button rule already forces `min-height: var(--ui-size)` on
+     controls, so the box must scale in step. `--ui-scale` is 1 / 4:3 / 5:3
+     for sizes 30 / 40 / 50, the same multiplier the rest of the app uses for
+     bespoke geometry. Fallbacks keep the module rendering standalone (tests,
+     storybook) when no size is set. */
   --ef-scale: var(--ui-scale, 1);
   --ef-unit: var(--ui-size, 30px);
   /* The module's own type ramp, below the global `--ui-font-*` tiers because
@@ -396,11 +387,6 @@
   letter-spacing: 0.08em;
   text-align: center;
   text-transform: uppercase;
-}
-.ef-mode-chip-held {
-  border-color: color-mix(in srgb, var(--ef-secondary) 38%, transparent);
-  background: var(--ef-secondary-soft);
-  color: var(--ef-secondary-ink);
 }
 
 .ef-echo-plot {

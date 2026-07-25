@@ -345,7 +345,7 @@ describe('useProjectPersistence', () => {
   })
 
   it.each([
-    [5, 'old.mixjam', 'This MixJam project uses an unsupported format version. Only format version 6 is supported.'],
+    [6, 'old.mixjam', 'This MixJam project uses an unsupported format version. Only format version 7 is supported.'],
     [99, 'future.mixjam', 'This project was created with a newer version of MixJam. Please update the app.']
   ])('does not replace live state when project format %i is rejected', async (
     formatVersion,

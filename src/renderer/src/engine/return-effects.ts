@@ -112,7 +112,6 @@ export function createDefaultEchoformDelayReturnModule(id = `fx-${crypto.randomU
     duckAmount: 34,
     duckRelease: 620,
     outputDb: -1.5,
-    freeze: false,
     bypass: false
   }
 }
@@ -123,10 +122,10 @@ export type EchoformDelayPresetName =
   | 'Dotted Motion'
   | 'Dub Feedback'
   | 'Ducked Eighths'
-  | 'Frozen Wash'
+  | 'Endless Wash'
 
 export const ECHOFORM_DELAY_PRESET_NAMES: readonly EchoformDelayPresetName[] = [
-  'Wide Tape Echo', 'Clean Slap', 'Dotted Motion', 'Dub Feedback', 'Ducked Eighths', 'Frozen Wash'
+  'Wide Tape Echo', 'Clean Slap', 'Dotted Motion', 'Dub Feedback', 'Ducked Eighths', 'Endless Wash'
 ]
 
 /**
@@ -160,8 +159,7 @@ export function applyEchoformDelayPreset(
         character: 'digital',
         duckAmount: 12,
         duckRelease: 180,
-        outputDb: -2.2,
-        freeze: false
+        outputDb: -2.2
       }
     case 'Dotted Motion':
       return {
@@ -181,8 +179,7 @@ export function applyEchoformDelayPreset(
         character: 'analog',
         duckAmount: 46,
         duckRelease: 480,
-        outputDb: -1.8,
-        freeze: false
+        outputDb: -1.8
       }
     case 'Dub Feedback':
       return {
@@ -203,8 +200,7 @@ export function applyEchoformDelayPreset(
         drive: 32,
         duckAmount: 18,
         duckRelease: 980,
-        outputDb: -4.1,
-        freeze: false
+        outputDb: -4.1
       }
     case 'Ducked Eighths':
       return {
@@ -224,10 +220,9 @@ export function applyEchoformDelayPreset(
         character: 'digital',
         duckAmount: 72,
         duckRelease: 340,
-        outputDb: -1.0,
-        freeze: false
+        outputDb: -1.0
       }
-    case 'Frozen Wash':
+    case 'Endless Wash':
       return {
         ...base,
         mode: 'free',
@@ -235,7 +230,7 @@ export function applyEchoformDelayPreset(
         divisionR: '1/2.',
         timeMsL: 980,
         timeMsR: 1330,
-        feedback: 102,
+        feedback: 110,
         pingPong: true,
         width: 188,
         lowCut: 420,
@@ -245,8 +240,7 @@ export function applyEchoformDelayPreset(
         character: 'tape',
         duckAmount: 6,
         duckRelease: 1900,
-        outputDb: -7.5,
-        freeze: true
+        outputDb: -7.5
       }
   }
 }
@@ -282,7 +276,6 @@ export function createDefaultAetherformReverbReturnModule(
     duckAmountPercent: 28,
     duckReleaseMs: 720,
     outputDb: -1.5,
-    freeze: false,
     bypass: false
   }
 }
@@ -294,11 +287,11 @@ export type AetherformReverbPresetName =
   | 'Small Room'
   | 'Ambient Bloom'
   | 'Shimmer Cloud'
-  | 'Frozen Cathedral'
+  | 'Endless Cathedral'
 
 export const AETHERFORM_REVERB_PRESET_NAMES: readonly AetherformReverbPresetName[] = [
   'Warm Chamber', 'Vocal Plate', 'Dark Hall', 'Small Room',
-  'Ambient Bloom', 'Shimmer Cloud', 'Frozen Cathedral'
+  'Ambient Bloom', 'Shimmer Cloud', 'Endless Cathedral'
 ]
 
 /**
@@ -423,13 +416,13 @@ export function applyAetherformReverbPreset(
         duckReleaseMs: 2200,
         outputDb: -6.0
       }
-    case 'Frozen Cathedral':
+    case 'Endless Cathedral':
       return {
         ...base,
         spaceModel: 'hall',
         character: 'bloom',
         preDelayMs: 110,
-        decaySeconds: 18,
+        decaySeconds: 30,
         sizePercent: 100,
         widthPercent: 200,
         lateBalancePercent: 96,
@@ -445,8 +438,7 @@ export function applyAetherformReverbPreset(
         shimmerIntervalSemitones: 19,
         duckAmountPercent: 0,
         duckReleaseMs: 2500,
-        outputDb: -7.0,
-        freeze: true
+        outputDb: -7.0
       }
   }
 }
@@ -455,7 +447,7 @@ const EMPTY_KEYS = ['id', 'type'] as const
 const ECHOFORM_DELAY_KEYS = [
   'id', 'type', 'mode', 'divisionL', 'divisionR', 'timeMsL', 'timeMsR',
   'feedback', 'pingPong', 'width', 'lowCut', 'highCut', 'modRate', 'modDepth',
-  'character', 'drive', 'duckAmount', 'duckRelease', 'outputDb', 'freeze', 'bypass'
+  'character', 'drive', 'duckAmount', 'duckRelease', 'outputDb', 'bypass'
 ] as const
 
 const AETHERFORM_REVERB_KEYS = [
@@ -464,7 +456,7 @@ const AETHERFORM_REVERB_KEYS = [
   'diffusionPercent', 'densityPercent', 'earlyReflectionsEnabled', 'modRateHz',
   'modDepthPercent', 'shimmerEnabled', 'shimmerAmountPercent',
   'shimmerIntervalSemitones', 'duckAmountPercent', 'duckReleaseMs', 'outputDb',
-  'freeze', 'bypass'
+  'bypass'
 ] as const
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
@@ -498,7 +490,6 @@ function isAetherformReverbModule(module: Record<string, unknown>): boolean {
     numberInRange(module.duckAmountPercent, 0, 100) &&
     numberInRange(module.duckReleaseMs, 50, 2500) &&
     numberInRange(module.outputDb, -24, 12) &&
-    typeof module.freeze === 'boolean' &&
     typeof module.bypass === 'boolean'
 }
 
@@ -521,7 +512,6 @@ function isEchoformDelayModule(module: Record<string, unknown>): boolean {
     numberInRange(module.duckAmount, 0, 100) &&
     numberInRange(module.duckRelease, 50, 2500) &&
     numberInRange(module.outputDb, -24, 12) &&
-    typeof module.freeze === 'boolean' &&
     typeof module.bypass === 'boolean'
 }
 

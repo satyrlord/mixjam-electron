@@ -39,7 +39,6 @@ function baseState(overrides: Partial<AetherformReverbState> = {}): AetherformRe
     duckAmountPercent: 0,
     duckReleaseMs: 200,
     outputDb: 0,
-    freeze: false,
     bypass: false,
     ...overrides
   }
@@ -472,58 +471,6 @@ describe('ducking', () => {
   })
 })
 
-describe('freeze', () => {
-  it('holds the frozen tail flat over a long hold, not fading', () => {
-    // Freeze must be a true hold. Before the in-loop filter bypass, the
-    // always-active low/high-cut and vintage damping shaved energy every
-    // circulation, so a "frozen" reverb decayed ~3 dB/s. Prime with a tone,
-    // freeze, then hold on silence and confirm the level barely drifts between
-    // the start and end of the hold. (30 s stability was verified separately;
-    // 7 s keeps the permanent test fast while still spanning the settle.)
-    const state = baseState({ decaySeconds: 3 })
-    const core = new AetherformReverbCore(FS, state)
-    render(core, 1.5, tone(220, 0.5))
-    core.update({ ...state, freeze: true })
-    const held = render(core, 7, silence)
-    // ~1.5 s averaging windows so the held field's ripple cancels. The FDN
-    // energy redistributes for the first ~2 s after freeze engages, so measure
-    // the drift AFTER that settle (second 2-3.5 vs second 5.5-7).
-    const startDb = rmsDb(held.left, at(2.0), at(3.5))
-    const endDb = rmsDb(held.left, at(5.5), at(7.0))
-    expect(startDb).toBeGreaterThan(-60)
-    // A real hold: under ~2 dB drift across ~9 s (was a ~30 dB drop before fix).
-    expect(Math.abs(endDb - startDb)).toBeLessThan(2)
-    expect(allFinite(held.left)).toBe(true)
-  })
-
-  it('blocks new injection while frozen', () => {
-    const state = baseState({ decaySeconds: 1.5 })
-    const core = new AetherformReverbCore(FS, state)
-    renderImpulse(core, 0.3)
-    core.update({ ...state, freeze: true })
-    const held = render(core, 2.0, silence)
-    const start = rms(held.left, at(0.2), at(0.4))
-    expect(start).toBeGreaterThan(1e-5)
-    // New input while frozen must not grow the field.
-    const fed = render(core, 1.0, tone(330, 0.5))
-    expect(rms(fed.left, at(0.7), at(1.0))).toBeLessThan(start * 3)
-    expect(allFinite(fed.left)).toBe(true)
-  })
-
-  it('restores decay-derived feedback smoothly on release', () => {
-    const state = baseState({ decaySeconds: 0.5 })
-    const core = new AetherformReverbCore(FS, state)
-    renderImpulse(core, 0.3)
-    core.update({ ...state, freeze: true })
-    render(core, 0.5, silence)
-    const heldRms = rms(render(core, 0.1, silence).left)
-    core.update({ ...state, freeze: false })
-    const released = render(core, 1.5, silence)
-    expect(allFinite(released.left)).toBe(true)
-    expect(rms(released.left, at(1.2), at(1.4))).toBeLessThan(Math.max(heldRms, 1e-9) * 0.2)
-  })
-})
-
 describe('clear tail', () => {
   it('flushes all reverb history click-free without touching parameters', () => {
     const core = new AetherformReverbCore(FS, baseState({ decaySeconds: 6 }))
@@ -574,7 +521,7 @@ describe('output level', () => {
 })
 
 describe('stability and safety', () => {
-  it('survives the extreme corner: 30 s decay, max density/diffusion/width, +24 shimmer, freeze', () => {
+  it('survives the extreme corner: 30 s decay, max density/diffusion/width, +24 shimmer', () => {
     const state = baseState({
       decaySeconds: 30,
       diffusionPercent: 100,
@@ -589,7 +536,6 @@ describe('stability and safety', () => {
     })
     const core = new AetherformReverbCore(FS, state)
     render(core, 1.0, tone(440, 0.6))
-    core.update({ ...state, freeze: true })
     const frozen = render(core, 3.0, tone(330, 0.5))
     expect(allFinite(frozen.left)).toBe(true)
     expect(allFinite(frozen.right)).toBe(true)

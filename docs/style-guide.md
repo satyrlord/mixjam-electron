@@ -782,7 +782,7 @@ Bottom Workspace expansion shows the rack full-height.
   and a footer with knob help plus a live `Active / Tape / Sync` state string.
 - Continuous controls are 270°-arc circular knobs (`role="slider"`) with value
   readouts, plus a horizontal range for Stereo width. Toggles (Bypass, Ping-pong,
-  Freeze, Sync/Free, Character) are real `aria-pressed` buttons.
+  Sync/Free, Character) are real `aria-pressed` buttons.
 - Close saves as one undo edit. Esc discards. Knob keys: arrows step, Shift is
   fine, Page Up/Down move ten steps, Home/End are the bounds, double-click
   resets to default. A manual edit switches the Preset selector to Custom; a

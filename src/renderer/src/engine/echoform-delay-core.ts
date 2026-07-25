@@ -36,8 +36,6 @@ const MAX_MOD_DEPTH_MS = 20
  * limiter keeps the result finite above unity without hard-clipping repeats.
  */
 const MAX_FEEDBACK_GAIN = 1.1
-/** Effective loop gain approached while Freeze/Hold is engaged. */
-const FREEZE_LOOP_GAIN = 0.9995
 /** Read-head crossfade length for click-free Digital time changes. */
 const CROSSFADE_MS = 18
 
@@ -161,7 +159,6 @@ export class EchoformDelayCore {
   private driveNorm = 0
   private bypassMix = 0
   private pingPongMix = 0
-  private freezeMix = 0
 
   // Detector / modulation state.
   private duckEnvelope = 0
@@ -205,7 +202,6 @@ export class EchoformDelayCore {
     this.driveNorm = clamp(this.target.drive ?? 0, 0, 100) / 100
     this.bypassMix = this.target.bypass ? 1 : 0
     this.pingPongMix = this.target.pingPong ? 1 : 0
-    this.freezeMix = this.target.freeze ? 1 : 0
   }
 
   update(state: EchoformDelayState, bpm: number): void {
@@ -259,7 +255,6 @@ export class EchoformDelayCore {
       this.driveNorm = smooth(this.driveNorm, clamp(this.target.drive ?? 0, 0, 100) / 100, this.paramSmoothing)
       this.bypassMix = smooth(this.bypassMix, this.target.bypass ? 1 : 0, this.modeSlew)
       this.pingPongMix = smooth(this.pingPongMix, this.target.pingPong ? 1 : 0, this.modeSlew)
-      this.freezeMix = smooth(this.freezeMix, this.target.freeze ? 1 : 0, this.modeSlew)
 
       // --- Retime read heads by character ---
       if (character === 'digital') {
@@ -314,25 +309,13 @@ export class EchoformDelayCore {
       const colouredL = this.colour(lpL, character, 'L')
       const colouredR = this.colour(lpR, character, 'R')
 
-      // --- Freeze recirculates the UNFILTERED, UNCOLOURED tap ---
-      // The in-loop filters and character saturation shave energy on every
-      // circulation. Under normal feedback that decay is intended; under Freeze
-      // it turns a "hold" into a slow fade (see spec-010 Freeze). While frozen,
-      // feed the raw delayed signal back so no per-pass filter/saturation loss
-      // accumulates. The wet OUTPUT tap below still uses the coloured signal, so
-      // the held tail keeps its tone; only the recirculated copy is un-toned.
-      const recircL = colouredL + (delayedL - colouredL) * this.freezeMix
-      const recircR = colouredR + (delayedR - colouredR) * this.freezeMix
-
       // --- Feedback matrix (normal vs ping-pong), crossfaded on change ---
-      const fbSourceL = recircL * (1 - this.pingPongMix) + recircR * this.pingPongMix
-      const fbSourceR = recircR * (1 - this.pingPongMix) + recircL * this.pingPongMix
+      const fbSourceL = colouredL * (1 - this.pingPongMix) + colouredR * this.pingPongMix
+      const fbSourceR = colouredR * (1 - this.pingPongMix) + colouredL * this.pingPongMix
 
-      // --- Loop gain, with Freeze pushing gain toward unity and gating input ---
-      const loopGain = this.feedback * (1 - this.freezeMix) + FREEZE_LOOP_GAIN * this.freezeMix
-      const inputGate = 1 - this.freezeMix
-      const writeL = feedbackSoftLimit(drivenL * inputGate + fbSourceL * loopGain)
-      const writeR = feedbackSoftLimit(drivenR * inputGate + fbSourceR * loopGain)
+      // --- Sum the (driven) input with the feedback path ---
+      const writeL = feedbackSoftLimit(drivenL + fbSourceL * this.feedback)
+      const writeR = feedbackSoftLimit(drivenR + fbSourceR * this.feedback)
       this.lineL.write(this.writeIndex, writeL)
       this.lineR.write(this.writeIndex, writeR)
 

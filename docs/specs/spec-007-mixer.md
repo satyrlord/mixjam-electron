@@ -219,7 +219,7 @@ Spec-011 owns the physical format. The saved project must preserve:
 - four return levels; and
 - the four FX and limiter records defined by spec-010.
 
-Project format version 6 is a breaking format. Older projects are rejected;
+Project format version 7 is a breaking format. Older projects are rejected;
 there is no migration or channel/insert-FX interpretation for earlier formats.
 Project parsing rejects zero lanes, more than 64 lanes, duplicate lane IDs, or
 missing or malformed lane-owned Mixer data.
@@ -291,7 +291,7 @@ removed solo cannot keep the remaining lanes gated.
 - [ ] **AC-013:** Lane meters are RMS dBFS with peak hold, Mixer visibility
   gates only their shared telemetry loop, and master loudness metering stays
   exclusive to the Master panel (the spec-012 strip output meter).
-- [ ] **AC-014:** Format-version-6 roundtrip preserves all lane-bound Mixer,
+- [ ] **AC-014:** Format-version-7 roundtrip preserves all lane-bound Mixer,
   return, FX, and limiter state; invalid lane counts and malformed lane-owned
   Mixer values are rejected; older formats are rejected without migration.
 - [ ] **AC-015:** Lane-strip and combined FX and Return buttons, sliders, and

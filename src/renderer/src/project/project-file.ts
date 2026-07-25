@@ -43,7 +43,7 @@ import {
 } from '../../../shared/backend-api'
 import { isGeneratorProfileId } from '../../../shared/generator-profile-id'
 
-const PROJECT_FORMAT_VERSION = 6
+const PROJECT_FORMAT_VERSION = 7
 export const NEWER_PROJECT_VERSION_MESSAGE =
   'This project was created with a newer version of MixJam. Please update the app.'
 
@@ -390,7 +390,7 @@ function requireCurrentFormat(value: unknown): Record<string, unknown> {
   if (typeof rawVersion === 'number' && rawVersion > PROJECT_FORMAT_VERSION) {
     throw new ProjectFileError(NEWER_PROJECT_VERSION_MESSAGE)
   }
-  throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 6 is supported.')
+  throw new ProjectFileError('This MixJam project uses an unsupported format version. Only format version 7 is supported.')
 }
 
 function parsePlacement(

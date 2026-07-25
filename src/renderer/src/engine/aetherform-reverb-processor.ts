@@ -32,7 +32,6 @@ function toState(module: AetherformReverbModule): AetherformReverbState {
     duckAmountPercent: module.duckAmountPercent,
     duckReleaseMs: module.duckReleaseMs,
     outputDb: module.outputDb,
-    freeze: module.freeze,
     bypass: module.bypass
   }
 }

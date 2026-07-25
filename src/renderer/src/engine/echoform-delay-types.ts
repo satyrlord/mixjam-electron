@@ -60,6 +60,5 @@ export interface EchoformDelayState {
   duckRelease: number
   /** Output trim after all wet processing, -24 to +12 dB. */
   outputDb: number
-  freeze: boolean
   bypass: boolean
 }

@@ -34,7 +34,7 @@ test.describe('Project save and load', () => {
       return JSON.parse(harness.__mixjamProjectFiles['saved-project.mixjam'])
     })
 
-    expect(saved.formatVersion).toBe(6)
+    expect(saved.formatVersion).toBe(7)
     expect(saved.song).toEqual({
       bpm: 126,
       masterGain: 1,
