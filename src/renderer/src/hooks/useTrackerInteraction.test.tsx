@@ -54,10 +54,11 @@ function createOptions(overrides: {
   transportState?: PlayerTransportProps['transportState']
   songEndTick?: number
 } = {}) {
+  const tickStore = createValueStore(overrides.currentTick ?? 0)
   const arrangement: TrackerArrangementProps = {
     lanes: overrides.lanes ?? [lane(0, 1)],
     laneShouldDim: vi.fn(() => false),
-    tickStore: createValueStore(overrides.currentTick ?? 0),
+    tickStore,
     missingSamplePaths: new Set(),
     onPlaceSampleDetailOnLane: vi.fn(),
     onMovePlacement: vi.fn(),
@@ -96,7 +97,7 @@ function createOptions(overrides: {
     onSearchChange: vi.fn(),
     onSelectCategory: vi.fn()
   }
-  return { arrangement, transport, browser }
+  return { arrangement, transport, browser, tickStore }
 }
 
 describe('useTrackerInteraction', () => {
@@ -171,6 +172,60 @@ describe('useTrackerInteraction', () => {
     act(() => result.current.onTransportJumpToEnd())
     expect(options.transport.onTransportJumpToEnd).toHaveBeenCalledOnce()
     expect(scrollport.scrollLeft).toBeGreaterThan(0)
+  })
+
+  it('follows playhead ticks only while the toggle is enabled during playback', () => {
+    const options = createOptions({
+      currentTick: TRACKER_TOTAL_TICKS / 2,
+      transportState: 'playing'
+    })
+    const { result } = renderHook(() => useTrackerInteraction(options))
+    const scrollport = { scrollWidth: 1_000, clientWidth: 300, scrollLeft: 0 }
+    Object.defineProperty(result.current.lanesRef, 'current', { value: scrollport, configurable: true })
+
+    expect(result.current.followPlayhead).toBe(false)
+    act(() => options.tickStore.set(TRACKER_TOTAL_TICKS * 5 / 8))
+    expect(scrollport.scrollLeft).toBe(0)
+    act(() => result.current.onToggleFollowPlayhead())
+    expect(result.current.followPlayhead).toBe(true)
+    expect(scrollport.scrollLeft).toBeGreaterThan(0)
+
+    const followedScrollLeft = scrollport.scrollLeft
+    act(() => options.tickStore.set(TRACKER_TOTAL_TICKS * 5 / 8 + 8))
+    expect(scrollport.scrollLeft).toBe(followedScrollLeft)
+
+    act(() => options.tickStore.set(TRACKER_TOTAL_TICKS * 3 / 4))
+    expect(scrollport.scrollLeft).toBeGreaterThan(followedScrollLeft)
+
+    act(() => result.current.onToggleFollowPlayhead())
+    const unlockedScrollLeft = scrollport.scrollLeft
+    act(() => options.tickStore.set(0))
+    expect(scrollport.scrollLeft).toBe(unlockedScrollLeft)
+  })
+
+  it('keeps follow enabled without scrolling until playback starts', () => {
+    const options = createOptions({
+      currentTick: TRACKER_TOTAL_TICKS / 2,
+      transportState: 'paused'
+    })
+    const { result, rerender } = renderHook(() => useTrackerInteraction(options))
+    const scrollport = { scrollWidth: 1_000, clientWidth: 300, scrollLeft: 0 }
+    Object.defineProperty(result.current.lanesRef, 'current', { value: scrollport, configurable: true })
+
+    act(() => result.current.onToggleFollowPlayhead())
+    act(() => options.tickStore.set(TRACKER_TOTAL_TICKS * 3 / 4))
+    expect(result.current.followPlayhead).toBe(true)
+    expect(scrollport.scrollLeft).toBe(0)
+
+    options.transport.transportState = 'playing'
+    rerender()
+    expect(scrollport.scrollLeft).toBeGreaterThan(0)
+
+    options.transport.transportState = 'paused'
+    rerender()
+    const pausedScrollLeft = scrollport.scrollLeft
+    act(() => options.tickStore.set(TRACKER_TOTAL_TICKS / 4))
+    expect(scrollport.scrollLeft).toBe(pausedScrollLeft)
   })
 
   it('deletes and locates the selected sample event, including its flash lifecycle', () => {

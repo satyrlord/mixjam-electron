@@ -981,6 +981,23 @@ describe('PlayerView', () => {
     expect(playhead!.getAttribute('style')).toContain('0.00125125')
   })
 
+  it('AC-011e: renders a default-off Follow playhead toggle before Delete empty lanes', () => {
+    renderPlayer()
+
+    const follow = screen.getByRole('button', { name: 'Follow playhead' })
+    const deleteEmpty = document.querySelector<HTMLButtonElement>('.lane-empty-delete')!
+    expect(follow).toHaveAttribute('aria-pressed', 'false')
+    expect(follow.querySelector('svg')).not.toBeNull()
+    expect(
+      follow.compareDocumentPosition(deleteEmpty) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+
+    fireEvent.click(follow)
+    expect(follow).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(follow)
+    expect(follow).toHaveAttribute('aria-pressed', 'false')
+  })
+
   // --- AC-011: Ruler tick marks and bar numbers ---
   it('AC-011: ruler displays bar numbers (1, 5, 9, 13) and tick marks', () => {
     renderPlayer({})

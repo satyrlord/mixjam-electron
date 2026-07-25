@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { promisify } from 'node:util'
 import { buildAppIconPath } from '../../src/shared/window-config'
 import {
@@ -10,9 +10,11 @@ import {
   launchMixJamElectron
 } from './packaged-launch'
 
-const PACKAGE_VERSION = (JSON.parse(
-  readFileSync(resolve(__dirname, '..', '..', 'package.json'), 'utf8')
-) as { version: string }).version
+const REPOSITORY_ROOT = resolve(__dirname, '..', '..')
+const EXPECTED_APP_VERSION = `0.${execFileSync('git', ['rev-list', '--count', 'HEAD'], {
+  cwd: REPOSITORY_ROOT,
+  encoding: 'utf8'
+}).trim()}`
 const APP_ICON = buildAppIconPath(resolve(__dirname, '..', '..', 'out', 'main'))
 const ICON_PROBE = resolve(__dirname, '..', '..', 'scripts', 'inspect-window-icon.ps1')
 const EVIDENCE_DIR = resolve(__dirname, '..', '..', 'tmp', 'verify-electron-window-state')
@@ -78,7 +80,7 @@ test.describe('Electron smoke', () => {
 
       const footer = window.locator('footer')
       await expect(footer).toBeVisible({ timeout: 5_000 })
-      await expect(footer.getByRole('button', { name: PACKAGE_VERSION })).toBeVisible()
+      await expect(footer.getByRole('button', { name: EXPECTED_APP_VERSION })).toBeVisible()
 
       const footerText = await footer.textContent()
       expect(footerText).toBeTruthy()

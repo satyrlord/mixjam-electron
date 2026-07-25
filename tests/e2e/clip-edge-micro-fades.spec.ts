@@ -279,7 +279,7 @@ test('project clip-edge settings schedule sample-rounded Chromium gain automatio
       dataTransfer: transfer
     }))
   })
-  await page.getByRole('button', { name: 'Play' }).click()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
   await page.waitForFunction(() =>
     window.__mixjamFadeAutomation.some((record) => record.events.length >= 4)
   )

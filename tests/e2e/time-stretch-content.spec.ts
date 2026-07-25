@@ -101,7 +101,7 @@ test('project tempo changes resample the source at the placement playback rate',
 
   await bpmInput.fill(String(PROJECT_BPM))
   await bpmInput.press('Enter')
-  await page.getByRole('button', { name: 'Play' }).click()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
   await page.waitForFunction(
     () => window.__mixjamTempoVoices.length >= 2,
     undefined,

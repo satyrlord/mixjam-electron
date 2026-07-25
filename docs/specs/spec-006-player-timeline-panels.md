@@ -276,6 +276,16 @@ browser adjacencies.
   the lane and its lane-owned mixer state, keeps every surviving stable ID, and
   shifts and renumbers later lanes in visible order. Add and delete participate
   in the same undo history as placement edits.
+- An eye-icon **Follow playhead** toggle sits above the lane headers immediately
+  before the empty-lane macro. It is off whenever the Player mounts and is
+  transient UI state, not project or app state. While enabled and playing, the
+  Tracker centers the current playhead in the visible timeline area, clamped at
+  the arrangement boundaries. Enabling it during playback centers the current
+  playhead immediately. Later playhead ticks do not scroll while the playhead
+  remains inside the central 60% of the visible timeline; crossing either 20%
+  guard band recenters it. This avoids continuous canvas redraws while keeping
+  the playhead in view. Paused, stopped, and preparing transport do not trigger
+  follow scrolling.
 - An unlabeled trash-icon macro sits above the lane headers. Its accessible name
   describes removing empty lanes, and its adjacent value is the number of
   removable empty lanes. Its tooltip explains the operation. Activation removes
@@ -313,11 +323,12 @@ browser adjacencies.
 - Placements are rendered on a canvas element for performance — not as
   individual DOM nodes (enables smooth scrolling at high placement counts).
 - The logical lane spans the full 999-bar surface, but each lane's canvas
-  backing store is bounded to the visible Tracker viewport and redraws in
-  full-timeline coordinates while scrolling. Scroll events coalesce into at
-  most one redraw per animation frame. No canvas bitmap may use the full
-  127,872px lane width because it exceeds Chromium's reliable canvas
-  dimensions.
+  backing store is bounded to at most two visible Tracker viewports. The extra
+  horizontal viewport is split around the visible range as overscan. Scrolls
+  inside that covered range reuse the bitmap; crossing its inner 10% guard
+  schedules one frame-coalesced redraw in full-timeline coordinates. This keeps
+  Follow playhead recentering covered without allocating the full 127,872px
+  lane width, which exceeds Chromium's reliable canvas dimensions.
 - Sample drag payload access is defensive: the complete internal sample detail
   is cached synchronously at drag start, before the browser protects payload
   access. Dragover and drop reuse that cache, so an over-capacity sample still
@@ -661,6 +672,12 @@ window-level mouse listeners.
 - [x] **AC-011d:** The Tracker region is constrained to its upper-panel height,
   while the always-rendered Song Progress Bar remains visible and
   pointer-operable as the first row of the Middle Strip at 1920x1080.
+- [x] **AC-011e:** Follow playhead is an accessible, default-off eye-icon toggle
+  immediately before Delete empty lanes. Its pressed state is exposed through
+  `aria-pressed`. When enabled during playback, it immediately scrolls to the
+  current playhead, centers it in the unobscured timeline area, and recenters
+  only after it crosses the visible timeline's 20% guard bands. It does not
+  auto-scroll while playback is inactive.
 - [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
@@ -809,7 +826,9 @@ contract.
   placements. Native-speed p95 frame intervals were 16.7-16.8ms and p95
   input-to-scroll latency was 0.5ms; at 4x CPU slowdown those ranges were
   50.1ms and 2.4-2.9ms. Every run reached capacity, kept canvas backing stores
-  viewport-bounded, and coalesced lane redraws to one per animation frame.
+  viewport-bounded, and coalesced lane redraws to one per animation frame. The
+  later Follow playhead repair permits at most two viewport widths of bounded
+  horizontal overscan; those earlier figures have not been re-characterized.
   These values are characterization only because no numeric performance budget
   has been approved.
 

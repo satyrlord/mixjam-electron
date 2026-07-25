@@ -23,6 +23,7 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
   const lanesRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const [laneContentWidth, setLaneContentWidth] = useState(0)
+  const [followPlayhead, setFollowPlayhead] = useState(false)
   const [selectedPlacementIds, setSelectedPlacementIds] = useState<Set<string>>(new Set())
   const [selectedLaneId, setSelectedLaneId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{
@@ -74,9 +75,43 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
     const targetX = LANE_HEAD_WIDTH_PX + (boundedTick / totalTicks) * timelineWidth
     scrollport.scrollLeft = boundedTick === 0 ? 0 : Math.max(0, Math.min(maximumScroll, targetX - scrollport.clientWidth + 8))
   }, [totalTicks])
+  const centerTickInViewport = useCallback((tick: number) => {
+    const scrollport = lanesRef.current
+    if (!scrollport) return
+    const maximumScroll = Math.max(0, scrollport.scrollWidth - scrollport.clientWidth)
+    const timelineWidth = Math.max(0, scrollport.scrollWidth - LANE_HEAD_WIDTH_PX)
+    const visibleTimelineWidth = Math.max(0, scrollport.clientWidth - LANE_HEAD_WIDTH_PX)
+    const boundedTick = Math.max(0, Math.min(totalTicks, tick))
+    const targetX = LANE_HEAD_WIDTH_PX + (boundedTick / totalTicks) * timelineWidth
+    const centeredScroll = targetX - LANE_HEAD_WIDTH_PX - visibleTimelineWidth / 2
+    scrollport.scrollLeft = Math.max(0, Math.min(maximumScroll, centeredScroll))
+  }, [totalTicks])
+  const keepTickInFollowZone = useCallback((tick: number) => {
+    const scrollport = lanesRef.current
+    if (!scrollport) return
+    const maximumScroll = Math.max(0, scrollport.scrollWidth - scrollport.clientWidth)
+    const timelineWidth = Math.max(0, scrollport.scrollWidth - LANE_HEAD_WIDTH_PX)
+    const visibleTimelineWidth = Math.max(0, scrollport.clientWidth - LANE_HEAD_WIDTH_PX)
+    const boundedTick = Math.max(0, Math.min(totalTicks, tick))
+    const targetX = LANE_HEAD_WIDTH_PX + (boundedTick / totalTicks) * timelineWidth
+    const followMargin = visibleTimelineWidth * 0.2
+    const leadingEdge = scrollport.scrollLeft + LANE_HEAD_WIDTH_PX +
+      (scrollport.scrollLeft <= 0 ? 0 : followMargin)
+    const trailingEdge = scrollport.scrollLeft + scrollport.clientWidth -
+      (scrollport.scrollLeft >= maximumScroll ? 0 : followMargin)
+    if (targetX >= leadingEdge && targetX <= trailingEdge) return
+    const centeredScroll = targetX - LANE_HEAD_WIDTH_PX - visibleTimelineWidth / 2
+    scrollport.scrollLeft = Math.max(0, Math.min(maximumScroll, centeredScroll))
+  }, [totalTicks])
   const onTransportStop = useCallback(() => { transport.onTransportStop(); scrollToTick(0) }, [scrollToTick, transport])
   const onTransportSkipBack = useCallback(() => { transport.onTransportSkipBack(); scrollToTick(0) }, [scrollToTick, transport])
   const onTransportJumpToEnd = useCallback(() => { transport.onTransportJumpToEnd(); scrollToTick(transport.songEndTick) }, [scrollToTick, transport])
+  const onToggleFollowPlayhead = useCallback(() => setFollowPlayhead((enabled) => !enabled), [])
+  useEffect(() => {
+    if (!followPlayhead || transport.transportState !== 'playing') return
+    centerTickInViewport(tickStore.get())
+    return tickStore.subscribe(() => keepTickInFollowZone(tickStore.get()))
+  }, [centerTickInViewport, followPlayhead, keepTickInFollowZone, tickStore, transport.transportState])
   // Both effects key off discrete transitions (transport state, song end) and
   // read the playhead tick from the store at that moment, so the 10 Hz tick
   // advance itself never re-runs them.
@@ -144,6 +179,7 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
 
   return {
     lanesRef, timelineRef, totalTicks, laneContentWidth, pixelsPerTick, bubblePixelsPerSecond, sampleDurationTicksByPath,
+    followPlayhead, onToggleFollowPlayhead,
     selectedPlacementIds, clearSelection, selectedLaneId, setSelectedLaneId, contextMenu, setContextMenu,
     laneContextMenu, setLaneContextMenu, renamingLaneIndex, activeFlashPath: flashVisible ? flashSamplePath : null,
     selectionRect: drag.selectionRect, handleLanesMouseDown, handleSampleDragStart: drag.handleSampleDragStart,

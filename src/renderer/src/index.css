@@ -3601,8 +3601,10 @@ select option:disabled {
 
 
 .tracker-lane-actions { position: sticky; left: 0; z-index: 8; display: flex; align-items: center; justify-content: flex-end; width: var(--tracker-lane-head-width, 240px); gap: 8px; padding: 4px 8px; border-bottom: var(--edge); background: var(--chrome); box-sizing: border-box; }
-.lane-add-button, .lane-empty-delete { min-height: 28px; border: var(--edge-pill); border-radius: var(--radius-track); background: var(--pill-bg); color: var(--text-muted); font: 600 12px var(--font-label); padding: 0 8px; }
-.lane-add-button:hover, .lane-empty-delete:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.lane-add-button, .lane-empty-delete, .lane-follow-playhead { min-height: 28px; border: var(--edge-pill); border-radius: var(--radius-track); background: var(--pill-bg); color: var(--text-muted); font: 600 12px var(--font-label); padding: 0 8px; }
+.lane-follow-playhead { display: inline-grid; min-width: 28px; place-items: center; padding: 0 6px; }
+.lane-add-button:hover, .lane-empty-delete:hover:not(:disabled), .lane-follow-playhead:hover { color: var(--text); border-color: var(--accent); }
+.lane-follow-playhead[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--pill-bg)); }
 .lane-add-button:disabled, .lane-empty-delete:disabled { opacity: .45; cursor: not-allowed; }
 .lane-action-tooltip-trigger { display: inline-flex; }
 .tracker-lane-add-row { display: flex; min-width: 100%; min-height: 44px; border-top: var(--edge); }

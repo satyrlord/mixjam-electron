@@ -20,8 +20,8 @@ let mainWindow: BrowserWindow | null = null
 const ALLOWED_EXTERNAL_HOSTS = new Set(['github.com', 'www.github.com'])
 
 // app.getVersion() returns Electron's own version in an unpackaged run rather
-// than this app's. __APP_VERSION__ is inlined from package.json at build time
-// (see electron.vite.config.ts).
+// than this app's. __APP_VERSION__ is derived from the repository commit count
+// at build time (see electron.vite.config.ts).
 declare const __APP_VERSION__: string | undefined
 function appVersion(): string {
   return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : app.getVersion()

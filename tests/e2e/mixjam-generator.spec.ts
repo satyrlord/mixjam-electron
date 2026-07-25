@@ -87,7 +87,7 @@ test('generator saves, opens, plays, and keeps Sample Browser and Tracker colors
     .not.toBe(emeraldColor)
   await assertPaletteMatch()
 
-  await page.getByRole('button', { name: 'Play' }).click()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
   await page.screenshot({ path: 'tmp/verify-generator-structure/generator-player-beton.png', fullPage: true })
 })
@@ -112,7 +112,7 @@ test('Player regeneration blocks shortcuts and returns focus to the project menu
   await page.keyboard.press('?')
   await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toHaveCount(0)
   await page.keyboard.press('Space')
-  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible()
 
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)

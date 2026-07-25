@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 import { TICKS_PER_BEAT } from '../../src/renderer/src/engine/transport'
-import { TRACKER_TOTAL_TICKS } from '../../src/renderer/src/lib/arrangement'
+import { LANE_HEAD_WIDTH_PX, TRACKER_TOTAL_TICKS } from '../../src/renderer/src/lib/arrangement'
 
 const TRACKER_LAST_GRID_TICK = Math.floor((TRACKER_TOTAL_TICKS - 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
 
@@ -126,7 +126,7 @@ test('Jump to End stops at the exact song end and brings it into view', async ({
 
   await expect(slider).toHaveAttribute('aria-valuenow', '5032')
   await expect.poll(() => scrollport.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
-  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible()
 })
 
 test('Play from the parked song end restarts at zero after delayed preparation', async ({ seededPage: page }) => {
@@ -144,10 +144,72 @@ test('Play from the parked song end restarts at zero after delayed preparation',
   await page.getByRole('button', { name: 'Jump to End' }).click()
   await expect(slider).toHaveAttribute('aria-valuenow', '32')
 
-  await page.getByRole('button', { name: 'Play' }).click()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Preparing playback' })).toBeVisible()
   await expect(slider).toHaveAttribute('aria-valuenow', '0')
   await page.waitForTimeout(150)
   await expect(page.getByRole('button', { name: 'Preparing playback' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 1_000 })
+})
+
+test('Follow playhead centers the playing position until toggled off', async ({ seededPage: page }) => {
+  await page.evaluate(() => {
+    const harness = window as unknown as { __mixjamProjectFiles: Record<string, string> }
+    const project = JSON.parse(harness.__mixjamProjectFiles['club-night.mixjam']!)
+    project.lanes[0].placements[0].startTick = 5_000
+    harness.__mixjamProjectFiles['club-night.mixjam'] = JSON.stringify(project)
+  })
+  await page.getByRole('button', { name: /club-night/ }).click()
+
+  const targetTick = 4_000
+  const scrollport = page.locator('.tracker-lanes')
+  const track = page.locator('.tracker-ruler-track')
+  const slider = page.getByRole('slider', { name: 'Tracker timeline' })
+  const follow = page.getByRole('button', { name: 'Follow playhead' })
+  await expect(follow).toHaveAttribute('aria-pressed', 'false')
+
+  await scrollport.evaluate((element) => {
+    element.scrollLeft = 15_800
+    element.dispatchEvent(new Event('scroll'))
+  })
+  const trackBox = await track.boundingBox()
+  if (!trackBox) throw new Error('Tracker ruler track is missing')
+  const clickX = trackBox.x + (targetTick / TRACKER_TOTAL_TICKS) * trackBox.width
+  await page.mouse.click(clickX, trackBox.y + trackBox.height / 2)
+  await expect(slider).toHaveAttribute('aria-valuenow', String(targetTick))
+
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 1_000 })
+  await follow.click()
+  await expect(follow).toHaveAttribute('aria-pressed', 'true')
+
+  const centeredOffset = () => scrollport.evaluate((element, laneHeadWidth) => {
+    const playhead = element.querySelector('.tracker-playhead')
+    if (!(playhead instanceof HTMLElement)) throw new Error('Tracker follow geometry is unavailable')
+    const scrollBox = element.getBoundingClientRect()
+    const playheadBox = playhead.getBoundingClientRect()
+    const expectedX = scrollBox.x + laneHeadWidth + (element.clientWidth - laneHeadWidth) / 2
+    return Math.abs(playheadBox.x + playheadBox.width / 2 - expectedX)
+  }, LANE_HEAD_WIDTH_PX)
+  await expect.poll(centeredOffset).toBeLessThanOrEqual(2)
+
+  const followedScrollLeft = await scrollport.evaluate((element) => element.scrollLeft)
+  await page.waitForTimeout(350)
+  expect(await scrollport.evaluate((element) => element.scrollLeft)).toBe(followedScrollLeft)
+
+  await scrollport.evaluate((element) => {
+    element.scrollLeft = 0
+    element.dispatchEvent(new Event('scroll'))
+  })
+  await expect.poll(() => scrollport.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(0)
+
+  await follow.click()
+  await expect(follow).toHaveAttribute('aria-pressed', 'false')
+  await scrollport.evaluate((element) => {
+    element.scrollLeft = 0
+    element.dispatchEvent(new Event('scroll'))
+  })
+  await page.waitForTimeout(350)
+  expect(await scrollport.evaluate((element) => element.scrollLeft)).toBe(0)
 })

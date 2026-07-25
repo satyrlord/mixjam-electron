@@ -9,5 +9,5 @@
     "noEmit": true,
     "types": ["electron-vite/node"]
   },
-  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*", "src/shared/**/*"]
+  "include": ["electron.vite.config.*", "scripts/app-version.ts", "src/main/**/*", "src/preload/**/*", "src/shared/**/*"]
 }

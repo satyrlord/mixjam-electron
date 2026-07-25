@@ -163,6 +163,7 @@ function PlayerView({
   const tracker = useTrackerInteraction({ arrangement, transport, browser })
   const {
     lanesRef, timelineRef, totalTicks, pixelsPerTick, bubblePixelsPerSecond, sampleDurationTicksByPath,
+    followPlayhead, onToggleFollowPlayhead,
     selectedPlacementIds, clearSelection, selectedLaneId, setSelectedLaneId, contextMenu, setContextMenu,
     laneContextMenu, setLaneContextMenu, renamingLaneIndex, activeFlashPath, selectionRect,
     handleLanesMouseDown, handleSampleDragStart, handlePlacementDragStart, handleLaneCanvasDragOver,
@@ -348,6 +349,22 @@ function PlayerView({
             style={{ minWidth: TRACKER_TIMELINE_MIN_WIDTH_PX }}
           >
           <div className="tracker-lane-actions" style={{ minHeight: 36 }}>
+            <Tooltip content="Keep the Tracker viewport aligned with the playhead during playback.">
+              <span className="lane-action-tooltip-trigger">
+                <button
+                  type="button"
+                  className="lane-follow-playhead"
+                  onClick={onToggleFollowPlayhead}
+                  aria-label="Follow playhead"
+                  aria-pressed={followPlayhead}
+                >
+                  <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
+                    <path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4-6.5-4-6.5-4Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+                    <circle cx="8" cy="8" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                  </svg>
+                </button>
+              </span>
+            </Tooltip>
             <Tooltip content="Delete all empty lanes. An Empty Lane has no sample events anywhere in the song. This action does not ask for confirmation.">
               <span className="lane-action-tooltip-trigger">
                 <button type="button" className="lane-empty-delete" onClick={arrangement.onDeleteEmptyLanes} disabled={emptyLaneCount === 0 || lanes.length <= 1} aria-label={`Delete ${emptyLaneCount} empty lanes`}>

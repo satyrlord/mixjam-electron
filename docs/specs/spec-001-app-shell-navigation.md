@@ -208,9 +208,10 @@ as signed, notarized, or warning-free.
   detail slot that may be populated by the Sample Browser selection model
   (spec-004).
 - The center footer slot is empty when no sample is selected.
-- Version string uses the semantic version from `package.json`, matching the
-  packaged application metadata. Clicking the version link opens the default
-  system browser to `https://github.com/satyrlord/mixjam-electron`.
+- Version string uses `0.<commit-count>`, derived from the full Git history at
+  build time. Builds without Git metadata fall back to the semantic version in
+  `package.json`. Clicking the version link opens the default system browser to
+  `https://github.com/satyrlord/mixjam-electron`.
 
 ## Acceptance Criteria (testable)
 

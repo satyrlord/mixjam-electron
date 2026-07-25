@@ -31,6 +31,7 @@ const PLACEMENTS: ClipPlacement[] = [
 function makeMockCtx() {
   return {
     scale: vi.fn(),
+    setTransform: vi.fn(),
     clearRect: vi.fn(),
     font: '',
     textBaseline: '',
@@ -110,7 +111,7 @@ describe('LaneSampleBubbleCanvas', () => {
     expect(mockCtx.fillText).toHaveBeenCalledWith('snare.wav', expect.any(Number), expect.any(Number))
   })
 
-  it('bounds the 999-bar backing canvas to the visible lane viewport', () => {
+  it('bounds the 999-bar backing canvas to two viewports and redraws only near its guard', () => {
     const pendingFrames: FrameRequestCallback[] = []
     const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       pendingFrames.push(callback)
@@ -145,7 +146,7 @@ describe('LaneSampleBubbleCanvas', () => {
 
     const scrollport = container.querySelector('.tracker-lanes') as HTMLElement
     const canvas = container.querySelector('.lane-sample-bubble-canvas') as HTMLCanvasElement
-    expect(canvas.width).toBe(1_200 - LANE_HEAD_WIDTH_PX)
+    expect(canvas.width).toBe((1_200 - LANE_HEAD_WIDTH_PX) * 2)
     expect(canvas.width).toBeLessThan(TRACKER_TIMELINE_MIN_WIDTH_PX - LANE_HEAD_WIDTH_PX)
 
     scrollport.scrollLeft = 50_000
@@ -156,8 +157,16 @@ describe('LaneSampleBubbleCanvas', () => {
     expect(requestFrame).toHaveBeenCalledTimes(1)
     expect(canvas.style.left).toBe('0px')
     act(() => pendingFrames.shift()?.(0))
-    expect(canvas.style.left).toBe('51000px')
-    expect(canvas.width).toBe(1_200 - LANE_HEAD_WIDTH_PX)
+    expect(canvas.style.left).toBe('50520px')
+    expect(canvas.width).toBe((1_200 - LANE_HEAD_WIDTH_PX) * 2)
+
+    scrollport.scrollLeft = 51_100
+    fireEvent.scroll(scrollport)
+    expect(requestFrame).toHaveBeenCalledTimes(1)
+
+    scrollport.scrollLeft = 52_000
+    fireEvent.scroll(scrollport)
+    expect(requestFrame).toHaveBeenCalledTimes(2)
   })
 
   it('draws placement duration at the shared timeline scale', () => {

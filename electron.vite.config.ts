@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
+import { deriveAppVersion } from './scripts/app-version'
 
 // Strict CSP for the packaged renderer. Injected at build time only — the dev
 // server needs inline scripts (react-refresh preamble) and websockets (HMR),
@@ -32,10 +33,12 @@ function injectCspPlugin(): Plugin {
   }
 }
 
-// Runtime UI and packaged metadata share one version authority.
-const { version: appVersion } = JSON.parse(
+// The displayed app version follows the repository commit count. package.json
+// remains the fallback for source archives and other builds without git data.
+const { version: fallbackVersion } = JSON.parse(
   readFileSync(resolve(__dirname, 'package.json'), 'utf8')
 ) as { version: string }
+const appVersion = deriveAppVersion(__dirname, fallbackVersion)
 
 export default defineConfig({
   main: {

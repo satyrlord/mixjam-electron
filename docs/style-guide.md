@@ -183,8 +183,9 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 - Zoom Level is a segmented `[75%][100%][125%]` selector (UI Size values 30,
   40, and 50) in the Player Settings modal. It defaults to 40 (100%) and is app
   state rather than project state.
-- Version string uses the semantic version from `package.json` and links to the
-  GitHub repository.
+- Version string uses `0.<commit-count>`, derived from the full Git history at
+  build time, and links to the GitHub repository. Builds without Git metadata
+  fall back to the semantic version in `package.json`.
 
 ### MixJam Browser
 
@@ -596,6 +597,11 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 ### Lane Structure Controls
 
+- The icon-only Follow playhead toggle sits immediately before the Empty Lane
+  cleanup control. Its eye icon and `aria-pressed` state identify the transient,
+  default-off mode. Enabling it while playing centers the playhead in the
+  visible timeline area. Follow then holds the viewport while the playhead is
+  inside the central 60%, and recenters only when it crosses a 20% guard band.
 - A persistent Add Lane row follows the final lane. It appends a lane and is
   disabled at 64 with an explanatory tooltip.
 - Delete Lane lives in the lane context menu and is disabled when only one lane
@@ -838,6 +844,10 @@ Bottom Workspace expansion shows the rack full-height.
 
 - Playhead: 2px vertical line, `--playhead` color, triangular cap via
   `::before`, `pointer-events: none`.
+- Follow playhead initially centers the active playhead in the unobscured
+  timeline area, then recenters only at its 20% guard bands. This keeps the
+  playhead visible without continuous lane-canvas redraws. Pause and stop leave
+  the viewport unlocked until playback resumes, without clearing the toggle.
 - Clicking ruler moves playhead to nearest beat.
 - Song Progress Bar thumb reflects visible fraction of capacity; dragging
   pans view without seeking.

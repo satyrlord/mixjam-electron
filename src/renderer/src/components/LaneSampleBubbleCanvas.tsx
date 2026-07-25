@@ -35,6 +35,9 @@ interface LaneSampleBubbleCanvasProps {
   }) => void
 }
 
+const CANVAS_VIEWPORT_MULTIPLIER = 2
+const CANVAS_REDRAW_GUARD_FRACTION = 0.1
+
 const SELECTION_BORDER_WIDTH = 2
 const GHOST_MIN_WIDTH = 48
 const GHOST_BADGE_WIDTH = 22
@@ -174,17 +177,20 @@ function LaneSampleBubbleCanvas({
     const availableWidth = scrollport
       ? Math.max(1, scrollport.clientWidth - LANE_HEAD_WIDTH_PX)
       : fullWidth
-    const canvasWidth = Math.min(fullWidth, availableWidth)
+    const canvasWidth = Math.min(fullWidth, availableWidth * CANVAS_VIEWPORT_MULTIPLIER)
     const canvasHeight = rect.height
     const bubbleHeight = uiGeometry.bubbleHeight
     const bubbleTop = Math.max(0, (canvasHeight - bubbleHeight) / 2)
     const maximumViewportLeft = Math.max(0, fullWidth - canvasWidth)
+    const overscan = Math.max(0, (canvasWidth - availableWidth) / 2)
     const viewportLeft = scrollport
-      ? Math.min(Math.max(0, scrollport.scrollLeft), maximumViewportLeft)
+      ? Math.min(Math.max(0, scrollport.scrollLeft - overscan), maximumViewportLeft)
       : 0
 
-    canvas.width = Math.max(1, Math.round(canvasWidth * dpr))
-    canvas.height = Math.max(1, Math.round(canvasHeight * dpr))
+    const backingWidth = Math.max(1, Math.round(canvasWidth * dpr))
+    const backingHeight = Math.max(1, Math.round(canvasHeight * dpr))
+    if (canvas.width !== backingWidth) canvas.width = backingWidth
+    if (canvas.height !== backingHeight) canvas.height = backingHeight
     canvas.style.left = `${viewportLeft}px`
     canvas.style.width = `${canvasWidth}px`
     canvas.style.height = `${canvasHeight}px`
@@ -192,7 +198,7 @@ function LaneSampleBubbleCanvas({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.scale(dpr, dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
 
     const pixelsPerTick = fullWidth / totalTicks
@@ -287,15 +293,38 @@ function LaneSampleBubbleCanvas({
         draw()
       })
     }
+    const scheduleScrollDraw = () => {
+      if (!scrollport) return
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const fullWidth = container.getBoundingClientRect().width
+      const availableWidth = Math.max(1, scrollport.clientWidth - LANE_HEAD_WIDTH_PX)
+      const canvasLeft = Number.parseFloat(canvas.style.left) || 0
+      const canvasWidth = Number.parseFloat(canvas.style.width) || 0
+      if (canvasWidth <= 0) {
+        scheduleDraw()
+        return
+      }
+      const visibleLeft = Math.max(0, scrollport.scrollLeft)
+      const visibleRight = visibleLeft + availableWidth
+      const redrawGuard = Math.min(
+        availableWidth * CANVAS_REDRAW_GUARD_FRACTION,
+        Math.max(0, (canvasWidth - availableWidth) / 2)
+      )
+      const guardedLeft = canvasLeft <= 0 ? canvasLeft : canvasLeft + redrawGuard
+      const canvasRight = canvasLeft + canvasWidth
+      const guardedRight = canvasRight >= fullWidth ? canvasRight : canvasRight - redrawGuard
+      if (visibleLeft < guardedLeft || visibleRight > guardedRight) scheduleDraw()
+    }
     const observer = new ResizeObserver(scheduleDraw)
     observer.observe(container)
     if (scrollport) {
       observer.observe(scrollport)
-      scrollport.addEventListener('scroll', scheduleDraw, { passive: true })
+      scrollport.addEventListener('scroll', scheduleScrollDraw, { passive: true })
     }
     return () => {
       observer.disconnect()
-      scrollport?.removeEventListener('scroll', scheduleDraw)
+      scrollport?.removeEventListener('scroll', scheduleScrollDraw)
       if (redrawFrame !== null) window.cancelAnimationFrame(redrawFrame)
     }
   }, [draw])

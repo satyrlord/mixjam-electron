@@ -232,7 +232,8 @@
 .tracker-lane-name-input,
 .tracker-first-sample-cue button,
 .lane-add-button,
-.lane-empty-delete {
+.lane-empty-delete,
+.lane-follow-playhead {
   min-height: var(--ui-size);
   font-size: var(--ui-font-sm);
 }

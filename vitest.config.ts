@@ -13,6 +13,7 @@ const NODE_BACKEND_TESTS = [
   'src/renderer/src/backend/generator-engine.test.ts',
   'src/renderer/src/backend/generator-library.test.ts',
   'src/renderer/src/backend/schema.test.ts',
+  'scripts/app-version.test.ts',
   'scripts/generate-mixer-test-song.test.ts'
 ]
 
