@@ -112,6 +112,7 @@ function SupportedApp() {
     selectedCategoryId: app.selectedCategoryId, selectedTagIds: app.selectedTagIds,
     sortBy: app.sortBy, sortDir: app.sortDir, tags: app.tags, categories: app.categories,
     libraries: app.libraries, librarySyncState: app.librarySyncState,
+    categoryScopeKey: sampleFolder.ref?.id ?? null,
     onSearchChange: app.setSearchQuery, onLoadMoreSamples: app.loadMoreSamples,
     onSelectSampleDetail: app.setSelectedSampleDetail, onPreviewSample: app.previewSample,
     onSelectCategory: app.setSelectedCategoryId, onToggleTagFilter: handleToggleTagFilter,
@@ -126,7 +127,7 @@ function SupportedApp() {
   }), [
     app.samples, app.searchQuery, app.loading, app.error, app.totalCount, app.hasMoreSamples,
     app.selectedSampleDetail, app.selectedCategoryId, app.selectedTagIds, app.sortBy, app.sortDir,
-    app.tags, app.categories, app.libraries, app.librarySyncState,
+    app.tags, app.categories, app.libraries, app.librarySyncState, sampleFolder.ref?.id,
     app.setSearchQuery, app.loadMoreSamples, app.setSelectedSampleDetail, app.previewSample,
     app.setSelectedCategoryId, handleToggleTagFilter, app.handleSortChange, app.rescanLibrary,
     app.retryLibrarySync, app.cancelLibrarySync, app.createTag, app.renameTag, app.setTagColor,

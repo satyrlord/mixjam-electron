@@ -8,11 +8,12 @@ import type { DB } from './sql'
 import {
   assignCategoryFromPath,
   completeScanRoot,
+  ensureFolderCategoryPaths,
   ensureScanRoot,
   listMetadataCandidates,
   markMissing,
   markMetadataUnavailable,
-  syncCategoriesFromNames,
+  reconcileFolderCategories,
   updateMetadata,
   upsertStub
 } from './indexed-sample-persistence'
@@ -51,8 +52,8 @@ interface FoundFile {
 
 interface WalkResult {
   files: FoundFile[]
-  /** Names of the sample folder's top-level subdirectories (category roots). */
-  topLevelDirs: string[]
+  /** All relative directory paths, parent before child, without trailing slashes. */
+  directoryRelpaths: string[]
 }
 
 function extOf(name: string): string {
@@ -77,14 +78,14 @@ async function walkAudio(
   isCurrent: ScanIsCurrent
 ): Promise<WalkResult> {
   const files: FoundFile[] = []
-  const topLevelDirs: string[] = []
+  const directoryRelpaths: string[] = []
 
-  async function walk(dir: FileSystemDirectoryHandle, prefix: string, depth: number): Promise<void> {
+  async function walk(dir: FileSystemDirectoryHandle, prefix: string): Promise<void> {
     for await (const [name, entry] of dir.entries()) {
       if (!isCurrent()) return
       if (entry.kind === 'directory') {
-        if (depth === 0) topLevelDirs.push(name)
-        await walk(entry, `${prefix}${name}/`, depth + 1)
+        directoryRelpaths.push(`${prefix}${name}`)
+        await walk(entry, `${prefix}${name}/`)
         continue
       }
       if (AUDIO_EXTENSIONS.has(extOf(name))) {
@@ -93,8 +94,8 @@ async function walkAudio(
     }
   }
 
-  await walk(root, '', 0)
-  return { files, topLevelDirs }
+  await walk(root, '')
+  return { files, directoryRelpaths }
 }
 
 /** Lets queued worker messages (queries) run between scan batches. */
@@ -112,7 +113,7 @@ async function phase1(
   batchSize: number = DEFAULT_BATCH_SIZE
 ): Promise<void> {
   if (!isCurrent()) return
-  const { files, topLevelDirs } = walked
+  const { files, directoryRelpaths } = walked
   const total = files.length
   let processed = 0
 
@@ -172,9 +173,10 @@ async function phase1(
   })
   markAllMissing(known.map((k) => k.relpath).filter((relpath) => !fileSet.has(relpath)))
 
-  // Synchronise root categories with the sample-folder structure: a category
-  // for each top-level subdirectory plus the hardcoded "Unsorted" fallback.
-  syncCategoriesFromNames(db, topLevelDirs)
+  // Ensure every directory path exists before assignment. Folder provenance is
+  // published only after all assignment batches finish, so cancellation keeps
+  // the prior complete projection visible.
+  const folderCategoryIds = ensureFolderCategoryPaths(db, directoryRelpaths)
 
   // Auto-assign every sample to a category based on its folder path, batched in
   // transactions so a large library does not pay one fsync per file.
@@ -189,6 +191,10 @@ async function phase1(
     await yieldToEvents()
     if (!isCurrent()) return
   }
+
+  // Only a completed phase-1 traversal may retire obsolete filesystem-derived
+  // nodes. Custom categories and categories belonging to other roots survive.
+  reconcileFolderCategories(db, rootId, folderCategoryIds)
 
   emit({ status: 'scanning', phase: 1, found: total, processed: total, total })
 }

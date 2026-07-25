@@ -67,14 +67,14 @@ const LANES: LaneState[] = Array.from({ length: 16 }, (_, index) => ({
 const noop = () => undefined
 
 const DEFAULT_CATEGORIES = [
-  { id: 1, name: 'Bass', parentId: null },
-  { id: 2, name: 'Drums', parentId: null },
-  { id: 3, name: 'FX', parentId: null },
-  { id: 4, name: 'Synth', parentId: null },
-  { id: 5, name: 'Vocal', parentId: null },
-  { id: 6, name: 'Loop', parentId: null },
-  { id: 7, name: 'Percussion', parentId: null },
-  { id: 8, name: 'Atmosphere', parentId: null }
+  { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
+  { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: false },
+  { id: 3, name: 'FX', parentId: null, folderDerived: true, userCreated: false },
+  { id: 4, name: 'Synth', parentId: null, folderDerived: true, userCreated: false },
+  { id: 5, name: 'Vocal', parentId: null, folderDerived: true, userCreated: false },
+  { id: 6, name: 'Loop', parentId: null, folderDerived: true, userCreated: false },
+  { id: 7, name: 'Percussion', parentId: null, folderDerived: true, userCreated: false },
+  { id: 8, name: 'Atmosphere', parentId: null, folderDerived: true, userCreated: false }
 ]
 
 const READY_LIBRARY_STATE: LibrarySyncState = {
@@ -99,6 +99,7 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   categories: DEFAULT_CATEGORIES,
   libraries: [],
   librarySyncState: READY_LIBRARY_STATE,
+  categoryScopeKey: 'samples',
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
@@ -1293,7 +1294,7 @@ describe('PlayerView', () => {
   it('renders the selected category filter and nested categories', () => {
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1 }
+      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false }
     ]
     renderPlayer({
       browser: {
@@ -1366,7 +1367,7 @@ describe('PlayerView', () => {
     const onSelectCategory = vi.fn()
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1 }
+      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false }
     ]
     renderPlayer({
       browser: {
@@ -1385,7 +1386,7 @@ describe('PlayerView', () => {
     const onSelectCategory = vi.fn()
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1 }
+      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false }
     ]
     renderPlayer({
       browser: {
@@ -1407,8 +1408,8 @@ describe('PlayerView', () => {
     // clicking DeepBass takes the select branch, not toggle-off.
     const categoriesWithChildren = [
       ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1 },
-      { id: 10, name: 'DeepBass', parentId: 9 }
+      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false },
+      { id: 10, name: 'DeepBass', parentId: 9, folderDerived: true, userCreated: false }
     ]
     renderPlayer({
       browser: {

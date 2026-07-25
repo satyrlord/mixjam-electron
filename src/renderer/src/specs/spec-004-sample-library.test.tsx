@@ -38,10 +38,10 @@ const LANES: LaneState[] = Array.from({ length: 4 }, (_, index) => ({
 }))
 
 const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Unsorted', parentId: null },
-  { id: 2, name: 'Bass', parentId: null },
-  { id: 3, name: 'Loop', parentId: null },
-  { id: 4, name: 'Drums', parentId: null },
+  { id: 1, name: 'Unsorted', parentId: null, folderDerived: true, userCreated: false },
+  { id: 2, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
+  { id: 3, name: 'Loop', parentId: null, folderDerived: true, userCreated: false },
+  { id: 4, name: 'Drums', parentId: null, folderDerived: true, userCreated: false },
 ]
 
 const READY_LIBRARY_STATE: LibrarySyncState = {
@@ -96,6 +96,7 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   categories: DEFAULT_CATEGORIES,
   libraries: [],
   librarySyncState: READY_LIBRARY_STATE,
+  categoryScopeKey: 'samples',
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
@@ -305,7 +306,7 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     renderPlayer({
       categories: [
         ...DEFAULT_CATEGORIES,
-        { id: 5, name: 'Kicks', parentId: 4 }
+        { id: 5, name: 'Kicks', parentId: 4, folderDerived: true, userCreated: false }
       ]
     })
 

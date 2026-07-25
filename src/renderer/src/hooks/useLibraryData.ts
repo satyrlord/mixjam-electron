@@ -134,8 +134,13 @@ export function useLibraryData(
   })
   const [tags, setTags] = useState<TagItem[]>([])
   const [categories, setCategories] = useState<CategoryItem[]>([])
+  const [categoriesLoadedForRootId, setCategoriesLoadedForRootId] = useState<string | null>(null)
+  const [categoryProjectionError, setCategoryProjectionError] = useState<string | null>(null)
   const [libraries, setLibraries] = useState<LibraryItem[]>([])
   const querySeqRef = useRef(0)
+  const categoryProjectionSeqRef = useRef(0)
+  const activeSampleFolderIdRef = useRef<string | null>(sampleFolder?.id ?? null)
+  activeSampleFolderIdRef.current = sampleFolder?.id ?? null
   // Windowed paging cursor for the current query generation.
   const nextOffsetRef = useRef(0)
   const loadingMoreRef = useRef(false)
@@ -206,10 +211,35 @@ export function useLibraryData(
 
   const queryDbRef = useRef<() => void>(() => {})
   const refreshMissingRef = useRef<() => void>(() => {})
-  const refreshLibraryMetadata = useCallback(() => {
-    void backendAPI.listCategories().then(setCategories)
-    void backendAPI.listTags().then(setTags)
+  const refreshCategoryProjection = useCallback(async (folder: FolderRef) => {
+    const rootId = folder.id
+    const seq = ++categoryProjectionSeqRef.current
+    if (activeSampleFolderIdRef.current !== rootId) return
+    setCategoriesLoadedForRootId(null)
+    setCategoryProjectionError(null)
+    try {
+      const next = await backendAPI.listCategories(folder)
+      if (categoryProjectionSeqRef.current !== seq ||
+          activeSampleFolderIdRef.current !== rootId) return
+      setCategories(next)
+      setCategoriesLoadedForRootId(rootId)
+    } catch {
+      if (categoryProjectionSeqRef.current !== seq ||
+          activeSampleFolderIdRef.current !== rootId) return
+      setCategoryProjectionError('Unable to load categories.')
+    }
   }, [backendAPI])
+  const refreshLibraryMetadata = useCallback(() => {
+    if (sampleFolder) {
+      void refreshCategoryProjection(sampleFolder)
+    } else {
+      categoryProjectionSeqRef.current++
+      setCategories([])
+      setCategoriesLoadedForRootId(null)
+      setCategoryProjectionError(null)
+    }
+    void backendAPI.listTags().then(setTags)
+  }, [backendAPI, refreshCategoryProjection, sampleFolder])
   const librarySync = useLibrarySyncRuntime({
     backendAPI,
     sampleFolder,
@@ -226,10 +256,15 @@ export function useLibraryData(
   // the library lifecycle. Reset it when the active Sample Folder changes.
   useEffect(() => {
     querySeqRef.current++
+    categoryProjectionSeqRef.current++
     loadingMoreRef.current = false
     setSamples([])
     setTotalCount(0)
     setLoading(false)
+    setCategories([])
+    setCategoriesLoadedForRootId(null)
+    setCategoryProjectionError(null)
+    setSelectedCategoryId(undefined)
     if (!sampleFolder) {
       setMissingSamplePaths(new Set())
       return
@@ -348,18 +383,20 @@ export function useLibraryData(
   queryDbRef.current = queryDb
   refreshMissingRef.current = refreshMissingSamplePaths
 
-  // Tags, categories, libraries — load once on mount
+  // Tags and libraries are global. Categories follow the active Sample Folder.
   useEffect(() => {
     let active = true
     void Promise.all([
       backendAPI.listTags(),
-      backendAPI.listCategories(),
       backendAPI.listLibraries()
-    ]).then(([t, c, l]) => {
-      if (active) { setTags(t); setCategories(c); setLibraries(l) }
+    ]).then(([t, l]) => {
+      if (!active) return
+      setTags(t)
+      setLibraries(l)
     })
+    if (sampleFolder) void refreshCategoryProjection(sampleFolder)
     return () => { active = false }
-  }, [backendAPI])
+  }, [backendAPI, refreshCategoryProjection, sampleFolder])
 
   const updateSampleAnalysis = useCallback(async (
     sample: SampleListItem,
@@ -413,12 +450,15 @@ export function useLibraryData(
   )
 
   const categoryActions = useSampleCategories(
-    backendAPI, setCategories, selectedCategoryId, setSelectedCategoryId
+    backendAPI, sampleFolder, setCategories, selectedCategoryId, setSelectedCategoryId
   )
 
   const libraryActions = useSampleLibraries(
     backendAPI, setLibraries,
     searchQuery, selectedCategoryId, selectedTagIds,
+    categories, sampleFolder?.id ?? null,
+    sampleFolder !== null && categoriesLoadedForRootId === sampleFolder.id,
+    sampleFolder !== null && categoryProjectionError !== null,
     setSearchQuery, setSelectedCategoryId, setSelectedTagIds
   )
 
@@ -438,7 +478,7 @@ export function useLibraryData(
     samples,
     searchQuery,
     loading,
-    error,
+    error: error ?? categoryProjectionError,
     selectedSampleDetail,
     librarySyncState,
     totalCount,

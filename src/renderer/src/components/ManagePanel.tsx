@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/backend-api'
 import { ROOT_CATEGORY_NAMES } from '../lib/sample-utils'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from './ui/Tabs'
@@ -10,6 +10,7 @@ interface ManagePanelProps {
   tags: TagItem[]
   libraries: LibraryItem[]
   categories: CategoryItem[]
+  categoryScopeKey: string | null
   /** Left offset in px — must track the resizable category-tree width so the
    *  panel's edge stays aligned with the splitter it overlays. */
   leftOffset: number
@@ -52,8 +53,6 @@ function flattenCategoryTree(categories: readonly CategoryItem[]): CategoryTreeE
   return entries
 }
 
-const isProtectedCategory = (category: CategoryItem) =>
-  category.parentId === null && ROOT_CATEGORY_NAMES.includes(category.name)
 const DEFAULT_TAG_COLOR = '#00674f'
 
 function colorInputValue(color: string | null): string {
@@ -69,6 +68,7 @@ export default function ManagePanel({
   tags,
   libraries,
   categories,
+  categoryScopeKey,
   leftOffset,
   onCreateTag,
   onRenameTag,
@@ -90,8 +90,20 @@ export default function ManagePanel({
 
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryParentId, setNewCategoryParentId] = useState<number | undefined>(undefined)
+  const categoryScopeKeyRef = useRef(categoryScopeKey)
+  const categoryDraftRef = useRef({ name: newCategoryName, parentId: newCategoryParentId })
+  const createCategoryRequestRef = useRef(0)
+  categoryScopeKeyRef.current = categoryScopeKey
+  categoryDraftRef.current = { name: newCategoryName, parentId: newCategoryParentId }
 
   const [newLibraryName, setNewLibraryName] = useState('')
+
+  useEffect(() => {
+    if (newCategoryParentId !== undefined &&
+        !categories.some((category) => category.id === newCategoryParentId)) {
+      setNewCategoryParentId(undefined)
+    }
+  }, [categories, newCategoryParentId])
 
   const handleCreateTag = async () => {
     const name = newTagName.trim()
@@ -112,7 +124,14 @@ export default function ManagePanel({
   const handleCreateCategory = async () => {
     const name = newCategoryName.trim()
     if (!name) return
-    await onCreateCategory(name, newCategoryParentId)
+    const parentId = newCategoryParentId
+    const scopeKey = categoryScopeKey
+    const requestId = ++createCategoryRequestRef.current
+    await onCreateCategory(name, parentId)
+    const currentDraft = categoryDraftRef.current
+    if (categoryScopeKeyRef.current !== scopeKey ||
+        createCategoryRequestRef.current !== requestId ||
+        currentDraft.name.trim() !== name || currentDraft.parentId !== parentId) return
     setNewCategoryName('')
     setNewCategoryParentId(undefined)
   }
@@ -125,7 +144,10 @@ export default function ManagePanel({
   }
 
   const categoryTree = flattenCategoryTree(categories)
-  const editableCategories = categoryTree.filter(({ category }) => !isProtectedCategory(category))
+  const editableCategories = categoryTree.filter(({ category }) =>
+    category.userCreated &&
+    !(category.parentId === null && ROOT_CATEGORY_NAMES.includes(category.name))
+  )
 
   return (
     <div id="sample-browser-manage-panel" className="manage-panel" style={{ left: leftOffset }}>
@@ -296,11 +318,13 @@ export default function ManagePanel({
           <ul className="manage-list">
             {editableCategories.map(({ category, path }) => (
               <li key={category.id} className="manage-list-item">
-                <span className="manage-name">{path}</span>
+                <span className="manage-name">
+                  {path}{category.folderDerived ? ' (also from folder)' : ''}
+                </span>
                 <button
                   type="button"
                   className="manage-action manage-action-delete"
-                  aria-label={`Delete category ${path}`}
+                  aria-label={`Remove custom category ${path}`}
                   onClick={() => void onDeleteCategory(category.id)}
                 >×</button>
               </li>

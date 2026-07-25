@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ManagePanel from './ManagePanel'
 import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/backend-api'
@@ -9,35 +9,50 @@ const TAGS: TagItem[] = [
 ]
 
 const CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Bass', parentId: null },
-  { id: 2, name: 'Drums', parentId: null },
-  { id: 3, name: 'Unsorted', parentId: null },
-  { id: 4, name: 'Kicks', parentId: 2 },
-  { id: 5, name: 'Acoustic', parentId: 4 }
+  { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
+  { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: true },
+  { id: 3, name: 'Unsorted', parentId: null, folderDerived: true, userCreated: false },
+  { id: 4, name: 'Kicks', parentId: 2, folderDerived: false, userCreated: true },
+  { id: 5, name: 'Acoustic', parentId: 4, folderDerived: false, userCreated: true }
 ]
+
+const customCategory = (id: number, name: string, parentId: number | null = null): CategoryItem => ({
+  id,
+  name,
+  parentId,
+  folderDerived: false,
+  userCreated: true
+})
 
 const LIBRARIES: LibraryItem[] = [
   { id: 1, name: 'MyLib', createdAt: 100, ruleJson: '{}' }
 ]
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((next) => { resolve = next })
+  return { promise, resolve }
+}
 
 function renderPanel(overrides?: Partial<Parameters<typeof ManagePanel>[0]>) {
   const props: Parameters<typeof ManagePanel>[0] = {
     tags: TAGS,
     libraries: LIBRARIES,
     categories: CATEGORIES,
+    categoryScopeKey: 'root-a',
     leftOffset: 157,
     onCreateTag: vi.fn(async () => ({ id: 99, name: 'New', color: null })),
     onRenameTag: vi.fn(async () => undefined),
     onSetTagColor: vi.fn(async () => undefined),
     onDeleteTag: vi.fn(async () => undefined),
-    onCreateCategory: vi.fn(async () => ({ id: 50, name: 'NewCat', parentId: null })),
+    onCreateCategory: vi.fn(async () => customCategory(50, 'NewCat')),
     onDeleteCategory: vi.fn(async () => undefined),
     onSaveLibrary: vi.fn(async () => ({ id: 2, name: 'NewLib', createdAt: 200, ruleJson: '{}' })),
     onDeleteLibrary: vi.fn(async () => undefined),
     onApplyLibrary: vi.fn(),
     ...overrides
   }
-  return { ...props, ...render(<ManagePanel {...props} />) }
+  return { props, ...render(<ManagePanel {...props} />) }
 }
 
 describe('ManagePanel', () => {
@@ -236,17 +251,29 @@ describe('ManagePanel', () => {
       fireEvent.click(screen.getByText('Categories'))
       const listItems = container.querySelectorAll('.manage-list-item .manage-name')
       const names = Array.from(listItems).map((el) => el.textContent)
-      expect(names).toContain('Bass')
-      expect(names).toContain('Drums')
+      expect(names).not.toContain('Bass')
+      expect(names).toContain('Drums (also from folder)')
       expect(names).toContain('Drums / Kicks')
       expect(names).toContain('Drums / Kicks / Acoustic')
       expect(names).not.toContain('Unsorted')
     })
 
     it('shows an empty message when only protected categories exist', () => {
-      renderPanel({ categories: [{ id: 3, name: 'Unsorted', parentId: null }] })
+      renderPanel({ categories: [{
+        id: 3,
+        name: 'Unsorted',
+        parentId: null,
+        folderDerived: true,
+        userCreated: false
+      }] })
       fireEvent.click(screen.getByText('Categories'))
       expect(screen.getByText('No custom categories yet.')).toBeInTheDocument()
+    })
+
+    it('does not expose removal for a folder-only category', () => {
+      renderPanel()
+      fireEvent.click(screen.getByText('Categories'))
+      expect(screen.queryByLabelText('Remove custom category Bass')).not.toBeInTheDocument()
     })
 
     it('offers every category depth as a parent', () => {
@@ -265,7 +292,7 @@ describe('ManagePanel', () => {
     })
 
     it('creates a category with a parent', async () => {
-      const onCreateCategory = vi.fn(async () => ({ id: 50, name: 'SubBass', parentId: 1 }))
+      const onCreateCategory = vi.fn(async () => customCategory(50, 'SubBass', 1))
       const { container } = renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
@@ -278,7 +305,7 @@ describe('ManagePanel', () => {
     })
 
     it('creates a category under a nested parent', async () => {
-      const onCreateCategory = vi.fn(async () => ({ id: 50, name: 'Processed', parentId: 5 }))
+      const onCreateCategory = vi.fn(async () => customCategory(50, 'Processed', 5))
       renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       fireEvent.change(screen.getByLabelText('New category name'), {
@@ -291,7 +318,7 @@ describe('ManagePanel', () => {
     })
 
     it('does not create a category with an empty name', async () => {
-      const onCreateCategory = vi.fn(async () => ({ id: 50, name: '', parentId: null }))
+      const onCreateCategory = vi.fn(async () => customCategory(50, ''))
       renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       const btn = screen.getByLabelText('Add category')
@@ -303,21 +330,21 @@ describe('ManagePanel', () => {
       const onDeleteCategory = vi.fn(async () => undefined)
       renderPanel({ onDeleteCategory })
       fireEvent.click(screen.getByText('Categories'))
-      fireEvent.click(screen.getByLabelText('Delete category Bass'))
-      await vi.waitFor(() => expect(onDeleteCategory).toHaveBeenCalledWith(1))
+      fireEvent.click(screen.getByLabelText('Remove custom category Drums'))
+      await vi.waitFor(() => expect(onDeleteCategory).toHaveBeenCalledWith(2))
     })
 
     it('deletes a nested category from its hierarchy path', async () => {
       const onDeleteCategory = vi.fn(async () => undefined)
       renderPanel({ onDeleteCategory })
       fireEvent.click(screen.getByText('Categories'))
-      fireEvent.click(screen.getByLabelText('Delete category Drums / Kicks / Acoustic'))
+      fireEvent.click(screen.getByLabelText('Remove custom category Drums / Kicks / Acoustic'))
 
       await vi.waitFor(() => expect(onDeleteCategory).toHaveBeenCalledWith(5))
     })
 
     it('creates a category on Enter key', async () => {
-      const onCreateCategory = vi.fn(async () => ({ id: 51, name: 'Kick', parentId: null }))
+      const onCreateCategory = vi.fn(async () => customCategory(51, 'Kick'))
       const { container } = renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
@@ -327,7 +354,7 @@ describe('ManagePanel', () => {
     })
 
     it('ignores non-Enter key presses on the category input', () => {
-      const onCreateCategory = vi.fn(async () => ({ id: 51, name: 'X', parentId: null }))
+      const onCreateCategory = vi.fn(async () => customCategory(51, 'X'))
       const { container } = renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
@@ -337,7 +364,7 @@ describe('ManagePanel', () => {
     })
 
     it('returns early when Enter is pressed on an empty category input', () => {
-      const onCreateCategory = vi.fn(async () => ({ id: 51, name: 'X', parentId: null }))
+      const onCreateCategory = vi.fn(async () => customCategory(51, 'X'))
       const { container } = renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
@@ -346,7 +373,7 @@ describe('ManagePanel', () => {
     })
 
     it('resets parent category to undefined when select is changed back to Root', () => {
-      const onCreateCategory = vi.fn(async () => ({ id: 51, name: 'X', parentId: null }))
+      const onCreateCategory = vi.fn(async () => customCategory(51, 'X'))
       const { container } = renderPanel({ onCreateCategory })
       fireEvent.click(screen.getByText('Categories'))
       const select = container.querySelector('select[aria-label="Parent category"]')! as HTMLSelectElement
@@ -356,6 +383,39 @@ describe('ManagePanel', () => {
       fireEvent.change(input, { target: { value: 'Test' } })
       fireEvent.click(screen.getByLabelText('Add category'))
       expect(onCreateCategory).toHaveBeenCalledWith('Test', undefined)
+    })
+
+    it('resets a parent that disappears when the active category tree changes', async () => {
+      const rendered = renderPanel()
+      fireEvent.click(screen.getByText('Categories'))
+      const select = screen.getByLabelText('Parent category') as HTMLSelectElement
+      fireEvent.change(select, { target: { value: '5' } })
+      expect(select.value).toBe('5')
+
+      rendered.rerender(<ManagePanel
+        {...rendered.props}
+        categories={CATEGORIES.filter((category) => category.id !== 5)}
+      />)
+
+      await vi.waitFor(() => expect(select.value).toBe(''))
+    })
+
+    it('does not clear a new-root draft when an old-root create completes', async () => {
+      const pending = deferred<CategoryItem>()
+      const rendered = renderPanel({ onCreateCategory: vi.fn(() => pending.promise) })
+      fireEvent.click(screen.getByText('Categories'))
+      const input = screen.getByLabelText('New category name') as HTMLInputElement
+      fireEvent.change(input, { target: { value: 'Old root category' } })
+      fireEvent.click(screen.getByLabelText('Add category'))
+
+      rendered.rerender(<ManagePanel {...rendered.props} categoryScopeKey="root-b" />)
+      fireEvent.change(input, { target: { value: 'New root draft' } })
+      await act(async () => {
+        pending.resolve(customCategory(99, 'Old root category'))
+        await pending.promise
+      })
+
+      expect(input.value).toBe('New root draft')
     })
   })
 })

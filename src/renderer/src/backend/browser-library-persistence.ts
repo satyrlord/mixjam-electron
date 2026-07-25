@@ -8,7 +8,7 @@ import type {
   SampleType
 } from '../../../shared/backend-api'
 import { isSampleType } from './analysis'
-import { getLibraryRootState, scanRootId } from './indexed-sample-persistence'
+import { ensureScanRoot, getLibraryRootState, scanRootId } from './indexed-sample-persistence'
 import type { BindValue, DB } from './sql'
 
 export interface TagRow {
@@ -21,6 +21,8 @@ export interface CategoryRow {
   id: number
   name: string
   parentId: number | null
+  folderDerived: boolean
+  userCreated: boolean
 }
 
 export interface LibraryRow {
@@ -122,20 +124,66 @@ export function tagsForSample(db: DB, sampleId: number): TagRow[] {
 // Categories
 // ---------------------------------------------------------------------------
 
-export function listCategories(db: DB): CategoryRow[] {
+export function listCategories(db: DB, rootKey: string): CategoryRow[] {
+  const rootId = scanRootId(db, rootKey)
+  if (rootId === undefined) return []
   return db
-    .prepare('SELECT id, name, parent_id FROM categories ORDER BY parent_id, name')
-    .all<{ id: number; name: string; parent_id: number | null }>()
-    .map((r) => ({ id: r.id, name: r.name, parentId: r.parent_id }))
+    .prepare(
+      `WITH RECURSIVE visible(id) AS (
+         SELECT category_id FROM category_sources WHERE root_id = ?
+         UNION
+         SELECT c.parent_id
+         FROM categories c
+         JOIN visible v ON v.id = c.id
+         WHERE c.parent_id IS NOT NULL
+       )
+       SELECT c.id, c.name, c.parent_id,
+              COALESCE(MAX(CASE WHEN cs.source = 'folder' THEN 1 ELSE 0 END), 0) AS folder_derived,
+              COALESCE(MAX(CASE WHEN cs.source = 'custom' THEN 1 ELSE 0 END), 0) AS user_created
+       FROM categories c
+       JOIN visible v ON v.id = c.id
+       LEFT JOIN category_sources cs ON cs.category_id = c.id AND cs.root_id = ?
+       GROUP BY c.id, c.name, c.parent_id
+       ORDER BY c.parent_id, c.name`
+    )
+    .all<{
+      id: number
+      name: string
+      parent_id: number | null
+      folder_derived: number
+      user_created: number
+    }>(rootId, rootId)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      parentId: r.parent_id,
+      folderDerived: r.folder_derived === 1,
+      userCreated: r.user_created === 1
+    }))
 }
 
-export function createCategory(db: DB, name: string, parentId?: number): CategoryRow {
+export function createCategory(
+  db: DB,
+  rootKey: string,
+  name: string,
+  parentId?: number
+): CategoryRow {
+  const rootId = ensureScanRoot(db, rootKey)
+  if (parentId !== undefined && !listCategories(db, rootKey).some(({ id }) => id === parentId)) {
+    throw new Error('The parent category is not visible to the active Sample Folder.')
+  }
   if (parentId === undefined) {
     // Guard against duplicate root categories (SQLite NULL != NULL in UNIQUE).
     const existing = db
       .prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?')
       .get<{ id: number }>(name)
-    if (existing) return { id: existing.id, name, parentId: null }
+    if (existing) {
+      db.prepare(
+        `INSERT OR IGNORE INTO category_sources (category_id, root_id, source)
+         VALUES (?, ?, 'custom')`
+      ).run(existing.id, rootId)
+      return listCategories(db, rootKey).find(({ id }) => id === existing.id)!
+    }
   }
   const result = db
     .prepare('INSERT OR IGNORE INTO categories (name, parent_id) VALUES (?, ?)')
@@ -148,11 +196,43 @@ export function createCategory(db: DB, name: string, parentId?: number): Categor
       : db
           .prepare('SELECT id FROM categories WHERE name = ? AND parent_id IS ?')
           .get<{ id: number }>(name, parentId ?? null)!.id
-  return { id, name, parentId: parentId ?? null }
+  db.prepare(
+    `INSERT OR IGNORE INTO category_sources (category_id, root_id, source)
+     VALUES (?, ?, 'custom')`
+  ).run(id, rootId)
+  return listCategories(db, rootKey).find((category) => category.id === id)!
 }
 
-export function deleteCategory(db: DB, id: number): void {
-  db.prepare('DELETE FROM categories WHERE id = ?').run(id)
+export function deleteCategory(db: DB, rootKey: string, id: number): CategoryRow[] {
+  const rootId = scanRootId(db, rootKey)
+  if (rootId === undefined) return []
+  const ids = buildSubtreeCTE(db, id)
+  if (ids.length === 0) return listCategories(db, rootKey)
+  const placeholders = ids.map(() => '?').join(', ')
+  db.transaction(() => {
+    db.prepare(
+      `DELETE FROM category_sources
+       WHERE root_id = ? AND source = 'custom' AND category_id IN (${placeholders})`
+    ).run(rootId, ...ids)
+  })()
+  const projection = listCategories(db, rootKey)
+  const visibleIds = new Set(projection.map((category) => category.id))
+  const hiddenIds = ids.filter((categoryId) => !visibleIds.has(categoryId))
+  if (hiddenIds.length > 0) {
+    const hiddenPlaceholders = hiddenIds.map(() => '?').join(', ')
+    db.transaction(() => {
+      db.prepare(
+        `DELETE FROM sample_categories
+         WHERE category_id IN (${hiddenPlaceholders})
+           AND sample_id IN (SELECT id FROM samples WHERE root_id = ?)`
+      ).run(...hiddenIds, rootId)
+      db.prepare(
+        `UPDATE samples SET category_id = NULL
+         WHERE root_id = ? AND category_id IN (${hiddenPlaceholders})`
+      ).run(rootId, ...hiddenIds)
+    })()
+  }
+  return projection
 }
 
 // ---------------------------------------------------------------------------

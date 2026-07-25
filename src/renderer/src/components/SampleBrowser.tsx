@@ -516,6 +516,7 @@ function SampleBrowser({
           tags={tags}
           libraries={libraries}
           categories={categories}
+          categoryScopeKey={browser.categoryScopeKey}
           leftOffset={catsWidth}
           onCreateTag={browser.onCreateTag}
           onRenameTag={browser.onRenameTag}

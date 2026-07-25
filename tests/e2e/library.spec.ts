@@ -20,6 +20,20 @@ test.describe('Library', () => {
     await expect(seededPage.locator('.bubble-category').filter({ hasText: 'FX' })).toBeVisible()
   })
 
+  test('expanded category branches reserve space before following roots', async ({ seededPage }) => {
+    const kicks = seededPage.getByRole('button', { name: 'Kicks', exact: true })
+    const fx = seededPage.getByRole('button', { name: 'FX', exact: true })
+    await expect(kicks).toBeVisible()
+    await expect(fx).toBeVisible()
+
+    const [kicksBox, fxBox] = await Promise.all([kicks.boundingBox(), fx.boundingBox()])
+    expect(kicksBox).not.toBeNull()
+    expect(fxBox).not.toBeNull()
+    expect(Math.min(kicksBox!.y + kicksBox!.height, fxBox!.y + fxBox!.height) -
+      Math.max(kicksBox!.y, fxBox!.y))
+      .toBeLessThanOrEqual(0.5)
+  })
+
   test('sample filtering and management actions use the selected UI Size targets', async ({ seededPage }) => {
     await seededPage.getByRole('button', { name: /Manage tags/ }).click()
 
@@ -39,6 +53,23 @@ test.describe('Library', () => {
       expect(box.width).toBeGreaterThanOrEqual(selectedSize)
       expect(box.height).toBeGreaterThanOrEqual(selectedSize)
     }
+  })
+
+  test('category management removes custom provenance without hiding folder paths', async ({ seededPage }) => {
+    await seededPage.getByRole('button', { name: /Manage tags/ }).click()
+    await seededPage.getByRole('tab', { name: 'Categories' }).click()
+
+    const removeBass = seededPage.getByRole('button', { name: 'Remove custom category Bass' })
+    await expect(removeBass).toBeVisible()
+    await expect(seededPage.getByText('Bass (also from folder)', { exact: true })).toBeVisible()
+    await expect(seededPage.getByRole('button', {
+      name: 'Remove custom category Drums'
+    })).toHaveCount(0)
+
+    await removeBass.click()
+
+    await expect(removeBass).toHaveCount(0)
+    await expect(seededPage.getByRole('button', { name: 'Bass', exact: true })).toBeVisible()
   })
 
   test('clicking a category filters samples', async ({ seededPage }) => {

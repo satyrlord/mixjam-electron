@@ -8,10 +8,10 @@ const noop = () => undefined
 const asyncNoop = async () => { /* empty */ }
 
 const CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Drums', parentId: null },
-  { id: 2, name: 'Kicks', parentId: 1 },
-  { id: 3, name: 'Snares', parentId: 1 },
-  { id: 4, name: 'Bass', parentId: null }
+  { id: 1, name: 'Drums', parentId: null, folderDerived: true, userCreated: false },
+  { id: 2, name: 'Kicks', parentId: 1, folderDerived: true, userCreated: false },
+  { id: 3, name: 'Snares', parentId: 1, folderDerived: true, userCreated: false },
+  { id: 4, name: 'Bass', parentId: null, folderDerived: true, userCreated: false }
 ]
 const TAGS: TagItem[] = [
   { id: 10, name: 'Punchy', color: '#ff0000' },
@@ -53,6 +53,7 @@ function makeBrowser(overrides: Partial<PlayerBrowserProps> = {}): PlayerBrowser
     categories: CATEGORIES,
     libraries: LIBRARIES,
     librarySyncState: { status: 'ready', rootKey: 'samples', lastCompletedAt: 1 },
+    categoryScopeKey: 'samples',
     onSearchChange: noop,
     onLoadMoreSamples: noop,
     onSelectSampleDetail: noop,

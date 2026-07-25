@@ -706,8 +706,10 @@ window-level mouse listeners.
   clamps to the active tab minimum. The resulting v2 layout is stored, and
   later manual resizing persists across reloads.
 - [x] **AC-016b:** Root sample categories use a two-column grid. Expandable
-  hierarchy branches may span the grid so their nested children remain
-  readable, while leaf categories do not reserve an empty toggle gutter.
+  hierarchy branches span the grid and reserve their complete expanded height,
+  so nested controls never overlap later roots. Their nested children remain
+  readable, while leaf categories do not reserve an empty toggle gutter. This
+  holds for the real `tmp/test-samples` hierarchy at UI Sizes 30, 40, and 50.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
 - [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position; the original remains unchanged.
 - [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; placements whose bounds intersect the rectangle are selected (highlighted with a white border).

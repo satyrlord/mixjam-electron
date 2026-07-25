@@ -2766,6 +2766,7 @@ select option:disabled {
 }
 
 .category-tree-node {
+  height: max-content;
   min-width: 0;
 }
 

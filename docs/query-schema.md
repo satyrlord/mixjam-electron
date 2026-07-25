@@ -9,6 +9,9 @@ architecture. The current implementation supports only a restricted v1 subset:
 - saved libraries contain one top-level `and` group
 - supported leaves are `text`, one `category`, and `tag` with `any`
 - opening a library restores those three UI filter values
+- a saved category id is restored only when it is visible in the active Sample
+  Folder; stale and other-root category ids are ignored, and restoration waits
+  while that folder's category projection is loading
 - the UI sends a flat `SampleQueryRequest` to the backend worker
 - the backend compiles those flat fields to parameterized SQL
 

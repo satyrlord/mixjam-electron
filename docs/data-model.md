@@ -79,7 +79,7 @@ CREATE TABLE sample_tags (
 );
 
 -- Self-referencing tree: categories and subcategories.
--- "Unsorted" is the only hardcoded root category (ensured at DB init).
+-- "Unsorted" is the only hardcoded root category (ensured per scan root).
 -- All other root categories are derived from the sample-folder structure
 -- (each top-level subdirectory becomes a root category) or created by
 -- the user via the manage panel.
@@ -88,6 +88,16 @@ CREATE TABLE categories (
   name      TEXT NOT NULL,
   parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,  -- NULL = root
   UNIQUE (parent_id, name)
+);
+
+-- Root-specific provenance for category visibility and sync reconciliation.
+-- The same category path can be present in several Sample Folders and can have
+-- both sources in one root.
+CREATE TABLE category_sources (
+  category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  root_id     INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
+  source      TEXT NOT NULL CHECK (source IN ('folder', 'custom')),
+  PRIMARY KEY (category_id, root_id, source)
 );
 
 -- Many-to-many: subcategory assignments. A sample has exactly one primary
@@ -113,13 +123,21 @@ CREATE TABLE library_rules (
 ```
 
 `scan_roots` is load-bearing: one active Sample Folder is shown at a time (the
-app state's `sampleFolder`), but every folder ever scanned keeps its rows, scoped
-by `root_id`, so switching folders switches the visible library instead of
-mixing or losing rows (see [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
+app state's `sampleFolder`), but every folder ever scanned keeps its samples and
+category sources, scoped by `root_id`. Switching folders therefore switches the
+visible library and category tree instead of mixing or losing either (see
+[indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
+
+The active-root category DTO exposes `folderDerived` and `userCreated`
+independently because one path may have both sources. Removing a category from
+Manage deletes only active-root `custom` sources in that subtree. Folder
+sources, sample assignments, other roots, and the shared identity rows survive.
+Folder-only nodes are not removable. Physical category-row garbage collection
+is not part of this user action.
 
 ## Library-sync and analysis bookkeeping
 
-Schema version 3 introduced four facts retained by schema v4 for automatic
+Schema version 3 introduced four facts retained by schema v5 for automatic
 library sync:
 
 - `scan_roots.last_completed_at INTEGER` is NULL until a complete filesystem
@@ -263,3 +281,11 @@ SELECT sample_id FROM sample_categories WHERE category_id IN (SELECT id FROM sub
 carries a `schema_version` table stamped at init. Add forward-only, idempotent
 migration steps from v1 onward in
 `src/renderer/src/backend/schema.ts`.
+
+Schema v5 has one explicit lossy boundary. V4 did not record category root or
+provenance, so migration uses primary and join-table sample assignments as
+root-specific folder evidence, adds their ancestors, and sources `Unsorted`
+for known roots. It does not promote unassigned legacy rows to `custom` or copy
+them across roots. Those ambiguous rows are removed. This follows the project's
+no-backward-compatibility rule and prevents stale global categories from
+becoming permanent custom organization.

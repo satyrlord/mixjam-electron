@@ -32,6 +32,7 @@ export interface PlayerBrowserProps {
   sortDir: SampleSortDirection
   tags: TagItem[]
   categories: CategoryItem[]
+  categoryScopeKey: string | null
   libraries: LibraryItem[]
   librarySyncState: LibrarySyncState
   onSearchChange: (query: string) => void

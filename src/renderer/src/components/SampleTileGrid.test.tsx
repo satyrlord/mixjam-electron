@@ -5,8 +5,8 @@ import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
 import { UiSizeProvider } from '../ui-size'
 
 const CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Bass', parentId: null },
-  { id: 2, name: 'Drums', parentId: null }
+  { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
+  { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: false }
 ]
 
 function makeSample(overrides: Partial<SampleListItem> = {}): SampleListItem {

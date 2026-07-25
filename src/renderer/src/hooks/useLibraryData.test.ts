@@ -21,6 +21,22 @@ const SCAN_DONE = {
   lastCompletedAt: 123
 }
 
+const OTHER_SAMPLE_FOLDER: FolderRef = { id: 'test-samples-other', name: 'Other Samples' }
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((next) => { resolve = next })
+  return { promise, resolve }
+}
+
+function folderCategory(id: number, name: string, parentId: number | null = null): CategoryItem {
+  return { id, name, parentId, folderDerived: true, userCreated: false }
+}
+
+function customCategory(id: number, name: string, parentId: number | null = null): CategoryItem {
+  return { id, name, parentId, folderDerived: false, userCreated: true }
+}
+
 function setRootState(
   api: ReturnType<typeof createBackendAPI>,
   hasUsableIndex: boolean,
@@ -82,6 +98,7 @@ describe('useLibraryData', () => {
     await waitFor(() => expect(result.current.categories).toHaveLength(8))
     await waitFor(() => expect(result.current.tags).toHaveLength(0))
     await waitFor(() => expect(result.current.libraries).toHaveLength(0))
+    expect(api.listCategories).toHaveBeenCalledWith(SAMPLE_FOLDER)
   })
 
   it('shows an empty browser and queries nothing before the active folder is indexed', async () => {
@@ -181,6 +198,7 @@ describe('useLibraryData', () => {
       expect(result.current.samples).toHaveLength(0)
       expect(result.current.totalCount).toBe(0)
       expect(result.current.loading).toBe(false)
+      expect(result.current.categories).toHaveLength(0)
     })
   })
 
@@ -279,7 +297,7 @@ describe('useLibraryData', () => {
   it('creates a category and adds it to state', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.createCategory).mockResolvedValue({ id: 20, name: 'SubBass', parentId: 2 })
+    vi.mocked(api.createCategory).mockResolvedValue(customCategory(20, 'SubBass', 2))
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.categories).toHaveLength(8))
@@ -291,6 +309,7 @@ describe('useLibraryData', () => {
 
     expect(created!.id).toBe(20)
     expect(result.current.categories).toHaveLength(9)
+    expect(api.createCategory).toHaveBeenCalledWith(SAMPLE_FOLDER, 'SubBass', 2)
   })
 
   it('deletes a category and clears selection if it was selected', async () => {
@@ -309,6 +328,149 @@ describe('useLibraryData', () => {
 
     expect(result.current.categories.find((c) => c.id === 2)).toBeUndefined()
     expect(result.current.selectedCategoryId).toBeUndefined()
+    expect(api.deleteCategory).toHaveBeenCalledWith(SAMPLE_FOLDER, 2)
+  })
+
+  it('clears a selected descendant removed with its custom parent', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const parent = customCategory(20, 'Parent')
+    const child = customCategory(21, 'Child', parent.id)
+    vi.mocked(api.listCategories).mockResolvedValue([parent, child])
+    vi.mocked(api.deleteCategory).mockResolvedValue([])
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.categories).toEqual([parent, child]))
+    act(() => result.current.setSelectedCategoryId(child.id))
+
+    await act(async () => { await result.current.deleteCategory(parent.id) })
+
+    expect(result.current.categories).toEqual([])
+    expect(result.current.selectedCategoryId).toBeUndefined()
+  })
+
+  it('preserves selection when removing custom provenance leaves a folder category visible', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const dual = { ...folderCategory(20, 'Drums'), userCreated: true }
+    const folderOnly = folderCategory(20, 'Drums')
+    vi.mocked(api.listCategories).mockResolvedValue([dual])
+    vi.mocked(api.deleteCategory).mockResolvedValue([folderOnly])
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.categories).toEqual([dual]))
+    act(() => result.current.setSelectedCategoryId(dual.id))
+
+    await act(async () => { await result.current.deleteCategory(dual.id) })
+
+    expect(result.current.categories).toEqual([folderOnly])
+    expect(result.current.selectedCategoryId).toBe(dual.id)
+  })
+
+  it('clears the category filter when the active Sample Folder changes', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    vi.mocked(api.getLibraryRootState).mockImplementation(async (folder) => ({
+      rootKey: folder.id,
+      lastCompletedAt: 1,
+      hasUsableIndex: true
+    }))
+    const { result, rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: SAMPLE_FOLDER as FolderRef | null } }
+    )
+    await waitFor(() => expect(result.current.categories).toHaveLength(8))
+    act(() => result.current.setSelectedCategoryId(2))
+
+    rerender({ folder: OTHER_SAMPLE_FOLDER })
+
+    await waitFor(() => expect(result.current.selectedCategoryId).toBeUndefined())
+    await waitFor(() => expect(api.querySamples).toHaveBeenCalledWith(expect.objectContaining({
+      rootId: OTHER_SAMPLE_FOLDER.id,
+      categoryId: undefined
+    })))
+  })
+
+  it('ignores a stale scan-refresh category response after a root change', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const stale = deferred<CategoryItem[]>()
+    const rootA = [folderCategory(1, 'Root A')]
+    const rootB = [folderCategory(2, 'Root B')]
+    let rootACalls = 0
+    vi.mocked(api.listCategories).mockImplementation((folder) => {
+      if (folder.id === OTHER_SAMPLE_FOLDER.id) return Promise.resolve(rootB)
+      rootACalls++
+      return rootACalls === 1 ? Promise.resolve(rootA) : stale.promise
+    })
+    vi.mocked(api.getLibraryRootState).mockImplementation(async (folder) => ({
+      rootKey: folder.id,
+      lastCompletedAt: 1,
+      hasUsableIndex: true
+    }))
+    const { result, rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: SAMPLE_FOLDER as FolderRef | null } }
+    )
+    await waitFor(() => expect(result.current.categories).toEqual(rootA))
+
+    act(() => vi.mocked(api.onScanDone).mock.calls[0]![0](SCAN_DONE))
+    await waitFor(() => expect(rootACalls).toBe(2))
+    rerender({ folder: OTHER_SAMPLE_FOLDER })
+    await waitFor(() => expect(result.current.categories).toEqual(rootB))
+    await act(async () => {
+      stale.resolve([folderCategory(99, 'Stale A')])
+      await stale.promise
+    })
+    expect(result.current.categories).toEqual(rootB)
+  })
+
+  it('does not append a category created for the previous root', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const pending = deferred<CategoryItem>()
+    const rootB = [folderCategory(2, 'Root B')]
+    vi.mocked(api.createCategory).mockReturnValue(pending.promise)
+    vi.mocked(api.listCategories).mockImplementation((folder) => Promise.resolve(
+      folder.id === OTHER_SAMPLE_FOLDER.id ? rootB : []
+    ))
+    const { result, rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: SAMPLE_FOLDER as FolderRef | null } }
+    )
+    let creation!: Promise<CategoryItem>
+    act(() => { creation = result.current.createCategory('Old root') })
+    rerender({ folder: OTHER_SAMPLE_FOLDER })
+    await waitFor(() => expect(result.current.categories).toEqual(rootB))
+
+    pending.resolve(customCategory(99, 'Old root'))
+    await act(async () => { await creation })
+
+    expect(result.current.categories).toEqual(rootB)
+  })
+
+  it('does not apply a category deletion completed for the previous root', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const pending = deferred<CategoryItem[]>()
+    const rootA = [customCategory(2, 'Root A')]
+    const rootB = [customCategory(2, 'Root B')]
+    vi.mocked(api.deleteCategory).mockReturnValue(pending.promise)
+    vi.mocked(api.listCategories).mockImplementation((folder) => Promise.resolve(
+      folder.id === OTHER_SAMPLE_FOLDER.id ? rootB : rootA
+    ))
+    const { result, rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: SAMPLE_FOLDER as FolderRef | null } }
+    )
+    await waitFor(() => expect(result.current.categories).toEqual(rootA))
+    let deletion!: Promise<void>
+    act(() => { deletion = result.current.deleteCategory(2) })
+    rerender({ folder: OTHER_SAMPLE_FOLDER })
+    await waitFor(() => expect(result.current.categories).toEqual(rootB))
+
+    pending.resolve([])
+    await act(async () => { await deletion })
+
+    expect(result.current.categories).toEqual(rootB)
   })
 
   it('saves a library with current filters encoded as ruleJson', async () => {
@@ -818,6 +980,139 @@ describe('useLibraryData', () => {
     expect(result.current.selectedTagIds).toEqual([7, 9])
   })
 
+  it('ignores a saved category predicate that is not visible in the active folder', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.categories).toHaveLength(8))
+    const ruleJson = JSON.stringify({
+      version: 1,
+      root: {
+        kind: 'group',
+        op: 'and',
+        children: [{
+          kind: 'category',
+          quantifier: 'any',
+          categoryIds: [999],
+          includeDescendants: true
+        }]
+      }
+    })
+
+    act(() => result.current.applyLibrary({ id: 1, name: 'Stale', createdAt: 0, ruleJson }))
+
+    expect(result.current.selectedCategoryId).toBeUndefined()
+  })
+
+  it('waits for the active folder category projection before applying a saved category', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const rootBCategories = deferred<CategoryItem[]>()
+    vi.mocked(api.listCategories).mockImplementation((folder) =>
+      folder.id === OTHER_SAMPLE_FOLDER.id
+        ? rootBCategories.promise
+        : Promise.resolve([folderCategory(1, 'Root A')])
+    )
+    const { result, rerender } = renderHook(
+      ({ folder }) => useLibraryData(api, USER_FOLDER, folder),
+      { initialProps: { folder: SAMPLE_FOLDER as FolderRef | null } }
+    )
+    await waitFor(() => expect(result.current.categories).toEqual([folderCategory(1, 'Root A')]))
+
+    rerender({ folder: OTHER_SAMPLE_FOLDER })
+    await waitFor(() => expect(result.current.categories).toEqual([]))
+    const ruleJson = JSON.stringify({
+      version: 1,
+      root: {
+        kind: 'group',
+        op: 'and',
+        children: [
+          { kind: 'text', query: 'snare' },
+          { kind: 'category', quantifier: 'any', categoryIds: [20], includeDescendants: true }
+        ]
+      }
+    })
+    act(() => result.current.applyLibrary({ id: 2, name: 'Root B snares', createdAt: 0, ruleJson }))
+    expect(result.current.searchQuery).toBe('')
+    expect(result.current.selectedCategoryId).toBeUndefined()
+
+    await act(async () => {
+      rootBCategories.resolve([folderCategory(20, 'Root B')])
+      await rootBCategories.promise
+    })
+
+    await waitFor(() => expect(result.current.searchQuery).toBe('snare'))
+    expect(result.current.selectedCategoryId).toBe(20)
+  })
+
+  it('waits for a post-scan category refresh before applying a saved category', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    const refreshedCategories = deferred<CategoryItem[]>()
+    let categoryCalls = 0
+    vi.mocked(api.listCategories).mockImplementation(() => {
+      categoryCalls++
+      return categoryCalls === 1
+        ? Promise.resolve([folderCategory(1, 'Before scan')])
+        : refreshedCategories.promise
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.categories).toEqual([folderCategory(1, 'Before scan')]))
+
+    act(() => vi.mocked(api.onScanDone).mock.calls[0]![0](SCAN_DONE))
+    await waitFor(() => expect(categoryCalls).toBe(2))
+    const ruleJson = JSON.stringify({
+      version: 1,
+      root: {
+        kind: 'group',
+        op: 'and',
+        children: [
+          { kind: 'text', query: 'clap' },
+          { kind: 'category', quantifier: 'any', categoryIds: [20], includeDescendants: true }
+        ]
+      }
+    })
+    act(() => result.current.applyLibrary({ id: 3, name: 'New claps', createdAt: 0, ruleJson }))
+    expect(result.current.searchQuery).toBe('')
+    expect(result.current.selectedCategoryId).toBeUndefined()
+
+    await act(async () => {
+      refreshedCategories.resolve([folderCategory(20, 'After scan')])
+      await refreshedCategories.promise
+    })
+
+    await waitFor(() => expect(result.current.searchQuery).toBe('clap'))
+    expect(result.current.selectedCategoryId).toBe(20)
+  })
+
+  it('reports a category refresh failure and does not retain a queued library', async () => {
+    vi.useRealTimers()
+    const api = makeApi()
+    let categoryCalls = 0
+    vi.mocked(api.listCategories).mockImplementation(() => {
+      categoryCalls++
+      return categoryCalls === 1
+        ? Promise.resolve([folderCategory(1, 'Before scan')])
+        : Promise.reject(new Error('category read failed'))
+    })
+    const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
+    await waitFor(() => expect(result.current.categories).toEqual([folderCategory(1, 'Before scan')]))
+
+    act(() => vi.mocked(api.onScanDone).mock.calls[0]![0](SCAN_DONE))
+    await waitFor(() => expect(result.current.error).toBe('Unable to load categories.'))
+    const ruleJson = JSON.stringify({
+      version: 1,
+      root: {
+        kind: 'group',
+        op: 'and',
+        children: [{ kind: 'text', query: 'unsafe stale filter' }]
+      }
+    })
+    act(() => result.current.applyLibrary({ id: 4, name: 'Unavailable', createdAt: 0, ruleJson }))
+
+    expect(result.current.searchQuery).toBe('')
+  })
+
   it('applyLibrary with malformed ruleJson clears filters instead of crashing', async () => {
     vi.useRealTimers()
     const api = makeApi()
@@ -1039,7 +1334,10 @@ describe('useLibraryData', () => {
   it('does not duplicate a category that already exists in state', async () => {
     vi.useRealTimers()
     const api = makeApi()
-    vi.mocked(api.createCategory).mockResolvedValue({ id: 1, name: 'Bass', parentId: null })
+    vi.mocked(api.createCategory).mockResolvedValue({
+      ...folderCategory(1, 'Bass'),
+      userCreated: true
+    })
     const { result } = renderHook(() => useLibraryData(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.categories).toHaveLength(8))
@@ -1049,6 +1347,10 @@ describe('useLibraryData', () => {
     })
 
     expect(result.current.categories).toHaveLength(8)
+    expect(result.current.categories.find((category) => category.id === 1)).toMatchObject({
+      folderDerived: true,
+      userCreated: true
+    })
   })
 
   it('loadMoreSamples ignores stale responses from a superseded query', async () => {
@@ -1275,7 +1577,7 @@ describe('useLibraryData', () => {
     expect(result.current.samples[0]!.category).toBe('Unsorted')
 
     // Simulate scan-done callback which refreshes categories
-    vi.mocked(api.listCategories).mockResolvedValue([{ id: 1, name: 'Bass', parentId: null }])
+    vi.mocked(api.listCategories).mockResolvedValue([folderCategory(1, 'Bass')])
     vi.mocked(api.listTags).mockResolvedValue([])
     const scanDoneCallback = vi.mocked(api.onScanDone).mock.calls[0]![0]
     await act(async () => {

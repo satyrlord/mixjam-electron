@@ -33,7 +33,6 @@ const ready: Promise<ReadyState> = (async () => {
   const poolUtil = await sqlite3.installOpfsSAHPoolVfs({ name: 'mixjam' })
   const db = new DB(sqlite3, new poolUtil.OpfsSAHPoolDb('/library.db'))
   initSchema(db)
-  indexedSamples.ensureUnsortedCategory(db)
   const jobs = createBackendJobCoordinator(db, emitEvent)
   return { db, calls: buildCalls(db, jobs) }
 })()
@@ -62,9 +61,10 @@ function buildCalls(db: DB, jobs: JobCoordinator): BackendCalls {
     updateSampleAnalysis: (sampleId, patch) =>
       analysisPersistence.updateSampleAnalysis(db, sampleId, patch),
     reanalyzeSample: jobs.reanalyzeSample,
-    listCategories: () => browserLibrary.listCategories(db),
-    createCategory: (name, parentId) => browserLibrary.createCategory(db, name, parentId),
-    deleteCategory: (id) => browserLibrary.deleteCategory(db, id),
+    listCategories: (rootKey) => browserLibrary.listCategories(db, rootKey),
+    createCategory: (rootKey, name, parentId) =>
+      browserLibrary.createCategory(db, rootKey, name, parentId),
+    deleteCategory: (rootKey, id) => browserLibrary.deleteCategory(db, rootKey, id),
     listLibraries: () => browserLibrary.listLibraries(db),
     saveLibrary: (name, ruleJson) => browserLibrary.saveLibrary(db, name, ruleJson),
     deleteLibrary: (id) => browserLibrary.deleteLibrary(db, id)

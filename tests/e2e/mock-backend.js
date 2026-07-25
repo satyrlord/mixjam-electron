@@ -37,15 +37,16 @@
   ]
 
   var MOCK_CATEGORIES = [
-    { id: 1, name: 'Bass', parentId: null },
-    { id: 2, name: 'Drums', parentId: null },
-    { id: 3, name: 'FX', parentId: null },
-    { id: 4, name: 'Synth', parentId: null },
-    { id: 5, name: 'Vocal', parentId: null },
-    { id: 6, name: 'Loop', parentId: null },
-    { id: 7, name: 'Percussion', parentId: null },
-    { id: 8, name: 'Atmosphere', parentId: null },
-    { id: 9, name: 'Unsorted', parentId: null }
+    { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: true },
+    { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: false },
+    { id: 3, name: 'FX', parentId: null, folderDerived: true, userCreated: false },
+    { id: 4, name: 'Synth', parentId: null, folderDerived: true, userCreated: false },
+    { id: 5, name: 'Vocal', parentId: null, folderDerived: true, userCreated: false },
+    { id: 6, name: 'Loop', parentId: null, folderDerived: true, userCreated: false },
+    { id: 7, name: 'Percussion', parentId: null, folderDerived: true, userCreated: false },
+    { id: 8, name: 'Atmosphere', parentId: null, folderDerived: true, userCreated: false },
+    { id: 9, name: 'Unsorted', parentId: null, folderDerived: true, userCreated: false },
+    { id: 10, name: 'Kicks', parentId: 2, folderDerived: true, userCreated: false }
   ]
 
   var MOCK_TAGS = [
@@ -375,8 +376,23 @@
     },
     reanalyzeSample: function () { return Promise.resolve() },
     listCategories: function () { return Promise.resolve(MOCK_CATEGORIES) },
-    createCategory: function (name) { return Promise.resolve({ id: 99, name: name, parentId: null }) },
-    deleteCategory: function () { return Promise.resolve() },
+    createCategory: function (folder, name, parentId) {
+      return Promise.resolve({
+        id: 99,
+        name: name,
+        parentId: parentId === undefined ? null : parentId,
+        folderDerived: false,
+        userCreated: true
+      })
+    },
+    deleteCategory: function (folder, id) {
+      MOCK_CATEGORIES = MOCK_CATEGORIES.map(function (category) {
+        return category.id === id
+          ? Object.assign({}, category, { userCreated: false })
+          : category
+      })
+      return Promise.resolve(MOCK_CATEGORIES)
+    },
     listLibraries: function () { return Promise.resolve([]) },
     saveLibrary: function (name, ruleJson) { return Promise.resolve({ id: 1, name: name, createdAt: Date.now(), ruleJson: ruleJson }) },
     deleteLibrary: function () { return Promise.resolve() },

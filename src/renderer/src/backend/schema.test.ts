@@ -10,13 +10,13 @@ let sqlite3: Sqlite3Static
 beforeAll(async () => { sqlite3 = await sqlite3InitModule() })
 
 describe('schema migrations', () => {
-  it('creates a fresh v4 database from scratch', () => {
+  it('creates a fresh v5 database from scratch', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     expect(() => initSchema(db)).not.toThrow()
     expect(() => initSchema(db)).not.toThrow()
 
     const version = db.prepare('SELECT version FROM schema_version').get<{ version: number }>()
-    expect(version?.version).toBe(4)
+    expect(version?.version).toBe(5)
     expect(db.prepare('PRAGMA table_info(scan_roots)').all<{ name: string }>()
       .map(({ name }) => name)).toEqual(expect.arrayContaining([
         'last_completed_at', 'legacy_index_available'
@@ -29,14 +29,109 @@ describe('schema migrations', () => {
       .map(({ name }) => name)).toEqual(expect.arrayContaining([
         'root_id', 'relpath_prefix', 'state', 'bpm', 'musical_key', 'confidence'
       ]))
+    expect(db.prepare('PRAGMA table_info(category_sources)').all<{ name: string }>()
+      .map(({ name }) => name)).toEqual(['category_id', 'root_id', 'source'])
     db.close()
   })
 
-  it('idempotently re-runs on an already v4 database', () => {
+  it('idempotently re-runs on an already v5 database', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     initSchema(db)
     expect(() => initSchema(db)).not.toThrow()
     expect(() => initSchema(db)).not.toThrow()
+    db.close()
+  })
+
+  it('migrates root evidence and does not invent ownership for unassigned categories', () => {
+    const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
+    initSchema(db)
+    const firstRoot = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('first').lastInsertRowid
+    const secondRoot = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('second').lastInsertRowid
+    const folderCategory = db.prepare(
+      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+    ).run('Drum').lastInsertRowid
+    const customCategory = db.prepare(
+      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+    ).run('Favorites').lastInsertRowid
+    const unsortedCategory = db.prepare(
+      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+    ).run('Unsorted').lastInsertRowid
+    const sampleId = db.prepare(
+      `INSERT INTO samples (root_id, relpath, filename, date_added, scan_state)
+       VALUES (?, 'Drum/kick.wav', 'kick.wav', 1, 1)`
+    ).run(firstRoot).lastInsertRowid
+    db.prepare(
+      'INSERT INTO sample_categories (sample_id, category_id) VALUES (?, ?)'
+    ).run(sampleId, folderCategory)
+    db.prepare('DELETE FROM category_sources').run()
+    db.prepare('UPDATE schema_version SET version = 4').run()
+
+    initSchema(db)
+
+    expect(db.prepare(
+      'SELECT root_id, source FROM category_sources WHERE category_id = ? ORDER BY root_id, source'
+    ).all(folderCategory)).toEqual([{ root_id: firstRoot, source: 'folder' }])
+    expect(db.prepare(
+      'SELECT root_id, source FROM category_sources WHERE category_id = ? ORDER BY root_id, source'
+    ).all(customCategory)).toEqual([])
+    expect(db.prepare('SELECT id FROM categories WHERE id = ?').get(customCategory)).toBeUndefined()
+    expect(db.prepare(
+      'SELECT root_id, source FROM category_sources WHERE category_id = ? ORDER BY root_id, source'
+    ).all(unsortedCategory)).toEqual([
+      { root_id: firstRoot, source: 'folder' },
+      { root_id: secondRoot, source: 'folder' }
+    ])
+    db.close()
+  })
+
+  it('uses a primary sample category as root-specific v4 folder evidence', () => {
+    const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
+    initSchema(db)
+    const firstRoot = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('first').lastInsertRowid
+    db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('second')
+    const categoryId = db.prepare(
+      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+    ).run('Drum').lastInsertRowid
+    db.prepare(
+      `INSERT INTO samples (root_id, relpath, filename, date_added, scan_state, category_id)
+       VALUES (?, 'Drum/kick.wav', 'kick.wav', 1, 1, ?)`
+    ).run(firstRoot, categoryId)
+    db.prepare('DELETE FROM category_sources').run()
+    db.prepare('UPDATE schema_version SET version = 4').run()
+
+    initSchema(db)
+
+    expect(db.prepare(
+      'SELECT root_id, source FROM category_sources WHERE category_id = ?'
+    ).all(categoryId)).toEqual([{ root_id: firstRoot, source: 'folder' }])
+    db.close()
+  })
+
+  it('does not use missing v4 samples as current folder evidence', () => {
+    const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
+    initSchema(db)
+    const rootId = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('first').lastInsertRowid
+    const primaryCategoryId = db.prepare(
+      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+    ).run('Removed primary').lastInsertRowid
+    const joinedCategoryId = db.prepare(
+      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+    ).run('Removed joined').lastInsertRowid
+    const sampleId = db.prepare(
+      `INSERT INTO samples (root_id, relpath, filename, date_added, scan_state, category_id)
+       VALUES (?, 'Removed/sample.wav', 'sample.wav', 1, 2, ?)`
+    ).run(rootId, primaryCategoryId).lastInsertRowid
+    db.prepare(
+      'INSERT INTO sample_categories (sample_id, category_id) VALUES (?, ?)'
+    ).run(sampleId, joinedCategoryId)
+    db.prepare('DELETE FROM category_sources').run()
+    db.prepare('UPDATE schema_version SET version = 4').run()
+
+    initSchema(db)
+
+    expect(db.prepare(
+      'SELECT category_id, root_id, source FROM category_sources WHERE category_id IN (?, ?)'
+    ).all(primaryCategoryId, joinedCategoryId)).toEqual([])
     db.close()
   })
 
@@ -90,7 +185,7 @@ describe('schema migrations', () => {
       'bpm_source', 'musical_key_source', 'sample_type', 'sample_type_source'
     ]))
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(4)
+      .toBe(5)
     db.close()
   })
 
@@ -161,7 +256,7 @@ describe('schema migrations', () => {
     expect(() => initSchema(db)).not.toThrow()
     expect(() => initSchema(db)).not.toThrow()
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(4)
+      .toBe(5)
     db.close()
   })
 
@@ -199,7 +294,7 @@ describe('schema migrations', () => {
       'bpm_source', 'musical_key_source', 'sample_type', 'sample_type_source'
     ]))
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(4)
+      .toBe(5)
     db.close()
   })
 

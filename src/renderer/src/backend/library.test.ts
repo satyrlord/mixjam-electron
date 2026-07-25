@@ -29,6 +29,7 @@ import {
 import {
   assignCategoryFromPath,
   completeScanRoot,
+  ensureFolderCategoryPaths,
   ensureScanRoot,
   ensureUnsortedCategory,
   getLibraryRootState,
@@ -36,6 +37,7 @@ import {
   scanRootId,
   markMissing,
   markMetadataUnavailable,
+  reconcileFolderCategories,
   syncCategoriesFromNames,
   upsertStub,
   updateMetadata,
@@ -47,6 +49,7 @@ let db: DB
 // Shared scan root for tests that need a sample row but don't exercise
 // per-root scoping themselves (see the dedicated scoping describe below).
 let rootId: number
+const ROOT_KEY = 'root-main'
 
 beforeAll(async () => {
   sqlite3 = await sqlite3InitModule()
@@ -55,7 +58,7 @@ beforeAll(async () => {
 beforeEach(() => {
   db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
   initSchema(db)
-  rootId = ensureScanRoot(db, 'root-main')
+  rootId = ensureScanRoot(db, ROOT_KEY)
 })
 
 afterEach(() => {
@@ -68,16 +71,16 @@ afterEach(() => {
 
 describe('ensureUnsortedCategory', () => {
   it('creates the Unsorted root category', () => {
-    ensureUnsortedCategory(db)
-    const cats = listCategories(db)
+    ensureUnsortedCategory(db, rootId)
+    const cats = listCategories(db, ROOT_KEY)
     const rootNames = cats.filter((c) => c.parentId === null).map((c) => c.name)
     expect(rootNames).toContain(UNSORTED_CATEGORY)
   })
 
   it('is idempotent — calling it twice does not create duplicates', () => {
-    ensureUnsortedCategory(db)
-    ensureUnsortedCategory(db)
-    const cats = listCategories(db).filter((c) => c.parentId === null)
+    ensureUnsortedCategory(db, rootId)
+    ensureUnsortedCategory(db, rootId)
+    const cats = listCategories(db, ROOT_KEY).filter((c) => c.parentId === null)
     const names = cats.map((c) => c.name)
     expect(new Set(names).size).toBe(names.length)
   })
@@ -85,42 +88,85 @@ describe('ensureUnsortedCategory', () => {
 
 describe('createCategory (AC-010a, AC-010b)', () => {
   it('AC-010a: creates a custom root category that appears in the list', () => {
-    ensureUnsortedCategory(db)
-    const cat = createCategory(db, 'My Custom Category')
+    ensureUnsortedCategory(db, rootId)
+    const cat = createCategory(db, ROOT_KEY, 'My Custom Category')
     expect(cat.name).toBe('My Custom Category')
     expect(cat.parentId).toBeNull()
-    const all = listCategories(db)
+    const all = listCategories(db, ROOT_KEY)
     expect(all.find((c) => c.id === cat.id)).toBeDefined()
   })
 
   it('AC-010b: creates a subcategory under an existing category', () => {
-    ensureUnsortedCategory(db)
-    const parent = createCategory(db, 'Drums')
-    const child = createCategory(db, 'Kicks', parent.id)
+    ensureUnsortedCategory(db, rootId)
+    const parent = createCategory(db, ROOT_KEY, 'Drums')
+    const child = createCategory(db, ROOT_KEY, 'Kicks', parent.id)
     expect(child.parentId).toBe(parent.id)
-    const all = listCategories(db)
+    const all = listCategories(db, ROOT_KEY)
     expect(all.find((c) => c.id === child.id)).toBeDefined()
   })
 
   it('returns the existing subcategory id for a duplicate name (no stale rowid)', () => {
-    ensureUnsortedCategory(db)
-    const parent = createCategory(db, 'Drums')
+    ensureUnsortedCategory(db, rootId)
+    const parent = createCategory(db, ROOT_KEY, 'Drums')
     // An unrelated insert advances lastInsertRowid on this connection.
     createTag(db, 'unrelated')
-    const first = createCategory(db, 'Kicks', parent.id)
-    const second = createCategory(db, 'Kicks', parent.id)
+    const first = createCategory(db, ROOT_KEY, 'Kicks', parent.id)
+    const second = createCategory(db, ROOT_KEY, 'Kicks', parent.id)
     expect(second.id).toBe(first.id)
-    const kicks = listCategories(db).filter((c) => c.parentId === parent.id && c.name === 'Kicks')
+    const kicks = listCategories(db, ROOT_KEY).filter((c) => c.parentId === parent.id && c.name === 'Kicks')
     expect(kicks).toHaveLength(1)
   })
 })
 
 describe('deleteCategory', () => {
   it('removes a custom category', () => {
-    const cat = createCategory(db, 'Temp')
-    deleteCategory(db, cat.id)
-    const all = listCategories(db)
+    const cat = createCategory(db, ROOT_KEY, 'Temp')
+    deleteCategory(db, ROOT_KEY, cat.id)
+    const all = listCategories(db, ROOT_KEY)
     expect(all.find((c) => c.id === cat.id)).toBeUndefined()
+  })
+
+  it('removes only custom provenance from a folder-derived category', () => {
+    syncCategoriesFromNames(db, rootId, ['Drums'])
+    const folderCategory = listCategories(db, ROOT_KEY).find((category) => category.name === 'Drums')!
+    upsertStub(db, rootId, 'Drums/kick.wav', 'kick.wav', 'wav', 1000, 1000)
+    assignCategoryFromPath(db, rootId, 'Drums/kick.wav')
+    createCategory(db, ROOT_KEY, 'Drums')
+
+    deleteCategory(db, ROOT_KEY, folderCategory.id)
+
+    expect(listCategories(db, ROOT_KEY)).toContainEqual(expect.objectContaining({
+      id: folderCategory.id,
+      name: 'Drums',
+      folderDerived: true,
+      userCreated: false
+    }))
+    expect(querySamples(db, { rootId: ROOT_KEY, categoryId: folderCategory.id }).total).toBe(1)
+    expect(db.prepare(
+      'SELECT source FROM category_sources WHERE root_id = ? AND category_id = ? ORDER BY source'
+    ).all(rootId, folderCategory.id)).toEqual([{ source: 'folder' }])
+  })
+
+  it('does not remove folder provenance from a folder-only category', () => {
+    syncCategoriesFromNames(db, rootId, ['Drums'])
+    const folderCategory = listCategories(db, ROOT_KEY).find((category) => category.name === 'Drums')!
+
+    deleteCategory(db, ROOT_KEY, folderCategory.id)
+
+    expect(listCategories(db, ROOT_KEY).some((category) => category.id === folderCategory.id)).toBe(true)
+    expect(db.prepare(
+      'SELECT source FROM category_sources WHERE root_id = ? AND category_id = ?'
+    ).all(rootId, folderCategory.id)).toEqual([{ source: 'folder' }])
+  })
+
+  it('rejects a custom child under a parent that is not visible to the active root', () => {
+    const otherRootId = ensureScanRoot(db, 'root-other')
+    syncCategoriesFromNames(db, otherRootId, ['Other'])
+    const otherParent = listCategories(db, 'root-other').find((category) => category.name === 'Other')!
+
+    expect(() => createCategory(db, ROOT_KEY, 'CrossRoot', otherParent.id))
+      .toThrow('parent category is not visible')
+    expect(listCategories(db, ROOT_KEY).some((category) => category.name === 'CrossRoot')).toBe(false)
   })
 })
 
@@ -396,7 +442,7 @@ describe('listMissingRelpaths (spec-002 AC-013)', () => {
 
 describe('querySamples (AC-004, AC-005, AC-006, AC-011, AC-016)', () => {
   beforeEach(() => {
-    ensureUnsortedCategory(db)
+    ensureUnsortedCategory(db, rootId)
     upsertStub(db, rootId, 's/kick.wav', 'kick.wav', 'wav', 1000, 1000)
     upsertStub(db, rootId, 's/snare.wav', 'snare.wav', 'wav', 1000, 1000)
     upsertStub(db, rootId, 's/bass.mp3', 'bass.mp3', 'mp3', 1000, 1000)
@@ -435,8 +481,8 @@ describe('querySamples (AC-004, AC-005, AC-006, AC-011, AC-016)', () => {
   })
 
   it('AC-011: filter by category includes descendants', () => {
-    const drumsCategory = createCategory(db, 'Drums')
-    const kicksCategory = createCategory(db, 'Kicks', drumsCategory.id)
+    const drumsCategory = createCategory(db, ROOT_KEY, 'Drums')
+    const kicksCategory = createCategory(db, ROOT_KEY, 'Kicks', drumsCategory.id)
 
     const kickSampleId = sampleIdFor('s/kick.wav')
     // Assign sample to the child category (Kicks); querying by parent (Drums)
@@ -583,16 +629,20 @@ describe('querySamples textSearch does not crash on FTS5 metacharacters', () => 
 
 describe('assignCategoryFromPath + subcategory filtering', () => {
   beforeEach(() => {
-    ensureUnsortedCategory(db)
-    createCategory(db, 'Drums')
+    ensureUnsortedCategory(db, rootId)
   })
 
   it('finds a sample by its subcategory even though category_id holds the root', () => {
+    reconcileFolderCategories(
+      db,
+      rootId,
+      ensureFolderCategoryPaths(db, ['Drums', 'Drums/Kicks'])
+    )
     upsertStub(db, rootId, 'Drums/Kicks/kick.wav', 'kick.wav', 'wav', 1000, 1000)
     assignCategoryFromPath(db, rootId, 'Drums/Kicks/kick.wav')
 
-    const drums = listCategories(db).find((c) => c.parentId === null && c.name === 'Drums')!
-    const kicks = listCategories(db).find((c) => c.name === 'Kicks')!
+    const drums = listCategories(db, ROOT_KEY).find((c) => c.parentId === null && c.name === 'Drums')!
+    const kicks = listCategories(db, ROOT_KEY).find((c) => c.name === 'Kicks')!
     expect(kicks.parentId).toBe(drums.id)
 
     // The root assignment lives in category_id; subcategory membership is in the
@@ -606,7 +656,7 @@ describe('assignCategoryFromPath + subcategory filtering', () => {
   it('assigns a root-level file to Unsorted', () => {
     upsertStub(db, rootId, 'kick.wav', 'kick.wav', 'wav', 1000, 1000)
     assignCategoryFromPath(db, rootId, 'kick.wav')
-    const unsorted = listCategories(db).find(
+    const unsorted = listCategories(db, ROOT_KEY).find(
       (c) => c.parentId === null && c.name === UNSORTED_CATEGORY
     )!
     const row = db
@@ -616,21 +666,31 @@ describe('assignCategoryFromPath + subcategory filtering', () => {
   })
 
   it('clears stale subcategory membership when a file moves between folders', () => {
+    reconcileFolderCategories(
+      db,
+      rootId,
+      ensureFolderCategoryPaths(db, ['Drums', 'Drums/Kicks'])
+    )
     upsertStub(db, rootId, 'Drums/Kicks/x.wav', 'x.wav', 'wav', 1000, 1000)
     assignCategoryFromPath(db, rootId, 'Drums/Kicks/x.wav')
-    const kicks = listCategories(db).find((c) => c.name === 'Kicks')!
+    const kicks = listCategories(db, ROOT_KEY).find((c) => c.name === 'Kicks')!
 
     // Simulate a move: same file now under Snares.
     db.prepare('UPDATE samples SET relpath = ? WHERE relpath = ?').run(
       'Drums/Snares/x.wav',
       'Drums/Kicks/x.wav'
     )
+    reconcileFolderCategories(
+      db,
+      rootId,
+      ensureFolderCategoryPaths(db, ['Drums', 'Drums/Snares'])
+    )
     assignCategoryFromPath(db, rootId, 'Drums/Snares/x.wav')
 
     // Old Kicks membership must be gone.
     expect(querySamples(db, { categoryId: kicks.id }).rows.find((r) => r.filename === 'x.wav'))
       .toBeUndefined()
-    const snares = listCategories(db).find((c) => c.name === 'Snares')!
+    const snares = listCategories(db, ROOT_KEY).find((c) => c.name === 'Snares')!
     expect(querySamples(db, { categoryId: snares.id }).rows.find((r) => r.filename === 'x.wav'))
       .toBeDefined()
   })
@@ -703,18 +763,18 @@ describe('per-root scoping', () => {
 
 describe('syncCategoriesFromNames', () => {
   it('reports Unsorted plus the folder names it created', () => {
-    const names = syncCategoriesFromNames(db, ['Drums', 'Synths'])
+    const names = syncCategoriesFromNames(db, rootId, ['Drums', 'Synths'])
     expect(names).toContain(UNSORTED_CATEGORY)
     expect(names).toContain('Drums')
     expect(names).toContain('Synths')
-    const roots = listCategories(db).filter((c) => c.parentId === null)
+    const roots = listCategories(db, ROOT_KEY).filter((c) => c.parentId === null)
     expect(roots.map((c) => c.name)).toEqual(expect.arrayContaining(['Drums', 'Synths']))
   })
 
   it('never creates a duplicate of the reserved Unsorted category', () => {
-    const names = syncCategoriesFromNames(db, [UNSORTED_CATEGORY, 'Drums'])
+    const names = syncCategoriesFromNames(db, rootId, [UNSORTED_CATEGORY, 'Drums'])
     expect(names.filter((n) => n === UNSORTED_CATEGORY)).toHaveLength(1)
-    const unsorted = listCategories(db).filter(
+    const unsorted = listCategories(db, ROOT_KEY).filter(
       (c) => c.parentId === null && c.name === UNSORTED_CATEGORY
     )
     expect(unsorted).toHaveLength(1)
@@ -724,7 +784,7 @@ describe('syncCategoriesFromNames', () => {
 describe('initSchema', () => {
   it('stamps a fresh database once and leaves existing schema version rows unchanged', () => {
     const initial = db.prepare('SELECT version FROM schema_version').all<{ version: number }>()
-    expect(initial).toEqual([{ version: 4 }])
+    expect(initial).toEqual([{ version: 5 }])
 
     initSchema(db)
 

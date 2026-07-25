@@ -142,10 +142,10 @@ OGG, and AIFF is deferred; those formats retain manual analysis controls.
 
 ## Category auto-assignment
 
-Before processing individual files, the indexer synchronises root categories with
-the sample-folder structure: each top-level subdirectory becomes a root category
-(created if it does not already exist). The hardcoded **"Unsorted"** category is
-always present and serves as the fallback.
+The filesystem walk records every directory path independently of audio-file
+filtering. Empty directories and directories containing only unsupported files
+therefore remain part of the category tree. The hardcoded **"Unsorted"**
+category is always present for each scanned root and serves as the fallback.
 
 During phase 1, each sample is assigned to a primary category by matching the
 first relative path segment against existing root categories. Deeper path
@@ -155,21 +155,38 @@ For example, `Drums/Kicks/kick_808.wav` → primary category `Drums`, subcategor
 `Kicks`. Samples directly in the sample-folder root (no subdirectory) are
 assigned to **"Unsorted"**.
 
-See `syncCategoriesFromNames()` and `assignCategoryFromPath()` in
+See `ensureFolderCategoryPaths()`, `assignCategoryFromPath()`, and
+`reconcileFolderCategories()` in
 `src/renderer/src/backend/indexed-sample-persistence.ts`. A sample belongs to
 exactly one primary category but may have multiple subcategory assignments
 (via the `sample_categories` join table).
+
+Category nodes use shared path identity, while `category_sources` records the
+Sample Folder root and whether the node is `folder`-derived or `custom`. This
+separate relation handles two facts that a flag on `categories` cannot: the
+same path may exist in several Sample Folders, and one path may have both
+folder and custom provenance in the same folder.
+
+During phase 1, the indexer ensures category identities for every walked path
+without making those paths visible. After all sample-assignment batches finish,
+one transaction replaces that root's `folder` sources with exactly `Unsorted`
+plus the walked directory paths. It does not remove `custom` sources or any
+source owned by another root. A cancelled or failed traversal therefore leaves
+the prior complete tree visible instead of exposing a partial replacement.
+Missing sample rows keep their durable metadata but do not keep an obsolete
+folder category visible.
 
 ## Per-root scoping (one DB, many Sample Folders)
 
 Every Sample Folder that has ever been scanned gets a row in `scan_roots`
 (keyed by its FolderRef id), and each `samples` row carries the `root_id` of
-the root it was found under. Browser queries (`querySamples`, `hasSamples`) are
-scoped to the active Sample Folder's root, so switching folders never shows
-another folder's rows — a folder that has not been scanned yet reads as empty
-and its automatic session sync establishes the first index. Later syncs are
-scoped the same way: marking missing files only touches rows under the root
-being scanned, so rows belonging to other roots survive untouched.
+the root it was found under. Browser queries (`querySamples`, `hasSamples`) and
+category discovery are scoped to the active Sample Folder's root, so switching
+folders never shows another folder's rows or category tree. A folder that has
+not been scanned yet reads as empty and its automatic session sync establishes
+the first index. Later syncs are scoped the same way: marking missing files and
+reconciling folder categories only touch the root being scanned, so rows and
+category sources belonging to other roots survive untouched.
 
 ## Change detection and incremental sync
 
@@ -188,6 +205,9 @@ The cheap, reliable change key is **`(size_bytes, mtime)`**. On sync of a root:
    `scan_state = 2` (missing) rather than hard-deleted, so its tags/library
    memberships survive a temporarily-disconnected drive. Missing rows are hidden
    from normal browsing by default. No purge-missing UI exists yet.
+4. **Category reconciliation:** after phase 1 completes, atomically replace
+   this root's `folder` sources with the complete walked directory projection.
+   Preserve `custom` sources and every source belonging to another root.
 
 Contextual membership uses the current relative path, including structured
 source-cohort suffixes. A rename therefore invalidates the old and new context

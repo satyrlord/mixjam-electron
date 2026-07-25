@@ -61,6 +61,10 @@ export interface CategoryItem {
   id: number
   name: string
   parentId: number | null
+  /** True when the active Sample Folder contains this directory path. */
+  folderDerived: boolean
+  /** True when the user explicitly created this path for the active Sample Folder. */
+  userCreated: boolean
 }
 
 export interface LibraryItem {
@@ -503,9 +507,14 @@ export interface BackendAPI {
     sampleId: number,
     relpath: string
   ) => Promise<SampleAnalysisDone>
-  listCategories: () => Promise<CategoryItem[]>
-  createCategory: (name: string, parentId?: number) => Promise<CategoryItem>
-  deleteCategory: (id: number) => Promise<void>
+  listCategories: (sampleFolder: FolderRef) => Promise<CategoryItem[]>
+  createCategory: (
+    sampleFolder: FolderRef,
+    name: string,
+    parentId?: number
+  ) => Promise<CategoryItem>
+  /** Removes custom provenance only and returns the authoritative root projection. */
+  deleteCategory: (sampleFolder: FolderRef, id: number) => Promise<CategoryItem[]>
   listLibraries: () => Promise<LibraryItem[]>
   saveLibrary: (name: string, ruleJson: string) => Promise<LibraryItem>
   deleteLibrary: (id: number) => Promise<void>

@@ -55,9 +55,9 @@ export interface BackendCalls {
     sampleId: number,
     relpath: string
   ) => Promise<SampleAnalysisDone>
-  listCategories: () => CategoryItem[]
-  createCategory: (name: string, parentId?: number) => CategoryItem
-  deleteCategory: (id: number) => void
+  listCategories: (rootKey: string) => CategoryItem[]
+  createCategory: (rootKey: string, name: string, parentId?: number) => CategoryItem
+  deleteCategory: (rootKey: string, id: number) => CategoryItem[]
   listLibraries: () => LibraryItem[]
   saveLibrary: (name: string, ruleJson: string) => LibraryItem
   deleteLibrary: (id: number) => void

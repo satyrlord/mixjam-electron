@@ -105,9 +105,16 @@ ticks at 8 ticks per beat. Capacity limits placement and navigation but is not
 
 A node in the hierarchical organizational tree used to browse and filter
 [samples](#sample). Categories may be derived from Sample Folder directories or
-created by the user. A sample has one primary category and may have additional
-[subcategory](#subcategory) assignments. Categories are distinct from flat
-[tags](#tag) and from acoustic [sample type](#sample-type) metadata.
+created by the user. Their visibility and provenance belong to a specific
+Sample Folder, so switching folders switches category trees. A sample has one
+primary category and may have additional [subcategory](#subcategory)
+assignments. Categories are distinct from flat [tags](#tag) and from acoustic
+[sample type](#sample-type) metadata.
+
+A category has dual provenance when the same path is both present as a physical
+directory and explicitly created by the user for one Sample Folder. Removing
+the custom provenance leaves the folder-derived category and its sample
+assignments intact.
 
 ## Channel
 

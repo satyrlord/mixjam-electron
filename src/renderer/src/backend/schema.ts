@@ -2,7 +2,7 @@ import type { DB } from './sql'
 
 // Schema of the OPFS-backed database. Bump SCHEMA_VERSION and add
 // version-gated migrations below.
-const SCHEMA_VERSION = 4
+const SCHEMA_VERSION = 5
 
 /** Bump when metadata parsing semantics change for unchanged file bytes. */
 export const METADATA_REVISION = 1
@@ -96,6 +96,16 @@ CREATE TABLE IF NOT EXISTS categories (
   UNIQUE (parent_id, name)
 );
 
+-- A category node can be visible in more than one Sample Folder, but its
+-- provenance is root-specific. Re-scan reconciliation removes only obsolete
+-- folder sources and therefore never deletes user-created organization.
+CREATE TABLE IF NOT EXISTS category_sources (
+  category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  root_id     INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
+  source      TEXT NOT NULL CHECK (source IN ('folder', 'custom')),
+  PRIMARY KEY (category_id, root_id, source)
+);
+
 CREATE TABLE IF NOT EXISTS sample_categories (
   sample_id   INTEGER NOT NULL REFERENCES samples(id)    ON DELETE CASCADE,
   category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -121,6 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_samples_key        ON samples(musical_key);
 CREATE INDEX IF NOT EXISTS idx_sample_tags_tag    ON sample_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_sample_cats_cat    ON sample_categories(category_id);
 CREATE INDEX IF NOT EXISTS idx_categories_parent  ON categories(parent_id);
+CREATE INDEX IF NOT EXISTS idx_category_sources_root ON category_sources(root_id, source);
 CREATE INDEX IF NOT EXISTS idx_analysis_groups_root ON analysis_groups(root_id, depth);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS samples_fts USING fts5(
@@ -266,5 +277,50 @@ export function initSchema(db: DB): void {
          END`
     ).run()
     db.prepare('UPDATE schema_version SET version = ?').run(4)
+    version = 4
+  }
+
+  if (version < 5) {
+    // Existing sample/category memberships are the only root evidence in v4.
+    // Do not invent ownership for unassigned legacy rows: the old schema could
+    // not distinguish stale folder nodes from empty custom organization.
+    db.prepare(
+      `INSERT OR IGNORE INTO category_sources (category_id, root_id, source)
+       SELECT category_id, root_id, 'folder'
+       FROM (
+          SELECT s.category_id, s.root_id
+          FROM samples s
+          WHERE s.category_id IS NOT NULL AND s.scan_state != 2
+          UNION
+          SELECT sc.category_id, s.root_id
+          FROM sample_categories sc
+          JOIN samples s ON s.id = sc.sample_id
+          WHERE s.scan_state != 2
+        )`
+    ).run()
+    db.prepare(
+      `WITH RECURSIVE ancestors(category_id, root_id) AS (
+         SELECT category_id, root_id FROM category_sources
+         UNION
+         SELECT c.parent_id, a.root_id
+         FROM categories c
+         JOIN ancestors a ON a.category_id = c.id
+         WHERE c.parent_id IS NOT NULL
+       )
+       INSERT OR IGNORE INTO category_sources (category_id, root_id, source)
+       SELECT category_id, root_id, 'folder' FROM ancestors`
+    ).run()
+    db.prepare(
+      `INSERT OR IGNORE INTO category_sources (category_id, root_id, source)
+       SELECT c.id, r.id, 'folder'
+       FROM categories c
+       CROSS JOIN scan_roots r
+       WHERE c.parent_id IS NULL AND c.name = 'Unsorted'`
+    ).run()
+    db.prepare(
+      `DELETE FROM categories
+       WHERE id NOT IN (SELECT category_id FROM category_sources)`
+    ).run()
+    db.prepare('UPDATE schema_version SET version = ?').run(5)
   }
 }

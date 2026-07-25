@@ -7,6 +7,7 @@ import { DB } from './sql'
 import { initSchema } from './schema'
 import { runScan, type ScanPhaseProgress } from './indexer'
 import {
+  createCategory,
   listCategories,
   querySamples
 } from './browser-library-persistence'
@@ -204,7 +205,7 @@ describe('runScan', () => {
       Drums: { Kicks: { 'kick.wav': makeWav(0.05) } }
     })
 
-    const categories = listCategories(db)
+    const categories = listCategories(db, ROOT_KEY)
     const drums = categories.find((c) => c.parentId === null && c.name === 'Drums')
     const unsorted = categories.find((c) => c.parentId === null && c.name === UNSORTED_CATEGORY)
     expect(drums).toBeDefined()
@@ -213,6 +214,117 @@ describe('runScan', () => {
     const { rows } = querySamples(db, { rootId: ROOT_KEY })
     expect(rows.find((r) => r.relpath === 'Drums/Kicks/kick.wav')?.categoryId).toBe(drums!.id)
     expect(rows.find((r) => r.relpath === 'loose.wav')?.categoryId).toBe(unsorted!.id)
+  })
+
+  it('projects empty and unsupported-only nested directories into the category tree', async () => {
+    await scan({
+      Ambient: {
+        Empty: { Deep: {} },
+        Presets: { 'bank.xml': new File(['preset'], 'bank.xml') }
+      }
+    })
+
+    const categories = listCategories(db, ROOT_KEY)
+    const ambient = categories.find((category) => category.name === 'Ambient')!
+    const empty = categories.find((category) => category.parentId === ambient.id && category.name === 'Empty')!
+    expect(categories).toContainEqual(expect.objectContaining({ parentId: empty.id, name: 'Deep' }))
+    expect(categories).toContainEqual(expect.objectContaining({ parentId: ambient.id, name: 'Presets' }))
+  })
+
+  it('retires removed empty directory paths while preserving a custom overlay', async () => {
+    await scan({
+      Ambient: {
+        Empty: { Deep: {} },
+        Presets: { 'bank.xml': new File(['preset'], 'bank.xml') }
+      }
+    })
+    const first = listCategories(db, ROOT_KEY)
+    const empty = first.find((category) => category.name === 'Empty')!
+    createCategory(db, ROOT_KEY, 'Empty', empty.parentId!)
+
+    await scan({ Ambient: {} })
+
+    const categories = listCategories(db, ROOT_KEY)
+    expect(categories).toContainEqual(expect.objectContaining({
+      id: empty.id,
+      folderDerived: false,
+      userCreated: true
+    }))
+    expect(categories.some((category) => category.name === 'Deep')).toBe(false)
+    expect(categories.some((category) => category.name === 'Presets')).toBe(false)
+  })
+
+  it('keeps the previous complete category tree when a replacement scan is cancelled', async () => {
+    await scan({ Old: { Tree: { 'old.wav': makeWav(0.05) } } })
+    let current = true
+    await runScan(
+      db,
+      ROOT_KEY,
+      fakeDirHandle('Samples', {
+        New: {
+          Branch: {
+            'one.wav': makeWav(0.05),
+            'two.wav': makeWav(0.05)
+          }
+        }
+      }),
+      () => { current = false },
+      () => current,
+      { batchSize: 1 }
+    )
+
+    const names = listCategories(db, ROOT_KEY).map((category) => category.name)
+    expect(names).toEqual(expect.arrayContaining(['Old', 'Tree', 'Unsorted']))
+    expect(names).not.toContain('New')
+    expect(names).not.toContain('Branch')
+  })
+
+  it('reconciles a replaced folder taxonomy without deleting custom categories', async () => {
+    await scan({
+      Bass: { 'old-bass.wav': makeWav(0.05) },
+      Drum: { 'old-drum.wav': makeWav(0.05) }
+    })
+    createCategory(db, ROOT_KEY, 'Favorites')
+
+    await scan({
+      Ambient: { Bass: { 'ambient-bass.WAV': makeWav(0.05) } },
+      Brazil: { Bass: { 'brazil-bass.WAV': makeWav(0.05) } },
+      House: { Classic: { Singleshots: { 'hit.WAV': makeWav(0.05) } } },
+      'Hard Trance': { Keys: { 'key.WAV': makeWav(0.05) } }
+    })
+
+    const categories = listCategories(db, ROOT_KEY)
+    expect(categories.filter((category) => category.parentId === null).map((category) => category.name))
+      .toEqual(['Ambient', 'Brazil', 'Favorites', 'Hard Trance', 'House', 'Unsorted'])
+    expect(categories.filter((category) => category.name === 'Bass')).toHaveLength(2)
+
+    const house = categories.find((category) => category.name === 'House')!
+    const classic = categories.find((category) => category.parentId === house.id && category.name === 'Classic')!
+    expect(categories).toContainEqual(expect.objectContaining({
+      name: 'Singleshots',
+      parentId: classic.id
+    }))
+  })
+
+  it('keeps category trees isolated between Sample Folders', async () => {
+    await scan({ Ambient: { Bass: { 'a.WAV': makeWav(0.05) } } })
+    await runScan(
+      db,
+      'root-other',
+      fakeDirHandle('Other Samples', {
+        Techno: { Drum: { 'b.WAV': makeWav(0.05) } }
+      }),
+      () => undefined,
+      () => true
+    )
+    createCategory(db, ROOT_KEY, 'Favorites')
+
+    expect(listCategories(db, ROOT_KEY).filter((category) => category.parentId === null)
+      .map((category) => category.name))
+      .toEqual(['Ambient', 'Favorites', 'Unsorted'])
+    expect(listCategories(db, 'root-other').filter((category) => category.parentId === null)
+      .map((category) => category.name))
+      .toEqual(['Techno', 'Unsorted'])
   })
 
   it('soft-deletes rows whose files vanished from the folder', async () => {

@@ -41,25 +41,78 @@ export function completeScanRoot(db: DB, rootId: number, completedAt: number = D
 
 export const UNSORTED_CATEGORY = 'Unsorted'
 
-function unsortedCategoryId(db: DB): number {
-  const row = db.prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?').get<{ id: number }>(UNSORTED_CATEGORY)
-  if (row) return row.id
-  return db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, NULL)').run(UNSORTED_CATEGORY).lastInsertRowid
+type CategorySource = 'folder' | 'custom'
+
+function addCategorySource(db: DB, categoryId: number, rootId: number, source: CategorySource): void {
+  db.prepare(
+    'INSERT OR IGNORE INTO category_sources (category_id, root_id, source) VALUES (?, ?, ?)'
+  ).run(categoryId, rootId, source)
 }
 
-export function ensureUnsortedCategory(db: DB): void { unsortedCategoryId(db) }
+function unsortedCategoryId(db: DB): number {
+  const row = db.prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?').get<{ id: number }>(UNSORTED_CATEGORY)
+  const id = row?.id ?? db.prepare(
+    'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+  ).run(UNSORTED_CATEGORY).lastInsertRowid
+  return id
+}
 
-export function syncCategoriesFromNames(db: DB, folderNames: readonly string[]): string[] {
-  ensureUnsortedCategory(db)
+export function ensureUnsortedCategory(db: DB, rootId: number): void {
+  addCategorySource(db, unsortedCategoryId(db), rootId, 'folder')
+}
+
+export function syncCategoriesFromNames(db: DB, rootId: number, folderNames: readonly string[]): string[] {
+  ensureUnsortedCategory(db, rootId)
   const names = [UNSORTED_CATEGORY]
   for (const name of folderNames) {
     if (name === UNSORTED_CATEGORY) continue
-    if (!db.prepare('SELECT 1 FROM categories WHERE parent_id IS NULL AND name = ?').get(name)) {
-      db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, NULL)').run(name)
-    }
+    const existing = db.prepare(
+      'SELECT id FROM categories WHERE parent_id IS NULL AND name = ?'
+    ).get<{ id: number }>(name)
+    const id = existing?.id ?? db.prepare(
+      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
+    ).run(name).lastInsertRowid
+    addCategorySource(db, id, rootId, 'folder')
     names.push(name)
   }
   return names
+}
+
+export function ensureFolderCategoryPaths(
+  db: DB,
+  directoryRelpaths: readonly string[]
+): ReadonlySet<number> {
+  const ids = new Set<number>([unsortedCategoryId(db)])
+  const orderedPaths = [...new Set(directoryRelpaths)]
+    .sort((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right))
+  for (const relpath of orderedPaths) {
+    let parentId: number | null = null
+    for (const name of relpath.split('/').filter(Boolean)) {
+      const existing: { id: number } | undefined = db.prepare(
+        'SELECT id FROM categories WHERE parent_id IS ? AND name = ?'
+      ).get<{ id: number }>(parentId, name)
+      const categoryId: number = existing?.id ?? db.prepare(
+        'INSERT INTO categories (name, parent_id) VALUES (?, ?)'
+      ).run(name, parentId).lastInsertRowid
+      ids.add(categoryId)
+      parentId = categoryId
+    }
+  }
+  return ids
+}
+
+export function reconcileFolderCategories(
+  db: DB,
+  rootId: number,
+  activeCategoryIds: ReadonlySet<number>
+): void {
+  const insert = db.prepare(
+    `INSERT INTO category_sources (category_id, root_id, source) VALUES (?, ?, 'folder')`
+  )
+  db.transaction((ids: readonly number[]) => {
+    db.prepare("DELETE FROM category_sources WHERE root_id = ? AND source = 'folder'").run(rootId)
+    for (const id of ids) insert.run(id, rootId)
+  })([...activeCategoryIds])
 }
 
 export function upsertStub(db: DB, rootId: number, relpath: string, filename: string, ext: string, sizeBytes: number, mtime: number): void {

@@ -232,12 +232,27 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   root category. If the Sample Folder is flat, only the "Unsorted" category
   exists.
 - Subcategories are deeper folder levels: the first subdirectory under a
-  category folder becomes a subcategory, and so on.
+  category folder becomes a subcategory, and so on. Every directory is
+  represented, including empty directories and directories containing only
+  unsupported files.
 - Users can create additional custom top-level categories and subcategories
   via the manage panel; folder-derived and user-created categories coexist.
-- The manage panel lists nested categories by their full hierarchy path and
-  offers every depth as a parent, so users can create and delete categories
-  below an existing subcategory without losing context.
+- Category visibility and provenance are scoped to the active Sample Folder.
+  Switching Sample Folders never mixes their trees. A category path may be
+  both folder-derived and user-created for one root; sync removes only obsolete
+  folder provenance and preserves the user-created category.
+- After a complete sync, folder-derived nodes exactly reflect the current
+  directory tree. Removed, renamed, or moved directories no longer appear for
+  that Sample Folder. An interrupted sync does not retire prior nodes.
+- The manage panel lists user-created categories by their full hierarchy path
+  and offers every visible depth, including folder-only nodes, as a parent.
+  Removing a user-created category removes only its custom provenance. A path
+  that is also present on disk remains visible and keeps its sample
+  assignments; folder-only paths have no removal action.
+- Category selection and pending category operations belong to the active
+  Sample Folder. Switching folders clears the category filter and ignores
+  responses captured for the previous root. A create response clears its form
+  only when the root, request, and submitted draft are still current.
 - Filtering by a category shows samples in that category AND all its
   descendants (subcategories).
 - The category tree is displayed in the browser panel as an expandable tree:
@@ -257,7 +272,11 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   failed rule write leaves no orphan library row.
 - Opening a library applies its saved filters: clicking a library's name in the
   manage panel parses its `rule_json` and restores the search text, category,
-  and tag filters.
+  and tag filters. A saved category id is restored only when that category is
+  visible in the active Sample Folder; a stale or other-root id is ignored. If
+  that folder's category projection is loading, application waits for it before
+  validating and restoring the saved filters. A failed projection load reports
+  an error and discards the pending application instead of using stale data.
 - Libraries do not copy or duplicate sample data — they are purely saved
   queries. Editing a sample's tags automatically updates all libraries that
   reference it.
@@ -313,16 +332,26 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-009:** User can delete a tag — it is removed from all assigned samples.
 - [x] **AC-010:** "Unsorted" is the only hardcoded category tile; all other root categories are derived from the sample-folder structure (each top-level subdirectory becomes a category).
 - [x] **AC-010a:** User can create a new custom top-level category via the manage panel.
-- [x] **AC-010b:** User can create and delete a subcategory under any category;
-  the manage panel exposes the full hierarchy and the browser tree displays it
-  correctly.
+- [x] **AC-010b:** User can create a custom subcategory under any visible
+  category and remove custom provenance at any depth. Folder provenance,
+  folder-derived sample assignments, and other roots remain intact. The manage
+  panel exposes custom hierarchy paths and the browser tree displays the
+  resulting projection correctly.
 - [x] **AC-011:** Filtering by a category shows samples in that category AND all its descendants.
 - [x] **AC-012:** User can save the current filter/search state as a named library.
-- [x] **AC-013:** Opening a saved library restores its filters and shows the matching samples.
+- [x] **AC-013:** Opening a saved library restores its filters and shows the
+  matching samples. A category predicate not visible in the active Sample
+  Folder is ignored instead of applying an invisible filter. Applying a library
+  while the active folder's categories load waits for that projection.
 - [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
 - [x] **AC-015:** Automatic and manual incremental sync detect new, changed,
-  missing, and restored files; changed files preserve their tags. Existing
-  indexed samples remain usable, and cancellation retains committed batches.
+  missing, and restored files plus added, removed, renamed, moved, empty, and
+  unsupported-only category directories. A completed sync atomically replaces
+  folder provenance and retires obsolete folder-derived nodes for that
+  Sample Folder, preserves custom categories, and never exposes another Sample
+  Folder's category tree. Changed files preserve their tags. Existing indexed
+  samples remain usable, and cancellation retains committed batches and the
+  prior complete category projection.
 - [x] **AC-015a:** Folder selection/restoration schedules at most one sync for
   that root during the app session. The worker-owned scheduler uses
   `FolderRef.id`, duplicate requests return the active job identity, and view
@@ -334,8 +363,10 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-015c:** A completed empty folder is a ready indexed root, while a
   cancelled or failed first sync remains incomplete and offers contextual
   Retry.
-- [x] **AC-015d:** Root/job identity prevents progress or completion from an
-  old folder being applied after the active Sample Folder changes.
+- [x] **AC-015d:** Root/job identity prevents progress, completion, category
+  refreshes, and category create/remove responses from an old folder being
+  applied after the active Sample Folder changes. The folder change also clears
+  the prior category filter and category projection immediately.
 - [x] **AC-015e:** A completed app-owned filesystem mutation schedules or queues
   reconciliation even after the root's session-start sync. Mutation during an
   active same-root job guarantees one dirty-bit follow-up, while cross-root

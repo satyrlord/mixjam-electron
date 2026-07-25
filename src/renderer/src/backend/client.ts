@@ -107,9 +107,10 @@ export function createBackendAPI(shell: ShellAPI): BackendAPI {
     updateSampleAnalysis: (sampleId, patch) => call('updateSampleAnalysis', sampleId, patch),
     reanalyzeSample: (sampleFolder, sampleId, relpath) =>
       call('reanalyzeSample', sampleFolder.id, sampleId, relpath),
-    listCategories: () => call('listCategories'),
-    createCategory: (name, parentId) => call('createCategory', name, parentId),
-    deleteCategory: (id) => call('deleteCategory', id),
+    listCategories: (sampleFolder) => call('listCategories', sampleFolder.id),
+    createCategory: (sampleFolder, name, parentId) =>
+      call('createCategory', sampleFolder.id, name, parentId),
+    deleteCategory: (sampleFolder, id) => call('deleteCategory', sampleFolder.id, id),
     listLibraries: () => call('listLibraries'),
     saveLibrary: (name, ruleJson) => call('saveLibrary', name, ruleJson),
     deleteLibrary: (id) => call('deleteLibrary', id),

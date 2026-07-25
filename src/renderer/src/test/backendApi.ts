@@ -91,15 +91,16 @@ const DEFAULT_LIBRARY_JOB: LibraryJobIdentity = {
 }
 
 const DEFAULT_TAGS: TagItem[] = []
+const FOLDER_CATEGORY = { folderDerived: true, userCreated: false } as const
 const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Bass', parentId: null },
-  { id: 2, name: 'Drums', parentId: null },
-  { id: 3, name: 'FX', parentId: null },
-  { id: 4, name: 'Synth', parentId: null },
-  { id: 5, name: 'Vocal', parentId: null },
-  { id: 6, name: 'Loop', parentId: null },
-  { id: 7, name: 'Percussion', parentId: null },
-  { id: 8, name: 'Atmosphere', parentId: null }
+  { ...FOLDER_CATEGORY, id: 1, name: 'Bass', parentId: null },
+  { ...FOLDER_CATEGORY, id: 2, name: 'Drums', parentId: null },
+  { ...FOLDER_CATEGORY, id: 3, name: 'FX', parentId: null },
+  { ...FOLDER_CATEGORY, id: 4, name: 'Synth', parentId: null },
+  { ...FOLDER_CATEGORY, id: 5, name: 'Vocal', parentId: null },
+  { ...FOLDER_CATEGORY, id: 6, name: 'Loop', parentId: null },
+  { ...FOLDER_CATEGORY, id: 7, name: 'Percussion', parentId: null },
+  { ...FOLDER_CATEGORY, id: 8, name: 'Atmosphere', parentId: null }
 ]
 const DEFAULT_LIBRARIES: LibraryItem[] = []
 
@@ -213,12 +214,19 @@ export function createBackendAPI(): BackendAPI {
       }
     })),
     listCategories: vi.fn().mockResolvedValue(DEFAULT_CATEGORIES),
-    createCategory: vi.fn().mockImplementation(async (name: string, parentId?: number) => ({
+    createCategory: vi.fn().mockImplementation(async (
+      _sampleFolder: FolderRef,
+      name: string,
+      parentId?: number
+    ) => ({
       id: Date.now(),
       name,
-      parentId: parentId ?? null
+      parentId: parentId ?? null,
+      folderDerived: false,
+      userCreated: true
     })),
-    deleteCategory: vi.fn().mockResolvedValue(undefined),
+    deleteCategory: vi.fn().mockImplementation(async (_sampleFolder: FolderRef, id: number) =>
+      DEFAULT_CATEGORIES.filter((category) => category.id !== id)),
     listLibraries: vi.fn().mockResolvedValue(DEFAULT_LIBRARIES),
     saveLibrary: vi.fn().mockImplementation(async (name: string, ruleJson: string) => ({
       id: Date.now(),
