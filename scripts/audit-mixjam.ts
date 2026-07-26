@@ -19,7 +19,6 @@ import {
   REFERENCE_METRICS_PATH,
   loadReferenceBaseline,
   referenceRange,
-  distilReferenceEntry,
   type ReferenceBaseline
 } from '../src/shared/generator-reference-metrics'
 
@@ -150,9 +149,7 @@ export function runAuditMixJam(
   if (options.emitBaseline) {
     const baseline: ReferenceBaseline = {
       generatedFrom: measured.map((entry) => entry.name).sort(),
-      projects: Object.fromEntries(
-        measured.map((entry) => [entry.name, distilReferenceEntry(entry.metrics)])
-      )
+      projects: Object.fromEntries(measured.map((entry) => [entry.name, entry.metrics]))
     }
     const target = resolve(options.emitBaseline)
     writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`, 'utf8')

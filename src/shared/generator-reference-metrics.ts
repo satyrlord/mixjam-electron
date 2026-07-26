@@ -15,10 +15,6 @@ export interface ReferenceBaseline {
   projects: Readonly<Record<string, MixJamMetrics>>
 }
 
-export function distilReferenceEntry(metrics: MixJamMetrics): MixJamMetrics {
-  return metrics
-}
-
 export function loadReferenceBaseline(): ReferenceBaseline {
   return baseline as unknown as ReferenceBaseline
 }

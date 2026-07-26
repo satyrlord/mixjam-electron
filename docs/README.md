@@ -89,7 +89,7 @@ database in a plain Node vitest project; everything else runs under jsdom.
 
 - Vitest globals are disabled (`globals: false`). `testing-library` auto-cleanup is off. `setup.ts` calls `cleanup()` in `afterEach`.
 - The shared BackendAPI mock for the renderer lives in `src/renderer/src/test/backendApi.ts` (installed as `window.backendAPI`).
-- Vitest runs two projects: `renderer` (jsdom) for UI and app-state, and `backend` (node) for sqlite-wasm suites (`backend/library.test.ts`, `backend/indexer.test.ts`) using an in-memory database.
+- Vitest runs two projects: `renderer` (jsdom) for UI and app-state, and `backend` (node) for the suites listed as `NODE_BACKEND_TESTS` in `vitest.config.ts`, which use an in-memory database.
 - Indexer tests use a map-backed fake `FileSystemDirectoryHandle` plus generated minimal WAV files so `parseBlob` extracts real metadata.
 - `setup.ts` stubs `HTMLCanvasElement.getContext` with a no-op 2D context (jsdom's own throws "Not implemented"). Tests that assert drawing must install their own mock.
 - On Windows, call `setSize()` before `setResizable(false)` or the size call is silently ignored.

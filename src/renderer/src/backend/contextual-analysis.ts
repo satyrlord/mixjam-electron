@@ -72,10 +72,6 @@ export function labeledPoolToken(value: string): string | null {
 }
 
 export function labeledSampleBpm(value: string): number | null {
-  return labeledBpm(value)
-}
-
-function labeledBpm(value: string): number | null {
   const structured = STRUCTURED_LABEL.exec(value)
   if (structured) return Number(structured[1])
   const match = /(?:^|[^a-z0-9])(?:bpm[\s_.-]*([0-9]{2,3})|([0-9]{2,3})[\s_.-]*bpm)(?=$|[^a-z0-9])/i.exec(value)
@@ -228,7 +224,7 @@ function inferGroup(relpathPrefix: string, items: readonly StoredAnalysisEvidenc
     return key === null ? [] : [key]
   })
   const pathBpms = evidenceItems.flatMap((item) => {
-    const bpm = labeledBpm(item.relpath)
+    const bpm = labeledSampleBpm(item.relpath)
     return bpm === null ? [] : [bpm]
   })
   const pathKeys = evidenceItems.flatMap((item) => {
@@ -376,7 +372,7 @@ function explicitSampleEvidence(item: StoredAnalysisEvidence): {
   bpm: number | null
   musicalKey: string | null
 } {
-  return { bpm: labeledBpm(item.relpath), musicalKey: labeledKey(item.relpath) }
+  return { bpm: labeledSampleBpm(item.relpath), musicalKey: labeledKey(item.relpath) }
 }
 
 export function resolveContextualAnalysis(

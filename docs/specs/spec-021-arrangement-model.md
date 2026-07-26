@@ -175,8 +175,8 @@ transition words.
 
 ## Mix, FX, and pan
 
-Sends and returns are part of the arrangement. 13–14 of 16 lanes carry non-zero
-sends in every reference project, and every one configures exactly two return
+Sends and returns are part of the arrangement. 69–100% of lanes carry a non-zero
+send in every reference project, and every one configures exactly two return
 modules.
 
 - A profile declares up to two return buses **by built-in preset name** plus a

@@ -23,7 +23,7 @@ import {
   resolvePendingPlacementBpms,
   songEndTick,
   toEngineLanes
-} from '../lib/arrangement'
+} from './arrangement'
 import {
   DEFAULT_LANE_COUNT,
   MAX_LANE_COUNT,
@@ -39,15 +39,6 @@ import {
   toggleLaneSolo,
   type LaneState
 } from '../project/project-state'
-import { clamp } from './sample-utils'
-
-describe('clamp', () => {
-  it('clamps a value within [min, max]', () => {
-    expect(clamp(5, 0, 10)).toBe(5)
-    expect(clamp(-5, 0, 10)).toBe(0)
-    expect(clamp(15, 0, 10)).toBe(10)
-  })
-})
 
 describe('sampleBubbleScreenRect', () => {
   it('derives the shared duration scale from the Tracker time grid', () => {

@@ -39,10 +39,6 @@ function pairCandidates(family: string, parts: readonly number[]): GeneratorCand
   })))
 }
 
-function twinMapOf(candidates: readonly GeneratorCandidate[]): Map<string, GeneratorCandidate> {
-  return stereoTwinMap(candidates)
-}
-
 function selectionOf(candidates: readonly GeneratorCandidate[]): Selection {
   return {
     requestedType: 'Atmosphere',
@@ -117,7 +113,7 @@ function placement(sampleRef: string, startTick = 0): MixJamGeneratorLanePlan['p
 describe('designateStereoPairLanes', () => {
   it('returns no lanes when the pair target rounds to zero', () => {
     // A single populated lane: halfUp(1 * 0.2 / 1.8) === 0, so no pairing.
-    const twins = twinMapOf(pairCandidates('cloud', [1, 2]))
+    const twins = stereoTwinMap(pairCandidates('cloud', [1, 2]))
     const selections = [selectionOf(pairCandidates('cloud', [1, 2]))]
     const result = designateStereoPairLanes(selections, profileWith(['atmosphere']), twins)
     expect(result.size).toBe(0)
@@ -127,7 +123,7 @@ describe('designateStereoPairLanes', () => {
     // Nine tonal lanes so the target is 1, but the only eligible lane has one
     // pair; it must not designate on a single pair.
     const onePair = pairCandidates('cloud', [1])
-    const twins = twinMapOf(onePair)
+    const twins = stereoTwinMap(onePair)
     const roles = Array.from({ length: 9 }, () => 'atmosphere' as const)
     const selections = roles.map((_, index) =>
       index === 8 ? selectionOf(onePair) : selectionOf([laneCandidate({ relpath: `Sphere/m${index}.wav`, filename: `m${index}.wav` })])
@@ -138,7 +134,7 @@ describe('designateStereoPairLanes', () => {
 
   it('designates a lane and restricts its pool to left halves when two pairs exist', () => {
     const pairs = pairCandidates('cloud', [1, 2])
-    const twins = twinMapOf(pairs)
+    const twins = stereoTwinMap(pairs)
     const roles = Array.from({ length: 9 }, () => 'atmosphere' as const)
     const selections = roles.map((_, index) =>
       index === 8 ? selectionOf(pairs) : selectionOf([laneCandidate({ relpath: `Sphere/m${index}.wav`, filename: `m${index}.wav` })])
@@ -167,7 +163,7 @@ describe('designateStereoPairLanes', () => {
 
   it('never designates a Bass motif lane even with complete pairs', () => {
     const pairs = pairCandidates('cloud', [1, 2])
-    const twins = twinMapOf(pairs)
+    const twins = stereoTwinMap(pairs)
     // Lane 0 is a Bass-typed motif lane; it holds pairs but must stay centered.
     const roles: GeneratorProfile['lanes'][number]['role'][] =
       Array.from({ length: 9 }, (_, i) => (i === 0 ? 'motif' : 'atmosphere'))
@@ -182,7 +178,7 @@ describe('applyStereoPairs', () => {
 
   it('mirrors a designated lane into a twin lane at the profile spread', () => {
     const pairs = pairCandidates('cloud', [1, 2])
-    const twins = twinMapOf(pairs)
+    const twins = stereoTwinMap(pairs)
     const lanes = [lanePlan(0, {
       name: 'Sky',
       placements: [placement('Sphere/cloud-1-l.wav'), placement('Sphere/cloud-2-l.wav', 128)]
@@ -203,7 +199,7 @@ describe('applyStereoPairs', () => {
   })
 
   it('leaves an empty designated lane untouched', () => {
-    const twins = twinMapOf(pairCandidates('cloud', [1, 2]))
+    const twins = stereoTwinMap(pairCandidates('cloud', [1, 2]))
     const lanes = [lanePlan(0)]
     applyStereoPairs(lanes, new Set([0]), twins, profile, 'seed')
     expect(lanes).toHaveLength(1)
@@ -213,7 +209,7 @@ describe('applyStereoPairs', () => {
 
   it('leaves a lane centered when any placement lacks a twin', () => {
     // Only cloud-1 has a twin; cloud-9 is an orphan, so the lane cannot mirror.
-    const twins = twinMapOf(pairCandidates('cloud', [1]))
+    const twins = stereoTwinMap(pairCandidates('cloud', [1]))
     const lanes = [lanePlan(0, {
       placements: [placement('Sphere/cloud-1-l.wav'), placement('Sphere/cloud-9-l.wav', 128)]
     })]

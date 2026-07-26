@@ -3,6 +3,7 @@ import {
   PALETTE_SLOT_COUNT,
   SLOT_UNSORTED,
   sourceGroupSlot,
+  clamp,
   formatDuration,
   meterFillPct,
   nearestTick
@@ -11,6 +12,14 @@ import {
   folderTagNamesFromRelpath,
   sourceGroupFromRelpath
 } from '../../../shared/sample-palette'
+
+describe('clamp', () => {
+  it('clamps a value within [min, max]', () => {
+    expect(clamp(5, 0, 10)).toBe(5)
+    expect(clamp(-5, 0, 10)).toBe(0)
+    expect(clamp(15, 0, 10)).toBe(10)
+  })
+})
 
 // One derivation shared by the renderer's palette colouring and the backend's
 // folder-tag projection; they previously disagreed on backslash paths.
