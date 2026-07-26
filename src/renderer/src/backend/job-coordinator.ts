@@ -32,20 +32,8 @@ export function createBackendJobCoordinator(
   db: DB,
   emitEvent: (message: WorkerMessage) => void
 ) {
-  const IDLE: ScanProgress = {
-    identity: null,
-    status: 'idle',
-    phase: null,
-    found: 0,
-    processed: 0,
-    total: 0
-  }
-  const ANALYSIS_IDLE: AnalysisProgress = {
-    identity: null,
-    status: 'idle',
-    analyzed: 0,
-    total: 0
-  }
+  const IDLE: ScanProgress = { identity: null, status: 'idle' }
+  const ANALYSIS_IDLE: AnalysisProgress = { identity: null, status: 'idle' }
   const GENERATOR_IDLE: MixJamGeneratorProgress = {
     identity: null,
     status: 'idle',
@@ -123,14 +111,7 @@ export function createBackendJobCoordinator(
     syncGeneration++
     activeSync = null
     automaticAttemptJobIds.delete(identity.jobId)
-    progress = {
-      identity,
-      status: 'cancelled',
-      phase: progress.phase,
-      found: progress.found,
-      processed: progress.processed,
-      total: progress.total
-    }
+    progress = { identity, status: 'cancelled' }
     analysisProgress = { ...ANALYSIS_IDLE }
     emitEvent({ type: 'scan-progress', progress })
     emitEvent({ type: 'analysis-progress', progress: analysisProgress })
@@ -194,15 +175,7 @@ export function createBackendJobCoordinator(
         const message = error instanceof Error ? error.message : String(error)
         console.error('Indexer error:', message, error)
         if (!isCurrent()) return
-        progress = {
-          identity,
-          status: 'error',
-          phase: progress.phase,
-          found: progress.found,
-          processed: progress.processed,
-          total: progress.total,
-          error: message
-        }
+        progress = { identity, status: 'error', error: message }
         emitEvent({ type: 'scan-progress', progress })
         finishSyncJob(db, identity)
         return
@@ -237,13 +210,7 @@ export function createBackendJobCoordinator(
         const message = error instanceof Error ? error.message : String(error)
         console.error('Analysis error:', message, error)
         if (!isCurrent()) return
-        analysisProgress = {
-          identity,
-          status: 'error',
-          analyzed: analysisProgress.analyzed,
-          total: analysisProgress.total,
-          error: message
-        }
+        analysisProgress = { identity, status: 'error', error: message }
         emitEvent({ type: 'analysis-progress', progress: analysisProgress })
       }
       finishSyncJob(db, identity)
@@ -328,14 +295,7 @@ export function createBackendJobCoordinator(
       activeSync = null
       automaticAttemptJobIds.delete(identity.jobId)
       queuedSyncs.delete(identity.rootKey)
-      progress = {
-        identity,
-        status: 'cancelled',
-        phase: progress.phase,
-        found: progress.found,
-        processed: progress.processed,
-        total: progress.total
-      }
+      progress = { identity, status: 'cancelled' }
       analysisProgress = { ...ANALYSIS_IDLE }
       emitEvent({ type: 'scan-progress', progress })
       emitEvent({ type: 'analysis-progress', progress: analysisProgress })
@@ -388,13 +348,7 @@ export function createBackendJobCoordinator(
       const message = error instanceof Error ? error.message : String(error)
       console.error('Analysis error:', message, error)
       if (isCurrent()) {
-        analysisProgress = {
-          identity,
-          status: 'error',
-          analyzed: analysisProgress.analyzed,
-          total: Math.max(analysisProgress.total, 1),
-          error: message
-        }
+        analysisProgress = { identity, status: 'error', error: message }
         emitEvent({ type: 'analysis-progress', progress: analysisProgress })
       }
       throw error

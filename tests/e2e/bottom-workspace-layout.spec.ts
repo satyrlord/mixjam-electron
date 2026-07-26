@@ -57,19 +57,19 @@ test('a tab dragged below its budget scrolls with every control still reachable'
       const tabsHeight = tabs.getBoundingClientRect().height
       // The panel is the vertical scrollport; content reaches from its top down
       // to scrollHeight. A control is reachable when its box lies within that
-      // range. Controls inside a nested scrollport (the Samples category tree /
+      // range. Controls inside a nested scrollport (the Samples tag navigator /
       // tiles, or the horizontal rack) are bounded by that port, which is itself
       // laid out within the panel's scroll range.
       const scrollBottom = panelBox.top + panel.scrollHeight
       const selector = activeTab === 'samples'
-        ? '.cat-manage-btn, .sort-btn, .category-tree .sample-bubble-hit-target, .tiles .sample-bubble-hit-target'
+        ? '.cat-manage-btn, .tag-navigator-search, .tag-navigator-item, .sort-btn, .tiles .sample-bubble-hit-target'
         : 'button, input, select, [role="slider"], [role="meter"], .vertical-control-endpoint, .mixer-channel-db'
       const controls = [...panel.querySelectorAll(selector)].filter((el): el is HTMLElement => {
         if (!(el instanceof HTMLElement)) return false
         const box = el.getBoundingClientRect()
         return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== 'hidden'
       })
-      // The Samples category tree and tiles scroll their own contents (internal
+      // The Samples tag navigator and tiles scroll their own contents (internal
       // overflow-y), so a bubble below their visible edge is reachable through
       // that port — check the port against the panel, not each bubble. Controls
       // elsewhere (the rack knobs, the Samples manage/sort buttons) must sit
@@ -77,7 +77,7 @@ test('a tab dragged below its budget scrolls with every control still reachable'
       const clipped: string[] = []
       const seen = new Set<Element>()
       for (const el of controls) {
-        const port = el.closest('.category-tree, .tiles')
+        const port = el.closest('.tag-navigator-list, .tiles')
         const target = port instanceof HTMLElement ? port : el
         if (seen.has(target)) continue
         seen.add(target)

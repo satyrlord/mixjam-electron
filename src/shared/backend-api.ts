@@ -51,20 +51,39 @@ export interface OpenedMixJamFileContents {
   contents: string
 }
 
+/** Who owns a tag's identity, and therefore what the user may do to it.
+ *  - `user`   — created by the user and derived by no Sample Folder. Fully
+ *               editable: rename, recolor, assign, delete.
+ *  - `folder` — derived only from directory names. Read-only; the scan owns it.
+ *  - `shared` — user-created *and* derived by some Sample Folder. Assignable
+ *               and recolorable, but not renameable: renaming it would rewrite
+ *               another root's automatic tag identity.
+ *
+ *  These are mutually exclusive, so a tag is never simultaneously read-only and
+ *  renameable. Editability follows from this one value through the policy
+ *  helpers below. */
+export type TagOrigin = 'user' | 'folder' | 'shared'
+
+/** Folder-owned tags are managed by the scan; the user cannot recolor, assign,
+ *  or delete them. */
+export function isTagEditable(origin: TagOrigin): boolean {
+  return origin !== 'folder'
+}
+
+/** Only a tag no Sample Folder derives may be renamed. */
+export function isTagRenameable(origin: TagOrigin): boolean {
+  return origin === 'user'
+}
+
 export interface TagItem {
   id: number
   name: string
   color: string | null
-}
-
-export interface CategoryItem {
-  id: number
-  name: string
-  parentId: number | null
-  /** True when the active Sample Folder contains this directory path. */
+  origin: TagOrigin
+  /** True when the *active* Sample Folder derives this name. Scoped to the
+   *  current root, unlike {@link TagOrigin}, which is global. Drives the "also
+   *  from folder" affordances without widening the ownership model. */
   folderDerived: boolean
-  /** True when the user explicitly created this path for the active Sample Folder. */
-  userCreated: boolean
 }
 
 export interface LibraryItem {
@@ -100,16 +119,18 @@ export interface SampleItem {
   sampleTypeSource: AnalysisSource
   dateAdded: number
   scanState: number
-  categoryId: number | null
   /** Ids of the tags assigned to this sample, ascending. */
   tagIds: number[]
+  /** Assigned tag ids managed by the active Sample Folder scan. */
+  folderTagIds: number[]
+  /** Assigned tag ids explicitly managed by the user. */
+  userTagIds: number[]
   /** Names of the tags assigned to this sample, alphabetical. */
   tags: string[]
 }
 
 export interface SampleQueryRequest {
   textSearch?: string
-  categoryId?: number
   tagIds?: number[]
   /** Sample Folder ref id; scopes results to that folder's scan root.
    *  A folder that has never been scanned returns an empty result. */
@@ -141,7 +162,6 @@ export function normalizeSampleQueryRequest(raw: unknown): SampleQueryRequest {
   const record = (raw ?? {}) as Record<string, unknown>
   return {
     textSearch: typeof record.textSearch === 'string' ? record.textSearch : undefined,
-    categoryId: typeof record.categoryId === 'number' ? record.categoryId : undefined,
     tagIds: isNumberArray(record.tagIds) ? record.tagIds : undefined,
     rootId: typeof record.rootId === 'string' ? record.rootId : undefined,
     limit: typeof record.limit === 'number' ? record.limit : undefined,
@@ -318,7 +338,7 @@ export interface SampleListItem {
   dbId: number
   name: string
   relpath: string
-  category: string
+  sourceGroup: string
   durationSeconds: number | null
   bpm: number | null
   bpmSource: AnalysisSource
@@ -327,8 +347,9 @@ export interface SampleListItem {
   sampleType: SampleType | null
   sampleTypeSource: AnalysisSource
   tags: string[]
-  categoryId: number | null
   tagIds: number[]
+  folderTagIds: number[]
+  userTagIds: number[]
 }
 
 export type LibrarySyncTrigger = 'automatic' | 'manual' | 'mutation'
@@ -408,25 +429,51 @@ export type LibrarySyncState =
       hasUsableIndex: boolean
     }
 
-export interface ScanProgress {
-  identity: LibraryJobIdentity | null
-  status: 'idle' | 'scanning' | 'cancelled' | 'error'
-  phase: 1 | 2 | null
-  found: number
-  processed: number
-  total: number
-  /** Present for a fatal scan failure; safe to show in renderer diagnostics. */
-  error?: string
-}
+/** `Omit` applied to each member of a union rather than to the collapsed union,
+ *  so dropping a key from a discriminated union preserves its variants. */
+export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, K>
+  : never
 
-export interface AnalysisProgress {
-  identity: AnalysisJobIdentity | null
-  status: 'idle' | 'analyzing' | 'error'
-  analyzed: number
-  total: number
-  /** Present for a fatal analysis failure; safe to show in renderer diagnostics. */
-  error?: string
-}
+/** Scan progress. Counters exist only while scanning; a terminal status carries
+ *  no progress numbers, so consumers cannot read stale ones. */
+export type ScanProgress =
+  | { identity: LibraryJobIdentity | null; status: 'idle' }
+  | {
+      identity: LibraryJobIdentity | null
+      status: 'scanning'
+      phase: 1 | 2 | null
+      found: number
+      processed: number
+      total: number
+    }
+  | { identity: LibraryJobIdentity | null; status: 'cancelled' }
+  | {
+      identity: LibraryJobIdentity | null
+      status: 'error'
+      /** Fatal scan failure; safe to show in renderer diagnostics. Optional
+       *  because the worker boundary is untyped at runtime — consumers fall
+       *  back to a generic message. */
+      error?: string
+    }
+
+/** Analysis progress. As with {@link ScanProgress}, counters are scoped to the
+ *  running status. */
+export type AnalysisProgress =
+  | { identity: AnalysisJobIdentity | null; status: 'idle' }
+  | {
+      identity: AnalysisJobIdentity | null
+      status: 'analyzing'
+      analyzed: number
+      total: number
+    }
+  | {
+      identity: AnalysisJobIdentity | null
+      status: 'error'
+      /** Fatal analysis failure; safe to show in renderer diagnostics. Optional
+       *  for the same reason as {@link ScanProgress}'s. */
+      error?: string
+    }
 
 export interface AnalysisDone {
   identity: AnalysisJobIdentity
@@ -494,8 +541,8 @@ export interface BackendAPI {
   ) => Promise<MixJamGeneratorPlan>
   cancelMixJamPlanning: (jobId: string) => Promise<void>
   getGeneratorProgress: () => Promise<MixJamGeneratorProgress>
-  listTags: () => Promise<TagItem[]>
-  createTag: (name: string, color?: string) => Promise<TagItem>
+  listTags: (rootKey?: string) => Promise<TagItem[]>
+  createTag: (name: string, color?: string, rootKey?: string) => Promise<TagItem>
   renameTag: (id: number, name: string) => Promise<void>
   setTagColor: (id: number, color: string | null) => Promise<void>
   deleteTag: (id: number) => Promise<void>
@@ -507,14 +554,6 @@ export interface BackendAPI {
     sampleId: number,
     relpath: string
   ) => Promise<SampleAnalysisDone>
-  listCategories: (sampleFolder: FolderRef) => Promise<CategoryItem[]>
-  createCategory: (
-    sampleFolder: FolderRef,
-    name: string,
-    parentId?: number
-  ) => Promise<CategoryItem>
-  /** Removes custom provenance only and returns the authoritative root projection. */
-  deleteCategory: (sampleFolder: FolderRef, id: number) => Promise<CategoryItem[]>
   listLibraries: () => Promise<LibraryItem[]>
   saveLibrary: (name: string, ruleJson: string) => Promise<LibraryItem>
   deleteLibrary: (id: number) => Promise<void>

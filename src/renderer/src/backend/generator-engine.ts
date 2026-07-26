@@ -410,28 +410,28 @@ function ensureArrangementCoverage(
   const candidateByRef = new Map(selections.flatMap((selection) =>
     selection?.candidates.map((candidate) => [candidate.relpath, candidate] as const) ?? []
   ))
-  const usedCategories = new Set(lanes.flatMap((lane) => lane.placements.map((placement) =>
-    candidateByRef.get(placement.sampleRef)?.categoryName
-  )).filter((category): category is string => category !== undefined))
-  const categories = [...new Set(selections.flatMap((selection) =>
-    selection?.candidates.map((candidate) => candidate.categoryName) ?? []
+  const usedSourceGroups = new Set(lanes.flatMap((lane) => lane.placements.map((placement) =>
+    candidateByRef.get(placement.sampleRef)?.sourceGroup
+  )).filter((sourceGroup): sourceGroup is string => sourceGroup !== undefined))
+  const sourceGroups = [...new Set(selections.flatMap((selection) =>
+    selection?.candidates.map((candidate) => candidate.sourceGroup) ?? []
   ))].sort(compareCodeUnits)
-  // Categories whose every candidate was tried against every legal slot and
-  // still found no free window. The validator excuses exactly these: a category
+  // Source groups whose every candidate was tried against every legal slot and
+  // still found no free window. The validator excuses exactly these: a group
   // without a legal placement window is not a coverage failure.
   const unplaceable = new Set<string>()
-  for (const category of categories) {
-    if (usedCategories.has(category)) continue
+  for (const sourceGroup of sourceGroups) {
+    if (usedSourceGroups.has(sourceGroup)) continue
     const options = selections.flatMap((selection, laneIndex) => selection
       ? selection.candidates.flatMap((candidate) =>
-        candidate.categoryName === category ? [{ laneIndex, candidate }] : []
+        candidate.sourceGroup === sourceGroup ? [{ laneIndex, candidate }] : []
       )
       : [])
     const placed = options.some(({ laneIndex, candidate }) =>
       addCoveragePlacement(laneIndex, candidate, lanes, phrases, sections, profile, bpm, seed, nextOrdinal)
     )
-    if (placed) usedCategories.add(category)
-    else unplaceable.add(category)
+    if (placed) usedSourceGroups.add(sourceGroup)
+    else unplaceable.add(sourceGroup)
   }
   return unplaceable
 }
@@ -544,7 +544,7 @@ function validateArrangement(
   candidates: readonly PlanningCandidate[], bpm: number,
   eligibleSelections: readonly (Selection | null)[],
   sections: readonly MixJamGeneratorSectionPlan[], profile: GeneratorProfile,
-  unplaceableCategories: ReadonlySet<string>,
+  unplaceableSourceGroups: ReadonlySet<string>,
   familyTarget: number, familyRatioShortfall: boolean,
   densityShortfallLanes: ReadonlySet<number>
 ): void {
@@ -586,19 +586,19 @@ function validateArrangement(
   const placedCandidates = lanes.flatMap((lane) => lane.placements.map((placement) =>
     candidateByRef.get(placement.sampleRef)!
   ))
-  const eligibleCategories = new Set(eligibleSelections.flatMap((selection, laneIndex) =>
+  const eligibleSourceGroups = new Set(eligibleSelections.flatMap((selection, laneIndex) =>
     selection?.candidates.flatMap((candidate) =>
       durationTicks(candidate, bpm) <= maximumLegalSpan(laneIndex, sections, profile)
-        ? [candidate.categoryName]
+        ? [candidate.sourceGroup]
         : []
     ) ?? []
   ))
-  const usedCategories = new Set(placedCandidates.map((candidate) => candidate.categoryName))
-  const missingCategories = [...eligibleCategories].filter((category) =>
-    !usedCategories.has(category) && !unplaceableCategories.has(category)
+  const usedSourceGroups = new Set(placedCandidates.map((candidate) => candidate.sourceGroup))
+  const missingSourceGroups = [...eligibleSourceGroups].filter((sourceGroup) =>
+    !usedSourceGroups.has(sourceGroup) && !unplaceableSourceGroups.has(sourceGroup)
   ).sort(compareCodeUnits)
-  if (missingCategories.length > 0) {
-    throw new Error(`The generator could not place these eligible categories: ${missingCategories.join(', ')}.`)
+  if (missingSourceGroups.length > 0) {
+    throw new Error(`The generator could not place these eligible source groups: ${missingSourceGroups.join(', ')}.`)
   }
 
   const longThreshold = 4 * TICKS_PER_BAR
@@ -750,7 +750,7 @@ export function createMixJamGeneratorPlan(
     }
   }
   scheduleTransitions(sections, lanes, profile, selections, bpm, parameters.seed, nextOrdinal)
-  const unplaceableCategories = ensureArrangementCoverage(
+  const unplaceableSourceGroups = ensureArrangementCoverage(
     lanes, phrases, sections, profile, selections, bpm, parameters.seed, nextOrdinal
   )
   const densityShortfallLanes = ensureLaneDensity(
@@ -776,7 +776,7 @@ export function createMixJamGeneratorPlan(
       nextOrdinal(anchor.laneIndex), profile, parameters.seed)
   }
   validateArrangement(
-    lanes, targetTicks, candidates, bpm, eligibleSelections, sections, profile, unplaceableCategories,
+    lanes, targetTicks, candidates, bpm, eligibleSelections, sections, profile, unplaceableSourceGroups,
     familyTarget, familyRatioShortfall || familyPlacementShortfall, densityShortfallLanes
   )
 

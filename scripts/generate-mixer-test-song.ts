@@ -13,7 +13,8 @@ import {
   placeSampleOnLane,
   placementDurationTicks
 } from '../src/renderer/src/lib/arrangement'
-import { categorySlot } from '../src/renderer/src/lib/sample-utils'
+import { sourceGroupSlot } from '../src/renderer/src/lib/sample-utils'
+import { sourceGroupFromRelpath } from '../src/shared/sample-palette'
 import {
   parseProject,
   serializeProject,
@@ -55,7 +56,7 @@ export const SONG_SECTIONS = [
   { name: 'drift-out', startBar: 96, endBar: 105 }
 ] as const
 
-export const REQUIRED_CATEGORIES = [
+export const REQUIRED_SOURCE_GROUPS = [
   'Bass',
   'Drum',
   'Effect',
@@ -103,28 +104,28 @@ const COSMIC_DRONE = /cosmos|cosmic|space|star|astro|nebula|galaxy|orbit|lunar|m
 const COSMIC_TENSION = /dark|night|void|shadow|echo|drone|deep|cosmic|space|tension|myster|hypno|pulse|siren|alarm|signal|static|noise|air|wind|wave/i
 
 const SINGLE_SAMPLE_ROLE_DEFINITIONS = [
-  { key: 'kickPrimary', name: 'primary kick hit', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
-  { key: 'kickAlternate', name: 'alternate kick hit', category: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
-  { key: 'clap', name: 'clap hit', category: 'Drum', pattern: /clap|snap/i, maxDurationBars: 2 },
-  { key: 'snare', name: 'snare hit', category: 'Drum', pattern: /snare|rim/i, maxDurationBars: 2 },
-  { key: 'hatPrimary', name: 'primary offbeat hat', category: 'Drum', pattern: /hihat|hat|ride|shak|tamb|open|perc/i, maxDurationBars: 2 },
-  { key: 'hatAlternate', name: 'alternate offbeat hat', category: 'Drum', pattern: /hihat|hat|ride|shak|tamb|open|perc/i, maxDurationBars: 2 },
-  { key: 'percussionPrimary', name: 'primary syncopated percussion', category: 'Drum', pattern: /perc|conga|bongo|cow|stick|rim|tom|clave|wood|metal|click|shak|tamb|hihat|hat/i, maxDurationBars: 2 },
-  { key: 'percussionAlternate', name: 'alternate syncopated percussion', category: 'Drum', pattern: /perc|conga|bongo|cow|stick|rim|tom|clave|wood|metal|click|shak|tamb|hihat|hat/i, maxDurationBars: 2 },
-  { key: 'groovePrimary', name: 'primary groove loop', category: 'Loop', pattern: /.*/, stylePattern: /tribal|afrika|africa|latin|samba|bongo|conga|dark|deep|hypno|pulse|drive|space|cosmic|night/i, maxDurationBars: 4 },
-  { key: 'grooveAlternate', name: 'alternate groove loop', category: 'Loop', pattern: /.*/, stylePattern: /tribal|afrika|africa|latin|samba|bongo|conga|dark|deep|hypno|pulse|drive|space|cosmic|night/i, maxDurationBars: 4 },
-  { key: 'bassPrimary', name: 'primary offbeat bass hit', category: 'Bass', pattern: /.*/, stylePattern: /deep|sub|dark|warm|pulse|drive|night|space|cosmic|void|reese|acid|sine/i, maxDurationBars: 4 },
-  { key: 'bassAlternate', name: 'alternate offbeat bass hit', category: 'Bass', pattern: /.*/, stylePattern: /deep|sub|dark|warm|pulse|drive|night|space|cosmic|void|reese|acid|sine/i, maxDurationBars: 4 },
-  { key: 'sequencePrimary', name: 'primary sequence motif', category: 'Seq', pattern: /.*/, stylePattern: /arp|seq|pulse|space|cosmic|star|astro|dark|night|echo|signal|sine|air|water|ocean|sea/i, maxDurationBars: 4 },
-  { key: 'sequenceAlternate', name: 'alternate sequence motif', category: 'Seq', pattern: /.*/, stylePattern: /arp|seq|pulse|space|cosmic|star|astro|dark|night|echo|signal|sine|air|water|ocean|sea/i, maxDurationBars: 4 },
-  { key: 'stabPrimary', name: 'primary dub stab', category: 'Keys', pattern: /.*/, stylePattern: /chord|stab|minor|dark|deep|dub|organ|pad|space|cosmic|night|water|dream|orient|melodica|tribal/i, maxDurationBars: 4 },
-  { key: 'stabAlternate', name: 'alternate dub stab', category: 'Keys', pattern: /.*/, stylePattern: /chord|stab|minor|dark|deep|dub|organ|pad|space|cosmic|night|water|dream|orient|melodica|tribal/i, maxDurationBars: 4 },
-  { key: 'voicePrimary', name: 'primary voice motif', category: 'Voice', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
-  { key: 'voiceAlternate', name: 'alternate voice motif', category: 'Voice', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
-  { key: 'rapPrimary', name: 'primary rap motif', category: 'Rap', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
-  { key: 'rapAlternate', name: 'alternate rap motif', category: 'Rap', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
-  { key: 'extraPrimary', name: 'primary texture', category: 'Xtra', pattern: /.*/, stylePattern: COSMIC_DRONE, maxDurationBars: 4 },
-  { key: 'extraAlternate', name: 'alternate texture', category: 'Xtra', pattern: /.*/, stylePattern: COSMIC_DRONE, maxDurationBars: 4 }
+  { key: 'kickPrimary', name: 'primary kick hit', sourceGroup: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
+  { key: 'kickAlternate', name: 'alternate kick hit', sourceGroup: 'Drum', pattern: /kick/i, maxDurationBars: 2 },
+  { key: 'clap', name: 'clap hit', sourceGroup: 'Drum', pattern: /clap|snap/i, maxDurationBars: 2 },
+  { key: 'snare', name: 'snare hit', sourceGroup: 'Drum', pattern: /snare|rim/i, maxDurationBars: 2 },
+  { key: 'hatPrimary', name: 'primary offbeat hat', sourceGroup: 'Drum', pattern: /hihat|hat|ride|shak|tamb|open|perc/i, maxDurationBars: 2 },
+  { key: 'hatAlternate', name: 'alternate offbeat hat', sourceGroup: 'Drum', pattern: /hihat|hat|ride|shak|tamb|open|perc/i, maxDurationBars: 2 },
+  { key: 'percussionPrimary', name: 'primary syncopated percussion', sourceGroup: 'Drum', pattern: /perc|conga|bongo|cow|stick|rim|tom|clave|wood|metal|click|shak|tamb|hihat|hat/i, maxDurationBars: 2 },
+  { key: 'percussionAlternate', name: 'alternate syncopated percussion', sourceGroup: 'Drum', pattern: /perc|conga|bongo|cow|stick|rim|tom|clave|wood|metal|click|shak|tamb|hihat|hat/i, maxDurationBars: 2 },
+  { key: 'groovePrimary', name: 'primary groove loop', sourceGroup: 'Loop', pattern: /.*/, stylePattern: /tribal|afrika|africa|latin|samba|bongo|conga|dark|deep|hypno|pulse|drive|space|cosmic|night/i, maxDurationBars: 4 },
+  { key: 'grooveAlternate', name: 'alternate groove loop', sourceGroup: 'Loop', pattern: /.*/, stylePattern: /tribal|afrika|africa|latin|samba|bongo|conga|dark|deep|hypno|pulse|drive|space|cosmic|night/i, maxDurationBars: 4 },
+  { key: 'bassPrimary', name: 'primary offbeat bass hit', sourceGroup: 'Bass', pattern: /.*/, stylePattern: /deep|sub|dark|warm|pulse|drive|night|space|cosmic|void|reese|acid|sine/i, maxDurationBars: 4 },
+  { key: 'bassAlternate', name: 'alternate offbeat bass hit', sourceGroup: 'Bass', pattern: /.*/, stylePattern: /deep|sub|dark|warm|pulse|drive|night|space|cosmic|void|reese|acid|sine/i, maxDurationBars: 4 },
+  { key: 'sequencePrimary', name: 'primary sequence motif', sourceGroup: 'Seq', pattern: /.*/, stylePattern: /arp|seq|pulse|space|cosmic|star|astro|dark|night|echo|signal|sine|air|water|ocean|sea/i, maxDurationBars: 4 },
+  { key: 'sequenceAlternate', name: 'alternate sequence motif', sourceGroup: 'Seq', pattern: /.*/, stylePattern: /arp|seq|pulse|space|cosmic|star|astro|dark|night|echo|signal|sine|air|water|ocean|sea/i, maxDurationBars: 4 },
+  { key: 'stabPrimary', name: 'primary dub stab', sourceGroup: 'Keys', pattern: /.*/, stylePattern: /chord|stab|minor|dark|deep|dub|organ|pad|space|cosmic|night|water|dream|orient|melodica|tribal/i, maxDurationBars: 4 },
+  { key: 'stabAlternate', name: 'alternate dub stab', sourceGroup: 'Keys', pattern: /.*/, stylePattern: /chord|stab|minor|dark|deep|dub|organ|pad|space|cosmic|night|water|dream|orient|melodica|tribal/i, maxDurationBars: 4 },
+  { key: 'voicePrimary', name: 'primary voice motif', sourceGroup: 'Voice', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'voiceAlternate', name: 'alternate voice motif', sourceGroup: 'Voice', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'rapPrimary', name: 'primary rap motif', sourceGroup: 'Rap', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'rapAlternate', name: 'alternate rap motif', sourceGroup: 'Rap', pattern: /.*/, stylePattern: COSMIC_TENSION, maxDurationBars: 4 },
+  { key: 'extraPrimary', name: 'primary texture', sourceGroup: 'Xtra', pattern: /.*/, stylePattern: COSMIC_DRONE, maxDurationBars: 4 },
+  { key: 'extraAlternate', name: 'alternate texture', sourceGroup: 'Xtra', pattern: /.*/, stylePattern: COSMIC_DRONE, maxDurationBars: 4 }
 ] as const
 
 const STEREO_SAMPLE_ROLE_DEFINITIONS = [
@@ -132,7 +133,7 @@ const STEREO_SAMPLE_ROLE_DEFINITIONS = [
     leftKey: 'layerLeft',
     rightKey: 'layerRight',
     name: 'stereo pad',
-    category: 'Layer',
+    sourceGroup: 'Layer',
     pattern: /.*/,
     stylePattern: COSMIC_DRONE,
     maxDurationBars: 8
@@ -141,7 +142,7 @@ const STEREO_SAMPLE_ROLE_DEFINITIONS = [
     leftKey: 'sphereLeft',
     rightKey: 'sphereRight',
     name: 'stereo sphere',
-    category: 'Sphere',
+    sourceGroup: 'Sphere',
     pattern: /.*/,
     stylePattern: COSMIC_DRONE,
     maxDurationBars: 16
@@ -150,7 +151,7 @@ const STEREO_SAMPLE_ROLE_DEFINITIONS = [
     leftKey: 'transitionLeft',
     rightKey: 'transitionRight',
     name: 'stereo transition effect',
-    category: 'Effect',
+    sourceGroup: 'Effect',
     pattern: /rise|sweep|swish|crash|uplift|transition|impact|noise|wind|reverse|roll|downlift|fall/i,
     stylePattern: /wind|wave|sea|ocean|air|sweep|swish|noise|cosmic|space|dark|rise|fall/i,
     maxDurationBars: 4
@@ -195,7 +196,7 @@ interface DiscoveredSample {
   absolutePath: string
   sampleRef: string
   sampleName: string
-  category: string
+  sourceGroup: string
 }
 
 interface StereoPair {
@@ -276,12 +277,11 @@ async function discoverWavFiles(samplesDir: string): Promise<DiscoveredSample[]>
       }
       if (!entry.isFile() || !/\.wav$/i.test(entry.name)) continue
       const sampleRef = normalizedRelativePath(samplesDir, absolutePath)
-      const slashIndex = sampleRef.indexOf('/')
       discovered.push({
         absolutePath,
         sampleRef,
         sampleName: entry.name,
-        category: slashIndex === -1 ? 'Unsorted' : sampleRef.slice(0, slashIndex)
+        sourceGroup: sourceGroupFromRelpath(sampleRef)
       })
     }
   }
@@ -304,7 +304,7 @@ function discoverStereoPairs(inventory: readonly DiscoveredSample[]): StereoPair
   for (const sample of inventory) {
     const descriptor = stereoSide(sample.sampleName)
     if (!descriptor) continue
-    const pairKey = `${sample.category}/${descriptor.baseName.toLowerCase()}`
+    const pairKey = `${sample.sourceGroup}/${descriptor.baseName.toLowerCase()}`
     const pair = partialPairs.get(pairKey) ?? { baseName: descriptor.baseName }
     pair[descriptor.side] = sample
     partialPairs.set(pairKey, pair)
@@ -370,7 +370,7 @@ async function selectSamples(
 
   for (const role of SINGLE_SAMPLE_ROLE_DEFINITIONS) {
     const eligibleCandidates = inventory.filter((sample) =>
-      sample.category === role.category &&
+      sample.sourceGroup === role.sourceGroup &&
       role.pattern.test(sample.sampleName) &&
       !pairedSampleRefs.has(sample.sampleRef) &&
       !usedSampleRefs.has(sample.sampleRef)
@@ -394,7 +394,7 @@ async function selectSamples(
     }
     if (!selected) {
       throw new Error(
-        `No readable ${role.name} WAV of at most ${role.maxDurationBars} bars found in ${role.category}.`
+        `No readable ${role.name} WAV of at most ${role.maxDurationBars} bars found in ${role.sourceGroup}.`
       )
     }
     usedSampleRefs.add(selected.sampleRef)
@@ -403,7 +403,7 @@ async function selectSamples(
 
   for (const role of STEREO_SAMPLE_ROLE_DEFINITIONS) {
     const eligibleCandidates = stereoPairs.filter((pair) =>
-      pair.left.category === role.category &&
+      pair.left.sourceGroup === role.sourceGroup &&
       role.pattern.test(pair.baseName) &&
       !usedSampleRefs.has(pair.left.sampleRef) &&
       !usedSampleRefs.has(pair.right.sampleRef)
@@ -434,7 +434,7 @@ async function selectSamples(
     if (!selectedPair) {
       throw new Error(
         `No readable, duration-matched ${role.name} WAV pair of at most ` +
-        `${role.maxDurationBars} bars found in ${role.category}.`
+        `${role.maxDurationBars} bars found in ${role.sourceGroup}.`
       )
     }
     const [left, right] = selectedPair
@@ -475,7 +475,7 @@ function buildArrangement(samples: SelectedSamples, variationNumber: number): La
       Math.round(tick),
       sample.durationTicks,
       sample.durationSeconds,
-      categorySlot(sample.category),
+      sourceGroupSlot(sample.sourceGroup),
       sample.nativeBPM
     )
   }
@@ -817,7 +817,7 @@ function printSummary(result: GeneratorResult): void {
   console.log(`Arrangement: ${SONG_SECTIONS.map((section) => section.name).join(' -> ')}`)
   console.log(
     `Lanes: ${result.project.lanes.length} non-empty; selected clips: ` +
-    `${Object.keys(result.selectedSamples).length}; categories: ${REQUIRED_CATEGORIES.join(', ')}`
+    `${Object.keys(result.selectedSamples).length}; source groups: ${REQUIRED_SOURCE_GROUPS.join(', ')}`
   )
   console.log(`Mixer FX: ${[...effectTypes].sort().join(', ')}`)
 }

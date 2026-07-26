@@ -10,8 +10,7 @@ implemented; validated stereo-pair evidence not implemented
 Use one background analyzer to detect BPM, musical key, and acoustic sample
 type. The analyzer combines raw per-file evidence with the context of a
 real sample collection without assuming that a complete Sample Folder has one
-tempo or key. Results populate acoustic metadata without changing categories or
-tags.
+tempo or key. Results populate acoustic metadata without changing tags.
 
 ## User Stories
 
@@ -88,7 +87,7 @@ never parses a filename to infer pan.
 Short one-shots, percussion, FX, and other ambiguous files may have NULL raw BPM
 or key. An abstention is not a vote for another value. Sample type remains the
 direct per-file classifier result and is independent of the organizational
-category tree.
+tag organization.
 
 ### Contextual groups
 
@@ -164,7 +163,7 @@ retain its bounded audio scoring pass for arrangement-only measures such as:
 
 The acoustic type is one of Kick, Snare, Hi-hat, Percussion, Bass, Synth, FX,
 Vocal, Loop, Atmosphere, or Other. `sample_type` remains separate from
-`samples.category_id`; analysis never replaces organizational categories.
+folder-derived or user-assigned tags; analysis never replaces organization.
 
 Classification separates loop-shaped material from drum one-shots by duration
 shape, not duration alone: a file whose length is a whole number of bars at its

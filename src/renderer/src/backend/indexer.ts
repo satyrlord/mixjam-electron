@@ -3,17 +3,17 @@
 // exactly one connection); scan work is batched in transactions and yields to
 // the event loop between batches, so queries interleave with an in-flight scan.
 
-import type { ScanProgress } from '../../../shared/backend-api'
+import type { DistributiveOmit, ScanProgress } from '../../../shared/backend-api'
 import type { DB } from './sql'
 import {
-  assignCategoryFromPath,
+  commitFolderTagProjection,
   completeScanRoot,
-  ensureFolderCategoryPaths,
+  ensureFolderTags,
   ensureScanRoot,
   listMetadataCandidates,
-  markMissing,
   markMetadataUnavailable,
-  reconcileFolderCategories,
+  resetFolderTagStage,
+  stageFolderTagsFromPath,
   updateMetadata,
   upsertStub
 } from './indexed-sample-persistence'
@@ -31,7 +31,7 @@ const DEFAULT_BATCH_SIZE = 500
  *  writes stay serialized — sqlite-wasm calls are synchronous on this thread. */
 const DEFAULT_PHASE2_CONCURRENCY = 4
 
-export type ScanPhaseProgress = Omit<ScanProgress, 'identity'>
+export type ScanPhaseProgress = DistributiveOmit<ScanProgress, 'identity'>
 export type ScanEmit = (progress: ScanPhaseProgress) => void
 
 /** Returns true while the scan should continue. The caller bumps a generation
@@ -160,41 +160,44 @@ async function phase1(
 
   if (!isCurrent()) return
 
-  // Mark files no longer on disk as missing, in one transaction so a large
-  // prune does not pay one commit per file. Scoped to this scan's root so
-  // rescanning one Sample Folder never soft-deletes another folder's rows.
+  // Files no longer on disk retire as missing in the same commit that swaps
+  // the folder-tag projection, so readers never see folder tags whose backing
+  // samples are already hidden. Scoped to this scan's root so rescanning one
+  // Sample Folder never soft-deletes another folder's rows.
   const known = db
     .prepare('SELECT relpath FROM samples WHERE scan_state != 2 AND root_id = ?')
     .all<{ relpath: string }>(rootId)
 
   const fileSet = new Set(files.map((f) => f.relpath))
-  const markAllMissing = db.transaction((relpaths: string[]) => {
-    for (const relpath of relpaths) markMissing(db, rootId, relpath)
-  })
-  markAllMissing(known.map((k) => k.relpath).filter((relpath) => !fileSet.has(relpath)))
+  const missingRelpaths = known.map((k) => k.relpath).filter((relpath) => !fileSet.has(relpath))
 
   // Ensure every directory path exists before assignment. Folder provenance is
   // published only after all assignment batches finish, so cancellation keeps
   // the prior complete projection visible.
-  const folderCategoryIds = ensureFolderCategoryPaths(db, directoryRelpaths)
+  const folderTagIds = ensureFolderTags(db, directoryRelpaths)
+  resetFolderTagStage(db)
 
-  // Auto-assign every sample to a category based on its folder path, batched in
+  // Auto-assign every sample to flat folder tags based on its path, batched in
   // transactions so a large library does not pay one fsync per file.
   for (let i = 0; i < files.length; i += batchSize) {
     const batch = files.slice(i, i + batchSize)
     const assignBatch = db.transaction((items: FoundFile[]) => {
       for (const { relpath } of items) {
-        assignCategoryFromPath(db, rootId, relpath)
+        stageFolderTagsFromPath(db, rootId, relpath)
       }
     })
     assignBatch(batch)
     await yieldToEvents()
-    if (!isCurrent()) return
+    if (!isCurrent()) {
+      resetFolderTagStage(db)
+      return
+    }
   }
 
   // Only a completed phase-1 traversal may retire obsolete filesystem-derived
-  // nodes. Custom categories and categories belonging to other roots survive.
-  reconcileFolderCategories(db, rootId, folderCategoryIds)
+  // tags and missing files. User-created tags and folder tags belonging to
+  // other roots survive.
+  commitFolderTagProjection(db, rootId, folderTagIds, missingRelpaths)
 
   emit({ status: 'scanning', phase: 1, found: total, processed: total, total })
 }

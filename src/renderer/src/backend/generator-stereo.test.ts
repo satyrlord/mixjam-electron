@@ -18,7 +18,7 @@ function laneCandidate(overrides: Partial<GeneratorCandidate> = {}): GeneratorCa
     bpm: 140,
     musicalKey: 'Am',
     sampleType: 'Atmosphere',
-    categoryName: 'Sphere',
+    sourceGroup: 'Sphere',
     paletteSlot: 0,
     metadataRevision: 1,
     analysisRevision: 1,

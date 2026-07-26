@@ -6,6 +6,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { defaultMasterBusState } from '../masterbus/presets'
 import type { MasterBusMeterSnapshot } from '../masterbus/dsp/core'
+import { WORKLET_DISPOSE } from './worklet-dispose-protocol'
 
 interface ProcessorLike {
   port: {
@@ -97,6 +98,18 @@ describe('master-bus worklet adapter', () => {
     outL.fill(0.5)
     expect(processor.process([], [[outL, outR]])).toBe(true)
     expect(outL.every((v) => v === 0)).toBe(true)
+  })
+
+  // Disconnection alone never retires an AudioWorkletNode: while process()
+  // returns true the node stays in the render graph and is never collected.
+  it('ends active processing after a dispose message so the node is retired', () => {
+    const { processor } = makeProcessor()
+    expect(processor.process([], [[new Float32Array(128), new Float32Array(128)]])).toBe(true)
+
+    processor.port.onmessage?.({ data: WORKLET_DISPOSE })
+
+    expect(processor.process([], [[new Float32Array(128), new Float32Array(128)]])).toBe(false)
+    expect(processor.process([], [[new Float32Array(128), new Float32Array(128)]])).toBe(false)
   })
 
   it('applies param, topology, state, and reset messages', () => {

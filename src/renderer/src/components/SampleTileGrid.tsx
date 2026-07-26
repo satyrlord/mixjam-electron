@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
+import type { SampleListItem } from '../../../shared/backend-api'
 import type { FooterSampleDetail } from '../lib/arrangement'
 import {
   DEFAULT_SAMPLE_BUBBLE_PIXELS_PER_SECOND,
@@ -8,7 +8,7 @@ import {
   sampleBubbleWidth,
   sampleBubbleWidthFromTicks
 } from '../lib/arrangement'
-import { categorySlot, formatDuration } from '../lib/sample-utils'
+import { formatDuration, sourceGroupSlot } from '../lib/sample-utils'
 import { sampleBubbleDomStyle } from '../theme/sample-bubble-style'
 import { Tooltip } from './ui/Tooltip'
 import { ContextMenuRoot, ContextMenuTrigger } from './ui/ContextMenu'
@@ -62,7 +62,6 @@ interface SampleTileGridProps {
   durationTicksBySamplePath?: ReadonlyMap<string, number>
   selectedSamplePath: string | null
   flashSamplePath: string | null
-  categories: CategoryItem[]
   loading: boolean
   loadingTitle?: string
   loadingDescription?: string
@@ -97,7 +96,6 @@ function SampleTileGrid({
   durationTicksBySamplePath,
   selectedSamplePath,
   flashSamplePath,
-  categories,
   loading,
   loadingTitle = 'Loading samples',
   loadingDescription = 'Loading the current library view.',
@@ -140,11 +138,6 @@ function SampleTileGrid({
     }
   }, [active])
 
-  const categoryNames = useMemo(
-    () => new Map(categories.map((c) => [c.id, c.name])),
-    [categories]
-  )
-
   // Once a sample has been placed, its project-owned musical span is the width
   // source in every view. Before first placement, detected BPM supplies that
   // span; an unanalysed sample uses the current project BPM as its first-drop
@@ -162,11 +155,10 @@ function SampleTileGrid({
         const width = durationTicks !== undefined && pixelsPerTick !== undefined
           ? sampleBubbleWidthFromTicks(durationTicks, pixelsPerTick)
           : sampleBubbleWidth(sample.durationSeconds, bubblePixelsPerSecond)
-        const catName = sample.categoryId !== null ? categoryNames.get(sample.categoryId) : undefined
-        const slot = catName ? categorySlot(catName) : undefined
+        const slot = sourceGroupSlot(sample.sourceGroup)
         return { sample, width, hitWidth: Math.max(width, uiGeometry.size), slot }
       }),
-    [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, categoryNames, uiGeometry.size]
+    [samples, bubblePixelsPerSecond, pixelsPerTick, projectBpm, durationTicksBySamplePath, uiGeometry.size]
   )
 
   // clientWidth includes padding; subtract it to get the packable row width.

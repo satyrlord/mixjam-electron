@@ -14,7 +14,7 @@ export function reconcileSelectedLaneId(
 interface UseTrackerInteractionOptions {
   arrangement: TrackerArrangementProps
   transport: PlayerTransportProps
-  browser: Pick<PlayerBrowserProps, 'onSearchChange' | 'onSelectCategory'>
+  browser: Pick<PlayerBrowserProps, 'onSearchChange'>
 }
 
 /** Owns Tracker selection, drag, scrolling, lane menus, and sample location state. */
@@ -155,7 +155,6 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
   const onContextLocate = useCallback(() => {
     if (!contextMenu) return
     browser.onSearchChange(contextMenu.sampleName.replace(/\.[^.]+$/, ''))
-    browser.onSelectCategory(undefined)
     setFlashSamplePath(contextMenu.samplePath)
     setContextMenu(null)
   }, [browser, contextMenu])

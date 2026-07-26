@@ -3,8 +3,8 @@
 An Electron desktop app, in two halves:
 
 1. A **sample-library browser and tagger** over a large local collection (35GB+,
-   100,000+ samples, 850+ folders) with dynamic tags, a category/subcategory tree,
-   full-text search, sorting, and filtering.
+   100,000+ samples, 850+ folders) with flat searchable tags derived from folder
+   names or created by the user, plus full-text search, sorting, and filtering.
 2. A **tracker/player** for arranging and playing back those samples — deliberately
    eJay/Sony Acid-simple, not a full DAW.
 

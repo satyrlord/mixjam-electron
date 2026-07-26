@@ -45,7 +45,7 @@ elements consistently.
 | `--bg-base` | App background | Root app surface |
 | `--bg-panel` | Panel background | Cards, dropdowns, overlays |
 | `--bg-lane` | Lane background | Tracker lane rows |
-| `--bg-grid` | Grid / deep background | Tracker grid, category grid |
+| `--bg-grid` | Grid / deep background | Tracker grid, sample grid |
 | `--chrome` | Chrome background | Header bar, Transport Ribbon, lane heads |
 | `--border` | Default border | Panel borders, separators |
 | `--header-border` | Header border | Header bottom edge |
@@ -197,7 +197,7 @@ PICO-8, Beton concrete blacks with a brick jolt).
 Placements store the slot, not the color: `ClipPlacement` and drag payloads carry `slot?: number`
 (0-7, 8 = Unsorted). The hex resolves at draw time from the active palette,
 so switching themes recolors every placed sample bubble live. Slot storage keeps the
-original stability goal — renaming a category never recolors existing placements —
+original stability goal — changing a folder name never recolors existing placements —
 while making color a theme concern. No persisted migration was needed:
 project save/load (spec-011) persists placements in `.mixjam` files.
 

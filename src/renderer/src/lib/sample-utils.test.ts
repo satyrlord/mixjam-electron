@@ -1,23 +1,56 @@
 import { describe, expect, it } from 'vitest'
 import {
   PALETTE_SLOT_COUNT,
-  ROOT_CATEGORY_NAMES,
   SLOT_UNSORTED,
-  categorySlot,
+  sourceGroupSlot,
   formatDuration,
   meterFillPct,
   nearestTick
 } from './sample-utils'
+import {
+  folderTagNamesFromRelpath,
+  sourceGroupFromRelpath
+} from '../../../shared/sample-palette'
 
-describe('ROOT_CATEGORY_NAMES', () => {
-  it('contains only Unsorted', () => {
-    expect(ROOT_CATEGORY_NAMES).toEqual(['Unsorted'])
+// One derivation shared by the renderer's palette colouring and the backend's
+// folder-tag projection; they previously disagreed on backslash paths.
+describe('sourceGroupFromRelpath', () => {
+  it('uses the top-level directory name', () => {
+    expect(sourceGroupFromRelpath('Drums/Kicks/kick.wav')).toBe('Drums')
+  })
+
+  it('returns Unsorted for a file at the scan root', () => {
+    expect(sourceGroupFromRelpath('loose.wav')).toBe('Unsorted')
+  })
+
+  it('normalizes Windows separators', () => {
+    expect(sourceGroupFromRelpath('Drums\\kick.wav')).toBe('Drums')
+    expect(sourceGroupFromRelpath('Drums\\Kicks\\kick.wav')).toBe('Drums')
   })
 })
 
-describe('categorySlot', () => {
+describe('folderTagNamesFromRelpath', () => {
+  it('returns every directory segment, excluding the filename', () => {
+    expect(folderTagNamesFromRelpath('Hard Trance/Bass/kick.wav'))
+      .toEqual(['Hard Trance', 'Bass'])
+  })
+
+  it('deduplicates repeated segment names', () => {
+    expect(folderTagNamesFromRelpath('Bass/Bass/sub.wav')).toEqual(['Bass'])
+  })
+
+  it('returns Unsorted for a file at the scan root', () => {
+    expect(folderTagNamesFromRelpath('loose.wav')).toEqual(['Unsorted'])
+  })
+
+  it('normalizes Windows separators', () => {
+    expect(folderTagNamesFromRelpath('Drums\\Kicks\\kick.wav')).toEqual(['Drums', 'Kicks'])
+  })
+})
+
+describe('sourceGroupSlot', () => {
   it('returns the unsorted slot for Unsorted', () => {
-    expect(categorySlot('Unsorted')).toBe(SLOT_UNSORTED)
+    expect(sourceGroupSlot('Unsorted')).toBe(SLOT_UNSORTED)
   })
 
   it.each([
@@ -40,18 +73,18 @@ describe('categorySlot', () => {
     ['atmosphere', 7],
     ['xtra', 7],
     ['texture', 7]
-  ])('maps well-known category "%s" to slot %i', (name, expected) => {
-    expect(categorySlot(name)).toBe(expected)
+  ])('maps well-known source group "%s" to slot %i', (name, expected) => {
+    expect(sourceGroupSlot(name)).toBe(expected)
   })
 
-  it('is case-insensitive for well-known categories', () => {
-    expect(categorySlot('DRUMS')).toBe(0)
-    expect(categorySlot('Bass')).toBe(2)
+  it('is case-insensitive for well-known source groups', () => {
+    expect(sourceGroupSlot('DRUMS')).toBe(0)
+    expect(sourceGroupSlot('Bass')).toBe(2)
   })
 
-  it('returns a deterministic slot for unknown categories via hash', () => {
-    const s1 = categorySlot('Funky')
-    const s2 = categorySlot('Funky')
+  it('returns a deterministic slot for unknown source groups via hash', () => {
+    const s1 = sourceGroupSlot('Funky')
+    const s2 = sourceGroupSlot('Funky')
     expect(s1).toBe(s2)
     expect(s1).toBeGreaterThanOrEqual(0)
     expect(s1).toBeLessThan(PALETTE_SLOT_COUNT)
@@ -59,14 +92,14 @@ describe('categorySlot', () => {
 
   it('maps different unknown names to potentially different palette slots', () => {
     const slots = new Set([
-      categorySlot('Funky'),
-      categorySlot('Groovy'),
-      categorySlot('Weird'),
-      categorySlot('Bizarre'),
-      categorySlot('Cosmic'),
-      categorySlot('Quantum'),
-      categorySlot('Mystic'),
-      categorySlot('Dreamy')
+      sourceGroupSlot('Funky'),
+      sourceGroupSlot('Groovy'),
+      sourceGroupSlot('Weird'),
+      sourceGroupSlot('Bizarre'),
+      sourceGroupSlot('Cosmic'),
+      sourceGroupSlot('Quantum'),
+      sourceGroupSlot('Mystic'),
+      sourceGroupSlot('Dreamy')
     ])
     // At least two different slots across 8 distinct unknown names
     // (probabilistically near-certain with 8 palette slots).

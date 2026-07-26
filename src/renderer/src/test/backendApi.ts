@@ -1,7 +1,6 @@
 import { vi } from 'vitest'
 import type {
   BackendAPI,
-  CategoryItem,
   FolderRef,
   LibraryItem,
   LibraryJobIdentity,
@@ -48,8 +47,9 @@ export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
     sampleTypeSource: null,
     dateAdded: 0,
     scanState: 1,
-    categoryId: 2,
     tagIds: [],
+    folderTagIds: [],
+    userTagIds: [],
     tags: []
   },
   {
@@ -69,20 +69,14 @@ export const DEFAULT_SAMPLE_ROWS: SampleItem[] = [
     sampleTypeSource: null,
     dateAdded: 1,
     scanState: 1,
-    categoryId: 2,
     tagIds: [],
+    folderTagIds: [],
+    userTagIds: [],
     tags: []
   }
 ]
 
-const IDLE_PROGRESS: ScanProgress = {
-  identity: null,
-  status: 'idle',
-  phase: null,
-  found: 0,
-  processed: 0,
-  total: 0
-}
+const IDLE_PROGRESS: ScanProgress = { identity: null, status: 'idle' }
 
 const DEFAULT_LIBRARY_JOB: LibraryJobIdentity = {
   rootKey: TEST_SAMPLE_FOLDER.id,
@@ -91,21 +85,9 @@ const DEFAULT_LIBRARY_JOB: LibraryJobIdentity = {
 }
 
 const DEFAULT_TAGS: TagItem[] = []
-const FOLDER_CATEGORY = { folderDerived: true, userCreated: false } as const
-const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { ...FOLDER_CATEGORY, id: 1, name: 'Bass', parentId: null },
-  { ...FOLDER_CATEGORY, id: 2, name: 'Drums', parentId: null },
-  { ...FOLDER_CATEGORY, id: 3, name: 'FX', parentId: null },
-  { ...FOLDER_CATEGORY, id: 4, name: 'Synth', parentId: null },
-  { ...FOLDER_CATEGORY, id: 5, name: 'Vocal', parentId: null },
-  { ...FOLDER_CATEGORY, id: 6, name: 'Loop', parentId: null },
-  { ...FOLDER_CATEGORY, id: 7, name: 'Percussion', parentId: null },
-  { ...FOLDER_CATEGORY, id: 8, name: 'Atmosphere', parentId: null }
-]
 const DEFAULT_LIBRARIES: LibraryItem[] = []
 
-/** In-memory stand-in for the backend worker's windowed SQL query: text filter,
- *  category/tag filters, and limit/offset paging over the default rows. */
+/** In-memory stand-in for the backend worker's windowed SQL query. */
 function queryDefaultRows(request: SampleQueryRequest): SampleQueryResponse {
   let rows = DEFAULT_SAMPLE_ROWS
   if (request.textSearch) {
@@ -114,11 +96,8 @@ function queryDefaultRows(request: SampleQueryRequest): SampleQueryResponse {
       `${row.filename} ${row.relpath}`.toLowerCase().includes(query)
     )
   }
-  if (request.categoryId !== undefined) {
-    rows = rows.filter((row) => row.categoryId === request.categoryId)
-  }
   if (request.tagIds && request.tagIds.length > 0) {
-    rows = rows.filter((row) => request.tagIds!.some((id) => row.tagIds.includes(id)))
+    rows = rows.filter((row) => request.tagIds!.every((id) => row.tagIds.includes(id)))
   }
   const total = rows.length
   const offset = request.offset ?? 0
@@ -195,7 +174,9 @@ export function createBackendAPI(): BackendAPI {
     createTag: vi.fn().mockImplementation(async (name: string, color?: string) => ({
       id: Date.now(),
       name,
-      color: color ?? null
+      color: color ?? null,
+      origin: 'user' as const,
+      folderDerived: false
     })),
     renameTag: vi.fn().mockResolvedValue(undefined),
     setTagColor: vi.fn().mockResolvedValue(undefined),
@@ -213,20 +194,6 @@ export function createBackendAPI(): BackendAPI {
         jobId: `test-sample-analysis-${sampleId}`
       }
     })),
-    listCategories: vi.fn().mockResolvedValue(DEFAULT_CATEGORIES),
-    createCategory: vi.fn().mockImplementation(async (
-      _sampleFolder: FolderRef,
-      name: string,
-      parentId?: number
-    ) => ({
-      id: Date.now(),
-      name,
-      parentId: parentId ?? null,
-      folderDerived: false,
-      userCreated: true
-    })),
-    deleteCategory: vi.fn().mockImplementation(async (_sampleFolder: FolderRef, id: number) =>
-      DEFAULT_CATEGORIES.filter((category) => category.id !== id)),
     listLibraries: vi.fn().mockResolvedValue(DEFAULT_LIBRARIES),
     saveLibrary: vi.fn().mockImplementation(async (name: string, ruleJson: string) => ({
       id: Date.now(),

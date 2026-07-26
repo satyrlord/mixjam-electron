@@ -32,10 +32,6 @@ function compatibilityRank(
   return bpmRank * 4 + (tonal ? keyRank(candidate.musicalKey, key) : 0)
 }
 
-function matchesRole(candidate: PlanningCandidate, lane: GeneratorLaneProfile, type: SampleType, bpm: number): boolean {
-  return generatorCandidateMatchesLane(candidate, lane, type, bpm)
-}
-
 // Musical ranking criteria only — no deterministic tiebreak. Family ordering
 // compares with this so a real quality difference decides, while ties fall to
 // family size instead of an arbitrary per-file hash.
@@ -104,7 +100,7 @@ function orderedCandidates(
   const lane = profile.lanes[laneIndex]!
   const tonal = TONAL_TYPES.has(type)
   const eligible = candidates
-    .filter((candidate) => candidate.sampleType === type && matchesRole(candidate, lane, type, bpm))
+    .filter((candidate) => candidate.sampleType === type && generatorCandidateMatchesLane(candidate, lane, type, bpm))
     .filter((candidate) => !tonal || keyRank(candidate.musicalKey, key) < 3)
   const rank = (left: PlanningCandidate, right: PlanningCandidate): number =>
     candidateRank(left, right, lane, type, bpm, key, profile, laneIndex, seed)
@@ -310,14 +306,14 @@ export function selectDiverseCandidates(
       if (pushCandidate(destination, candidate)) contrastCount++
     }
   }
-  const categories = [...new Set(selections.flatMap((selection) =>
-    selection?.candidates.map((candidate) => candidate.categoryName) ?? []
+  const sourceGroups = [...new Set(selections.flatMap((selection) =>
+    selection?.candidates.map((candidate) => candidate.sourceGroup) ?? []
   ))]
-  const categoryOptions = new Map(categories.map((category) => [
-    category,
+  const sourceGroupOptions = new Map(sourceGroups.map((sourceGroup) => [
+    sourceGroup,
     selections.flatMap((selection, laneIndex) => selection
       ? selection.candidates.flatMap((candidate, candidateIndex) =>
-        candidate.categoryName === category ? [{ laneIndex, candidate, candidateIndex }] : []
+        candidate.sourceGroup === sourceGroup ? [{ laneIndex, candidate, candidateIndex }] : []
       )
       : [])
   ]))
@@ -329,11 +325,11 @@ export function selectDiverseCandidates(
     }
   }
 
-  categories.sort((left, right) =>
-    categoryOptions.get(left)!.length - categoryOptions.get(right)!.length || compareCodeUnits(left, right)
+  sourceGroups.sort((left, right) =>
+    sourceGroupOptions.get(left)!.length - sourceGroupOptions.get(right)!.length || compareCodeUnits(left, right)
   )
-  for (const category of categories) {
-    // Category coverage prefers candidates that extend an already-selected
+  for (const sourceGroup of sourceGroups) {
+    // Source-group coverage prefers candidates that extend an already-selected
     // family, then candidates whose family has siblings in some pool, and only
     // then true one-offs: every forced coverage pick used to be a family
     // singleton, which alone capped the family ratio below its target.
@@ -345,7 +341,7 @@ export function selectDiverseCandidates(
       if ((poolFamilyParts.get(key.family) ?? 0) >= 2) return 1
       return 2
     }
-    const choice = categoryOptions.get(category)!
+    const choice = sourceGroupOptions.get(sourceGroup)!
       .filter(({ laneIndex, candidate }) =>
         !selected[laneIndex]!.candidates.some((entry) => entry.relpath === candidate.relpath)
       )
@@ -428,7 +424,7 @@ export function selectDiverseCandidates(
 
   // Family-ratio repair: while the selection is short of its intensity target,
   // grow a selected singleton family with an unused sibling; once no sibling
-  // exists anywhere, trim redundant singletons whose category is still covered
+  // exists anywhere, trim redundant singletons whose source group is still covered
   // by another selection. A corpus without numbered families exhausts both
   // moves, and the shortfall flag excuses validation — the rule must not make
   // family-less libraries ungeneratable.
@@ -454,9 +450,9 @@ export function selectDiverseCandidates(
       }
     }
     if (repaired) continue
-    const categoryCounts = new Map<string, number>()
+    const sourceGroupCounts = new Map<string, number>()
     for (const candidate of allSelected()) {
-      categoryCounts.set(candidate.categoryName, (categoryCounts.get(candidate.categoryName) ?? 0) + 1)
+      sourceGroupCounts.set(candidate.sourceGroup, (sourceGroupCounts.get(candidate.sourceGroup) ?? 0) + 1)
     }
     let trimmed = false
     for (let laneIndex = 0; laneIndex < selected.length && !trimmed; laneIndex++) {
@@ -467,7 +463,7 @@ export function selectDiverseCandidates(
         const candidate = destination.candidates[index]!
         const key = parseMotifKey(candidate.filename)
         if (familyParts.get(key.family)!.size >= 2) continue
-        if ((categoryCounts.get(candidate.categoryName) ?? 0) < 2) continue
+        if ((sourceGroupCounts.get(candidate.sourceGroup) ?? 0) < 2) continue
         const fitsAlone = durationTicks(candidate, bpm) <= maximumSpan &&
           !destination.candidates.some((entry, entryIndex) =>
             entryIndex !== index && durationTicks(entry, bpm) <= maximumSpan

@@ -255,11 +255,11 @@ themes redefine every value below.
   DYN #f4c14f, IMG #7fd69b, METER #9aa0ab. These tint the Master Bus rack's chips,
   knob value arcs, and gain-reduction LEDs. A bypassed module's chip goes neutral
   gray (#7c7f86).
-- **Sample Slot Palette** (`--palette-0` … `--palette-7`): Eight category colors
+- **Sample Slot Palette** (`--palette-0` … `--palette-7`): Eight source-group colors
   for sample bubbles, plus one unsorted gray (`--palette-unsorted`, #555E6A).
   Bubble ink is computed per slot for contrast, not chosen by hand.
 
-  | Slot | Category |
+  | Slot | Top-level source group |
   | ---- | -------- |
   | 0 | Drums / Percussion |
   | 1 | Loop |
@@ -457,7 +457,7 @@ The signature component. A bubble is the same object everywhere it appears —
 Tracker canvas, browser grid, drag image, any future surface — at the same
 height (24 / 33 / 41px by UI Size), the same width, the same treatment.
 
-- **Fill:** the category slot color (`--palette-0` … `--palette-7`, unsorted
+- **Fill:** the top-level source-group slot color (`--palette-0` … `--palette-7`, unsorted
   `--palette-unsorted`). **Ink:** computed per slot for contrast, never picked by
   hand. **Radius:** `--radius-sample-bubble` (6px), parsed as pixels by the
   canvas.

@@ -44,7 +44,7 @@ users who do not already have samples.
 - Selected files are written into the Sample Folder via the granted
   `FileSystemDirectoryHandle` (`createWritable()`), under a dedicated
   top-level subfolder (e.g. `archive.org/<item>/…`) so the existing
-  folder-to-category mapping (spec-004) files them automatically.
+  folder-to-tag mapping (spec-004) labels them automatically.
 - A completed download batch schedules the same incremental library sync owned
   by spec-004 through its app-mutation trigger. This trigger is not suppressed
   when the root already completed its once-per-session automatic sync. It
@@ -74,7 +74,7 @@ users who do not already have samples.
 - [ ] **AC-001:** Searching a known term returns archive.org audio results with license shown per item.
 - [ ] **AC-002:** Downloading a result produces a real audio file inside the Sample Folder under the `archive.org/` subtree.
 - [ ] **AC-003:** After download completes, automatic incremental sync makes the
-  new samples appear in the browser with a category derived from their
+  new samples appear in the browser with tags derived from their
   subfolder, even when session-start sync already ran.
 - [ ] **AC-004:** Cancelling an in-flight download leaves no partial file in the Sample Folder.
 - [ ] **AC-005:** The builder may be opened with the normal read-only Sample

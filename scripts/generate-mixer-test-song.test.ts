@@ -9,7 +9,7 @@ import {
   bpmFromMetadataOrName,
   generateMixerTestSong,
   parseCliArgs,
-  REQUIRED_CATEGORIES,
+  REQUIRED_SOURCE_GROUPS,
   SONG_BPM,
   SONG_DURATION_SECONDS,
   SONG_SECTIONS,
@@ -157,7 +157,7 @@ describe('generateMixerTestSong', () => {
     expect(bpmFromMetadataOrName(126, 'kick 128 BPM.wav')).toBe(126)
   })
 
-  it('writes a production-parseable three-minute ambient cosmic-techno arrangement with all categories and empty return FX', async () => {
+  it('writes a production-parseable three-minute ambient cosmic-techno arrangement with all source groups and empty return FX', async () => {
     const { samplesDir, outputDir } = await createFixture()
     const result = await generateMixerTestSong({ samplesDir, outputDir, seed: 'fixture-seed' })
     const project = parseProject(await readFile(result.filePath, 'utf8'))
@@ -191,10 +191,10 @@ describe('generateMixerTestSong', () => {
       spanBySample.set(placement.samplePath, placement.durationTicks)
     }
 
-    const categories = new Set(placements.map((placement) =>
+    const sourceGroups = new Set(placements.map((placement) =>
       placement.samplePath.includes('/') ? placement.samplePath.split('/')[0]! : 'Unsorted'
     ))
-    expect([...categories].sort()).toEqual([...REQUIRED_CATEGORIES].sort())
+    expect([...sourceGroups].sort()).toEqual([...REQUIRED_SOURCE_GROUPS].sort())
 
     for (const section of SONG_SECTIONS) {
       const startTick = section.startBar * 32

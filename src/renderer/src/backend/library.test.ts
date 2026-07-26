@@ -1,3 +1,4 @@
+
 // @vitest-environment node
 // SQL-layer tests run against sqlite-wasm with an in-memory database — the
 // same engine the backend worker uses, minus the OPFS VFS (Node has no OPFS).
@@ -7,13 +8,10 @@ import { DB } from './sql'
 import { ANALYSIS_REVISION, initSchema, METADATA_REVISION } from './schema'
 import { listAnalysisCandidates } from './analysis-persistence'
 import {
-  createCategory,
   createTag,
-  deleteCategory,
   deleteLibrary,
   deleteTag,
   hasSamples,
-  listCategories,
   listLibraries,
   listMissingRelpaths,
   listTags,
@@ -23,25 +21,22 @@ import {
   setTagColor,
   assignTag,
   unassignTag,
-  tagsForSample,
   toFtsPrefixQuery
 } from './browser-library-persistence'
 import {
-  assignCategoryFromPath,
+  commitFolderTagProjection,
   completeScanRoot,
-  ensureFolderCategoryPaths,
+  ensureFolderTags,
   ensureScanRoot,
-  ensureUnsortedCategory,
   getLibraryRootState,
   listMetadataCandidates,
+  resetFolderTagStage,
   scanRootId,
-  markMissing,
   markMetadataUnavailable,
-  reconcileFolderCategories,
-  syncCategoriesFromNames,
+  stageFolderTagsFromPath,
   upsertStub,
   updateMetadata,
-  UNSORTED_CATEGORY
+  UNSORTED_TAG
 } from './indexed-sample-persistence'
 
 let sqlite3: Sqlite3Static
@@ -65,110 +60,22 @@ afterEach(() => {
   db.close()
 })
 
-// ---------------------------------------------------------------------------
-// Categories
-// ---------------------------------------------------------------------------
-
-describe('ensureUnsortedCategory', () => {
-  it('creates the Unsorted root category', () => {
-    ensureUnsortedCategory(db, rootId)
-    const cats = listCategories(db, ROOT_KEY)
-    const rootNames = cats.filter((c) => c.parentId === null).map((c) => c.name)
-    expect(rootNames).toContain(UNSORTED_CATEGORY)
-  })
-
-  it('is idempotent — calling it twice does not create duplicates', () => {
-    ensureUnsortedCategory(db, rootId)
-    ensureUnsortedCategory(db, rootId)
-    const cats = listCategories(db, ROOT_KEY).filter((c) => c.parentId === null)
-    const names = cats.map((c) => c.name)
-    expect(new Set(names).size).toBe(names.length)
-  })
-})
-
-describe('createCategory (AC-010a, AC-010b)', () => {
-  it('AC-010a: creates a custom root category that appears in the list', () => {
-    ensureUnsortedCategory(db, rootId)
-    const cat = createCategory(db, ROOT_KEY, 'My Custom Category')
-    expect(cat.name).toBe('My Custom Category')
-    expect(cat.parentId).toBeNull()
-    const all = listCategories(db, ROOT_KEY)
-    expect(all.find((c) => c.id === cat.id)).toBeDefined()
-  })
-
-  it('AC-010b: creates a subcategory under an existing category', () => {
-    ensureUnsortedCategory(db, rootId)
-    const parent = createCategory(db, ROOT_KEY, 'Drums')
-    const child = createCategory(db, ROOT_KEY, 'Kicks', parent.id)
-    expect(child.parentId).toBe(parent.id)
-    const all = listCategories(db, ROOT_KEY)
-    expect(all.find((c) => c.id === child.id)).toBeDefined()
-  })
-
-  it('returns the existing subcategory id for a duplicate name (no stale rowid)', () => {
-    ensureUnsortedCategory(db, rootId)
-    const parent = createCategory(db, ROOT_KEY, 'Drums')
-    // An unrelated insert advances lastInsertRowid on this connection.
-    createTag(db, 'unrelated')
-    const first = createCategory(db, ROOT_KEY, 'Kicks', parent.id)
-    const second = createCategory(db, ROOT_KEY, 'Kicks', parent.id)
-    expect(second.id).toBe(first.id)
-    const kicks = listCategories(db, ROOT_KEY).filter((c) => c.parentId === parent.id && c.name === 'Kicks')
-    expect(kicks).toHaveLength(1)
-  })
-})
-
-describe('deleteCategory', () => {
-  it('removes a custom category', () => {
-    const cat = createCategory(db, ROOT_KEY, 'Temp')
-    deleteCategory(db, ROOT_KEY, cat.id)
-    const all = listCategories(db, ROOT_KEY)
-    expect(all.find((c) => c.id === cat.id)).toBeUndefined()
-  })
-
-  it('removes only custom provenance from a folder-derived category', () => {
-    syncCategoriesFromNames(db, rootId, ['Drums'])
-    const folderCategory = listCategories(db, ROOT_KEY).find((category) => category.name === 'Drums')!
-    upsertStub(db, rootId, 'Drums/kick.wav', 'kick.wav', 'wav', 1000, 1000)
-    assignCategoryFromPath(db, rootId, 'Drums/kick.wav')
-    createCategory(db, ROOT_KEY, 'Drums')
-
-    deleteCategory(db, ROOT_KEY, folderCategory.id)
-
-    expect(listCategories(db, ROOT_KEY)).toContainEqual(expect.objectContaining({
-      id: folderCategory.id,
-      name: 'Drums',
-      folderDerived: true,
-      userCreated: false
-    }))
-    expect(querySamples(db, { rootId: ROOT_KEY, categoryId: folderCategory.id }).total).toBe(1)
-    expect(db.prepare(
-      'SELECT source FROM category_sources WHERE root_id = ? AND category_id = ? ORDER BY source'
-    ).all(rootId, folderCategory.id)).toEqual([{ source: 'folder' }])
-  })
-
-  it('does not remove folder provenance from a folder-only category', () => {
-    syncCategoriesFromNames(db, rootId, ['Drums'])
-    const folderCategory = listCategories(db, ROOT_KEY).find((category) => category.name === 'Drums')!
-
-    deleteCategory(db, ROOT_KEY, folderCategory.id)
-
-    expect(listCategories(db, ROOT_KEY).some((category) => category.id === folderCategory.id)).toBe(true)
-    expect(db.prepare(
-      'SELECT source FROM category_sources WHERE root_id = ? AND category_id = ?'
-    ).all(rootId, folderCategory.id)).toEqual([{ source: 'folder' }])
-  })
-
-  it('rejects a custom child under a parent that is not visible to the active root', () => {
-    const otherRootId = ensureScanRoot(db, 'root-other')
-    syncCategoriesFromNames(db, otherRootId, ['Other'])
-    const otherParent = listCategories(db, 'root-other').find((category) => category.name === 'Other')!
-
-    expect(() => createCategory(db, ROOT_KEY, 'CrossRoot', otherParent.id))
-      .toThrow('parent category is not visible')
-    expect(listCategories(db, ROOT_KEY).some((category) => category.name === 'CrossRoot')).toBe(false)
-  })
-})
+/** Runs the same folder-tag projection the indexer runs: ensure tags for the
+ *  discovered directories, stage every file's tags, then commit atomically.
+ *  Tests go through this rather than poking rows directly so they exercise the
+ *  shipping path in `runScan` (see indexer.ts phase 1). */
+function projectFolderTags(
+  targetRootId: number,
+  directoryRelpaths: readonly string[],
+  fileRelpaths: readonly string[] = []
+): void {
+  const activeTagIds = ensureFolderTags(db, directoryRelpaths)
+  resetFolderTagStage(db)
+  for (const relpath of fileRelpaths) {
+    stageFolderTagsFromPath(db, targetRootId, relpath)
+  }
+  commitFolderTagProjection(db, targetRootId, activeTagIds)
+}
 
 // ---------------------------------------------------------------------------
 // Tags
@@ -188,6 +95,20 @@ describe('createTag (AC-007)', () => {
     expect(second.id).toBe(first.id)
     expect(listTags(db).filter((t) => t.name === 'Kick')).toHaveLength(1)
   })
+
+  it('promotes an existing folder tag and applies the requested color', () => {
+    projectFolderTags(rootId, ['Bass'])
+    const tag = createTag(db, 'Bass', '#123456', ROOT_KEY)
+    expect(tag).toMatchObject({ color: '#123456', origin: 'shared', folderDerived: true })
+  })
+
+  it('reports folder provenance for the active root while preserving global rename safety', () => {
+    const otherRootId = ensureScanRoot(db, 'other-root')
+    projectFolderTags(otherRootId, ['Shared'])
+
+    expect(createTag(db, 'Shared', undefined, ROOT_KEY)).toMatchObject({ origin: 'shared', folderDerived: false })
+    expect(createTag(db, 'Shared', undefined, 'other-root')).toMatchObject({ origin: 'shared', folderDerived: true })
+  })
 })
 
 describe('renameTag (AC-008)', () => {
@@ -196,6 +117,14 @@ describe('renameTag (AC-008)', () => {
     renameTag(db, tag.id, 'NewName')
     const found = listTags(db).find((t) => t.id === tag.id)
     expect(found?.name).toBe('NewName')
+  })
+
+  it('does not advertise rename when another root derives the shared name', () => {
+    const otherRootId = ensureScanRoot(db, 'other-root')
+    projectFolderTags(otherRootId, ['Shared'])
+    const tag = createTag(db, 'Shared')
+    expect(listTags(db, ROOT_KEY).find(({ id }) => id === tag.id)).toMatchObject({ origin: 'shared', folderDerived: false })
+    expect(() => renameTag(db, tag.id, 'Renamed')).toThrow(/managed automatically/)
   })
 })
 
@@ -219,17 +148,23 @@ function sampleIdFor(relpath: string): number {
   return row.id
 }
 
+function assignedTagIds(sampleId: number): number[] {
+  return db.prepare(
+    'SELECT DISTINCT tag_id FROM sample_tags WHERE sample_id = ? ORDER BY tag_id'
+  ).all<{ tag_id: number }>(sampleId).map(({ tag_id }) => tag_id)
+}
+
 describe('deleteTag (AC-009)', () => {
   it('deletes a tag and removes it from assigned samples', () => {
     upsertStub(db, rootId, 'samples/kick.wav', 'kick.wav', 'wav', 1024, Date.now())
     const sampleId = sampleIdFor('samples/kick.wav')
     const tag = createTag(db, 'ToDelete')
     assignTag(db, sampleId, tag.id)
-    expect(tagsForSample(db, sampleId).find((t) => t.id === tag.id)).toBeDefined()
+    expect(assignedTagIds(sampleId)).toContain(tag.id)
 
     deleteTag(db, tag.id)
     expect(listTags(db).find((t) => t.id === tag.id)).toBeUndefined()
-    expect(tagsForSample(db, sampleId).find((t) => t.id === tag.id)).toBeUndefined()
+    expect(assignedTagIds(sampleId)).not.toContain(tag.id)
   })
 })
 
@@ -240,16 +175,75 @@ describe('assignTag / unassignTag', () => {
     const tag = createTag(db, 'Snare')
 
     assignTag(db, sampleId, tag.id)
-    expect(tagsForSample(db, sampleId).map((t) => t.id)).toContain(tag.id)
+    expect(assignedTagIds(sampleId)).toContain(tag.id)
 
     unassignTag(db, sampleId, tag.id)
-    expect(tagsForSample(db, sampleId).map((t) => t.id)).not.toContain(tag.id)
+    expect(assignedTagIds(sampleId)).not.toContain(tag.id)
   })
 })
 
 // ---------------------------------------------------------------------------
 // Samples
 // ---------------------------------------------------------------------------
+
+describe('folder-derived tag persistence', () => {
+  it('assigns every directory segment as one shared flat tag and uses Unsorted at the root', () => {
+    upsertStub(db, rootId, 'Hard Trance/Bass/kick.wav', 'kick.wav', 'wav', 1, 1)
+    upsertStub(db, rootId, 'House/Bass/bass.wav', 'bass.wav', 'wav', 1, 1)
+    upsertStub(db, rootId, 'loose.wav', 'loose.wav', 'wav', 1, 1)
+    projectFolderTags(
+      rootId,
+      ['Hard Trance/Bass', 'House/Bass'],
+      ['Hard Trance/Bass/kick.wav', 'House/Bass/bass.wav', 'loose.wav']
+    )
+
+    const tags = listTags(db, ROOT_KEY)
+    expect(tags.map(({ name }) => name)).toEqual(['Bass', 'Hard Trance', 'House', 'Unsorted'])
+    expect(tags.every(({ origin, folderDerived }) => origin === 'folder' && folderDerived)).toBe(true)
+    const bassId = tags.find(({ name }) => name === 'Bass')!.id
+    const hardTranceId = tags.find(({ name }) => name === 'Hard Trance')!.id
+    expect(querySamples(db, { rootId: ROOT_KEY, tagIds: [bassId] }).rows).toHaveLength(2)
+    expect(querySamples(db, { rootId: ROOT_KEY, tagIds: [hardTranceId, bassId] })
+      .rows.map(({ filename }) => filename)).toEqual(['kick.wav'])
+    expect(querySamples(db, { rootId: ROOT_KEY, tagIds: [tags.find(({ name }) => name === UNSORTED_TAG)!.id] })
+      .rows[0]!.filename).toBe('loose.wav')
+  })
+
+  it('reconciles folder assignments without deleting user assignments', () => {
+    upsertStub(db, rootId, 'Drums/Kicks/kick.wav', 'kick.wav', 'wav', 1, 1)
+    projectFolderTags(rootId, ['Drums/Kicks'], ['Drums/Kicks/kick.wav'])
+    const sampleId = sampleIdFor('Drums/Kicks/kick.wav')
+    const favorite = createTag(db, 'Favorite')
+    assignTag(db, sampleId, favorite.id)
+
+    // Re-scan after the file moved: the folder projection is rebuilt from
+    // scratch, so the stale 'Kicks' assignment must go while the user's
+    // 'Favorite' assignment survives.
+    db.prepare('UPDATE samples SET relpath = ? WHERE id = ?').run('Drums/Snares/kick.wav', sampleId)
+    projectFolderTags(rootId, ['Drums/Snares'], ['Drums/Snares/kick.wav'])
+
+    expect(querySamples(db, { rootId: ROOT_KEY }).rows[0]!.tags).toEqual(['Drums', 'Favorite', 'Snares'])
+  })
+
+  it('keeps folder provenance when the matching user tag is deleted', () => {
+    upsertStub(db, rootId, 'Drums/kick.wav', 'kick.wav', 'wav', 1, 1)
+    projectFolderTags(rootId, ['Drums'], ['Drums/kick.wav'])
+    const sampleId = sampleIdFor('Drums/kick.wav')
+
+    const dualSourceTag = createTag(db, 'Drums')
+    assignTag(db, sampleId, dualSourceTag.id)
+    expect(listTags(db, ROOT_KEY).find(({ id }) => id === dualSourceTag.id)).toMatchObject({ origin: 'shared', folderDerived: true })
+
+    deleteTag(db, dualSourceTag.id)
+
+    expect(listTags(db, ROOT_KEY).find(({ id }) => id === dualSourceTag.id)).toMatchObject({ origin: 'folder', folderDerived: true })
+    expect(assignedTagIds(sampleId)).toContain(dualSourceTag.id)
+    expect(db.prepare('SELECT source FROM sample_tags WHERE sample_id = ? AND tag_id = ?')
+      .all<{ source: string }>(sampleId, dualSourceTag.id)).toEqual([{ source: 'folder' }])
+    expect(() => renameTag(db, dualSourceTag.id, 'Percussion')).toThrow(/managed automatically/)
+    expect(() => deleteTag(db, dualSourceTag.id)).toThrow(/cannot be edited/)
+  })
+})
 
 describe('upsertStub', () => {
   it('inserts a new stub row with scan_state=0', () => {
@@ -269,7 +263,7 @@ describe('upsertStub', () => {
     assignTag(db, sampleId, tag.id)
 
     upsertStub(db, rootId, 'samples/hi-hat.wav', 'hi-hat.wav', 'wav', 2049, 2000)
-    expect(tagsForSample(db, sampleId).find((t) => t.id === tag.id)).toBeDefined()
+    expect(assignedTagIds(sampleId)).toContain(tag.id)
   })
 
   it('leaves a fully-scanned row untouched when size and mtime are unchanged', () => {
@@ -410,10 +404,10 @@ describe('analysis revision selection', () => {
   })
 })
 
-describe('markMissing', () => {
+describe('retiring missing samples', () => {
   it('sets scan_state=2 and hides file from normal queries', () => {
     upsertStub(db, rootId, 'samples/gone.wav', 'gone.wav', 'wav', 1024, 1000)
-    markMissing(db, rootId, 'samples/gone.wav')
+    commitFolderTagProjection(db, rootId, new Set(), ['samples/gone.wav'])
     const { rows } = querySamples(db, {})
     expect(rows.find((r) => r.relpath === 'samples/gone.wav')).toBeUndefined()
   })
@@ -425,7 +419,7 @@ describe('listMissingRelpaths (spec-002 AC-013)', () => {
     upsertStub(db, rootId, 'samples/here.wav', 'here.wav', 'wav', 1024, 1000)
     expect(listMissingRelpaths(db, 'root-main')).toEqual([])
 
-    markMissing(db, rootId, 'samples/gone.wav')
+    commitFolderTagProjection(db, rootId, new Set(), ['samples/gone.wav'])
     expect(listMissingRelpaths(db, 'root-main')).toEqual(['samples/gone.wav'])
 
     // Other roots and unknown roots never leak this root's missing rows.
@@ -440,9 +434,8 @@ describe('listMissingRelpaths (spec-002 AC-013)', () => {
 // querySamples
 // ---------------------------------------------------------------------------
 
-describe('querySamples (AC-004, AC-005, AC-006, AC-011, AC-016)', () => {
+describe('querySamples (AC-004, AC-005, AC-006, AC-016)', () => {
   beforeEach(() => {
-    ensureUnsortedCategory(db, rootId)
     upsertStub(db, rootId, 's/kick.wav', 'kick.wav', 'wav', 1000, 1000)
     upsertStub(db, rootId, 's/snare.wav', 'snare.wav', 'wav', 1000, 1000)
     upsertStub(db, rootId, 's/bass.mp3', 'bass.mp3', 'mp3', 1000, 1000)
@@ -478,22 +471,6 @@ describe('querySamples (AC-004, AC-005, AC-006, AC-011, AC-016)', () => {
     const { rows } = querySamples(db, { sortBy: 'duration', sortDir: 'asc' })
     const durations = rows.map((r) => r.duration ?? 0)
     expect(durations).toEqual([...durations].sort((a, b) => a - b))
-  })
-
-  it('AC-011: filter by category includes descendants', () => {
-    const drumsCategory = createCategory(db, ROOT_KEY, 'Drums')
-    const kicksCategory = createCategory(db, ROOT_KEY, 'Kicks', drumsCategory.id)
-
-    const kickSampleId = sampleIdFor('s/kick.wav')
-    // Assign sample to the child category (Kicks); querying by parent (Drums)
-    // must include descendants and find this sample.
-    db.prepare('UPDATE samples SET category_id = ? WHERE id = ?').run(
-      kicksCategory.id,
-      kickSampleId
-    )
-
-    const { rows } = querySamples(db, { categoryId: drumsCategory.id })
-    expect(rows.find((r) => r.filename === 'kick.wav')).toBeDefined()
   })
 })
 
@@ -624,79 +601,6 @@ describe('querySamples textSearch does not crash on FTS5 metacharacters', () => 
 })
 
 // ---------------------------------------------------------------------------
-// Folder-derived categories + subcategory filtering
-// ---------------------------------------------------------------------------
-
-describe('assignCategoryFromPath + subcategory filtering', () => {
-  beforeEach(() => {
-    ensureUnsortedCategory(db, rootId)
-  })
-
-  it('finds a sample by its subcategory even though category_id holds the root', () => {
-    reconcileFolderCategories(
-      db,
-      rootId,
-      ensureFolderCategoryPaths(db, ['Drums', 'Drums/Kicks'])
-    )
-    upsertStub(db, rootId, 'Drums/Kicks/kick.wav', 'kick.wav', 'wav', 1000, 1000)
-    assignCategoryFromPath(db, rootId, 'Drums/Kicks/kick.wav')
-
-    const drums = listCategories(db, ROOT_KEY).find((c) => c.parentId === null && c.name === 'Drums')!
-    const kicks = listCategories(db, ROOT_KEY).find((c) => c.name === 'Kicks')!
-    expect(kicks.parentId).toBe(drums.id)
-
-    // The root assignment lives in category_id; subcategory membership is in the
-    // join table — both the root and the subcategory must find the sample.
-    expect(querySamples(db, { categoryId: drums.id }).rows.find((r) => r.filename === 'kick.wav'))
-      .toBeDefined()
-    expect(querySamples(db, { categoryId: kicks.id }).rows.find((r) => r.filename === 'kick.wav'))
-      .toBeDefined()
-  })
-
-  it('assigns a root-level file to Unsorted', () => {
-    upsertStub(db, rootId, 'kick.wav', 'kick.wav', 'wav', 1000, 1000)
-    assignCategoryFromPath(db, rootId, 'kick.wav')
-    const unsorted = listCategories(db, ROOT_KEY).find(
-      (c) => c.parentId === null && c.name === UNSORTED_CATEGORY
-    )!
-    const row = db
-      .prepare('SELECT category_id FROM samples WHERE relpath = ?')
-      .get<{ category_id: number | null }>('kick.wav')!
-    expect(row.category_id).toBe(unsorted.id)
-  })
-
-  it('clears stale subcategory membership when a file moves between folders', () => {
-    reconcileFolderCategories(
-      db,
-      rootId,
-      ensureFolderCategoryPaths(db, ['Drums', 'Drums/Kicks'])
-    )
-    upsertStub(db, rootId, 'Drums/Kicks/x.wav', 'x.wav', 'wav', 1000, 1000)
-    assignCategoryFromPath(db, rootId, 'Drums/Kicks/x.wav')
-    const kicks = listCategories(db, ROOT_KEY).find((c) => c.name === 'Kicks')!
-
-    // Simulate a move: same file now under Snares.
-    db.prepare('UPDATE samples SET relpath = ? WHERE relpath = ?').run(
-      'Drums/Snares/x.wav',
-      'Drums/Kicks/x.wav'
-    )
-    reconcileFolderCategories(
-      db,
-      rootId,
-      ensureFolderCategoryPaths(db, ['Drums', 'Drums/Snares'])
-    )
-    assignCategoryFromPath(db, rootId, 'Drums/Snares/x.wav')
-
-    // Old Kicks membership must be gone.
-    expect(querySamples(db, { categoryId: kicks.id }).rows.find((r) => r.filename === 'x.wav'))
-      .toBeUndefined()
-    const snares = listCategories(db, ROOT_KEY).find((c) => c.name === 'Snares')!
-    expect(querySamples(db, { categoryId: snares.id }).rows.find((r) => r.filename === 'x.wav'))
-      .toBeDefined()
-  })
-})
-
-// ---------------------------------------------------------------------------
 // Per-root scoping (scan_roots / samples.root_id)
 // ---------------------------------------------------------------------------
 
@@ -761,30 +665,10 @@ describe('per-root scoping', () => {
   })
 })
 
-describe('syncCategoriesFromNames', () => {
-  it('reports Unsorted plus the folder names it created', () => {
-    const names = syncCategoriesFromNames(db, rootId, ['Drums', 'Synths'])
-    expect(names).toContain(UNSORTED_CATEGORY)
-    expect(names).toContain('Drums')
-    expect(names).toContain('Synths')
-    const roots = listCategories(db, ROOT_KEY).filter((c) => c.parentId === null)
-    expect(roots.map((c) => c.name)).toEqual(expect.arrayContaining(['Drums', 'Synths']))
-  })
-
-  it('never creates a duplicate of the reserved Unsorted category', () => {
-    const names = syncCategoriesFromNames(db, rootId, [UNSORTED_CATEGORY, 'Drums'])
-    expect(names.filter((n) => n === UNSORTED_CATEGORY)).toHaveLength(1)
-    const unsorted = listCategories(db, ROOT_KEY).filter(
-      (c) => c.parentId === null && c.name === UNSORTED_CATEGORY
-    )
-    expect(unsorted).toHaveLength(1)
-  })
-})
-
 describe('initSchema', () => {
   it('stamps a fresh database once and leaves existing schema version rows unchanged', () => {
     const initial = db.prepare('SELECT version FROM schema_version').all<{ version: number }>()
-    expect(initial).toEqual([{ version: 5 }])
+    expect(initial).toEqual([{ version: 6 }])
 
     initSchema(db)
 

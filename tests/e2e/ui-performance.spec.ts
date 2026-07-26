@@ -25,8 +25,9 @@ test.describe('UI performance invariants', () => {
           sampleTypeSource: null,
           dateAdded: id,
           scanState: 1,
-          categoryId: 1,
           tagIds: [],
+          folderTagIds: [],
+          userTagIds: [],
           tags: []
         }
       })

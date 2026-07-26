@@ -128,7 +128,7 @@ describe('analysis runner', () => {
         ['second.wav', makeWav('second.wav')]
       ]),
       (progress) => {
-        if (progress.analyzed === 1) {
+        if (progress.status === 'analyzing' && progress.analyzed === 1) {
           observedSources.push(querySamples(db, { rootId: 'analysis-runner-root' }).rows
             .find((sample) => sample.relpath === 'first.wav')?.sampleTypeSource ?? null)
         }

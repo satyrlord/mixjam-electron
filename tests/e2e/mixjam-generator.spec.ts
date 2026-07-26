@@ -59,9 +59,13 @@ test('generator saves, opens, plays, and keeps Sample Browser and Tracker colors
   async function assertPaletteMatch(): Promise<string> {
     const colors = await sampleBubble.evaluate((element) => {
       const style = getComputedStyle(element)
-      const token = getComputedStyle(document.documentElement).getPropertyValue('--palette-0').trim()
-      return { bubble: style.backgroundColor, token }
+      const slot = /--palette-(\d+)/.exec((element as HTMLElement).style.backgroundColor)?.[1]
+      const token = slot === undefined
+        ? ''
+        : getComputedStyle(document.documentElement).getPropertyValue(`--palette-${slot}`).trim()
+      return { bubble: style.backgroundColor, token, slot }
     })
+    expect(colors.slot).toBeDefined()
     const rgb = colors.bubble.match(/\d+/g)?.slice(0, 3).map(Number)
     expect(rgb).toHaveLength(3)
     const tokenHex = colors.token.replace('#', '')

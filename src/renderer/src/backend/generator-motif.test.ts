@@ -12,7 +12,7 @@ function candidate(filename: string): GeneratorCandidate {
     bpm: 128,
     musicalKey: 'Am',
     sampleType: 'Bass',
-    categoryName: 'Bass',
+    sourceGroup: 'Bass',
     paletteSlot: 2,
     metadataRevision: 1,
     analysisRevision: 1

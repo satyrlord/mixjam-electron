@@ -1,53 +1,24 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import type { LibraryItem, TagItem } from '../../../shared/backend-api'
 import ManagePanel from './ManagePanel'
-import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/backend-api'
 
 const TAGS: TagItem[] = [
-  { id: 1, name: 'Alpha', color: '#aaa' },
-  { id: 2, name: 'Beta', color: null }
+  { id: 1, name: 'Alpha', color: '#aaaaaa', origin: 'user', folderDerived: false },
+  { id: 2, name: 'Bass', color: null, origin: 'folder', folderDerived: true },
+  { id: 3, name: 'Drums', color: null, origin: 'shared', folderDerived: true }
 ]
+const LIBRARIES: LibraryItem[] = [{ id: 1, name: 'MyLib', createdAt: 100, ruleJson: '{}' }]
 
-const CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
-  { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: true },
-  { id: 3, name: 'Unsorted', parentId: null, folderDerived: true, userCreated: false },
-  { id: 4, name: 'Kicks', parentId: 2, folderDerived: false, userCreated: true },
-  { id: 5, name: 'Acoustic', parentId: 4, folderDerived: false, userCreated: true }
-]
-
-const customCategory = (id: number, name: string, parentId: number | null = null): CategoryItem => ({
-  id,
-  name,
-  parentId,
-  folderDerived: false,
-  userCreated: true
-})
-
-const LIBRARIES: LibraryItem[] = [
-  { id: 1, name: 'MyLib', createdAt: 100, ruleJson: '{}' }
-]
-
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((next) => { resolve = next })
-  return { promise, resolve }
-}
-
-function renderPanel(overrides?: Partial<Parameters<typeof ManagePanel>[0]>) {
+function renderPanel(overrides: Partial<Parameters<typeof ManagePanel>[0]> = {}) {
   const props: Parameters<typeof ManagePanel>[0] = {
     tags: TAGS,
     libraries: LIBRARIES,
-    categories: CATEGORIES,
-    categoryScopeKey: 'root-a',
-    leftOffset: 157,
-    onCreateTag: vi.fn(async () => ({ id: 99, name: 'New', color: null })),
+    onCreateTag: vi.fn(async (name, color) => ({ id: 99, name, color: color ?? null, origin: 'user' as const, folderDerived: false })),
     onRenameTag: vi.fn(async () => undefined),
     onSetTagColor: vi.fn(async () => undefined),
     onDeleteTag: vi.fn(async () => undefined),
-    onCreateCategory: vi.fn(async () => customCategory(50, 'NewCat')),
-    onDeleteCategory: vi.fn(async () => undefined),
-    onSaveLibrary: vi.fn(async () => ({ id: 2, name: 'NewLib', createdAt: 200, ruleJson: '{}' })),
+    onSaveLibrary: vi.fn(async (name) => ({ id: 2, name, createdAt: 200, ruleJson: '{}' })),
     onDeleteLibrary: vi.fn(async () => undefined),
     onApplyLibrary: vi.fn(),
     ...overrides
@@ -56,366 +27,72 @@ function renderPanel(overrides?: Partial<Parameters<typeof ManagePanel>[0]>) {
 }
 
 describe('ManagePanel', () => {
-  describe('tags tab', () => {
-    it('renders the tags list', () => {
-      renderPanel()
-      expect(screen.getByText('Alpha')).toBeTruthy()
-      expect(screen.getByText('Beta')).toBeTruthy()
-    })
-
-    it('shows an empty message when no tags exist', () => {
-      renderPanel({ tags: [] })
-      expect(screen.getByText('No tags yet.')).toBeInTheDocument()
-    })
-
-    it('creates a tag on Enter and clears the input', async () => {
-      const onCreateTag = vi.fn(async () => ({ id: 99, name: 'Funky', color: null }))
-      const { container } = renderPanel({ onCreateTag })
-      const input = container.querySelector('input[aria-label="New tag name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'Funky' } })
-      fireEvent.keyDown(input, { key: 'Enter' })
-
-      await vi.waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Funky'))
-    })
-
-    it('creates a tag with an optional color', async () => {
-      const onCreateTag = vi.fn(async () => ({ id: 99, name: 'Funky', color: '#123456' }))
-      renderPanel({ onCreateTag })
-
-      fireEvent.change(screen.getByLabelText('New tag name'), { target: { value: 'Funky' } })
-      fireEvent.click(screen.getByRole('checkbox', { name: 'Color' }))
-      fireEvent.change(screen.getByLabelText('New tag color'), { target: { value: '#123456' } })
-      fireEvent.click(screen.getByLabelText('Create tag'))
-
-      await vi.waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Funky', '#123456'))
-    })
-
-    it('does not create a tag with an empty name', async () => {
-      const onCreateTag = vi.fn(async () => ({ id: 99, name: '', color: null }))
-      renderPanel({ onCreateTag })
-      const btn = screen.getByLabelText('Create tag')
-      fireEvent.click(btn)
-      expect(onCreateTag).not.toHaveBeenCalled()
-    })
-
-    it('ignores non-Enter key presses on the tag input', () => {
-      const onCreateTag = vi.fn(async () => ({ id: 99, name: 'X', color: null }))
-      const { container } = renderPanel({ onCreateTag })
-      const input = container.querySelector('input[aria-label="New tag name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'Test' } })
-      fireEvent.keyDown(input, { key: 'a' })
-      expect(onCreateTag).not.toHaveBeenCalled()
-    })
-
-    it('returns early when Enter is pressed on an empty tag input', () => {
-      const onCreateTag = vi.fn(async () => ({ id: 99, name: 'X', color: null }))
-      const { container } = renderPanel({ onCreateTag })
-      const input = container.querySelector('input[aria-label="New tag name"]')! as HTMLInputElement
-      fireEvent.keyDown(input, { key: 'Enter' })
-      expect(onCreateTag).not.toHaveBeenCalled()
-    })
-
-    it('enters rename mode and commits on Enter', async () => {
-      const onRenameTag = vi.fn(async () => undefined)
-      renderPanel({ onRenameTag })
-      const renameBtn = screen.getByLabelText('Rename tag Alpha')
-      fireEvent.click(renameBtn)
-
-      const input = screen.getByLabelText('Rename tag Alpha') as HTMLInputElement
-      expect(input.value).toBe('Alpha')
-      fireEvent.change(input, { target: { value: 'AlphaRenamed' } })
-      fireEvent.keyDown(input, { key: 'Enter' })
-
-      await vi.waitFor(() => expect(onRenameTag).toHaveBeenCalledWith(1, 'AlphaRenamed'))
-    })
-
-    it('styles and runs the confirm-rename action as a managed control', async () => {
-      const onRenameTag = vi.fn(async () => undefined)
-      renderPanel({ onRenameTag })
-      fireEvent.click(screen.getByLabelText('Rename tag Alpha'))
-      fireEvent.change(screen.getByLabelText('Rename tag Alpha'), {
-        target: { value: 'AlphaRenamed' }
-      })
-
-      const confirm = screen.getByLabelText('Confirm rename')
-      expect(confirm).toHaveClass('manage-action')
-      fireEvent.click(confirm)
-
-      await vi.waitFor(() => expect(onRenameTag).toHaveBeenCalledWith(1, 'AlphaRenamed'))
-    })
-
-    it('cancels rename on Escape', () => {
-      renderPanel()
-      fireEvent.click(screen.getByLabelText('Rename tag Alpha'))
-      const input = screen.getByLabelText('Rename tag Alpha') as HTMLInputElement
-      fireEvent.keyDown(input, { key: 'Escape' })
-      expect(screen.getByText('Alpha')).toBeTruthy()
-    })
-
-    it('does not commit rename when the value is empty', async () => {
-      const onRenameTag = vi.fn(async () => undefined)
-      renderPanel({ onRenameTag })
-      fireEvent.click(screen.getByLabelText('Rename tag Beta'))
-      const input = screen.getByLabelText('Rename tag Beta') as HTMLInputElement
-      fireEvent.change(input, { target: { value: '   ' } })
-      fireEvent.keyDown(input, { key: 'Enter' })
-
-      expect(onRenameTag).not.toHaveBeenCalled()
-    })
-
-    it('deletes a tag on click', async () => {
-      const onDeleteTag = vi.fn(async () => undefined)
-      renderPanel({ onDeleteTag })
-      fireEvent.click(screen.getByLabelText('Delete tag Alpha'))
-      await vi.waitFor(() => expect(onDeleteTag).toHaveBeenCalledWith(1))
-    })
-
-    it('updates and clears a tag color', async () => {
-      const onSetTagColor = vi.fn(async () => undefined)
-      renderPanel({ onSetTagColor })
-
-      fireEvent.change(screen.getByLabelText('Set color for tag Alpha'), {
-        target: { value: '#123456' }
-      })
-      await vi.waitFor(() => expect(onSetTagColor).toHaveBeenCalledWith(1, '#123456'))
-
-      fireEvent.click(screen.getByLabelText('Clear color for tag Alpha'))
-      await vi.waitFor(() => expect(onSetTagColor).toHaveBeenCalledWith(1, null))
-      expect(screen.getByLabelText('Clear color for tag Beta')).toBeDisabled()
-    })
+  it('contains only Tags and Libraries tabs', () => {
+    renderPanel()
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Tags', 'Libraries'])
   })
 
-  describe('libraries tab', () => {
-    it('renders the libraries list', () => {
-      renderPanel()
-      fireEvent.click(screen.getByText('Libraries'))
-      expect(screen.getByText('MyLib')).toBeTruthy()
-    })
-
-    it('shows empty message when no libraries exist', () => {
-      renderPanel({ libraries: [] })
-      fireEvent.click(screen.getByText('Libraries'))
-      expect(screen.getByText('No saved libraries yet.')).toBeTruthy()
-    })
-
-    it('saves a library on Enter', async () => {
-      const onSaveLibrary = vi.fn(async () => ({ id: 2, name: 'NewLib', createdAt: 200, ruleJson: '{}' }))
-      const { container } = renderPanel({ onSaveLibrary })
-      fireEvent.click(screen.getByText('Libraries'))
-      const input = container.querySelector('input[aria-label="New library name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'NewLib' } })
-      fireEvent.keyDown(input, { key: 'Enter' })
-
-      await vi.waitFor(() => expect(onSaveLibrary).toHaveBeenCalledWith('NewLib'))
-    })
-
-    it('does not save a library with an empty name', async () => {
-      const onSaveLibrary = vi.fn(async () => ({ id: 2, name: '', createdAt: 200, ruleJson: '{}' }))
-      renderPanel({ onSaveLibrary })
-      fireEvent.click(screen.getByText('Libraries'))
-      const btn = screen.getByText('Save current filters')
-      expect((btn as HTMLButtonElement).disabled).toBe(true)
-    })
-
-    it('ignores non-Enter key presses on the library input', () => {
-      const onSaveLibrary = vi.fn(async () => ({ id: 2, name: 'X', createdAt: 200, ruleJson: '{}' }))
-      const { container } = renderPanel({ onSaveLibrary })
-      fireEvent.click(screen.getByText('Libraries'))
-      const input = container.querySelector('input[aria-label="New library name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'Test' } })
-      fireEvent.keyDown(input, { key: 'a' })
-      expect(onSaveLibrary).not.toHaveBeenCalled()
-    })
-
-    it('returns early when Enter is pressed on an empty library input', () => {
-      const onSaveLibrary = vi.fn(async () => ({ id: 2, name: 'X', createdAt: 200, ruleJson: '{}' }))
-      const { container } = renderPanel({ onSaveLibrary })
-      fireEvent.click(screen.getByText('Libraries'))
-      const input = container.querySelector('input[aria-label="New library name"]')! as HTMLInputElement
-      fireEvent.keyDown(input, { key: 'Enter' })
-      expect(onSaveLibrary).not.toHaveBeenCalled()
-    })
-
-    it('deletes a library on click', async () => {
-      const onDeleteLibrary = vi.fn(async () => undefined)
-      renderPanel({ onDeleteLibrary })
-      fireEvent.click(screen.getByText('Libraries'))
-      fireEvent.click(screen.getByLabelText('Delete library MyLib'))
-      await vi.waitFor(() => expect(onDeleteLibrary).toHaveBeenCalledWith(1))
-    })
+  it('searches a large tag catalog without changing the source list', () => {
+    renderPanel()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search managed tags' }), { target: { value: 'bass' } })
+    expect(screen.getByText('Bass')).toBeInTheDocument()
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
   })
 
-  describe('categories tab', () => {
-    it('renders every manageable category as a full hierarchy path', () => {
-      const { container } = renderPanel()
-      fireEvent.click(screen.getByText('Categories'))
-      const listItems = container.querySelectorAll('.manage-list-item .manage-name')
-      const names = Array.from(listItems).map((el) => el.textContent)
-      expect(names).not.toContain('Bass')
-      expect(names).toContain('Drums (also from folder)')
-      expect(names).toContain('Drums / Kicks')
-      expect(names).toContain('Drums / Kicks / Acoustic')
-      expect(names).not.toContain('Unsorted')
-    })
+  it('creates a tag with and without an optional color', async () => {
+    const onCreateTag = vi.fn(async (name: string, color?: string) => ({ id: 99, name, color: color ?? null, origin: 'user' as const, folderDerived: false }))
+    renderPanel({ onCreateTag })
+    fireEvent.change(screen.getByLabelText('New tag name'), { target: { value: 'Funky' } })
+    fireEvent.keyDown(screen.getByLabelText('New tag name'), { key: 'Enter' })
+    await vi.waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Funky', undefined))
 
-    it('shows an empty message when only protected categories exist', () => {
-      renderPanel({ categories: [{
-        id: 3,
-        name: 'Unsorted',
-        parentId: null,
-        folderDerived: true,
-        userCreated: false
-      }] })
-      fireEvent.click(screen.getByText('Categories'))
-      expect(screen.getByText('No custom categories yet.')).toBeInTheDocument()
-    })
+    fireEvent.change(screen.getByLabelText('New tag name'), { target: { value: 'Warm' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Color' }))
+    fireEvent.change(screen.getByLabelText('New tag color'), { target: { value: '#123456' } })
+    fireEvent.click(screen.getByLabelText('Create tag'))
+    await vi.waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Warm', '#123456'))
+  })
 
-    it('does not expose removal for a folder-only category', () => {
-      renderPanel()
-      fireEvent.click(screen.getByText('Categories'))
-      expect(screen.queryByLabelText('Remove custom category Bass')).not.toBeInTheDocument()
-    })
+  it('renames, recolors, and deletes a user tag', async () => {
+    const onRenameTag = vi.fn(async () => undefined)
+    const onSetTagColor = vi.fn(async () => undefined)
+    const onDeleteTag = vi.fn(async () => undefined)
+    renderPanel({ onRenameTag, onSetTagColor, onDeleteTag })
 
-    it('offers every category depth as a parent', () => {
-      renderPanel()
-      fireEvent.click(screen.getByText('Categories'))
+    fireEvent.click(screen.getByLabelText('Rename tag Alpha'))
+    fireEvent.change(screen.getByLabelText('Rename tag Alpha'), { target: { value: 'Alpha 2' } })
+    fireEvent.keyDown(screen.getByLabelText('Rename tag Alpha'), { key: 'Enter' })
+    await vi.waitFor(() => expect(onRenameTag).toHaveBeenCalledWith(1, 'Alpha 2'))
 
-      const options = screen.getByLabelText('Parent category').querySelectorAll('option')
-      expect(Array.from(options).map((option) => option.textContent)).toEqual([
-        'Root',
-        'Bass',
-        'Drums',
-        'Drums / Kicks',
-        'Drums / Kicks / Acoustic',
-        'Unsorted'
-      ])
-    })
+    fireEvent.change(screen.getByLabelText('Set color for tag Alpha'), { target: { value: '#123456' } })
+    fireEvent.click(screen.getByLabelText('Delete tag Alpha'))
+    await vi.waitFor(() => expect(onSetTagColor).toHaveBeenCalledWith(1, '#123456'))
+    expect(onDeleteTag).toHaveBeenCalledWith(1)
+  })
 
-    it('creates a category with a parent', async () => {
-      const onCreateCategory = vi.fn(async () => customCategory(50, 'SubBass', 1))
-      const { container } = renderPanel({ onCreateCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'SubBass' } })
-      const select = container.querySelector('select[aria-label="Parent category"]')! as HTMLSelectElement
-      fireEvent.change(select, { target: { value: '1' } })
-      fireEvent.click(screen.getByLabelText('Add category'))
+  it('shows folder-only tags as read-only and dual-source tags as editable', () => {
+    renderPanel()
+    expect(screen.getByText('From folder')).toBeInTheDocument()
+    expect(screen.getByLabelText('Set color for tag Bass')).toBeDisabled()
+    expect(screen.queryByLabelText('Rename tag Bass')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Delete tag Bass')).not.toBeInTheDocument()
+    expect(screen.getByText('Also from folder')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Rename tag Drums')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Delete tag Drums')).toBeEnabled()
+  })
 
-      await vi.waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('SubBass', 1))
-    })
-
-    it('creates a category under a nested parent', async () => {
-      const onCreateCategory = vi.fn(async () => customCategory(50, 'Processed', 5))
-      renderPanel({ onCreateCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      fireEvent.change(screen.getByLabelText('New category name'), {
-        target: { value: 'Processed' }
-      })
-      fireEvent.change(screen.getByLabelText('Parent category'), { target: { value: '5' } })
-      fireEvent.click(screen.getByLabelText('Add category'))
-
-      await vi.waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('Processed', 5))
-    })
-
-    it('does not create a category with an empty name', async () => {
-      const onCreateCategory = vi.fn(async () => customCategory(50, ''))
-      renderPanel({ onCreateCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      const btn = screen.getByLabelText('Add category')
-      fireEvent.click(btn)
-      expect(onCreateCategory).not.toHaveBeenCalled()
-    })
-
-    it('deletes a category on click', async () => {
-      const onDeleteCategory = vi.fn(async () => undefined)
-      renderPanel({ onDeleteCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      fireEvent.click(screen.getByLabelText('Remove custom category Drums'))
-      await vi.waitFor(() => expect(onDeleteCategory).toHaveBeenCalledWith(2))
-    })
-
-    it('deletes a nested category from its hierarchy path', async () => {
-      const onDeleteCategory = vi.fn(async () => undefined)
-      renderPanel({ onDeleteCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      fireEvent.click(screen.getByLabelText('Remove custom category Drums / Kicks / Acoustic'))
-
-      await vi.waitFor(() => expect(onDeleteCategory).toHaveBeenCalledWith(5))
-    })
-
-    it('creates a category on Enter key', async () => {
-      const onCreateCategory = vi.fn(async () => customCategory(51, 'Kick'))
-      const { container } = renderPanel({ onCreateCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'Kick' } })
-      fireEvent.keyDown(input, { key: 'Enter' })
-      await vi.waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('Kick', undefined))
-    })
-
-    it('ignores non-Enter key presses on the category input', () => {
-      const onCreateCategory = vi.fn(async () => customCategory(51, 'X'))
-      const { container } = renderPanel({ onCreateCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'Test' } })
-      fireEvent.keyDown(input, { key: 'a' })
-      expect(onCreateCategory).not.toHaveBeenCalled()
-    })
-
-    it('returns early when Enter is pressed on an empty category input', () => {
-      const onCreateCategory = vi.fn(async () => customCategory(51, 'X'))
-      const { container } = renderPanel({ onCreateCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
-      fireEvent.keyDown(input, { key: 'Enter' })
-      expect(onCreateCategory).not.toHaveBeenCalled()
-    })
-
-    it('resets parent category to undefined when select is changed back to Root', () => {
-      const onCreateCategory = vi.fn(async () => customCategory(51, 'X'))
-      const { container } = renderPanel({ onCreateCategory })
-      fireEvent.click(screen.getByText('Categories'))
-      const select = container.querySelector('select[aria-label="Parent category"]')! as HTMLSelectElement
-      fireEvent.change(select, { target: { value: '1' } })
-      fireEvent.change(select, { target: { value: '' } })
-      const input = container.querySelector('input[aria-label="New category name"]')! as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'Test' } })
-      fireEvent.click(screen.getByLabelText('Add category'))
-      expect(onCreateCategory).toHaveBeenCalledWith('Test', undefined)
-    })
-
-    it('resets a parent that disappears when the active category tree changes', async () => {
-      const rendered = renderPanel()
-      fireEvent.click(screen.getByText('Categories'))
-      const select = screen.getByLabelText('Parent category') as HTMLSelectElement
-      fireEvent.change(select, { target: { value: '5' } })
-      expect(select.value).toBe('5')
-
-      rendered.rerender(<ManagePanel
-        {...rendered.props}
-        categories={CATEGORIES.filter((category) => category.id !== 5)}
-      />)
-
-      await vi.waitFor(() => expect(select.value).toBe(''))
-    })
-
-    it('does not clear a new-root draft when an old-root create completes', async () => {
-      const pending = deferred<CategoryItem>()
-      const rendered = renderPanel({ onCreateCategory: vi.fn(() => pending.promise) })
-      fireEvent.click(screen.getByText('Categories'))
-      const input = screen.getByLabelText('New category name') as HTMLInputElement
-      fireEvent.change(input, { target: { value: 'Old root category' } })
-      fireEvent.click(screen.getByLabelText('Add category'))
-
-      rendered.rerender(<ManagePanel {...rendered.props} categoryScopeKey="root-b" />)
-      fireEvent.change(input, { target: { value: 'New root draft' } })
-      await act(async () => {
-        pending.resolve(customCategory(99, 'Old root category'))
-        await pending.promise
-      })
-
-      expect(input.value).toBe('New root draft')
-    })
+  it('opens, saves, and deletes libraries', async () => {
+    const onSaveLibrary = vi.fn(async (name: string) => ({ id: 2, name, createdAt: 200, ruleJson: '{}' }))
+    const onDeleteLibrary = vi.fn(async () => undefined)
+    const onApplyLibrary = vi.fn()
+    renderPanel({ onSaveLibrary, onDeleteLibrary, onApplyLibrary })
+    fireEvent.click(screen.getByRole('tab', { name: 'Libraries' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open library MyLib' }))
+    expect(onApplyLibrary).toHaveBeenCalledWith(LIBRARIES[0])
+    fireEvent.change(screen.getByLabelText('New library name'), { target: { value: 'NewLib' } })
+    fireEvent.keyDown(screen.getByLabelText('New library name'), { key: 'Enter' })
+    fireEvent.click(screen.getByLabelText('Delete library MyLib'))
+    await vi.waitFor(() => expect(onSaveLibrary).toHaveBeenCalledWith('NewLib'))
+    expect(onDeleteLibrary).toHaveBeenCalledWith(1)
   })
 })

@@ -432,7 +432,7 @@ describe('useMixJamGenerator', () => {
 
     act(() => emitAnalysis?.({
       identity: { rootKey: TEST_SAMPLE_FOLDER.id, sampleId: 1, jobId: 'analysis-2' },
-      status: 'idle', analyzed: 1, total: 1
+      status: 'idle'
     }))
     await waitFor(() => expect(backendAPI.getGeneratorReadiness).toHaveBeenCalledTimes(2))
   })

@@ -7,24 +7,24 @@ The full predicate-tree contract in this document is the accepted target
 architecture. The current implementation supports only a restricted v1 subset:
 
 - saved libraries contain one top-level `and` group
-- supported leaves are `text`, one `category`, and `tag` with `any`
-- opening a library restores those three UI filter values
-- a saved category id is restored only when it is visible in the active Sample
-  Folder; stale and other-root category ids are ignored, and restoration waits
-  while that folder's category projection is loading
+- supported leaves are `text` and `tag` with `all`
+- opening a library restores search text and valid tag ids
 - the UI sends a flat `SampleQueryRequest` to the backend worker
 - the backend compiles those flat fields to parameterized SQL
 
-The current library parser does not validate `version`, group operators,
-quantifiers, nested groups, or unknown leaves. Hand-authored rules outside the
-supported subset must therefore not be treated as executable. Implementing the
-validator and full compiler below remains required before later specs add leaf
-kinds or boolean composition.
+The current library parser validates this restricted shape atomically. Explicit
+version 1 rules require the top-level `group` / `and` descriptors. Earlier
+unversioned rules may omit those descriptors but must otherwise have the same
+shape. Unsupported versions, group operators, quantifiers, nested groups,
+unknown leaves, duplicate leaf kinds, and malformed fields reject the whole
+rule instead of applying a recognized subset with different semantics. The full
+predicate-tree compiler below remains required before later specs add leaf kinds
+or boolean composition.
 
 ## Target design goals
 
-- Express **tag AND/OR/NOT** logic, **category-tree** filtering (with descendants),
-  **BPM/key range**, **text search**, **date-added**, and **duration** filters.
+- Express **tag AND/OR/NOT** logic, **BPM/key range**, **text search**,
+  **date-added**, and **duration** filters.
 - Be **extensible**: new leaf types can be added without breaking stored rules.
 - Compile to a single parameterized SQL `WHERE` clause — no in-memory filtering.
 
@@ -38,20 +38,14 @@ kinds or boolean composition.
     "op": "and",
     "children": [
       { "kind": "text", "query": "kick" },
-      {
-        "kind": "category",
-        "quantifier": "any",
-        "categoryIds": [7],
-        "includeDescendants": true
-      },
-      { "kind": "tag", "quantifier": "any", "tagIds": [1, 2] }
+      { "kind": "tag", "quantifier": "all", "tagIds": [1, 2] }
     ]
   }
 }
 ```
 
-All children are optional. Only the first category id is restored. Multiple tag
-ids use `any` semantics in the backend query. The saved JSON is not used for
+All children are optional. Multiple tag ids use `all` semantics in the backend
+query. The saved JSON is not used for
 ad-hoc browser filtering; live filters travel through `SampleQueryRequest`.
 
 ## Target shape: a versioned predicate tree
@@ -86,10 +80,6 @@ never mis-runs a newer rule.
 // Tags. quantifier controls how multiple tagIds combine.
 { "kind": "tag", "quantifier": "any" | "all" | "none", "tagIds": [1, 2] }
 
-// Categories. includeDescendants pulls in the whole subtree (recursive CTE).
-{ "kind": "category", "quantifier": "any" | "all" | "none",
-  "categoryIds": [7], "includeDescendants": true }
-
 // Numeric ranges. Either bound may be omitted (open-ended). Inclusive.
 { "kind": "bpm", "min": 120, "max": 140 }
 { "kind": "duration", "min": 0.0, "max": 2.0 }   // seconds
@@ -110,8 +100,7 @@ never mis-runs a newer rule.
 
 ### Target example
 
-"WAVs tagged `kick` OR `snare`, in the *Drums* category tree, 90–140 BPM, not
-tagged `broken`":
+"WAVs tagged `kick` OR `snare`, 90–140 BPM, not tagged `broken`":
 
 ```json
 {
@@ -121,7 +110,6 @@ tagged `broken`":
     "children": [
       { "kind": "ext", "in": ["wav"] },
       { "kind": "tag", "quantifier": "any", "tagIds": [11, 12] },
-      { "kind": "category", "quantifier": "any", "categoryIds": [3], "includeDescendants": true },
       { "kind": "bpm", "min": 90, "max": 140 },
       { "kind": "group", "op": "not",
         "children": [ { "kind": "tag", "quantifier": "any", "tagIds": [99] } ] }
@@ -141,9 +129,6 @@ fragment plus a parameter array. Outline:
   - `any` → `EXISTS (SELECT 1 FROM sample_tags st WHERE st.sample_id = samples.id AND st.tag_id IN (?, ?))`
   - `all` → one `EXISTS` per tag id (AND-ed), or a `GROUP BY ... HAVING COUNT(DISTINCT tag_id) = N`
   - `none` → `NOT EXISTS (... IN (...))`
-- **category** → same `EXISTS` pattern against `sample_categories`; when
-  `includeDescendants`, expand `categoryIds` through the recursive CTE in
-  [data-model.md](data-model.md#category-tree-queries) first.
 - **bpm / duration** → `samples.bpm >= ? AND samples.bpm <= ?` (emit only the
   bounds that are present). NULL values do not match a range (intended: untagged
   BPM is excluded from a BPM filter).

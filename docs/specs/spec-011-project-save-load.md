@@ -337,18 +337,18 @@ parameters.
   breakdown removes the rhythm section; each peak restores the principal
   rhythm and melody lanes; builds stage density by adding hat and stab events
   rather than by authoring FX.
-- The sample plan covers every folder-derived category in the current fixture
+- The sample plan covers every top-level source group in the current fixture
   library (`Bass`, `Drum`, `Effect`, `Keys`, `Layer`, `Loop`, `Rap`, `Seq`,
   `Sphere`, `Voice`, and `Xtra`). Stereo lanes use duration-matched left/right
   files, while mono lanes exclude either half of a discovered stereo pair.
 - Each rhythmic, bass, melodic, vocal, rap, and texture lane alternates two
   distinct clips within one song. Seeded candidate ordering draws from the
-  broader category pools, rejects unreadable or overlong clips, and keeps every
+  broader source-group pools, rejects unreadable or overlong clips, and keeps every
   generated result reproducible.
 - Groove, bass, sequence, stab, stereo atmosphere, vocal, rap, texture, and
   transition roles prefer cosmic, dark, deep, space, and drone-themed fixture
   names when matching readable clips exist, then fall back to their broader
-  category pools. This keeps the generator compatible with smaller corpora
+  source-group pools. This keeps the generator compatible with smaller corpora
   while making the repository corpus consistently ambient cosmic-techno.
 - A shared variation number selects one of four timing profiles for vocal/rap
   calls and responses and texture entries across the full three-minute arc.
@@ -471,8 +471,8 @@ generator, its tests, and this contract are the durable repository assets.
   roundtrips through the production project parser, has 140 BPM, spans exactly
   105 bars (180 seconds), contains 16 non-empty lanes, has four zero Sends on
   every lane, and leaves all four FX modules Empty.
-- [x] **AC-018:** The repository test-song generator's placements cover every
-  current fixture category while every saved `sampleRef` remains relative to
+- [ ] **AC-018:** The repository test-song generator's placements cover every
+  current fixture source group while every saved `sampleRef` remains relative to
   the configured Sample Folder. Duration-matched stereo pairs remain paired on
   adjacent lanes.
 - [ ] **AC-019:** The repository test-song project contains the documented

@@ -31,7 +31,7 @@ function candidate(index: number, sampleType: SampleType = 'Kick', relpath?: str
     bpm: 140,
     musicalKey: sampleType === 'Kick' ? null : 'Am',
     sampleType,
-    categoryName: 'Unsorted',
+    sourceGroup: 'Unsorted',
     paletteSlot: 8,
     metadataRevision: 1,
     analysisRevision: 1
@@ -129,10 +129,10 @@ describe('generator transient analysis', () => {
     expect(resolveFileHandle).toHaveBeenCalledTimes(MAX_GENERATOR_ANALYSES)
   })
 
-  it('keeps the retained-analysis cap when more than 64 categories need coverage', async () => {
+  it('keeps the retained-analysis cap when more than 64 source groups need coverage', async () => {
     const input = Array.from({ length: MAX_GENERATOR_ATTEMPTS }, (_, index) => ({
       ...candidate(index, 'Other'),
-      categoryName: `Category ${String(index).padStart(3, '0')}`
+      sourceGroup: `SourceGroup ${String(index).padStart(3, '0')}`
     }))
 
     const result = await analyzeGeneratorCandidates(
@@ -231,30 +231,30 @@ describe('generator transient analysis', () => {
     expect(result.map((entry) => entry.sampleType)).toEqual(expect.arrayContaining(['Kick', 'Bass', 'Synth']))
   })
 
-  it('does not let abundant core material starve optional lanes or categories', async () => {
+  it('does not let abundant core material starve optional lanes or source groups', async () => {
     const coreHeavy = [
       ...Array.from({ length: 120 }, (_, index) => ({
         ...candidate(index, 'Kick'),
-        categoryName: 'Drum'
+        sourceGroup: 'Drum'
       })),
       ...Array.from({ length: 120 }, (_, index) => ({
         ...candidate(200 + index, 'Bass'),
-        categoryName: 'Bass'
+        sourceGroup: 'Bass'
       })),
       ...Array.from({ length: 120 }, (_, index) => ({
         ...candidate(400 + index, 'Synth'),
-        categoryName: 'Seq'
+        sourceGroup: 'Seq'
       }))
     ]
     const optional = [
-      { ...candidate(700, 'Snare'), categoryName: 'Drum' },
-      { ...candidate(701, 'Hi-hat'), categoryName: 'Drum' },
-      { ...candidate(702, 'Percussion'), categoryName: 'Drum' },
-      { ...candidate(703, 'Loop'), categoryName: 'Loop' },
-      { ...candidate(704, 'Vocal'), categoryName: 'Voice' },
-      { ...candidate(705, 'Atmosphere'), categoryName: 'Sphere' },
-      { ...candidate(706, 'Other'), categoryName: 'Xtra' },
-      { ...candidate(707, 'FX'), categoryName: 'Effect' }
+      { ...candidate(700, 'Snare'), sourceGroup: 'Drum' },
+      { ...candidate(701, 'Hi-hat'), sourceGroup: 'Drum' },
+      { ...candidate(702, 'Percussion'), sourceGroup: 'Drum' },
+      { ...candidate(703, 'Loop'), sourceGroup: 'Loop' },
+      { ...candidate(704, 'Vocal'), sourceGroup: 'Voice' },
+      { ...candidate(705, 'Atmosphere'), sourceGroup: 'Sphere' },
+      { ...candidate(706, 'Other'), sourceGroup: 'Xtra' },
+      { ...candidate(707, 'FX'), sourceGroup: 'Effect' }
     ]
 
     await analyzeGeneratorCandidates(

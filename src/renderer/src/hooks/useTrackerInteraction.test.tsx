@@ -94,8 +94,7 @@ function createOptions(overrides: {
     onTransportSeek: vi.fn()
   } satisfies PlayerTransportProps
   const browser = {
-    onSearchChange: vi.fn(),
-    onSelectCategory: vi.fn()
+    onSearchChange: vi.fn()
   }
   return { arrangement, transport, browser, tickStore }
 }
@@ -255,7 +254,6 @@ describe('useTrackerInteraction', () => {
     }))
     act(() => result.current.onContextLocate())
     expect(options.browser.onSearchChange).toHaveBeenCalledWith('kick')
-    expect(options.browser.onSelectCategory).toHaveBeenCalledWith(undefined)
     expect(result.current.activeFlashPath).toBe('Drums/kick.wav')
 
     act(() => vi.advanceTimersByTime(1_800))

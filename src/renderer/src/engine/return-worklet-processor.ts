@@ -1,4 +1,5 @@
 import type { ReturnModule, ReturnModuleProcessor } from './return-effects'
+import { WORKLET_DISPOSE } from './worklets/worklet-dispose-protocol'
 
 /**
  * Shared host-side plumbing for every worklet-backed Return effect.
@@ -157,10 +158,22 @@ export function createReturnWorkletProcessor<M extends ReturnModule>(
       node.port.postMessage(message)
     },
     dispose(): void {
+      // Retire the processor BEFORE unwiring, and do not close the port first:
+      // a disconnected AudioWorkletNode whose process() still returns true
+      // stays in the render graph, so the audio thread keeps running this
+      // effect's DSP every quantum and never releases the node. Project loads
+      // and Return-module type changes both rebuild these processors, so
+      // without the message every load permanently adds a delay/reverb's worth
+      // of work to the audio thread. The worklet's `false` return retires the
+      // node, and its ports go with it.
+      try {
+        node.port.postMessage(WORKLET_DISPOSE)
+      } catch {
+        // The context may already be closing; the node dies with it.
+      }
       disconnect(input)
       disconnect(node)
       disconnect(output)
-      node.port.close()
     }
   }
 }

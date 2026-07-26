@@ -5,7 +5,6 @@
 import type {
   AnalysisDone,
   AnalysisProgress,
-  CategoryItem,
   LibraryItem,
   LibraryRootState,
   LibraryScanDone,
@@ -42,8 +41,8 @@ export interface BackendCalls {
   cancelLibrarySync: (jobId: string) => void
   getScanProgress: () => ScanProgress
   getAnalysisProgress: () => AnalysisProgress
-  listTags: () => TagItem[]
-  createTag: (name: string, color?: string) => TagItem
+  listTags: (rootKey?: string) => TagItem[]
+  createTag: (name: string, color?: string, rootKey?: string) => TagItem
   renameTag: (id: number, name: string) => void
   setTagColor: (id: number, color: string | null) => void
   deleteTag: (id: number) => void
@@ -55,9 +54,6 @@ export interface BackendCalls {
     sampleId: number,
     relpath: string
   ) => Promise<SampleAnalysisDone>
-  listCategories: (rootKey: string) => CategoryItem[]
-  createCategory: (rootKey: string, name: string, parentId?: number) => CategoryItem
-  deleteCategory: (rootKey: string, id: number) => CategoryItem[]
   listLibraries: () => LibraryItem[]
   saveLibrary: (name: string, ruleJson: string) => LibraryItem
   deleteLibrary: (id: number) => void

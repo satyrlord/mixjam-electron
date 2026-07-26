@@ -51,7 +51,7 @@ export const PLAYER_SHORTCUT_SECTIONS: readonly ShortcutSection[] = [
     title: 'Browser',
     entries: [
       { keys: 'Click tile', action: 'Preview sample (quantised while playing)' },
-      { keys: 'Click category', action: 'Filter by category' }
+      { keys: 'Click tag', action: 'Toggle tag filter' }
     ]
   },
   {

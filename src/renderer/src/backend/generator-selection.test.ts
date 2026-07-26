@@ -22,7 +22,7 @@ function candidate(filename: string, overrides: Partial<PlanningCandidate> = {})
     bpm: BPM,
     musicalKey: 'Am',
     sampleType: 'Bass',
-    categoryName: 'Bass',
+    sourceGroup: 'Bass',
     paletteSlot: 2,
     metadataRevision: 1,
     analysisRevision: 1,
@@ -123,7 +123,7 @@ describe('applyKitCoherence', () => {
 
 describe('findTypeCandidates', () => {
   it('returns null when no candidate matches the lane type', () => {
-    const hats = [candidate('hat.wav', { sampleType: 'Hi-hat', categoryName: 'Drum' })]
+    const hats = [candidate('hat.wav', { sampleType: 'Hi-hat', sourceGroup: 'Drum' })]
     expect(findTypeCandidates(hats, motifProfile(), 0, BPM, 'Am', 'seed')).toBeNull()
   })
 

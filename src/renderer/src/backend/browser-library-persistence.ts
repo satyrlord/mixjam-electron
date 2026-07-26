@@ -2,28 +2,58 @@
 // are sync once the VFS is open); the async boundary is the worker message
 // protocol above this.
 
-import type {
-  AnalysisSource,
-  SampleQueryRequest,
-  SampleType
+import {
+  isTagEditable,
+  isTagRenameable,
+  type AnalysisSource,
+  type SampleQueryRequest,
+  type SampleType,
+  type TagOrigin
 } from '../../../shared/backend-api'
 import { isSampleType } from './analysis'
-import { ensureScanRoot, getLibraryRootState, scanRootId } from './indexed-sample-persistence'
+import { getLibraryRootState, scanRootId } from './indexed-sample-persistence'
 import type { BindValue, DB } from './sql'
 
 export interface TagRow {
   id: number
   name: string
   color: string | null
+  origin: TagOrigin
+  folderDerived: boolean
 }
 
-export interface CategoryRow {
+interface RawTagRow {
+  [key: string]: string | number | null
   id: number
   name: string
-  parentId: number | null
-  folderDerived: boolean
-  userCreated: boolean
+  color: string | null
+  user_created: number
+  /** Whether any root derives this name — global, unlike `folder_derived`. */
+  any_folder_source: number
+  folder_derived: number
 }
+
+/** The one place a stored tag row becomes a {@link TagOrigin}. */
+function toTagRow(raw: RawTagRow): TagRow {
+  const userCreated = raw.user_created === 1
+  const anyFolderSource = raw.any_folder_source === 1
+  return {
+    id: raw.id,
+    name: raw.name,
+    color: raw.color,
+    origin: userCreated ? (anyFolderSource ? 'shared' : 'user') : 'folder',
+    folderDerived: raw.folder_derived === 1
+  }
+}
+
+/** Selects the provenance columns {@link toTagRow} consumes. Takes one bound
+ *  parameter: the active root id (or null for "no active root"). */
+const TAG_PROVENANCE_COLUMNS = `t.id, t.name, t.color, t.user_created,
+       EXISTS(SELECT 1 FROM folder_tag_sources any_source
+              WHERE any_source.tag_id = t.id) AS any_folder_source,
+       EXISTS(SELECT 1 FROM folder_tag_sources active_source
+              WHERE active_source.tag_id = t.id AND active_source.root_id IS ?)
+         AS folder_derived`
 
 export interface LibraryRow {
   id: number
@@ -50,8 +80,9 @@ export interface SampleRow {
   sampleTypeSource: AnalysisSource
   dateAdded: number
   scanState: number
-  categoryId: number | null
   tagIds: number[]
+  folderTagIds: number[]
+  userTagIds: number[]
   tags: string[]
 }
 
@@ -63,176 +94,95 @@ function analysisSource(value: string | null): AnalysisSource {
 // Tags
 // ---------------------------------------------------------------------------
 
-export function listTags(db: DB): TagRow[] {
+export function listTags(db: DB, rootKey?: string): TagRow[] {
+  const rootId = rootKey === undefined ? undefined : scanRootId(db, rootKey)
   return db
-    .prepare('SELECT id, name, color FROM tags ORDER BY name')
-    .all<{ id: number; name: string; color: string | null }>()
-    .map((r) => ({ id: r.id, name: r.name, color: r.color }))
+    .prepare(
+      `SELECT ${TAG_PROVENANCE_COLUMNS}
+       FROM tags t
+       WHERE t.user_created = 1
+          OR EXISTS(SELECT 1 FROM folder_tag_sources visible
+                    WHERE visible.tag_id = t.id AND visible.root_id IS ?)
+       ORDER BY t.name`
+    )
+    .all<RawTagRow>(rootId ?? null, rootId ?? null)
+    .map(toTagRow)
 }
 
-export function createTag(db: DB, name: string, color?: string): TagRow {
+export function createTag(db: DB, name: string, color?: string, rootKey?: string): TagRow {
   // Idempotent: a duplicate name (UNIQUE) returns the existing tag rather than
-  // throwing a constraint error across the worker boundary.
-  const result = db
-    .prepare('INSERT OR IGNORE INTO tags (name, color) VALUES (?, ?)')
+  // throwing a constraint error across the worker boundary. An existing
+  // folder-only tag is promoted to user-owned, which may make it `shared`.
+  const inserted = db
+    .prepare('INSERT OR IGNORE INTO tags (name, color, user_created) VALUES (?, ?, 1)')
     .run(name, color ?? null)
-  if (result.changes > 0) {
-    return { id: result.lastInsertRowid, name, color: color ?? null }
+  if (inserted.changes === 0) {
+    db.prepare('UPDATE tags SET user_created = 1, color = COALESCE(?, color) WHERE name = ?')
+      .run(color ?? null, name)
   }
-  const existing = db
-    .prepare('SELECT id, name, color FROM tags WHERE name = ?')
-    .get<{ id: number; name: string; color: string | null }>(name)!
-  return { id: existing.id, name: existing.name, color: existing.color }
+  const rootId = rootKey === undefined ? undefined : scanRootId(db, rootKey)
+  return db
+    .prepare(`SELECT ${TAG_PROVENANCE_COLUMNS} FROM tags t WHERE t.name = ?`)
+    .all<RawTagRow>(rootId ?? null, name)
+    .map(toTagRow)[0]!
+}
+
+/** Resolves a tag's global origin. `folderDerived` is deliberately not part of
+ *  this: mutation guards are root-independent. */
+function tagOrigin(db: DB, id: number): TagOrigin {
+  const row = db.prepare(
+    `SELECT user_created,
+            EXISTS(SELECT 1 FROM folder_tag_sources WHERE tag_id = tags.id) AS any_folder_source
+     FROM tags WHERE id = ?`
+  ).get<{ user_created: number; any_folder_source: number }>(id)
+  if (row?.user_created !== 1) return 'folder'
+  return row.any_folder_source === 1 ? 'shared' : 'user'
+}
+
+function assertEditableTag(db: DB, id: number): TagOrigin {
+  const origin = tagOrigin(db, id)
+  if (!isTagEditable(origin)) {
+    throw new Error('Folder-only tags are managed automatically and cannot be edited.')
+  }
+  return origin
 }
 
 export function renameTag(db: DB, id: number, name: string): void {
+  if (!isTagRenameable(tagOrigin(db, id))) {
+    throw new Error('Folder-derived tag names are managed automatically.')
+  }
   db.prepare('UPDATE tags SET name = ? WHERE id = ?').run(name, id)
 }
 
 export function setTagColor(db: DB, id: number, color: string | null): void {
+  assertEditableTag(db, id)
   db.prepare('UPDATE tags SET color = ? WHERE id = ?').run(color, id)
 }
 
 export function deleteTag(db: DB, id: number): void {
-  db.prepare('DELETE FROM tags WHERE id = ?').run(id)
+  // A shared tag keeps its identity and folder assignments; only the user's
+  // ownership and assignments are withdrawn, demoting it to a folder tag.
+  if (assertEditableTag(db, id) === 'shared') {
+    db.transaction(() => {
+      db.prepare('UPDATE tags SET user_created = 0, color = NULL WHERE id = ?').run(id)
+      db.prepare("DELETE FROM sample_tags WHERE tag_id = ? AND source = 'user'").run(id)
+    })()
+  } else {
+    db.prepare('DELETE FROM tags WHERE id = ?').run(id)
+  }
 }
 
 export function assignTag(db: DB, sampleId: number, tagId: number): void {
-  db.prepare('INSERT OR IGNORE INTO sample_tags (sample_id, tag_id) VALUES (?, ?)').run(
+  assertEditableTag(db, tagId)
+  db.prepare("INSERT OR IGNORE INTO sample_tags (sample_id, tag_id, source) VALUES (?, ?, 'user')").run(
     sampleId,
     tagId
   )
 }
 
 export function unassignTag(db: DB, sampleId: number, tagId: number): void {
-  db.prepare('DELETE FROM sample_tags WHERE sample_id = ? AND tag_id = ?').run(sampleId, tagId)
-}
-
-export function tagsForSample(db: DB, sampleId: number): TagRow[] {
-  return db
-    .prepare(
-      `SELECT t.id, t.name, t.color FROM tags t
-       JOIN sample_tags st ON st.tag_id = t.id
-       WHERE st.sample_id = ?
-       ORDER BY t.name`
-    )
-    .all<{ id: number; name: string; color: string | null }>(sampleId)
-    .map((r) => ({ id: r.id, name: r.name, color: r.color }))
-}
-
-// ---------------------------------------------------------------------------
-// Categories
-// ---------------------------------------------------------------------------
-
-export function listCategories(db: DB, rootKey: string): CategoryRow[] {
-  const rootId = scanRootId(db, rootKey)
-  if (rootId === undefined) return []
-  return db
-    .prepare(
-      `WITH RECURSIVE visible(id) AS (
-         SELECT category_id FROM category_sources WHERE root_id = ?
-         UNION
-         SELECT c.parent_id
-         FROM categories c
-         JOIN visible v ON v.id = c.id
-         WHERE c.parent_id IS NOT NULL
-       )
-       SELECT c.id, c.name, c.parent_id,
-              COALESCE(MAX(CASE WHEN cs.source = 'folder' THEN 1 ELSE 0 END), 0) AS folder_derived,
-              COALESCE(MAX(CASE WHEN cs.source = 'custom' THEN 1 ELSE 0 END), 0) AS user_created
-       FROM categories c
-       JOIN visible v ON v.id = c.id
-       LEFT JOIN category_sources cs ON cs.category_id = c.id AND cs.root_id = ?
-       GROUP BY c.id, c.name, c.parent_id
-       ORDER BY c.parent_id, c.name`
-    )
-    .all<{
-      id: number
-      name: string
-      parent_id: number | null
-      folder_derived: number
-      user_created: number
-    }>(rootId, rootId)
-    .map((r) => ({
-      id: r.id,
-      name: r.name,
-      parentId: r.parent_id,
-      folderDerived: r.folder_derived === 1,
-      userCreated: r.user_created === 1
-    }))
-}
-
-export function createCategory(
-  db: DB,
-  rootKey: string,
-  name: string,
-  parentId?: number
-): CategoryRow {
-  const rootId = ensureScanRoot(db, rootKey)
-  if (parentId !== undefined && !listCategories(db, rootKey).some(({ id }) => id === parentId)) {
-    throw new Error('The parent category is not visible to the active Sample Folder.')
-  }
-  if (parentId === undefined) {
-    // Guard against duplicate root categories (SQLite NULL != NULL in UNIQUE).
-    const existing = db
-      .prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?')
-      .get<{ id: number }>(name)
-    if (existing) {
-      db.prepare(
-        `INSERT OR IGNORE INTO category_sources (category_id, root_id, source)
-         VALUES (?, ?, 'custom')`
-      ).run(existing.id, rootId)
-      return listCategories(db, rootKey).find(({ id }) => id === existing.id)!
-    }
-  }
-  const result = db
-    .prepare('INSERT OR IGNORE INTO categories (name, parent_id) VALUES (?, ?)')
-    .run(name, parentId ?? null)
-  // When INSERT OR IGNORE is a no-op (duplicate parent_id+name), lastInsertRowid
-  // holds the previous insert's id, not the existing row's — so key off changes.
-  const id =
-    result.changes > 0
-      ? result.lastInsertRowid
-      : db
-          .prepare('SELECT id FROM categories WHERE name = ? AND parent_id IS ?')
-          .get<{ id: number }>(name, parentId ?? null)!.id
-  db.prepare(
-    `INSERT OR IGNORE INTO category_sources (category_id, root_id, source)
-     VALUES (?, ?, 'custom')`
-  ).run(id, rootId)
-  return listCategories(db, rootKey).find((category) => category.id === id)!
-}
-
-export function deleteCategory(db: DB, rootKey: string, id: number): CategoryRow[] {
-  const rootId = scanRootId(db, rootKey)
-  if (rootId === undefined) return []
-  const ids = buildSubtreeCTE(db, id)
-  if (ids.length === 0) return listCategories(db, rootKey)
-  const placeholders = ids.map(() => '?').join(', ')
-  db.transaction(() => {
-    db.prepare(
-      `DELETE FROM category_sources
-       WHERE root_id = ? AND source = 'custom' AND category_id IN (${placeholders})`
-    ).run(rootId, ...ids)
-  })()
-  const projection = listCategories(db, rootKey)
-  const visibleIds = new Set(projection.map((category) => category.id))
-  const hiddenIds = ids.filter((categoryId) => !visibleIds.has(categoryId))
-  if (hiddenIds.length > 0) {
-    const hiddenPlaceholders = hiddenIds.map(() => '?').join(', ')
-    db.transaction(() => {
-      db.prepare(
-        `DELETE FROM sample_categories
-         WHERE category_id IN (${hiddenPlaceholders})
-           AND sample_id IN (SELECT id FROM samples WHERE root_id = ?)`
-      ).run(...hiddenIds, rootId)
-      db.prepare(
-        `UPDATE samples SET category_id = NULL
-         WHERE root_id = ? AND category_id IN (${hiddenPlaceholders})`
-      ).run(rootId, ...hiddenIds)
-    })()
-  }
-  return projection
+  assertEditableTag(db, tagId)
+  db.prepare("DELETE FROM sample_tags WHERE sample_id = ? AND tag_id = ? AND source = 'user'").run(sampleId, tagId)
 }
 
 // ---------------------------------------------------------------------------
@@ -330,24 +280,9 @@ export function toFtsPrefixQuery(textSearch: string): string {
     .join(' ')
 }
 
-function buildSubtreeCTE(db: DB, categoryId: number): number[] {
-  return db
-    .prepare(
-      `WITH RECURSIVE subtree(id) AS (
-        SELECT id FROM categories WHERE id = ?
-        UNION ALL
-        SELECT c.id FROM categories c JOIN subtree s ON c.parent_id = s.id
-      )
-      SELECT id FROM subtree`
-    )
-    .all<{ id: number }>(categoryId)
-    .map((r) => r.id)
-}
-
 export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQueryResult {
   const {
     textSearch,
-    categoryId,
     tagIds,
     rootId: rootKey,
     limit = 200,
@@ -375,29 +310,13 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
     }
   }
 
-  if (categoryId !== undefined) {
-    const ids = buildSubtreeCTE(db, categoryId)
-    if (ids.length > 0) {
-      const placeholders = ids.map(() => '?').join(', ')
-      // Match the sample's root assignment (category_id) OR any subcategory
-      // membership recorded in the sample_categories join table, so selecting a
-      // subcategory chip finds samples whose deeper-folder membership lives only
-      // in the join table (see docs/data-model.md).
-      conditions.push(
-        `(s.category_id IN (${placeholders})
-          OR EXISTS (SELECT 1 FROM sample_categories sc
-                     WHERE sc.sample_id = s.id AND sc.category_id IN (${placeholders})))`
-      )
-      params.push(...ids, ...ids)
-    }
-  }
-
   if (tagIds && tagIds.length > 0) {
-    const placeholders = tagIds.map(() => '?').join(', ')
-    conditions.push(
-      `EXISTS (SELECT 1 FROM sample_tags st WHERE st.sample_id = s.id AND st.tag_id IN (${placeholders}))`
-    )
-    params.push(...tagIds)
+    for (const tagId of [...new Set(tagIds)]) {
+      conditions.push(
+        'EXISTS (SELECT 1 FROM sample_tags st WHERE st.sample_id = s.id AND st.tag_id = ?)'
+      )
+      params.push(tagId)
+    }
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -419,12 +338,18 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
       `SELECT s.id, s.relpath, s.filename, s.ext, s.size_bytes, s.mtime,
               s.duration, s.sample_rate, s.channels, s.bpm, s.bpm_source,
               s.musical_key, s.musical_key_source, s.sample_type, s.sample_type_source,
-              s.date_added, s.scan_state, s.category_id,
-              (SELECT GROUP_CONCAT(st.tag_id) FROM sample_tags st
+              s.date_added, s.scan_state,
+              (SELECT GROUP_CONCAT(DISTINCT st.tag_id) FROM sample_tags st
                 WHERE st.sample_id = s.id) AS tag_ids,
-              (SELECT GROUP_CONCAT(t.name, char(31)) FROM sample_tags st
-                JOIN tags t ON t.id = st.tag_id
-                WHERE st.sample_id = s.id) AS tag_names
+              (SELECT GROUP_CONCAT(DISTINCT st.tag_id) FROM sample_tags st
+                WHERE st.sample_id = s.id AND st.source = 'folder') AS folder_tag_ids,
+              (SELECT GROUP_CONCAT(DISTINCT st.tag_id) FROM sample_tags st
+                WHERE st.sample_id = s.id AND st.source = 'user') AS user_tag_ids,
+              (SELECT GROUP_CONCAT(name, char(31)) FROM (
+                 SELECT DISTINCT t.name AS name FROM sample_tags st
+                 JOIN tags t ON t.id = st.tag_id
+                 WHERE st.sample_id = s.id
+               )) AS tag_names
        FROM samples s ${where} ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all<{
@@ -445,8 +370,9 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
       sample_type_source: string | null
       date_added: number
       scan_state: number
-      category_id: number | null
       tag_ids: string | null
+      folder_tag_ids: string | null
+      user_tag_ids: string | null
       tag_names: string | null
     }>(...params, limit, offset)
 
@@ -470,10 +396,10 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
       sampleTypeSource: analysisSource(r.sample_type_source),
       dateAdded: r.date_added,
       scanState: r.scan_state,
-      categoryId: r.category_id,
       tagIds: r.tag_ids ? r.tag_ids.split(',').map(Number).sort((a, b) => a - b) : [],
+      folderTagIds: r.folder_tag_ids ? r.folder_tag_ids.split(',').map(Number).sort((a, b) => a - b) : [],
+      userTagIds: r.user_tag_ids ? r.user_tag_ids.split(',').map(Number).sort((a, b) => a - b) : [],
       tags: r.tag_names ? r.tag_names.split('\u001F').sort((a, b) => a.localeCompare(b)) : []
     }))
   }
 }
-

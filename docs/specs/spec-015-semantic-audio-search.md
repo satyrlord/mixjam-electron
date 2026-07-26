@@ -7,7 +7,7 @@ engine), Electron renderer architecture (backend worker owns the database)
 
 This spec owns the `similarTo` query predicate, zero-shot tag suggestions, and
 all CLAP-model-dependent behavior. Deterministic key/BPM compatibility is
-[spec-014](spec-014-musical-compatibility.md). Organizational categories are
+[spec-014](spec-014-musical-compatibility.md). Organizational tags are
 owned by [spec-004](spec-004-sample-library.md), while the heuristic analyzer
 in [spec-008](spec-008-sample-analysis.md) owns acoustic sample type.
 
@@ -113,9 +113,8 @@ this reference" a living library that updates as new samples are indexed.
 - Suggestions surface in the manage panel (and sample detail) for one-click
   accept/reject; accepted suggestions become ordinary rows in `tags` /
   `sample_tags`. Nothing is auto-assigned without confirmation in v1.
-- This spec never writes `samples.category_id` — the primary category
-  belongs to spec-004's folder-derived and user-managed category model.
-  Spec-008's heuristic classifier writes `sample_type`, not categories;
+- This spec never writes folder-derived tag provenance. Spec-004 owns the flat
+  folder-derived and user-managed tag model. Spec-008's heuristic classifier writes `sample_type`, not tags;
   suggestions here remain tags only.
 
 ### Degradation and gating
@@ -145,8 +144,8 @@ this reference" a living library that updates as new samples are indexed.
 - [ ] **AC-006:** Tag suggestions appear for a sample whose content matches a
   curated label; accepting one creates a normal tag assignment; rejecting one
   removes the suggestion without side effects.
-- [ ] **AC-007:** No tag or category is ever written without explicit user
-  acceptance; `samples.category_id` is never touched by this feature.
+- [ ] **AC-007:** No suggested tag is written without explicit user acceptance;
+  folder-derived assignments are never touched by this feature.
 - [ ] **AC-008:** With WebGPU unavailable, embedding computation completes
   via CPU-WASM and the UI remains responsive throughout (no long tasks on
   the backend worker attributable to inference).
@@ -157,7 +156,7 @@ this reference" a living library that updates as new samples are indexed.
 ## Non-Goals
 
 - No cloud inference, telemetry, or upload of any audio-derived data.
-- No automatic primary-category assignment (spec-004 owns categories).
+- No automatic folder-tag assignment (spec-004 owns folder-derived tags).
 - No hybrid FTS+semantic scoring in v1 (separate modes only).
 - No duplicate detection / near-duplicate clustering (a future use of the
   same embeddings).

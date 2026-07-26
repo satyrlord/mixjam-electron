@@ -505,13 +505,10 @@
   height: var(--ui-size);
 }
 
-.sample-bubble-hit-target,
-.category-tree-node,
-.category-tree-toggle {
+.sample-bubble-hit-target {
   min-height: var(--ui-size);
 }
 
-.category-tree .sample-bubble,
 .tiles .sample-bubble,
 .sample-bubble-hit-target > .sample-bubble {
   height: var(--ui-bubble-height);

@@ -82,18 +82,18 @@ function makeWav(durationSec: number, sampleRate = 8000, channels = 1): File {
 
 // ---------------------------------------------------------------------------
 // Generate a fake sample directory tree with SAMPLE_COUNT files across
-// multiple categories, matching a realistic library structure.
+// multiple folders, matching a realistic library structure.
 // ---------------------------------------------------------------------------
 
 function generateLargeTree(count: number): FakeTree {
-  const categories = ['Drums', 'Bass', 'Synth', 'FX', 'Vocal', 'Loop', 'Percussion', 'Atmosphere']
+  const folders = ['Drums', 'Bass', 'Synth', 'FX', 'Vocal', 'Loop', 'Percussion', 'Atmosphere']
   const tree: FakeTree = {}
 
   // Use a single shared 50ms WAV buffer to reduce memory pressure.
   const sharedWav = makeWav(0.05)
   for (let i = 0; i < count; i++) {
-    const category = categories[i % categories.length]
-    const dir = (tree[category] = (tree[category] || {}) as FakeTree)
+    const folder = folders[i % folders.length]
+    const dir = (tree[folder] = (tree[folder] || {}) as FakeTree)
     dir[`sample_${String(i).padStart(6, '0')}.wav`] = sharedWav
   }
 
@@ -134,9 +134,7 @@ describe('large-library scan stress', () => {
     // Verify the full scan completed.
     const lastEvent = events[events.length - 1]
     expect(lastEvent).toBeDefined()
-    expect(lastEvent.status).toBe('scanning')
-    expect(lastEvent.phase).toBe(2)
-    expect(lastEvent.processed).toBe(SAMPLE_COUNT)
+    expect(lastEvent).toMatchObject({ status: 'scanning', phase: 2, processed: SAMPLE_COUNT })
 
     // Verify all samples are queryable.
     const { total, rows } = querySamples(db, { rootId: ROOT_KEY, limit: 1 })

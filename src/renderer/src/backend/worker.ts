@@ -51,8 +51,8 @@ function buildCalls(db: DB, jobs: JobCoordinator): BackendCalls {
     cancelLibrarySync: jobs.cancelLibrarySync,
     getScanProgress: jobs.getScanProgress,
     getAnalysisProgress: jobs.getAnalysisProgress,
-    listTags: () => browserLibrary.listTags(db),
-    createTag: (name, color) => browserLibrary.createTag(db, name, color),
+    listTags: (rootKey) => browserLibrary.listTags(db, rootKey),
+    createTag: (name, color, rootKey) => browserLibrary.createTag(db, name, color, rootKey),
     renameTag: (id, name) => browserLibrary.renameTag(db, id, name),
     setTagColor: (id, color) => browserLibrary.setTagColor(db, id, color),
     deleteTag: (id) => browserLibrary.deleteTag(db, id),
@@ -61,10 +61,6 @@ function buildCalls(db: DB, jobs: JobCoordinator): BackendCalls {
     updateSampleAnalysis: (sampleId, patch) =>
       analysisPersistence.updateSampleAnalysis(db, sampleId, patch),
     reanalyzeSample: jobs.reanalyzeSample,
-    listCategories: (rootKey) => browserLibrary.listCategories(db, rootKey),
-    createCategory: (rootKey, name, parentId) =>
-      browserLibrary.createCategory(db, rootKey, name, parentId),
-    deleteCategory: (rootKey, id) => browserLibrary.deleteCategory(db, rootKey, id),
     listLibraries: () => browserLibrary.listLibraries(db),
     saveLibrary: (name, ruleJson) => browserLibrary.saveLibrary(db, name, ruleJson),
     deleteLibrary: (id) => browserLibrary.deleteLibrary(db, id)
@@ -92,9 +88,6 @@ const ALLOWED_OPS = new Set<string>([
   'unassignTag',
   'updateSampleAnalysis',
   'reanalyzeSample',
-  'listCategories',
-  'createCategory',
-  'deleteCategory',
   'listLibraries',
   'saveLibrary',
   'deleteLibrary'

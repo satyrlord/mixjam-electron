@@ -1,13 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SampleTileGrid from './SampleTileGrid'
-import type { CategoryItem, SampleListItem } from '../../../shared/backend-api'
+import type { SampleListItem } from '../../../shared/backend-api'
 import { UiSizeProvider } from '../ui-size'
-
-const CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
-  { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: false }
-]
 
 function makeSample(overrides: Partial<SampleListItem> = {}): SampleListItem {
   return {
@@ -15,7 +10,7 @@ function makeSample(overrides: Partial<SampleListItem> = {}): SampleListItem {
     dbId: 1,
     name: 'a.wav',
     relpath: 'a.wav',
-    category: 'Bass',
+    sourceGroup: 'Bass',
     durationSeconds: 2.0,
     bpm: null,
     bpmSource: null,
@@ -24,7 +19,8 @@ function makeSample(overrides: Partial<SampleListItem> = {}): SampleListItem {
     sampleType: null,
     sampleTypeSource: null,
     tags: [],
-    categoryId: 1,
+    folderTagIds: [],
+    userTagIds: [],
     tagIds: [],
     ...overrides
   }
@@ -47,7 +43,6 @@ describe('SampleTileGrid', () => {
         bubblePixelsPerSecond={120}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -76,7 +71,6 @@ describe('SampleTileGrid', () => {
           bubblePixelsPerSecond={1}
           selectedSamplePath={null}
           flashSamplePath={null}
-          categories={CATEGORIES}
           loading={false}
           error={null}
           hasMore={false}
@@ -103,7 +97,6 @@ describe('SampleTileGrid', () => {
         durationTicksBySamplePath={new Map([['a.wav', 64]])}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -126,7 +119,6 @@ describe('SampleTileGrid', () => {
         durationTicksBySamplePath={new Map([['a.wav', 64]])}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -148,7 +140,6 @@ describe('SampleTileGrid', () => {
         samples={[]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -173,7 +164,6 @@ describe('SampleTileGrid', () => {
         samples={[]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error="Custom error message"
         hasMore={false}
@@ -196,7 +186,6 @@ describe('SampleTileGrid', () => {
         samples={[]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={true}
         error={null}
         hasMore={false}
@@ -222,11 +211,10 @@ describe('SampleTileGrid', () => {
         samples={[]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         emptyTitle="No matching samples"
-        emptyDescription="Try a different search, category, or tag."
+        emptyDescription="Try a different search or tag."
         onClearFilters={onClearFilters}
         hasMore={false}
         onLoadMore={vi.fn()}
@@ -251,7 +239,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -280,7 +267,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -308,7 +294,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -334,7 +319,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath="a.wav"
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -358,7 +342,6 @@ describe('SampleTileGrid', () => {
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath="a.wav"
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -375,15 +358,14 @@ describe('SampleTileGrid', () => {
     expect(button.classList.contains('sample-bubble-flash')).toBe(true)
   })
 
-  it('keeps the sample category slot stable in the bubble and drag payload', () => {
-    const sample = makeSample({ categoryId: 2 })
+  it('keeps the sample source-group slot stable in the bubble and drag payload', () => {
+    const sample = makeSample({ sourceGroup: 'Drums' })
     const onSampleDragStart = vi.fn()
     const { container } = render(
       <SampleTileGrid
         samples={[sample]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={false}
@@ -414,7 +396,6 @@ describe('SampleTileGrid', () => {
         samples={[makeSample()]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={false}
         error={null}
         hasMore={true}
@@ -447,7 +428,6 @@ describe('SampleTileGrid', () => {
           samples={samples}
           selectedSamplePath={null}
           flashSamplePath={null}
-          categories={CATEGORIES}
           loading={false}
           error={null}
           hasMore
@@ -472,7 +452,6 @@ describe('SampleTileGrid', () => {
         samples={[makeSample()]}
         selectedSamplePath={null}
         flashSamplePath={null}
-        categories={CATEGORIES}
         loading={true}
         error={null}
         hasMore={true}

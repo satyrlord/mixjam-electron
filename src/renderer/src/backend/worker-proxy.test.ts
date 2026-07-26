@@ -66,10 +66,6 @@ describe('worker proxy', () => {
     const progress: ScanProgress = {
       identity: IDENTITY,
       status: 'error',
-      phase: 2,
-      found: 10,
-      processed: 7,
-      total: 10,
       error: 'database is full'
     }
 
@@ -216,12 +212,7 @@ describe('worker proxy', () => {
     const listener = vi.fn()
     proxy.onAnalysisProgress(listener)
 
-    const progress: AnalysisProgress = {
-      identity: IDENTITY,
-      status: 'error',
-      analyzed: 0,
-      total: 0
-    }
+    const progress: AnalysisProgress = { identity: IDENTITY, status: 'error' }
     worker.emit({ type: 'analysis-progress', progress })
 
     expect(listener).toHaveBeenCalledWith(progress)
@@ -233,14 +224,7 @@ describe('worker proxy', () => {
     const listener = vi.fn()
     proxy.onScanProgress(listener)
 
-    const progress: ScanProgress = {
-      identity: IDENTITY,
-      status: 'error',
-      phase: null,
-      found: 0,
-      processed: 0,
-      total: 0
-    }
+    const progress: ScanProgress = { identity: IDENTITY, status: 'error' }
     worker.emit({ type: 'scan-progress', progress })
 
     expect(listener).toHaveBeenCalledWith(progress)

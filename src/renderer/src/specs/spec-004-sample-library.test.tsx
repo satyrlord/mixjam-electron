@@ -11,7 +11,6 @@ import type {
 } from '../components/playerProps'
 import { defaultMasterBusState } from '../engine/masterbus/presets'
 import type {
-  CategoryItem,
   LibraryItem,
   LibrarySyncState,
   SampleListItem,
@@ -37,13 +36,6 @@ const LANES: LaneState[] = Array.from({ length: 4 }, (_, index) => ({
   placements: []
 }))
 
-const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { id: 1, name: 'Unsorted', parentId: null, folderDerived: true, userCreated: false },
-  { id: 2, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
-  { id: 3, name: 'Loop', parentId: null, folderDerived: true, userCreated: false },
-  { id: 4, name: 'Drums', parentId: null, folderDerived: true, userCreated: false },
-]
-
 const READY_LIBRARY_STATE: LibrarySyncState = {
   status: 'ready',
   rootKey: 'samples',
@@ -66,7 +58,7 @@ function makeDbSamples(count: number): SampleListItem[] {
     dbId: i + 1,
     name: `sample_${i}.wav`,
     relpath: `/samples/sample_${i}.wav`,
-    category: 'Unsorted',
+    sourceGroup: 'Unsorted',
     durationSeconds: i * 0.5 + 0.1,
     bpm: null,
     bpmSource: null,
@@ -75,8 +67,9 @@ function makeDbSamples(count: number): SampleListItem[] {
     sampleType: null,
     sampleTypeSource: null,
     tags: [],
-    categoryId: null,
-    tagIds: []
+    tagIds: [],
+    folderTagIds: [],
+    userTagIds: []
   }))
 }
 
@@ -88,20 +81,16 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   totalCount: 0,
   hasMoreSamples: false,
   selectedSamplePath: null,
-  selectedCategoryId: undefined,
   selectedTagIds: [],
   sortBy: 'filename',
   sortDir: 'asc',
   tags: [],
-  categories: DEFAULT_CATEGORIES,
   libraries: [],
   librarySyncState: READY_LIBRARY_STATE,
-  categoryScopeKey: 'samples',
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
   onPreviewSample: noop,
-  onSelectCategory: noop,
   onToggleTagFilter: noop,
   onSortChange: noop,
   onRescanLibrary: asyncNoop,
@@ -115,8 +104,6 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   onUnassignTagFromSample: asyncNoop as never,
   onUpdateSampleAnalysis: asyncNoop as never,
   onReanalyzeSample: asyncNoop as never,
-  onCreateCategory: asyncNoop as never,
-  onDeleteCategory: asyncNoop as never,
   onSaveLibrary: asyncNoop as never,
   onDeleteLibrary: asyncNoop as never,
   onApplyLibrary: noop
@@ -217,8 +204,8 @@ function renderPlayer(browserOverrides: Partial<PlayerBrowserProps> = {}) {
 }
 
 // Opens the manage panel and switches to the given tab
-function openManagePanel(tab: 'Tags' | 'Libraries' | 'Categories') {
-  fireEvent.click(screen.getByRole('button', { name: /manage tags, libraries, and categories/i }))
+function openManagePanel(tab: 'Tags' | 'Libraries') {
+  fireEvent.click(screen.getByRole('button', { name: /manage tags and libraries/i }))
   fireEvent.click(screen.getByRole('tab', { name: new RegExp(tab, 'i') }))
 }
 
@@ -256,63 +243,19 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     expect(onSearchChange).toHaveBeenCalledWith('')
   })
 
-  // -------------------------------------------------------------------------
-  // AC-010: "Unsorted" hardcoded category
-  // -------------------------------------------------------------------------
-
-  it('AC-010: Unsorted hardcoded category is always visible in the category tree', () => {
-    renderPlayer()
-    expect(screen.getByRole('button', { name: 'Unsorted' })).toBeInTheDocument()
-  })
-
-  it('AC-010: folder-derived categories appear alongside Unsorted', () => {
-    renderPlayer({ categories: DEFAULT_CATEGORIES })
-    expect(screen.getByRole('button', { name: 'Unsorted' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Bass' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Loop' })).toBeInTheDocument()
-  })
-
-  it('AC-010a: user can type a new category name and click + to create it', async () => {
-    const onCreateCategory = vi.fn().mockResolvedValue({ id: 99, name: 'Foley', parentId: null })
-    renderPlayer({ onCreateCategory })
-
-    openManagePanel('Categories')
-
-    const input = screen.getByRole('textbox', { name: /new category name/i })
-    fireEvent.change(input, { target: { value: 'Foley' } })
-    fireEvent.click(screen.getByRole('button', { name: /add category/i }))
-
-    await waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('Foley', undefined))
-  })
-
-  it('AC-010b: user can choose a parent when creating a subcategory', async () => {
-    const onCreateCategory = vi.fn().mockResolvedValue({ id: 99, name: 'Kicks', parentId: 2 })
-    renderPlayer({ onCreateCategory })
-
-    openManagePanel('Categories')
-
-    const input = screen.getByRole('textbox', { name: /new category name/i })
-    fireEvent.change(input, { target: { value: 'Kicks' } })
-
-    const parentSelect = screen.getByRole('combobox', { name: /parent category/i })
-    fireEvent.change(parentSelect, { target: { value: '2' } })
-
-    fireEvent.click(screen.getByRole('button', { name: /add category/i }))
-
-    await waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith('Kicks', 2))
-  })
-
-  it('AC-010b: subcategories render under an expandable parent', () => {
+  it('AC-010a: the flat tag navigator searches and toggles tags', () => {
+    const onToggleTagFilter = vi.fn()
     renderPlayer({
-      categories: [
-        ...DEFAULT_CATEGORIES,
-        { id: 5, name: 'Kicks', parentId: 4, folderDerived: true, userCreated: false }
-      ]
+      tags: [
+        { id: 4, name: 'Drums', color: null, origin: 'folder', folderDerived: true },
+        { id: 5, name: 'Bass', color: null, origin: 'folder', folderDerived: true }
+      ],
+      onToggleTagFilter
     })
-
-    expect(screen.getByRole('button', { name: 'Kicks' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse Drums' }))
-    expect(screen.queryByRole('button', { name: 'Kicks' })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search tags' }), { target: { value: 'drum' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Drums' }))
+    expect(onToggleTagFilter).toHaveBeenCalledWith(4)
+    expect(screen.queryByRole('button', { name: 'Bass' })).not.toBeInTheDocument()
   })
 
   // -------------------------------------------------------------------------
@@ -321,7 +264,13 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
   describe('tag management (Tags tab)', () => {
     it('AC-007: user can create a tag via the Tags tab', async () => {
-      const onCreateTag = vi.fn().mockResolvedValue({ id: 1, name: 'Kick', color: null } as TagItem)
+      const onCreateTag = vi.fn().mockResolvedValue({
+        id: 1,
+        name: 'Kick',
+        color: null,
+        origin: 'user',
+        folderDerived: false
+      } as TagItem)
       renderPlayer({ onCreateTag })
 
       openManagePanel('Tags')
@@ -330,11 +279,13 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
       fireEvent.change(input, { target: { value: 'Kick' } })
       fireEvent.click(screen.getByRole('button', { name: /create tag/i }))
 
-      await waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Kick'))
+      await waitFor(() => expect(onCreateTag).toHaveBeenCalledWith('Kick', undefined))
     })
 
     it('AC-007: newly created tag appears in the list after creation', () => {
-      const tags: TagItem[] = [{ id: 1, name: 'Kick', color: null }]
+      const tags: TagItem[] = [
+        { id: 1, name: 'Kick', color: null, origin: 'user', folderDerived: false }
+      ]
       const { container } = renderPlayer({ tags })
 
       openManagePanel('Tags')
@@ -347,7 +298,9 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
     it('AC-007: user can set and clear a tag color', async () => {
       const onSetTagColor = vi.fn().mockResolvedValue(undefined)
-      const tags: TagItem[] = [{ id: 1, name: 'Kick', color: '#123456' }]
+      const tags: TagItem[] = [
+        { id: 1, name: 'Kick', color: '#123456', origin: 'user', folderDerived: false }
+      ]
       renderPlayer({ tags, onSetTagColor })
 
       openManagePanel('Tags')
@@ -362,7 +315,9 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
     it('AC-008: rename tag calls onRenameTag and updates display', async () => {
       const onRenameTag = vi.fn().mockResolvedValue(undefined)
-      const tags: TagItem[] = [{ id: 1, name: 'OldName', color: null }]
+      const tags: TagItem[] = [
+        { id: 1, name: 'OldName', color: null, origin: 'user', folderDerived: false }
+      ]
       renderPlayer({ tags, onRenameTag })
 
       openManagePanel('Tags')
@@ -377,7 +332,9 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
 
     it('AC-009: delete tag calls onDeleteTag', async () => {
       const onDeleteTag = vi.fn().mockResolvedValue(undefined)
-      const tags: TagItem[] = [{ id: 1, name: 'ToDelete', color: null }]
+      const tags: TagItem[] = [
+        { id: 1, name: 'ToDelete', color: null, origin: 'user', folderDerived: false }
+      ]
       renderPlayer({ tags, onDeleteTag })
 
       openManagePanel('Tags')
@@ -545,15 +502,16 @@ describe('Spec 004 - Sample Library acceptance (renderer)', () => {
     )
   })
 
-  // -------------------------------------------------------------------------
-  // AC-011: category filter activates via tile press
-  // -------------------------------------------------------------------------
-
-  it('AC-011: clicking a category calls onSelectCategory with the category id', () => {
-    const onSelectCategory = vi.fn()
-    renderPlayer({ onSelectCategory })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Drums' }))
-    expect(onSelectCategory).toHaveBeenCalledWith(4)
+  it('AC-011: active tag chips expose match-all semantics', () => {
+    renderPlayer({
+      tags: [
+        { id: 4, name: 'Drums', color: null, origin: 'folder', folderDerived: true },
+        { id: 5, name: 'Bass', color: null, origin: 'folder', folderDerived: true }
+      ],
+      selectedTagIds: [4, 5]
+    })
+    expect(screen.getByLabelText('Active tag filters, match all')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Drums filter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Bass filter' })).toBeInTheDocument()
   })
 })

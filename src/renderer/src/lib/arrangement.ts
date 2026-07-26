@@ -9,9 +9,9 @@ import { weakMemoize1 } from './weak-memoize'
  *  paths are relpaths within the active Sample Folder's scan root. */
 export type FooterSampleDetail = Pick<SampleListItem, 'name' | 'relpath' | 'tags' | 'bpm'> & {
   duration: number | null
-  /** Category-derived palette slot (0-7, 8 = Unsorted). The hex resolves at
+  /** Source-group-derived palette slot (0-7, 8 = Unsorted). The hex resolves at
    *  draw time from the active theme's palette, so placements recolor on theme
-   *  switch while staying stable across category renames (spec-002). */
+   *  switch while staying stable across source-group renames (spec-002). */
   slot?: number
 }
 

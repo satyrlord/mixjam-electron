@@ -127,21 +127,21 @@ function shortlistCandidates(
         generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
       ))
     .sort(familyOrder(`${parameters.seed}:${profile.id}:${profile.version}:stereo-pairs`))
-  const categoryNames = [...new Set(candidates.map((candidate) => candidate.categoryName))]
+  const sourceGroups = [...new Set(candidates.map((candidate) => candidate.sourceGroup))]
     .sort(compareCodeUnits)
-  const categoryQueues = categoryNames.map((categoryName) => [...candidates]
-    .filter((candidate) => candidate.categoryName === categoryName && profile.lanes.some((lane) =>
+  const sourceGroupQueues = sourceGroups.map((sourceGroup) => [...candidates]
+    .filter((candidate) => candidate.sourceGroup === sourceGroup && profile.lanes.some((lane) =>
       lane.types.includes(candidate.sampleType) &&
       generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
     ))
-    // Category queues are family-ordered like lane queues: a category's
+    // Source-group queues are family-ordered like lane queues: a group's
     // coverage pick can then be buddied with an admitted sibling, instead of
     // arriving as the lone analyzed member of its family.
-    .sort(familyOrder(`${parameters.seed}:${profile.id}:${profile.version}:category-${categoryName}`)))
+    .sort(familyOrder(`${parameters.seed}:${profile.id}:${profile.version}:source-group-${sourceGroup}`)))
 
   const result: ShortlistedCandidate[] = []
   const seen = new Set<string>()
-  const allQueues = [...queues, ...categoryQueues, pairedQueue]
+  const allQueues = [...queues, ...sourceGroupQueues, pairedQueue]
   const positions = allQueues.map(() => 0)
   const addQueuePass = (queueIndexes: readonly number[]): boolean => {
     let advanced = false
@@ -170,11 +170,11 @@ function shortlistCandidates(
   // The paired queue rotates alongside the lane queues so complete stereo
   // pairs keep arriving throughout the budget, not only in one early burst.
   const laneQueueIndexes = [...queues.map((_, index) => index), allQueues.length - 1]
-  const categoryQueueIndexes = categoryQueues.map((_, index) => queues.length + index)
+  const sourceGroupQueueIndexes = sourceGroupQueues.map((_, index) => queues.length + index)
   addQueuePass(coreQueueIndexes)
-  addQueuePass(categoryQueueIndexes)
+  addQueuePass(sourceGroupQueueIndexes)
   while (result.length < MAX_GENERATOR_ATTEMPTS && addQueuePass(laneQueueIndexes)) {
-    addQueuePass(categoryQueueIndexes)
+    addQueuePass(sourceGroupQueueIndexes)
   }
   return result
 }
@@ -324,7 +324,7 @@ export async function analyzeGeneratorCandidates(
   const bpm = parameters.bpm!
   const analyzed: AnalyzedGeneratorCandidate[] = []
   const missingLanes = new Set(shortlist.flatMap((entry) => entry.eligibleLaneIndexes))
-  const missingCategories = new Set(shortlist.map((entry) => entry.candidate.categoryName))
+  const missingSourceGroups = new Set(shortlist.map((entry) => entry.candidate.sourceGroup))
   let attempts = 0
   for (const { candidate, eligibleLaneIndexes } of shortlist) {
     if (attempts >= MAX_GENERATOR_ATTEMPTS || analyzed.length >= MAX_GENERATOR_ANALYSES) break
@@ -344,17 +344,17 @@ export async function analyzeGeneratorCandidates(
             return generatorCandidateMatchesLane(enriched, lane, enriched.sampleType, bpm)
           })
           const newlyFilledLanes = compatibleLaneIndexes.filter((laneIndex) => missingLanes.has(laneIndex))
-          const fillsCategory = missingCategories.has(enriched.categoryName)
+          const fillsSourceGroup = missingSourceGroups.has(enriched.sourceGroup)
           const reservedCapacity = Math.min(
             MAX_GENERATOR_ANALYSES,
-            missingLanes.size + missingCategories.size
+            missingLanes.size + missingSourceGroups.size
           )
           if (compatibleLaneIndexes.length > 0 &&
-              (newlyFilledLanes.length > 0 || fillsCategory ||
+              (newlyFilledLanes.length > 0 || fillsSourceGroup ||
                 analyzed.length < MAX_GENERATOR_ANALYSES - reservedCapacity)) {
             analyzed.push(enriched)
             for (const laneIndex of newlyFilledLanes) missingLanes.delete(laneIndex)
-            if (fillsCategory) missingCategories.delete(enriched.categoryName)
+            if (fillsSourceGroup) missingSourceGroups.delete(enriched.sourceGroup)
           }
         }
       }

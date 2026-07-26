@@ -2,10 +2,37 @@ import { describe, expect, it } from 'vitest'
 import { AudioEngine } from './audio-engine'
 import { MockAudioContext, MockAudioWorkletNode, createMockContext } from '../test/mockAudioContext'
 import { createClipEdgeFadePlan } from './clip-edge-fades'
-import { createDefaultEchoformDelayReturnModule } from './return-effects'
+import { createDefaultEchoformDelayReturnModule, createEmptyReturnModule } from './return-effects'
+import { prepareEchoformDelayWorklet } from './echoform-delay-processor'
 
 function makeBuffer(): AudioBuffer {
   return { duration: 1, length: 44100, numberOfChannels: 2, sampleRate: 44100 } as AudioBuffer
+}
+
+/** Records every AudioWorkletNode the engine builds, so a test can address the
+ *  specific node a later replacement is supposed to retire. */
+function captureWorkletNodes(): MockAudioWorkletNode[] & { restore: () => void } {
+  const original = globalThis.AudioWorkletNode
+  const captured = [] as unknown as MockAudioWorkletNode[] & { restore: () => void }
+  class Recording extends MockAudioWorkletNode {
+    constructor() {
+      super()
+      captured.push(this)
+    }
+  }
+  Object.defineProperty(globalThis, 'AudioWorkletNode', {
+    configurable: true,
+    writable: true,
+    value: Recording
+  })
+  captured.restore = () => {
+    Object.defineProperty(globalThis, 'AudioWorkletNode', {
+      configurable: true,
+      writable: true,
+      value: original
+    })
+  }
+  return captured
 }
 
 function makeEngine(): { engine: AudioEngine; context: MockAudioContext } {
@@ -35,6 +62,65 @@ describe('AudioEngine', () => {
     engine.replaceReturnBuses([{ ...snapshot, returnLevel: 0.4 }], 120)
     const gainAfterReplace = context.created.gains.find((g) => g.gain.value === 0.4)
     expect(gainAfterReplace).toBeDefined()
+  })
+
+  // Regression: loading a project rebuilds all four Return processors. A
+  // replaced AudioWorkletNode that is merely disconnected stays actively
+  // processing — Chromium keeps rendering its DSP every quantum for the rest of
+  // the session and never collects it — so a few consecutive loads used to pile
+  // up delays and reverbs until playback went choppy. Replacement must retire
+  // the outgoing processor.
+  it('retires the outgoing Return processor when a project load replaces the buses', async () => {
+    const context = createMockContext()
+    const engine = new AudioEngine({ createContext: () => context as unknown as AudioContext })
+    const workletNodes = captureWorkletNodes()
+    try {
+      await prepareEchoformDelayWorklet(engine.ensureContext() as unknown as BaseAudioContext)
+      const snapshot = {
+        index: 0,
+        module: createDefaultEchoformDelayReturnModule('fx-1'),
+        powered: true,
+        returnLevel: 1,
+        limiterEnabled: true
+      }
+      engine.setReturnBus(0, snapshot, 120)
+      const outgoing = workletNodes.at(-1)!
+
+      engine.replaceReturnBuses([snapshot], 120)
+
+      expect(outgoing.port.postMessage).toHaveBeenLastCalledWith({ type: 'dispose' })
+      // A fresh processor took its place rather than the old one being reused.
+      expect(workletNodes.at(-1)).not.toBe(outgoing)
+    } finally {
+      workletNodes.restore()
+    }
+  })
+
+  it('retires the outgoing Return processor when the module type changes', async () => {
+    const context = createMockContext()
+    const engine = new AudioEngine({ createContext: () => context as unknown as AudioContext })
+    const workletNodes = captureWorkletNodes()
+    try {
+      await prepareEchoformDelayWorklet(engine.ensureContext() as unknown as BaseAudioContext)
+      engine.setReturnBus(0, {
+        module: createDefaultEchoformDelayReturnModule('fx-1'),
+        powered: true,
+        returnLevel: 1,
+        limiterEnabled: true
+      }, 120)
+      const outgoing = workletNodes.at(-1)!
+
+      engine.setReturnBus(0, {
+        module: createEmptyReturnModule('fx-1'),
+        powered: true,
+        returnLevel: 1,
+        limiterEnabled: true
+      }, 120)
+
+      expect(outgoing.port.postMessage).toHaveBeenLastCalledWith({ type: 'dispose' })
+    } finally {
+      workletNodes.restore()
+    }
   })
 
   it('test AudioWorklet mock exposes the message-port surface used by the engine', () => {

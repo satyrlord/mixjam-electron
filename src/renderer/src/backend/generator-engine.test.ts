@@ -71,7 +71,7 @@ function candidate(
     bpm: BPM,
     musicalKey: tonal ? 'Am' : null,
     sampleType,
-    categoryName: sampleType === 'Bass' ? 'Bass' : 'Unsorted',
+    sourceGroup: sampleType === 'Bass' ? 'Bass' : 'Unsorted',
     paletteSlot: sampleType === 'Bass' ? 2 : 8,
     metadataRevision: 1,
     analysisRevision: 1,
@@ -96,42 +96,42 @@ const candidates = [
   candidate(type as SampleType, typeIndex * 2 + index)
 ))
 
-const categoryRichCandidates = [
+const sourceGroupRichCandidates = [
   ...(['Kick', 'Snare', 'Hi-hat', 'Percussion'] as const).flatMap((type, typeIndex) =>
     Array.from({ length: 4 }, (_, index) => candidate(type, 100 + typeIndex * 10 + index, {
-      categoryName: 'Drum',
+      sourceGroup: 'Drum',
       paletteSlot: 1
     }))
   ),
   ...Array.from({ length: 4 }, (_, index) => candidate('Bass', 200 + index, {
-    categoryName: 'Bass',
+    sourceGroup: 'Bass',
     paletteSlot: 2
   })),
   ...Array.from({ length: 4 }, (_, index) => candidate('Loop', 300 + index, {
-    categoryName: 'Loop',
+    sourceGroup: 'Loop',
     paletteSlot: 3
   })),
   ...Array.from({ length: 9 }, (_, index) => candidate('Synth', 400 + index, {
-    categoryName: ['Keys', 'Layer', 'Seq'][index % 3]!,
+    sourceGroup: ['Keys', 'Layer', 'Seq'][index % 3]!,
     paletteSlot: 4 + index % 3
   })),
   ...Array.from({ length: 6 }, (_, index) => candidate('Vocal', 500 + index, {
-    categoryName: index % 2 === 0 ? 'Rap' : 'Voice',
+    sourceGroup: index % 2 === 0 ? 'Rap' : 'Voice',
     paletteSlot: index % 2 === 0 ? 7 : 8
   })),
   ...Array.from({ length: 4 }, (_, index) => candidate('Atmosphere', 600 + index, {
-    categoryName: 'Sphere',
+    sourceGroup: 'Sphere',
     duration: durationForTicks(10 * TICKS_PER_BAR),
     paletteSlot: 0,
     plannerKind: 'atmosphere'
   })),
   ...Array.from({ length: 8 }, (_, index) => candidate('FX', 700 + index, {
-    categoryName: 'Effect',
+    sourceGroup: 'Effect',
     paletteSlot: 1,
     plannerKind: index % 2 === 0 ? 'riser' : 'impact'
   })),
   ...Array.from({ length: 4 }, (_, index) => candidate('Other', 800 + index, {
-    categoryName: 'Xtra',
+    sourceGroup: 'Xtra',
     paletteSlot: 2,
     plannerKind: 'texture'
   }))
@@ -172,9 +172,9 @@ describe('MixJam generator engine', () => {
     const plan = createMixJamGeneratorPlan(
       'root',
       'fingerprint',
-      categoryRichCandidates,
+      sourceGroupRichCandidates,
       parameters('custom-profile'),
-      { attemptedFiles: categoryRichCandidates.length, analyzedFiles: categoryRichCandidates.length, uniqueReads: categoryRichCandidates.length },
+      { attemptedFiles: sourceGroupRichCandidates.length, analyzedFiles: sourceGroupRichCandidates.length, uniqueReads: sourceGroupRichCandidates.length },
       BPM,
       registry.profiles
     )
@@ -186,23 +186,23 @@ describe('MixJam generator engine', () => {
   })
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
-    'uses every lane, every eligible category, long material, and richer variation for %s',
+    'uses every lane, every eligible sourceGroup, long material, and richer variation for %s',
     (profileId) => {
       const plan = createMixJamGeneratorPlan(
         'root',
         'fingerprint',
-        categoryRichCandidates,
+        sourceGroupRichCandidates,
         parameters(profileId)
       )
       const placements = plan.lanes.flatMap((lane) => lane.placements)
-      const byRef = new Map(categoryRichCandidates.map((entry) => [entry.relpath, entry]))
-      const usedCategories = new Set(placements.map((placement) =>
-        byRef.get(placement.sampleRef)!.categoryName
+      const byRef = new Map(sourceGroupRichCandidates.map((entry) => [entry.relpath, entry]))
+      const usedSourceGroups = new Set(placements.map((placement) =>
+        byRef.get(placement.sampleRef)!.sourceGroup
       ))
-      const eligibleCategories = new Set(categoryRichCandidates.map((entry) => entry.categoryName))
+      const eligibleSourceGroups = new Set(sourceGroupRichCandidates.map((entry) => entry.sourceGroup))
 
       expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
-      expect(usedCategories).toEqual(eligibleCategories)
+      expect(usedSourceGroups).toEqual(eligibleSourceGroups)
       expect(Math.max(...placements.map((placement) => placement.durationTicks)))
         .toBeGreaterThan(4 * TICKS_PER_BAR)
       expect(plan.lanes[14]!.placements.length).toBeGreaterThan(0)
@@ -224,20 +224,20 @@ describe('MixJam generator engine', () => {
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS.flatMap((profileId) =>
     (['low', 'medium', 'high'] as const).map((intensity) => ({ profileId, intensity }))
-  ))('keeps every lane, category, and long-form role across $profileId $intensity intensity', ({
+  ))('keeps every lane, sourceGroup, and long-form role across $profileId $intensity intensity', ({
     profileId,
     intensity
   }) => {
-    const plan = createMixJamGeneratorPlan('root', 'fingerprint', categoryRichCandidates, {
+    const plan = createMixJamGeneratorPlan('root', 'fingerprint', sourceGroupRichCandidates, {
       ...parameters(profileId),
       intensity
     })
     const placements = plan.lanes.flatMap((lane) => lane.placements)
-    const byRef = new Map(categoryRichCandidates.map((entry) => [entry.relpath, entry]))
+    const byRef = new Map(sourceGroupRichCandidates.map((entry) => [entry.relpath, entry]))
 
     expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
-    expect(new Set(placements.map((placement) => byRef.get(placement.sampleRef)!.categoryName)))
-      .toEqual(new Set(categoryRichCandidates.map((entry) => entry.categoryName)))
+    expect(new Set(placements.map((placement) => byRef.get(placement.sampleRef)!.sourceGroup)))
+      .toEqual(new Set(sourceGroupRichCandidates.map((entry) => entry.sourceGroup)))
     expect(placements.some((placement) => placement.durationTicks > 4 * TICKS_PER_BAR)).toBe(true)
   })
 
@@ -247,7 +247,7 @@ describe('MixJam generator engine', () => {
     profileId,
     intensity
   }) => {
-    const plan = createMixJamGeneratorPlan('root', 'fingerprint', categoryRichCandidates, {
+    const plan = createMixJamGeneratorPlan('root', 'fingerprint', sourceGroupRichCandidates, {
       ...parameters(profileId),
       durationSeconds: 30,
       intensity
@@ -268,14 +268,14 @@ describe('MixJam generator engine', () => {
     expect(generatorCandidateMatchesLane(otherTexture, impactLane!, 'Other', BPM)).toBe(false)
   })
 
-  it('keeps category-coverage percussion on the lane grid', () => {
-    const snareCategories = Array.from({ length: 30 }, (_, index) => candidate('Snare', 900 + index, {
-      categoryName: `Snare ${String(index).padStart(2, '0')}`,
+  it('keeps sourceGroup-coverage percussion on the lane grid', () => {
+    const snareSourceGroups = Array.from({ length: 30 }, (_, index) => candidate('Snare', 900 + index, {
+      sourceGroup: `Snare ${String(index).padStart(2, '0')}`,
       plannerKind: 'one-shot'
     }))
     const plan = createMixJamGeneratorPlan('root', 'fingerprint', [
-      ...categoryRichCandidates,
-      ...snareCategories
+      ...sourceGroupRichCandidates,
+      ...snareSourceGroups
     ], {
       ...parameters('techno'),
       durationSeconds: 30,
@@ -295,7 +295,7 @@ describe('MixJam generator engine', () => {
   it('uses intensity for sample variety, phrase fills, and family strictness', () => {
     const plans = Object.fromEntries((['low', 'medium', 'high'] as const).map((intensity) => [
       intensity,
-      createMixJamGeneratorPlan('root', 'fingerprint', categoryRichCandidates, {
+      createMixJamGeneratorPlan('root', 'fingerprint', sourceGroupRichCandidates, {
         ...parameters('techno'),
         intensity
       })
@@ -324,7 +324,7 @@ describe('MixJam generator engine', () => {
 
     // Intensity scales the family-coherence floor: 80% low, 70% medium, 60%
     // high, measured over distinct placed samples that have a placed sibling.
-    const byRef = new Map(categoryRichCandidates.map((entry) => [entry.relpath, entry]))
+    const byRef = new Map(sourceGroupRichCandidates.map((entry) => [entry.relpath, entry]))
     for (const [intensity, target] of [['low', 0.8], ['medium', 0.7], ['high', 0.6]] as const) {
       const placed = [...new Set(plans[intensity].lanes.flatMap((lane) =>
         lane.placements.map((placement) => placement.sampleRef)
@@ -376,7 +376,7 @@ describe('MixJam generator engine', () => {
         .toBe(first.targetTicks)
 
       const bassRefs = new Set(candidates
-        .filter((entry) => entry.categoryName === 'Bass')
+        .filter((entry) => entry.sourceGroup === 'Bass')
         .map((entry) => entry.relpath))
       const bassPlacements = first.lanes.flatMap((lane) => lane.placements)
         .filter((placement) => bassRefs.has(placement.sampleRef))
@@ -704,19 +704,19 @@ describe('MixJam generator engine', () => {
       ...[1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Atmosphere', 900 + part, {
         relpath: `Sphere/cloud-${part}-${side}.wav`,
         filename: `cloud-${part}-${side}.wav`,
-        categoryName: 'Sphere',
+        sourceGroup: 'Sphere',
         duration: durationForTicks(4 * TICKS_PER_BAR)
       }))),
       ...[1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Other', 950 + part, {
         relpath: `Xtra/wash-${part}-${side}.wav`,
         filename: `wash-${part}-${side}.wav`,
-        categoryName: 'Xtra',
+        sourceGroup: 'Xtra',
         duration: durationForTicks(4 * TICKS_PER_BAR),
         plannerKind: 'texture'
       })))
     ]
     const plan = createMixJamGeneratorPlan('root', 'fingerprint', [
-      ...categoryRichCandidates,
+      ...sourceGroupRichCandidates,
       ...paired
     ], parameters('techno'))
 
@@ -753,7 +753,7 @@ describe('MixJam generator engine', () => {
     const paired = [1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Synth', 960 + part, {
       relpath: `Seq/glide-${part}-${side}.wav`,
       filename: `glide-${part}-${side}.wav`,
-      categoryName: 'Seq'
+      sourceGroup: 'Seq'
     })))
     // Several authored percussion families: with material to spare, no lane
     // ever needs the empty-lane reuse fallback, so cross-lane duplication is
@@ -762,12 +762,12 @@ describe('MixJam generator engine', () => {
       [1, 2, 3].map((part) => candidate('Percussion', 970 + familyIndex * 3 + part, {
         relpath: `Drum/${stem}-${part}.wav`,
         filename: `${stem}-${part}.wav`,
-        categoryName: 'Drum',
+        sourceGroup: 'Drum',
         paletteSlot: 1
       }))
     )
     const plan = createMixJamGeneratorPlan('root', 'fingerprint', [
-      ...categoryRichCandidates,
+      ...sourceGroupRichCandidates,
       ...paired,
       ...percussionFamilies
     ], parameters('techno'))
@@ -792,14 +792,14 @@ describe('MixJam generator engine', () => {
         candidate('Bass', 900 + index, {
           relpath: `Bass/${stem}.wav`,
           filename: `${stem}.wav`,
-          categoryName: 'Bass'
+          sourceGroup: 'Bass'
         })
       ),
       ...['warm-1', 'warm-2'].map((stem, index) =>
         candidate('Bass', 910 + index, {
           relpath: `Bass/${stem}.wav`,
           filename: `${stem}.wav`,
-          categoryName: 'Bass'
+          sourceGroup: 'Bass'
         })
       )
     ]
@@ -834,7 +834,7 @@ describe('MixJam generator engine', () => {
   it('plans with an unresolved song key when no tonal candidate is keyed', () => {
     // Every tonal source has an unknown key, so dominantKey resolves to null and
     // the plan proceeds on unknown-key tonal material (spec-018 tonal fallback).
-    const unkeyed = categoryRichCandidates.map((entry) =>
+    const unkeyed = sourceGroupRichCandidates.map((entry) =>
       ['Bass', 'Loop', 'Synth', 'Vocal', 'Atmosphere'].includes(entry.sampleType)
         ? { ...entry, musicalKey: null }
         : entry
@@ -852,18 +852,18 @@ describe('MixJam generator engine', () => {
       ...Array.from({ length: 5 }, (_, index) => candidate('Bass', 1200 + index, {
         relpath: `Bass/pillar-${index + 1}.wav`,
         filename: `pillar-${index + 1}.wav`,
-        categoryName: 'Bass'
+        sourceGroup: 'Bass'
       })),
       ...Array.from({ length: 5 }, (_, index) => candidate('Synth', 1300 + index, {
         relpath: `Keys/aurora-${index + 1}.wav`,
         filename: `aurora-${index + 1}.wav`,
-        categoryName: 'Keys',
+        sourceGroup: 'Keys',
         paletteSlot: 4
       })),
       ...Array.from({ length: 4 }, (_, index) => candidate('Atmosphere', 1400 + index, {
         relpath: `Sphere/haze-${index + 1}.wav`,
         filename: `haze-${index + 1}.wav`,
-        categoryName: 'Sphere',
+        sourceGroup: 'Sphere',
         duration: durationForTicks(8 * TICKS_PER_BAR),
         plannerKind: 'atmosphere'
       }))
@@ -871,7 +871,7 @@ describe('MixJam generator engine', () => {
     const plan = createMixJamGeneratorPlan(
       'root',
       'fingerprint',
-      [...categoryRichCandidates, ...families],
+      [...sourceGroupRichCandidates, ...families],
       { ...parameters('techno'), intensity: 'low' }
     )
     // Low intensity demands the strictest 80% family floor; a successful plan
@@ -884,7 +884,7 @@ describe('MixJam generator engine', () => {
   it('reports substitutions when a secondary role type fills a lane', () => {
     // No Loop sources at all: the Loop lane (5) must fall back to its secondary
     // Synth type, and that substitution is reported.
-    const noLoops = categoryRichCandidates.filter((entry) => entry.sampleType !== 'Loop')
+    const noLoops = sourceGroupRichCandidates.filter((entry) => entry.sampleType !== 'Loop')
     const plan = createMixJamGeneratorPlan('root', 'fingerprint', noLoops, parameters('techno'))
     expect(plan.substitutions.length).toBeGreaterThan(0)
     expect(plan.substitutions.every((sub) => sub.requestedType !== sub.selectedType)).toBe(true)
@@ -897,7 +897,7 @@ describe('MixJam generator engine', () => {
       ...Array.from({ length: 5 }, (_, index) => candidate('FX', 1500 + index, {
         relpath: `Effect/riser-${index + 1}.wav`,
         filename: `riser-${index + 1}.wav`,
-        categoryName: 'Effect',
+        sourceGroup: 'Effect',
         paletteSlot: 1,
         duration: durationForTicks(2 * TICKS_PER_BAR),
         plannerKind: 'riser',
@@ -906,7 +906,7 @@ describe('MixJam generator engine', () => {
       ...Array.from({ length: 5 }, (_, index) => candidate('FX', 1600 + index, {
         relpath: `Effect/impact-${index + 1}.wav`,
         filename: `impact-${index + 1}.wav`,
-        categoryName: 'Effect',
+        sourceGroup: 'Effect',
         paletteSlot: 1,
         duration: durationForTicks(TICKS_PER_BAR),
         plannerKind: 'impact',
@@ -916,7 +916,7 @@ describe('MixJam generator engine', () => {
     const plan = createMixJamGeneratorPlan(
       'root',
       'fingerprint',
-      [...categoryRichCandidates, ...transitions],
+      [...sourceGroupRichCandidates, ...transitions],
       parameters('techno')
     )
     const riserLane = plan.lanes.find((lane) => lane.index === 14)
@@ -936,17 +936,17 @@ describe('MixJam generator engine', () => {
 
   it('keeps a large authored bass family coherent on the timeline', () => {
     // One large authored bass family of short one-bar loops competing with the
-    // rich category corpus. The bass lane keeps its family coherent and the
+    // rich sourceGroup corpus. The bass lane keeps its family coherent and the
     // plan validates against the family-coherence floor.
     const bassSiblings = Array.from({ length: 6 }, (_, index) => candidate('Bass', 1700 + index, {
       relpath: `Bass/monolith-${index + 1}.wav`,
       filename: `monolith-${index + 1}.wav`,
-      categoryName: 'Bass'
+      sourceGroup: 'Bass'
     }))
     const plan = createMixJamGeneratorPlan(
       'root',
       'fingerprint',
-      [...categoryRichCandidates, ...bassSiblings],
+      [...sourceGroupRichCandidates, ...bassSiblings],
       { ...parameters('techno'), intensity: 'low' }
     )
     // The plan validates (it would throw on a family-ratio shortfall), and the
@@ -966,14 +966,14 @@ describe('MixJam generator engine', () => {
       ...Array.from({ length: 6 }, (_, index) => candidate('Percussion', 1800 + index, {
         relpath: `Drum/oneoff-${index}.wav`,
         filename: `oneoff-${index}.wav`,
-        categoryName: 'Drum',
+        sourceGroup: 'Drum',
         paletteSlot: 1
       })),
       ...['aria', 'motif', 'pulse'].flatMap((stem, familyIndex) =>
         [1, 2, 3].map((part) => candidate('Synth', 1900 + familyIndex * 3 + part, {
           relpath: `Keys/${stem}-${part}.wav`,
           filename: `${stem}-${part}.wav`,
-          categoryName: 'Keys',
+          sourceGroup: 'Keys',
           paletteSlot: 4,
           duration: durationForTicks(2 * TICKS_PER_BAR)
         }))
@@ -982,7 +982,7 @@ describe('MixJam generator engine', () => {
     const plan = createMixJamGeneratorPlan(
       'root',
       'fingerprint',
-      [...categoryRichCandidates, ...singletons],
+      [...sourceGroupRichCandidates, ...singletons],
       { ...parameters('house'), intensity: 'low' }
     )
     expect(plan.lanes.filter((lane) => lane.placements.length > 0).length).toBeGreaterThanOrEqual(8)

@@ -44,7 +44,7 @@ transitions, motif returns, and mix balance are part of the generator contract.
   be filled; the app never exposes a partial project.
 - **US-007:** As a user, I can regenerate a saved generated project either
   exactly or explicitly against the current corpus.
-- **US-008:** As a user, generated sample bubbles keep the same category colors
+- **US-008:** As a user, generated sample bubbles keep the same source-group colors
   as the same samples in the Sample Browser.
 - **US-009:** As a user, generated songs use compatible material and recognizable
   profile-specific phrases instead of continuously tiling samples across a
@@ -333,24 +333,24 @@ lane percentages use half-up rounding. Selection rotates by section instead of
 always taking the lowest lane numbers, and a minimal coverage pass adds any lane
 not otherwise represented. Intensity therefore changes simultaneous density
 and cue frequency without leaving an unused lane, changing section boundaries,
-or changing the exact song end. Category coverage may add a distinct candidate
+or changing the exact song end. Source-group coverage may add a distinct candidate
 beyond a role's base count.
 
 ### Bounded planner scoring
 
 Indexed metadata from the selected analyzer context key creates
-deterministic per-lane and per-category candidate queues. Core lanes receive the
-first reservation, then category and lane queues advance in balanced passes.
+deterministic per-lane and per-source-group candidate queues. Core lanes receive the
+first reservation, then source-group and lane queues advance in balanced passes.
 Type and musical-span eligibility run before the bounded-read shortlist is
 fixed. The worker reads and decodes each shortlisted relative path at most
 once. One planning job attempts at most 160 unique files and retains at most 96
-successful, role-compatible scoring results. Lane and category queues are
+successful, role-compatible scoring results. Lane and source-group queues are
 family-ordered so numbered siblings are admitted together, and a dedicated
 stereo-pair queue rotates alongside the lane queues so left halves of complete
 `-l`/`-r` pairs keep arriving throughout the budget (pair lanes cannot
-designate without them). Reservations cover every feasible lane and primary
-category, so abundant core material cannot starve support lanes or smaller
-categories. Failure to fill a required core role aborts before save; an
+designate without them). Reservations cover every feasible lane and source
+group, so abundant core material cannot starve support lanes or smaller source
+groups. Failure to fill a required core role aborts before save; an
 unfilled removable support lane is pruned before persistence.
 
 The transient scoring records no database state. It may derive arrangement
@@ -446,7 +446,7 @@ actually placed. Collapsing stereo twins and duplicate spellings to logical
 samples, the share of distinct placed samples whose family has at least two
 distinct placed parts must reach 80% at low intensity, 70% at medium, and 60%
 at high. Selection repairs toward the floor (adding unused siblings, then
-trimming redundant singletons whose category stays covered), and a placement
+trimming redundant singletons whose source group stays covered), and a placement
 pass afterwards places unplaced siblings of placed singletons — drawing from
 the lane's full eligible pool when its selection has none, and recording such
 additions in the lane's selection. Validation excuses the floor only when both
@@ -547,22 +547,22 @@ Worker filtering must support:
 
 - `rootId` scoping;
 - a current, resolved `tempoClusterPrefix` context key;
-- acoustic `sampleType` role filters plus organizational-category diversity;
+- acoustic `sampleType` role filters plus top-level source-group diversity;
 - positive duration and role-specific duration limits;
 - current `scan_state = 1` metadata rows only;
 - deterministic ordering and bounded result sets; and
 - soft distance from the resolved project BPM plus hard rejection of
   incompatible known keys.
 
-The candidate query also joins the primary organizational category name. The
-shared palette-slot helper converts that name to a slot from 0 through 8. A
-category never fills or replaces an acoustic role, but it is a diversity
-constraint after role compatibility: every primary category with a compatible
+The candidate query derives the top-level source group from the relative path.
+The shared palette-slot helper converts that name to a slot from 0 through 8. A
+source group never fills or replaces an acoustic role, but it is a diversity
+constraint after role compatibility: every source group with a compatible
 candidate in the bounded analyzed set must appear in the arrangement unless no
 legal placement window remains for any of its candidates after every legal
-grid slot was tried. Category
+grid slot was tried. Source-group
 queues receive bounded-analysis reservations, and candidate assignment covers
-scarce categories before filling per-lane variety. Every generated placement
+scarce source groups before filling per-lane variety. Every generated placement
 DTO carries the selected sample's slot, and the renderer persists it through the
 existing spec-011 placement field.
 
@@ -576,7 +576,7 @@ Sharp and flat spellings are compared by canonical pitch and major/minor mode,
 so enharmonic exact and relative-key matches behave identically. Missing or
 mixed keys fall back according to the tonal rules above. Profile roles use acoustic sample types
 (`Kick`, `Snare`, `Hi-hat`, `Percussion`, `Bass`, `Synth`, `FX`, `Vocal`,
-`Loop`, `Atmosphere`, `Other`), never the organizational category field.
+`Loop`, `Atmosphere`, `Other`), never the source-folder group.
 
 Selection hashes the safe seed with the profile ID, profile version, and stable
 lane index, then sorts by hash and relative path. Stable relative-path
@@ -712,7 +712,7 @@ before cluster selection and parameter-specific shortlisting. It covers every
 current generator-eligible row plus the canonical root analysis summary and its
 resolved groups. The hash contains the stable FolderRef root key plus the sorted
 records' relative path, size, mtime, metadata/analysis revisions, duration, BPM,
-key, sample type, primary category name, and palette slot. The selected context
+key, sample type, top-level source-group name, and palette slot. The selected context
 key is stored in generator parameters. Scan completion timestamps are excluded
 because a no-op re-scan must preserve the fingerprint. Transient planner metrics
 and audio-byte hashing are out of scope.
@@ -770,7 +770,7 @@ command.
   compositions.
 - [x] **AC-008:** Candidate selection uses worker-side validated type, duration,
   readability, BPM, key, root, selected context key, and group confidence;
-  organizational categories are not acoustic types.
+  source groups are not acoustic types.
 - [ ] **AC-009:** Missing compatible material for a required or core lane fails
   clearly. An unfilled removable support lane is pruned, secondary role types
   are reported, and no required lane is omitted. Generation fails with a
@@ -805,7 +805,7 @@ command.
   listening sign-off for techno, trance, and house.
 - [ ] **AC-017:** One planning job attempts no more than 160 unique files, retains
   no more than 96 role-compatible scoring results, reserves candidates for
-  unfilled lanes and categories, reads each relative path at most once, and can
+  unfilled lanes and source groups, reads each relative path at most once, and can
   be cancelled before save without leaving a file or recent-project entry.
   Parameters are validated before snapshot, fingerprint, or audio-file work.
 - [x] **AC-018:** Techno, trance, and house plans satisfy their phrase contracts:
@@ -822,8 +822,8 @@ command.
   at its full span;
   transient RMS compensation stays within plus or minus 6 dB and final gain
   stays within 0–1.
-- [ ] **AC-020:** Every generator candidate retains its primary organizational
-  category. Every category with compatible material and a legal placement
+- [ ] **AC-020:** Every generator candidate retains its top-level source group.
+  Every source group with compatible material and a legal placement
   window in the selected cluster shortlist appears in the arrangement without being
   treated as an acoustic type. Every
   generated placement stores a valid palette slot from 0 through 8, the slot
@@ -882,10 +882,10 @@ command.
 - The spec-008 analyzer owns group readiness, raw BPM/key evidence, and the
   stored BPM/key/type projections used by generator queries.
 - `backend/generator-library.ts` owns root/cluster-scoped readiness, bounded
-  candidate queries, organizational-category palette retention, and the
+  candidate queries, source-group palette retention, and the
   canonical indexed-root fingerprint. `generator-library.test.ts` covers
   those boundaries and every fingerprint field.
-- `backend/generator-analysis.ts` owns deterministic lane/category shortlisting,
+- `backend/generator-analysis.ts` owns deterministic lane/source-group shortlisting,
   bounded file reads, transient arrangement metrics, transition hints, coverage
   reservations, progress, and cancellation. Its tests must prove that planning
   does not recompute BPM, key, or acoustic sample type.
@@ -894,7 +894,7 @@ command.
   stereo-side pan planning from generic
   template primitives. `generator-engine.test.ts` contains focused coverage for
   every discovered template and a non-baseline fixture, all-lane and
-  all-category use, 30-second fallback, long-form placement, transition-kind
+  all-source-group use, 30-second fallback, long-form placement, transition-kind
   separation, intensity behavior, legal coverage grids, richer sample rotation,
   seed behavior, phrase structure, key rejection, exact song end, lane-volume
   bounds, centered uncertain pan, zero sends, and Empty FX slots.
@@ -919,7 +919,7 @@ command.
   production-parser roundtrips,
   exact 3,360-tick ends, zero missing references, browser screenshots, playback
   proof, and cross-theme palette sampling. The baseline profile-v2 structural
-  rerun covers all retained lanes and all 11 current categories in each of
+  rerun covers all retained lanes and all 11 current source groups in each of
   techno, trance, and house, reaches 9.25- or 10-bar source spans, and uses
   37–40 distinct files. Human listening sign-off remains pending. It does not prove
   the contextual-cluster contract; a new verification run must add that

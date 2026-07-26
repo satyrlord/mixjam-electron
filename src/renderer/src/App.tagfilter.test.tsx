@@ -37,8 +37,8 @@ describe('App tag filter', () => {
       expect(screen.getAllByText('Lane 1').length).toBeGreaterThan(0)
     })
 
-    const chip = screen.getByText(/Cool/)
-    fireEvent.click(chip.closest('button')!)
-    fireEvent.click(chip.closest('button')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Open Samples' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Cool filter' }))
+    expect(screen.queryByRole('button', { name: 'Remove Cool filter' })).not.toBeInTheDocument()
   })
 })

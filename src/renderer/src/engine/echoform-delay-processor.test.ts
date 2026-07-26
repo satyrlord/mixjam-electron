@@ -103,7 +103,7 @@ describe('Echoform Delay worklet processor', () => {
     expect(processor.output).toBeDefined()
   })
 
-  it('posts state on update, ignores non-delay modules, and closes the port on dispose', async () => {
+  it('posts state on update, ignores non-delay modules, and retires the processor on dispose', async () => {
     const context = createMockContext()
     const ctx = context as unknown as BaseAudioContext
     await prepareEchoformDelayWorklet(ctx)
@@ -129,8 +129,13 @@ describe('Echoform Delay worklet processor', () => {
     })
 
     processor.dispose()
+    // Disconnecting alone leaves the node actively processing: the audio thread
+    // keeps running the delay every quantum and never collects it. Dispose must
+    // tell the processor to retire, and must do so while the port is still
+    // open — hence no port.close() here.
+    expect(post).toHaveBeenLastCalledWith({ type: 'dispose' })
+    expect(nodes[0]!.port.close).not.toHaveBeenCalled()
     expect(nodes[0]!.disconnect).toHaveBeenCalled()
-    expect(nodes[0]!.port.close).toHaveBeenCalled()
   })
 
   it('falls back to identity when node construction throws', async () => {

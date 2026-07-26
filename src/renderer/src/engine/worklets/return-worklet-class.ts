@@ -1,4 +1,5 @@
 import { registerWorkletProcessor, type WorkletProcessorFactory } from './register-processor'
+import { isWorkletDisposeMessage } from './worklet-dispose-protocol'
 
 /**
  * Shared worklet-side shell for every Return effect.
@@ -64,6 +65,7 @@ export function registerReturnWorklet<S, C extends ReturnWorkletCore, O extends 
     class ReturnEffectProcessor extends AudioWorkletProcessor {
       private readonly core: C
       private readonly silence = new Float32Array(RENDER_QUANTUM)
+      private disposed = false
 
       constructor(options?: ProcessorOptions<O>) {
         super(options)
@@ -71,10 +73,23 @@ export function registerReturnWorklet<S, C extends ReturnWorkletCore, O extends 
         const state = processorOptions?.state
         if (!state) throw new Error(`${config.name} worklet requires initial state`)
         this.core = config.createCore(sampleRate, state, processorOptions as O)
-        this.port.onmessage = (event: MessageEvent) => config.onMessage(this.core, event.data)
+        this.port.onmessage = (event: MessageEvent) => {
+          if (isWorkletDisposeMessage(event.data)) {
+            this.disposed = true
+            return
+          }
+          config.onMessage(this.core, event.data)
+        }
       }
 
       process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+        // Ending active processing is what actually retires this node. A
+        // disconnected AudioWorkletNode whose process() keeps returning true
+        // stays in the render graph: the audio thread runs its DSP every
+        // quantum forever and the node is never collected. Returning false
+        // once the host has disposed it is the only way out.
+        if (this.disposed) return false
+
         const output = outputs[0]
         if (!output || output.length === 0) return true
         const outputL = output[0]

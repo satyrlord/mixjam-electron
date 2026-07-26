@@ -8,7 +8,6 @@
 - [Arrangement](#arrangement)
 - [Arrangement capacity](#arrangement-capacity)
 - [Bottom Workspace](#bottom-workspace)
-- [Category](#category)
 - [Channel](#channel)
 - [Clip](#clip)
 - [Clip bubble](#clip-bubble)
@@ -50,7 +49,6 @@
 - [Song Progress Bar](#song-progress-bar)
 - [Source duration](#source-duration)
 - [Stereo-pair evidence](#stereo-pair-evidence)
-- [Subcategory](#subcategory)
 - [Tag](#tag)
 - [Theme](#theme)
 - [Track](#track)
@@ -75,7 +73,7 @@ tempo/key population. A mixed parent exposes its nearest resolved,
 non-overlapping descendants or source cohorts as clusters. A cluster records its
 context key, support, confidence, and sample count for the
 [MixJam Generator](#mixjam-generator). It is not an organizational
-[category](#category) or a promise that a physical folder is uniform.
+[tag](#tag) or a promise that a physical folder is uniform.
 
 ## Analysis evidence
 
@@ -100,21 +98,6 @@ ticks at 8 ticks per beat. Capacity limits placement and navigation but is not
 [song end](#song-end) or song length. Empty capacity is not serialized into a
 `.mixjam` file. See [spec 005](specs/spec-005-audio-playback-engine.md) and
 [spec 006](specs/spec-006-player-timeline-panels.md).
-
-## Category
-
-A node in the hierarchical organizational tree used to browse and filter
-[samples](#sample). Categories may be derived from Sample Folder directories or
-created by the user. Their visibility and provenance belong to a specific
-Sample Folder, so switching folders switches category trees. A sample has one
-primary category and may have additional [subcategory](#subcategory)
-assignments. Categories are distinct from flat [tags](#tag) and from acoustic
-[sample type](#sample-type) metadata.
-
-A category has dual provenance when the same path is both present as a physical
-directory and explicitly created by the user for one Sample Folder. Removing
-the custom provenance leaves the folder-derived category and its sample
-assignments intact.
 
 ## Channel
 
@@ -371,8 +354,8 @@ Sample references never contain absolute paths or embedded audio bytes.
 
 Acoustic classification metadata such as Kick, Snare, Bass, FX, Vocal, or Loop.
 It may come from analysis or a manual override and is labeled *Type* in the UI.
-Sample type never assigns or replaces an organizational [category](#category)
-or [tag](#tag). See [spec 008](specs/spec-008-sample-analysis.md).
+Sample type never assigns or replaces an organizational [tag](#tag). See
+[spec 008](specs/spec-008-sample-analysis.md).
 
 ## Session
 
@@ -457,17 +440,14 @@ partner, sample rate, and duration. A filename token alone is not evidence.
 Generators may pan a lane away from center only from this persisted evidence.
 See [spec 008](specs/spec-008-sample-analysis.md).
 
-## Subcategory
-
-A non-root [category](#category) node. Subcategories represent deeper Sample
-Folder directory levels or user-created hierarchy, and category filtering may
-include all descendants. They are not child tags.
-
 ## Tag
 
-A user-defined, optionally colored label assigned many-to-many to
-[samples](#sample). Tags are independent of the hierarchical
-[category](#category) tree and acoustic [sample type](#sample-type) metadata.
+A flat, optionally colored label assigned many-to-many to [samples](#sample).
+Tags are the only library-organization vocabulary and remain independent of
+acoustic [sample type](#sample-type) metadata. User tags are global and
+editable. Folder-derived tags are automatic and read-only: every directory
+segment assigns its shared name, identically named folders reuse one tag, and
+files at the Sample Folder root receive `Unsorted`.
 
 ## Theme
 

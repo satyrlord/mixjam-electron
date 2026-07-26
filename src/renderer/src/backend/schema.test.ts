@@ -1,3 +1,4 @@
+
 // @vitest-environment node
 import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -10,13 +11,13 @@ let sqlite3: Sqlite3Static
 beforeAll(async () => { sqlite3 = await sqlite3InitModule() })
 
 describe('schema migrations', () => {
-  it('creates a fresh v5 database from scratch', () => {
+  it('creates a fresh v6 database from scratch', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     expect(() => initSchema(db)).not.toThrow()
     expect(() => initSchema(db)).not.toThrow()
 
     const version = db.prepare('SELECT version FROM schema_version').get<{ version: number }>()
-    expect(version?.version).toBe(5)
+    expect(version?.version).toBe(6)
     expect(db.prepare('PRAGMA table_info(scan_roots)').all<{ name: string }>()
       .map(({ name }) => name)).toEqual(expect.arrayContaining([
         'last_completed_at', 'legacy_index_available'
@@ -29,12 +30,16 @@ describe('schema migrations', () => {
       .map(({ name }) => name)).toEqual(expect.arrayContaining([
         'root_id', 'relpath_prefix', 'state', 'bpm', 'musical_key', 'confidence'
       ]))
-    expect(db.prepare('PRAGMA table_info(category_sources)').all<{ name: string }>()
-      .map(({ name }) => name)).toEqual(['category_id', 'root_id', 'source'])
+    expect(db.prepare('PRAGMA table_info(folder_tag_sources)').all<{ name: string }>()
+      .map(({ name }) => name)).toEqual(['tag_id', 'root_id'])
+    expect(db.prepare('PRAGMA table_info(samples)').all<{ name: string }>()
+      .map(({ name }) => name)).not.toContain('category_id')
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '%categor%'").all())
+      .toEqual([])
     db.close()
   })
 
-  it('idempotently re-runs on an already v5 database', () => {
+  it('idempotently re-runs on an already v6 database', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     initSchema(db)
     expect(() => initSchema(db)).not.toThrow()
@@ -42,96 +47,157 @@ describe('schema migrations', () => {
     db.close()
   })
 
-  it('migrates root evidence and does not invent ownership for unassigned categories', () => {
+  it('migrates v5 categories, saved rules, and existing user tags into flat tags', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     initSchema(db)
-    const firstRoot = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('first').lastInsertRowid
-    const secondRoot = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('second').lastInsertRowid
-    const folderCategory = db.prepare(
-      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-    ).run('Drum').lastInsertRowid
-    const customCategory = db.prepare(
-      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-    ).run('Favorites').lastInsertRowid
-    const unsortedCategory = db.prepare(
-      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-    ).run('Unsorted').lastInsertRowid
+    db.exec(`
+      ALTER TABLE samples ADD COLUMN category_id INTEGER;
+      CREATE TABLE categories (
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL,
+        parent_id INTEGER REFERENCES categories(id), UNIQUE(parent_id, name)
+      );
+      CREATE TABLE category_sources (
+        category_id INTEGER NOT NULL, root_id INTEGER NOT NULL,
+        source TEXT NOT NULL, PRIMARY KEY(category_id, root_id, source)
+      );
+      CREATE TABLE sample_categories (
+        sample_id INTEGER NOT NULL, category_id INTEGER NOT NULL,
+        PRIMARY KEY(sample_id, category_id)
+      );
+      DROP TABLE sample_tags;
+      CREATE TABLE sample_tags (
+        sample_id INTEGER NOT NULL, tag_id INTEGER NOT NULL,
+        PRIMARY KEY(sample_id, tag_id)
+      );
+    `)
+    const rootId = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('legacy').lastInsertRowid
+    const drums = db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, NULL)').run('Drums').lastInsertRowid
+    const bass = db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, ?)').run('Bass', drums).lastInsertRowid
+    const otherBass = db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, NULL)').run('Bass').lastInsertRowid
+    db.prepare("INSERT INTO category_sources VALUES (?, ?, 'folder')").run(drums, rootId)
+    db.prepare("INSERT INTO category_sources VALUES (?, ?, 'folder')").run(bass, rootId)
+    db.prepare("INSERT INTO category_sources VALUES (?, ?, 'custom')").run(otherBass, rootId)
     const sampleId = db.prepare(
-      `INSERT INTO samples (root_id, relpath, filename, date_added, scan_state)
-       VALUES (?, 'Drum/kick.wav', 'kick.wav', 1, 1)`
-    ).run(firstRoot).lastInsertRowid
-    db.prepare(
-      'INSERT INTO sample_categories (sample_id, category_id) VALUES (?, ?)'
-    ).run(sampleId, folderCategory)
-    db.prepare('DELETE FROM category_sources').run()
-    db.prepare('UPDATE schema_version SET version = 4').run()
+      `INSERT INTO samples (root_id, relpath, filename, date_added, scan_state, category_id)
+       VALUES (?, 'Drums/Bass/kick.wav', 'kick.wav', 1, 1, ?)`
+    ).run(rootId, drums).lastInsertRowid
+    db.prepare('INSERT INTO sample_categories VALUES (?, ?)').run(sampleId, bass)
+    const favorite = db.prepare(
+      "INSERT INTO tags (name, color, user_created) VALUES ('Favorite', '#fff', 1)"
+    ).run().lastInsertRowid
+    db.prepare('INSERT INTO sample_tags VALUES (?, ?)').run(sampleId, favorite)
+    const libraryId = db.prepare(
+      "INSERT INTO libraries (name, created_at) VALUES ('Legacy', 1)"
+    ).run().lastInsertRowid
+    db.prepare('INSERT INTO library_rules VALUES (?, ?)').run(
+      libraryId,
+      JSON.stringify({ version: 1, root: { kind: 'group', op: 'and', children: [
+        { kind: 'category', quantifier: 'any', categoryIds: [bass], includeDescendants: true },
+        { kind: 'tag', quantifier: 'any', tagIds: [favorite] }
+      ] } })
+    )
+    db.prepare('UPDATE schema_version SET version = 5').run()
 
     initSchema(db)
 
-    expect(db.prepare(
-      'SELECT root_id, source FROM category_sources WHERE category_id = ? ORDER BY root_id, source'
-    ).all(folderCategory)).toEqual([{ root_id: firstRoot, source: 'folder' }])
-    expect(db.prepare(
-      'SELECT root_id, source FROM category_sources WHERE category_id = ? ORDER BY root_id, source'
-    ).all(customCategory)).toEqual([])
-    expect(db.prepare('SELECT id FROM categories WHERE id = ?').get(customCategory)).toBeUndefined()
-    expect(db.prepare(
-      'SELECT root_id, source FROM category_sources WHERE category_id = ? ORDER BY root_id, source'
-    ).all(unsortedCategory)).toEqual([
-      { root_id: firstRoot, source: 'folder' },
-      { root_id: secondRoot, source: 'folder' }
+    expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version).toBe(6)
+    expect(db.prepare('SELECT name, user_created FROM tags ORDER BY name').all()).toEqual([
+      { name: 'Bass', user_created: 1 },
+      { name: 'Drums', user_created: 0 },
+      { name: 'Favorite', user_created: 1 }
     ])
-    db.close()
-  })
-
-  it('uses a primary sample category as root-specific v4 folder evidence', () => {
-    const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
-    initSchema(db)
-    const firstRoot = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('first').lastInsertRowid
-    db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('second')
-    const categoryId = db.prepare(
-      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-    ).run('Drum').lastInsertRowid
-    db.prepare(
-      `INSERT INTO samples (root_id, relpath, filename, date_added, scan_state, category_id)
-       VALUES (?, 'Drum/kick.wav', 'kick.wav', 1, 1, ?)`
-    ).run(firstRoot, categoryId)
-    db.prepare('DELETE FROM category_sources').run()
-    db.prepare('UPDATE schema_version SET version = 4').run()
-
-    initSchema(db)
-
     expect(db.prepare(
-      'SELECT root_id, source FROM category_sources WHERE category_id = ?'
-    ).all(categoryId)).toEqual([{ root_id: firstRoot, source: 'folder' }])
+      `SELECT t.name, st.source FROM sample_tags st JOIN tags t ON t.id = st.tag_id
+       WHERE st.sample_id = ? ORDER BY t.name`
+    ).all(sampleId)).toEqual([
+      { name: 'Bass', source: 'folder' },
+      { name: 'Drums', source: 'folder' },
+      { name: 'Favorite', source: 'user' }
+    ])
+    expect(JSON.parse(db.prepare('SELECT rule_json FROM library_rules WHERE library_id = ?')
+      .get<{ rule_json: string }>(libraryId)!.rule_json).root.children[0]).toEqual({
+      kind: 'tag',
+      quantifier: 'all',
+      tagIds: [db.prepare("SELECT id FROM tags WHERE name = 'Bass'").get<{ id: number }>()!.id]
+    })
+    expect(JSON.parse(db.prepare('SELECT rule_json FROM library_rules WHERE library_id = ?')
+      .get<{ rule_json: string }>(libraryId)!.rule_json).root.children[1]).toEqual({
+      kind: 'tag', quantifier: 'all', tagIds: [favorite]
+    })
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '%categor%'").all())
+      .toEqual([])
+    expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     db.close()
   })
 
-  it('does not use missing v4 samples as current folder evidence', () => {
+  it('resumes a v6 structural swap that stopped before the version stamp', () => {
     const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
     initSchema(db)
-    const rootId = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('first').lastInsertRowid
-    const primaryCategoryId = db.prepare(
-      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-    ).run('Removed primary').lastInsertRowid
-    const joinedCategoryId = db.prepare(
-      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-    ).run('Removed joined').lastInsertRowid
+    // The swap transaction commits this sentinel as its last statement, so a
+    // crash before the final stamp leaves the database here.
+    db.prepare('UPDATE schema_version SET version = 5006').run()
+
+    expect(() => initSchema(db)).not.toThrow()
+
+    expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version).toBe(6)
+    expect(db.prepare('PRAGMA table_info(sample_tags)').all<{ name: string }>()
+      .map(({ name }) => name)).toContain('source')
+    expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    db.close()
+  })
+
+  it('re-runs the whole v6 migration when the sentinel is stamped but the swap never landed', () => {
+    // The sentinel alone cannot prove the swap committed: initSchema runs the
+    // CREATE TABLE IF NOT EXISTS DDL before reading the version, so a v5-shaped
+    // database is left untouched by that DDL. Resuming on the stamp alone would
+    // skip to the derived rebuild and strand the database v5-shaped but stamped
+    // v6 — every later tag write would hit a sample_tags with no `source`.
+    const db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
+    initSchema(db)
+    db.exec(`
+      ALTER TABLE samples ADD COLUMN category_id INTEGER;
+      CREATE TABLE categories (
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL,
+        parent_id INTEGER REFERENCES categories(id), UNIQUE(parent_id, name)
+      );
+      CREATE TABLE category_sources (
+        category_id INTEGER NOT NULL, root_id INTEGER NOT NULL,
+        source TEXT NOT NULL, PRIMARY KEY(category_id, root_id, source)
+      );
+      CREATE TABLE sample_categories (
+        sample_id INTEGER NOT NULL, category_id INTEGER NOT NULL,
+        PRIMARY KEY(sample_id, category_id)
+      );
+      DROP TABLE sample_tags;
+      CREATE TABLE sample_tags (
+        sample_id INTEGER NOT NULL, tag_id INTEGER NOT NULL,
+        PRIMARY KEY(sample_id, tag_id)
+      );
+    `)
+    const rootId = db.prepare('INSERT INTO scan_roots (key) VALUES (?)').run('legacy').lastInsertRowid
+    const drums = db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, NULL)')
+      .run('Drums').lastInsertRowid
+    db.prepare("INSERT INTO category_sources VALUES (?, ?, 'folder')").run(drums, rootId)
     const sampleId = db.prepare(
       `INSERT INTO samples (root_id, relpath, filename, date_added, scan_state, category_id)
-       VALUES (?, 'Removed/sample.wav', 'sample.wav', 1, 2, ?)`
-    ).run(rootId, primaryCategoryId).lastInsertRowid
-    db.prepare(
-      'INSERT INTO sample_categories (sample_id, category_id) VALUES (?, ?)'
-    ).run(sampleId, joinedCategoryId)
-    db.prepare('DELETE FROM category_sources').run()
-    db.prepare('UPDATE schema_version SET version = 4').run()
+       VALUES (?, 'Drums/kick.wav', 'kick.wav', 1, 1, ?)`
+    ).run(rootId, drums).lastInsertRowid
+    db.prepare('UPDATE schema_version SET version = 5006').run()
 
     initSchema(db)
 
+    expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version).toBe(6)
+    expect(db.prepare('PRAGMA table_info(sample_tags)').all<{ name: string }>()
+      .map(({ name }) => name)).toContain('source')
+    expect(db.prepare('PRAGMA table_info(samples)').all<{ name: string }>()
+      .map(({ name }) => name)).not.toContain('category_id')
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '%categor%'").all())
+      .toEqual([])
     expect(db.prepare(
-      'SELECT category_id, root_id, source FROM category_sources WHERE category_id IN (?, ?)'
-    ).all(primaryCategoryId, joinedCategoryId)).toEqual([])
+      `SELECT t.name, st.source FROM sample_tags st JOIN tags t ON t.id = st.tag_id
+       WHERE st.sample_id = ? ORDER BY t.name`
+    ).all(sampleId)).toEqual([{ name: 'Drums', source: 'folder' }])
+    expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     db.close()
   })
 
@@ -185,7 +251,7 @@ describe('schema migrations', () => {
       'bpm_source', 'musical_key_source', 'sample_type', 'sample_type_source'
     ]))
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(5)
+      .toBe(6)
     db.close()
   })
 
@@ -256,7 +322,7 @@ describe('schema migrations', () => {
     expect(() => initSchema(db)).not.toThrow()
     expect(() => initSchema(db)).not.toThrow()
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(5)
+      .toBe(6)
     db.close()
   })
 
@@ -294,7 +360,7 @@ describe('schema migrations', () => {
       'bpm_source', 'musical_key_source', 'sample_type', 'sample_type_source'
     ]))
     expect(db.prepare('SELECT version FROM schema_version').get<{ version: number }>()?.version)
-      .toBe(5)
+      .toBe(6)
     db.close()
   })
 

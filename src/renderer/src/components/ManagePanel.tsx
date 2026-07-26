@@ -1,56 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
-import type { CategoryItem, LibraryItem, TagItem } from '../../../shared/backend-api'
-import { ROOT_CATEGORY_NAMES } from '../lib/sample-utils'
+import { forwardRef, useMemo, useState } from 'react'
+import {
+  isTagEditable,
+  isTagRenameable,
+  type LibraryItem,
+  type TagItem
+} from '../../../shared/backend-api'
+import { filterTagsBySearch } from '../lib/tag-utils'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from './ui/Tabs'
 import { Tooltip } from './ui/Tooltip'
 
-type ManageTab = 'tags' | 'libraries' | 'categories'
+type ManageTab = 'tags' | 'libraries'
 
 interface ManagePanelProps {
   tags: TagItem[]
   libraries: LibraryItem[]
-  categories: CategoryItem[]
-  categoryScopeKey: string | null
-  /** Left offset in px — must track the resizable category-tree width so the
-   *  panel's edge stays aligned with the splitter it overlays. */
-  leftOffset: number
   onCreateTag: (name: string, color?: string) => Promise<TagItem>
   onRenameTag: (id: number, name: string) => Promise<void>
   onSetTagColor: (id: number, color: string | null) => Promise<void>
   onDeleteTag: (id: number) => Promise<void>
-  onCreateCategory: (name: string, parentId?: number) => Promise<CategoryItem>
-  onDeleteCategory: (id: number) => Promise<void>
   onSaveLibrary: (name: string) => Promise<LibraryItem>
   onDeleteLibrary: (id: number) => Promise<void>
   onApplyLibrary: (library: LibraryItem) => void
-}
-
-interface CategoryTreeEntry {
-  category: CategoryItem
-  path: string
-}
-
-function flattenCategoryTree(categories: readonly CategoryItem[]): CategoryTreeEntry[] {
-  const childrenByParent = new Map<number | null, CategoryItem[]>()
-  for (const category of categories) {
-    const siblings = childrenByParent.get(category.parentId) ?? []
-    siblings.push(category)
-    childrenByParent.set(category.parentId, siblings)
-  }
-  for (const siblings of childrenByParent.values()) {
-    siblings.sort((left, right) => left.name.localeCompare(right.name))
-  }
-
-  const entries: CategoryTreeEntry[] = []
-  const appendChildren = (parentId: number | null, parentPath: string): void => {
-    for (const category of childrenByParent.get(parentId) ?? []) {
-      const path = parentPath ? `${parentPath} / ${category.name}` : category.name
-      entries.push({ category, path })
-      appendChildren(category.id, path)
-    }
-  }
-  appendChildren(null, '')
-  return entries
 }
 
 const DEFAULT_TAG_COLOR = '#00674f'
@@ -64,52 +34,32 @@ function colorInputValue(color: string | null): string {
     : DEFAULT_TAG_COLOR
 }
 
-export default function ManagePanel({
+const ManagePanel = forwardRef<HTMLDivElement, ManagePanelProps>(function ManagePanel({
   tags,
   libraries,
-  categories,
-  categoryScopeKey,
-  leftOffset,
   onCreateTag,
   onRenameTag,
   onSetTagColor,
   onDeleteTag,
-  onCreateCategory,
-  onDeleteCategory,
   onSaveLibrary,
   onDeleteLibrary,
   onApplyLibrary
-}: ManagePanelProps) {
+}: ManagePanelProps, ref) {
   const [tab, setTab] = useState<ManageTab>('tags')
-
+  const [tagSearch, setTagSearch] = useState('')
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState(DEFAULT_TAG_COLOR)
   const [newTagHasColor, setNewTagHasColor] = useState(false)
   const [renamingTagId, setRenamingTagId] = useState<number | null>(null)
   const [renameValue, setRenameValue] = useState('')
-
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [newCategoryParentId, setNewCategoryParentId] = useState<number | undefined>(undefined)
-  const categoryScopeKeyRef = useRef(categoryScopeKey)
-  const categoryDraftRef = useRef({ name: newCategoryName, parentId: newCategoryParentId })
-  const createCategoryRequestRef = useRef(0)
-  categoryScopeKeyRef.current = categoryScopeKey
-  categoryDraftRef.current = { name: newCategoryName, parentId: newCategoryParentId }
-
   const [newLibraryName, setNewLibraryName] = useState('')
 
-  useEffect(() => {
-    if (newCategoryParentId !== undefined &&
-        !categories.some((category) => category.id === newCategoryParentId)) {
-      setNewCategoryParentId(undefined)
-    }
-  }, [categories, newCategoryParentId])
+  const visibleTags = useMemo(() => filterTagsBySearch(tags, tagSearch), [tagSearch, tags])
 
   const handleCreateTag = async () => {
     const name = newTagName.trim()
     if (!name) return
-    if (newTagHasColor) await onCreateTag(name, newTagColor)
-    else await onCreateTag(name)
+    await onCreateTag(name, newTagHasColor ? newTagColor : undefined)
     setNewTagName('')
     setNewTagHasColor(false)
   }
@@ -121,21 +71,6 @@ export default function ManagePanel({
     setRenameValue('')
   }
 
-  const handleCreateCategory = async () => {
-    const name = newCategoryName.trim()
-    if (!name) return
-    const parentId = newCategoryParentId
-    const scopeKey = categoryScopeKey
-    const requestId = ++createCategoryRequestRef.current
-    await onCreateCategory(name, parentId)
-    const currentDraft = categoryDraftRef.current
-    if (categoryScopeKeyRef.current !== scopeKey ||
-        createCategoryRequestRef.current !== requestId ||
-        currentDraft.name.trim() !== name || currentDraft.parentId !== parentId) return
-    setNewCategoryName('')
-    setNewCategoryParentId(undefined)
-  }
-
   const handleSaveLibrary = async () => {
     const name = newLibraryName.trim()
     if (!name) return
@@ -143,31 +78,43 @@ export default function ManagePanel({
     setNewLibraryName('')
   }
 
-  const categoryTree = flattenCategoryTree(categories)
-  const editableCategories = categoryTree.filter(({ category }) =>
-    category.userCreated &&
-    !(category.parentId === null && ROOT_CATEGORY_NAMES.includes(category.name))
-  )
-
   return (
-    <div id="sample-browser-manage-panel" className="manage-panel" style={{ left: leftOffset }}>
+    <div
+      ref={ref}
+      id="sample-browser-manage-panel"
+      className="manage-panel"
+      role="region"
+      aria-label="Manage tags and libraries"
+      tabIndex={-1}
+    >
       <TabsRoot value={tab} onValueChange={(value) => setTab(value as ManageTab)} activationMode="automatic">
-      <TabsList className="manage-tabs" aria-label="Manage sample metadata">
-        {(['tags', 'libraries', 'categories'] as const).map((t) => (
-          <TabsTrigger
-            key={t}
-            value={t}
-            className={`manage-tab${tab === t ? ' manage-tab-active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+        <TabsList className="manage-tabs" aria-label="Manage sample metadata">
+          {(['tags', 'libraries'] as const).map((item) => (
+            <TabsTrigger
+              key={item}
+              value={item}
+              className={`manage-tab${tab === item ? ' manage-tab-active' : ''}`}
+              onClick={() => setTab(item)}
+            >
+              {item.charAt(0).toUpperCase() + item.slice(1)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      <TabsContent value="tags" className="manage-content">
+        <TabsContent value="tags" className="manage-content">
+          <input
+            type="search"
+            className="manage-input manage-search"
+            value={tagSearch}
+            onChange={(event) => setTagSearch(event.currentTarget.value)}
+            placeholder="Search tags"
+            aria-label="Search managed tags"
+          />
           <ul className="manage-list">
-            {tags.map((tag) => (
+            {visibleTags.map((tag) => {
+              const editable = isTagEditable(tag.origin)
+              const renameable = isTagRenameable(tag.origin)
+              return (
               <li key={tag.id} className="manage-list-item">
                 <input
                   type="color"
@@ -175,66 +122,68 @@ export default function ManagePanel({
                   value={colorInputValue(tag.color)}
                   data-empty={tag.color === null ? 'true' : undefined}
                   aria-label={`Set color for tag ${tag.name}`}
+                  disabled={!editable}
                   onChange={(event) => void onSetTagColor(tag.id, event.currentTarget.value)}
                 />
                 <button
                   type="button"
                   className="manage-action manage-tag-color-clear"
                   aria-label={`Clear color for tag ${tag.name}`}
-                  disabled={tag.color === null}
+                  disabled={!editable || tag.color === null}
                   onClick={() => void onSetTagColor(tag.id, null)}
                 >Clear</button>
-                {renamingTagId === tag.id ? (
+                {renameable && renamingTagId === tag.id ? (
                   <>
                     <input
                       type="text"
                       className="manage-input"
                       value={renameValue}
                       aria-label={`Rename tag ${tag.name}`}
-                      onChange={(e) => setRenameValue(e.currentTarget.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleCommitRename(tag.id)
-                        if (e.key === 'Escape') { setRenamingTagId(null); setRenameValue('') }
+                      onChange={(event) => setRenameValue(event.currentTarget.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') void handleCommitRename(tag.id)
+                        if (event.key === 'Escape') { setRenamingTagId(null); setRenameValue('') }
                       }}
                       autoFocus
                     />
-                    <button
-                      type="button"
-                      className="manage-action"
-                      onClick={() => void handleCommitRename(tag.id)}
-                      aria-label="Confirm rename"
-                    >
+                    <button type="button" className="manage-action" onClick={() => void handleCommitRename(tag.id)} aria-label="Confirm rename">
                       <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16">
                         <path d="m3 8.5 3 3L13 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
                       </svg>
                     </button>
                   </>
-                ) : (
+                ) : editable ? (
                   <>
-                    <span className="manage-name">{tag.name}</span>
-                    <button
-                      type="button"
-                      className="manage-action"
-                      aria-label={`Rename tag ${tag.name}`}
-                      onClick={() => { setRenamingTagId(tag.id); setRenameValue(tag.name) }}
-                    >
-                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16">
-                        <path d="M3 13l.7-3.2L11 2.5 13.5 5l-7.3 7.3L3 13Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                        <path d="m9.8 3.7 2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className="manage-action manage-action-delete"
-                      aria-label={`Delete tag ${tag.name}`}
-                      onClick={() => void onDeleteTag(tag.id)}
-                    >×</button>
+                    <span className="manage-name">
+                      {tag.name}
+                      {tag.folderDerived && <small className="manage-tag-source">Also from folder</small>}
+                    </span>
+                    {renameable && (
+                      <button
+                        type="button"
+                        className="manage-action"
+                        aria-label={`Rename tag ${tag.name}`}
+                        onClick={() => { setRenamingTagId(tag.id); setRenameValue(tag.name) }}
+                      >
+                        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16">
+                          <path d="M3 13l.7-3.2L11 2.5 13.5 5l-7.3 7.3L3 13Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                          <path d="m9.8 3.7 2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        </svg>
+                      </button>
+                    )}
+                    <button type="button" className="manage-action manage-action-delete" aria-label={`Delete tag ${tag.name}`} onClick={() => void onDeleteTag(tag.id)}>×</button>
                   </>
+                ) : (
+                  <span className="manage-name">
+                    {tag.name}
+                    <small className="manage-tag-source">From folder</small>
+                  </span>
                 )}
               </li>
-            ))}
-            {tags.length === 0 && (
-              <li className="manage-empty">No tags yet.</li>
+              )
+            })}
+            {visibleTags.length === 0 && (
+              <li className="manage-empty">{tags.length === 0 ? 'No tags yet.' : 'No matching tags.'}</li>
             )}
           </ul>
           <div className="manage-create manage-create-tag">
@@ -244,15 +193,11 @@ export default function ManagePanel({
               placeholder="New tag name"
               aria-label="New tag name"
               value={newTagName}
-              onChange={(e) => setNewTagName(e.currentTarget.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateTag() }}
+              onChange={(event) => setNewTagName(event.currentTarget.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') void handleCreateTag() }}
             />
             <label className="manage-tag-color-toggle">
-              <input
-                type="checkbox"
-                checked={newTagHasColor}
-                onChange={(event) => setNewTagHasColor(event.currentTarget.checked)}
-              />
+              <input type="checkbox" checked={newTagHasColor} onChange={(event) => setNewTagHasColor(event.currentTarget.checked)} />
               Color
             </label>
             <input
@@ -263,37 +208,21 @@ export default function ManagePanel({
               aria-label="New tag color"
               onChange={(event) => setNewTagColor(event.currentTarget.value)}
             />
-            <button
-              type="button"
-              className="manage-create-btn"
-              aria-label="Create tag"
-              onClick={() => void handleCreateTag()}
-              disabled={!newTagName.trim()}
-            >Create Tag</button>
+            <button type="button" className="manage-create-btn" aria-label="Create tag" onClick={() => void handleCreateTag()} disabled={!newTagName.trim()}>Create Tag</button>
           </div>
-      </TabsContent>
+        </TabsContent>
 
-      <TabsContent value="libraries" className="manage-content">
+        <TabsContent value="libraries" className="manage-content">
           <ul className="manage-list">
-            {libraries.map((lib) => (
-              <li key={lib.id} className="manage-list-item">
-                <Tooltip content={`Open ${lib.name} — restores its saved filters`}><button
-                  type="button"
-                  className="manage-name manage-name-open"
-                  aria-label={`Open library ${lib.name}`}
-                  onClick={() => onApplyLibrary(lib)}
-                >{lib.name}</button></Tooltip>
-                <button
-                  type="button"
-                  className="manage-action manage-action-delete"
-                  aria-label={`Delete library ${lib.name}`}
-                  onClick={() => void onDeleteLibrary(lib.id)}
-                >×</button>
+            {libraries.map((library) => (
+              <li key={library.id} className="manage-list-item">
+                <Tooltip content={`Open ${library.name} — restores its saved filters`}>
+                  <button type="button" className="manage-name manage-name-open" aria-label={`Open library ${library.name}`} onClick={() => onApplyLibrary(library)}>{library.name}</button>
+                </Tooltip>
+                <button type="button" className="manage-action manage-action-delete" aria-label={`Delete library ${library.name}`} onClick={() => void onDeleteLibrary(library.id)}>×</button>
               </li>
             ))}
-            {libraries.length === 0 && (
-              <li className="manage-empty">No saved libraries yet.</li>
-            )}
+            {libraries.length === 0 && <li className="manage-empty">No saved libraries yet.</li>}
           </ul>
           <div className="manage-create">
             <input
@@ -302,68 +231,15 @@ export default function ManagePanel({
               placeholder="Library name"
               aria-label="New library name"
               value={newLibraryName}
-              onChange={(e) => setNewLibraryName(e.currentTarget.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void handleSaveLibrary() }}
+              onChange={(event) => setNewLibraryName(event.currentTarget.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') void handleSaveLibrary() }}
             />
-            <button
-              type="button"
-              className="manage-create-btn"
-              onClick={() => void handleSaveLibrary()}
-              disabled={!newLibraryName.trim()}
-            >Save current filters</button>
+            <button type="button" className="manage-create-btn" onClick={() => void handleSaveLibrary()} disabled={!newLibraryName.trim()}>Save current filters</button>
           </div>
-      </TabsContent>
-
-      <TabsContent value="categories" className="manage-content">
-          <ul className="manage-list">
-            {editableCategories.map(({ category, path }) => (
-              <li key={category.id} className="manage-list-item">
-                <span className="manage-name">
-                  {path}{category.folderDerived ? ' (also from folder)' : ''}
-                </span>
-                <button
-                  type="button"
-                  className="manage-action manage-action-delete"
-                  aria-label={`Remove custom category ${path}`}
-                  onClick={() => void onDeleteCategory(category.id)}
-                >×</button>
-              </li>
-            ))}
-            {editableCategories.length === 0 && (
-              <li className="manage-empty">No custom categories yet.</li>
-            )}
-          </ul>
-          <div className="manage-create">
-            <input
-              type="text"
-              className="manage-input"
-              placeholder="New category"
-              aria-label="New category name"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.currentTarget.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateCategory() }}
-            />
-            <select
-              className="manage-select"
-              aria-label="Parent category"
-              value={newCategoryParentId ?? ''}
-              onChange={(e) => setNewCategoryParentId(e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
-            >
-              <option value="">Root</option>
-              {categoryTree.map(({ category, path }) => (
-                <option key={category.id} value={category.id}>{path}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="manage-create-btn"
-              aria-label="Add category"
-              onClick={() => void handleCreateCategory()}
-              disabled={!newCategoryName.trim()}
-            >+</button>
-          </div>
-      </TabsContent>
+        </TabsContent>
       </TabsRoot>
     </div>
   )
-}
+})
+
+export default ManagePanel

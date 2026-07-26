@@ -4,7 +4,7 @@ import type {
   MixJamGeneratorTempoCluster,
   SampleType
 } from '../../../shared/backend-api'
-import { categorySlot } from '../../../shared/sample-palette'
+import { sourceGroupFromRelpath, sourceGroupSlot } from '../../../shared/sample-palette'
 import { isSampleType } from './analysis'
 import {
   analysisGroupContainsRelpath,
@@ -24,7 +24,7 @@ export interface GeneratorCandidate {
   bpm: number | null
   musicalKey: string | null
   sampleType: SampleType
-  categoryName: string
+  sourceGroup: string
   paletteSlot: number
   metadataRevision: number
   analysisRevision: number
@@ -97,10 +97,8 @@ function listGeneratorCandidates(db: DB, rootId: number): GeneratorCandidate[] {
   const rows = db.prepare(
     `SELECT samples.relpath, samples.filename, samples.size_bytes, samples.mtime,
             samples.duration, samples.bpm, samples.musical_key, samples.sample_type,
-            COALESCE(primary_category.name, 'Unsorted') AS category_name,
             samples.metadata_revision, samples.analysis_revision
      FROM samples
-     LEFT JOIN categories AS primary_category ON primary_category.id = samples.category_id
      WHERE root_id = ?
        AND scan_state = 1
        AND metadata_revision = ?
@@ -116,24 +114,27 @@ function listGeneratorCandidates(db: DB, rootId: number): GeneratorCandidate[] {
     bpm: number | null
     musical_key: string | null
     sample_type: string
-    category_name: string
     metadata_revision: number
     analysis_revision: number
   }>(rootId, METADATA_REVISION)
-  return rows.flatMap((row) => isSampleType(row.sample_type) ? [{
-    relpath: row.relpath,
-    filename: row.filename,
-    sizeBytes: row.size_bytes ?? 0,
-    mtime: row.mtime ?? 0,
-    duration: row.duration,
-    bpm: row.bpm !== null && Number.isFinite(row.bpm) && row.bpm > 0 ? row.bpm : null,
-    musicalKey: row.musical_key,
-    sampleType: row.sample_type,
-    categoryName: row.category_name,
-    paletteSlot: categorySlot(row.category_name),
-    metadataRevision: row.metadata_revision,
-    analysisRevision: row.analysis_revision
-  }] : [])
+  return rows.flatMap((row) => {
+    if (!isSampleType(row.sample_type)) return []
+    const sourceGroup = sourceGroupFromRelpath(row.relpath)
+    return [{
+      relpath: row.relpath,
+      filename: row.filename,
+      sizeBytes: row.size_bytes ?? 0,
+      mtime: row.mtime ?? 0,
+      duration: row.duration,
+      bpm: row.bpm !== null && Number.isFinite(row.bpm) && row.bpm > 0 ? row.bpm : null,
+      musicalKey: row.musical_key,
+      sampleType: row.sample_type,
+      sourceGroup,
+      paletteSlot: sourceGroupSlot(sourceGroup),
+      metadataRevision: row.metadata_revision,
+      analysisRevision: row.analysis_revision
+    }]
+  })
 }
 
 export function loadGeneratorSnapshot(db: DB, rootKey: string): GeneratorRootSnapshot {
@@ -220,7 +221,7 @@ export async function fingerprintGeneratorSnapshot(snapshot: GeneratorRootSnapsh
       bpm: candidate.bpm,
       musicalKey: candidate.musicalKey,
       sampleType: candidate.sampleType,
-      categoryName: candidate.categoryName,
+      sourceGroup: candidate.sourceGroup,
       paletteSlot: candidate.paletteSlot
     }))
   const canonical = JSON.stringify({

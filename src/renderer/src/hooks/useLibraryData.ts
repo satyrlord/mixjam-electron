@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   BackendAPI,
-  CategoryItem,
   FolderRef,
   LibraryItem,
   LibrarySyncState,
@@ -9,12 +8,12 @@ import type {
   SampleItem,
   SampleAnalysisPatch,
   SampleListItem,
+  SampleQueryRequest,
   TagItem
 } from '../../../shared/backend-api'
+import { sourceGroupFromRelpath } from '../../../shared/sample-palette'
 import type { FooterSampleDetail } from '../lib/arrangement'
-import { useSyncedRef } from './useSyncedRef'
-import { useSampleTags } from './useSampleTags'
-import { useSampleCategories } from './useSampleCategories'
+import { useSampleTags, type TagRefreshResult } from './useSampleTags'
 import { useSampleLibraries } from './useSampleLibraries'
 import { useLibrarySyncRuntime } from './useLibrarySyncRuntime'
 
@@ -40,19 +39,16 @@ export interface LibraryDataState {
   missingSamplePaths: ReadonlySet<string>
   /** True while more windowed pages exist beyond the loaded prefix. */
   hasMoreSamples: boolean
-  selectedCategoryId: number | undefined
   selectedTagIds: number[]
   sortBy: SampleSortColumn
   sortDir: SampleSortDirection
   tags: TagItem[]
-  categories: CategoryItem[]
   libraries: LibraryItem[]
 }
 
 export interface LibraryDataActions {
   setSelectedSampleDetail: (detail: FooterSampleDetail | null) => void
   setSearchQuery: (query: string) => void
-  setSelectedCategoryId: (id: number | undefined) => void
   setSelectedTagIds: React.Dispatch<React.SetStateAction<number[]>>
   rescanLibrary: () => Promise<void>
   retryLibrarySync: () => Promise<void>
@@ -67,8 +63,6 @@ export interface LibraryDataActions {
   unassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
   updateSampleAnalysis: (sample: SampleListItem, patch: SampleAnalysisPatch) => Promise<void>
   reanalyzeSample: (sample: SampleListItem) => Promise<void>
-  createCategory: (name: string, parentId?: number) => Promise<CategoryItem>
-  deleteCategory: (id: number) => Promise<void>
   saveLibrary: (name: string) => Promise<LibraryItem>
   deleteLibrary: (id: number) => Promise<void>
   /** Restores the filter state a saved library encodes (spec-004 AC-013). */
@@ -79,16 +73,13 @@ export interface LibraryDataActions {
 
 export type LibraryData = LibraryDataState & LibraryDataActions
 
-function dbSampleToListItem(
-  s: SampleItem,
-  categoryNames: ReadonlyMap<number, string>
-): SampleListItem {
+function dbSampleToListItem(s: SampleItem): SampleListItem {
   return {
     id: s.relpath,
     dbId: s.id,
     name: s.filename,
     relpath: s.relpath,
-    category: (s.categoryId !== null ? categoryNames.get(s.categoryId) : undefined) ?? 'Unsorted',
+    sourceGroup: sourceGroupFromRelpath(s.relpath),
     durationSeconds: s.duration,
     bpm: s.bpm,
     bpmSource: s.bpmSource,
@@ -97,8 +88,9 @@ function dbSampleToListItem(
     sampleType: s.sampleType,
     sampleTypeSource: s.sampleTypeSource,
     tags: s.tags,
-    categoryId: s.categoryId,
-    tagIds: s.tagIds
+    tagIds: s.tagIds,
+    folderTagIds: s.folderTagIds,
+    userTagIds: s.userTagIds
   }
 }
 
@@ -126,47 +118,27 @@ export function useLibraryData(
   const [totalCount, setTotalCount] = useState(0)
   const [selectedSampleDetail, setSelectedSampleDetail] = useState<FooterSampleDetail | null>(null)
   const [missingSamplePaths, setMissingSamplePaths] = useState<ReadonlySet<string>>(new Set())
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined)
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
   const [sort, setSort] = useState<{ by: SampleSortColumn; dir: SampleSortDirection }>({
     by: 'filename',
     dir: 'asc'
   })
   const [tags, setTags] = useState<TagItem[]>([])
-  const [categories, setCategories] = useState<CategoryItem[]>([])
-  const [categoriesLoadedForRootId, setCategoriesLoadedForRootId] = useState<string | null>(null)
-  const [categoryProjectionError, setCategoryProjectionError] = useState<string | null>(null)
   const [libraries, setLibraries] = useState<LibraryItem[]>([])
+  const [queryRefreshVersion, setQueryRefreshVersion] = useState(0)
   const querySeqRef = useRef(0)
-  const categoryProjectionSeqRef = useRef(0)
-  const activeSampleFolderIdRef = useRef<string | null>(sampleFolder?.id ?? null)
-  activeSampleFolderIdRef.current = sampleFolder?.id ?? null
+  const activeSampleFolderIdRef = useRef(sampleFolder?.id ?? null)
+  const tagRefreshSeqRef = useRef(0)
+  const missingRefreshSeqRef = useRef(0)
   // Windowed paging cursor for the current query generation.
   const nextOffsetRef = useRef(0)
-  const loadingMoreRef = useRef(false)
+  const firstPagePendingSeqRef = useRef<number | null>(null)
+  const loadingMoreSeqRef = useRef<number | null>(null)
+  activeSampleFolderIdRef.current = sampleFolder?.id ?? null
 
-  const categoryNames = useMemo(
-    () => new Map(categories.map((c) => [c.id, c.name])),
-    [categories]
-  )
-  const categoryNamesRef = useSyncedRef(categoryNames)
-
-  // Items loaded before the category list arrived resolved their category name
-  // against an empty map; re-map in place when categories change rather than
-  // re-running the whole query.
-  useEffect(() => {
-    setSamples((prev) => {
-      let changed = false
-      const next = prev.map((s) => {
-        const name =
-          (s.categoryId !== null ? categoryNames.get(s.categoryId) : undefined) ?? 'Unsorted'
-        if (name === s.category) return s
-        changed = true
-        return { ...s, category: name }
-      })
-      return changed ? next : prev
-    })
-  }, [categoryNames])
+  const requestQueryRefresh = useCallback(() => {
+    setQueryRefreshVersion((version) => version + 1)
+  }, [])
 
   // Version
   useEffect(() => {
@@ -196,59 +168,54 @@ export function useLibraryData(
   }, [reloadMixJamFiles])
 
   const refreshMissingSamplePaths = useCallback(async () => {
-    if (!sampleFolder) return
+    const rootId = sampleFolder?.id
+    const seq = ++missingRefreshSeqRef.current
+    if (!sampleFolder || rootId === undefined) return
     try {
       const next = new Set(await backendAPI.listMissingRelpaths(sampleFolder))
+      if (seq !== missingRefreshSeqRef.current || activeSampleFolderIdRef.current !== rootId) return
       // Keep the previous Set identity when contents are unchanged (the
       // common case: empty -> empty on every scan) so App's arrangement memo
       // and the memoized LaneRow/LaneSampleBubbleCanvas tree don't re-render and
       // repaint every lane canvas for a no-op.
       setMissingSamplePaths((prev) => setsEqual(prev, next) ? prev : next)
     } catch {
+      if (seq !== missingRefreshSeqRef.current || activeSampleFolderIdRef.current !== rootId) return
       setMissingSamplePaths((prev) => prev.size === 0 ? prev : new Set())
     }
   }, [backendAPI, sampleFolder])
 
-  const queryDbRef = useRef<() => void>(() => {})
-  const refreshMissingRef = useRef<() => void>(() => {})
-  const refreshCategoryProjection = useCallback(async (folder: FolderRef) => {
-    const rootId = folder.id
-    const seq = ++categoryProjectionSeqRef.current
-    if (activeSampleFolderIdRef.current !== rootId) return
-    setCategoriesLoadedForRootId(null)
-    setCategoryProjectionError(null)
+  const queryDbRef = useRef<() => Promise<void>>(async () => {})
+  const refreshMissingRef = useRef<() => Promise<void>>(async () => {})
+  const refreshLibraryMetadata = useCallback(async (): Promise<TagRefreshResult> => {
+    const rootId = sampleFolder?.id ?? null
+    const seq = ++tagRefreshSeqRef.current
     try {
-      const next = await backendAPI.listCategories(folder)
-      if (categoryProjectionSeqRef.current !== seq ||
-          activeSampleFolderIdRef.current !== rootId) return
-      setCategories(next)
-      setCategoriesLoadedForRootId(rootId)
-    } catch {
-      if (categoryProjectionSeqRef.current !== seq ||
-          activeSampleFolderIdRef.current !== rootId) return
-      setCategoryProjectionError('Unable to load categories.')
+      const nextTags = await backendAPI.listTags(rootId ?? undefined)
+      if (seq !== tagRefreshSeqRef.current || activeSampleFolderIdRef.current !== rootId) {
+        return { status: 'superseded' }
+      }
+      const visibleIds = new Set(nextTags.map(({ id }) => id))
+      setTags(nextTags)
+      setSelectedTagIds((current) => {
+        const next = current.filter((id) => visibleIds.has(id))
+        return next.length === current.length ? current : next
+      })
+      requestQueryRefresh()
+      return { status: 'applied', tags: nextTags }
+    } catch (error) {
+      console.error('Failed to refresh tags:', error)
+      return { status: 'failed' }
     }
-  }, [backendAPI])
-  const refreshLibraryMetadata = useCallback(() => {
-    if (sampleFolder) {
-      void refreshCategoryProjection(sampleFolder)
-    } else {
-      categoryProjectionSeqRef.current++
-      setCategories([])
-      setCategoriesLoadedForRootId(null)
-      setCategoryProjectionError(null)
-    }
-    void backendAPI.listTags().then(setTags)
-  }, [backendAPI, refreshCategoryProjection, sampleFolder])
+  }, [backendAPI, requestQueryRefresh, sampleFolder])
   const librarySync = useLibrarySyncRuntime({
     backendAPI,
     sampleFolder,
     onScanDone: () => {
-      refreshLibraryMetadata()
-      queryDbRef.current()
-      refreshMissingRef.current()
+      void refreshLibraryMetadata()
+      void refreshMissingRef.current()
     },
-    onAnalysisDone: () => queryDbRef.current()
+    onAnalysisDone: requestQueryRefresh
   })
   const { state: librarySyncState, dbIndexed } = librarySync
 
@@ -256,17 +223,17 @@ export function useLibraryData(
   // the library lifecycle. Reset it when the active Sample Folder changes.
   useEffect(() => {
     querySeqRef.current++
-    categoryProjectionSeqRef.current++
-    loadingMoreRef.current = false
+    firstPagePendingSeqRef.current = null
+    loadingMoreSeqRef.current = null
+    tagRefreshSeqRef.current++
+    missingRefreshSeqRef.current++
     setSamples([])
     setTotalCount(0)
     setLoading(false)
-    setCategories([])
-    setCategoriesLoadedForRootId(null)
-    setCategoryProjectionError(null)
-    setSelectedCategoryId(undefined)
+    setSelectedTagIds([])
+    setTags([])
+    setMissingSamplePaths(new Set())
     if (!sampleFolder) {
-      setMissingSamplePaths(new Set())
       return
     }
     void refreshMissingSamplePaths()
@@ -276,25 +243,31 @@ export function useLibraryData(
   // only the first page; the grid requests more via loadMoreSamples as the user
   // scrolls, so the renderer never holds the full result set (AGENTS.md hard
   // rule: windowed pages over IPC, never full result sets).
-  const queryDb = useCallback(async () => {
+  const buildQueryRequest = useCallback((rootId: string, offset: number): SampleQueryRequest => ({
+    textSearch: searchQuery || undefined,
+    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    rootId,
+    sortBy: sort.by,
+    sortDir: sort.dir,
+    limit: DB_SAMPLE_PAGE_SIZE,
+    offset
+  }), [searchQuery, selectedTagIds, sort])
+
+  const queryDb = useCallback(async (generation?: number) => {
     if (!sampleFolder) return
-    const seq = ++querySeqRef.current
+    const seq = generation ?? ++querySeqRef.current
+    if (generation === undefined) {
+      firstPagePendingSeqRef.current = seq
+      loadingMoreSeqRef.current = null
+      nextOffsetRef.current = 0
+    }
     setLoading(true)
     try {
-      const result = await backendAPI.querySamples({
-        textSearch: searchQuery || undefined,
-        categoryId: selectedCategoryId,
-        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-        rootId: sampleFolder.id,
-        sortBy: sort.by,
-        sortDir: sort.dir,
-        limit: DB_SAMPLE_PAGE_SIZE,
-        offset: 0
-      })
+      const result = await backendAPI.querySamples(buildQueryRequest(sampleFolder.id, 0))
       if (seq !== querySeqRef.current) return
 
       nextOffsetRef.current = result.rows.length
-      setSamples(result.rows.map((s) => dbSampleToListItem(s, categoryNamesRef.current)))
+      setSamples(result.rows.map(dbSampleToListItem))
       setTotalCount(result.total)
       setError(null)
     } catch {
@@ -303,33 +276,28 @@ export function useLibraryData(
       setTotalCount(0)
       setError('Unable to query library.')
     } finally {
-      if (seq === querySeqRef.current) setLoading(false)
+      if (seq === querySeqRef.current) {
+        firstPagePendingSeqRef.current = null
+        setLoading(false)
+      }
     }
-  }, [backendAPI, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort, categoryNamesRef])
+  }, [backendAPI, sampleFolder, buildQueryRequest])
 
   const loadMoreSamples = useCallback(() => {
-    if (!dbIndexed || !sampleFolder || loadingMoreRef.current) return
+    if (!dbIndexed || !sampleFolder) return
     const seq = querySeqRef.current
+    if (firstPagePendingSeqRef.current === seq || loadingMoreSeqRef.current === seq) return
     const offset = nextOffsetRef.current
-    loadingMoreRef.current = true
+    loadingMoreSeqRef.current = seq
     void backendAPI
-      .querySamples({
-        textSearch: searchQuery || undefined,
-        categoryId: selectedCategoryId,
-        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-        rootId: sampleFolder.id,
-        sortBy: sort.by,
-        sortDir: sort.dir,
-        limit: DB_SAMPLE_PAGE_SIZE,
-        offset
-      })
+      .querySamples(buildQueryRequest(sampleFolder.id, offset))
       .then((result) => {
         // A newer query superseded this page while it was in flight.
         if (seq !== querySeqRef.current || result.rows.length === 0) return
         nextOffsetRef.current = offset + result.rows.length
         setSamples((prev) => [
           ...prev,
-          ...result.rows.map((s) => dbSampleToListItem(s, categoryNamesRef.current))
+          ...result.rows.map(dbSampleToListItem)
         ])
         setTotalCount(result.total)
       })
@@ -337,15 +305,20 @@ export function useLibraryData(
         console.error('Failed to load more samples:', e)
       })
       .finally(() => {
-        loadingMoreRef.current = false
+        if (loadingMoreSeqRef.current === seq) loadingMoreSeqRef.current = null
       })
-  }, [backendAPI, dbIndexed, sampleFolder, searchQuery, selectedCategoryId, selectedTagIds, sort, categoryNamesRef])
+  }, [backendAPI, dbIndexed, sampleFolder, buildQueryRequest])
 
   // Debounced query: one effect covers search, filter, and sort changes.
   // Before the active folder's first scan completes there is nothing to query;
   // the browser shows its empty state until onScanDone flips dbIndexed.
   useEffect(() => {
+    const seq = ++querySeqRef.current
+    firstPagePendingSeqRef.current = seq
+    loadingMoreSeqRef.current = null
+    nextOffsetRef.current = 0
     if (!sampleFolder) {
+      firstPagePendingSeqRef.current = null
       setSamples([])
       setSearchQuery('')
       setLoading(false)
@@ -354,6 +327,7 @@ export function useLibraryData(
       return
     }
     if (!dbIndexed) {
+      firstPagePendingSeqRef.current = null
       setSamples([])
       setTotalCount(0)
       setLoading(false)
@@ -363,13 +337,13 @@ export function useLibraryData(
     let cancelled = false
     const timer = window.setTimeout(() => {
       if (cancelled) return
-      void queryDb()
+      void queryDb(seq)
     }, 150)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [sampleFolder, dbIndexed, queryDb])
+  }, [sampleFolder, dbIndexed, queryDb, queryRefreshVersion])
 
   // Clear selection when the selected sample is no longer in the list.
   useEffect(() => {
@@ -383,20 +357,16 @@ export function useLibraryData(
   queryDbRef.current = queryDb
   refreshMissingRef.current = refreshMissingSamplePaths
 
-  // Tags and libraries are global. Categories follow the active Sample Folder.
+  // User tags are global; the active Sample Folder contributes read-only folder tags.
   useEffect(() => {
     let active = true
-    void Promise.all([
-      backendAPI.listTags(),
-      backendAPI.listLibraries()
-    ]).then(([t, l]) => {
+    void refreshLibraryMetadata()
+    void backendAPI.listLibraries().then((nextLibraries) => {
       if (!active) return
-      setTags(t)
-      setLibraries(l)
+      setLibraries(nextLibraries)
     })
-    if (sampleFolder) void refreshCategoryProjection(sampleFolder)
     return () => { active = false }
-  }, [backendAPI, refreshCategoryProjection, sampleFolder])
+  }, [backendAPI, refreshLibraryMetadata, sampleFolder])
 
   const updateSampleAnalysis = useCallback(async (
     sample: SampleListItem,
@@ -436,9 +406,14 @@ export function useLibraryData(
 
   // Updates one loaded list item's denormalized tag fields after an
   // assign/unassign, without re-running the whole query.
-  const patchSampleTags = useCallback((relpath: string, tagIds: number[], tagNames: string[]) => {
+  const patchSampleTags = useCallback((
+    relpath: string,
+    tagIds: number[],
+    userTagIds: number[],
+    tagNames: string[]
+  ) => {
     setSamples((prev) =>
-      prev.map((s) => (s.relpath === relpath ? { ...s, tagIds, tags: tagNames } : s))
+      prev.map((s) => (s.relpath === relpath ? { ...s, tagIds, userTagIds, tags: tagNames } : s))
     )
   }, [])
 
@@ -446,20 +421,14 @@ export function useLibraryData(
 
   const tagActions = useSampleTags(
     backendAPI, tags, setTags, setSelectedTagIds,
-    patchSampleTags, setSamples
-  )
-
-  const categoryActions = useSampleCategories(
-    backendAPI, sampleFolder, setCategories, selectedCategoryId, setSelectedCategoryId
+    patchSampleTags, setSamples, sampleFolder?.id ?? null, requestQueryRefresh,
+    refreshLibraryMetadata
   )
 
   const libraryActions = useSampleLibraries(
     backendAPI, setLibraries,
-    searchQuery, selectedCategoryId, selectedTagIds,
-    categories, sampleFolder?.id ?? null,
-    sampleFolder !== null && categoriesLoadedForRootId === sampleFolder.id,
-    sampleFolder !== null && categoryProjectionError !== null,
-    setSearchQuery, setSelectedCategoryId, setSelectedTagIds
+    searchQuery, selectedTagIds, tags,
+    setSearchQuery, setSelectedTagIds
   )
 
   // ---
@@ -478,23 +447,20 @@ export function useLibraryData(
     samples,
     searchQuery,
     loading,
-    error: error ?? categoryProjectionError,
+    error,
     selectedSampleDetail,
     librarySyncState,
     totalCount,
     dbIndexed,
     missingSamplePaths,
     hasMoreSamples: dbIndexed && samples.length < totalCount,
-    selectedCategoryId,
     selectedTagIds,
     sortBy: sort.by,
     sortDir: sort.dir,
     tags,
-    categories,
     libraries,
     setSelectedSampleDetail,
     setSearchQuery,
-    setSelectedCategoryId,
     setSelectedTagIds,
     rescanLibrary: librarySync.rescan,
     retryLibrarySync: librarySync.retry,
@@ -508,8 +474,6 @@ export function useLibraryData(
     unassignTagFromSample: tagActions.unassignTagFromSample,
     updateSampleAnalysis,
     reanalyzeSample,
-    createCategory: categoryActions.createCategory,
-    deleteCategory: categoryActions.deleteCategory,
     saveLibrary: libraryActions.saveLibrary,
     deleteLibrary: libraryActions.deleteLibrary,
     applyLibrary: libraryActions.applyLibrary,

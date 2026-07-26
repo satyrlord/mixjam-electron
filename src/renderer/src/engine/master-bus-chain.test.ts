@@ -137,12 +137,16 @@ describe('MasterBusChain', () => {
     expect(warn).toHaveBeenCalledTimes(1)
   })
 
-  it('close detaches the node and restores the direct route', async () => {
+  it('close retires the node and restores the direct route', async () => {
     const harness = createHarness()
     const chain = new MasterBusChain({ processorUrl: 'stub', createNode: harness.createNode })
     await chain.initialize(harness.context, harness.upstream, harness.downstream)
     chain.close()
-    expect(harness.nodes[0].port.close).toHaveBeenCalled()
+    // Disconnecting alone leaves the strip actively processing: the node stays
+    // in the render graph and is never collected. Teardown must retire it, and
+    // must do so while the port is still open.
+    expect(harness.nodes[0].port.postMessage).toHaveBeenLastCalledWith({ type: 'dispose' })
+    expect(harness.nodes[0].port.close).not.toHaveBeenCalled()
     expect(harness.nodes[0].disconnect).toHaveBeenCalled()
     expect(harness.upstream.connect).toHaveBeenCalledWith(harness.downstream)
     expect(chain.output).toBeNull()

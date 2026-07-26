@@ -28,29 +28,23 @@
     { path: 'archive/slow-motion.mixjam', displayName: 'slow-motion', lastOpened: null }
   ]
 
-  var MOCK_SAMPLES = [
-    { id: 1, relpath: 'Drums/Kicks/kick_808.wav', filename: 'kick_808.wav', ext: 'wav', sizeBytes: 1024, duration: 0.5, sampleRate: 44100, channels: 1, bpm: 120, bpmSource: 'analysis', musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Kick', sampleTypeSource: 'analysis', dateAdded: 1000, scanState: 1, categoryId: 2, tagIds: [], tags: [] },
-    { id: 2, relpath: 'Drums/Snares/snare_clap.wav', filename: 'snare_clap.wav', ext: 'wav', sizeBytes: 2048, duration: 0.3, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: 'Snare', sampleTypeSource: 'analysis', dateAdded: 1001, scanState: 1, categoryId: 2, tagIds: [], tags: [] },
-    { id: 3, relpath: 'Bass/deep_sub.wav', filename: 'deep_sub.wav', ext: 'wav', sizeBytes: 4096, duration: 1.2, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Bass', sampleTypeSource: 'analysis', dateAdded: 1002, scanState: 1, categoryId: 1, tagIds: [], tags: [] },
-    { id: 4, relpath: 'Synth/pad_warm.wav', filename: 'pad_warm.wav', ext: 'wav', sizeBytes: 8192, duration: 2.0, sampleRate: 44100, channels: 2, bpm: 120, bpmSource: 'analysis', musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Synth', sampleTypeSource: 'analysis', dateAdded: 1003, scanState: 1, categoryId: 4, tagIds: [], tags: [] },
-    { id: 5, relpath: 'FX/riser_imp.wav', filename: 'riser_imp.wav', ext: 'wav', sizeBytes: 1536, duration: 0.8, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: 'FX', sampleTypeSource: 'analysis', dateAdded: 1004, scanState: 1, categoryId: 3, tagIds: [1], tags: ['fav'] }
-  ]
-
-  var MOCK_CATEGORIES = [
-    { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: true },
-    { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: false },
-    { id: 3, name: 'FX', parentId: null, folderDerived: true, userCreated: false },
-    { id: 4, name: 'Synth', parentId: null, folderDerived: true, userCreated: false },
-    { id: 5, name: 'Vocal', parentId: null, folderDerived: true, userCreated: false },
-    { id: 6, name: 'Loop', parentId: null, folderDerived: true, userCreated: false },
-    { id: 7, name: 'Percussion', parentId: null, folderDerived: true, userCreated: false },
-    { id: 8, name: 'Atmosphere', parentId: null, folderDerived: true, userCreated: false },
-    { id: 9, name: 'Unsorted', parentId: null, folderDerived: true, userCreated: false },
-    { id: 10, name: 'Kicks', parentId: 2, folderDerived: true, userCreated: false }
-  ]
-
   var MOCK_TAGS = [
-    { id: 1, name: 'fav', color: '#ffcc00' }
+    { id: 1, name: 'fav', color: '#ffcc00', origin: 'user', folderDerived: false },
+    { id: 2, name: 'Bass', color: null, origin: 'folder', folderDerived: true },
+    { id: 3, name: 'Hard Trance', color: null, origin: 'folder', folderDerived: true },
+    { id: 4, name: 'House', color: null, origin: 'folder', folderDerived: true },
+    { id: 5, name: 'Drums', color: null, origin: 'folder', folderDerived: true },
+    { id: 6, name: 'Unsorted', color: null, origin: 'folder', folderDerived: true },
+    { id: 7, name: 'Review', color: '#00674f', origin: 'user', folderDerived: false }
+  ]
+  var nextTagId = 8
+
+  var MOCK_SAMPLES = [
+    { id: 1, relpath: 'Hard Trance/Bass/kick_808.wav', filename: 'kick_808.wav', ext: 'wav', sizeBytes: 1024, duration: 0.5, sampleRate: 44100, channels: 1, bpm: 120, bpmSource: 'analysis', musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Kick', sampleTypeSource: 'analysis', dateAdded: 1000, scanState: 1, tagIds: [2, 3], folderTagIds: [2, 3], userTagIds: [], tags: ['Bass', 'Hard Trance'] },
+    { id: 2, relpath: 'House/Bass/snare_clap.wav', filename: 'snare_clap.wav', ext: 'wav', sizeBytes: 2048, duration: 0.3, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: 'Snare', sampleTypeSource: 'analysis', dateAdded: 1001, scanState: 1, tagIds: [2, 4], folderTagIds: [2, 4], userTagIds: [], tags: ['Bass', 'House'] },
+    { id: 3, relpath: 'Hard Trance/Drums/deep_sub.wav', filename: 'deep_sub.wav', ext: 'wav', sizeBytes: 4096, duration: 1.2, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Bass', sampleTypeSource: 'analysis', dateAdded: 1002, scanState: 1, tagIds: [3, 5], folderTagIds: [3, 5], userTagIds: [], tags: ['Drums', 'Hard Trance'] },
+    { id: 4, relpath: 'House/Drums/pad_warm.wav', filename: 'pad_warm.wav', ext: 'wav', sizeBytes: 8192, duration: 2.0, sampleRate: 44100, channels: 2, bpm: 120, bpmSource: 'analysis', musicalKey: 'C', musicalKeySource: 'analysis', sampleType: 'Synth', sampleTypeSource: 'analysis', dateAdded: 1003, scanState: 1, tagIds: [4, 5], folderTagIds: [4, 5], userTagIds: [], tags: ['Drums', 'House'] },
+    { id: 5, relpath: 'riser_imp.wav', filename: 'riser_imp.wav', ext: 'wav', sizeBytes: 1536, duration: 0.8, sampleRate: 44100, channels: 1, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: 'FX', sampleTypeSource: 'analysis', dateAdded: 1004, scanState: 1, tagIds: [1, 6], folderTagIds: [6], userTagIds: [1], tags: ['fav', 'Unsorted'] }
   ]
 
   var MOCK_LIBRARY_JOB = {
@@ -89,12 +83,9 @@
       var q = req.textSearch.trim().toLowerCase()
       rows = rows.filter(function (r) { return (r.filename + ' ' + r.relpath).toLowerCase().indexOf(q) !== -1 })
     }
-    if (req.categoryId !== undefined) {
-      rows = rows.filter(function (r) { return r.categoryId === req.categoryId })
-    }
     if (req.tagIds && req.tagIds.length) {
       rows = rows.filter(function (r) {
-        return req.tagIds.some(function (id) { return r.tagIds.indexOf(id) !== -1 })
+        return req.tagIds.every(function (id) { return r.tagIds.indexOf(id) !== -1 })
       })
     }
     var total = rows.length
@@ -129,8 +120,8 @@
         muted: false,
         solo: false,
         placements: index === 0 ? [
-          { id: 'generator-kick-start', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: 0, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 0 },
-          { id: 'generator-kick-end', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: targetTicks - 8, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 0 }
+          { id: 'generator-kick-start', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: 0, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 2 },
+          { id: 'generator-kick-end', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: targetTicks - 8, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 2 }
         ] : []
       })
     }
@@ -186,7 +177,7 @@
         sends: [0, 0, 0, 0],
         placements: i === 0 ? [{
           id: 'placement-' + name,
-          sampleRef: 'Drums/Kicks/kick_808.wav',
+          sampleRef: 'Hard Trance/Bass/kick_808.wav',
           sampleName: 'kick_808.wav',
           nativeBPM: 120,
           startTick: 0,
@@ -317,18 +308,6 @@
         total: 0
       })
     },
-    startUniformFolderCalibration: function (folder) {
-      return Promise.resolve({ rootKey: folder.id, jobId: 'e2e-calibration-job' })
-    },
-    cancelUniformFolderCalibration: function () { return Promise.resolve() },
-    getCalibrationProgress: function () {
-      return Promise.resolve({
-        identity: null,
-        status: 'idle',
-        analyzed: 0,
-        total: 0
-      })
-    },
     querySamples: function (req) { return Promise.resolve(querySamples(req)) },
     getGeneratorReadiness: function () {
       return Promise.resolve({
@@ -354,17 +333,89 @@
     },
     cancelMixJamPlanning: function () { return Promise.resolve() },
     getGeneratorProgress: function () { return Promise.resolve({ identity: null, status: 'idle', phase: null, completed: 0, total: 0 }) },
-    listTags: function () { return Promise.resolve(MOCK_TAGS) },
-    createTag: function (name, color) { return Promise.resolve({ id: 99, name: name, color: color || null }) },
-    renameTag: function () { return Promise.resolve() },
+    listTags: function (rootKey) { return Promise.resolve(MOCK_TAGS.slice().sort(function (a, b) { return a.name.localeCompare(b.name) })) },
+    createTag: function (name, color, rootKey) {
+      var trimmed = name.trim()
+      var existing = MOCK_TAGS.find(function (tag) { return tag.name.toLowerCase() === trimmed.toLowerCase() })
+      if (existing) {
+        // Promoting a folder tag makes it user-owned but still folder-derived.
+        if (existing.origin === 'folder') existing.origin = 'shared'
+        if (color !== undefined) existing.color = color
+        return Promise.resolve(existing)
+      }
+      var tag = { id: nextTagId++, name: trimmed, color: color || null, origin: 'user', folderDerived: false }
+      MOCK_TAGS.push(tag)
+      return Promise.resolve(tag)
+    },
+    renameTag: function (id, name) {
+      var tag = MOCK_TAGS.find(function (item) { return item.id === id })
+      if (tag && tag.origin !== 'user') {
+        return Promise.reject(new Error('Folder-derived tag names are managed automatically.'))
+      }
+      if (tag) {
+        var oldName = tag.name
+        tag.name = name.trim()
+        MOCK_SAMPLES.forEach(function (sample) {
+          if (sample.tagIds.indexOf(id) !== -1) {
+            sample.tags = sample.tags.map(function (value) { return value === oldName ? tag.name : value }).sort()
+          }
+        })
+      }
+      return Promise.resolve()
+    },
     setTagColor: function (id, color) {
       var tag = MOCK_TAGS.find(function (item) { return item.id === id })
       if (tag) tag.color = color
       return Promise.resolve()
     },
-    deleteTag: function () { return Promise.resolve() },
-    assignTag: function () { return Promise.resolve() },
-    unassignTag: function () { return Promise.resolve() },
+    deleteTag: function (id) {
+      var tag = MOCK_TAGS.find(function (item) { return item.id === id })
+      if (!tag) return Promise.resolve()
+      if (tag.origin === 'folder') {
+        return Promise.reject(new Error('Folder-only tags are managed automatically and cannot be edited.'))
+      }
+      if (tag.origin === 'shared') {
+        tag.origin = 'folder'
+        tag.color = null
+      } else {
+        MOCK_TAGS = MOCK_TAGS.filter(function (item) { return item.id !== id })
+      }
+      MOCK_SAMPLES.forEach(function (sample) {
+        sample.userTagIds = sample.userTagIds.filter(function (tagId) { return tagId !== id })
+        if (sample.folderTagIds.indexOf(id) === -1) {
+          sample.tagIds = sample.tagIds.filter(function (tagId) { return tagId !== id })
+          sample.tags = sample.tags.filter(function (name) { return name !== tag.name })
+        }
+      })
+      return Promise.resolve()
+    },
+    assignTag: function (sampleId, tagId) {
+      var sample = MOCK_SAMPLES.find(function (row) { return row.id === sampleId })
+      var tag = MOCK_TAGS.find(function (item) { return item.id === tagId })
+      if (sample && tag && tag.origin !== 'folder' && sample.userTagIds.indexOf(tagId) === -1) {
+        sample.userTagIds.push(tagId)
+        sample.userTagIds.sort(function (a, b) { return a - b })
+        if (sample.tagIds.indexOf(tagId) === -1) {
+          sample.tagIds.push(tagId)
+          sample.tagIds.sort(function (a, b) { return a - b })
+          sample.tags.push(tag.name)
+          sample.tags.sort()
+        }
+      }
+      return Promise.resolve()
+    },
+    unassignTag: function (sampleId, tagId) {
+      var sample = MOCK_SAMPLES.find(function (row) { return row.id === sampleId })
+      var tag = MOCK_TAGS.find(function (item) { return item.id === tagId })
+      if (sample && tag) {
+        sample.userTagIds = sample.userTagIds.filter(function (id) { return id !== tagId })
+        if (sample.folderTagIds.indexOf(tagId) === -1) {
+          sample.tagIds = sample.tagIds.filter(function (id) { return id !== tagId })
+          sample.tags = sample.tags.filter(function (name) { return name !== tag.name })
+        }
+      }
+      return Promise.resolve()
+    },
     updateSampleAnalysis: function (sampleId, patch) {
       var sample = MOCK_SAMPLES.find(function (row) { return row.id === sampleId })
       if (sample) {
@@ -375,24 +426,6 @@
       return Promise.resolve()
     },
     reanalyzeSample: function () { return Promise.resolve() },
-    listCategories: function () { return Promise.resolve(MOCK_CATEGORIES) },
-    createCategory: function (folder, name, parentId) {
-      return Promise.resolve({
-        id: 99,
-        name: name,
-        parentId: parentId === undefined ? null : parentId,
-        folderDerived: false,
-        userCreated: true
-      })
-    },
-    deleteCategory: function (folder, id) {
-      MOCK_CATEGORIES = MOCK_CATEGORIES.map(function (category) {
-        return category.id === id
-          ? Object.assign({}, category, { userCreated: false })
-          : category
-      })
-      return Promise.resolve(MOCK_CATEGORIES)
-    },
     listLibraries: function () { return Promise.resolve([]) },
     saveLibrary: function (name, ruleJson) { return Promise.resolve({ id: 1, name: name, createdAt: Date.now(), ruleJson: ruleJson }) },
     deleteLibrary: function () { return Promise.resolve() },
@@ -401,8 +434,6 @@
     onScanDone: function (listener) { return subscribe(scanDoneListeners, listener) },
     onAnalysisProgress: function (listener) { return subscribe(analysisProgressListeners, listener) },
     onAnalysisDone: function (listener) { return subscribe(analysisDoneListeners, listener) },
-    onCalibrationProgress: function () { return function () {} },
-    onCalibrationDone: function () { return function () {} },
     onGeneratorProgress: function (listener) { return subscribe(generatorProgressListeners, listener) }
   }
 })()

@@ -1,5 +1,7 @@
 import type { LoudnessSnapshot } from 'loudness-worklet'
 import loudnessProcessorUrl from './worklets/loudness.worklet.js?url'
+import loudnessRetireUrl from './worklets/loudness-retire.worklet.ts?worker&url'
+import { WORKLET_DISPOSE } from './worklets/worklet-dispose-protocol'
 
 export interface MasterMeterSnapshot {
   available: boolean
@@ -19,6 +21,9 @@ type WorkletNodeFactory = (
 
 export interface MasterMeterOptions {
   processorUrl?: string
+  /** Registered before `processorUrl`; wraps the vendor processor so a replaced
+   *  node can be retired instead of rendering for the rest of the session. */
+  retireShimUrl?: string
   createNode?: WorkletNodeFactory
   warn?: (message: string, cause?: unknown) => void
 }
@@ -102,10 +107,13 @@ function defaultWarn(message: string, cause?: unknown): void {
 /**
  * Owns the optional standards-based branch off the post-master-gain bus.
  * Recreating the processor is the upstream worklet's reset mechanism; the
- * release does not define a reset port message.
+ * release does not define a reset port message. The replaced node is retired
+ * through the shim in loudness-retire.worklet.ts, without which every reset
+ * would leave a node rendering for the rest of the session.
  */
 export class MasterMeter {
   private readonly processorUrl: string
+  private readonly retireShimUrl: string
   private readonly createNode: WorkletNodeFactory
   private readonly warn: (message: string, cause?: unknown) => void
   private initialization: Promise<boolean> | null = null
@@ -120,6 +128,7 @@ export class MasterMeter {
 
   constructor(options: MasterMeterOptions = {}) {
     this.processorUrl = options.processorUrl ?? loudnessProcessorUrl
+    this.retireShimUrl = options.retireShimUrl ?? loudnessRetireUrl
     this.createNode = options.createNode ?? defaultCreateNode
     this.warn = options.warn ?? defaultWarn
   }
@@ -134,7 +143,12 @@ export class MasterMeter {
     this.destination = destination
     if (this.initialization) return this.initialization
 
-    this.initialization = context.audioWorklet.addModule(this.processorUrl)
+    // The shim must be in the scope before the vendor module registers, but a
+    // shim that fails to load only costs the retirement contract — metering
+    // itself must still come up.
+    this.initialization = context.audioWorklet.addModule(this.retireShimUrl)
+      .catch(() => undefined)
+      .then(() => context.audioWorklet.addModule(this.processorUrl))
       .then(() => {
         if (this.closed) return false
         this.attachNode()
@@ -202,7 +216,16 @@ export class MasterMeter {
     const { source, node, sink } = this
     if (node) {
       node.port.onmessage = null
-      node.port.close()
+      // Retire before unwiring and before closing the port: a disconnected
+      // AudioWorkletNode whose process() still returns true stays in the render
+      // graph and keeps its ~1.3 MB of energy buffers alive forever. reset()
+      // replaces this node on every seek and play-from-stop, so skipping this
+      // leaks a node per transport gesture.
+      try {
+        node.port.postMessage(WORKLET_DISPOSE)
+      } catch {
+        // The context may already be closing; the node dies with it.
+      }
       try {
         source?.disconnect(node)
       } catch {

@@ -235,18 +235,17 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 
 ### Sample Browser
 
-- The Samples panel is one continuous two-column surface: category tree, 5px
+- The Samples panel is one continuous two-column surface: searchable tag navigator, 5px
   resize handle, and virtualized sample list. It has no internal title band,
   third detail pane, or permanent scan action.
 - Filters, result count, and sorting share one non-wrapping toolbar above the
-  list. Category and tag filters form a horizontally scrollable quiet group on
-  the left. The always-visible count and the Name/Duration/Added sort group stay
+  list. Active tag filters form a horizontally scrollable quiet group on the
+  left. The always-visible count and the Name/Duration/Added sort group stay
   together on the right. Active filters and the active sort use clear pressed
   treatment; inactive controls remain quiet until hover or focus.
-- The category tree uses compact branch disclosure without reserving an empty
-  toggle gutter for leaves. It has one roving keyboard focus target: Up/Down and
-  Home/End traverse visible nodes, Right expands or enters a branch, Left
-  collapses or returns to its parent, and Enter/Space selects the category.
+- The tag navigator uses a flat searchable list. Every tag toggle exposes
+  pressed state, optional color, visible focus, and the selected UI Size target.
+  The list scrolls independently and does not expand the results toolbar.
 - Loading, filtered-zero, folder-empty, unavailable, cancelled, and error states
   occupy the sample-list surface instead of changing the two-column layout.
   Their copy explains the state and the next valid action. Only filtered-zero
@@ -259,7 +258,7 @@ Three resize handles share a common pattern:
 
 - **MixJam Browser handle:** 5px width, `ew-resize` cursor, on
   browser/tracker seam.
-- **Browser internal handle:** 5px width, `ew-resize`, splits category tree
+- **Browser internal handle:** 5px width, `ew-resize`, splits tag navigator
   from sample list.
 - **Bottom Workspace handle:** splits upper work from Bottom Workspace
   vertically.
@@ -417,12 +416,12 @@ do not vary between themes.
 
 ### Sample Palette
 
-Each theme defines an 8-slot palette plus an unsorted color. Slots map to
-acoustic categories deterministically. Placements store the slot number, not
+Each theme defines an 8-slot palette plus an unsorted color. Slots map to the
+sample's top-level source-folder name deterministically. Placements store the slot number, not
 the color; the hex resolves at draw time from the active palette. Switching
 themes recolors every placed sample bubble live.
 
-See [DESIGN.md](../DESIGN.md) for the slot-to-category mapping table, the
+See [DESIGN.md](../DESIGN.md) for the slot-to-source-group mapping table, the
 unsorted fallback color, and the palette token names.
 
 Palette entries must be 6-digit hex. Label contrast is guaranteed per slot
@@ -467,8 +466,8 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Pills use `--pill-bg` and `--pill-border`.
 - `--shadow-pill` provides theme-dependent bevel/extrusion (neumorphic Soft,
   Win9x bevel Vintage, offset slab Arcade, riso overprint).
-- Category and tag filter chips appear in the Sample Browser's single
-  filter/results toolbar. Optional tag colors use a small indicator rather than
+- Active tag filter chips appear in the Sample Browser's single filter/results
+  toolbar. Optional tag colors use a small indicator rather than
   recoloring the full control.
 
 ### Cards & Panels
@@ -533,9 +532,9 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Rounded rectangles with theme radius (`--radius-sample-bubble`).
 - Width: musical span in pixels-per-tick, 12px minimum.
 - Label: filename, truncated, font weight and case from theme tokens.
-- Color: resolved from active palette by category slot.
-- A browser bubble always uses the sample's own category slot. Filtering by a
-  different category never recolors it, and the same sample-owned slot is used
+- Color: resolved from the active palette by source-group slot.
+- A browser bubble always uses the sample's own top-level source-folder slot.
+  Filtering by a different tag never recolors it, and the same sample-owned slot is used
   in the drag payload and resulting Tracker placement.
 - Missing samples render 45-degree hazard stripes in `--sample-bubble-missing`
   over a darkened variant.
@@ -891,8 +890,8 @@ Bottom Workspace expansion shows the rack full-height.
   unit-aware values.
 - Rotary controls expose `aria-valuetext` with position.
 - Resize handles expose separator value/min/max semantics.
-- The Sample Browser category tree exposes distinct selection and expansion
-  state and supports its roving keyboard model.
+- The Sample Browser tag navigator exposes pressed state, searchable labels,
+  and ordinary keyboard navigation without a nested tree model.
 - Context menus follow standard keyboard model, remain in viewport, return
   focus on dismiss.
 - Global shortcuts are suppressed while text inputs, textareas, selects, or

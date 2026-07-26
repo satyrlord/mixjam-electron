@@ -10,6 +10,7 @@ import type { MasterBusParamId, ProcessorId } from './masterbus/params'
 import type { MasterBusState } from './masterbus/presets'
 import { defaultMasterBusState } from './masterbus/presets'
 import masterBusProcessorUrl from './worklets/master-bus.worklet.ts?worker&url'
+import { WORKLET_DISPOSE } from './worklets/worklet-dispose-protocol'
 
 const PROCESSOR_NAME = 'master-bus-processor'
 
@@ -205,7 +206,16 @@ export class MasterBusChain {
     const { upstream, downstream, node } = this
     if (!node) return
     node.port.onmessage = null
-    node.port.close()
+    // Retire before unwiring, and while the port is still open: a disconnected
+    // AudioWorkletNode whose process() still returns true stays in the render
+    // graph and is never collected. Teardown runs alongside an AudioContext
+    // close today, which would free it anyway, but the strip must not become a
+    // leak the moment it is detached while the context lives on.
+    try {
+      node.port.postMessage(WORKLET_DISPOSE)
+    } catch {
+      // The context may already be closing; the node dies with it.
+    }
     try {
       upstream?.disconnect(node)
     } catch {

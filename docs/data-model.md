@@ -35,7 +35,7 @@ CREATE TABLE samples (
   bpm_source   TEXT,                   -- 'analysis', 'manual', or NULL
   musical_key  TEXT,                   -- e.g. 'Am'; NULL until analyzed/set
   musical_key_source TEXT,             -- 'analysis', 'manual', or NULL
-  sample_type  TEXT,                   -- acoustic class; separate from category_id
+  sample_type  TEXT,                   -- acoustic class; separate from tags
   sample_type_source TEXT,             -- 'analysis', 'manual', or NULL
   stereo_pair_key TEXT,                -- validated pair identity, or NULL
   stereo_side TEXT CHECK (stereo_side IN ('left', 'right') OR stereo_side IS NULL),
@@ -45,7 +45,6 @@ CREATE TABLE samples (
   analysis_revision INTEGER NOT NULL DEFAULT 0,
   raw_bpm      REAL,                   -- direct per-file analyzer evidence
   raw_musical_key TEXT,                -- direct per-file analyzer evidence
-  category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,  -- one primary category per sample
   UNIQUE (root_id, relpath)               -- the dedup key
 );
 
@@ -67,46 +66,25 @@ CREATE TABLE analysis_groups (
 );
 
 CREATE TABLE tags (
-  id    INTEGER PRIMARY KEY,
-  name  TEXT NOT NULL UNIQUE,
-  color TEXT                           -- optional hex for skinning
+  id           INTEGER PRIMARY KEY,
+  name         TEXT NOT NULL UNIQUE,
+  color        TEXT,                  -- optional hex for skinning
+  user_created INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE sample_tags (
   sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
   tag_id    INTEGER NOT NULL REFERENCES tags(id)    ON DELETE CASCADE,
-  PRIMARY KEY (sample_id, tag_id)
+  source    TEXT NOT NULL DEFAULT 'user'
+            CHECK (source IN ('folder', 'user')),
+  PRIMARY KEY (sample_id, tag_id, source)
 );
 
--- Self-referencing tree: categories and subcategories.
--- "Unsorted" is the only hardcoded root category (ensured per scan root).
--- All other root categories are derived from the sample-folder structure
--- (each top-level subdirectory becomes a root category) or created by
--- the user via the manage panel.
-CREATE TABLE categories (
-  id        INTEGER PRIMARY KEY,
-  name      TEXT NOT NULL,
-  parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,  -- NULL = root
-  UNIQUE (parent_id, name)
-);
-
--- Root-specific provenance for category visibility and sync reconciliation.
--- The same category path can be present in several Sample Folders and can have
--- both sources in one root.
-CREATE TABLE category_sources (
-  category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-  root_id     INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
-  source      TEXT NOT NULL CHECK (source IN ('folder', 'custom')),
-  PRIMARY KEY (category_id, root_id, source)
-);
-
--- Many-to-many: subcategory assignments. A sample has exactly one primary
--- category (stored in samples.category_id) but may belong to multiple
--- subcategories of that category via this join table.
-CREATE TABLE sample_categories (
-  sample_id   INTEGER NOT NULL REFERENCES samples(id)    ON DELETE CASCADE,
-  category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-  PRIMARY KEY (sample_id, category_id)
+-- Root-specific visibility for automatically derived directory-name tags.
+CREATE TABLE folder_tag_sources (
+  tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  root_id INTEGER NOT NULL REFERENCES scan_roots(id) ON DELETE CASCADE,
+  PRIMARY KEY (tag_id, root_id)
 );
 
 CREATE TABLE libraries (
@@ -124,20 +102,34 @@ CREATE TABLE library_rules (
 
 `scan_roots` is load-bearing: one active Sample Folder is shown at a time (the
 app state's `sampleFolder`), but every folder ever scanned keeps its samples and
-category sources, scoped by `root_id`. Switching folders therefore switches the
-visible library and category tree instead of mixing or losing either (see
+folder-tag sources, scoped by `root_id`. Switching folders therefore switches
+the visible library and folder-derived tags instead of mixing or losing either (see
 [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
 
-The active-root category DTO exposes `folderDerived` and `userCreated`
-independently because one path may have both sources. Removing a category from
-Manage deletes only active-root `custom` sources in that subtree. Folder
-sources, sample assignments, other roots, and the shared identity rows survive.
-Folder-only nodes are not removable. Physical category-row garbage collection
-is not part of this user action.
+The tag DTO carries a single `origin` because one name may be both a physical
+directory segment and an explicit user tag. The three values are mutually
+exclusive:
+
+| `origin` | Meaning | Rename | Recolor / assign / delete |
+| --- | --- | --- | --- |
+| `user` | Created by the user; no folder derives it | yes | yes |
+| `folder` | Derived only from directory names | no | no (read-only) |
+| `shared` | User-created *and* derived by some Sample Folder | no | yes |
+
+`shared` is not renameable because the name is another root's automatic tag
+identity. Deleting a `shared` tag withdraws only the user's ownership and
+assignments, demoting it to `folder`: the identity and folder assignments stay
+visible wherever the directory name still exists. `isTagEditable` and
+`isTagRenameable` in `src/shared/backend-api.ts` are the canonical policy
+helpers; UI and persistence guards both call them rather than re-deriving the
+rule.
+
+`folderDerived` is separate and root-scoped: true when the *active* Sample
+Folder derives the name, whereas `origin` is global across every retained root.
 
 ## Library-sync and analysis bookkeeping
 
-Schema version 3 introduced four facts retained by schema v5 for automatic
+Schema version 3 introduced four facts retained by schema v6 for automatic
 library sync:
 
 - `scan_roots.last_completed_at INTEGER` is NULL until a complete filesystem
@@ -205,8 +197,8 @@ missing key or sample type from being analyzed. Clearing a manual value clears
 both its value and source. Re-analysis refreshes each non-manual field and may
 clear a stale automatic value when readable bytes do not produce that field;
 fields whose source is `manual` remain unchanged. `sample_type` is acoustic
-metadata; `category_id` remains the
-spec-004 organizational folder/user category and analysis never overwrites it.
+metadata; spec-004 organizational tags have separate provenance and analysis
+never overwrites them.
 
 `samples.bpm`, `musical_key`, and `sample_type` are the current user-facing
 projections. Manual projections are authoritative only for their sample.
@@ -218,7 +210,7 @@ type.
 
 `PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).
 There is no WAL under opfs-sahpool — queries and the indexer share the single
-worker connection. Phase-1 stub upserts and category assignments are batched in
+worker connection. Phase-1 stub upserts and folder-tag assignments are batched in
 transactions and yield to the worker event loop between batches. Phase-2
 metadata updates use serialized transactions of up to 200 rows.
 
@@ -235,8 +227,7 @@ CREATE INDEX idx_samples_key        ON samples(musical_key);
 CREATE INDEX idx_samples_stereo_pair ON samples(root_id, stereo_pair_key);
 CREATE INDEX idx_analysis_groups_root ON analysis_groups(root_id, depth);
 CREATE INDEX idx_sample_tags_tag    ON sample_tags(tag_id);
-CREATE INDEX idx_sample_cats_cat    ON sample_categories(category_id);
-CREATE INDEX idx_categories_parent  ON categories(parent_id);
+CREATE INDEX idx_folder_tag_sources_root ON folder_tag_sources(root_id);
 ```
 
 ## Full-text search (FTS5)
@@ -261,20 +252,6 @@ rewriting the FTS row. The current `textSearch` request field compiles to a
 given a trailing `*`. See [query-schema.md](query-schema.md) for the current
 saved-library subset and the target predicate-tree compiler.
 
-## Category-tree queries
-
-Filtering by a category "including descendants" needs the subtree. Use a recursive
-CTE rather than walking the tree in JS:
-
-```sql
-WITH RECURSIVE subtree(id) AS (
-  SELECT id FROM categories WHERE id = :rootId
-  UNION ALL
-  SELECT c.id FROM categories c JOIN subtree s ON c.parent_id = s.id
-)
-SELECT sample_id FROM sample_categories WHERE category_id IN (SELECT id FROM subtree);
-```
-
 ## Migrations
 
 `rule_json` is versioned (see [query-schema.md](query-schema.md)); the schema
@@ -282,10 +259,13 @@ carries a `schema_version` table stamped at init. Add forward-only, idempotent
 migration steps from v1 onward in
 `src/renderer/src/backend/schema.ts`.
 
-Schema v5 has one explicit lossy boundary. V4 did not record category root or
-provenance, so migration uses primary and join-table sample assignments as
-root-specific folder evidence, adds their ancestors, and sources `Unsorted`
-for known roots. It does not promote unassigned legacy rows to `custom` or copy
-them across roots. Those ambiguous rows are removed. This follows the project's
-no-backward-compatibility rule and prevents stale global categories from
-becoming permanent custom organization.
+Schema v6 replaces category storage with flat tags. Migration maps each legacy
+category node name to one shared tag identity, merges identically named nodes,
+preserves user tags and assignments, converts folder membership to folder tag
+provenance, rewrites saved category leaves to tag leaves, and rebuilds `samples`
+without `category_id`. This is a forward-only product-contract migration; no
+category tables remain afterward.
+
+The structural swap is restart-safe. If it commits before the v6 version stamp,
+the next startup detects the current `samples` and sourced `sample_tags` shape,
+rebuilds derived DDL and FTS state, then completes the stamp.

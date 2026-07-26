@@ -1722,7 +1722,7 @@ select option:disabled {
   pointer-events: none;
 }
 
-/* ── Unified sample bubble (tracker placements, browser tiles, category buttons) ──
+/* ── Unified sample bubble (tracker placements and browser tiles) ──
    Surface color comes from the theme palette slot (inline background-color +
    --bubble-self set by bubbleStyle); the gloss layer, border construction,
    and label typography are theme tokens so the DOM bubble and the canvas
@@ -1755,11 +1755,6 @@ select option:disabled {
 .sample-bubble.selected {
   outline: 2px solid var(--sample-bubble-select);
   outline-offset: -2px;
-}
-
-.sample-bubble.bubble-category {
-  justify-content: center;
-  width: auto;
 }
 
 .sample-bubble b {
@@ -1800,14 +1795,6 @@ select option:disabled {
 .sample-bubble-hit-target > .sample-bubble {
   height: var(--sample-bubble-height, 26px);
   flex: none;
-}
-
-.sample-bubble-category-target {
-  width: 100%;
-}
-
-.sample-bubble-category-target > .sample-bubble {
-  width: 100%;
 }
 
 .middle-strip {
@@ -2674,7 +2661,7 @@ select option:disabled {
   grid-row: auto;
 }
 
-/* Category grid panel — width controlled by JS resize handle */
+/* Sample grid panel — width controlled by JS resize handle */
 .cats {
   width: 100%;
   height: 100%;
@@ -2754,75 +2741,73 @@ select option:disabled {
   background: color-mix(in srgb, var(--accent) 18%, var(--pill-bg));
 }
 
-.category-tree {
+.tag-navigator-search {
+  flex: none;
+  width: 100%;
+  min-height: var(--ui-size);
+  padding: 0 var(--ui-space-sm);
+  border: var(--edge);
+  border-radius: var(--radius);
+  background: var(--pill-bg);
+  color: var(--text);
+  font-family: var(--font-label);
+  font-size: 13px;
+}
+
+.tag-navigator-search::placeholder {
+  color: var(--text-muted);
+}
+
+.tag-navigator-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tag-navigator-list {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-content: start;
-  gap: var(--ui-space-xs);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-xs);
+  margin-top: var(--ui-space-sm);
   padding-inline-end: var(--ui-space-xs);
 }
 
-.category-tree-node {
-  height: max-content;
-  min-width: 0;
-}
-
-.category-tree > .category-tree-node-branch {
-  grid-column: 1 / -1;
-}
-
-.category-tree-children {
-  display: grid;
-  gap: var(--ui-space-xs);
-  margin-top: var(--ui-space-xs);
-}
-
-.category-tree-row {
+.tag-navigator-item {
+  flex: none;
   display: flex;
   align-items: center;
-  min-width: 0;
-  padding-inline-start: calc(var(--category-depth) * var(--ui-space-md));
-}
-
-.category-tree-toggle {
-  flex: none;
-  width: var(--ui-size);
-  height: var(--ui-size);
+  gap: var(--ui-space-sm);
+  width: 100%;
+  min-height: var(--ui-size);
+  padding: 0 var(--ui-space-sm);
   border: 0;
   border-radius: var(--radius);
   background: transparent;
   color: var(--text-muted);
-  font: var(--ui-font-md)/1 var(--font-mono);
+  font-family: var(--font-label);
+  font-size: 13px;
+  text-align: start;
   cursor: pointer;
-  transition: color 150ms ease-out, background-color 150ms ease-out;
 }
 
-.category-tree-toggle:hover {
-  color: var(--highlight);
+.tag-navigator-item:hover {
   background: var(--pill-bg);
+  color: var(--text);
 }
 
-.category-tree-row .sample-bubble-category-target {
-  flex: 1;
-  min-width: 30px;
+.tag-navigator-item.selected {
+  background: color-mix(in srgb, var(--accent) 18%, var(--pill-bg));
+  color: var(--text);
 }
 
-.category-tree .sample-bubble-hit-target {
-  height: 30px;
-  min-width: 30px;
+.tag-navigator-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
-.category-tree .sample-bubble {
-  height: var(--sample-bubble-height, 26px);
-  justify-content: center;
-  width: 100%;
-}
-
-.category-tree-empty {
-  grid-column: 1 / -1;
+.tag-navigator-empty {
   margin: 0;
   padding: var(--ui-space-md);
   color: var(--text-muted);
@@ -2847,7 +2832,7 @@ select option:disabled {
   overflow: hidden;
 }
 
-/* Subcategory chip row */
+/* Active tag filters and sample results toolbar. */
 .subcats-row {
   flex: none;
   display: flex;
@@ -3065,19 +3050,20 @@ select option:disabled {
 .tiles-skeleton span:nth-child(3) { width: 24%; }
 .tiles-skeleton span:nth-child(4) { width: 36%; }
 
-/* ── Manage panel overlay ── */
+/* ── Manage panel ── */
 .manage-panel {
-  position: absolute;
-  top: 0;
-  /* left comes from an inline style (tracks the resizable category tree
-     width) so the panel's edge stays aligned with the splitter above it. */
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   background: var(--chrome);
-  border-left: var(--edge);
   display: flex;
   flex-direction: column;
-  z-index: 10;
+}
+
+.manage-panel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .manage-tabs {
@@ -3133,6 +3119,13 @@ select option:disabled {
   overflow: hidden;
 }
 
+.manage-search {
+  flex: none;
+  width: auto;
+  min-height: var(--ui-size);
+  margin: var(--ui-space-sm);
+}
+
 .manage-list {
   flex: 1;
   min-height: 0;
@@ -3152,6 +3145,10 @@ select option:disabled {
 
 .manage-name {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
   font-family: var(--font-label);
   font-size: 12px;
   line-height: 1.4;
@@ -3388,6 +3385,89 @@ select option:disabled {
   font-family: var(--font-label);
   font-size: 11px;
   white-space: nowrap;
+}
+
+.manage-tag-source,
+.sample-tag-editor-source {
+  display: block;
+  margin-inline-start: auto;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.sample-tag-editor {
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(420px, var(--radix-popover-content-available-height, 420px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-md);
+}
+
+.sample-tag-editor-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ui-space-md);
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-label);
+}
+
+.sample-tag-editor-header span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sample-tag-editor-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-xs);
+}
+
+.sample-tag-editor-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  width: 100%;
+  min-height: var(--ui-size);
+  padding: 0 var(--ui-space-sm);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-label);
+  text-align: start;
+  cursor: pointer;
+}
+
+.sample-tag-editor-item:hover,
+.sample-tag-editor-item[aria-pressed='true'] {
+  background: var(--pill-bg);
+}
+
+.sample-tag-editor-item:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.sample-tag-editor-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sample-tag-editor-check {
+  width: 1em;
+  color: var(--highlight);
+  text-align: center;
 }
 
 .tracker-ruler-track {

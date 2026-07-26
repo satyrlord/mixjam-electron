@@ -9,6 +9,7 @@ import type { MasterBusState } from '../masterbus/presets'
 import { defaultMasterBusState } from '../masterbus/presets'
 import { MasterBusCore } from '../masterbus/dsp/core'
 import { registerWorkletProcessor, type WorkletProcessorFactory } from './register-processor'
+import { isWorkletDisposeMessage } from './worklet-dispose-protocol'
 
 // AudioWorkletGlobalScope ambients (this file never runs on the UI thread).
 declare const sampleRate: number
@@ -23,6 +24,7 @@ export type MasterBusWorkletMessage =
   | { type: 'state'; state: MasterBusState }
   | { type: 'reset' }
   | { type: 'meters'; enabled: boolean }
+  | { type: 'dispose' }
 
 const QUANTUM = 128
 // Meter snapshots at >= 30 Hz (spec-012 Metering and UI Data).
@@ -42,6 +44,7 @@ function createMasterBusProcessor() {
     // allocation cost for meters nobody can see. Settable at construction
     // because a port message can race a short offline render.
     private metersEnabled: boolean
+    private disposed = false
 
     constructor(options?: ProcessorOptions) {
       super(options)
@@ -55,6 +58,10 @@ function createMasterBusProcessor() {
     }
 
     private handleMessage(message: MasterBusWorkletMessage): void {
+      if (isWorkletDisposeMessage(message)) {
+        this.disposed = true
+        return
+      }
       switch (message.type) {
         case 'param':
           this.core.setParam(message.id, message.value)
@@ -78,6 +85,12 @@ function createMasterBusProcessor() {
     }
 
     process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+      // Ending active processing is what actually retires this node. A merely
+      // disconnected AudioWorkletNode stays in the render graph and is never
+      // collected, so a strip that is detached while its context lives on would
+      // keep its chain state resident for the rest of the session.
+      if (this.disposed) return false
+
       const input = inputs[0]
       const output = outputs[0]
       if (!output || output.length === 0) return true

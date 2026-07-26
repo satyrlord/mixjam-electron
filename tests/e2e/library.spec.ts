@@ -13,30 +13,44 @@ test.describe('Library', () => {
     await expect(bubbles.filter({ hasText: 'kick_808' })).toBeVisible()
   })
 
-  test('category filter shows categories from mock data', async ({ seededPage }) => {
-    await expect(seededPage.locator('.bubble-category').filter({ hasText: 'Bass' })).toBeVisible({ timeout: 5_000 })
-    await expect(seededPage.locator('.bubble-category').filter({ hasText: 'Drums' })).toBeVisible()
-    await expect(seededPage.locator('.bubble-category').filter({ hasText: 'Synth' })).toBeVisible()
-    await expect(seededPage.locator('.bubble-category').filter({ hasText: 'FX' })).toBeVisible()
+  test('tag navigator is flat and searchable', async ({ seededPage }) => {
+    const navigator = seededPage.getByRole('list', { name: 'Sample tags' })
+    await expect(navigator.getByRole('button', { name: 'Bass', exact: true })).toBeVisible()
+    await expect(navigator.getByRole('button', { name: 'Hard Trance', exact: true })).toBeVisible()
+    await expect(navigator.getByRole('button', { name: 'House', exact: true })).toBeVisible()
+    await expect(navigator.getByRole('button', { name: 'Unsorted', exact: true })).toBeVisible()
+
+    await seededPage.getByRole('searchbox', { name: 'Search tags', exact: true }).fill('trance')
+    await expect(navigator.getByRole('button', { name: 'Hard Trance', exact: true })).toBeVisible()
+    await expect(navigator.getByRole('button', { name: 'House', exact: true })).toHaveCount(0)
   })
 
-  test('expanded category branches reserve space before following roots', async ({ seededPage }) => {
-    const kicks = seededPage.getByRole('button', { name: 'Kicks', exact: true })
-    const fx = seededPage.getByRole('button', { name: 'FX', exact: true })
-    await expect(kicks).toBeVisible()
-    await expect(fx).toBeVisible()
+  test('shared folder names use one tag and selected tags match all', async ({ seededPage }) => {
+    const sampleTiles = seededPage.locator('.tiles .sample-bubble')
+    const navigator = seededPage.getByRole('list', { name: 'Sample tags' })
 
-    const [kicksBox, fxBox] = await Promise.all([kicks.boundingBox(), fx.boundingBox()])
-    expect(kicksBox).not.toBeNull()
-    expect(fxBox).not.toBeNull()
-    expect(Math.min(kicksBox!.y + kicksBox!.height, fxBox!.y + fxBox!.height) -
-      Math.max(kicksBox!.y, fxBox!.y))
-      .toBeLessThanOrEqual(0.5)
+    await navigator.getByRole('button', { name: 'Bass', exact: true }).click()
+    await expect(sampleTiles).toHaveCount(2)
+    await expect(sampleTiles.filter({ hasText: 'kick_808' })).toBeVisible()
+    await expect(sampleTiles.filter({ hasText: 'snare_clap' })).toBeVisible()
+
+    await navigator.getByRole('button', { name: 'Hard Trance', exact: true }).click()
+    await expect(sampleTiles).toHaveCount(1)
+    await expect(sampleTiles.filter({ hasText: 'kick_808' })).toBeVisible()
+    await expect(seededPage.getByRole('button', { name: 'Remove Bass filter' })).toBeVisible()
+    await expect(seededPage.getByRole('button', { name: 'Remove Hard Trance filter' })).toBeVisible()
   })
 
-  test('sample filtering and management actions use the selected UI Size targets', async ({ seededPage }) => {
-    await seededPage.getByRole('button', { name: /Manage tags/ }).click()
+  test('tag navigator splitter and management actions use the selected UI Size targets', async ({ seededPage }) => {
+    const navigator = seededPage.locator('.tag-navigator')
+    const initialWidth = await navigator.evaluate((element) => element.getBoundingClientRect().width)
+    const splitter = seededPage.getByRole('separator', { name: 'Resize tag navigator' })
+    await splitter.focus()
+    await splitter.press('ArrowLeft')
+    await expect.poll(() => navigator.evaluate((element) => element.getBoundingClientRect().width))
+      .toBeLessThan(initialWidth)
 
+    await seededPage.getByRole('button', { name: 'Manage tags and libraries' }).click()
     const actions = seededPage.locator('.subcat, .sort-btn, .manage-action')
     await expect(actions.first()).toBeVisible()
     const boxes = await actions.evaluateAll((elements) => elements.map((element) => {
@@ -55,39 +69,77 @@ test.describe('Library', () => {
     }
   })
 
-  test('category management removes custom provenance without hiding folder paths', async ({ seededPage }) => {
-    await seededPage.getByRole('button', { name: /Manage tags/ }).click()
-    await seededPage.getByRole('tab', { name: 'Categories' }).click()
+  test('tag management searches and persists create, rename, and delete', async ({ seededPage }) => {
+    await seededPage.getByRole('button', { name: 'Manage tags and libraries' }).click()
+    const panel = seededPage.locator('#sample-browser-manage-panel')
 
-    const removeBass = seededPage.getByRole('button', { name: 'Remove custom category Bass' })
-    await expect(removeBass).toBeVisible()
-    await expect(seededPage.getByText('Bass (also from folder)', { exact: true })).toBeVisible()
-    await expect(seededPage.getByRole('button', {
-      name: 'Remove custom category Drums'
-    })).toHaveCount(0)
+    await panel.getByRole('searchbox', { name: 'Search managed tags' }).fill('bass')
+    const bass = panel.locator('.manage-list-item').filter({ hasText: 'Bass' })
+    await expect(bass).toBeVisible()
+    await expect(bass.getByText('From folder', { exact: true })).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Delete tag Bass' })).toHaveCount(0)
 
-    await removeBass.click()
+    await panel.getByRole('searchbox', { name: 'Search managed tags' }).fill('')
+    await panel.getByRole('textbox', { name: 'New tag name' }).fill('Punchy')
+    await panel.getByRole('button', { name: 'Create tag' }).click()
+    await expect(panel.getByText('Punchy', { exact: true })).toBeVisible()
 
-    await expect(removeBass).toHaveCount(0)
-    await expect(seededPage.getByRole('button', { name: 'Bass', exact: true })).toBeVisible()
+    await panel.getByRole('button', { name: 'Rename tag Punchy' }).click()
+    await panel.getByRole('textbox', { name: 'Rename tag Punchy' }).fill('Focused')
+    await panel.getByRole('button', { name: 'Confirm rename' }).click()
+    await expect(panel.getByText('Focused', { exact: true })).toBeVisible()
+
+    await panel.getByRole('button', { name: 'Delete tag Focused' }).click()
+    await expect(panel.getByText('Focused', { exact: true })).toHaveCount(0)
   })
 
-  test('clicking a category filters samples', async ({ seededPage }) => {
-    const sampleTiles = seededPage.locator('.tiles .sample-bubble')
-    await expect(sampleTiles).toHaveCount(5)
+  test('per-sample tag assignment is searchable and folder assignments are read-only', async ({ seededPage }) => {
+    const kick = seededPage.locator('.sample-bubble').filter({ hasText: 'kick_808' }).locator('..')
+    await kick.click({ button: 'right' })
+    await seededPage.getByRole('menuitem', { name: 'Edit tags…' }).click()
 
-    await seededPage.getByRole('button', { name: 'Drums', exact: true }).click()
+    const editor = seededPage.getByRole('dialog', { name: 'Tags for kick_808.wav' })
+    await expect(editor).toBeVisible()
+    const search = editor.getByRole('searchbox', { name: 'Search tags to assign' })
+    await search.fill('bass')
+    await expect(editor.getByRole('button', { name: 'Bass, assigned from folder' })).toBeDisabled()
 
-    await expect(sampleTiles).toHaveCount(2)
-    await expect(sampleTiles.filter({ hasText: 'kick_808' })).toBeVisible()
-    await expect(sampleTiles.filter({ hasText: 'snare_clap' })).toBeVisible()
-    await expect(sampleTiles.filter({ hasText: 'deep_sub' })).toHaveCount(0)
+    await search.fill('review')
+    const review = editor.getByRole('button', { name: 'Review' })
+    await expect(review).toHaveAttribute('aria-pressed', 'false')
+    await review.click()
+    await expect(review).toHaveAttribute('aria-pressed', 'true')
+    await seededPage.keyboard.press('Escape')
+
+    await seededPage.getByRole('list', { name: 'Sample tags' })
+      .getByRole('button', { name: 'Review', exact: true }).click()
+    await expect(seededPage.locator('.tiles .sample-bubble')).toHaveCount(1)
+    await expect(seededPage.locator('.tiles .sample-bubble').filter({ hasText: 'kick_808' })).toBeVisible()
+  })
+
+  test('a promoted folder tag can be pinned as independent user provenance', async ({ seededPage }) => {
+    await seededPage.getByRole('button', { name: 'Manage tags and libraries' }).click()
+    const panel = seededPage.locator('#sample-browser-manage-panel')
+    await panel.getByRole('textbox', { name: 'New tag name' }).fill('Bass')
+    await panel.getByRole('button', { name: 'Create tag' }).click()
+    await expect(panel.getByRole('button', { name: 'Delete tag Bass' })).toBeVisible()
+    await seededPage.getByRole('button', { name: 'Close manage panel' }).click()
+
+    const kick = seededPage.locator('.sample-bubble').filter({ hasText: 'kick_808' }).locator('..')
+    await kick.click({ button: 'right' })
+    await seededPage.getByRole('menuitem', { name: 'Edit tags…' }).click()
+    const editor = seededPage.getByRole('dialog', { name: 'Tags for kick_808.wav' })
+    const bass = editor.getByRole('button', { name: 'Bass, from folder, activate to keep after move' })
+    await expect(bass).toBeEnabled()
+    await expect(editor.getByText('From folder · Keep after move')).toBeVisible()
+    await bass.click()
+    await expect(editor.getByRole('button', { name: 'Bass, kept after move' }))
+      .toHaveAttribute('data-user-assigned', 'true')
+    await expect(editor.getByText('From folder · Kept after move')).toBeVisible()
   })
 
   test('back button returns to home screen', async ({ seededPage }) => {
-    const backBtn = seededPage.getByRole('button', { name: /Return to Main Menu/ })
-    await backBtn.click()
-
+    await seededPage.getByRole('button', { name: /Return to Main Menu/ }).click()
     await expect(seededPage.locator('.home-setup')).toBeVisible({ timeout: 5_000 })
   })
 })

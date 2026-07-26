@@ -20,7 +20,7 @@ function measurement(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function createHarness(addModule = vi.fn(async () => undefined)) {
+function createHarness(addModule = vi.fn<(url: string) => Promise<undefined>>(async () => undefined)) {
   const source = {
     connect: vi.fn(),
     disconnect: vi.fn()
@@ -30,7 +30,11 @@ function createHarness(addModule = vi.fn(async () => undefined)) {
   const nodes: Array<{
     connect: ReturnType<typeof vi.fn>
     disconnect: ReturnType<typeof vi.fn>
-    port: { onmessage: ((event: MessageEvent<unknown>) => void) | null; close: ReturnType<typeof vi.fn> }
+    port: {
+      onmessage: ((event: MessageEvent<unknown>) => void) | null
+      close: ReturnType<typeof vi.fn>
+      postMessage: ReturnType<typeof vi.fn>
+    }
   }> = []
   const context = {
     audioWorklet: { addModule },
@@ -44,7 +48,7 @@ function createHarness(addModule = vi.fn(async () => undefined)) {
     const node = {
       connect: vi.fn(),
       disconnect: vi.fn(),
-      port: { onmessage: null, close: vi.fn() }
+      port: { onmessage: null, close: vi.fn(), postMessage: vi.fn() }
     }
     nodes.push(node)
     return node as unknown as AudioWorkletNode
@@ -83,6 +87,7 @@ describe('MasterMeter', () => {
     const harness = createHarness()
     const meter = new MasterMeter({
       processorUrl: '/assets/loudness.js',
+      retireShimUrl: '/assets/loudness-retire.js',
       createNode: harness.createNode
     })
 
@@ -91,8 +96,12 @@ describe('MasterMeter', () => {
     expect(first).toBe(second)
     await expect(first).resolves.toBe(true)
 
-    expect(harness.addModule).toHaveBeenCalledOnce()
-    expect(harness.addModule).toHaveBeenCalledWith('/assets/loudness.js')
+    // The retirement shim has to be in the worklet scope before the vendor
+    // module registers, so it loads first.
+    expect(harness.addModule.mock.calls.map((call) => call[0])).toEqual([
+      '/assets/loudness-retire.js',
+      '/assets/loudness.js'
+    ])
     expect(harness.createNode).toHaveBeenCalledWith(
       harness.context,
       'loudness-processor',
@@ -115,11 +124,16 @@ describe('MasterMeter', () => {
     expect(meter.getSnapshot(-31)).toEqual(emptyMasterMeterSnapshot(-31))
     expect(harness.createNode).toHaveBeenCalledTimes(2)
     expect(harness.source.disconnect).toHaveBeenCalledWith(harness.nodes[0])
-    expect(harness.nodes[0].port.close).toHaveBeenCalledOnce()
+    // Disconnecting is not enough: an AudioWorkletNode whose process() keeps
+    // returning true stays in the render graph holding its energy buffers, and
+    // reset() runs on every seek and play-from-stop. The replaced node must be
+    // told to retire, while its port is still open.
+    expect(harness.nodes[0].port.postMessage).toHaveBeenCalledWith({ type: 'dispose' })
+    expect(harness.nodes[0].port.close).not.toHaveBeenCalled()
   })
 
   it('warns once and retains fallback when loading fails', async () => {
-    const addModule = vi.fn(async () => { throw new Error('blocked') })
+    const addModule = vi.fn<(url: string) => Promise<undefined>>(async () => { throw new Error('blocked') })
     const warn = vi.fn()
     const harness = createHarness(addModule)
     const meter = new MasterMeter({ createNode: harness.createNode, warn })
@@ -144,12 +158,12 @@ describe('MasterMeter', () => {
 
     expect(warn).toHaveBeenCalledOnce()
     expect(harness.nodes[0].port.onmessage).toBeNull()
-    expect(harness.nodes[0].port.close).toHaveBeenCalledOnce()
+    expect(harness.nodes[0].port.postMessage).toHaveBeenCalledWith({ type: 'dispose' })
     expect(harness.nodes[0].disconnect).toHaveBeenCalledOnce()
     expect(harness.sinks[0].disconnect).toHaveBeenCalledOnce()
   })
 
-  it('disconnects handlers and nodes on close', async () => {
+  it('disconnects handlers and retires the node on close', async () => {
     const harness = createHarness()
     const meter = new MasterMeter({ createNode: harness.createNode })
     await meter.initialize(harness.context, harness.source, harness.destination)
@@ -157,7 +171,7 @@ describe('MasterMeter', () => {
     meter.close()
 
     expect(harness.nodes[0].port.onmessage).toBeNull()
-    expect(harness.nodes[0].port.close).toHaveBeenCalledOnce()
+    expect(harness.nodes[0].port.postMessage).toHaveBeenCalledWith({ type: 'dispose' })
     expect(harness.nodes[0].disconnect).toHaveBeenCalledOnce()
     expect(harness.sinks[0].disconnect).toHaveBeenCalledOnce()
   })

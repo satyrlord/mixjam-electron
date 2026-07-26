@@ -7,7 +7,7 @@ import type { GeneratorCandidate } from './generator-library'
 function candidate(overrides: Partial<GeneratorCandidate> & { sampleType: SampleType }): GeneratorCandidate {
   return {
     relpath: 'x.wav', filename: 'x.wav', sizeBytes: 1, mtime: 1,
-    duration: 1, bpm: null, musicalKey: null, categoryName: 'x', paletteSlot: 0,
+    duration: 1, bpm: null, musicalKey: null, sourceGroup: 'x', paletteSlot: 0,
     metadataRevision: 1, analysisRevision: 1, ...overrides
   }
 }

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type {
   AnalysisProgress,
+  DistributiveOmit,
   LibraryJobIdentity,
   LibrarySyncStartResult,
   ScanProgress
@@ -9,14 +10,14 @@ import type { WorkerMessage, WorkerRequest } from './protocol'
 
 interface PendingScan {
   rootKey: string
-  emit: (progress: Omit<ScanProgress, 'identity'>) => void
+  emit: (progress: DistributiveOmit<ScanProgress, 'identity'>) => void
   resolve: (lastCompletedAt?: number | null) => void
   reject: (error: unknown) => void
 }
 
 interface PendingSingleAnalysis {
   sampleId: number
-  emit: (progress: Omit<AnalysisProgress, 'identity'>) => void
+  emit: (progress: DistributiveOmit<AnalysisProgress, 'identity'>) => void
   resolve: () => void
   reject: (error: unknown) => void
 }
@@ -30,7 +31,7 @@ const mocks = vi.hoisted(() => ({
     db: unknown,
     rootId: number,
     files: ReadonlyMap<string, File>,
-    emit: (progress: Omit<AnalysisProgress, 'identity'>) => void,
+    emit: (progress: DistributiveOmit<AnalysisProgress, 'identity'>) => void,
     isCurrent: () => boolean
   ) => Promise<void>>(async () => undefined),
   runSingleAnalysis: vi.fn(),
@@ -66,7 +67,6 @@ vi.mock('./schema', () => ({
 }))
 
 vi.mock('./indexed-sample-persistence', () => ({
-  ensureUnsortedCategory: vi.fn(),
   getLibraryRootState: vi.fn()
 }))
 
@@ -84,9 +84,6 @@ vi.mock('./browser-library-persistence', () => ({
   deleteTag: vi.fn(),
   assignTag: vi.fn(),
   unassignTag: vi.fn(),
-  listCategories: vi.fn(),
-  createCategory: vi.fn(),
-  deleteCategory: vi.fn(),
   listLibraries: vi.fn(),
   saveLibrary: vi.fn(),
   deleteLibrary: vi.fn()
@@ -155,7 +152,7 @@ beforeAll(async () => {
       _db: unknown,
       rootKey: string,
       _handle: unknown,
-      emit: (progress: Omit<ScanProgress, 'identity'>) => void
+      emit: (progress: DistributiveOmit<ScanProgress, 'identity'>) => void
     ): Promise<{
       rootId: number
       files: ReadonlyMap<string, File>
@@ -178,7 +175,7 @@ beforeAll(async () => {
       _db: unknown,
       sampleId: number,
       _file: File,
-      emit: (progress: Omit<AnalysisProgress, 'identity'>) => void
+      emit: (progress: DistributiveOmit<AnalysisProgress, 'identity'>) => void
     ): Promise<void> => new Promise((resolve, reject) => {
       mocks.pendingSingleAnalyses.push({ sampleId, emit, resolve, reject })
     })
@@ -302,7 +299,7 @@ describe('worker library scheduler', () => {
       _db: unknown,
       _rootId: number,
       _files: ReadonlyMap<string, File>,
-      emit: (progress: Omit<AnalysisProgress, 'identity'>) => void
+      emit: (progress: DistributiveOmit<AnalysisProgress, 'identity'>) => void
     ) => {
       emit({ status: 'analyzing', analyzed: 1, total: 2 })
       throw 'analysis failed'

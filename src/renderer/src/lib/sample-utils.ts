@@ -16,9 +16,8 @@ export function nextPanCycle(pan: number): number {
 
 export {
   PALETTE_SLOT_COUNT,
-  ROOT_CATEGORY_NAMES,
   SLOT_UNSORTED,
-  categorySlot
+  sourceGroupSlot
 } from '../../../shared/sample-palette'
 
 // Ink colors for text rendered on top of a palette-slot color. Light slots

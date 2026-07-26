@@ -1,7 +1,7 @@
 // @vitest-environment node
 import sqlite3InitModule, { type Sqlite3Static } from '@sqlite.org/sqlite-wasm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { categorySlot } from '../../../shared/sample-palette'
+import { sourceGroupSlot } from '../../../shared/sample-palette'
 import {
   fingerprintGeneratorSnapshot,
   getStoredGeneratorReadiness,
@@ -36,12 +36,6 @@ function insertRoot(key: string, completed = true): number {
   return rootId
 }
 
-function insertCategory(name: string): number {
-  return db.prepare(
-    'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-  ).run(name).lastInsertRowid
-}
-
 interface SampleOverrides {
   relpath?: string
   filename?: string
@@ -54,7 +48,6 @@ interface SampleOverrides {
   scanState?: number
   metadataRevision?: number
   analysisRevision?: number
-  categoryId?: number | null
 }
 
 function insertSample(rootId: number, overrides: SampleOverrides = {}): void {
@@ -64,9 +57,9 @@ function insertSample(rootId: number, overrides: SampleOverrides = {}): void {
        root_id, relpath, filename, ext, size_bytes, mtime, duration,
        bpm, bpm_source, musical_key, musical_key_source,
        sample_type, sample_type_source, date_added, scan_state,
-       metadata_revision, analysis_revision, category_id
+       metadata_revision, analysis_revision
      ) VALUES (?, ?, ?, 'wav', ?, ?, ?, ?, 'analysis', ?, 'analysis', ?, 'analysis',
-               1, ?, ?, ?, ?)`
+               1, ?, ?, ?)`
   ).run(
     rootId,
     relpath,
@@ -79,8 +72,7 @@ function insertSample(rootId: number, overrides: SampleOverrides = {}): void {
     overrides.sampleType ?? 'Kick',
     overrides.scanState ?? 1,
     overrides.metadataRevision ?? METADATA_REVISION,
-    overrides.analysisRevision ?? ANALYSIS_REVISION,
-    overrides.categoryId ?? null
+    overrides.analysisRevision ?? ANALYSIS_REVISION
   )
 }
 
@@ -94,8 +86,8 @@ function candidate(overrides: Partial<GeneratorCandidate> = {}): GeneratorCandid
     bpm: 128,
     musicalKey: 'Am',
     sampleType: 'Kick',
-    categoryName: 'Drums',
-    paletteSlot: categorySlot('Drums'),
+    sourceGroup: 'Drums',
+    paletteSlot: sourceGroupSlot('Drums'),
     metadataRevision: METADATA_REVISION,
     analysisRevision: ANALYSIS_REVISION,
     ...overrides
@@ -129,11 +121,10 @@ function snapshot(candidates: GeneratorCandidate[], rootKey = 'root'): Generator
 
 describe('generator library snapshot', () => {
   it('scopes candidates to the requested root and keeps only current, typed, positive-duration rows', () => {
-    const drums = insertCategory('Drums')
     const requestedRoot = insertRoot('requested-root')
     const otherRoot = insertRoot('other-root')
 
-    insertSample(requestedRoot, { relpath: 'valid.wav', categoryId: drums })
+    insertSample(requestedRoot, { relpath: 'Drums/valid.wav' })
     insertSample(requestedRoot, { relpath: 'zero.wav', duration: 0 })
     insertSample(requestedRoot, { relpath: 'invalid-type.wav', sampleType: 'Guitar' })
     insertSample(requestedRoot, { relpath: 'missing.wav', scanState: 2 })
@@ -149,7 +140,7 @@ describe('generator library snapshot', () => {
       }]
     })
     expect(loadGeneratorSnapshot(db, 'requested-root').candidates.map((row) => row.relpath))
-      .toEqual(['valid.wav'])
+      .toEqual(['Drums/valid.wav'])
   })
 
   it('requires root completion and rejects pending metadata or analysis work', () => {
@@ -182,15 +173,14 @@ describe('generator library snapshot', () => {
       .toThrow('The Sample Folder still has metadata or analysis work pending.')
   })
 
-  it('retains organizational category appearance separately from acoustic type', () => {
-    const drums = insertCategory('Drums')
-    const root = insertRoot('category-root')
-    insertSample(root, { sampleType: 'Bass', categoryId: drums })
+  it('derives source-group appearance separately from acoustic type', () => {
+    const root = insertRoot('source-group-root')
+    insertSample(root, { relpath: 'Drums/kick.wav', sampleType: 'Bass' })
 
-    expect(loadGeneratorSnapshot(db, 'category-root').candidates[0]).toMatchObject({
+    expect(loadGeneratorSnapshot(db, 'source-group-root').candidates[0]).toMatchObject({
       sampleType: 'Bass',
-      categoryName: 'Drums',
-      paletteSlot: categorySlot('Drums')
+      sourceGroup: 'Drums',
+      paletteSlot: sourceGroupSlot('Drums')
     })
   })
 })
@@ -304,7 +294,7 @@ describe('generator corpus fingerprint', () => {
       { name: 'bpm', candidate: candidate({ bpm: 130 }) },
       { name: 'musicalKey', candidate: candidate({ musicalKey: 'C' }) },
       { name: 'sampleType', candidate: candidate({ sampleType: 'Bass' }) },
-      { name: 'categoryName', candidate: candidate({ categoryName: 'Bass' }) },
+      { name: 'sourceGroup', candidate: candidate({ sourceGroup: 'Bass' }) },
       { name: 'paletteSlot', candidate: candidate({ paletteSlot: 7 }) }
     ]
 

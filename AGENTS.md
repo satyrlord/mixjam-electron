@@ -103,7 +103,7 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
   (onboarding without samples is spec-020).
 - `@sqlite.org/sqlite-wasm` with opfs-sahpool VFS. One tab, enforced by Web Lock.
 - `rule_json` predicate tree compiles to parameterized SQL. Current executable subset:
-  one `and` group with optional text, one category, tag-any leaves.
+  one `and` group with optional text and one tag-all leaf.
   Do not extend before validator and full compiler land (see `docs/query-schema.md`).
 - Two-phase background indexer, `(size, mtime)` change detection, soft-delete for missing files.
 - Web Audio API lookahead scheduler for v1; native addon only if latency triggers it.

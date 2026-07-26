@@ -1,3 +1,4 @@
+
 // @vitest-environment node
 // Indexer tests run the real two-phase scan over an in-memory fake of the
 // File System Access directory tree and an in-memory sqlite-wasm database.
@@ -6,15 +7,8 @@ import { beforeAll, beforeEach, afterEach, describe, expect, it } from 'vitest'
 import { DB } from './sql'
 import { initSchema } from './schema'
 import { runScan, type ScanPhaseProgress } from './indexer'
-import {
-  createCategory,
-  listCategories,
-  querySamples
-} from './browser-library-persistence'
-import {
-  getLibraryRootState,
-  UNSORTED_CATEGORY
-} from './indexed-sample-persistence'
+import { listTags, querySamples } from './browser-library-persistence'
+import { getLibraryRootState, UNSORTED_TAG } from './indexed-sample-persistence'
 
 // ---------------------------------------------------------------------------
 // Map-backed FileSystemDirectoryHandle fake
@@ -105,7 +99,6 @@ const ROOT_KEY = 'root-test'
 beforeAll(async () => {
   sqlite3 = await sqlite3InitModule()
 })
-
 beforeEach(() => {
   db = new DB(sqlite3, new sqlite3.oo1.DB(':memory:'))
   initSchema(db)
@@ -115,9 +108,19 @@ afterEach(() => {
   db.close()
 })
 
-async function scan(tree: FakeTree): Promise<ScanPhaseProgress[]> {
-  const events: ScanPhaseProgress[] = []
-  await runScan(db, ROOT_KEY, fakeDirHandle('Samples', tree), (p) => events.push(p), () => true)
+/** runScan only ever emits the running variant, so tests narrow once here
+ *  instead of re-narrowing at every counter assertion. */
+type ScanningProgress = Extract<ScanPhaseProgress, { status: 'scanning' }>
+
+function collectScanEvents(events: ScanningProgress[]) {
+  return (progress: ScanPhaseProgress): void => {
+    if (progress.status === 'scanning') events.push(progress)
+  }
+}
+
+async function scan(tree: FakeTree): Promise<ScanningProgress[]> {
+  const events: ScanningProgress[] = []
+  await runScan(db, ROOT_KEY, fakeDirHandle('Samples', tree), collectScanEvents(events), () => true)
   return events
 }
 
@@ -142,12 +145,12 @@ describe('runScan', () => {
   })
 
   it('aborts between phases when isCurrent returns false after phase 1', async () => {
-    const events: ScanPhaseProgress[] = []
+    const events: ScanningProgress[] = []
     await runScan(
       db,
       ROOT_KEY,
       fakeDirHandle('Samples', { 'kick.wav': makeWav(0.05) }),
-      (p) => events.push(p),
+      collectScanEvents(events),
       // Cancel after phase 1 completes (phase === 1 emitted) but before phase 2
       () => !events.some((e) => e.phase === 1 && e.processed === e.total)
     )
@@ -199,132 +202,40 @@ describe('runScan', () => {
     expect(rows[0].channels).toBe(1)
   })
 
-  it('creates categories from top-level folders and assigns samples', async () => {
+  it('creates shared flat tags from every directory segment and assigns samples', async () => {
     await scan({
-      'loose.wav': makeWav(0.05),
-      Drums: { Kicks: { 'kick.wav': makeWav(0.05) } }
+      'Hard Trance': { Bass: { 'kick.wav': makeWav(0.05) } },
+      House: { Bass: { 'bass.wav': makeWav(0.05) } },
+      'loose.wav': makeWav(0.05)
     })
 
-    const categories = listCategories(db, ROOT_KEY)
-    const drums = categories.find((c) => c.parentId === null && c.name === 'Drums')
-    const unsorted = categories.find((c) => c.parentId === null && c.name === UNSORTED_CATEGORY)
-    expect(drums).toBeDefined()
-    expect(unsorted).toBeDefined()
-
-    const { rows } = querySamples(db, { rootId: ROOT_KEY })
-    expect(rows.find((r) => r.relpath === 'Drums/Kicks/kick.wav')?.categoryId).toBe(drums!.id)
-    expect(rows.find((r) => r.relpath === 'loose.wav')?.categoryId).toBe(unsorted!.id)
+    const tags = listTags(db, ROOT_KEY)
+    expect(tags.map(({ name }) => name)).toEqual(['Bass', 'Hard Trance', 'House', 'Unsorted'])
+    const bass = tags.find(({ name }) => name === 'Bass')!
+    expect(querySamples(db, { rootId: ROOT_KEY, tagIds: [bass.id] }).rows.map(({ filename }) => filename))
+      .toEqual(['bass.wav', 'kick.wav'])
+    const unsorted = tags.find(({ name }) => name === UNSORTED_TAG)!
+    expect(querySamples(db, { rootId: ROOT_KEY, tagIds: [unsorted.id] }).rows[0]!.filename)
+      .toBe('loose.wav')
   })
 
-  it('projects empty and unsupported-only nested directories into the category tree', async () => {
-    await scan({
-      Ambient: {
-        Empty: { Deep: {} },
-        Presets: { 'bank.xml': new File(['preset'], 'bank.xml') }
-      }
-    })
+  it('projects empty directory segment tags and reconciles removed folder provenance', async () => {
+    await scan({ Ambient: { Empty: { Deep: {} }, 'tone.wav': makeWav(0.05) } })
+    expect(listTags(db, ROOT_KEY).map(({ name }) => name))
+      .toEqual(['Ambient', 'Deep', 'Empty', 'Unsorted'])
 
-    const categories = listCategories(db, ROOT_KEY)
-    const ambient = categories.find((category) => category.name === 'Ambient')!
-    const empty = categories.find((category) => category.parentId === ambient.id && category.name === 'Empty')!
-    expect(categories).toContainEqual(expect.objectContaining({ parentId: empty.id, name: 'Deep' }))
-    expect(categories).toContainEqual(expect.objectContaining({ parentId: ambient.id, name: 'Presets' }))
+    await scan({ Ambient: { 'tone.wav': makeWav(0.05) } })
+    expect(listTags(db, ROOT_KEY).map(({ name }) => name)).toEqual(['Ambient', 'Unsorted'])
   })
 
-  it('retires removed empty directory paths while preserving a custom overlay', async () => {
-    await scan({
-      Ambient: {
-        Empty: { Deep: {} },
-        Presets: { 'bank.xml': new File(['preset'], 'bank.xml') }
-      }
-    })
-    const first = listCategories(db, ROOT_KEY)
-    const empty = first.find((category) => category.name === 'Empty')!
-    createCategory(db, ROOT_KEY, 'Empty', empty.parentId!)
+  it('keeps folder-tag visibility isolated between Sample Folders', async () => {
+    await scan({ Drums: { 'kick.wav': makeWav(0.05) } })
+    await runScan(db, 'root-other', fakeDirHandle('Other', {
+      Bass: { 'bass.wav': makeWav(0.05) }
+    }), () => undefined, () => true)
 
-    await scan({ Ambient: {} })
-
-    const categories = listCategories(db, ROOT_KEY)
-    expect(categories).toContainEqual(expect.objectContaining({
-      id: empty.id,
-      folderDerived: false,
-      userCreated: true
-    }))
-    expect(categories.some((category) => category.name === 'Deep')).toBe(false)
-    expect(categories.some((category) => category.name === 'Presets')).toBe(false)
-  })
-
-  it('keeps the previous complete category tree when a replacement scan is cancelled', async () => {
-    await scan({ Old: { Tree: { 'old.wav': makeWav(0.05) } } })
-    let current = true
-    await runScan(
-      db,
-      ROOT_KEY,
-      fakeDirHandle('Samples', {
-        New: {
-          Branch: {
-            'one.wav': makeWav(0.05),
-            'two.wav': makeWav(0.05)
-          }
-        }
-      }),
-      () => { current = false },
-      () => current,
-      { batchSize: 1 }
-    )
-
-    const names = listCategories(db, ROOT_KEY).map((category) => category.name)
-    expect(names).toEqual(expect.arrayContaining(['Old', 'Tree', 'Unsorted']))
-    expect(names).not.toContain('New')
-    expect(names).not.toContain('Branch')
-  })
-
-  it('reconciles a replaced folder taxonomy without deleting custom categories', async () => {
-    await scan({
-      Bass: { 'old-bass.wav': makeWav(0.05) },
-      Drum: { 'old-drum.wav': makeWav(0.05) }
-    })
-    createCategory(db, ROOT_KEY, 'Favorites')
-
-    await scan({
-      Ambient: { Bass: { 'ambient-bass.WAV': makeWav(0.05) } },
-      Brazil: { Bass: { 'brazil-bass.WAV': makeWav(0.05) } },
-      House: { Classic: { Singleshots: { 'hit.WAV': makeWav(0.05) } } },
-      'Hard Trance': { Keys: { 'key.WAV': makeWav(0.05) } }
-    })
-
-    const categories = listCategories(db, ROOT_KEY)
-    expect(categories.filter((category) => category.parentId === null).map((category) => category.name))
-      .toEqual(['Ambient', 'Brazil', 'Favorites', 'Hard Trance', 'House', 'Unsorted'])
-    expect(categories.filter((category) => category.name === 'Bass')).toHaveLength(2)
-
-    const house = categories.find((category) => category.name === 'House')!
-    const classic = categories.find((category) => category.parentId === house.id && category.name === 'Classic')!
-    expect(categories).toContainEqual(expect.objectContaining({
-      name: 'Singleshots',
-      parentId: classic.id
-    }))
-  })
-
-  it('keeps category trees isolated between Sample Folders', async () => {
-    await scan({ Ambient: { Bass: { 'a.WAV': makeWav(0.05) } } })
-    await runScan(
-      db,
-      'root-other',
-      fakeDirHandle('Other Samples', {
-        Techno: { Drum: { 'b.WAV': makeWav(0.05) } }
-      }),
-      () => undefined,
-      () => true
-    )
-    createCategory(db, ROOT_KEY, 'Favorites')
-
-    expect(listCategories(db, ROOT_KEY).filter((category) => category.parentId === null)
-      .map((category) => category.name))
-      .toEqual(['Ambient', 'Favorites', 'Unsorted'])
-    expect(listCategories(db, 'root-other').filter((category) => category.parentId === null)
-      .map((category) => category.name))
-      .toEqual(['Techno', 'Unsorted'])
+    expect(listTags(db, ROOT_KEY).map(({ name }) => name)).toEqual(['Drums', 'Unsorted'])
+    expect(listTags(db, 'root-other').map(({ name }) => name)).toEqual(['Bass', 'Unsorted'])
   })
 
   it('soft-deletes rows whose files vanished from the folder', async () => {
@@ -441,7 +352,7 @@ describe('runScan', () => {
   })
 
   it('keeps the root incomplete when a file snapshot fails transiently', async () => {
-    const events: ScanPhaseProgress[] = []
+    const events: ScanningProgress[] = []
     await expect(runScan(
       db,
       ROOT_KEY,
@@ -449,7 +360,7 @@ describe('runScan', () => {
         ['bad.wav', unreadableFileHandle('bad.wav')],
         ['good.wav', fakeFileHandle('good.wav', makeWav(0.05))]
       ]),
-      (progress) => events.push(progress),
+      collectScanEvents(events),
       () => true
     )).rejects.toThrow('Unable to read bad.wav: file disappeared')
 
@@ -476,6 +387,43 @@ describe('runScan', () => {
 
     expect(result.lastCompletedAt).toBeNull()
     expect(querySamples(db, { rootId: ROOT_KEY }).total).toBe(0)
+  })
+
+  it('keeps the prior complete folder-tag projection when cancelled during assignment staging', async () => {
+    await runScan(
+      db,
+      ROOT_KEY,
+      fakeDirHandle('Samples', { Old: { 'old.wav': makeWav(0.05) } }),
+      () => undefined,
+      () => true,
+      { batchSize: 1 }
+    )
+
+    let completedUpserts = false
+    let checksAfterUpserts = 0
+    await runScan(
+      db,
+      ROOT_KEY,
+      fakeDirHandle('Samples', {
+        New: { 'first.wav': makeWav(0.05), 'second.wav': makeWav(0.05) }
+      }),
+      (progress) => {
+        if (progress.status === 'scanning' && progress.phase === 1 &&
+            progress.processed === progress.total) completedUpserts = true
+      },
+      () => !completedUpserts || ++checksAfterUpserts < 3,
+      { batchSize: 1 }
+    )
+
+    expect(listTags(db, ROOT_KEY).map(({ name }) => name)).toEqual(['Old', UNSORTED_TAG])
+    expect(db.prepare(
+      `SELECT s.relpath, t.name
+       FROM sample_tags st
+       JOIN samples s ON s.id = st.sample_id
+       JOIN tags t ON t.id = st.tag_id
+       WHERE st.source = 'folder'
+       ORDER BY s.relpath, t.name`
+    ).all()).toEqual([{ relpath: 'Old/old.wav', name: 'Old' }])
   })
 
   it('does not persist metadata that finishes after cancellation', async () => {

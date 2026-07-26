@@ -1,4 +1,4 @@
-import type { AnalysisProgress } from '../../../shared/backend-api'
+import type { AnalysisProgress, DistributiveOmit } from '../../../shared/backend-api'
 import { analyzeWav, type SampleAnalysisResult } from './analysis'
 import {
   applyAnalysisResult,
@@ -10,7 +10,7 @@ import {
 import { resolveContextualAnalysis } from './contextual-analysis'
 import type { DB } from './sql'
 
-export type AnalysisPhaseProgress = Omit<AnalysisProgress, 'identity'>
+export type AnalysisPhaseProgress = DistributiveOmit<AnalysisProgress, 'identity'>
 export type AnalysisEmit = (progress: AnalysisPhaseProgress) => void
 
 const EMPTY_ANALYSIS_RESULT = {

@@ -1,4 +1,9 @@
 import type { LibraryRootState } from '../../../shared/backend-api'
+import {
+  UNSORTED_NAME,
+  folderTagNamesFromRelpath as folderTagNames,
+  pathSegments
+} from '../../../shared/sample-palette'
 import { ANALYSIS_REVISION, METADATA_REVISION } from './schema'
 import type { DB } from './sql'
 
@@ -39,80 +44,101 @@ export function completeScanRoot(db: DB, rootId: number, completedAt: number = D
   return completedAt
 }
 
-export const UNSORTED_CATEGORY = 'Unsorted'
+export const UNSORTED_TAG = UNSORTED_NAME
 
-type CategorySource = 'folder' | 'custom'
-
-function addCategorySource(db: DB, categoryId: number, rootId: number, source: CategorySource): void {
+function ensureFolderTag(db: DB, name: string): number {
   db.prepare(
-    'INSERT OR IGNORE INTO category_sources (category_id, root_id, source) VALUES (?, ?, ?)'
-  ).run(categoryId, rootId, source)
+    `INSERT INTO tags (name, color, user_created) VALUES (?, NULL, 0)
+     ON CONFLICT(name) DO NOTHING`
+  ).run(name)
+  return db.prepare('SELECT id FROM tags WHERE name = ?').get<{ id: number }>(name)!.id
 }
 
-function unsortedCategoryId(db: DB): number {
-  const row = db.prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?').get<{ id: number }>(UNSORTED_CATEGORY)
-  const id = row?.id ?? db.prepare(
-    'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-  ).run(UNSORTED_CATEGORY).lastInsertRowid
-  return id
-}
-
-export function ensureUnsortedCategory(db: DB, rootId: number): void {
-  addCategorySource(db, unsortedCategoryId(db), rootId, 'folder')
-}
-
-export function syncCategoriesFromNames(db: DB, rootId: number, folderNames: readonly string[]): string[] {
-  ensureUnsortedCategory(db, rootId)
-  const names = [UNSORTED_CATEGORY]
-  for (const name of folderNames) {
-    if (name === UNSORTED_CATEGORY) continue
-    const existing = db.prepare(
-      'SELECT id FROM categories WHERE parent_id IS NULL AND name = ?'
-    ).get<{ id: number }>(name)
-    const id = existing?.id ?? db.prepare(
-      'INSERT INTO categories (name, parent_id) VALUES (?, NULL)'
-    ).run(name).lastInsertRowid
-    addCategorySource(db, id, rootId, 'folder')
-    names.push(name)
-  }
-  return names
-}
-
-export function ensureFolderCategoryPaths(
+export function ensureFolderTags(
   db: DB,
   directoryRelpaths: readonly string[]
 ): ReadonlySet<number> {
-  const ids = new Set<number>([unsortedCategoryId(db)])
-  const orderedPaths = [...new Set(directoryRelpaths)]
-    .sort((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right))
-  for (const relpath of orderedPaths) {
-    let parentId: number | null = null
-    for (const name of relpath.split('/').filter(Boolean)) {
-      const existing: { id: number } | undefined = db.prepare(
-        'SELECT id FROM categories WHERE parent_id IS ? AND name = ?'
-      ).get<{ id: number }>(parentId, name)
-      const categoryId: number = existing?.id ?? db.prepare(
-        'INSERT INTO categories (name, parent_id) VALUES (?, ?)'
-      ).run(name, parentId).lastInsertRowid
-      ids.add(categoryId)
-      parentId = categoryId
-    }
-  }
+  const ids = new Set<number>([ensureFolderTag(db, UNSORTED_TAG)])
+  // These are directory paths, so every segment names a tag (unlike a file
+  // relpath, whose last segment is the filename).
+  const names = new Set(directoryRelpaths.flatMap(pathSegments))
+  const orderedNames = [...names].sort((left, right) => left.localeCompare(right))
+  for (const name of orderedNames) ids.add(ensureFolderTag(db, name))
   return ids
 }
 
-export function reconcileFolderCategories(
+function replaceFolderTagSources(db: DB, rootId: number, activeTagIds: readonly number[]): void {
+  const insert = db.prepare(
+    'INSERT INTO folder_tag_sources (tag_id, root_id) VALUES (?, ?)'
+  )
+  db.prepare('DELETE FROM folder_tag_sources WHERE root_id = ?').run(rootId)
+  for (const id of activeTagIds) insert.run(id, rootId)
+}
+
+/** The staging table is TEMP, so it does not survive a reconnect and cannot be
+ *  part of the persistent DDL. Every function that touches it calls this first,
+ *  which makes "the stage exists" an invariant of this module rather than an
+ *  ordering contract callers have to honor. */
+function ensureFolderTagStage(db: DB): void {
+  db.exec(`
+    CREATE TEMP TABLE IF NOT EXISTS folder_tag_stage (
+      root_id INTEGER NOT NULL,
+      sample_id INTEGER NOT NULL,
+      tag_id INTEGER NOT NULL,
+      PRIMARY KEY (root_id, sample_id, tag_id)
+    );
+  `)
+}
+
+export function resetFolderTagStage(db: DB): void {
+  ensureFolderTagStage(db)
+  db.exec('DELETE FROM folder_tag_stage;')
+}
+
+export function stageFolderTagsFromPath(db: DB, rootId: number, relpath: string): void {
+  ensureFolderTagStage(db)
+  const sample = db.prepare(
+    'SELECT id FROM samples WHERE root_id = ? AND relpath = ?'
+  ).get<{ id: number }>(rootId, relpath)
+  if (!sample) return
+  const insert = db.prepare(
+    'INSERT OR IGNORE INTO folder_tag_stage (root_id, sample_id, tag_id) VALUES (?, ?, ?)'
+  )
+  for (const name of folderTagNames(relpath)) {
+    insert.run(rootId, sample.id, ensureFolderTag(db, name))
+  }
+}
+
+export function commitFolderTagProjection(
   db: DB,
   rootId: number,
-  activeCategoryIds: ReadonlySet<number>
+  activeTagIds: ReadonlySet<number>,
+  missingRelpaths: readonly string[] = []
 ): void {
-  const insert = db.prepare(
-    `INSERT INTO category_sources (category_id, root_id, source) VALUES (?, ?, 'folder')`
-  )
-  db.transaction((ids: readonly number[]) => {
-    db.prepare("DELETE FROM category_sources WHERE root_id = ? AND source = 'folder'").run(rootId)
-    for (const id of ids) insert.run(id, rootId)
-  })([...activeCategoryIds])
+  ensureFolderTagStage(db)
+  // One transaction: samples that vanished retire (scan_state = 2) in the same
+  // commit that swaps the folder-tag projection. Without this, a reader mid-
+  // scan could see folder-derived tags whose backing samples are already
+  // hidden — phantom tags.
+  db.transaction((ids: readonly number[], missing: readonly string[]) => {
+    const markStmt = db.prepare(
+      'UPDATE samples SET scan_state = 2 WHERE root_id = ? AND relpath = ?'
+    )
+    for (const relpath of missing) markStmt.run(rootId, relpath)
+    db.prepare(
+      `DELETE FROM sample_tags
+       WHERE source = 'folder'
+         AND sample_id IN (SELECT id FROM samples WHERE root_id = ?)`
+    ).run(rootId)
+    db.prepare(
+      `INSERT OR IGNORE INTO sample_tags (sample_id, tag_id, source)
+       SELECT sample_id, tag_id, 'folder'
+       FROM folder_tag_stage
+       WHERE root_id = ?`
+    ).run(rootId)
+    replaceFolderTagSources(db, rootId, ids)
+    db.prepare('DELETE FROM folder_tag_stage WHERE root_id = ?').run(rootId)
+  })([...activeTagIds], missingRelpaths)
 }
 
 export function upsertStub(db: DB, rootId: number, relpath: string, filename: string, ext: string, sizeBytes: number, mtime: number): void {
@@ -134,10 +160,6 @@ export function upsertStub(db: DB, rootId: number, relpath: string, filename: st
   ).run(filename, ext, sizeBytes, mtime, existing.id)
 }
 
-export function markMissing(db: DB, rootId: number, relpath: string): void {
-  db.prepare('UPDATE samples SET scan_state = 2 WHERE root_id = ? AND relpath = ?').run(rootId, relpath)
-}
-
 export function updateMetadata(db: DB, rootId: number, relpath: string, duration: number | null, sampleRate: number | null, channels: number | null, metadataRevision: number = METADATA_REVISION): void {
   db.prepare(
     `UPDATE samples SET duration=?, sample_rate=?, channels=?,
@@ -157,35 +179,4 @@ export function markMetadataUnavailable(db: DB, rootId: number, relpath: string,
        sample_type_source = CASE WHEN sample_type_source = 'manual' THEN sample_type_source ELSE NULL END,
        scan_state=3, metadata_revision=?, analysis_revision=? WHERE root_id=? AND relpath=?`
   ).run(metadataRevision, analysisRevision, rootId, relpath)
-}
-
-export function assignCategoryFromPath(db: DB, rootId: number, relpath: string): void {
-  const segments = relpath.split('/').filter(Boolean)
-  if (segments.length < 2) {
-    db.prepare('UPDATE samples SET category_id = ? WHERE root_id = ? AND relpath = ?').run(unsortedCategoryId(db), rootId, relpath)
-    return
-  }
-  const root = db.prepare('SELECT id FROM categories WHERE parent_id IS NULL AND name = ?').get<{ id: number }>(segments[0])
-  if (!root) {
-    db.prepare('UPDATE samples SET category_id = ? WHERE root_id = ? AND relpath = ?').run(unsortedCategoryId(db), rootId, relpath)
-    return
-  }
-  const sample = db.prepare('SELECT id FROM samples WHERE root_id = ? AND relpath = ?').get<{ id: number }>(rootId, relpath)
-  if (!sample) return
-  db.prepare('UPDATE samples SET category_id = ? WHERE id = ?').run(root.id, sample.id)
-  db.prepare('DELETE FROM sample_categories WHERE sample_id = ?').run(sample.id)
-  db.prepare('INSERT OR IGNORE INTO sample_categories (sample_id, category_id) VALUES (?, ?)').run(sample.id, root.id)
-  let parentId = root.id
-  for (let i = 1; i < segments.length - 1; i++) {
-    const name = segments[i]
-    let sub = db.prepare('SELECT id FROM categories WHERE parent_id = ? AND name = ?').get<{ id: number }>(parentId, name)
-    if (!sub) {
-      const inserted = db.prepare('INSERT OR IGNORE INTO categories (name, parent_id) VALUES (?, ?)').run(name, parentId)
-      sub = inserted.changes > 0
-        ? { id: inserted.lastInsertRowid }
-        : db.prepare('SELECT id FROM categories WHERE parent_id = ? AND name = ?').get<{ id: number }>(parentId, name)!
-    }
-    db.prepare('INSERT OR IGNORE INTO sample_categories (sample_id, category_id) VALUES (?, ?)').run(sample.id, sub.id)
-    parentId = sub.id
-  }
 }

@@ -97,8 +97,8 @@ export function createBackendAPI(shell: ShellAPI): BackendAPI {
       call('planMixJam', sampleFolder.id, jobId, parameters, expectedFingerprint),
     cancelMixJamPlanning: (jobId) => call('cancelMixJamPlanning', jobId),
     getGeneratorProgress: () => call('getGeneratorProgress'),
-    listTags: () => call('listTags'),
-    createTag: (name, color) => call('createTag', name, color),
+    listTags: (rootKey) => call('listTags', rootKey),
+    createTag: (name, color, rootKey) => call('createTag', name, color, rootKey),
     renameTag: (id, name) => call('renameTag', id, name),
     setTagColor: (id, color) => call('setTagColor', id, color),
     deleteTag: (id) => call('deleteTag', id),
@@ -107,10 +107,6 @@ export function createBackendAPI(shell: ShellAPI): BackendAPI {
     updateSampleAnalysis: (sampleId, patch) => call('updateSampleAnalysis', sampleId, patch),
     reanalyzeSample: (sampleFolder, sampleId, relpath) =>
       call('reanalyzeSample', sampleFolder.id, sampleId, relpath),
-    listCategories: (sampleFolder) => call('listCategories', sampleFolder.id),
-    createCategory: (sampleFolder, name, parentId) =>
-      call('createCategory', sampleFolder.id, name, parentId),
-    deleteCategory: (sampleFolder, id) => call('deleteCategory', sampleFolder.id, id),
     listLibraries: () => call('listLibraries'),
     saveLibrary: (name, ruleJson) => call('saveLibrary', name, ruleJson),
     deleteLibrary: (id) => call('deleteLibrary', id),

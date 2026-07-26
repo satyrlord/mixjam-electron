@@ -7,8 +7,8 @@
 ## Objective
 
 Index the user's Sample Folder, build a searchable/browsable sample library with
-virtualized rendering, and enable dynamic user-defined tagging with hierarchical
-categories. Libraries are saved queries, not file copies.
+virtualized rendering, and provide one flat tag system for both folder-derived
+and user-defined organization. Libraries are saved queries, not file copies.
 
 ## User Stories
 
@@ -23,9 +23,9 @@ categories. Libraries are saved queries, not file copies.
   results as I type.
 - **US-004:** As a user, I can create custom tags and assign them to samples,
   building my own organizational system.
-- **US-005:** As a user, I can organize samples with a parent/child category
-  hierarchy that remains independent of tags.
-- **US-006:** As a user, I can filter samples by tag/category and see only
+- **US-005:** As a user, I can find folder-derived and custom tags through one
+  searchable navigator instead of traversing a category tree.
+- **US-006:** As a user, I can filter samples by one or more tags and see only
   matching results.
 - **US-007:** As a user, I can save a set of filters as a named "library"
   that I can reload later.
@@ -76,7 +76,7 @@ categories. Libraries are saved queries, not file copies.
   mutation events collapse into that one follow-up.
 - New files: added as stubs, queued for metadata extraction.
 - Changed files: metadata is re-extracted; tags, bpm/key fields, and original
-  import date are preserved, while filesystem-derived categories are recomputed.
+  import date are preserved, while folder-derived tags are recomputed.
 - Missing files: marked as missing (not deleted) so tags survive a temporarily
   disconnected drive. Hidden from normal browsing.
 - Unchanged files with a completed metadata attempt are not metadata-parsed or
@@ -114,23 +114,23 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 ```text
 .browser-region
-  ├── .category-tree      — expandable category/subcategory tree (left portion)
+  ├── .tag-navigator      — searchable flat tag list (left portion)
   ├── .browser-resize-v   — internal vertical split handle
   └── .sample-pane        — main browser workspace
-      ├── .subcats-row        — filter/results toolbar
-      │   ├── .sample-filter-strip     — category and tag filter chips
+      ├── .sample-toolbar      — filter/results toolbar
+      │   ├── .sample-filter-strip     — active tag filter chips
       │   └── .sample-results-controls — result count and sort controls
       └── .tiles              — virtualized rows of sample bubbles
 ```
 
 - Song and Mixer are peer panels outside the Samples panel. Their controls
   do not live inside the sample browser.
-- A vertical resize handle separates the category tree from the sample list
+- A vertical resize handle separates the tag navigator from the sample list
   inside the browser region (defined in spec-006). It supports pointer, touch,
   and keyboard resizing and exposes its current value through separator ARIA.
 - Selected sample details do not open a third pane inside the browser region.
   They render in the center slot of the app-wide Player footer (spec-001) so
-  the browser keeps its two-column tree/grid layout.
+  the browser keeps its two-column navigator/grid layout.
 
 ### Sample Browser Grid
 
@@ -141,10 +141,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   following spec-009.
 - Sort controls support filename, duration, and date added. Selecting the active
   sort again toggles ascending/descending.
-- Each browser bubble resolves its palette slot from that sample's own category.
-  The active category filter never recolors a result or replaces the category
-  slot stored in its drag payload. Bubble identity therefore stays stable while
-  users change category, tag, or search filters.
+- Each browser bubble resolves its palette slot from the sample's top-level
+  relative-path segment. A flat file uses the unsorted slot. Active tag filters
+  never recolor a result or replace the slot stored in its drag payload.
 - Selecting a bubble highlights it, previews its audio, and populates the Player
   footer with the path, assigned tags, and decoded waveform.
 - The grid does not use inline expansion.
@@ -158,13 +157,16 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   the Samples panel without moving global search into a tab-scoped surface.
 - As the user types, results filter in real-time (debounced, ~150ms).
 - Search matches against filename and relpath.
-- Results respect any active tag/category filter (search within filtered set).
+- Results respect any active tag filter (search within filtered set).
 - Empty search query shows all samples (subject to active filters).
 - Search uses token-prefix matching through FTS5, not typo-tolerant fuzzy
   matching.
 - Query results load as windowed pages on demand: the first page loads eagerly
   and the grid requests the next page as the user scrolls near the end of the
-  loaded rows. The renderer never accumulates the full result set up front.
+  loaded rows. Each page request belongs to one root/filter/sort generation;
+  changing any query input invalidates pending pagination immediately, and a
+  late response cannot append rows or release another generation's paging
+  guard. The renderer never accumulates the full result set up front.
 
 ### Library Controls
 
@@ -173,18 +175,20 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   Re-scan recovery action. Cancel is exposed only while a job is active.
 - The Home Sample Folder card shows the same sync lifecycle while Home is
   visible. Progress follows the job across view changes without restarting it.
-- The Samples panel's filter/results toolbar owns category and tag filters, the
+- The Samples panel's filter/results toolbar owns active tag filters, the
   result count summary, and filename/duration/date-added sorting.
 - Those controls share one non-wrapping toolbar. The left side is a horizontally
   scrollable filter strip; the right side keeps the result count and one compact
-  sort group visible. The count remains present at zero. The selected category
-  appears as a removable filter, tag filters expose pressed state and their
-  optional color indicator, and the active sort exposes both pressed state and
-  direction in its accessible name.
+  sort group visible. The count remains present at zero. Active tag filters are
+  removable and expose their optional color indicator. The active sort exposes
+  both pressed state and direction in its accessible name.
 - Contextual BPM, key, and type results are produced automatically by the one
   analyzer defined in spec-008. There is no separate analysis-management action.
 - These controls never bypass the SQLite-backed query/filter flow; they only
   change the current browser query state or trigger the indexed sync path.
+- Manage replaces the sample-results pane while it is open. Covered result and
+  resize controls are not left in the accessibility tree or tab order. Focus
+  enters the named Manage region and returns to the Manage toggle on close.
 
 ### Sample Browser States
 
@@ -192,7 +196,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   state in the Samples panel. It explains that MixJam is preparing the library
   and exposes busy semantics without showing incomplete scan rows.
 - A filtered query with zero matches explains that no samples match and offers
-  one action that clears search, category, and tag filters together.
+  one action that clears search and tag filters together.
 - A completed folder with no supported audio files is a valid folder-empty state,
   not an error and not a prompt to run another scan.
 - An unavailable Sample Folder directs the user to Home to restore or choose the
@@ -201,18 +205,19 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   the same recovery path. These states do not add permanent scan controls inside
   the Samples panel.
 
-### Dynamic Tagging
+### Tag Organization
 
 - Users can create, rename, and delete tags.
-- Tags can be assigned to one or more samples. Assignment UI: right-clicking a
-  sample tile opens a context menu listing every tag with its assignment state;
-  clicking toggles assign/unassign. Every browser item is an indexed DB row, so
-  tagging is always available.
+- Tags can be assigned to one or more samples. Right-clicking a sample tile
+  exposes one **Edit tags** action that opens a searchable, collision-aware
+  assignment surface. The UI never mounts the complete tag catalog once per
+  sample tile.
 - The sample menu follows the standard context-menu keyboard model, remains
   inside the viewport, returns focus on dismissal, and opens sample analysis in
   a collision-aware modal popover anchored to the originating sample bubble.
-- All tags render as filter chips in the browser's filter/results toolbar;
-  clicking a chip toggles that tag in the active filter.
+- The left navigator searches the flat tag catalog and toggles filters. Only
+  active filters render as chips in the results toolbar, so tag count does not
+  expand permanent chrome.
 - Tags have an optional color for visual identification. The manage panel can
   set or clear that color during creation or later editing, and colored tags
   carry the same indicator in filter chips and sample context menus.
@@ -222,47 +227,33 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - `querySamples` returns each row's assigned tag ids and names (aggregated
   subqueries), so tiles and the footer show tags without N+1 lookups.
 
-### Category Tree
+### Folder-Derived Tags
 
-- **"Unsorted"** is the only hardcoded top-level category. It serves as the
-  fallback bucket for samples that cannot be assigned to any folder-derived
-  category (flat files, unrecognised paths).
-- All other top-level categories are **derived from the sample-folder
-  structure**: each top-level subdirectory in the Sample Folder becomes a
-  root category. If the Sample Folder is flat, only the "Unsorted" category
-  exists.
-- Subcategories are deeper folder levels: the first subdirectory under a
-  category folder becomes a subcategory, and so on. Every directory is
-  represented, including empty directories and directories containing only
-  unsupported files.
-- Users can create additional custom top-level categories and subcategories
-  via the manage panel; folder-derived and user-created categories coexist.
-- Category visibility and provenance are scoped to the active Sample Folder.
-  Switching Sample Folders never mixes their trees. A category path may be
-  both folder-derived and user-created for one root; sync removes only obsolete
-  folder provenance and preserves the user-created category.
-- After a complete sync, folder-derived nodes exactly reflect the current
-  directory tree. Removed, renamed, or moved directories no longer appear for
-  that Sample Folder. An interrupted sync does not retire prior nodes.
-- The manage panel lists user-created categories by their full hierarchy path
-  and offers every visible depth, including folder-only nodes, as a parent.
-  Removing a user-created category removes only its custom provenance. A path
-  that is also present on disk remains visible and keeps its sample
-  assignments; folder-only paths have no removal action.
-- Category selection and pending category operations belong to the active
-  Sample Folder. Switching folders clears the category filter and ignores
-  responses captured for the previous root. A create response clears its form
-  only when the root, request, and submitted draft are still current.
-- Filtering by a category shows samples in that category AND all its
-  descendants (subcategories).
-- The category tree is displayed in the browser panel as an expandable tree:
-  top-level categories as root nodes, subcategories as children.
-- The tree has one roving keyboard focus target. Up/Down move through visible
-  nodes, Home/End move to the first/last visible node, Right expands a branch or
-  moves to its first child, and Left collapses a branch or moves to its parent.
-  Enter or Space selects the focused category filter. Expansion and selection
-  remain distinct ARIA states, and every pointer action has the same keyboard
-  result.
+- The indexer turns each directory segment into one flat, globally shared tag.
+  For example, `Hard Trance/Bass/kick.wav` receives `Hard Trance` and `Bass`,
+  while `House/Bass/bass.wav` receives `House` and the same `Bass` tag identity.
+  A sample directly in the Sample Folder root receives the hardcoded
+  `Unsorted` tag.
+- Folder-derived tags are root-scoped and read-only. They are reconciled only
+  after a complete scan. A cancelled or failed scan preserves the prior
+  complete projection.
+- User-created tags remain global and editable. When a user tag and a
+  folder-derived tag share a name, they share one visible tag identity while
+  retaining independent assignment provenance. The per-sample editor lets the
+  user pin or unpin that user provenance while the folder assignment stays
+  visibly active, so an explicit assignment can survive a later file move.
+- A changed or moved file recomputes folder-derived assignments while keeping
+  its user assignments. Missing rows retain user tags but do not keep obsolete
+  folder tags visible.
+- Multiple active tags use match-all semantics. Selecting `Bass` alone spans
+  every parent, while selecting `Hard Trance` and `Bass` narrows to their
+  intersection. Because a nested sample receives every directory-segment tag,
+  selecting a top-level folder tag includes its deeper samples without a
+  recursive category query.
+- Assigning, unassigning, or deleting a tag invalidates the current windowed
+  query, so filtered membership and the result count reflect the committed
+  SQLite state. A completed sync prunes selected ids that are no longer visible
+  in the active root before refreshing results.
 
 ### Libraries (Saved Queries)
 
@@ -270,19 +261,14 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - Creating a library saves the current filter state under a user-chosen name.
 - Library metadata and its compiled rule are created in one transaction; a
   failed rule write leaves no orphan library row.
-- Opening a library applies its saved filters: clicking a library's name in the
-  manage panel parses its `rule_json` and restores the search text, category,
-  and tag filters. A saved category id is restored only when that category is
-  visible in the active Sample Folder; a stale or other-root id is ignored. If
-  that folder's category projection is loading, application waits for it before
-  validating and restoring the saved filters. A failed projection load reports
-  an error and discards the pending application instead of using stale data.
+- Opening a library parses its `rule_json` and restores search text plus tag
+  filters. Stale tag ids are ignored.
 - Libraries do not copy or duplicate sample data — they are purely saved
   queries. Editing a sample's tags automatically updates all libraries that
   reference it.
 - Deleting a library only removes the saved query, never the samples.
-- The executable v1 subset is one `and` group containing optional `text`, one
-  `category`, and `tag`-`any` leaves. The full predicate-tree compiler remains
+- The executable v1 subset is one `and` group containing optional `text` and one
+  `tag`-`all` leaf. The full predicate-tree compiler remains
   target architecture; see [query-schema.md](../query-schema.md).
 
 ### Performance Constraints (from architecture)
@@ -323,35 +309,42 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   contextual "Retry library sync" action in that status region.
 - [x] **AC-005:** Typing in the search field filters the sample grid in real-time, matching token prefixes in filename and relpath.
 - [x] **AC-006:** Clearing the search field restores the full sample list.
-- [x] **AC-006b:** Clearing or unselecting a category restores all matching samples across every SQLite result window, not only the first page.
+- [x] **AC-006b:** Clearing an active tag restores matching samples across every
+  SQLite result window, not only the first page.
 - [x] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
 - [x] **AC-007:** User can create a new tag with or without a color, later set
   or clear its color, see the visual indicator in tag affordances, and assign
   the tag to a sample.
 - [x] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.
 - [x] **AC-009:** User can delete a tag — it is removed from all assigned samples.
-- [x] **AC-010:** "Unsorted" is the only hardcoded category tile; all other root categories are derived from the sample-folder structure (each top-level subdirectory becomes a category).
-- [x] **AC-010a:** User can create a new custom top-level category via the manage panel.
-- [x] **AC-010b:** User can create a custom subcategory under any visible
-  category and remove custom provenance at any depth. Folder provenance,
-  folder-derived sample assignments, and other roots remain intact. The manage
-  panel exposes custom hierarchy paths and the browser tree displays the
-  resulting projection correctly.
-- [x] **AC-011:** Filtering by a category shows samples in that category AND all its descendants.
+- [x] **AC-010:** A complete sync assigns one shared tag per directory segment.
+  Identically named subfolders under different parents share one tag identity,
+  and flat-root samples receive the hardcoded `Unsorted` tag.
+- [x] **AC-010a:** The tag navigator searches the flat catalog, toggles filters
+  without mounting the catalog in the results toolbar, and keeps only active
+  tags visible as removable filter chips. A sync cannot leave an invisible
+  stale tag id filtering the result set.
+- [x] **AC-010b:** Folder-derived assignments are root-scoped and read-only;
+  user-created tags are global and editable. Sync reconciliation never removes
+  user assignments or another root's folder-derived projection. A shared
+  folder/user tag can be pinned independently for a sample. Tag mutation
+  completions reconcile through the current root and cannot overwrite a new
+  Sample Folder's projection after a root switch.
+- [x] **AC-011:** Multiple tag filters use match-all semantics. `Bass` alone
+  spans parents; `Hard Trance` plus `Bass` narrows to their intersection; and a
+  top-level folder tag includes nested samples because they carry it directly.
+  Membership mutations refresh the SQLite window and total count.
 - [x] **AC-012:** User can save the current filter/search state as a named library.
-- [x] **AC-013:** Opening a saved library restores its filters and shows the
-  matching samples. A category predicate not visible in the active Sample
-  Folder is ignored instead of applying an invisible filter. Applying a library
-  while the active folder's categories load waits for that projection.
+- [x] **AC-013:** Opening a saved library restores search and valid tag filters
+  and shows matching samples. Stale tag ids are ignored.
 - [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
 - [x] **AC-015:** Automatic and manual incremental sync detect new, changed,
   missing, and restored files plus added, removed, renamed, moved, empty, and
-  unsupported-only category directories. A completed sync atomically replaces
-  folder provenance and retires obsolete folder-derived nodes for that
-  Sample Folder, preserves custom categories, and never exposes another Sample
-  Folder's category tree. Changed files preserve their tags. Existing indexed
-  samples remain usable, and cancellation retains committed batches and the
-  prior complete category projection.
+  unsupported-only directories. A completed sync atomically replaces the
+  folder-derived tag projection for that Sample Folder, preserves user tags,
+  and never exposes another Sample Folder's folder tags. Existing indexed
+  samples remain usable, and cancellation retains the prior complete tag
+  projection.
 - [x] **AC-015a:** Folder selection/restoration schedules at most one sync for
   that root during the app session. The worker-owned scheduler uses
   `FolderRef.id`, duplicate requests return the active job identity, and view
@@ -363,10 +356,10 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-015c:** A completed empty folder is a ready indexed root, while a
   cancelled or failed first sync remains incomplete and offers contextual
   Retry.
-- [x] **AC-015d:** Root/job identity prevents progress, completion, category
-  refreshes, and category create/remove responses from an old folder being
-  applied after the active Sample Folder changes. The folder change also clears
-  the prior category filter and category projection immediately.
+- [x] **AC-015d:** Root/job identity prevents progress, completion, and
+  folder-derived tag refreshes from an old folder being applied after the active
+  Sample Folder changes. Missing-path and paged-query responses obey the same
+  root/generation rule. A folder change clears active tag filters immediately.
 - [x] **AC-015e:** A completed app-owned filesystem mutation schedules or queues
   reconciliation even after the root's session-start sync. Mutation during an
   active same-root job guarantees one dirty-bit follow-up, while cross-root
@@ -378,8 +371,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   first placement it uses the spec-009 span estimate, so the first drop and both
   views remain pixel-identical.
 - [x] **AC-018:** Sample actions use an accessible, viewport-aware context menu;
-  the category/sample separator works by pointer, touch, and keyboard; and scan
-  progress exposes native progress semantics plus visible status text.
+  the tag-navigator/sample separator works by pointer, touch, and keyboard; and scan
+  progress exposes native progress semantics plus visible status text. Manage
+  replaces the results pane, receives focus, and restores focus when closed.
 
 ## Non-Goals (deferred to later specs)
 
@@ -395,12 +389,11 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - No dedicated detail pane inside the browser region; selected-sample details
   are footer-hosted.
 - No library export or sharing.
-- No tag import/export.
-- No batch tag operations (select multiple samples, apply tag to all).
+- No tag import/export or cloud synchronization.
 
 ## References
 
-- [Current project data-model.md](../data-model.md) — SQLite schema, FTS5, indexes, category tree queries.
+- [Current project data-model.md](../data-model.md) — SQLite schema, FTS5, and indexes.
 - [Current project indexing.md](../indexing.md) — Two-phase scan, change detection, incremental re-scan.
 - [Current project query-schema.md](../query-schema.md) — `rule_json` predicate-tree format for saved libraries.
 - [Current project architecture.md](../architecture.md) — Virtualization requirement, SQLite-in-backend-worker constraint.

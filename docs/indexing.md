@@ -62,7 +62,7 @@ carries the string root key and job identity that owns it.
 **Phase 1 — enumerate.**
 Recursively walk the root's directory handle. For every audio file, upsert a *stub* row:
 `relpath, filename, ext, size_bytes, mtime, date_added`, with `scan_state = 0`
-(stub) and metadata columns NULL. Stub upserts and category assignments use
+(stub) and metadata columns NULL. Stub upserts and folder-tag assignments use
 transactions of 500 files and yield between batches. Progress uses the shared
 `ScanProgress` shape: `{ status, phase, found, processed, total }`.
 
@@ -140,53 +140,37 @@ re-analysis. Clearing an override clears its source and permits the individual
 re-analysis action to fill that field again. Automatic decoding of MP3, FLAC,
 OGG, and AIFF is deferred; those formats retain manual analysis controls.
 
-## Category auto-assignment
+## Folder-derived tag assignment
 
-The filesystem walk records every directory path independently of audio-file
-filtering. Empty directories and directories containing only unsupported files
-therefore remain part of the category tree. The hardcoded **"Unsorted"**
-category is always present for each scanned root and serves as the fallback.
+The filesystem walk records directory segment names independently of audio-file
+filtering. Each segment maps to one shared flat tag identity. Identically named
+subfolders under different parents therefore reuse one tag instead of creating
+path-specific duplicates. Samples receive every directory-segment tag in their
+relative path. A sample directly in the Sample Folder root receives the
+hardcoded **`Unsorted`** tag.
 
-During phase 1, each sample is assigned to a primary category by matching the
-first relative path segment against existing root categories. Deeper path
-segments become subcategories (auto-created under the matched root if needed).
+For example, `Hard Trance/Bass/kick.wav` receives `Hard Trance` and `Bass`, while
+`House/Bass/bass.wav` receives `House` and the same `Bass` tag.
 
-For example, `Drums/Kicks/kick_808.wav` → primary category `Drums`, subcategory
-`Kicks`. Samples directly in the sample-folder root (no subdirectory) are
-assigned to **"Unsorted"**.
-
-See `ensureFolderCategoryPaths()`, `assignCategoryFromPath()`, and
-`reconcileFolderCategories()` in
-`src/renderer/src/backend/indexed-sample-persistence.ts`. A sample belongs to
-exactly one primary category but may have multiple subcategory assignments
-(via the `sample_categories` join table).
-
-Category nodes use shared path identity, while `category_sources` records the
-Sample Folder root and whether the node is `folder`-derived or `custom`. This
-separate relation handles two facts that a flag on `categories` cannot: the
-same path may exist in several Sample Folders, and one path may have both
-folder and custom provenance in the same folder.
-
-During phase 1, the indexer ensures category identities for every walked path
-without making those paths visible. After all sample-assignment batches finish,
-one transaction replaces that root's `folder` sources with exactly `Unsorted`
-plus the walked directory paths. It does not remove `custom` sources or any
-source owned by another root. A cancelled or failed traversal therefore leaves
-the prior complete tree visible instead of exposing a partial replacement.
-Missing sample rows keep their durable metadata but do not keep an obsolete
-folder category visible.
+Folder-derived assignment provenance is separate from user assignment
+provenance. A changed or moved file recomputes only its folder-derived tags;
+user-created assignments survive. After phase 1 completes, one transaction
+publishes staged sample assignments and reconciles the root's visible
+folder-tag projection. A cancelled or failed walk discards the staging state and
+keeps the prior complete projection. Missing rows keep durable user metadata
+but do not keep obsolete folder tags visible.
 
 ## Per-root scoping (one DB, many Sample Folders)
 
 Every Sample Folder that has ever been scanned gets a row in `scan_roots`
 (keyed by its FolderRef id), and each `samples` row carries the `root_id` of
 the root it was found under. Browser queries (`querySamples`, `hasSamples`) and
-category discovery are scoped to the active Sample Folder's root, so switching
-folders never shows another folder's rows or category tree. A folder that has
+folder-derived tag discovery is scoped to the active Sample Folder's root, so
+switching folders never shows another folder's rows or folder-only tags. A folder that has
 not been scanned yet reads as empty and its automatic session sync establishes
 the first index. Later syncs are scoped the same way: marking missing files and
-reconciling folder categories only touch the root being scanned, so rows and
-category sources belonging to other roots survive untouched.
+reconciling folder-derived tags only touch the root being scanned, so rows and
+tag sources belonging to other roots survive untouched.
 
 ## Change detection and incremental sync
 
@@ -198,16 +182,17 @@ The cheap, reliable change key is **`(size_bytes, mtime)`**. On sync of a root:
    - **known path, `mtime`/`size` changed** → reset to stub and re-extract
      metadata, while preserving tags, bpm/key fields, and the original
      `date_added`; reset metadata and analysis revisions; filesystem-derived
-     category assignments are recomputed. Mark that file's raw evidence and the
+     folder-derived tag assignments are recomputed. Mark that file's raw evidence and the
      affected root's group model stale through the reset analysis revision.
    - **known path, unchanged** → skip.
 3. **Deletions:** any `samples` row whose path was not seen in the walk is marked
    `scan_state = 2` (missing) rather than hard-deleted, so its tags/library
    memberships survive a temporarily-disconnected drive. Missing rows are hidden
    from normal browsing by default. No purge-missing UI exists yet.
-4. **Category reconciliation:** after phase 1 completes, atomically replace
-   this root's `folder` sources with the complete walked directory projection.
-   Preserve `custom` sources and every source belonging to another root.
+4. **Folder-tag reconciliation:** after phase 1 completes, atomically replace
+   this root's folder-derived sources with the complete walked segment
+   projection. Preserve user-created tags and every source belonging to another
+   root.
 
 Contextual membership uses the current relative path, including structured
 source-cohort suffixes. A rename therefore invalidates the old and new context

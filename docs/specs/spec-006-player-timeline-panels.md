@@ -46,7 +46,7 @@ browser adjacencies.
   Back, Jump to End, Play/Pause, Stop) to control playback and navigate to the
   last content tick.
 - **US-009:** As a user, I can drag the browser's internal vertical resize
-  handle to adjust the split between the category tree and the sample list.
+  handle to adjust the split between the tag navigator and the sample list.
 - **US-010:** As a user, I can resize the upper work area against the Bottom
   Workspace so the tracker or the active lower workflow gets the space I need.
 
@@ -76,7 +76,7 @@ browser adjacencies.
           ├── Master    — 13-slot Master Bus Strip with pinned
           │               input/output meters (spec-012)
           ├── Mixer     — lane strips + Return + FX1..FX4 (specs 007 and 010)
-          └── Samples   — category tree + virtualized sample list (spec-004)
+          └── Samples   — tag navigator + virtualized sample list (spec-004)
 ```
 
 ### Region Contract
@@ -104,7 +104,7 @@ browser adjacencies.
   library status, and compact menus for infrequent actions. The Transport Ribbon
   contains transport controls only.
 - The **Sample Browser** lives in the Samples panel and owns its internal
-  category-tree/sample-list split.
+  tag-navigator/sample-list split.
 - Visual treatment of all controls, surfaces, buttons, and indicators follows
   the [Style Guide](../style-guide.md#surface-treatments).
 
@@ -307,8 +307,8 @@ browser adjacencies.
   and detected BPM, or the current project BPM when detection is unavailable,
   so the first drop preserves the same dimensions across views.
 - Bubble color: resolved from the active theme's palette using the placement's
-  stable category slot. Known categories have fixed slots; unknown category
-  names map to a slot through the shared deterministic hash.
+  stable source-group slot. Known top-level source-folder names have fixed
+  slots; unknown names map to a slot through the shared deterministic hash.
 - **Snap-to-beat (default):** Dropping a sample from the browser or moving a
   sample bubble within the Tracker snaps the placement's start position to the
   nearest beat boundary (every 8 ticks). Holding **Alt** while dropping/moving
@@ -553,7 +553,7 @@ Sizing and visual treatment follow the [Style Guide](../style-guide.md#resize-ha
 
 **Browser vertical handle** (`.browser-resize-v`):
 
-- Splits the category tree from the sample list within the browser region.
+- Splits the tag navigator from the sample list within the browser region.
 
 **Bottom Workspace horizontal handle** (`.bottom-workspace-resize`):
 
@@ -690,7 +690,7 @@ window-level mouse listeners.
 - [x] **AC-015:** The BPM slider shows the current BPM and changing it updates the engine's BPM immediately.
 - [x] **AC-015a:** The Middle Strip's slider and numeric field are two editing
   surfaces for one BPM value and always reflect the transport's current BPM.
-- [x] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the category-tree/sample-list split smoothly.
+- [ ] **AC-016:** Dragging the browser's internal vertical resize handle adjusts the tag-navigator/sample-list split smoothly.
 - [x] **AC-016a:** Dragging the Bottom Workspace separator changes its rendered
   height at supported resolutions. Pointer, touch, and keyboard input all work,
   separator ARIA reports the current value and active-tab minimum, and the
@@ -705,11 +705,9 @@ window-level mouse listeners.
   in favor of a fresh 24% Bottom Workspace preference. The rendered height
   clamps to the active tab minimum. The resulting v2 layout is stored, and
   later manual resizing persists across reloads.
-- [x] **AC-016b:** Root sample categories use a two-column grid. Expandable
-  hierarchy branches span the grid and reserve their complete expanded height,
-  so nested controls never overlap later roots. Their nested children remain
-  readable, while leaf categories do not reserve an empty toggle gutter. This
-  holds for the real `tmp/test-samples` hierarchy at UI Sizes 30, 40, and 50.
+- [ ] **AC-016b:** The flat tag navigator remains searchable and independently
+  scrollable for the real `tmp/test-samples` catalog at UI Sizes 30, 40, and 50.
+  Identically named subfolders appear once and active filters stay visible.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
 - [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position; the original remains unchanged.
 - [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; placements whose bounds intersect the rectangle are selected (highlighted with a white border).
@@ -792,9 +790,9 @@ contract.
   commands.
 - `src/renderer/src/components/MasterBusStrip.test.tsx` verifies the Master
   panel rack, including its pinned output meter (spec-012).
-- `tests/e2e/library.spec.ts` verifies that subcategory, sort, and management
+- `tests/e2e/library.spec.ts` verifies that tag filtering, sort, and management
   actions render with at least 44-by-44px interaction boxes in production
-  Chromium. Dense Sample Browser tiles and category-tree rows use the separate
+  Chromium. Dense Sample Browser tiles and tag-navigator rows use the separate
   30px contract above.
 - `tmp/verify-vertical-controls/evidence.md` records production Chromium
   geometry at supported desktop widths, vertical direction, 44px targets,

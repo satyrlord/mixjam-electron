@@ -49,7 +49,7 @@ export interface ClipPlacement {
   nativeBPM?: number | null
   /** Transient marker omitted from project files. */
   nativeBPMPending?: boolean
-  /** Category-derived palette slot stored at placement time. */
+  /** Source-group-derived palette slot stored at placement time. */
   slot?: number
 }
 

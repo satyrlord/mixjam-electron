@@ -38,7 +38,7 @@ const SAMPLES: SampleListItem[] = [
     dbId: 1,
     name: 'kick_808.wav',
     relpath: 'Drums/Kicks/kick_808.wav',
-    category: 'Drums',
+    sourceGroup: 'Drums',
     durationSeconds: null,
     bpm: null,
     bpmSource: null,
@@ -47,8 +47,9 @@ const SAMPLES: SampleListItem[] = [
     sampleType: null,
     sampleTypeSource: null,
     tags: ['Drums', 'WAV'],
-    categoryId: null,
-    tagIds: []
+    tagIds: [],
+    folderTagIds: [],
+    userTagIds: []
   }
 ]
 
@@ -66,17 +67,6 @@ const LANES: LaneState[] = Array.from({ length: 16 }, (_, index) => ({
 
 const noop = () => undefined
 
-const DEFAULT_CATEGORIES = [
-  { id: 1, name: 'Bass', parentId: null, folderDerived: true, userCreated: false },
-  { id: 2, name: 'Drums', parentId: null, folderDerived: true, userCreated: false },
-  { id: 3, name: 'FX', parentId: null, folderDerived: true, userCreated: false },
-  { id: 4, name: 'Synth', parentId: null, folderDerived: true, userCreated: false },
-  { id: 5, name: 'Vocal', parentId: null, folderDerived: true, userCreated: false },
-  { id: 6, name: 'Loop', parentId: null, folderDerived: true, userCreated: false },
-  { id: 7, name: 'Percussion', parentId: null, folderDerived: true, userCreated: false },
-  { id: 8, name: 'Atmosphere', parentId: null, folderDerived: true, userCreated: false }
-]
-
 const READY_LIBRARY_STATE: LibrarySyncState = {
   status: 'ready',
   rootKey: 'samples',
@@ -91,20 +81,16 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   totalCount: 0,
   hasMoreSamples: false,
   selectedSamplePath: null,
-  selectedCategoryId: undefined,
   selectedTagIds: [],
   sortBy: 'filename',
   sortDir: 'asc',
   tags: [],
-  categories: DEFAULT_CATEGORIES,
   libraries: [],
   librarySyncState: READY_LIBRARY_STATE,
-  categoryScopeKey: 'samples',
   onSearchChange: noop,
   onLoadMoreSamples: noop,
   onSelectSampleDetail: noop,
   onPreviewSample: noop,
-  onSelectCategory: noop,
   onToggleTagFilter: noop,
   onSortChange: noop,
   onRescanLibrary: asyncNoop,
@@ -118,8 +104,6 @@ const DEFAULT_BROWSER: PlayerBrowserProps = {
   onUnassignTagFromSample: asyncNoop as never,
   onUpdateSampleAnalysis: asyncNoop as never,
   onReanalyzeSample: asyncNoop as never,
-  onCreateCategory: asyncNoop as never,
-  onDeleteCategory: asyncNoop as never,
   onSaveLibrary: asyncNoop as never,
   onDeleteLibrary: asyncNoop as never,
   onApplyLibrary: noop
@@ -254,7 +238,7 @@ describe('PlayerView', () => {
     expect(screen.getAllByText('Lane 1')).not.toHaveLength(0)
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     expect(document.querySelector('.mbs-strip')).not.toBeNull()
-    expect(screen.getByRole('tree', { name: /sample categories/i })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: /sample tags/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /kick_808/ })).toBeInTheDocument()
   })
 
@@ -522,9 +506,8 @@ describe('PlayerView', () => {
     renderPlayer({
       browser: {
         onPreviewSample,
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], categoryId: null, tagIds: [] }],
-        totalCount: 1,
-        categories: DEFAULT_CATEGORIES
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', sourceGroup: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], tagIds: [], folderTagIds: [], userTagIds: [] }],
+        totalCount: 1
       }
     })
 
@@ -1047,7 +1030,7 @@ describe('PlayerView', () => {
           dbId: 1,
           name: 'too-long.wav',
           relpath: 'too-long.wav',
-          category: 'Loops',
+          sourceGroup: 'Loops',
           durationSeconds: 3_000,
           bpm: 120,
           bpmSource: 'analysis',
@@ -1056,8 +1039,9 @@ describe('PlayerView', () => {
           sampleType: null,
           sampleTypeSource: null,
           tags: [],
-          categoryId: null,
-          tagIds: []
+          tagIds: [],
+          folderTagIds: [],
+          userTagIds: []
         }],
         totalCount: 1
       }
@@ -1224,16 +1208,15 @@ describe('PlayerView', () => {
     renderPlayer({})
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
 
-    const handle = screen.getByRole('separator', { name: 'Resize category tree' })
+    const handle = screen.getByRole('separator', { name: 'Resize tag navigator' })
     expect(handle).toBeInTheDocument()
 
     expect(handle).toHaveAttribute('tabindex', '0')
     expect(handle).toHaveAttribute('aria-valuenow')
   })
 
-  it('calls onSearchChange and onSelectCategory when Locate in Browser is clicked', () => {
+  it('calls onSearchChange when Locate in Browser is clicked', () => {
     const onSearchChange = vi.fn()
-    const onSelectCategory = vi.fn()
     const lanesWithPlacement: LaneState[] = LANES.map((lane) =>
       lane.index === 0
         ? { ...lane, placements: [{ id: 'placement-1', samplePath: 'Drums/kick.wav', sampleName: 'kick.wav', startTick: 0, durationTicks: 32, durationSeconds: 1 }] }
@@ -1241,7 +1224,7 @@ describe('PlayerView', () => {
     )
     renderPlayer({
       arrangement: { lanes: lanesWithPlacement },
-      browser: { onSearchChange, onSelectCategory }
+      browser: { onSearchChange }
     })
 
     const canvasContainer = document.querySelector('[data-placement-sample-names="kick.wav"]')!
@@ -1249,13 +1232,12 @@ describe('PlayerView', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Locate in Browser' }))
 
     expect(onSearchChange).toHaveBeenCalledWith('kick')
-    expect(onSelectCategory).toHaveBeenCalledWith(undefined)
   })
 
   it('sets drag data when a sample tile drag starts', () => {
     renderPlayer({
       browser: {
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], categoryId: null, tagIds: [] }],
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', sourceGroup: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], tagIds: [], folderTagIds: [], userTagIds: [] }],
         totalCount: 1
       }
     })
@@ -1276,51 +1258,32 @@ describe('PlayerView', () => {
     expect(handle).toBeInTheDocument()
   })
 
-  it('renders the sample palette slot from categoryId when no category filter is active', () => {
+  it('renders the sample palette slot from its source group', () => {
     renderPlayer({
       browser: {
-        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', category: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], categoryId: 2, tagIds: [] }],
-        totalCount: 1,
-        categories: DEFAULT_CATEGORIES
+        samples: [{ id: '/s/kick.wav', dbId: 1, name: 'kick.wav', relpath: '/s/kick.wav', sourceGroup: 'Drums', durationSeconds: 1.5, bpm: null, bpmSource: null, musicalKey: null, musicalKeySource: null, sampleType: null, sampleTypeSource: null, tags: [], tagIds: [], folderTagIds: [], userTagIds: [] }],
+        totalCount: 1
       }
     })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
     const tile = screen.getByText(/kick/i).closest('.sample-bubble')! as HTMLElement
-    // categoryId 2 = Drums = slot 0; the surface tracks the theme palette var.
+    // Drums is source-group slot 0; the surface tracks the theme palette var.
     expect(tile.style.backgroundColor).toBe('var(--palette-0)')
-  })
-
-  it('renders the selected category filter and nested categories', () => {
-    const categoriesWithChildren = [
-      ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false }
-    ]
-    renderPlayer({
-      browser: {
-        categories: categoriesWithChildren,
-        selectedCategoryId: 1
-      }
-    })
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    expect(screen.getByRole('button', { name: 'Clear category filter' })).toHaveTextContent('Bass')
-    expect(screen.getByText('SubBass')).toBeInTheDocument()
   })
 
   it('renders tag filter chips and calls onToggleTagFilter on click', () => {
     const onToggleTagFilter = vi.fn()
     renderPlayer({
       browser: {
-        tags: [{ id: 5, name: 'Cool', color: '#f00' }],
+        tags: [{ id: 5, name: 'Cool', color: '#f00', origin: 'user', folderDerived: false }],
         selectedTagIds: [5],
         onToggleTagFilter
       }
     })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    const chip = screen.getByText(/Cool/)
-    fireEvent.click(chip.closest('button')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Cool filter' }))
     expect(onToggleTagFilter).toHaveBeenCalledWith(5)
   })
 
@@ -1361,67 +1324,6 @@ describe('PlayerView', () => {
 
     fireEvent.click(screen.getByLabelText('Skip Back'))
     expect(onTransportSkipBack).toHaveBeenCalled()
-  })
-
-  it('clears the selected category from its filter chip', () => {
-    const onSelectCategory = vi.fn()
-    const categoriesWithChildren = [
-      ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false }
-    ]
-    renderPlayer({
-      browser: {
-        categories: categoriesWithChildren,
-        selectedCategoryId: 1,
-        onSelectCategory
-      }
-    })
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    fireEvent.click(screen.getByLabelText('Clear category filter'))
-    expect(onSelectCategory).toHaveBeenCalledWith(undefined)
-  })
-
-  it('calls onSelectCategory with a nested category id when clicked', () => {
-    const onSelectCategory = vi.fn()
-    const categoriesWithChildren = [
-      ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false }
-    ]
-    renderPlayer({
-      browser: {
-        categories: categoriesWithChildren,
-        selectedCategoryId: 1,
-        onSelectCategory
-      }
-    })
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    fireEvent.click(screen.getByText('SubBass'))
-    expect(onSelectCategory).toHaveBeenCalledWith(9)
-  })
-
-  it('selects a deeper category while its parent is selected', () => {
-    const onSelectCategory = vi.fn()
-    // Bass (id:1) -> SubBass (id:9) -> DeepBass (id:10). With 9 selected the
-    // chips are the children of 9, so a chip never equals the selection —
-    // clicking DeepBass takes the select branch, not toggle-off.
-    const categoriesWithChildren = [
-      ...DEFAULT_CATEGORIES,
-      { id: 9, name: 'SubBass', parentId: 1, folderDerived: true, userCreated: false },
-      { id: 10, name: 'DeepBass', parentId: 9, folderDerived: true, userCreated: false }
-    ]
-    renderPlayer({
-      browser: {
-        categories: categoriesWithChildren,
-        selectedCategoryId: 9,
-        onSelectCategory
-      }
-    })
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Samples' }))
-    fireEvent.click(screen.getByText('DeepBass'))
-    expect(onSelectCategory).toHaveBeenCalledWith(10)
   })
 
   it('calls onSearchChange when search input changes', () => {

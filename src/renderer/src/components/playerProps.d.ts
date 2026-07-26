@@ -1,5 +1,4 @@
 import type {
-  CategoryItem,
   LibraryItem,
   LibrarySyncState,
   SampleListItem,
@@ -26,20 +25,16 @@ export interface PlayerBrowserProps {
   totalCount: number
   hasMoreSamples: boolean
   selectedSamplePath: string | null
-  selectedCategoryId: number | undefined
   selectedTagIds: number[]
   sortBy: SampleSortColumn
   sortDir: SampleSortDirection
   tags: TagItem[]
-  categories: CategoryItem[]
-  categoryScopeKey: string | null
   libraries: LibraryItem[]
   librarySyncState: LibrarySyncState
   onSearchChange: (query: string) => void
   onLoadMoreSamples: () => void
   onSelectSampleDetail: (detail: FooterSampleDetail) => void
   onPreviewSample: (samplePath: string, nativeBPM: number | null) => void
-  onSelectCategory: (id: number | undefined) => void
   onToggleTagFilter: (id: number) => void
   onSortChange: (col: SampleSortColumn) => void
   onRescanLibrary: () => Promise<void>
@@ -53,8 +48,6 @@ export interface PlayerBrowserProps {
   onUnassignTagFromSample: (sample: SampleListItem, tagId: number) => Promise<void>
   onUpdateSampleAnalysis: (sample: SampleListItem, patch: SampleAnalysisPatch) => Promise<void>
   onReanalyzeSample: (sample: SampleListItem) => Promise<void>
-  onCreateCategory: (name: string, parentId?: number) => Promise<CategoryItem>
-  onDeleteCategory: (id: number) => Promise<void>
   onSaveLibrary: (name: string) => Promise<LibraryItem>
   onDeleteLibrary: (id: number) => Promise<void>
   onApplyLibrary: (library: LibraryItem) => void

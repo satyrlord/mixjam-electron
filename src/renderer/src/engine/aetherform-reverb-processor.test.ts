@@ -100,7 +100,7 @@ describe('Aetherform Reverb worklet processor', () => {
     expect(processor.output).toBeDefined()
   })
 
-  it('posts state on update, clear-tail on command, and closes the port on dispose', async () => {
+  it('posts state on update, clear-tail on command, and retires the processor on dispose', async () => {
     const context = createMockContext()
     const ctx = context as unknown as BaseAudioContext
     await prepareAetherformReverbWorklet(ctx)
@@ -129,8 +129,12 @@ describe('Aetherform Reverb worklet processor', () => {
     expect(post).toHaveBeenLastCalledWith({ type: 'clear-tail' })
 
     processor.dispose()
+    // Disconnecting alone leaves the node actively processing: the audio thread
+    // keeps rendering the reverb every quantum and never collects it. Dispose
+    // must tell the processor to retire, while the port is still open.
+    expect(post).toHaveBeenLastCalledWith({ type: 'dispose' })
+    expect(nodes[0]!.port.close).not.toHaveBeenCalled()
     expect(nodes[0]!.disconnect).toHaveBeenCalled()
-    expect(nodes[0]!.port.close).toHaveBeenCalled()
   })
 
   it('falls back to identity when node construction throws', async () => {

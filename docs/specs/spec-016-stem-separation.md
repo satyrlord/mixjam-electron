@@ -95,7 +95,7 @@ CREATE TABLE stem_cache (
   Bass"). They are not physical files in the Sample Folder; they are read from
   OPFS cache via a `readStemBytes(sampleId, stemType)` backend call.
 - Virtual samples carry the parent's metadata (duration, sample rate, BPM) and
-  inherit category/tags.
+  inherit tags.
 - Virtual samples can be placed on lanes, time-stretched, and effected exactly
   like physical samples. The audio engine reads them through the same
   `loadSampleBytes` path, extended to resolve stem references.

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react'
-import type { BackendAPI, CategoryItem, LibraryItem } from '../../../shared/backend-api'
+import { useCallback } from 'react'
+import type { BackendAPI, LibraryItem, TagItem } from '../../../shared/backend-api'
 import { decodeLibraryRule, encodeLibraryRule } from '../lib/library-rule'
 
 export interface SampleLibraryActions {
@@ -12,72 +12,29 @@ export function useSampleLibraries(
   backendAPI: BackendAPI,
   setLibraries: React.Dispatch<React.SetStateAction<LibraryItem[]>>,
   searchQuery: string,
-  selectedCategoryId: number | undefined,
   selectedTagIds: number[],
-  categories: readonly CategoryItem[],
-  activeRootId: string | null,
-  categoriesReady: boolean,
-  categoriesFailed: boolean,
+  tags: readonly TagItem[],
   setSearchQuery: (query: string) => void,
-  setSelectedCategoryId: (id: number | undefined) => void,
   setSelectedTagIds: React.Dispatch<React.SetStateAction<number[]>>
 ): SampleLibraryActions {
-  const pendingLibraryRef = useRef<{ rootId: string; library: LibraryItem } | null>(null)
   const saveLibrary = useCallback(async (name: string) => {
-    const ruleJson = encodeLibraryRule({
-      textSearch: searchQuery,
-      categoryId: selectedCategoryId,
-      tagIds: selectedTagIds
-    })
-    const lib = await backendAPI.saveLibrary(name, ruleJson)
-    setLibraries((prev) => [...prev, lib].sort((a, b) => a.name.localeCompare(b.name)))
-    return lib
-  }, [backendAPI, setLibraries, searchQuery, selectedCategoryId, selectedTagIds])
+    const ruleJson = encodeLibraryRule({ textSearch: searchQuery, tagIds: selectedTagIds })
+    const library = await backendAPI.saveLibrary(name, ruleJson)
+    setLibraries((current) => [...current, library].sort((left, right) => left.name.localeCompare(right.name)))
+    return library
+  }, [backendAPI, searchQuery, selectedTagIds, setLibraries])
 
   const deleteLibrary = useCallback(async (id: number) => {
     await backendAPI.deleteLibrary(id)
-    setLibraries((prev) => prev.filter((l) => l.id !== id))
+    setLibraries((current) => current.filter((library) => library.id !== id))
   }, [backendAPI, setLibraries])
 
-  const applyResolvedLibrary = useCallback((library: LibraryItem) => {
-    const rule = decodeLibraryRule(library.ruleJson)
-    setSearchQuery(rule.textSearch)
-    setSelectedCategoryId(
-      rule.categoryId !== undefined && categories.some(({ id }) => id === rule.categoryId)
-        ? rule.categoryId
-        : undefined
-    )
-    setSelectedTagIds(rule.tagIds)
-  }, [categories, setSearchQuery, setSelectedCategoryId, setSelectedTagIds])
-
   const applyLibrary = useCallback((library: LibraryItem) => {
-    if (activeRootId !== null && categoriesFailed) {
-      pendingLibraryRef.current = null
-      return
-    }
-    if (activeRootId !== null && !categoriesReady) {
-      pendingLibraryRef.current = { rootId: activeRootId, library }
-      return
-    }
-    pendingLibraryRef.current = null
-    applyResolvedLibrary(library)
-  }, [activeRootId, applyResolvedLibrary, categoriesFailed, categoriesReady])
-
-  useEffect(() => {
-    const pending = pendingLibraryRef.current
-    if (!pending) return
-    if (pending.rootId !== activeRootId) {
-      pendingLibraryRef.current = null
-      return
-    }
-    if (categoriesFailed) {
-      pendingLibraryRef.current = null
-      return
-    }
-    if (!categoriesReady) return
-    pendingLibraryRef.current = null
-    applyResolvedLibrary(pending.library)
-  }, [activeRootId, applyResolvedLibrary, categoriesFailed, categoriesReady])
+    const rule = decodeLibraryRule(library.ruleJson)
+    const availableIds = new Set(tags.map((tag) => tag.id))
+    setSearchQuery(rule.textSearch)
+    setSelectedTagIds(rule.tagIds.filter((id) => availableIds.has(id)))
+  }, [setSearchQuery, setSelectedTagIds, tags])
 
   return { saveLibrary, deleteLibrary, applyLibrary }
 }
