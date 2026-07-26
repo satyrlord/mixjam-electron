@@ -54,10 +54,17 @@ Rules of the process model:
   same connection. The UI calls the async `BackendAPI` facade and receives plain
   JSON, such as a page of sample rows or a bounded neutral generator plan.
 - **Backend job policy has one owner.** The worker entry module initializes the
-  database and dispatches typed requests. A deep job-coordination module owns
+  database and dispatches typed requests; its dispatch table *is* its allow-list,
+  derived rather than restated, so an op is callable exactly when the table
+  provides it. A deep job-coordination module owns
   admission, queueing, replacement, cancellation, identity, and progress for
   library sync, the single analyzer, individual analyzer requests, and generator
-  planning.
+  planning. It exposes a named `BackendJobCoordinator` interface and takes only a
+  `DB` and an event sink, so job policy is tested directly against that interface
+  rather than through the worker's message protocol.
+  Job exclusion is asymmetric by design and stated once: library sync cancels a
+  running generator, the generator refuses to start under any other job, and
+  single-sample analysis refuses to start under the generator.
   Workflow-owned persistence modules group indexed-sample lifecycle, analysis
   provenance, and sample/saved-library SQL without opening another connection.
 - **Renderer library-sync lifecycle has one owner.** A dedicated runtime hook
@@ -66,10 +73,22 @@ Rules of the process model:
   Browser queries and metadata mutations remain separate workflows. Home, the
   Middle Strip, and status controls share one presentation policy derived from
   that lifecycle state.
+- **Persistence rules are named, not repeated.** Three contracts that SQL used to
+  restate at every call site now have one owner each, because a silent
+  divergence between copies corrupts user data rather than throwing:
+  `scan-state.ts` owns the `scan_state` codes and the "ready"/"present"
+  predicates; `analysis-provenance.ts` owns the rule that a `manual` value is
+  authoritative and no analyzer pass may overwrite it; `context-key.ts` owns
+  both directions of the `@cohort/<top-level>/<token>` grammar and compares
+  tokens literally rather than compiling a stored key into a pattern.
 - **Analysis has one semantic owner.** The analyzer stores direct per-file
   BPM/key evidence, validates stereo-pair side evidence, derives directory and
   virtual source-cohort groups, infers zero or more coherent clusters, and
   persists current BPM/key/type projections.
+  `TONAL_SAMPLE_TYPES` (in `analysis.ts`, the backend's lowest module) is the one
+  definition of which sample types carry pitch; the planner re-exports it as
+  `TONAL_TYPES`. A set that differs from it describes a different concept and
+  must not reuse the name.
   Directory ancestry and structured filename labels are evidence, not a promise
   that a complete folder is uniform. Batch and individual requests run the same
   engine. There is no folder-calibration analyzer beside it.

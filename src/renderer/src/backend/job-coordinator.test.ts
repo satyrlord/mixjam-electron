@@ -7,7 +7,6 @@
 // persistence module stay out of it.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
-  AnalysisProgress,
   DistributiveOmit,
   LibrarySyncTrigger,
   MixJamGeneratorParameters,

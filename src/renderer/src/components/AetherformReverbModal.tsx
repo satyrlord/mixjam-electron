@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   applyAetherformReverbPreset,
   AETHERFORM_REVERB_PRESET_NAMES,
@@ -23,7 +23,7 @@ import {
 } from './ui/DropdownMenu'
 import { LinearSlider } from './ui/Slider'
 import { AETHERFORM_REVERB_RANGES } from '../engine/return-param-ranges'
-import FxKnob, { fromNormalized, quantize, toNormalized, type FxKnobSpec } from './FxKnob'
+import FxKnob, { type FxKnobSpec } from './FxKnob'
 
 /**
  * The Aetherform Reverb editor. Renders the module's real state; every control
