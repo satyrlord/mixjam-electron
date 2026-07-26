@@ -63,7 +63,7 @@ export function hashText(value: string): number {
   return hash >>> 0
 }
 
-export function stableId(prefix: string, source: string): string {
+function stableId(prefix: string, source: string): string {
   return `${prefix}-${hashText(source).toString(16).padStart(8, '0')}`
 }
 

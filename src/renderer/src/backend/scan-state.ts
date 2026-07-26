@@ -17,8 +17,6 @@ export const SCAN_STATE = {
   METADATA_UNAVAILABLE: 3
 } as const
 
-export type ScanState = (typeof SCAN_STATE)[keyof typeof SCAN_STATE]
-
 /**
  * Rows whose metadata is complete. Analysis, the generator, and evidence
  * listing all mean this when they say "usable sample".

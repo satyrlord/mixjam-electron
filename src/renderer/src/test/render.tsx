@@ -20,7 +20,7 @@ import { TooltipProvider } from '../components/ui/Tooltip'
  * to a provider, so nesting one per tooltip would break hover grouping between
  * adjacent triggers.
  */
-export function AppProviders({ children }: { children: ReactNode }) {
+function AppProviders({ children }: { children: ReactNode }) {
   return <TooltipProvider>{children}</TooltipProvider>
 }
 
@@ -28,18 +28,6 @@ export function render(ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'
   return baseRender(ui, { wrapper: AppProviders, ...options })
 }
 
-/** Renders with no app context. Only for tests that are checking its absence. */
-export const renderBare = baseRender
-
 // Re-export the rest of testing-library so a test needs one import. The local
 // `render` above shadows testing-library's, which is the point.
-export {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-  waitForElementToBeRemoved,
-  within,
-  renderHook
-} from '@testing-library/react'
+export { act, fireEvent, screen, waitFor, within } from '@testing-library/react'

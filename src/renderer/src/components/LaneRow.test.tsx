@@ -2,20 +2,10 @@ import { fireEvent, render, screen } from '../test/render'
 import { describe, expect, it, vi } from 'vitest'
 import LaneRow from './LaneRow'
 import type { LaneState } from '../project/project-state'
+import { laneFixture } from '../test/projectFixtures'
 
 function makeLane(overrides: Partial<LaneState> = {}): LaneState {
-  return {
-    id: 'lane-1',
-    index: 0,
-    name: 'Lane 1',
-    muted: false,
-    solo: false,
-    pan: 0,
-    gain: 0.8,
-    sends: [0, 0, 0, 0],
-    placements: [],
-    ...overrides
-  }
+  return laneFixture(0, overrides)
 }
 
 const DEFAULT_PROPS = {

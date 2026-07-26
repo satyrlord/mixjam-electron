@@ -25,7 +25,23 @@ function createModules(sampleRate: number, maxBlock: number): Record<ProcessorId
   }
 }
 
-export class ChainInstance {
+/**
+ * The ordered processor chain downstream of the Gain Stage, as `MasterBusCore`
+ * uses it. Declared as a contract because the core runs inside the AudioWorklet
+ * realm, which is reached through a URL import: no static edge connects these
+ * call sites, so the surface has to be stated rather than inferred.
+ */
+export interface DownstreamChain {
+  setTopology(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): void
+  topologyEquals(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): boolean
+  isPowered(id: ProcessorId): boolean
+  readonly latencySamples: number
+  updateParams(read: ParamReader): void
+  process(l: Float32Array, r: Float32Array, n: number): void
+  reset(): void
+}
+
+export class ChainInstance implements DownstreamChain {
   readonly modules: Record<ProcessorId, BusModule>
   private order: ProcessorId[]
   private readonly power: Record<ProcessorId, boolean>

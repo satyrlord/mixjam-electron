@@ -145,13 +145,13 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
  * the groups here lets the caller forward what it already holds, and makes it
  * obvious which part of the strip a prop belongs to.
  */
-export interface MiddleStripScrollportProps {
+interface MiddleStripScrollportProps {
   /** The Tracker viewport the Song Progress Bar scrolls. */
   ref: RefObject<HTMLDivElement>
   id: string
 }
 
-export interface MiddleStripProjectProps {
+interface MiddleStripProjectProps {
   name: string
   dirty: boolean
   busy: boolean
@@ -180,7 +180,7 @@ export interface MiddleStripTransportProps {
   onSetBpm: (bpm: number) => void
 }
 
-export interface MiddleStripLibraryProps {
+interface MiddleStripLibraryProps {
   searchQuery: string
   onSearchChange: (query: string) => void
   syncState: LibrarySyncState

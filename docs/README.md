@@ -94,12 +94,23 @@ database in a plain Node vitest project; everything else runs under jsdom.
 Four locations, one rule each. A test in the wrong place is hard to find and
 usually duplicates coverage that already exists somewhere else.
 
-| Location | Owns | Rule |
-| --- | --- | --- |
-| `foo.test.ts` beside `foo.ts` | One module's behavior through its own interface | **Default.** A test file is named after the module it tests, so the subject is findable from the filename. |
-| `src/renderer/src/specs/` | Numbered acceptance tests carrying `AC-###` ids from `docs/specs/` | Only for behavior that **no single module owns** — a contract spanning several modules. Re-driving one module through `<App/>` belongs in that module's own test. |
-| `src/renderer/src/architecture/` | Conformance checks that read source text rather than run it | For boundaries a type cannot express (e.g. "the engine imports no DOM"). These are lint rules; they assert on files, not behavior. |
-| `tests/e2e/`, `tests/electron/` | Playwright against the built `app://bundle` renderer | For anything that needs the real Chromium/Electron surface. |
+**`foo.test.ts`, beside `foo.ts`** — one module's behavior through its own
+interface. This is the default. A test file is named after the module it tests,
+so the subject is findable from the filename.
+
+**`src/renderer/src/specs/`** — numbered acceptance tests carrying `AC-###` ids
+from `docs/specs/`. Only for behavior that *no single module owns*: a contract
+spanning several modules. Re-driving one module through `<App/>` belongs in that
+module's own test.
+
+**`src/renderer/src/architecture/`** — conformance checks that read source text
+rather than run it, for boundaries a type cannot express (for example, "the
+engine imports no DOM"). These are lint rules: they assert on files, not
+behavior.
+
+**`tests/e2e/`, `tests/electron/`** — Playwright against the built
+`app://bundle` renderer, for anything needing the real Chromium/Electron
+surface.
 
 Shared helpers live in `src/renderer/src/test/`:
 

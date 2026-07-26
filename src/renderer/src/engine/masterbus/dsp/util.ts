@@ -22,7 +22,21 @@ export function flushDenormal(value: number): number {
  * reaches ~63% of its target after `timeMs`. Call `next()` once per sample
  * or `advance(n)` once per block when only the settled value matters.
  */
-export class OnePoleSmoother {
+/**
+ * A parameter smoother a block-based renderer drives: `next()` per sample, or
+ * `advance(n)` to skip a whole block when nothing reads the intermediate
+ * values. Declared as a contract for the same reason as `DownstreamChain` —
+ * its only caller lives in the worklet realm, past a URL import.
+ */
+export interface BlockSmoother {
+  readonly value: number
+  setTarget(value: number): void
+  snapTo(value: number): void
+  next(): number
+  advance(samples: number): number
+}
+
+export class OnePoleSmoother implements BlockSmoother {
   private current: number
   private target: number
   private coeff: number

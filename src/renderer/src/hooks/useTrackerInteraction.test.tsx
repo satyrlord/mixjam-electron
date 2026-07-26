@@ -6,6 +6,7 @@ import { emptyMasterMeterSnapshot } from '../engine/master-meter'
 import { createValueStore } from '../lib/value-store'
 import { LANE_HEAD_WIDTH_PX, TRACKER_TOTAL_TICKS } from '../lib/arrangement'
 import { useTrackerInteraction } from './useTrackerInteraction'
+import { laneFixture } from '../test/projectFixtures'
 
 const dragSpies = vi.hoisted(() => ({
   cleanup: vi.fn(),
@@ -29,22 +30,18 @@ vi.mock('./usePlacementDrag', () => ({
 
 function lane(index: number, placementCount = 0): LaneState {
   return {
-    id: `lane-${index}`,
-    index,
-    name: `Lane ${index + 1}`,
-    muted: false,
-    solo: false,
-    pan: 0,
-    gain: 0.8,
-    sends: [0, 0, 0, 0],
-    placements: Array.from({ length: placementCount }, (_, placementIndex) => ({
-      id: `placement-${index}-${placementIndex}`,
-      samplePath: 'Drums/kick.wav',
-      sampleName: 'kick.wav',
-      startTick: placementIndex * 96,
-      durationTicks: placementIndex === 0 ? 192 : 384,
-      durationSeconds: 1
-    }))
+    ...laneFixture(index, {
+      placements: Array.from({ length: placementCount }, (_, placementIndex) => ({
+        id: `placement-${index}-${placementIndex}`,
+        samplePath: 'Drums/kick.wav',
+        sampleName: 'kick.wav',
+        startTick: placementIndex * 96,
+        durationTicks: placementIndex === 0 ? 192 : 384,
+        durationSeconds: 1
+      }))
+    }),
+    // This suite addresses lanes by a zero-based id, unlike the fixture default.
+    id: `lane-${index}`
   }
 }
 

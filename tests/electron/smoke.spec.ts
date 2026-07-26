@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { promisify } from 'node:util'
 import { buildAppIconPath } from '../../src/shared/window-config'
 import {
@@ -11,10 +11,12 @@ import {
 } from './packaged-launch'
 
 const REPOSITORY_ROOT = resolve(__dirname, '..', '..')
-const EXPECTED_APP_VERSION = `0.${execFileSync('git', ['rev-list', '--count', 'HEAD'], {
-  cwd: REPOSITORY_ROOT,
-  encoding: 'utf8'
-}).trim()}`
+// `package.json` is the single version authority the app reads (it replaced a
+// git-commit-count scheme). Deriving it any other way here would assert a
+// version the shipped app never reports.
+const EXPECTED_APP_VERSION = JSON.parse(
+  readFileSync(resolve(REPOSITORY_ROOT, 'package.json'), 'utf8')
+).version as string
 const APP_ICON = buildAppIconPath(resolve(__dirname, '..', '..', 'out', 'main'))
 const ICON_PROBE = resolve(__dirname, '..', '..', 'scripts', 'inspect-window-icon.ps1')
 const EVIDENCE_DIR = resolve(__dirname, '..', '..', 'tmp', 'verify-electron-window-state')

@@ -58,9 +58,6 @@ export const AETHERFORM_REVERB_RANGES = {
   outputDb: range(-24, 12)
 } as const satisfies Record<string, ReturnParamRange>
 
-export type EchoformDelayRangeKey = keyof typeof ECHOFORM_DELAY_RANGES
-export type AetherformReverbRangeKey = keyof typeof AETHERFORM_REVERB_RANGES
-
 /** True when `value` is a finite number inside `range`, inclusive. */
 export function withinRange(value: unknown, { min, max }: ReturnParamRange): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max

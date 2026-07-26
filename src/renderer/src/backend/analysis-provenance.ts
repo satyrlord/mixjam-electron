@@ -13,8 +13,8 @@ export const PROVENANCE_FIELDS = ['bpm', 'musical_key', 'sample_type'] as const
 
 export type ProvenanceField = (typeof PROVENANCE_FIELDS)[number]
 
-/** How a stored value got there. */
-export type AnalysisSource = 'analysis' | 'manual'
+// How a stored value got there is `AnalysisSource` in shared/backend-api.ts;
+// this module only ever compares against the `'manual'` literal in SQL.
 
 function sourceColumn(field: ProvenanceField): string {
   return `${field}_source`

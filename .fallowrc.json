@@ -43,6 +43,10 @@
     },
     // These internal contracts keep common DSP member names scoped to the
     // exact polymorphic surfaces that Fallow cannot resolve across the worklet.
+    // Both are declared beside their implementation and consumed only from
+    // `masterbus/dsp/core.ts`, which the worklet entry reaches through a URL
+    // import — so no static edge connects the call sites. Verified: the
+    // ChainInstance members at core.ts:56, 57, 88, 111, 186; advance at :132.
     {
       "implements": "DownstreamChain",
       "members": [
@@ -52,7 +56,7 @@
     },
     {
       "implements": "BlockSmoother",
-      "members": ["pending", "advance"]
+      "members": ["value", "setTarget", "snapTo", "next", "advance"]
     },
     {
       "implements": "IdentityFilter",

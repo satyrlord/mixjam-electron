@@ -12,13 +12,12 @@
 import type { PlaybackChannelSnapshot } from '../engine/playback-engine'
 import {
   DEFAULT_LANE_GAIN,
-  type ClipPlacement,
   type LaneSendLevels,
   type LaneState
 } from '../project/project-state'
 
 /** Silent Sends of the correct width. Never write this literal inline. */
-export function silentSends(): LaneSendLevels {
+function silentSends(): LaneSendLevels {
   return [0, 0, 0, 0]
 }
 
@@ -47,14 +46,6 @@ export function laneFixture(index: number, overrides: Partial<LaneState> = {}): 
   }
 }
 
-/** `count` consecutive lanes, each built by {@link laneFixture}. */
-export function laneFixtures(
-  count: number,
-  overridesFor: (index: number) => Partial<LaneState> = () => ({})
-): LaneState[] {
-  return Array.from({ length: count }, (_, index) => laneFixture(index, overridesFor(index)))
-}
-
 /** One entry of a playback channel snapshot, with silent Sends by default. */
 export function channelSnapshotFixture(
   overrides: Partial<PlaybackChannelSnapshot> & Pick<PlaybackChannelSnapshot, 'laneId' | 'channelIndex'>
@@ -68,17 +59,4 @@ export function channelSnapshotFixture(
     ...overrides
   }
   return { ...snapshot, sends: [...snapshot.sends] as LaneSendLevels }
-}
-
-/** One clip placement with sensible defaults, for building lane content. */
-export function placementFixture(overrides: Partial<ClipPlacement> = {}): ClipPlacement {
-  return {
-    id: 'placement-1',
-    samplePath: 'kick.wav',
-    sampleName: 'kick.wav',
-    startTick: 0,
-    durationTicks: 8,
-    durationSeconds: 0.5,
-    ...overrides
-  }
 }
