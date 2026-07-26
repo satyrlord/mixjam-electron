@@ -36,7 +36,7 @@
     "@vitejs/plugin-react": "^5.1.0",
     "@vitest/coverage-v8": "^4.1.9",
     "electron": "^42.5.0",
-    "electron-builder": "^22.14.13",
+    "electron-builder": "^26.15.7",
     "electron-vite": "^5.0.0",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -67,6 +67,13 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^4.12.1"
+  },
+  "overrides": {
+    "@electron/asar": "^4.2.1",
+    "@electron/universal": "^3.0.6",
+    "brace-expansion": ">=5.0.8",
+    "minimatch": ">=10.0.3",
+    "glob": ">=10.5.0"
   },
   "allowScripts": {
     "esbuild@0.25.12": true,
