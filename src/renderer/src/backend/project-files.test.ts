@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FolderRef } from '../../../shared/backend-api'
 import { resolveFileHandle } from './folder-access'
 import { loadFolderHandle } from './handle-store'
@@ -51,6 +51,16 @@ function fakeRoot(
 beforeEach(() => {
   vi.mocked(loadFolderHandle).mockReset()
   vi.mocked(resolveFileHandle).mockReset()
+})
+
+// The picker stubs are assigned straight onto `window`, so `vi.unstubAllGlobals`
+// does not track them. Clear both between tests: a case that stubs only one
+// picker would otherwise answer the other from the previous test's stub, and a
+// negative assertion ("no picker was opened") could pass on stale state.
+afterEach(() => {
+  Reflect.deleteProperty(window, 'showOpenFilePicker')
+  Reflect.deleteProperty(window, 'showSaveFilePicker')
+  vi.unstubAllGlobals()
 })
 
 describe('project file access', () => {

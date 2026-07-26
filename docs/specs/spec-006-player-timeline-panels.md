@@ -269,7 +269,7 @@ browser adjacencies.
   - Solo button (S) — toggle style. When any lane is soloed,
     non-soloed lanes are dimmed.
   - Pan knob — drag-to-pan dial. Interaction follows the
-    [Style Guide](../style-guide.md#rotary-controls-sends-returns-pan-fx-parameters).
+    [Style Guide](../style-guide.md#rotary-controls-sends-return-mix-lane-header-pan-fx-parameters).
 - **Lane canvas:** hosts sample bubbles.
 - **Focused lane:** subtle accent-color left border on the lane head.
 - Add and delete stop playback before changing project state. Deletion removes

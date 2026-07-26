@@ -1,11 +1,7 @@
 import { useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { clamp, meterFillPct } from '../lib/sample-utils'
 import { useStoreValue, type ReadableStore } from '../lib/value-store'
-import { LinearSlider } from './ui/Slider'
-
-function joinClasses(...classes: Array<string | undefined>): string {
-  return classes.filter(Boolean).join(' ')
-}
+import { joinClasses, LinearSlider } from './ui/Slider'
 
 function decimalPlaces(value: number): number {
   const [, decimals = ''] = String(value).split('.')

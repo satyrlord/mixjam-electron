@@ -232,8 +232,8 @@ Special Elite). Every font listed in the table is bundled with the app.
 
 | Token | Role | Emerald Default | Also Used By |
 | --- | --- | --- | --- |
-| `--font-chrome` | Header, chrome UI | Josefin Sans | Special Elite (Rust), IBM Plex Sans (Enterprise), Space Grotesk (Beton Brut), Space Mono (Mono). See [fonts](#typography-tokens) for full listing. |
-| `--font-label` | Body, labels, buttons | Ubuntu | Special Elite (Rust), JetBrains Mono (IDE, Rave, PA), IBM Plex Sans (Enterprise). See [fonts](#typography-tokens) for full listing. |
+| `--font-chrome` | Header, chrome UI | Josefin Sans | Special Elite (Rust), IBM Plex Sans (Enterprise), Space Grotesk (Beton Brut), Space Mono (Mono) |
+| `--font-label` | Body, labels, buttons | Ubuntu | Special Elite (Rust), JetBrains Mono (IDE, Rave, PA), IBM Plex Sans (Enterprise) |
 | `--font-mono` | Monospace (ruler, timer, code) | JetBrains Mono | Space Mono (Mono, Riso), Cousine (Vintage), VT323 (Arcade) |
 
 A theme's typeface is part of its identity, so each theme's font files live in

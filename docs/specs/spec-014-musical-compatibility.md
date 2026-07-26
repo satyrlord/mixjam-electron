@@ -48,8 +48,9 @@ library building; the embedding-based half ("sounds like") is
 
 Per the versioning policy in [query-schema.md](../query-schema.md), new leaf
 kinds are additive and do not bump the format version. The current decoder
-silently ignores unknown leaves, so the validator and full compiler defined in
-`query-schema.md` must land before these leaves become executable.
+rejects a rule containing any unknown leaf (`decodeLibraryRule` returns empty
+filters), so the validator and full compiler defined in `query-schema.md` must
+land before these leaves become executable.
 
 ```jsonc
 // Camelot-wheel adjacency around a reference key.

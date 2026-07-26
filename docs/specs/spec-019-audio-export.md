@@ -27,8 +27,9 @@ project BPM with spec-009 tempo-following resampling applied.
 ### Export Flow
 
 - Triggered from the Player UI (export button or menu item).
-- User selects: format (WAV or MP3), bit depth (16-bit or 24-bit for WAV),
-  MP3 bitrate (128, 192, 256, 320 kbps).
+- User selects the format only: WAV or MP3. v1 fixes the encoding parameters —
+  16-bit for WAV, 320 kbps CBR for MP3 — so there is no bit-depth or bitrate
+  choice in the UI. See the WAV Export and MP3 Export sections below.
 - User chooses output file location via native save dialog.
 - Default filename: project name + format extension.
 - Default location: User Folder (spec-003).

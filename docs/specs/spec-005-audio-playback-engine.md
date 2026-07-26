@@ -92,7 +92,10 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 
 ### Lookahead Scheduler
 
-- Uses a `setInterval`-based tick (~25ms) that looks ahead by ~100ms.
+- Uses a `setInterval`-based tick (~25ms) that looks ahead by 600ms
+  (`SCHEDULER_LOOKAHEAD_MS` in `playback-engine.ts`). A ~100ms window was tried
+  and rejected: it was too small to ride through event-loop stalls. See
+  [audio-engine.md](../audio-engine.md#lookahead-scheduler).
 - Each tick: determine which steps fall within the lookahead window, schedule
   them at precise `AudioContext` times via `source.start(when)`.
 - Self-corrects from the audio clock on every tick — if the event loop hiccups,

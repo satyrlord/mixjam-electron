@@ -5,7 +5,7 @@ import { Tooltip } from './Tooltip'
 type RootProps = ComponentPropsWithoutRef<typeof Primitive.Root>
 type ThumbProps = ComponentPropsWithoutRef<typeof Primitive.Thumb>
 
-function joinClasses(...classes: Array<string | undefined>): string {
+export function joinClasses(...classes: Array<string | undefined>): string {
   return classes.filter(Boolean).join(' ')
 }
 

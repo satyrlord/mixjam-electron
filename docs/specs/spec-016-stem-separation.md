@@ -196,6 +196,8 @@ CREATE TABLE stem_cache (
 - MUSDB18 benchmark (standard evaluation for source separation) — <https://sigsep.github.io/datasets/musdb.html>
 - Overlap-add reconstruction — standard DSP technique for stitching
   chunk-processed audio without discontinuities.
-- spec-009 (Time-Stretching) — pre-computed buffer design this spec mirrors.
+- spec-009 (Time-Stretching) — offline rendering prior art. Note spec-009 AC-008
+  rules out a pre-computed buffer longer than its audible content, so this
+  spec's chunked offline separation is a different design, not a mirror of it.
 - spec-015 (Local Semantic Audio Search) — ONNX Runtime Web infrastructure
   and embedding pipeline this spec shares.

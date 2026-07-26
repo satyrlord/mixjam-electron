@@ -2,10 +2,10 @@
 
 **Spec Validation Status:** VALIDATED
 
-**Spec Implementation Status:** PARTIAL — four send/return buses, Empty and
-Echoform Delay modules, modal editing with live draft audition, limiter toggles,
-persistence, and unified project undo are implemented; see unchecked acceptance
-criteria for remaining proof.
+**Spec Implementation Status:** PARTIAL — four send/return buses, the Empty,
+Echoform Delay, and Aetherform Reverb (spec-013) modules, modal editing with
+live draft audition, limiter toggles, persistence, and unified project undo are
+implemented; see unchecked acceptance criteria for remaining proof.
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-007 (Lane-Bound Mixer)
 
@@ -468,9 +468,9 @@ release, stereo linking, and zero limiter latency while bypassed.
 ## Acceptance Criteria
 
 - [ ] **AC-001:** The Mixer always renders exactly four independent combined FX
-  and Return containers after the lane strips, each containing explicit Empty
-  or Echoform Delay state plus its matching Mix (return level) and limiter
-  controls.
+  and Return containers after the lane strips, each containing explicit Empty,
+  Echoform Delay, or Aetherform Reverb state plus its matching Mix (return
+  level) and limiter controls.
 - [ ] **AC-002:** Empty produces silence for non-zero sends and creates no
   audible dry path.
 - [ ] **AC-003:** Echoform Delay defaults (Wide Tape Echo), ranges, the 15

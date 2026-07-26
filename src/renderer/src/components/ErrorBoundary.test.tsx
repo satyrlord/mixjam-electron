@@ -7,6 +7,11 @@ const Bomber = ({ shouldThrow }: { shouldThrow: boolean }) => {
   return <div>safe content</div>
 }
 
+// `vi.restoreAllMocks()` only unwinds `vi.spyOn`, so the reload test's
+// `defineProperty` replacement of `window.location` has to be undone by hand or
+// it outlives the test and strips href/origin from every later one.
+const originalLocation = Object.getOwnPropertyDescriptor(window, 'location')
+
 describe('ErrorBoundary', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => { /* silent */ })
@@ -14,6 +19,7 @@ describe('ErrorBoundary', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    if (originalLocation) Object.defineProperty(window, 'location', originalLocation)
   })
 
   it('renders children when no error occurs', () => {

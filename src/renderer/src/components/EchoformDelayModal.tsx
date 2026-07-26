@@ -11,6 +11,7 @@ import {
   type EchoformDelayCharacter,
   type EchoformDelayDivision
 } from '../engine/echoform-delay-types'
+import { clamp } from '../lib/sample-utils'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { BlockingDialogContent, DialogRoot, DialogTitle } from './ui/Dialog'
 import {
@@ -49,9 +50,6 @@ interface KnobSpec {
   /** Tint hint: warm = amber accent, cool = teal secondary. */
   tone?: 'warm' | 'cool'
 }
-
-const clamp = (value: number, minimum: number, maximum: number): number =>
-  Math.min(maximum, Math.max(minimum, value))
 
 const formatMs = (value: number): string =>
   value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${Math.round(value)} ms`

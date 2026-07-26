@@ -15,11 +15,15 @@ function identityShaper(data: Float32Array, len: number): void {
 }
 
 describe('OversampledStage', () => {
-  it('reports integer latencies', () => {
-    expect(Number.isInteger(OVERSAMPLE_2X_LATENCY)).toBe(true)
-    expect(Number.isInteger(OVERSAMPLE_4X_LATENCY)).toBe(true)
-    expect(new OversampledStage(2, 128).latencySamples).toBe(OVERSAMPLE_2X_LATENCY)
-    expect(new OversampledStage(4, 128).latencySamples).toBe(OVERSAMPLE_4X_LATENCY)
+  it('reports the documented integer latencies', () => {
+    // Literals, not the exported constants: asserting against the constants the
+    // production code assigns from cannot fail if the FIR group-delay formula
+    // itself regresses. 63-tap outer half-band gives 31; the 4x path adds the
+    // 45-tap inner kernel's quarter-rate half-delay for 42.
+    expect(OVERSAMPLE_2X_LATENCY).toBe(31)
+    expect(OVERSAMPLE_4X_LATENCY).toBe(42)
+    expect(new OversampledStage(2, 128).latencySamples).toBe(31)
+    expect(new OversampledStage(4, 128).latencySamples).toBe(42)
   })
 
   it.each([2, 4] as const)('%dx round trip reconstructs within the FIR floor', (factor) => {
@@ -73,8 +77,10 @@ describe('DelayLine', () => {
 
 describe('TruePeakUpsampler', () => {
   it('has the documented integer lag', () => {
-    expect(Number.isInteger(TRUE_PEAK_UPSAMPLER_LAG)).toBe(true)
-    expect(new TruePeakUpsampler(128).lagSamples).toBe(TRUE_PEAK_UPSAMPLER_LAG)
+    // Literal for the same reason as the OversampledStage latencies above:
+    // (2 * 62 + 44) / 8 = 21 output samples at the 4x-decimated rate.
+    expect(TRUE_PEAK_UPSAMPLER_LAG).toBe(21)
+    expect(new TruePeakUpsampler(128).lagSamples).toBe(21)
   })
 
   it('reveals inter-sample peaks a sample-peak meter misses', () => {
