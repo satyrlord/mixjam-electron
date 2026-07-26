@@ -3,6 +3,7 @@ import type { EngineLane } from './lane-evaluation'
 import { PlaybackEngine } from './playback-engine'
 import type { SchedulerClock } from './scheduler'
 import { createMockContext } from '../test/mockAudioContext'
+import { channelSnapshotFixture } from '../test/projectFixtures'
 
 function makePlaybackEngine(lanes: EngineLane[]) {
   const context = createMockContext()
@@ -60,9 +61,9 @@ describe('PlaybackEngine channel reconciliation', () => {
     await playbackEngine.start(0)
 
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: -0.25, muted: false, solo: true, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0.25, muted: false, solo: false, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, sends: [0, 0, 0, 0] }
+      channelSnapshotFixture({ laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: -0.25, muted: false, solo: true }),
+      channelSnapshotFixture({ laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0.25, muted: false, solo: false }),
+      channelSnapshotFixture({ laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false })
     ])
 
     const channel0 = playbackEngine.audioEngine.getChannel(0)!
@@ -73,8 +74,8 @@ describe('PlaybackEngine channel reconciliation', () => {
     expect(channel1.gain).toBe(0)
     expect(channel2.gain).toBe(0)
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: true, solo: false, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, sends: [0, 0, 0, 0] }
+      channelSnapshotFixture({ laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: true, solo: false }),
+      channelSnapshotFixture({ laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false })
     ])
 
     expect(playbackEngine.audioEngine.getChannel(1)).toBeUndefined()
@@ -82,9 +83,9 @@ describe('PlaybackEngine channel reconciliation', () => {
     expect(playbackEngine.audioEngine.getChannel(2)!.gain).toBe(0.7)
 
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: -0.5, muted: false, solo: false, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false, sends: [0, 0, 0, 0] }
+      channelSnapshotFixture({ laneId: 'lane-0', channelIndex: 0, gain: 0.5, pan: 0, muted: false, solo: false }),
+      channelSnapshotFixture({ laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: -0.5, muted: false, solo: false }),
+      channelSnapshotFixture({ laneId: 'lane-2', channelIndex: 2, gain: 0.7, pan: 0.5, muted: false, solo: false })
     ])
 
     playbackEngine.stop()
@@ -100,12 +101,12 @@ describe('PlaybackEngine channel reconciliation', () => {
     const { playbackEngine } = makePlaybackEngine(testLanes())
     await playbackEngine.start(0)
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0, muted: false, solo: true, sends: [0, 0, 0, 0] }
+      channelSnapshotFixture({ laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false }),
+      channelSnapshotFixture({ laneId: 'lane-1', channelIndex: 1, gain: 0.6, pan: 0, muted: false, solo: true })
     ])
 
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] }
+      channelSnapshotFixture({ laneId: 'lane-0', channelIndex: 0, gain: 0.4, pan: 0, muted: false, solo: false })
     ])
 
     expect(playbackEngine.audioEngine.getChannel(1)).toBeUndefined()
@@ -117,14 +118,14 @@ describe('PlaybackEngine channel reconciliation', () => {
     const lanes = testLanes()
     const { playbackEngine } = makePlaybackEngine(lanes)
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-1', channelIndex: 1, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
-      { laneId: 'lane-2', channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] }
+      channelSnapshotFixture({ laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false }),
+      channelSnapshotFixture({ laneId: 'lane-1', channelIndex: 1, gain: 0.8, pan: 0, muted: false, solo: false }),
+      channelSnapshotFixture({ laneId: 'lane-2', channelIndex: 2, gain: 0.8, pan: 0, muted: false, solo: false })
     ])
     await playbackEngine.start(0)
     const oldChannel = playbackEngine.audioEngine.getChannel(1)!
     playbackEngine.applyChannelSnapshot([
-      { laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false, sends: [0, 0, 0, 0] },
+      channelSnapshotFixture({ laneId: 'lane-0', channelIndex: 0, gain: 0.8, pan: 0, muted: false, solo: false }),
       { laneId: 'lane-2', channelIndex: 1, gain: 0.7, pan: 0.25, muted: false, solo: false, sends: [0.1, 0.2, 0.3, 0.4] }
     ])
 

@@ -560,6 +560,7 @@ export interface BackendAPI {
     expectedFingerprint?: string
   ) => Promise<MixJamGeneratorPlan>
   cancelMixJamPlanning: (jobId: string) => Promise<void>
+  getGeneratorProgress: () => Promise<MixJamGeneratorProgress>
   listTags: (rootKey?: string) => Promise<TagItem[]>
   createTag: (name: string, color?: string, rootKey?: string) => Promise<TagItem>
   renameTag: (id: number, name: string) => Promise<void>

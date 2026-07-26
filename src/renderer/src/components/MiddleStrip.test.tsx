@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '../test/render'
 import { describe, expect, it, vi } from 'vitest'
 import type { LibrarySyncState } from '../../../shared/backend-api'
-import MiddleStrip from './MiddleStrip'
+import MiddleStrip, { type MiddleStripTransportProps } from './MiddleStrip'
 
 const READY: LibrarySyncState = {
   status: 'ready',
@@ -9,38 +9,82 @@ const READY: LibrarySyncState = {
   lastCompletedAt: 1
 }
 
-function renderMiddleStrip(overrides: Partial<React.ComponentProps<typeof MiddleStrip>> = {}) {
+/**
+ * Flat overrides, assembled into the component's grouped props. Tests name one
+ * value ("projectDirty") without restating the group it belongs to.
+ */
+interface MiddleStripOverrides {
+  projectName?: string
+  projectDirty?: boolean
+  projectBusy?: boolean
+  canRegenerate?: boolean
+  onNewProject?: () => void
+  onOpenProject?: () => void
+  onSaveProject?: () => void
+  onSaveProjectAs?: () => void
+  onRegenerateExact?: (opener?: HTMLElement) => void
+  onRegenerateCurrent?: (opener?: HTMLElement) => void
+  transportState?: MiddleStripTransportProps['state']
+  bpm?: number
+  jumpToEndDisabled?: boolean
+  canUndo?: boolean
+  canRedo?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
+  onTransportPlay?: () => void
+  onTransportPause?: () => void
+  onTransportStop?: () => void
+  onTransportSkipBack?: () => void
+  onTransportJumpToEnd?: () => void
+  onSetBpm?: (bpm: number) => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
+  librarySyncState?: LibrarySyncState
+  onRescanLibrary?: () => void
+  onCancelLibrarySync?: () => void
+  onRetryLibrarySync?: () => void
+  onOpenShortcuts?: () => void
+}
+
+function renderMiddleStrip(overrides: MiddleStripOverrides = {}) {
   const props: React.ComponentProps<typeof MiddleStrip> = {
-    trackerScrollportRef: { current: null },
-    trackerScrollportId: 'tracker-scrollport',
-    projectName: 'club-night',
-    projectDirty: false,
-    projectBusy: false,
-    onNewProject: vi.fn(),
-    onOpenProject: vi.fn(),
-    onSaveProject: vi.fn(),
-    onSaveProjectAs: vi.fn(),
-    transportState: 'stopped',
-    canUndo: true,
-    canRedo: true,
-    onUndo: vi.fn(),
-    onRedo: vi.fn(),
-    onTransportPlay: vi.fn(),
-    onTransportPause: vi.fn(),
-    onTransportStop: vi.fn(),
-    onTransportSkipBack: vi.fn(),
-    onTransportJumpToEnd: vi.fn(),
-    jumpToEndDisabled: false,
-    searchQuery: '',
-    onSearchChange: vi.fn(),
-    librarySyncState: READY,
-    onRescanLibrary: vi.fn(),
-    onCancelLibrarySync: vi.fn(),
-    onRetryLibrarySync: vi.fn(),
-    onOpenShortcuts: vi.fn(),
-    bpm: 140,
-    onSetBpm: vi.fn(),
-    ...overrides
+    scrollport: { ref: { current: null }, id: 'tracker-scrollport' },
+    project: {
+      name: overrides.projectName ?? 'club-night',
+      dirty: overrides.projectDirty ?? false,
+      busy: overrides.projectBusy ?? false,
+      canRegenerate: overrides.canRegenerate,
+      onNew: overrides.onNewProject ?? vi.fn(),
+      onOpen: overrides.onOpenProject ?? vi.fn(),
+      onSave: overrides.onSaveProject ?? vi.fn(),
+      onSaveAs: overrides.onSaveProjectAs ?? vi.fn(),
+      onRegenerateExact: overrides.onRegenerateExact,
+      onRegenerateCurrent: overrides.onRegenerateCurrent
+    },
+    transport: {
+      state: overrides.transportState ?? 'stopped',
+      bpm: overrides.bpm ?? 140,
+      jumpToEndDisabled: overrides.jumpToEndDisabled ?? false,
+      canUndo: overrides.canUndo ?? true,
+      canRedo: overrides.canRedo ?? true,
+      onUndo: overrides.onUndo ?? vi.fn(),
+      onRedo: overrides.onRedo ?? vi.fn(),
+      onPlay: overrides.onTransportPlay ?? vi.fn(),
+      onPause: overrides.onTransportPause ?? vi.fn(),
+      onStop: overrides.onTransportStop ?? vi.fn(),
+      onSkipBack: overrides.onTransportSkipBack ?? vi.fn(),
+      onJumpToEnd: overrides.onTransportJumpToEnd ?? vi.fn(),
+      onSetBpm: overrides.onSetBpm ?? vi.fn()
+    },
+    library: {
+      searchQuery: overrides.searchQuery ?? '',
+      onSearchChange: overrides.onSearchChange ?? vi.fn(),
+      syncState: overrides.librarySyncState ?? READY,
+      onRescan: overrides.onRescanLibrary ?? vi.fn(),
+      onCancelSync: overrides.onCancelLibrarySync ?? vi.fn(),
+      onRetrySync: overrides.onRetryLibrarySync ?? vi.fn()
+    },
+    onOpenShortcuts: overrides.onOpenShortcuts ?? vi.fn()
   }
 
   return { ...render(<MiddleStrip {...props} />), props }

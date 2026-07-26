@@ -446,38 +446,45 @@ function PlayerView({
           </PanelGroup>
 
           <MiddleStrip
-        trackerScrollportRef={lanesRef}
-        trackerScrollportId={TRACKER_SCROLLPORT_ID}
-        projectName={project.name}
-        projectDirty={project.dirty}
-        projectBusy={project.busy}
-        canRegenerate={project.canRegenerate}
-        onNewProject={() => void project.onNew()}
-        onOpenProject={() => void project.onOpen()}
-        onSaveProject={() => void project.onSave()}
-        onSaveProjectAs={() => void project.onSaveAs()}
-        onRegenerateExact={project.onRegenerateExact}
-        onRegenerateCurrent={project.onRegenerateCurrent}
-        transportState={transportState}
-        canUndo={transport.canUndo}
-        canRedo={transport.canRedo}
-        onUndo={transport.onUndo}
-        onRedo={transport.onRedo}
-        onTransportPlay={transport.onTransportPlay}
-        onTransportPause={transport.onTransportPause}
-        onTransportStop={handleTransportStop}
-        onTransportSkipBack={handleTransportSkipBack}
-        onTransportJumpToEnd={handleTransportJumpToEnd}
-        jumpToEndDisabled={transport.songEndTick === 0}
-        searchQuery={browser.searchQuery}
-        onSearchChange={browser.onSearchChange}
-        librarySyncState={browser.librarySyncState}
-        onRescanLibrary={browser.onRescanLibrary}
-        onRetryLibrarySync={browser.onRetryLibrarySync}
-        onCancelLibrarySync={browser.onCancelLibrarySync}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
-        bpm={transport.bpm}
-        onSetBpm={transport.onSetBpm}
+            scrollport={{ ref: lanesRef, id: TRACKER_SCROLLPORT_ID }}
+            project={{
+              name: project.name,
+              dirty: project.dirty,
+              busy: project.busy,
+              canRegenerate: project.canRegenerate,
+              onNew: () => void project.onNew(),
+              onOpen: () => void project.onOpen(),
+              onSave: () => void project.onSave(),
+              onSaveAs: () => void project.onSaveAs(),
+              onRegenerateExact: project.onRegenerateExact,
+              onRegenerateCurrent: project.onRegenerateCurrent
+            }}
+            transport={{
+              state: transportState,
+              bpm: transport.bpm,
+              jumpToEndDisabled: transport.songEndTick === 0,
+              canUndo: transport.canUndo,
+              canRedo: transport.canRedo,
+              onUndo: transport.onUndo,
+              onRedo: transport.onRedo,
+              onPlay: transport.onTransportPlay,
+              onPause: transport.onTransportPause,
+              // The Tracker's stop/seek wrappers, not the raw transport verbs:
+              // stopping from the strip also returns the view to tick 0.
+              onStop: handleTransportStop,
+              onSkipBack: handleTransportSkipBack,
+              onJumpToEnd: handleTransportJumpToEnd,
+              onSetBpm: transport.onSetBpm
+            }}
+            library={{
+              searchQuery: browser.searchQuery,
+              onSearchChange: browser.onSearchChange,
+              syncState: browser.librarySyncState,
+              onRescan: browser.onRescanLibrary,
+              onCancelSync: browser.onCancelLibrarySync,
+              onRetrySync: browser.onRetryLibrarySync
+            }}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
           />
         </div>
       </Panel>

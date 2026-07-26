@@ -10,6 +10,11 @@ import {
   type AetherformReverbState
 } from './aetherform-reverb-types'
 import { getReturnEffect, registerReturnEffect } from './return-effect-registry'
+import {
+  AETHERFORM_REVERB_RANGES,
+  ECHOFORM_DELAY_RANGES,
+  numericFieldsWithinRanges
+} from './return-param-ranges'
 
 export type { EchoformDelayState } from './echoform-delay-types'
 export type { AetherformReverbState } from './aetherform-reverb-types'
@@ -463,55 +468,29 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
   return Object.keys(value).every((key) => keys.includes(key))
 }
 
-function numberInRange(value: unknown, minimum: number, maximum: number): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
-}
-
 function isAetherformReverbModule(module: Record<string, unknown>): boolean {
+  // Numeric bounds come from AETHERFORM_REVERB_RANGES so this guard and the
+  // editor's knobs cannot disagree about what a loadable value is. Only the
+  // non-numeric fields are checked by hand here.
   return hasOnlyKeys(module, AETHERFORM_REVERB_KEYS) &&
+    numericFieldsWithinRanges(module, AETHERFORM_REVERB_RANGES) &&
     isAetherformSpaceModel(module.spaceModel) &&
-    numberInRange(module.preDelayMs, 0, 250) &&
-    numberInRange(module.decaySeconds, 0.2, 30) &&
-    numberInRange(module.sizePercent, 5, 100) &&
     isAetherformCharacter(module.character) &&
-    numberInRange(module.drivePercent, 0, 100) &&
-    numberInRange(module.widthPercent, 0, 200) &&
-    numberInRange(module.lateBalancePercent, 0, 100) &&
-    numberInRange(module.lowCutHz, 20, 2000) &&
-    numberInRange(module.highCutHz, 1000, 20000) &&
-    numberInRange(module.diffusionPercent, 0, 100) &&
-    numberInRange(module.densityPercent, 0, 100) &&
     typeof module.earlyReflectionsEnabled === 'boolean' &&
-    numberInRange(module.modRateHz, 0.05, 3) &&
-    numberInRange(module.modDepthPercent, 0, 100) &&
     typeof module.shimmerEnabled === 'boolean' &&
-    numberInRange(module.shimmerAmountPercent, 0, 100) &&
     isAetherformShimmerInterval(module.shimmerIntervalSemitones) &&
-    numberInRange(module.duckAmountPercent, 0, 100) &&
-    numberInRange(module.duckReleaseMs, 50, 2500) &&
-    numberInRange(module.outputDb, -24, 12) &&
     typeof module.bypass === 'boolean'
 }
 
 function isEchoformDelayModule(module: Record<string, unknown>): boolean {
+  // Numeric bounds come from ECHOFORM_DELAY_RANGES; see the reverb guard above.
   return hasOnlyKeys(module, ECHOFORM_DELAY_KEYS) &&
+    numericFieldsWithinRanges(module, ECHOFORM_DELAY_RANGES) &&
     (module.mode === 'free' || module.mode === 'sync') &&
     isEchoformDelayDivision(module.divisionL) &&
     isEchoformDelayDivision(module.divisionR) &&
-    numberInRange(module.timeMsL, 1, 2000) &&
-    numberInRange(module.timeMsR, 1, 2000) &&
-    numberInRange(module.feedback, 0, 110) &&
     typeof module.pingPong === 'boolean' &&
-    numberInRange(module.width, 0, 200) &&
-    numberInRange(module.lowCut, 20, 2000) &&
-    numberInRange(module.highCut, 1000, 20000) &&
-    numberInRange(module.modRate, 0.05, 8) &&
-    numberInRange(module.modDepth, 0, 20) &&
     (module.character === 'digital' || module.character === 'analog' || module.character === 'tape') &&
-    numberInRange(module.drive, 0, 100) &&
-    numberInRange(module.duckAmount, 0, 100) &&
-    numberInRange(module.duckRelease, 50, 2500) &&
-    numberInRange(module.outputDb, -24, 12) &&
     typeof module.bypass === 'boolean'
 }
 

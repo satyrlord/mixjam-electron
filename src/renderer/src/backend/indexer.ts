@@ -5,6 +5,7 @@
 
 import type { DistributiveOmit, ScanProgress } from '../../../shared/backend-api'
 import type { DB } from './sql'
+import { SCAN_STATE_PRESENT_SQL } from './scan-state'
 import {
   commitFolderTagProjection,
   completeScanRoot,
@@ -165,7 +166,7 @@ async function phase1(
   // samples are already hidden. Scoped to this scan's root so rescanning one
   // Sample Folder never soft-deletes another folder's rows.
   const known = db
-    .prepare('SELECT relpath FROM samples WHERE scan_state != 2 AND root_id = ?')
+    .prepare(`SELECT relpath FROM samples WHERE ${SCAN_STATE_PRESENT_SQL} AND root_id = ?`)
     .all<{ relpath: string }>(rootId)
 
   const fileSet = new Set(files.map((f) => f.relpath))

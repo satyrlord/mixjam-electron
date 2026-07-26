@@ -13,6 +13,7 @@ import {
 import { isSampleType } from './analysis'
 import { scanRootId } from './indexed-sample-persistence'
 import type { BindValue, DB } from './sql'
+import { SCAN_STATE, SCAN_STATE_PRESENT_SQL } from './scan-state'
 
 export interface TagRow {
   id: number
@@ -225,7 +226,7 @@ export function deleteLibrary(db: DB, id: number): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Relpaths of every missing sample (scan_state = 2) under the given root.
+ * Relpaths of every missing (soft-deleted) sample under the given root.
  * Drives the tracker's hazard-stripe treatment on placements whose file vanished
  * between scans (spec-002 AC-013). Missing rows are soft-deleted stubs, so
  * the result is bounded by library size, not placement count.
@@ -234,7 +235,7 @@ export function listMissingRelpaths(db: DB, rootKey: string): string[] {
   const rootId = scanRootId(db, rootKey)
   if (rootId === undefined) return []
   return db
-    .prepare('SELECT relpath FROM samples WHERE root_id = ? AND scan_state = 2')
+    .prepare(`SELECT relpath FROM samples WHERE root_id = ? AND scan_state = ${SCAN_STATE.MISSING}`)
     .all<{ relpath: string }>(rootId)
     .map((row) => row.relpath)
 }
@@ -273,7 +274,7 @@ export function querySamples(db: DB, opts: SampleQueryOptions = {}): SampleQuery
     sortDir = 'asc'
   } = opts
 
-  const conditions: string[] = ['s.scan_state != 2']
+  const conditions: string[] = [`s.${SCAN_STATE_PRESENT_SQL}`]
   const params: BindValue[] = []
 
   if (rootKey !== undefined) {

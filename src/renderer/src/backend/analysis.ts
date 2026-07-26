@@ -26,6 +26,19 @@ export function isSampleType(value: unknown): value is SampleType {
   return typeof value === 'string' && SAMPLE_TYPES.has(value as SampleType)
 }
 
+/**
+ * Sample types that carry pitch, so their tempo and key are musically
+ * meaningful. Contextual inference treats these as evidence anchors and the
+ * planner uses them for pool-token coherence. One definition: a second, wider
+ * or narrower copy of this set silently changes what the analyzer trusts.
+ *
+ * This lives beside the type predicate — the lowest module in the backend —
+ * because both the analyzer and the planner need it and neither may import
+ * the other.
+ */
+export const TONAL_SAMPLE_TYPES: ReadonlySet<SampleType> =
+  new Set<SampleType>(['Bass', 'Synth', 'Loop', 'Vocal', 'Atmosphere'])
+
 function fourCc(view: DataView, offset: number): string {
   return String.fromCharCode(
     view.getUint8(offset), view.getUint8(offset + 1),

@@ -26,7 +26,8 @@ const DEFAULT_BPM = 120
 // calibration expects nominal program level at its input. Loaded projects
 // keep their saved value.
 const DEFAULT_MASTER_GAIN = 1
-const DEFAULT_LANE_GAIN = 0.8
+/** Lane default; exported so fixtures and tests assert against one value. */
+export const DEFAULT_LANE_GAIN = 0.8
 const DEFAULT_LANE_SENDS = [0, 0, 0, 0] as const
 
 /** A blank project starts compact, while saved projects may grow to this hard cap. */

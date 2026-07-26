@@ -6,7 +6,7 @@ import type { SampleQueryRequest } from '../../../shared/backend-api'
 import { normalizeSampleQueryRequest } from '../../../shared/backend-api'
 import * as analysisPersistence from './analysis-persistence'
 import * as browserLibrary from './browser-library-persistence'
-import { createBackendJobCoordinator } from './job-coordinator'
+import { createBackendJobCoordinator, type BackendJobCoordinator } from './job-coordinator'
 import * as indexedSamples from './indexed-sample-persistence'
 import type { BackendCalls, WorkerMessage, WorkerRequest } from './protocol'
 import { initSchema } from './schema'
@@ -21,7 +21,7 @@ function emitEvent(message: WorkerMessage): void {
   ctx.postMessage(message)
 }
 
-type JobCoordinator = ReturnType<typeof createBackendJobCoordinator>
+type JobCoordinator = BackendJobCoordinator
 
 interface ReadyState {
   db: DB
@@ -67,37 +67,14 @@ function buildCalls(db: DB, jobs: JobCoordinator): BackendCalls {
   }
 }
 
-const ALLOWED_OPS = new Set<string>([
-  'querySamples',
-  'getGeneratorReadiness',
-  'planMixJam',
-  'cancelMixJamPlanning',
-  'getGeneratorProgress',
-  'getLibraryRootState',
-  'listMissingRelpaths',
-  'startLibrarySync',
-  'cancelLibrarySync',
-  'getScanProgress',
-  'getAnalysisProgress',
-  'listTags',
-  'createTag',
-  'renameTag',
-  'setTagColor',
-  'deleteTag',
-  'assignTag',
-  'unassignTag',
-  'updateSampleAnalysis',
-  'reanalyzeSample',
-  'listLibraries',
-  'saveLibrary',
-  'deleteLibrary'
-])
-
 ctx.onmessage = (event) => {
   const { seq, op, args } = event.data
   void ready
     .then(({ calls }) => {
-      if (typeof op !== 'string' || !ALLOWED_OPS.has(op)) {
+      // The dispatch table is the allow-list. A hand-maintained copy of these
+      // names could silently disagree with the table it guards; deriving it
+      // means an op is callable exactly when `buildCalls` provides it.
+      if (typeof op !== 'string' || !Object.hasOwn(calls, op)) {
         throw new Error(`Unknown backend op: ${String(op)}`)
       }
       const fn = calls[op as keyof typeof calls]

@@ -339,6 +339,11 @@
       return Promise.resolve(generatorPlan(parameters))
     },
     cancelMixJamPlanning: function () { return Promise.resolve() },
+    getGeneratorProgress: function () {
+      return Promise.resolve({
+        identity: null, status: 'idle', phase: null, completed: 0, total: 0
+      })
+    },
     listTags: function (rootKey) { return Promise.resolve(MOCK_TAGS.slice().sort(function (a, b) { return a.name.localeCompare(b.name) })) },
     createTag: function (name, color, rootKey) {
       var trimmed = name.trim()

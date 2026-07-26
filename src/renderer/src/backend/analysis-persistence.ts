@@ -1,6 +1,13 @@
 import type { SampleAnalysisPatch, SampleType } from '../../../shared/backend-api'
 import { isSampleType } from './analysis'
+import {
+  analysisOwnsAnyFieldSql,
+  analyzedFieldChangesSql,
+  assignAnalyzedFieldSql
+} from './analysis-provenance'
+import { contextKeyContainsRelpath, parseCohortContextKey } from './context-key'
 import { parseMusicalKey } from './musical-key'
+import { SCAN_STATE_READY_SQL } from './scan-state'
 import { ANALYSIS_REVISION } from './schema'
 import type { DB } from './sql'
 
@@ -61,11 +68,9 @@ export function listAnalysisCandidates(
 ): AnalysisCandidate[] {
   return db.prepare(
     `SELECT id, relpath FROM samples
-     WHERE root_id = ? AND scan_state = 1 AND analysis_revision < ? AND (
-       COALESCE(bpm_source, '') != 'manual' OR
-       COALESCE(musical_key_source, '') != 'manual' OR
-       COALESCE(sample_type_source, '') != 'manual'
-     ) ORDER BY id`
+     WHERE root_id = ? AND ${SCAN_STATE_READY_SQL} AND analysis_revision < ?
+       AND (${analysisOwnsAnyFieldSql()})
+     ORDER BY id`
   ).all<AnalysisCandidate>(rootId, analysisRevision)
 }
 
@@ -76,7 +81,7 @@ export function listStoredAnalysisEvidence(db: DB, rootId: number): StoredAnalys
             raw_musical_key AS evidence_key,
             sample_type
      FROM samples
-     WHERE root_id = ? AND scan_state = 1
+     WHERE root_id = ? AND ${SCAN_STATE_READY_SQL}
      ORDER BY relpath`
   ).all<{
     id: number
@@ -102,16 +107,11 @@ export function applyContextualAnalysisResult(
 ): void {
   db.prepare(
     `UPDATE samples SET
-       bpm = CASE WHEN COALESCE(bpm_source, '') != 'manual' THEN ? ELSE bpm END,
-       bpm_source = CASE WHEN COALESCE(bpm_source, '') != 'manual'
-         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE bpm_source END,
-       musical_key = CASE WHEN COALESCE(musical_key_source, '') != 'manual'
-         THEN ? ELSE musical_key END,
-       musical_key_source = CASE WHEN COALESCE(musical_key_source, '') != 'manual'
-         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE musical_key_source END
+       ${assignAnalyzedFieldSql('bpm')},
+       ${assignAnalyzedFieldSql('musical_key')}
      WHERE id = ? AND (
-       (COALESCE(bpm_source, '') != 'manual' AND NOT (bpm IS ?)) OR
-       (COALESCE(musical_key_source, '') != 'manual' AND NOT (musical_key IS ?))
+       ${analyzedFieldChangesSql('bpm')} OR
+       ${analyzedFieldChangesSql('musical_key')}
      )`
   ).run(
     result.bpm,
@@ -183,15 +183,6 @@ export function reconcileAnalysisGroups(
   }
 }
 
-export function analysisGroupContainsRelpath(relpathPrefix: string, relpath: string): boolean {
-  if (relpathPrefix.startsWith('@cohort/')) {
-    const [, topLevel = '', token = ''] = relpathPrefix.split('/')
-    const segments = relpath.split('/').filter(Boolean)
-    if ((segments.length > 1 ? segments[0]! : '') !== topLevel) return false
-    return new RegExp(`(?:^|_)${token}(?=$|[_.(])`, 'i').test(segments.at(-1) ?? '')
-  }
-  return relpathPrefix === '' || relpath === relpathPrefix || relpath.startsWith(`${relpathPrefix}/`)
-}
 
 export function getCanonicalRootAnalysisSummary(
   db: DB,
@@ -223,14 +214,13 @@ export function getCanonicalRootAnalysisSummary(
   const clusters: AnalysisTempoCluster[] = []
   for (const row of rows) {
     if (row.bpm === null || row.state !== 'resolved') continue
-    if (row.relpath_prefix.startsWith('@cohort/')) {
-      const topLevel = row.relpath_prefix.split('/')[1] ?? ''
-      if (clusters.some((cluster) =>
-        cluster.relpathPrefix === topLevel || cluster.relpathPrefix.startsWith(`${topLevel}/`)
-      )) continue
-    }
+    const cohort = parseCohortContextKey(row.relpath_prefix)
+    if (cohort && clusters.some((cluster) =>
+      cluster.relpathPrefix === cohort.topLevel ||
+      cluster.relpathPrefix.startsWith(`${cohort.topLevel}/`)
+    )) continue
     if (clusters.some((cluster) =>
-      analysisGroupContainsRelpath(cluster.relpathPrefix, row.relpath_prefix)
+      contextKeyContainsRelpath(cluster.relpathPrefix, row.relpath_prefix)
     )) continue
     clusters.push({
       relpathPrefix: row.relpath_prefix,
@@ -265,17 +255,9 @@ export function applyAnalysisResult(
     `UPDATE samples SET
        raw_bpm = ?,
        raw_musical_key = ?,
-       bpm = CASE WHEN COALESCE(bpm_source, '') != 'manual' THEN ? ELSE bpm END,
-       bpm_source = CASE WHEN COALESCE(bpm_source, '') != 'manual'
-         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE bpm_source END,
-       musical_key = CASE WHEN COALESCE(musical_key_source, '') != 'manual'
-         THEN ? ELSE musical_key END,
-       musical_key_source = CASE WHEN COALESCE(musical_key_source, '') != 'manual'
-         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE musical_key_source END,
-       sample_type = CASE WHEN COALESCE(sample_type_source, '') != 'manual'
-         THEN ? ELSE sample_type END,
-       sample_type_source = CASE WHEN COALESCE(sample_type_source, '') != 'manual'
-         THEN CASE WHEN ? IS NULL THEN NULL ELSE 'analysis' END ELSE sample_type_source END,
+       ${assignAnalyzedFieldSql('bpm')},
+       ${assignAnalyzedFieldSql('musical_key')},
+       ${assignAnalyzedFieldSql('sample_type')},
        analysis_revision = ?
      WHERE id = ?`
   ).run(

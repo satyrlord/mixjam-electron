@@ -27,7 +27,11 @@ function snappedWholeBarSpan(rawSpan: number): number | null {
   return null
 }
 
-const PERCUSSIVE_TYPES = new Set<SampleType>(['Percussion', 'Hi-hat', 'Snare'])
+// Percussive roles whose material can be a tiling groove loop rather than a
+// single hit. Kick is deliberately absent: a kick is always placed as a
+// one-shot, so it never needs whole-bar snapping. Distinct from
+// `generator-analysis`'s one-shot classification set, which does include Kick.
+const GROOVE_LOOP_PERCUSSIVE_TYPES = new Set<SampleType>(['Percussion', 'Hi-hat', 'Snare'])
 
 export function generatorCandidateDurationTicks(
   candidate: GeneratorCandidate,
@@ -37,7 +41,7 @@ export function generatorCandidateDurationTicks(
   // Percussive material long enough to be a groove loop (not a one-shot)
   // tiles butt-joined, so an off-grid length drifts against the bar line;
   // snap near-grid lengths exactly like tonal loops.
-  const percussiveLoop = PERCUSSIVE_TYPES.has(candidate.sampleType) && raw >= TICKS_PER_BAR * 0.7
+  const percussiveLoop = GROOVE_LOOP_PERCUSSIVE_TYPES.has(candidate.sampleType) && raw >= TICKS_PER_BAR * 0.7
   // Loop and Synth sources tile as whole-bar phrases.
   if (candidate.sampleType === 'Loop' || candidate.sampleType === 'Synth' || percussiveLoop) {
     // First snap a near-grid length at the sample's own detected tempo.
@@ -72,6 +76,6 @@ export function generatorCandidateMatchesLane(
   if ((type === 'Loop' || type === 'Synth') && !WHOLE_BAR_SPANS.has(span)) return false
   // A percussive source of a bar or more is a groove loop; if its span is not
   // a whole-bar phrase it would drift against the bar grid when tiled.
-  if (PERCUSSIVE_TYPES.has(type) && span >= TICKS_PER_BAR && !WHOLE_BAR_SPANS.has(span)) return false
+  if (GROOVE_LOOP_PERCUSSIVE_TYPES.has(type) && span >= TICKS_PER_BAR && !WHOLE_BAR_SPANS.has(span)) return false
   return true
 }

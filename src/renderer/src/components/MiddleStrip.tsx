@@ -137,75 +137,109 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
   )
 }
 
-interface MiddleStripProps {
-  trackerScrollportRef: RefObject<HTMLDivElement>
-  trackerScrollportId: string
-  projectName: string
-  projectDirty: boolean
-  projectBusy: boolean
+/**
+ * The Middle Strip's props, grouped by the region each one drives.
+ *
+ * These were once 35 flat props, which meant `PlayerView` unpacked its already
+ * grouped prop bundles into a 33-line list just to pass them back down. Naming
+ * the groups here lets the caller forward what it already holds, and makes it
+ * obvious which part of the strip a prop belongs to.
+ */
+export interface MiddleStripScrollportProps {
+  /** The Tracker viewport the Song Progress Bar scrolls. */
+  ref: RefObject<HTMLDivElement>
+  id: string
+}
+
+export interface MiddleStripProjectProps {
+  name: string
+  dirty: boolean
+  busy: boolean
   canRegenerate?: boolean
-  onNewProject: () => void
-  onOpenProject: () => void
-  onSaveProject: () => void
-  onSaveProjectAs: () => void
+  onNew: () => void
+  onOpen: () => void
+  onSave: () => void
+  onSaveAs: () => void
   onRegenerateExact?: (opener?: HTMLElement) => void
   onRegenerateCurrent?: (opener?: HTMLElement) => void
-  transportState: RuntimeTransportState
+}
+
+export interface MiddleStripTransportProps {
+  state: RuntimeTransportState
+  bpm: number
+  jumpToEndDisabled: boolean
   canUndo: boolean
   canRedo: boolean
   onUndo: () => void
   onRedo: () => void
-  onTransportPlay: () => void
-  onTransportPause: () => void
-  onTransportStop: () => void
-  onTransportSkipBack: () => void
-  onTransportJumpToEnd: () => void
-  jumpToEndDisabled: boolean
-  searchQuery: string
-  onSearchChange: (query: string) => void
-  librarySyncState: LibrarySyncState
-  onRescanLibrary: () => void
-  onCancelLibrarySync: () => void
-  onRetryLibrarySync: () => void
-  onOpenShortcuts: () => void
-  bpm: number
+  onPlay: () => void
+  onPause: () => void
+  onStop: () => void
+  onSkipBack: () => void
+  onJumpToEnd: () => void
   onSetBpm: (bpm: number) => void
 }
 
+export interface MiddleStripLibraryProps {
+  searchQuery: string
+  onSearchChange: (query: string) => void
+  syncState: LibrarySyncState
+  onRescan: () => void
+  onCancelSync: () => void
+  onRetrySync: () => void
+}
+
+interface MiddleStripProps {
+  scrollport: MiddleStripScrollportProps
+  project: MiddleStripProjectProps
+  transport: MiddleStripTransportProps
+  library: MiddleStripLibraryProps
+  onOpenShortcuts: () => void
+}
+
 export default function MiddleStrip({
-  trackerScrollportRef,
-  trackerScrollportId,
-  projectName,
-  projectDirty,
-  projectBusy,
-  canRegenerate = false,
-  onNewProject,
-  onOpenProject,
-  onSaveProject,
-  onSaveProjectAs,
-  onRegenerateExact = () => {},
-  onRegenerateCurrent = () => {},
-  transportState,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onTransportPlay,
-  onTransportPause,
-  onTransportStop,
-  onTransportSkipBack,
-  onTransportJumpToEnd,
-  jumpToEndDisabled,
-  searchQuery,
-  onSearchChange,
-  librarySyncState,
-  onRescanLibrary,
-  onCancelLibrarySync,
-  onRetryLibrarySync,
-  onOpenShortcuts,
-  bpm,
-  onSetBpm
+  scrollport,
+  project,
+  transport,
+  library,
+  onOpenShortcuts
 }: MiddleStripProps) {
+  const { ref: trackerScrollportRef, id: trackerScrollportId } = scrollport
+  const {
+    name: projectName,
+    dirty: projectDirty,
+    busy: projectBusy,
+    canRegenerate = false,
+    onNew: onNewProject,
+    onOpen: onOpenProject,
+    onSave: onSaveProject,
+    onSaveAs: onSaveProjectAs,
+    onRegenerateExact = () => {},
+    onRegenerateCurrent = () => {}
+  } = project
+  const {
+    state: transportState,
+    bpm,
+    jumpToEndDisabled,
+    canUndo,
+    canRedo,
+    onUndo,
+    onRedo,
+    onPlay: onTransportPlay,
+    onPause: onTransportPause,
+    onStop: onTransportStop,
+    onSkipBack: onTransportSkipBack,
+    onJumpToEnd: onTransportJumpToEnd,
+    onSetBpm
+  } = transport
+  const {
+    searchQuery,
+    onSearchChange,
+    syncState: librarySyncState,
+    onRescan: onRescanLibrary,
+    onCancelSync: onCancelLibrarySync,
+    onRetrySync: onRetryLibrarySync
+  } = library
   const projectMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const isPlaying = transportState === 'playing'
   const isPreparing = transportState === 'preparing'

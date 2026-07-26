@@ -1,6 +1,6 @@
 {
   "name": "mixjam-electron",
-  "version": "0.43.0",
+  "version": "0.208.0",
   "description": "MixJam Electron — sample-library browser and tracker",
   "main": "out/main/index.js",
   "scripts": {

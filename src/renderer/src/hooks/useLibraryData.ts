@@ -13,8 +13,8 @@ import type {
 } from '../../../shared/backend-api'
 import { sourceGroupFromRelpath } from '../../../shared/sample-palette'
 import type { FooterSampleDetail } from '../lib/arrangement'
+import { decodeLibraryRule, encodeLibraryRule } from '../lib/library-rule'
 import { useSampleTags, type TagRefreshResult } from './useSampleTags'
-import { useSampleLibraries } from './useSampleLibraries'
 import { useLibrarySyncRuntime } from './useLibrarySyncRuntime'
 
 export type SampleSortColumn = 'filename' | 'duration' | 'dateAdded'
@@ -425,11 +425,28 @@ export function useLibraryData(
     refreshLibraryMetadata
   )
 
-  const libraryActions = useSampleLibraries(
-    backendAPI, setLibraries,
-    searchQuery, selectedTagIds, tags,
-    setSearchQuery, setSelectedTagIds
-  )
+  // Saved libraries. These were once a separate hook, but it took seven
+  // parameters — this hook's own state and setters — to return three thin
+  // callbacks, so the split cost more plumbing than it hid.
+  const saveLibrary = useCallback(async (name: string) => {
+    const ruleJson = encodeLibraryRule({ textSearch: searchQuery, tagIds: selectedTagIds })
+    const library = await backendAPI.saveLibrary(name, ruleJson)
+    setLibraries((current) =>
+      [...current, library].sort((left, right) => left.name.localeCompare(right.name)))
+    return library
+  }, [backendAPI, searchQuery, selectedTagIds])
+
+  const deleteLibrary = useCallback(async (id: number) => {
+    await backendAPI.deleteLibrary(id)
+    setLibraries((current) => current.filter((library) => library.id !== id))
+  }, [backendAPI])
+
+  const applyLibrary = useCallback((library: LibraryItem) => {
+    const rule = decodeLibraryRule(library.ruleJson)
+    const availableIds = new Set(tags.map((tag) => tag.id))
+    setSearchQuery(rule.textSearch)
+    setSelectedTagIds(rule.tagIds.filter((id) => availableIds.has(id)))
+  }, [tags])
 
   // ---
 
@@ -474,9 +491,9 @@ export function useLibraryData(
     unassignTagFromSample: tagActions.unassignTagFromSample,
     updateSampleAnalysis,
     reanalyzeSample,
-    saveLibrary: libraryActions.saveLibrary,
-    deleteLibrary: libraryActions.deleteLibrary,
-    applyLibrary: libraryActions.applyLibrary,
+    saveLibrary,
+    deleteLibrary,
+    applyLibrary,
     reloadMixJamFiles,
     handleSortChange
   }

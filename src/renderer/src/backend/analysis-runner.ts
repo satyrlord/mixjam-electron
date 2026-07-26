@@ -9,6 +9,7 @@ import {
 } from './analysis-persistence'
 import { resolveContextualAnalysis } from './contextual-analysis'
 import type { DB } from './sql'
+import { SCAN_STATE_READY_SQL } from './scan-state'
 
 export type AnalysisPhaseProgress = DistributiveOmit<AnalysisProgress, 'identity'>
 export type AnalysisEmit = (progress: AnalysisPhaseProgress) => void
@@ -106,7 +107,7 @@ export async function runSingleAnalysis(
   emit: AnalysisEmit
 ): Promise<void> {
   const sample = db.prepare(
-    'SELECT root_id FROM samples WHERE id = ? AND scan_state = 1'
+    `SELECT root_id FROM samples WHERE id = ? AND ${SCAN_STATE_READY_SQL}`
   ).get<{ root_id: number }>(sampleId)
   if (!sample) throw new Error('The sample is not available for analysis')
   emit({ status: 'analyzing', analyzed: 0, total: 1 })

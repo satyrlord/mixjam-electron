@@ -39,8 +39,12 @@ export interface GeneratorAnalysisProgress {
   total: number
 }
 
-const PERCUSSIVE_TYPES = new Set<SampleType>(['Kick', 'Snare', 'Hi-hat', 'Percussion'])
-const TONAL_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop'])
+// Classification-local type sets. These are NOT the planning vocabulary:
+// `generator-planning-core` exports a wider `TONAL_TYPES` that includes Vocal
+// and Atmosphere. Here those two are already claimed by earlier branches of
+// `plannerKind`, so this set is only what still falls through to `tonal-loop`.
+const ONE_SHOT_CANDIDATE_TYPES = new Set<SampleType>(['Kick', 'Snare', 'Hi-hat', 'Percussion'])
+const TONAL_LOOP_FALLTHROUGH_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop'])
 const RISER_NAME = /(?:^|[\s_.-])(?:riser?|swish(?:es)?|sweep(?:er)?|whoosh(?:es)?|swoosh(?:es)?|uplift(?:er)?|reverse)(?:[lr])?(?:[\s_.-]|$)/i
 const IMPACT_NAME = /(?:^|[\s_.-])(?:impact|hit|crash|slam(?:mer)?|boom(?:er)?|drop|downlift)(?:[lr])?(?:[\s_.-]|$)/i
 
@@ -248,7 +252,7 @@ function plannerKind(
   durationSeconds: number,
   metrics: EnergyMetrics
 ): GeneratorPlannerKind {
-  if (PERCUSSIVE_TYPES.has(candidate.sampleType) && durationSeconds <= 2.5) return 'one-shot'
+  if (ONE_SHOT_CANDIDATE_TYPES.has(candidate.sampleType) && durationSeconds <= 2.5) return 'one-shot'
   if (candidate.sampleType === 'Vocal') return 'vocal'
   if (candidate.sampleType === 'Atmosphere') return 'atmosphere'
   if ((candidate.sampleType === 'FX' || candidate.sampleType === 'Other') && RISER_NAME.test(candidate.filename)) {
@@ -262,7 +266,7 @@ function plannerKind(
   if (candidate.sampleType === 'Loop' && (metrics.rhythmicRegularity > 0.45 || metrics.transientDensity > 0.04)) {
     return 'rhythmic-loop'
   }
-  if (TONAL_TYPES.has(candidate.sampleType)) return 'tonal-loop'
+  if (TONAL_LOOP_FALLTHROUGH_TYPES.has(candidate.sampleType)) return 'tonal-loop'
   return 'texture'
 }
 

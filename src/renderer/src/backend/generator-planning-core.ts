@@ -5,6 +5,7 @@ import type {
   SampleType
 } from '../../../shared/backend-api'
 import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
+import { TONAL_SAMPLE_TYPES } from './analysis'
 import type { AnalyzedGeneratorCandidate } from './generator-analysis'
 import { generatorCandidateDurationTicks } from './generator-candidate'
 import type { GeneratorCandidate } from './generator-library'
@@ -16,7 +17,8 @@ import type { GeneratorArcProfile, GeneratorLaneProfile, GeneratorProfile } from
 // scheduling, stereo, validation) builds on. Keeping them in one place lets the
 // stage modules stay independent of one another.
 
-export const TONAL_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop', 'Vocal', 'Atmosphere'])
+/** Re-exported under the planning vocabulary's name; defined in `./analysis`. */
+export const TONAL_TYPES = TONAL_SAMPLE_TYPES
 // Roles whose musical value is a coherent, authored motif rather than a single
 // hit. For these the arranger must keep one numbered family together instead of
 // hopping between unrelated families phrase to phrase.

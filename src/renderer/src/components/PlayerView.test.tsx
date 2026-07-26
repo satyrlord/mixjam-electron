@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '../test/render'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import PlayerView from './PlayerView'
 import { reconcileSelectedLaneId } from '../hooks/useTrackerInteraction'

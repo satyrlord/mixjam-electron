@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '../test/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SampleTileGrid from './SampleTileGrid'
 import type { SampleListItem } from '../../../shared/backend-api'

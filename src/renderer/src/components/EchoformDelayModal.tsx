@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger
 } from './ui/DropdownMenu'
 import { LinearSlider } from './ui/Slider'
+import { ECHOFORM_DELAY_RANGES } from '../engine/return-param-ranges'
+import FxKnob, { fromNormalized, quantize, toNormalized, type FxKnobSpec } from './FxKnob'
 
 /**
  * The Echoform Delay editor. Renders the module's real state; every control
@@ -39,17 +41,6 @@ type KnobKey =
   | 'modRate' | 'modDepth' | 'drive' | 'duckAmount' | 'duckRelease'
   | 'outputDb' | 'timeMsL' | 'timeMsR'
 
-interface KnobSpec {
-  min: number
-  max: number
-  step: number
-  /** Perceptual skew for wide-range (frequency/time) controls. */
-  curve?: 'log'
-  defaultValue: number
-  format: (value: number) => string
-  /** Tint hint: warm = amber accent, cool = teal secondary. */
-  tone?: 'warm' | 'cool'
-}
 
 const formatMs = (value: number): string =>
   value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${Math.round(value)} ms`
@@ -60,19 +51,19 @@ const formatRate = (value: number): string => `${value.toFixed(2)} Hz`
 const formatDepth = (value: number): string => `${value.toFixed(1)} ms`
 const formatDb = (value: number): string => `${value > 0 ? '+' : ''}${value.toFixed(1)} dB`
 
-const KNOBS: Record<KnobKey, KnobSpec> = {
-  timeMsL: { min: 1, max: 2000, step: 1, curve: 'log', defaultValue: 420, format: formatMs },
-  timeMsR: { min: 1, max: 2000, step: 1, curve: 'log', defaultValue: 610, format: formatMs, tone: 'cool' },
-  feedback: { min: 0, max: 110, step: 1, defaultValue: 68, format: formatPercent, tone: 'warm' },
+const KNOBS: Record<KnobKey, FxKnobSpec> = {
+  timeMsL: { ...ECHOFORM_DELAY_RANGES.timeMsL, step: 1, curve: 'log', defaultValue: 420, format: formatMs },
+  timeMsR: { ...ECHOFORM_DELAY_RANGES.timeMsR, step: 1, curve: 'log', defaultValue: 610, format: formatMs, tone: 'cool' },
+  feedback: { ...ECHOFORM_DELAY_RANGES.feedback, step: 1, defaultValue: 68, format: formatPercent, tone: 'warm' },
   mix: { min: 0, max: 100, step: 1, defaultValue: 100, format: formatPercent, tone: 'warm' },
-  lowCut: { min: 20, max: 2000, step: 1, curve: 'log', defaultValue: 160, format: formatHz },
-  highCut: { min: 1000, max: 20000, step: 10, curve: 'log', defaultValue: 7800, format: formatHz, tone: 'cool' },
-  modRate: { min: 0.05, max: 8, step: 0.01, curve: 'log', defaultValue: 0.38, format: formatRate },
-  modDepth: { min: 0, max: 20, step: 0.1, defaultValue: 5.4, format: formatDepth, tone: 'cool' },
-  drive: { min: 0, max: 100, step: 1, defaultValue: 0, format: formatPercent, tone: 'warm' },
-  duckAmount: { min: 0, max: 100, step: 1, defaultValue: 34, format: formatPercent, tone: 'warm' },
-  duckRelease: { min: 50, max: 2500, step: 10, defaultValue: 620, format: formatMs },
-  outputDb: { min: -24, max: 12, step: 0.1, defaultValue: -1.5, format: formatDb }
+  lowCut: { ...ECHOFORM_DELAY_RANGES.lowCut, step: 1, curve: 'log', defaultValue: 160, format: formatHz },
+  highCut: { ...ECHOFORM_DELAY_RANGES.highCut, step: 10, curve: 'log', defaultValue: 7800, format: formatHz, tone: 'cool' },
+  modRate: { ...ECHOFORM_DELAY_RANGES.modRate, step: 0.01, curve: 'log', defaultValue: 0.38, format: formatRate },
+  modDepth: { ...ECHOFORM_DELAY_RANGES.modDepth, step: 0.1, defaultValue: 5.4, format: formatDepth, tone: 'cool' },
+  drive: { ...ECHOFORM_DELAY_RANGES.drive, step: 1, defaultValue: 0, format: formatPercent, tone: 'warm' },
+  duckAmount: { ...ECHOFORM_DELAY_RANGES.duckAmount, step: 1, defaultValue: 34, format: formatPercent, tone: 'warm' },
+  duckRelease: { ...ECHOFORM_DELAY_RANGES.duckRelease, step: 10, defaultValue: 620, format: formatMs },
+  outputDb: { ...ECHOFORM_DELAY_RANGES.outputDb, step: 0.1, defaultValue: -1.5, format: formatDb }
 }
 
 const CHARACTER_COPY: Record<EchoformDelayCharacter, string> = {
@@ -110,162 +101,6 @@ const PRESET_MIX: Record<EchoformDelayPresetName, number> = {
 
 const TAP_TIMEOUT_MS = 2000
 const TAP_HISTORY = 6
-
-// ---------------------------------------------------------------------------
-// Value <-> normalized mapping (linear or perceptual-log)
-// ---------------------------------------------------------------------------
-
-function toNormalized(spec: KnobSpec, value: number): number {
-  const v = clamp(value, spec.min, spec.max)
-  if (spec.curve === 'log') {
-    const lo = Math.log(Math.max(1e-4, spec.min))
-    const hi = Math.log(spec.max)
-    return (Math.log(Math.max(1e-4, v)) - lo) / (hi - lo)
-  }
-  return (v - spec.min) / (spec.max - spec.min)
-}
-
-function quantize(spec: KnobSpec, value: number, step = spec.step): number {
-  const stepped = Math.round((value - spec.min) / step) * step + spec.min
-  const decimals = step < 1 ? (String(step).split('.')[1]?.length ?? 0) : 0
-  return clamp(Number(stepped.toFixed(decimals + 2)), spec.min, spec.max)
-}
-
-function fromNormalized(spec: KnobSpec, normalized: number, step = spec.step): number {
-  const n = clamp(normalized, 0, 1)
-  const value = spec.curve === 'log'
-    ? Math.exp(Math.log(Math.max(1e-4, spec.min)) + n * (Math.log(spec.max) - Math.log(Math.max(1e-4, spec.min))))
-    : spec.min + n * (spec.max - spec.min)
-  return quantize(spec, value, step)
-}
-
-// ---------------------------------------------------------------------------
-// Knob control (role="slider", full keyboard, pointer, double-click reset)
-// ---------------------------------------------------------------------------
-
-interface KnobProps {
-  id: string
-  spec: KnobSpec
-  label: string
-  value: number
-  onChange: (value: number) => void
-  onGestureStart: () => void
-  onGestureEnd: () => void
-}
-
-/* This knob is deliberately not the shared RotaryControl. Five of these specs
-   are logarithmic (delay times, both filter cutoffs, mod rate) and the shared
-   primitive quantizes linearly against raw min/max with no curve support, so a
-   20 Hz - 2 kHz sweep would be unusable on a linear drag. The interaction
-   contract is otherwise matched to the shared one on purpose, wheel included,
-   so the two knobs do not behave differently for the same gesture. */
-function Knob({ id, spec, label, value, onChange, onGestureStart, onGestureEnd }: KnobProps) {
-  const dragRef = useRef<{ startY: number; startX: number; startNorm: number } | null>(null)
-  const knobRef = useRef<HTMLDivElement | null>(null)
-  const normalized = toNormalized(spec, value)
-  const angle = -135 + normalized * 270
-  const fillDeg = normalized * 270
-
-  const commit = (next: number, step = spec.step) =>
-    onChange(clamp(quantize(spec, next, step), spec.min, spec.max))
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.currentTarget.focus()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    dragRef.current = { startY: event.clientY, startX: event.clientX, startNorm: normalized }
-    onGestureStart()
-  }
-
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return
-    const vertical = dragRef.current.startY - event.clientY
-    const horizontal = event.clientX - dragRef.current.startX
-    const movement = vertical + horizontal * 0.55
-    const fineStep = event.shiftKey ? spec.step / 10 : spec.step
-    const sensitivity = event.shiftKey ? 0.0012 : 0.006
-    commit(fromNormalized(spec, dragRef.current.startNorm + movement * sensitivity, fineStep), fineStep)
-  }
-
-  const endDrag = (event: PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return
-    dragRef.current = null
-    try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { /* ignore */ }
-    onGestureEnd()
-  }
-
-  // Registered manually rather than via onWheel: React's wheel listener is
-  // passive, so it cannot preventDefault and the scroll would leak to the
-  // dialog body. Same approach as the shared RotaryControl.
-  useEffect(() => {
-    const knob = knobRef.current
-    if (!knob) return
-    const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY === 0) return
-      event.preventDefault()
-      const fineStep = event.shiftKey ? spec.step / 10 : spec.step
-      const sensitivity = event.shiftKey ? 0.01 : 0.04
-      const direction = event.deltaY < 0 ? 1 : -1
-      onGestureStart()
-      onChange(
-        clamp(
-          quantize(spec, fromNormalized(spec, normalized + direction * sensitivity, fineStep), fineStep),
-          spec.min,
-          spec.max
-        )
-      )
-      onGestureEnd()
-    }
-    knob.addEventListener('wheel', handleWheel, { passive: false })
-    return () => knob.removeEventListener('wheel', handleWheel)
-  }, [spec, normalized, onChange, onGestureStart, onGestureEnd])
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const fineStep = event.shiftKey ? spec.step / 10 : spec.step
-    let next: number | null = null
-    if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + fineStep
-    else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - fineStep
-    else if (event.key === 'PageUp') next = value + fineStep * 10
-    else if (event.key === 'PageDown') next = value - fineStep * 10
-    else if (event.key === 'Home') next = spec.min
-    else if (event.key === 'End') next = spec.max
-    if (next === null) return
-    event.preventDefault()
-    onGestureStart()
-    commit(next, fineStep)
-    onGestureEnd()
-  }
-
-  return (
-    <div className="ef-knob-row">
-      <div
-        id={id}
-        ref={knobRef}
-        className={`ef-knob${spec.tone === 'warm' ? ' ef-knob-warm' : spec.tone === 'cool' ? ' ef-knob-cool' : ''}`}
-        role="slider"
-        tabIndex={0}
-        aria-label={label}
-        aria-valuemin={spec.min}
-        aria-valuemax={spec.max}
-        aria-valuenow={value}
-        aria-valuetext={spec.format(value)}
-        aria-orientation="vertical"
-        style={{ '--knob-angle': `${angle}deg`, '--knob-fill': `${fillDeg}deg` } as React.CSSProperties}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onDoubleClick={() => { onGestureStart(); commit(spec.defaultValue); onGestureEnd() }}
-        onKeyDown={handleKeyDown}
-      >
-        <span className="ef-knob-pointer" aria-hidden="true" />
-      </div>
-      <span className="ef-knob-label" aria-hidden="true">{label}</span>
-      <output className="ef-knob-value">{spec.format(value)}</output>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Modal
@@ -509,14 +344,12 @@ export default function EchoformDelayModal({
                             </select>
                           </label>
                         ) : (
-                          <Knob
-                            id={`ef-${timeKey}`}
+                          <FxKnob
+                            classPrefix="ef" id={`ef-${timeKey}`}
                             spec={KNOBS[timeKey]}
                             label={`${side} free time`}
                             value={knobValue(timeKey)}
                             onChange={(v) => setKnob(timeKey, v)}
-                            onGestureStart={noop}
-                            onGestureEnd={noop}
                           />
                         )}
                       </div>
@@ -527,10 +360,10 @@ export default function EchoformDelayModal({
 
               <section className="ef-card" aria-label="Space">
                 <div className="ef-card-head"><h2>Space</h2></div>
-                <Knob id="ef-feedback" spec={KNOBS.feedback} label="Feedback" value={draft.feedback}
-                  onChange={(v) => setKnob('feedback', v)} onGestureStart={noop} onGestureEnd={noop} />
-                <Knob id="ef-mix" spec={KNOBS.mix} label="Mix" value={mixPercent}
-                  onChange={(v) => setKnob('mix', v)} onGestureStart={noop} onGestureEnd={noop} />
+                <FxKnob classPrefix="ef" id="ef-feedback" spec={KNOBS.feedback} label="Feedback" value={draft.feedback}
+                  onChange={(v) => setKnob('feedback', v)} />
+                <FxKnob classPrefix="ef" id="ef-mix" spec={KNOBS.mix} label="Mix" value={mixPercent}
+                  onChange={(v) => setKnob('mix', v)} />
                 <button
                   type="button"
                   className="ef-toggle"
@@ -555,18 +388,18 @@ export default function EchoformDelayModal({
 
               <section className="ef-card" aria-label="Feedback Tone">
                 <div className="ef-card-head"><h2>Feedback Tone</h2></div>
-                <Knob id="ef-lowCut" spec={KNOBS.lowCut} label="Low-cut" value={draft.lowCut}
-                  onChange={(v) => setKnob('lowCut', v)} onGestureStart={noop} onGestureEnd={noop} />
-                <Knob id="ef-highCut" spec={KNOBS.highCut} label="High-cut" value={draft.highCut}
-                  onChange={(v) => setKnob('highCut', v)} onGestureStart={noop} onGestureEnd={noop} />
+                <FxKnob classPrefix="ef" id="ef-lowCut" spec={KNOBS.lowCut} label="Low-cut" value={draft.lowCut}
+                  onChange={(v) => setKnob('lowCut', v)} />
+                <FxKnob classPrefix="ef" id="ef-highCut" spec={KNOBS.highCut} label="High-cut" value={draft.highCut}
+                  onChange={(v) => setKnob('highCut', v)} />
               </section>
 
               <section className="ef-card" aria-label="Modulation">
                 <div className="ef-card-head"><h2>Modulation</h2></div>
-                <Knob id="ef-modRate" spec={KNOBS.modRate} label="Rate" value={draft.modRate}
-                  onChange={(v) => setKnob('modRate', v)} onGestureStart={noop} onGestureEnd={noop} />
-                <Knob id="ef-modDepth" spec={KNOBS.modDepth} label="Depth" value={draft.modDepth}
-                  onChange={(v) => setKnob('modDepth', v)} onGestureStart={noop} onGestureEnd={noop} />
+                <FxKnob classPrefix="ef" id="ef-modRate" spec={KNOBS.modRate} label="Rate" value={draft.modRate}
+                  onChange={(v) => setKnob('modRate', v)} />
+                <FxKnob classPrefix="ef" id="ef-modDepth" spec={KNOBS.modDepth} label="Depth" value={draft.modDepth}
+                  onChange={(v) => setKnob('modDepth', v)} />
               </section>
 
               <section className="ef-card" aria-label="Character">
@@ -584,22 +417,22 @@ export default function EchoformDelayModal({
                   ))}
                 </div>
                 <p className="ef-character-desc">{CHARACTER_COPY[draft.character]}</p>
-                <Knob id="ef-drive" spec={KNOBS.drive} label="Drive" value={draft.drive}
-                  onChange={(v) => setKnob('drive', v)} onGestureStart={noop} onGestureEnd={noop} />
+                <FxKnob classPrefix="ef" id="ef-drive" spec={KNOBS.drive} label="Drive" value={draft.drive}
+                  onChange={(v) => setKnob('drive', v)} />
               </section>
 
               <section className="ef-card" aria-label="Ducking">
                 <div className="ef-card-head"><h2>Ducking</h2></div>
-                <Knob id="ef-duckAmount" spec={KNOBS.duckAmount} label="Amount" value={draft.duckAmount}
-                  onChange={(v) => setKnob('duckAmount', v)} onGestureStart={noop} onGestureEnd={noop} />
-                <Knob id="ef-duckRelease" spec={KNOBS.duckRelease} label="Release" value={draft.duckRelease}
-                  onChange={(v) => setKnob('duckRelease', v)} onGestureStart={noop} onGestureEnd={noop} />
+                <FxKnob classPrefix="ef" id="ef-duckAmount" spec={KNOBS.duckAmount} label="Amount" value={draft.duckAmount}
+                  onChange={(v) => setKnob('duckAmount', v)} />
+                <FxKnob classPrefix="ef" id="ef-duckRelease" spec={KNOBS.duckRelease} label="Release" value={draft.duckRelease}
+                  onChange={(v) => setKnob('duckRelease', v)} />
               </section>
 
               <section className="ef-card" aria-label="Output">
                 <div className="ef-card-head"><h2>Output</h2></div>
-                <Knob id="ef-outputDb" spec={KNOBS.outputDb} label="Output level" value={draft.outputDb}
-                  onChange={(v) => setKnob('outputDb', v)} onGestureStart={noop} onGestureEnd={noop} />
+                <FxKnob classPrefix="ef" id="ef-outputDb" spec={KNOBS.outputDb} label="Output level" value={draft.outputDb}
+                  onChange={(v) => setKnob('outputDb', v)} />
                 <button
                   type="button"
                   className={`ef-performance${tapFlash ? ' ef-performance-flash' : ''}`}
@@ -621,7 +454,6 @@ export default function EchoformDelayModal({
   )
 }
 
-const noop = (): void => {}
 
 /** Detect whether the current module+mix exactly equals a built-in preset. */
 function detectPreset(module: EchoformDelayModule, mix: number): EchoformDelayPresetName | 'Custom' {

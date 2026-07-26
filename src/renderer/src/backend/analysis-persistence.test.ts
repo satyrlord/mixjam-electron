@@ -6,12 +6,12 @@ import { initSchema } from './schema'
 import {
   applyAnalysisResult,
   applyContextualAnalysisResult,
-  analysisGroupContainsRelpath,
   getCanonicalRootAnalysisSummary,
   listStoredAnalysisEvidence,
   reconcileAnalysisGroups,
   updateSampleAnalysis
 } from './analysis-persistence'
+import { contextKeyContainsRelpath } from './context-key'
 import { querySamples } from './browser-library-persistence'
 import {
   ensureScanRoot,
@@ -143,10 +143,10 @@ describe('analysis persistence', () => {
     }])
     reconcileAnalysisGroups(db, rootId, [])
     expect(getCanonicalRootAnalysisSummary(db, 'analysis-root')).toBeNull()
-    expect(analysisGroupContainsRelpath('@cohort/Drums/kick', 'Drums/kick_01.wav')).toBe(true)
-    expect(analysisGroupContainsRelpath('@cohort/Drums/kick', 'Bass/kick_01.wav')).toBe(false)
-    expect(analysisGroupContainsRelpath('@cohort', 'kick.wav')).toBe(false)
-    expect(analysisGroupContainsRelpath('Drums', 'Drums/Kicks/kick.wav')).toBe(true)
+    expect(contextKeyContainsRelpath('@cohort/Drums/kick', 'Drums/kick_01.wav')).toBe(true)
+    expect(contextKeyContainsRelpath('@cohort/Drums/kick', 'Bass/kick_01.wav')).toBe(false)
+    expect(contextKeyContainsRelpath('@cohort', 'kick.wav')).toBe(false)
+    expect(contextKeyContainsRelpath('Drums', 'Drums/Kicks/kick.wav')).toBe(true)
   })
 
   it('replaces prior automatic values, including newly absent results', () => {

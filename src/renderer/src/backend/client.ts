@@ -96,6 +96,7 @@ export function createBackendAPI(shell: ShellAPI): BackendAPI {
     planMixJam: (sampleFolder, jobId, parameters, expectedFingerprint) =>
       call('planMixJam', sampleFolder.id, jobId, parameters, expectedFingerprint),
     cancelMixJamPlanning: (jobId) => call('cancelMixJamPlanning', jobId),
+    getGeneratorProgress: () => call('getGeneratorProgress'),
     listTags: (rootKey) => call('listTags', rootKey),
     createTag: (name, color, rootKey) => call('createTag', name, color, rootKey),
     renameTag: (id, name) => call('renameTag', id, name),

@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger
 } from './ui/DropdownMenu'
 import { LinearSlider } from './ui/Slider'
+import { AETHERFORM_REVERB_RANGES } from '../engine/return-param-ranges'
+import FxKnob, { fromNormalized, quantize, toNormalized, type FxKnobSpec } from './FxKnob'
 
 /**
  * The Aetherform Reverb editor. Renders the module's real state; every control
@@ -41,17 +43,6 @@ type KnobKey =
   | 'modRateHz' | 'modDepthPercent' | 'shimmerAmountPercent' | 'drivePercent'
   | 'duckAmountPercent' | 'duckReleaseMs' | 'outputDb'
 
-interface KnobSpec {
-  min: number
-  max: number
-  step: number
-  /** Perceptual skew for wide-range (frequency/time) controls. */
-  curve?: 'log'
-  defaultValue: number
-  format: (value: number) => string
-  /** Tint hint: warm = amber accent, cool = teal secondary, shimmer = blend. */
-  tone?: 'warm' | 'cool' | 'shimmer'
-}
 
 const formatMs = (value: number): string =>
   value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${Math.round(value)} ms`
@@ -63,23 +54,23 @@ const formatHz = (value: number): string =>
 const formatRate = (value: number): string => `${value.toFixed(2)} Hz`
 const formatDb = (value: number): string => `${value > 0 ? '+' : ''}${value.toFixed(1)} dB`
 
-const KNOBS: Record<KnobKey, KnobSpec> = {
-  preDelayMs: { min: 0, max: 250, step: 1, defaultValue: 24, format: formatMs },
-  decaySeconds: { min: 0.2, max: 30, step: 0.1, curve: 'log', defaultValue: 2.8, format: formatSeconds, tone: 'warm' },
-  sizePercent: { min: 5, max: 100, step: 1, defaultValue: 68, format: formatPercent, tone: 'cool' },
+const KNOBS: Record<KnobKey, FxKnobSpec> = {
+  preDelayMs: { ...AETHERFORM_REVERB_RANGES.preDelayMs, step: 1, defaultValue: 24, format: formatMs },
+  decaySeconds: { ...AETHERFORM_REVERB_RANGES.decaySeconds, step: 0.1, curve: 'log', defaultValue: 2.8, format: formatSeconds, tone: 'warm' },
+  sizePercent: { ...AETHERFORM_REVERB_RANGES.sizePercent, step: 1, defaultValue: 68, format: formatPercent, tone: 'cool' },
   mix: { min: 0, max: 100, step: 1, defaultValue: 88, format: formatPercent, tone: 'warm' },
-  widthPercent: { min: 0, max: 200, step: 1, defaultValue: 148, format: formatPercent, tone: 'cool' },
-  lowCutHz: { min: 20, max: 2000, step: 1, curve: 'log', defaultValue: 180, format: formatHz },
-  highCutHz: { min: 1000, max: 20000, step: 10, curve: 'log', defaultValue: 8600, format: formatHz, tone: 'cool' },
-  diffusionPercent: { min: 0, max: 100, step: 1, defaultValue: 78, format: formatPercent },
-  densityPercent: { min: 0, max: 100, step: 1, defaultValue: 84, format: formatPercent, tone: 'cool' },
-  modRateHz: { min: 0.05, max: 3, step: 0.01, curve: 'log', defaultValue: 0.32, format: formatRate, tone: 'cool' },
-  modDepthPercent: { min: 0, max: 100, step: 1, defaultValue: 18, format: formatPercent, tone: 'cool' },
-  shimmerAmountPercent: { min: 0, max: 100, step: 1, defaultValue: 24, format: formatPercent, tone: 'shimmer' },
-  drivePercent: { min: 0, max: 100, step: 1, defaultValue: 0, format: formatPercent, tone: 'warm' },
-  duckAmountPercent: { min: 0, max: 100, step: 1, defaultValue: 28, format: formatPercent, tone: 'warm' },
-  duckReleaseMs: { min: 50, max: 2500, step: 10, curve: 'log', defaultValue: 720, format: formatMs },
-  outputDb: { min: -24, max: 12, step: 0.1, defaultValue: -1.5, format: formatDb }
+  widthPercent: { ...AETHERFORM_REVERB_RANGES.widthPercent, step: 1, defaultValue: 148, format: formatPercent, tone: 'cool' },
+  lowCutHz: { ...AETHERFORM_REVERB_RANGES.lowCutHz, step: 1, curve: 'log', defaultValue: 180, format: formatHz },
+  highCutHz: { ...AETHERFORM_REVERB_RANGES.highCutHz, step: 10, curve: 'log', defaultValue: 8600, format: formatHz, tone: 'cool' },
+  diffusionPercent: { ...AETHERFORM_REVERB_RANGES.diffusionPercent, step: 1, defaultValue: 78, format: formatPercent },
+  densityPercent: { ...AETHERFORM_REVERB_RANGES.densityPercent, step: 1, defaultValue: 84, format: formatPercent, tone: 'cool' },
+  modRateHz: { ...AETHERFORM_REVERB_RANGES.modRateHz, step: 0.01, curve: 'log', defaultValue: 0.32, format: formatRate, tone: 'cool' },
+  modDepthPercent: { ...AETHERFORM_REVERB_RANGES.modDepthPercent, step: 1, defaultValue: 18, format: formatPercent, tone: 'cool' },
+  shimmerAmountPercent: { ...AETHERFORM_REVERB_RANGES.shimmerAmountPercent, step: 1, defaultValue: 24, format: formatPercent, tone: 'shimmer' },
+  drivePercent: { ...AETHERFORM_REVERB_RANGES.drivePercent, step: 1, defaultValue: 0, format: formatPercent, tone: 'warm' },
+  duckAmountPercent: { ...AETHERFORM_REVERB_RANGES.duckAmountPercent, step: 1, defaultValue: 28, format: formatPercent, tone: 'warm' },
+  duckReleaseMs: { ...AETHERFORM_REVERB_RANGES.duckReleaseMs, step: 10, curve: 'log', defaultValue: 720, format: formatMs },
+  outputDb: { ...AETHERFORM_REVERB_RANGES.outputDb, step: 0.1, defaultValue: -1.5, format: formatDb }
 }
 
 const CHARACTER_COPY: Record<AetherformCharacter, string> = {
@@ -111,161 +102,6 @@ const PRESET_MIX: Record<AetherformReverbPresetName, number> = {
   'Ambient Bloom': 96,
   'Shimmer Cloud': 98,
   'Endless Cathedral': 100
-}
-
-// ---------------------------------------------------------------------------
-// Value <-> normalized mapping (linear or perceptual-log)
-// ---------------------------------------------------------------------------
-
-function toNormalized(spec: KnobSpec, value: number): number {
-  const v = clamp(value, spec.min, spec.max)
-  if (spec.curve === 'log') {
-    const lo = Math.log(Math.max(1e-4, spec.min))
-    const hi = Math.log(spec.max)
-    return (Math.log(Math.max(1e-4, v)) - lo) / (hi - lo)
-  }
-  return (v - spec.min) / (spec.max - spec.min)
-}
-
-function quantize(spec: KnobSpec, value: number, step = spec.step): number {
-  const stepped = Math.round((value - spec.min) / step) * step + spec.min
-  const decimals = step < 1 ? (String(step).split('.')[1]?.length ?? 0) : 0
-  return clamp(Number(stepped.toFixed(decimals + 2)), spec.min, spec.max)
-}
-
-function fromNormalized(spec: KnobSpec, normalized: number, step = spec.step): number {
-  const n = clamp(normalized, 0, 1)
-  const value = spec.curve === 'log'
-    ? Math.exp(Math.log(Math.max(1e-4, spec.min)) + n * (Math.log(spec.max) - Math.log(Math.max(1e-4, spec.min))))
-    : spec.min + n * (spec.max - spec.min)
-  return quantize(spec, value, step)
-}
-
-// ---------------------------------------------------------------------------
-// Knob control (role="slider", full keyboard, pointer, double-click reset)
-// ---------------------------------------------------------------------------
-
-interface KnobProps {
-  id: string
-  spec: KnobSpec
-  label: string
-  value: number
-  onChange: (value: number) => void
-}
-
-/* This knob is deliberately not the shared RotaryControl: five of these specs
-   are logarithmic (decay, both filter cutoffs, mod rate, duck release) and the
-   shared primitive quantizes linearly against raw min/max with no curve
-   support. The interaction contract matches the Echoform editor knob exactly,
-   wheel included, so identical gestures behave identically across FX. */
-function Knob({ id, spec, label, value, onChange }: KnobProps) {
-  const dragRef = useRef<{ startY: number; startX: number; startNorm: number } | null>(null)
-  const knobRef = useRef<HTMLDivElement | null>(null)
-  const normalized = toNormalized(spec, value)
-  const angle = -135 + normalized * 270
-  const fillDeg = normalized * 270
-
-  const commit = (next: number, step = spec.step) =>
-    onChange(clamp(quantize(spec, next, step), spec.min, spec.max))
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.currentTarget.focus()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    dragRef.current = { startY: event.clientY, startX: event.clientX, startNorm: normalized }
-  }
-
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return
-    const vertical = dragRef.current.startY - event.clientY
-    const horizontal = event.clientX - dragRef.current.startX
-    const movement = vertical + horizontal * 0.55
-    const fineStep = event.shiftKey ? spec.step / 10 : spec.step
-    const sensitivity = event.shiftKey ? 0.0012 : 0.006
-    commit(fromNormalized(spec, dragRef.current.startNorm + movement * sensitivity, fineStep), fineStep)
-  }
-
-  const endDrag = (event: PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return
-    dragRef.current = null
-    try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { /* ignore */ }
-  }
-
-  // Registered manually rather than via onWheel: React's wheel listener is
-  // passive, so it cannot preventDefault and the scroll would leak to the
-  // dialog body. Same approach as the Echoform editor knob.
-  useEffect(() => {
-    const knob = knobRef.current
-    if (!knob) return
-    const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY === 0) return
-      event.preventDefault()
-      const fineStep = event.shiftKey ? spec.step / 10 : spec.step
-      const sensitivity = event.shiftKey ? 0.01 : 0.04
-      const direction = event.deltaY < 0 ? 1 : -1
-      onChange(
-        clamp(
-          quantize(spec, fromNormalized(spec, normalized + direction * sensitivity, fineStep), fineStep),
-          spec.min,
-          spec.max
-        )
-      )
-    }
-    knob.addEventListener('wheel', handleWheel, { passive: false })
-    return () => knob.removeEventListener('wheel', handleWheel)
-  }, [spec, normalized, onChange])
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const fineStep = event.shiftKey ? spec.step / 10 : spec.step
-    let next: number | null = null
-    if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + fineStep
-    else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - fineStep
-    else if (event.key === 'PageUp') next = value + fineStep * 10
-    else if (event.key === 'PageDown') next = value - fineStep * 10
-    else if (event.key === 'Home') next = spec.min
-    else if (event.key === 'End') next = spec.max
-    if (next === null) return
-    event.preventDefault()
-    commit(next, fineStep)
-  }
-
-  const toneClass = spec.tone === 'warm'
-    ? ' af-knob-warm'
-    : spec.tone === 'cool'
-      ? ' af-knob-cool'
-      : spec.tone === 'shimmer'
-        ? ' af-knob-shimmer'
-        : ''
-
-  return (
-    <div className="af-knob-control">
-      <div
-        id={id}
-        ref={knobRef}
-        className={`af-knob${toneClass}`}
-        role="slider"
-        tabIndex={0}
-        aria-label={label}
-        aria-valuemin={spec.min}
-        aria-valuemax={spec.max}
-        aria-valuenow={value}
-        aria-valuetext={spec.format(value)}
-        aria-orientation="vertical"
-        style={{ '--knob-angle': `${angle}deg`, '--knob-fill': `${fillDeg}deg` } as React.CSSProperties}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onDoubleClick={() => commit(spec.defaultValue)}
-        onKeyDown={handleKeyDown}
-      >
-        <span className="af-knob-pointer" aria-hidden="true" />
-      </div>
-      <span className="af-knob-label" aria-hidden="true">{label}</span>
-      <output className="af-knob-value">{spec.format(value)}</output>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -471,11 +307,11 @@ export default function AetherformReverbModal({
                   </label>
                 </div>
                 <div className="af-knob-row af-knob-row-3">
-                  <Knob id="af-preDelayMs" spec={KNOBS.preDelayMs} label="Pre-delay"
+                  <FxKnob classPrefix="af" id="af-preDelayMs" spec={KNOBS.preDelayMs} label="Pre-delay"
                     value={knobValue('preDelayMs')} onChange={(v) => setKnob('preDelayMs', v)} />
-                  <Knob id="af-decaySeconds" spec={KNOBS.decaySeconds} label="Decay"
+                  <FxKnob classPrefix="af" id="af-decaySeconds" spec={KNOBS.decaySeconds} label="Decay"
                     value={knobValue('decaySeconds')} onChange={(v) => setKnob('decaySeconds', v)} />
-                  <Knob id="af-sizePercent" spec={KNOBS.sizePercent} label="Size"
+                  <FxKnob classPrefix="af" id="af-sizePercent" spec={KNOBS.sizePercent} label="Size"
                     value={knobValue('sizePercent')} onChange={(v) => setKnob('sizePercent', v)} />
                 </div>
                 <div className="af-space-foot">
@@ -498,9 +334,9 @@ export default function AetherformReverbModal({
               <section className="af-card" aria-label="Image">
                 <div className="af-card-head"><h2>Image</h2></div>
                 <div className="af-knob-row">
-                  <Knob id="af-mix" spec={KNOBS.mix} label="Mix"
+                  <FxKnob classPrefix="af" id="af-mix" spec={KNOBS.mix} label="Mix"
                     value={knobValue('mix')} onChange={(v) => setKnob('mix', v)} />
-                  <Knob id="af-widthPercent" spec={KNOBS.widthPercent} label="Width"
+                  <FxKnob classPrefix="af" id="af-widthPercent" spec={KNOBS.widthPercent} label="Width"
                     value={knobValue('widthPercent')} onChange={(v) => setKnob('widthPercent', v)} />
                 </div>
                 <div className="af-range-field">
@@ -522,11 +358,11 @@ export default function AetherformReverbModal({
               <section className="af-card" aria-label="Tone">
                 <div className="af-card-head"><h2>Tone</h2></div>
                 <div className="af-knob-row af-knob-row-3">
-                  <Knob id="af-lowCutHz" spec={KNOBS.lowCutHz} label="Low-cut"
+                  <FxKnob classPrefix="af" id="af-lowCutHz" spec={KNOBS.lowCutHz} label="Low-cut"
                     value={knobValue('lowCutHz')} onChange={(v) => setKnob('lowCutHz', v)} />
-                  <Knob id="af-highCutHz" spec={KNOBS.highCutHz} label="High-cut"
+                  <FxKnob classPrefix="af" id="af-highCutHz" spec={KNOBS.highCutHz} label="High-cut"
                     value={knobValue('highCutHz')} onChange={(v) => setKnob('highCutHz', v)} />
-                  <Knob id="af-drivePercent" spec={KNOBS.drivePercent} label="Drive"
+                  <FxKnob classPrefix="af" id="af-drivePercent" spec={KNOBS.drivePercent} label="Drive"
                     value={knobValue('drivePercent')} onChange={(v) => setKnob('drivePercent', v)} />
                 </div>
                 <p className="af-card-note">Drive saturates the input; damping accumulates through the tail</p>
@@ -535,9 +371,9 @@ export default function AetherformReverbModal({
               <section className="af-card" aria-label="Texture">
                 <div className="af-card-head"><h2>Texture</h2></div>
                 <div className="af-knob-row">
-                  <Knob id="af-diffusionPercent" spec={KNOBS.diffusionPercent} label="Diffusion"
+                  <FxKnob classPrefix="af" id="af-diffusionPercent" spec={KNOBS.diffusionPercent} label="Diffusion"
                     value={knobValue('diffusionPercent')} onChange={(v) => setKnob('diffusionPercent', v)} />
-                  <Knob id="af-densityPercent" spec={KNOBS.densityPercent} label="Density"
+                  <FxKnob classPrefix="af" id="af-densityPercent" spec={KNOBS.densityPercent} label="Density"
                     value={knobValue('densityPercent')} onChange={(v) => setKnob('densityPercent', v)} />
                 </div>
                 <button
@@ -551,11 +387,11 @@ export default function AetherformReverbModal({
               <section className="af-card af-card-motion" aria-label="Motion">
                 <div className="af-card-head"><h2>Motion</h2></div>
                 <div className="af-knob-row af-knob-row-3 af-motion-knobs">
-                  <Knob id="af-modRateHz" spec={KNOBS.modRateHz} label="Rate"
+                  <FxKnob classPrefix="af" id="af-modRateHz" spec={KNOBS.modRateHz} label="Rate"
                     value={knobValue('modRateHz')} onChange={(v) => setKnob('modRateHz', v)} />
-                  <Knob id="af-modDepthPercent" spec={KNOBS.modDepthPercent} label="Depth"
+                  <FxKnob classPrefix="af" id="af-modDepthPercent" spec={KNOBS.modDepthPercent} label="Depth"
                     value={knobValue('modDepthPercent')} onChange={(v) => setKnob('modDepthPercent', v)} />
-                  <Knob id="af-shimmerAmountPercent" spec={KNOBS.shimmerAmountPercent} label="Shimmer"
+                  <FxKnob classPrefix="af" id="af-shimmerAmountPercent" spec={KNOBS.shimmerAmountPercent} label="Shimmer"
                     value={knobValue('shimmerAmountPercent')} onChange={(v) => setKnob('shimmerAmountPercent', v)} />
                 </div>
                 <div className="af-shimmer-foot">
@@ -589,9 +425,9 @@ export default function AetherformReverbModal({
               <section className="af-card" aria-label="Ducking">
                 <div className="af-card-head"><h2>Ducking</h2></div>
                 <div className="af-knob-row">
-                  <Knob id="af-duckAmountPercent" spec={KNOBS.duckAmountPercent} label="Amount"
+                  <FxKnob classPrefix="af" id="af-duckAmountPercent" spec={KNOBS.duckAmountPercent} label="Amount"
                     value={knobValue('duckAmountPercent')} onChange={(v) => setKnob('duckAmountPercent', v)} />
-                  <Knob id="af-duckReleaseMs" spec={KNOBS.duckReleaseMs} label="Release"
+                  <FxKnob classPrefix="af" id="af-duckReleaseMs" spec={KNOBS.duckReleaseMs} label="Release"
                     value={knobValue('duckReleaseMs')} onChange={(v) => setKnob('duckReleaseMs', v)} />
                 </div>
               </section>
@@ -599,7 +435,7 @@ export default function AetherformReverbModal({
               <section className="af-card" aria-label="Output">
                 <div className="af-card-head"><h2>Output</h2></div>
                 <div className="af-output-layout">
-                  <Knob id="af-outputDb" spec={KNOBS.outputDb} label="Level"
+                  <FxKnob classPrefix="af" id="af-outputDb" spec={KNOBS.outputDb} label="Level"
                     value={knobValue('outputDb')} onChange={(v) => setKnob('outputDb', v)} />
                   <div className="af-performance-stack">
                     <button

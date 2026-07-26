@@ -55,6 +55,10 @@ npm run build     # production build via electron-vite
 npm run preview   # preview the production build
 ```
 
+The semantic version in `package.json` is the single version authority for npm,
+the Electron runtime, packaged metadata, and the footer. Keep the lockfile
+root version in sync when changing it.
+
 ## Testing
 
 ```sh
@@ -84,6 +88,29 @@ area and exercise real maximize and unmaximize transitions.
 
 The SQL-layer and indexer suites run against sqlite-wasm with an in-memory
 database in a plain Node vitest project; everything else runs under jsdom.
+
+### Where a test belongs
+
+Four locations, one rule each. A test in the wrong place is hard to find and
+usually duplicates coverage that already exists somewhere else.
+
+| Location | Owns | Rule |
+| --- | --- | --- |
+| `foo.test.ts` beside `foo.ts` | One module's behavior through its own interface | **Default.** A test file is named after the module it tests, so the subject is findable from the filename. |
+| `src/renderer/src/specs/` | Numbered acceptance tests carrying `AC-###` ids from `docs/specs/` | Only for behavior that **no single module owns** — a contract spanning several modules. Re-driving one module through `<App/>` belongs in that module's own test. |
+| `src/renderer/src/architecture/` | Conformance checks that read source text rather than run it | For boundaries a type cannot express (e.g. "the engine imports no DOM"). These are lint rules; they assert on files, not behavior. |
+| `tests/e2e/`, `tests/electron/` | Playwright against the built `app://bundle` renderer | For anything that needs the real Chromium/Electron surface. |
+
+Shared helpers live in `src/renderer/src/test/`:
+
+- `render.tsx` — render with the app's context providers. Use this, not
+  `@testing-library/react` directly, for anything rendering project components:
+  a bare sub-tree render disagrees with how the app actually mounts it.
+- `projectFixtures.ts` — lanes, placements, and channel snapshots. Never
+  hand-write `sends: [0, 0, 0, 0]`; the four-Sends invariant belongs to the
+  factory, not to every test that needs a lane.
+- `backendApi.ts` — the typed `BackendAPI` facade, installed globally.
+- `mockAudioContext.ts` — the Web Audio stand-in for jsdom.
 
 ### Test setup details
 

@@ -4,7 +4,9 @@ import type {
   LibrarySyncStartResult,
   LibrarySyncTrigger,
   MixJamGeneratorParameters,
+  MixJamGeneratorPlan,
   MixJamGeneratorProgress,
+  MixJamGeneratorReadiness,
   SampleAnalysisDone,
   SampleAnalysisJobIdentity,
   ScanProgress
@@ -28,10 +30,37 @@ import { runScan } from './indexer'
 import type { WorkerMessage } from './protocol'
 import type { DB } from './sql'
 
+/**
+ * The one owner of backend job policy: admission, queueing, replacement,
+ * cancellation, identity, and progress for library sync, single-sample
+ * analysis, and generator planning.
+ *
+ * Named as an interface so it can be depended on and tested directly. It takes
+ * exactly two collaborators — a `DB` and an event sink — so a test constructs
+ * one with a stub database and an array-collecting `emitEvent` rather than
+ * driving it through the worker's message protocol.
+ */
+export interface BackendJobCoordinator {
+  getGeneratorReadiness(rootKey: string): MixJamGeneratorReadiness
+  planMixJam(
+    rootKey: string,
+    jobId: string,
+    parameters: MixJamGeneratorParameters,
+    expectedFingerprint?: string
+  ): Promise<MixJamGeneratorPlan>
+  cancelMixJamPlanning(jobId: string): void
+  getGeneratorProgress(): MixJamGeneratorProgress
+  startLibrarySync(rootKey: string, trigger: LibrarySyncTrigger): LibrarySyncStartResult
+  cancelLibrarySync(jobId: string): void
+  getScanProgress(): ScanProgress
+  getAnalysisProgress(): AnalysisProgress
+  reanalyzeSample(rootKey: string, sampleId: number, relpath: string): Promise<SampleAnalysisDone>
+}
+
 export function createBackendJobCoordinator(
   db: DB,
   emitEvent: (message: WorkerMessage) => void
-) {
+): BackendJobCoordinator {
   const IDLE: ScanProgress = { identity: null, status: 'idle' }
   const ANALYSIS_IDLE: AnalysisProgress = { identity: null, status: 'idle' }
   const GENERATOR_IDLE: MixJamGeneratorProgress = {
@@ -70,7 +99,32 @@ export function createBackendJobCoordinator(
   const completedAutomaticJobs = new Map<string, LibraryJobIdentity>()
   const automaticAttemptJobIds = new Set<string>()
   const queuedSyncs = new Map<string, LibraryJobIdentity>()
-  
+
+  // Job exclusion, stated once. The three job families share one DB connection
+  // and one folder handle, so at most one may run. The resolution is not
+  // symmetric and the asymmetry is deliberate:
+  //
+  //   - Library sync is the highest priority: it CANCELS a running generator,
+  //     because the corpus the generator is planning against is changing under
+  //     it (see `startLibrarySync`).
+  //   - The generator REFUSES to start under any other job, rather than
+  //     queueing, because its result is only meaningful against a settled
+  //     corpus.
+  //   - Single-sample analysis REFUSES to start under a generator, so a
+  //     re-analysis cannot mutate rows mid-plan.
+  //
+  /** True while any job holds the connection; the generator refuses to start. */
+  function libraryWorkIsActive(): boolean {
+    return activeSync !== null || activeSingleAnalysis !== null || activeGenerator !== null
+  }
+
+  /** True while a job owns `rootKey`, so stored readiness would be stale. */
+  function rootIsBusy(rootKey: string): boolean {
+    return activeSync?.identity.rootKey === rootKey ||
+      activeSingleAnalysis?.identity.rootKey === rootKey ||
+      activeGenerator?.identity.rootKey === rootKey
+  }
+
   function cancelActiveGenerator(): void {
     if (!activeGenerator) return
     const { identity } = activeGenerator
@@ -360,7 +414,7 @@ export function createBackendJobCoordinator(
 
   return {
     getGeneratorReadiness(rootKey: string) {
-      if (activeSync?.identity.rootKey === rootKey || activeSingleAnalysis?.identity.rootKey === rootKey || activeGenerator?.identity.rootKey === rootKey) {
+      if (rootIsBusy(rootKey)) {
         return { status: 'preparing' as const, message: 'Library preparation is still running.' }
       }
       return getStoredGeneratorReadiness(db, rootKey)
@@ -368,7 +422,7 @@ export function createBackendJobCoordinator(
     async planMixJam(rootKey: string, jobId: string, parameters: MixJamGeneratorParameters, expectedFingerprint?: string) {
       if (!SAFE_GENERATOR_TOKEN.test(jobId)) throw new Error('The generator job ID is invalid.')
       validateMixJamGeneratorParameters(parameters)
-      if (activeSync || activeSingleAnalysis || activeGenerator) {
+      if (libraryWorkIsActive()) {
         throw new Error('Wait for library preparation to finish before generating.')
       }
       const generation = ++generatorGeneration

@@ -393,6 +393,38 @@ The built-in preset set and its atomic `applyPreset(module, name)` are **not**
 descriptor fields: they belong to the effect's own modal (an effect internal),
 so only that editor names its presets. The host never applies a preset.
 
+### Parameter ranges have one owner
+
+Every continuous numeric parameter declares its `{ min, max }` exactly once, in
+`src/renderer/src/engine/return-param-ranges.ts`. Both consumers derive from
+that table:
+
+- `validate` builds its numeric bounds with `numericFieldsWithinRanges`, so a
+  load-time guard cannot disagree with the declared range.
+- The editor's knob spec spreads the same entry for its `min`/`max`, keeping
+  `step`, `curve`, `defaultValue`, and `format` — which are presentation, not
+  contract — local to the editor.
+
+A range stated in two places can drift apart, and the failure is silent in the
+worst direction: a knob widened past the validator lets the user build a
+project that saves but will not load. Enumerated numeric fields (for example
+`shimmerIntervalSemitones`) are not ranges and keep their own predicate.
+
+Adding a numeric parameter therefore means adding one range entry, not
+restating bounds per layer. `return-param-ranges.test.ts` asserts each table
+covers exactly the effect's continuous numeric fields, so a parameter added
+without a range fails rather than losing its bound.
+
+### The editor knob is shared
+
+Both editors render `FxKnob` (`src/renderer/src/components/FxKnob.tsx`). It
+owns the whole interaction contract — log/linear mapping, drag weighting, wheel
+handling, Shift for fine steps, the keyboard bindings, and double-click to
+default — so identical gestures behave identically across FX. Each editor
+passes its own `classPrefix` (`ef`, `af`), so the two skins stay independent
+while the behavior does not. Copying the control per effect is what allowed
+them to drift previously.
+
 The host derives every effect-agnostic operation from the registry:
 
 - The processor factory looks up `createProcessor` by `module.type`; an

@@ -4,14 +4,14 @@ import {
   MIXJAM_GENERATOR_PROFILE_IDS,
   MIXJAM_GENERATOR_PROFILE_LABELS,
   MIXJAM_GENERATOR_PROFILE_VERSIONS
-} from '../../../shared/generator-templates'
-import templateSchema from '../../../shared/generator-templates/schema.json'
+} from './generator-templates'
+import templateSchema from './generator-templates/schema.json'
 import {
   GENERATOR_PROFILES,
   MAX_TEMPLATE_PAN,
   createGeneratorProfileRegistry,
   parseGeneratorTemplate
-} from '../../../shared/generator-templates'
+} from './generator-templates'
 
 interface MutableLane {
   types: unknown[]

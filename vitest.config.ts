@@ -4,17 +4,17 @@ import react from '@vitejs/plugin-react'
 // DB-backed backend suites run under plain Node (sqlite-wasm loads
 // fine there with an in-memory database); everything else runs under jsdom.
 const NODE_BACKEND_TESTS = [
-  'src/renderer/src/backend/library.test.ts',
+  'src/renderer/src/backend/browser-library-persistence.test.ts',
   'src/renderer/src/backend/indexer.test.ts',
   'src/renderer/src/backend/analysis.test.ts',
   'src/renderer/src/backend/analysis-runner.test.ts',
-  'src/renderer/src/backend/analysis-library.test.ts',
+  'src/renderer/src/backend/analysis-persistence.test.ts',
+  'src/renderer/src/backend/analysis-provenance.test.ts',
   'src/renderer/src/backend/contextual-analysis.test.ts',
   'src/renderer/src/backend/generator-engine.test.ts',
   'src/renderer/src/backend/generator-engine-context.test.ts',
   'src/renderer/src/backend/generator-library.test.ts',
   'src/renderer/src/backend/schema.test.ts',
-  'scripts/app-version.test.ts',
   'scripts/generate-mixjam.test.ts'
 ]
 

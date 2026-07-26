@@ -1,3 +1,9 @@
+import { TONAL_SAMPLE_TYPES } from './analysis'
+import {
+  cohortContextKeyForRelpath,
+  PACK_TOKEN_PATTERN,
+  parseCohortContextKey
+} from './context-key'
 import { canonicalMusicalKey } from './musical-key'
 import type {
   AnalysisGroupState,
@@ -54,8 +60,12 @@ function directoryPrefixes(relpath: string): string[] {
 // `NAME_<bpm>_<key>_<pack>` — the pack convention this corpus is authored in.
 // The key slot is a bare letter, an explicit minor, or the literal `X` for
 // unkeyed material, which is why a key-only pattern misses two thirds of the
-// library.
-const STRUCTURED_LABEL = /(?:^|_)([6-9][0-9]|1[0-9]{2}|200)_([a-g](?:#|b)?m?|x)_(?:sc|sl)[0-9]+(?=$|[_.(])/i
+// library. The pack slot reuses the shared token grammar so this label and the
+// cohort key can never disagree about what a pack token looks like.
+const STRUCTURED_LABEL = new RegExp(
+  `(?:^|_)([6-9][0-9]|1[0-9]{2}|200)_([a-g](?:#|b)?m?|x)_${PACK_TOKEN_PATTERN}(?=$|[_.(])`,
+  'i'
+)
 
 /**
  * The sample's **pool token** — the `(bpm, keyToken)` pair stated by the
@@ -99,13 +109,6 @@ function labeledKey(value: string): string | null {
   return key
 }
 
-function cohortGroupPrefix(relpath: string): string | null {
-  const segments = relpath.split('/').filter(Boolean)
-  const token = /(?:^|_)((?:sc|sl)[0-9]+)(?=$|[_.(])/i.exec(segments.at(-1) ?? '')?.[1]
-  if (!token) return null
-  const topLevel = segments.length > 1 ? segments[0]! : ''
-  return `@cohort/${topLevel}/${token.toUpperCase()}`
-}
 
 function cohortKey(relpath: string): string {
   const slash = relpath.lastIndexOf('/')
@@ -143,13 +146,11 @@ function collapseCohorts(items: readonly StoredAnalysisEvidence[]): StoredAnalys
 
 function isTempoAnchor(item: StoredAnalysisEvidence): boolean {
   if (item.durationSeconds < 1.5) return false
-  return item.sampleType !== null &&
-    ['Bass', 'Synth', 'Loop', 'Vocal', 'Atmosphere'].includes(item.sampleType)
+  return isKeyAnchor(item)
 }
 
 function isKeyAnchor(item: StoredAnalysisEvidence): boolean {
-  return item.sampleType !== null &&
-    ['Bass', 'Synth', 'Loop', 'Vocal', 'Atmosphere'].includes(item.sampleType)
+  return item.sampleType !== null && TONAL_SAMPLE_TYPES.has(item.sampleType)
 }
 
 function dominantValue<T>(values: readonly T[]): {
@@ -318,9 +319,9 @@ function inferGroup(relpathPrefix: string, items: readonly StoredAnalysisEvidenc
 
 function parentGroupKeys(relpathPrefix: string): string[] {
   if (relpathPrefix === '') return []
-  if (relpathPrefix.startsWith('@cohort/')) {
-    const topLevel = relpathPrefix.split('/')[1] ?? ''
-    return topLevel === '' ? [''] : [topLevel, '']
+  const cohort = parseCohortContextKey(relpathPrefix)
+  if (cohort) {
+    return cohort.topLevel === '' ? [''] : [cohort.topLevel, '']
   }
   const segments = relpathPrefix.split('/')
   const parents: string[] = []
@@ -381,7 +382,7 @@ export function resolveContextualAnalysis(
   const grouped = new Map<string, StoredAnalysisEvidence[]>()
   for (const item of items) {
     const prefixes = directoryPrefixes(item.relpath)
-    const cohort = cohortGroupPrefix(item.relpath)
+    const cohort = cohortContextKeyForRelpath(item.relpath)
     if (cohort) prefixes.push(cohort)
     for (const prefix of prefixes) {
       const group = grouped.get(prefix)
@@ -402,7 +403,7 @@ export function resolveContextualAnalysis(
     let bpm = explicit.bpm ?? item.bpm
     let musicalKey = explicit.musicalKey ?? item.musicalKey
     const directories = directoryPrefixes(item.relpath).reverse()
-    const cohort = cohortGroupPrefix(item.relpath)
+    const cohort = cohortContextKeyForRelpath(item.relpath)
     const prefixes = cohort === null ? directories : [cohort, ...directories]
     if (explicit.bpm === null) {
       for (const prefix of prefixes) {

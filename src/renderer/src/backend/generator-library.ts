@@ -7,10 +7,12 @@ import type {
 import { sourceGroupFromRelpath, sourceGroupSlot } from '../../../shared/sample-palette'
 import { isSampleType } from './analysis'
 import {
-  analysisGroupContainsRelpath,
   getCanonicalRootAnalysisSummary,
   type CanonicalRootAnalysisSummary
 } from './analysis-persistence'
+import { analysisOwnsAnyFieldSql } from './analysis-provenance'
+import { contextKeyContainsRelpath } from './context-key'
+import { SCAN_STATE, SCAN_STATE_PRESENT_SQL, SCAN_STATE_READY_SQL } from './scan-state'
 import { labeledPoolToken } from './contextual-analysis'
 import { compareCodeUnits } from './generator-planning-core'
 import { ANALYSIS_REVISION, METADATA_REVISION } from './schema'
@@ -54,14 +56,11 @@ function pendingWorkCount(db: DB, rootId: number): number {
   return db.prepare(
     `SELECT COUNT(*) AS count
      FROM samples
-     WHERE root_id = ? AND scan_state != 2 AND (
-       scan_state = 0 OR
+     WHERE root_id = ? AND ${SCAN_STATE_PRESENT_SQL} AND (
+       scan_state = ${SCAN_STATE.STUB} OR
        metadata_revision < ? OR
-       (scan_state = 1 AND analysis_revision < ? AND (
-         COALESCE(bpm_source, '') != 'manual' OR
-         COALESCE(musical_key_source, '') != 'manual' OR
-         COALESCE(sample_type_source, '') != 'manual'
-       ))
+       (${SCAN_STATE_READY_SQL} AND analysis_revision < ?
+         AND (${analysisOwnsAnyFieldSql()}))
      )`
   ).get<{ count: number }>(rootId, METADATA_REVISION, ANALYSIS_REVISION)!.count
 }
@@ -108,7 +107,7 @@ function listGeneratorCandidates(db: DB, rootId: number): GeneratorCandidate[] {
             samples.metadata_revision, samples.analysis_revision
      FROM samples
      WHERE root_id = ?
-       AND scan_state = 1
+       AND ${SCAN_STATE_READY_SQL}
        AND metadata_revision = ?
        AND duration > 0
        AND sample_type IS NOT NULL
@@ -197,7 +196,7 @@ export function selectGeneratorAnalysisGroup(
 
   const candidates = cluster
     ? snapshot.candidates.filter((candidate) =>
-        analysisGroupContainsRelpath(cluster.relpathPrefix, candidate.relpath))
+        contextKeyContainsRelpath(cluster.relpathPrefix, candidate.relpath))
     : snapshot.candidates
   if (candidates.length === 0) throw new Error('The selected analyzer group has no generator-ready samples.')
 
