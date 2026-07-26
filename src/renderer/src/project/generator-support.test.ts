@@ -4,11 +4,12 @@ import {
   persistedGeneratorParameters,
   supportsExactGeneratorRegeneration
 } from './generator-support'
+import { MIXJAM_GENERATOR_PROFILE_VERSIONS } from '../../../shared/generator-templates'
 
 const METADATA: ProjectGeneratorMetadata = {
   generatorVersion: 3,
   profileId: 'techno',
-  profileVersion: 5,
+  profileVersion: MIXJAM_GENERATOR_PROFILE_VERSIONS.techno,
   seed: 'stable-seed',
   parameters: {
     bpmMode: 'fixed',

@@ -275,9 +275,21 @@ export interface MixJamGeneratorLanePlan {
   name: string
   gain: number
   pan: number
+  /** Shared only by the two lanes created from validated stereo-side evidence. */
+  stereoPairId?: string | null
   muted: boolean
   solo: boolean
+  /** Send level into each configured return bus, in `returns` order. */
+  sends: number[]
   placements: MixJamGeneratorPlacementPlan[]
+}
+
+/** A return bus the profile configures, by built-in preset name. */
+export interface MixJamGeneratorReturnPlan {
+  index: number
+  module: 'aetherform-reverb' | 'echoform-delay'
+  preset: string
+  returnLevel: number
 }
 
 export interface MixJamGeneratorSectionPlan {
@@ -292,7 +304,6 @@ export interface MixJamGeneratorPhrasePlan {
   startBar: number
   endBar: number
   activeLanes: number[]
-  motif: 'A' | 'B' | 'rest' | 'transition'
 }
 
 export interface MixJamGeneratorSelectionPlan {
@@ -306,6 +317,8 @@ export interface MixJamGeneratorPlan {
   generatorVersion: 3
   profileId: MixJamGeneratorProfileId
   profileVersion: number
+  /** Name of the seeded section arc this plan was built from. */
+  arcName: string
   seed: string
   parameters: {
     bpmMode: MixJamGeneratorBpmMode
@@ -320,6 +333,12 @@ export interface MixJamGeneratorPlan {
   targetTicks: number
   quantizedDurationSeconds: number
   dominantKey: string | null
+  /**
+   * The pool token every stretched pitched placement was drawn from, e.g.
+   * `140/A`. Null when the corpus carries no filename labels, in which case
+   * pitch coherence falls back to the analyzer's key alone.
+   */
+  poolToken: string | null
   analysis: {
     attemptedFiles: number
     analyzedFiles: number
@@ -329,6 +348,7 @@ export interface MixJamGeneratorPlan {
   substitutions: Array<{ laneIndex: number; requestedType: SampleType; selectedType: SampleType }>
   sections: MixJamGeneratorSectionPlan[]
   phrases: MixJamGeneratorPhrasePlan[]
+  returns: MixJamGeneratorReturnPlan[]
   lanes: MixJamGeneratorLanePlan[]
 }
 

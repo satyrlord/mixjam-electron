@@ -26,8 +26,12 @@
 - [MixJam Browser](#mixjam-browser)
 - [MixJam Generator](#mixjam-generator)
 - [Musical span](#musical-span)
+- [Natural-rate placement](#natural-rate-placement)
 - [Native BPM](#native-bpm)
+- [Occupancy envelope](#occupancy-envelope)
 - [Player](#player)
+- [Pool token](#pool-token)
+- [Profile](#profile)
 - [Project](#project)
 - [Project BPM](#project-bpm)
 - [Read-only import](#read-only-import)
@@ -237,8 +241,40 @@ saved, ready-to-play [project](#project) using a selected profile, BPM,
 intensity, duration, seed, and, for a mixed root, an
 [analysis cluster](#analysis-cluster). Its output is an ordinary `.mixjam` project with
 optional generator metadata for exact or current-corpus regeneration. The
-generator does not infer genre and is distinct from the repository's developer
-test-song generator described by [spec 011](specs/spec-011-project-save-load.md).
+generator does not infer genre. [Spec 018](specs/spec-018-mixjam-generator.md)
+owns its product contract; [spec 021](specs/spec-021-arrangement-model.md) owns
+what the arrangement sounds like.
+
+## Natural-rate placement
+
+A [clip placement](#clip-placement) with no [native BPM](#native-bpm), played at
+its true pitch instead of being resampled to the [project BPM](#project-bpm). It
+is exempt from [pool token](#pool-token) coherence, because nothing about it is
+being stretched. Its tick span is recomputed when the project tempo changes.
+
+## Occupancy envelope
+
+The machine-checkable shape of a generated arrangement — populated lanes, lane
+occupancy, entries per lane, density curve, sends, returns, and pan — measured
+against the hand-authored reference library. It is a *report*, never a throw:
+the generator hard-fails only on structural invariants. See
+[spec 021](specs/spec-021-arrangement-model.md).
+
+## Pool token
+
+The `(bpm, keyToken)` pair a sample's filename label states, for example `140/A`
+or `125/X`. It is a pitch-coherence identity, not a musical key — a bare letter
+does not state a mode, so it never becomes a `musicalKey`. All material a
+project resamples to its tempo must share one pool token. See
+[spec 008](specs/spec-008-sample-analysis.md).
+
+## Profile
+
+A generator's musical style contract: its lane roles, section arcs, boundary
+ops, mix values, and return recipe. A **bundled template** is the JSON document
+that declares one profile, and `profileId`/`profileVersion` identify it in saved
+[project](#project) metadata. See
+[spec 018](specs/spec-018-mixjam-generator.md).
 
 ## Musical span
 
@@ -437,8 +473,11 @@ placed geometry or scheduled duration by itself.
 Analyzer-owned proof that two mono [samples](#sample) form complementary left
 and right files. It requires an explicit terminal side token plus a matching
 partner, sample rate, and duration. A filename token alone is not evidence.
-Generators may pan a lane away from center only from this persisted evidence.
-See [spec 008](specs/spec-008-sample-analysis.md).
+A generator may claim a stereo *side* for a lane — mirroring it hard left and
+right — only from this persisted evidence. Lane *position* in the image is
+separate: it is mix data a generator profile declares, bounded by
+[spec 021](specs/spec-021-arrangement-model.md), and is never inferred from a
+filename either. See [spec 008](specs/spec-008-sample-analysis.md).
 
 ## Tag
 

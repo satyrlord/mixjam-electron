@@ -113,14 +113,14 @@ function shortlistCandidates(
         return orderByFamily(left, right)
       })
   })
-  // A dedicated stereo-pair queue: left halves of complete l/r pairs that fit
+  // A dedicated stereo-pair queue: analyzer-backed left halves that fit
   // a sustained tonal lane, family-ordered. Without it the bounded budget
   // rarely admits two complete pairs for any one lane, and the engine's pair
   // lanes never designate.
   const twins = stereoTwinMap(candidates)
   const pairedQueue = [...candidates]
     .filter((candidate) => twins.has(candidate.relpath) &&
-      parseMotifKey(candidate.filename).side === 'left' &&
+      candidate.stereoSide === 'left' &&
       profile.lanes.some((lane) =>
         (lane.role === 'motif' || lane.role === 'vocal' || lane.role === 'atmosphere') &&
         lane.types.includes(candidate.sampleType) &&

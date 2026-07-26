@@ -33,6 +33,7 @@ function candidate(index: number, sampleType: SampleType = 'Kick', relpath?: str
     sampleType,
     sourceGroup: 'Unsorted',
     paletteSlot: 8,
+    poolToken: null,
     metadataRevision: 1,
     analysisRevision: 1
   }

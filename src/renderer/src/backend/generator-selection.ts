@@ -1,4 +1,5 @@
 import type { MixJamGeneratorSectionPlan, SampleType } from '../../../shared/backend-api'
+import { agreesWithFolderRole, folderRoleSegment } from '../../../shared/sample-role-hints'
 import { TICKS_PER_BAR } from '../engine/transport'
 import { generatorCandidateMatchesLane } from './generator-candidate'
 import type { GeneratorCandidate } from './generator-library'
@@ -12,11 +13,30 @@ import {
   hashText,
   keyRank,
   maximumLegalSpan,
+  type GeneratorArcProfile,
   type GeneratorLaneProfile,
   type GeneratorProfile,
   type PlanningCandidate,
   type Selection
 } from './generator-planning-core'
+
+/**
+ * Material this candidate would be *resampled* to reach the project tempo. Only
+ * stretched pitched material has to share the project's pool token; a
+ * natural-rate placement plays at true pitch and may come from any pool
+ * (spec-021 §Pool coherence).
+ */
+function isStretchedPitched(candidate: PlanningCandidate, type: SampleType): boolean {
+  return TONAL_TYPES.has(type) && candidate.bpm !== null
+}
+
+/** The category a lane's material is diversified over — the acoustic role
+ *  folder, not the genre folder. On a genre-first corpus the genre folder made
+ *  coverage a cross-genre requirement, which forced an Ambient pad into a
+ *  Techno track. */
+function diversityCategory(candidate: PlanningCandidate): string {
+  return folderRoleSegment(candidate.relpath) ?? candidate.sourceGroup
+}
 
 // Tempo/key compatibility folded into one bucket so family ordering can insist
 // on it before anything else. Within the same bucket a multi-part family beats
@@ -74,10 +94,17 @@ function candidateRankCore(
     const confidence = bucket(right.loopConfidence) - bucket(left.loopConfidence)
     if (confidence !== 0) return confidence
   }
-  // A lone right stereo half sounds like half an image; prefer the left/mono
-  // twin whenever both rank equally otherwise.
-  const leftIsRightHalf = parseMotifKey(left.filename).side === 'right' ? 1 : 0
-  const rightIsRightHalf = parseMotifKey(right.filename).side === 'right' ? 1 : 0
+  // The role folder is exact ground truth about what a file is *for*. It never
+  // overrides the stored sample type — a `Synth` filed under `Bass` stays
+  // eligible for a synth lane — but among equals, prefer material whose folder
+  // agrees with what it was classified as.
+  const leftRoleRank = agreesWithFolderRole(left.relpath, type) ? 0 : 1
+  const rightRoleRank = agreesWithFolderRole(right.relpath, type) ? 0 : 1
+  if (leftRoleRank !== rightRoleRank) return leftRoleRank - rightRoleRank
+  // Prefer an analyzer-backed left/unknown candidate over a validated right
+  // half. Filename suffixes are not stereo evidence.
+  const leftIsRightHalf = left.stereoSide === 'right' ? 1 : 0
+  const rightIsRightHalf = right.stereoSide === 'right' ? 1 : 0
   return leftIsRightHalf - rightIsRightHalf
 }
 
@@ -95,13 +122,18 @@ function candidateRank(
 
 function orderedCandidates(
   candidates: readonly PlanningCandidate[], profile: GeneratorProfile, laneIndex: number,
-  type: SampleType, bpm: number, key: string | null, seed: string
+  type: SampleType, bpm: number, key: string | null, poolToken: string | null, seed: string
 ): PlanningCandidate[] {
   const lane = profile.lanes[laneIndex]!
   const tonal = TONAL_TYPES.has(type)
   const eligible = candidates
     .filter((candidate) => candidate.sampleType === type && generatorCandidateMatchesLane(candidate, lane, type, bpm))
     .filter((candidate) => !tonal || keyRank(candidate.musicalKey, key) < 3)
+    // Pool coherence: everything the song resamples to project tempo must come
+    // from one labeled tempo/key pool, or it detunes against the rest. A corpus
+    // with no labels has no pool token and is unaffected.
+    .filter((candidate) => poolToken === null || !isStretchedPitched(candidate, type) ||
+      candidate.poolToken === poolToken)
   const rank = (left: PlanningCandidate, right: PlanningCandidate): number =>
     candidateRank(left, right, lane, type, bpm, key, profile, laneIndex, seed)
 
@@ -140,11 +172,11 @@ function orderedCandidates(
 
 export function findTypeCandidates(
   candidates: readonly PlanningCandidate[], profile: GeneratorProfile, laneIndex: number,
-  bpm: number, key: string | null, seed: string
+  bpm: number, key: string | null, poolToken: string | null, seed: string
 ): Selection | null {
   const types = profile.lanes[laneIndex]!.types
   const ordered = types.flatMap((type) =>
-    orderedCandidates(candidates, profile, laneIndex, type, bpm, key, seed)
+    orderedCandidates(candidates, profile, laneIndex, type, bpm, key, poolToken, seed)
   )
   return ordered.length > 0
     ? { requestedType: types[0]!, selectedType: ordered[0]!.sampleType, candidates: ordered }
@@ -208,11 +240,12 @@ export function selectDiverseCandidates(
   selections: readonly (Selection | null)[],
   sampleCount: number,
   sections: readonly MixJamGeneratorSectionPlan[],
+  arc: GeneratorArcProfile,
   profile: GeneratorProfile,
   bpm: number,
   twins: ReadonlyMap<string, GeneratorCandidate>,
   familyTarget: number
-): { selected: Array<Selection | null>; familyRatioShortfall: boolean } {
+): { selected: Array<Selection | null> } {
   const selected = selections.map((selection) => selection
     ? { ...selection, candidates: [] as PlanningCandidate[] }
     : null)
@@ -306,14 +339,14 @@ export function selectDiverseCandidates(
       if (pushCandidate(destination, candidate)) contrastCount++
     }
   }
-  const sourceGroups = [...new Set(selections.flatMap((selection) =>
-    selection?.candidates.map((candidate) => candidate.sourceGroup) ?? []
+  const categories = [...new Set(selections.flatMap((selection) =>
+    selection?.candidates.map(diversityCategory) ?? []
   ))]
-  const sourceGroupOptions = new Map(sourceGroups.map((sourceGroup) => [
-    sourceGroup,
+  const categoryOptions = new Map(categories.map((category) => [
+    category,
     selections.flatMap((selection, laneIndex) => selection
       ? selection.candidates.flatMap((candidate, candidateIndex) =>
-        candidate.sourceGroup === sourceGroup ? [{ laneIndex, candidate, candidateIndex }] : []
+        diversityCategory(candidate) === category ? [{ laneIndex, candidate, candidateIndex }] : []
       )
       : [])
   ]))
@@ -325,13 +358,13 @@ export function selectDiverseCandidates(
     }
   }
 
-  sourceGroups.sort((left, right) =>
-    sourceGroupOptions.get(left)!.length - sourceGroupOptions.get(right)!.length || compareCodeUnits(left, right)
+  categories.sort((left, right) =>
+    categoryOptions.get(left)!.length - categoryOptions.get(right)!.length || compareCodeUnits(left, right)
   )
-  for (const sourceGroup of sourceGroups) {
-    // Source-group coverage prefers candidates that extend an already-selected
+  for (const category of categories) {
+    // Role-category diversity prefers candidates that extend an already-selected
     // family, then candidates whose family has siblings in some pool, and only
-    // then true one-offs: every forced coverage pick used to be a family
+    // then true one-offs: every forced diversity pick used to be a family
     // singleton, which alone capped the family ratio below its target.
     const familyParts = selectedFamilyParts()
     const familyGain = (candidate: PlanningCandidate): number => {
@@ -341,8 +374,12 @@ export function selectDiverseCandidates(
       if ((poolFamilyParts.get(key.family) ?? 0) >= 2) return 1
       return 2
     }
-    const choice = sourceGroupOptions.get(sourceGroup)!
+    const choice = categoryOptions.get(category)!
       .filter(({ laneIndex, candidate }) =>
+        // Diversity never grows a lane past its sample budget. Unbounded, it
+        // gave a single lane nine sources and pushed a project's distinct-sample
+        // count to 60 against a reference range of 24–40.
+        selected[laneIndex]!.candidates.length < sampleCount &&
         !selected[laneIndex]!.candidates.some((entry) => entry.relpath === candidate.relpath)
       )
       .sort((left, right) => {
@@ -366,7 +403,7 @@ export function selectDiverseCandidates(
         parseMotifKey(candidate.filename).part !== key.part &&
         !usedRefs.has(candidate.relpath)
       )
-      if (sibling) pushCandidate(destination, sibling)
+      if (sibling && destination.candidates.length < sampleCount) pushCandidate(destination, sibling)
     }
   }
 
@@ -410,7 +447,7 @@ export function selectDiverseCandidates(
     const source = selections[laneIndex]
     const destination = selected[laneIndex]
     if (!source || !destination) continue
-    const maximumSpan = maximumLegalSpan(laneIndex, sections, profile)
+    const maximumSpan = maximumLegalSpan(laneIndex, sections, arc, profile)
     if (destination.candidates.some((candidate) => durationTicks(candidate, bpm) <= maximumSpan)) continue
     const fallback = source.candidates
       .filter((candidate) => durationTicks(candidate, bpm) <= maximumSpan)
@@ -443,6 +480,7 @@ export function selectDiverseCandidates(
           parseMotifKey(entry.filename).part !== key.part &&
           !usedRefs.has(entry.relpath)
         )
+        if (destination.candidates.length >= sampleCount) continue
         if (sibling && pushCandidate(destination, sibling)) {
           repaired = true
           break
@@ -450,20 +488,20 @@ export function selectDiverseCandidates(
       }
     }
     if (repaired) continue
-    const sourceGroupCounts = new Map<string, number>()
+    const categoryCounts = new Map<string, number>()
     for (const candidate of allSelected()) {
-      sourceGroupCounts.set(candidate.sourceGroup, (sourceGroupCounts.get(candidate.sourceGroup) ?? 0) + 1)
+      categoryCounts.set(diversityCategory(candidate), (categoryCounts.get(diversityCategory(candidate)) ?? 0) + 1)
     }
     let trimmed = false
     for (let laneIndex = 0; laneIndex < selected.length && !trimmed; laneIndex++) {
       const destination = selected[laneIndex]
       if (!destination || destination.candidates.length < 2) continue
-      const maximumSpan = maximumLegalSpan(laneIndex, sections, profile)
+      const maximumSpan = maximumLegalSpan(laneIndex, sections, arc, profile)
       for (let index = destination.candidates.length - 1; index >= 1; index--) {
         const candidate = destination.candidates[index]!
         const key = parseMotifKey(candidate.filename)
         if (familyParts.get(key.family)!.size >= 2) continue
-        if ((sourceGroupCounts.get(candidate.sourceGroup) ?? 0) < 2) continue
+        if ((categoryCounts.get(diversityCategory(candidate)) ?? 0) < 2) continue
         const fitsAlone = durationTicks(candidate, bpm) <= maximumSpan &&
           !destination.candidates.some((entry, entryIndex) =>
             entryIndex !== index && durationTicks(entry, bpm) <= maximumSpan
@@ -476,5 +514,5 @@ export function selectDiverseCandidates(
     }
     if (!trimmed) break
   }
-  return { selected, familyRatioShortfall: familyRatioOf(allSelected()) < familyTarget }
+  return { selected }
 }

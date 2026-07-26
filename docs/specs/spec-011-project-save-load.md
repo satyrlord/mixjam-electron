@@ -76,6 +76,7 @@ is:
       "muted": false,
       "solo": false,
       "pan": 0,
+      "stereoPairId": null,
       "gain": 0.8,
       "sends": [0, 0, 0, 0],
       "placements": [
@@ -154,9 +155,15 @@ is:
   micro-fade settings edited in the Player Settings modal. Live meter
   readings and transport position are runtime telemetry, not saved Song settings.
 - `lanes` contains 1 through 64 entries. Each entry owns an immutable stable ID,
-  arrangement data, gain, pan, mute, solo, and
+  arrangement data, gain, pan, mute, solo, an optional nullable
+  `stereoPairId`, and
   exactly four ordered sends corresponding to `FX1` through `FX4`. Array order
   is visible order. Numeric lane indices and channel IDs are not persisted.
+  Only the generator may set one shared `stereoPairId` on two lanes created from
+  validated spec-008 stereo-side evidence. Any placement add, move, duplicate,
+  replacement, or removal on either lane clears that ID from both lanes because
+  it no longer proves their current content. Name and Mixer edits preserve it.
+  Ordinary lanes store null or omit it.
 - `fxBuses` contains exactly four entries in fixed `FX1`, `FX2`, `FX3`, `FX4`
   order. Each saves its fixed identity, module or Empty state, power, return
   level, enabled limiter, and every editable module parameter defined by
@@ -212,7 +219,7 @@ is:
 Version 7 retains the optional project-owned `generator` object for generated
 projects. Projects created or saved without it remain valid version-7 projects.
 
-The object contains the generator version, stable profile ID and profile schema
+The object contains the generator version, stable profile ID and profile
 version, safe seed, generation parameters, the indexed-corpus fingerprint, and
 the Sample Folder key used for exact regeneration:
 
@@ -220,9 +227,9 @@ the Sample Folder key used for exact regeneration:
 {
   "formatVersion": 7,
   "generator": {
-    "generatorVersion": 1,
+    "generatorVersion": 3,
     "profileId": "techno",
-    "profileVersion": 2,
+    "profileVersion": 6,
     "seed": "safe-token",
     "parameters": {
       "bpmMode": "follow-detected",
@@ -278,90 +285,6 @@ the same coherent sample population. It is never an absolute filesystem path.
   and collapsed panels.
 - Closing with unsaved Song, lane Mixer, send, or return-FX changes may lose those changes because
   auto-save and crash recovery are out of scope.
-
-### Repository Mixer Test-Song Generator
-
-The repository provides a Node/TypeScript generator for durable manual-test
-projects. It exercises the same `createDefaultLanes`, `placeSampleOnLane`,
-`serializeProject`, and `parseProject` APIs used by the application instead of
-driving the UI or hand-writing project JSON.
-
-This developer fixture tool is not the spec-018 MixJam Generator wizard. Its
-fixed 140 BPM, 105-bar, ambient cosmic-techno contract exists for repeatable
-repository testing; it does not constrain the product wizard's profiles or
-parameters.
-
-- `npm run generate:mixer-test-song` reads WAV metadata from
-  `tmp/test-samples` and writes an auto-incremented project such as
-  `tmp/generated-songs/Ambient-Cosmic-Techno-Mixer-Test-001.mixjam`.
-- `--samples-dir` and `--output-dir` override those defaults. To open a
-  generated project, grant its output directory as the User Folder and grant
-  the matching sample directory as the Sample Folder.
-- Every run uses 140 BPM and a 105-bar arrangement. At 140 BPM this is exactly
-  180 seconds.
-- Each selected sample establishes its placement span using native BPM from
-  metadata or an explicit filename label (`N BPM` or `BPM N`) when the value is
-  within the product's accepted 20-400 BPM domain, otherwise the 140 BPM
-  project tempo. Bare numeric filename tokens are identifiers, not tempo
-  evidence. The generator persists the same native BPM provenance used for
-  that calculation, matching the first-placement rule in spec-009.
-- The 16 lanes have musical roles rather than arbitrary sample distribution:
-  kick, groove loop, offbeat hats, clap/percussion, offbeat bass, dub stabs,
-  sequence motifs, stereo pads, stereo spheres, voice, rap, texture, and
-  stereo transition FX. Each lane has its own stable ID so placements and lane
-  Mixer state cannot leak into another generated lane during serialization.
-- The arrangement is a hit-event model, not whole-bar tiling. Clips are placed
-  as discrete rhythmic events at tick resolution (one bar is 32 ticks, the
-  offbeat "and" sits 4 ticks after a beat, and swung off-sixteenths sit 1 tick
-  late) with rests between events, so the groove identity lives in the rhythm
-  rather than in repeating the same loop every bar. The kick holds a
-  four-on-the-floor anchor but drops on the last bar of every 8-bar phrase and
-  throughout the breakdown; clap/snare hold the backbeat on beats 2 and 4;
-  offbeat hats swing and add ghost sixteenths in builds and peaks; a
-  dotted-eighth percussion motif cycles against the kick and resolves with a
-  rest every third bar; the bass answers the kick on the offbeat and never
-  starts on a kick tick; dub stabs and sequence motifs are sparse offbeat
-  events that answer across the breakdown.
-- Because every placement of one sample keeps a single natural span (AC-016),
-  a clip triggered just before the breakdown would ring into it. The rhythm
-  section therefore observes a clearance window ahead of the breakdown that
-  covers the longest rhythm clip, so the breakdown is a true void for kick,
-  groove, hats, clap/percussion, and bass while melodic, atmospheric, vocal,
-  and texture material continues.
-- The arrangement uses an eight-section ambient cosmic-techno arc: deep-space
-  intro (bars 0-16), orbital groove (16-32), first contact build (32-40),
-  cosmic peak (40-56), void breakdown (56-72), ignition build (72-80),
-  supernova peak (80-96), and drift-out (96-105). Every section boundary falls
-  on an 8-bar phrase so the arc stays DJ-mixable; the drift-out carries the
-  single leftover bar that makes the song land on exactly 180 seconds. The
-  breakdown removes the rhythm section; each peak restores the principal
-  rhythm and melody lanes; builds stage density by adding hat and stab events
-  rather than by authoring FX.
-- The sample plan covers every top-level source group in the current fixture
-  library (`Bass`, `Drum`, `Effect`, `Keys`, `Layer`, `Loop`, `Rap`, `Seq`,
-  `Sphere`, `Voice`, and `Xtra`). Stereo lanes use duration-matched left/right
-  files, while mono lanes exclude either half of a discovered stereo pair.
-- Each rhythmic, bass, melodic, vocal, rap, and texture lane alternates two
-  distinct clips within one song. Seeded candidate ordering draws from the
-  broader source-group pools, rejects unreadable or overlong clips, and keeps every
-  generated result reproducible.
-- Groove, bass, sequence, stab, stereo atmosphere, vocal, rap, texture, and
-  transition roles prefer cosmic, dark, deep, space, and drone-themed fixture
-  names when matching readable clips exist, then fall back to their broader
-  source-group pools. This keeps the generator compatible with smaller corpora
-  while making the repository corpus consistently ambient cosmic-techno.
-- A shared variation number selects one of four timing profiles for vocal/rap
-  calls and responses and texture entries across the full three-minute arc.
-  Runs use a generated seed by default, while `--seed` reproduces both sample
-  selection and arrangement timing.
-- The saved Mixer state may use deliberate lane volume and conditional pan.
-  It applies non-center pan only through the shared spec-008 stereo-pair
-  validator. Every Send is 0%, all four FX modules are Empty, Return levels are
-  100%, and Return limiters retain their default enabled state. Developer and
-  product generators never author FX or Send state.
-
-Generated `.mixjam` files remain disposable test artifacts under `tmp/`; the
-generator, its tests, and this contract are the durable repository assets.
 
 ### Save Flow
 
@@ -467,24 +390,6 @@ generator, its tests, and this contract are the durable repository assets.
   already busy.
 - [x] **AC-016:** Loading rejects projects that assign conflicting
   `durationTicks` values to placements with the same `sampleRef`.
-- [ ] **AC-017:** The repository test-song generator writes a format-7 project that
-  roundtrips through the production project parser, has 140 BPM, spans exactly
-  105 bars (180 seconds), contains 16 non-empty lanes, has four zero Sends on
-  every lane, and leaves all four FX modules Empty.
-- [ ] **AC-018:** The repository test-song generator's placements cover every
-  current fixture source group while every saved `sampleRef` remains relative to
-  the configured Sample Folder. Duration-matched stereo pairs remain paired on
-  adjacent lanes.
-- [ ] **AC-019:** The repository test-song project contains the documented
-  eight-section ambient cosmic-techno arrangement, uses style-biased sample
-  pools, places clips as tick-resolution hit events with offbeat bass,
-  phrase-boundary kick drops, and a breakdown clearance that keeps the rhythm
-  section out of the void, alternates clips across the rhythmic and melodic
-  lanes, varies cue timing by seed, and includes deliberate lane volume plus
-  only validated stereo-evidence pan.
-- [x] **AC-020:** Repeated repository test-song generator runs never overwrite
-  an existing project; filenames increase monotonically. A supplied seed
-  reproduces the same sample selection and arrangement.
 - [x] **AC-021:** The open picker loads a valid `.mixjam` file selected from
   outside the User Folder without requesting write access to that location.
 - [x] **AC-022:** A project loaded from outside the User Folder has no writable
@@ -496,9 +401,6 @@ generator, its tests, and this contract are the durable repository assets.
 - [x] **AC-024:** Loading rejects a placement whose exclusive end tick
   (`startTick + durationTicks`) exceeds 31,968, and the validation error points
   to that placement's `durationTicks` field.
-- [x] **AC-025:** Repository test-song placements calculate `durationTicks` from a
-  selected sample's positive native BPM when available, otherwise from the
-  140 BPM project tempo, and persist that same native BPM provenance.
 - [ ] **AC-026:** New in the Middle Strip project menu starts the same exactly
   eight-lane blank project used by the Home Screen.
 - [ ] **AC-027:** Saving and loading version 7 preserves the automatic clip-edge
@@ -522,6 +424,11 @@ generator, its tests, and this contract are the durable repository assets.
 - [ ] **AC-033:** Strict parsing rejects any bus count or order other than the
   exact `FX1` through `FX4` contract, invalid modules or numeric ranges, legacy
   `channels`/`channelId`/routing/insert-FX fields, and unknown object keys.
+- [x] **AC-034:** A lane's optional `stereoPairId` accepts only null or a
+  non-empty trimmed string, survives save/load/save, and generated mirror lanes
+  persist the same evidence identity while ordinary lanes remain null. Any
+  arrangement placement edit to either paired lane clears the identity from both
+  lanes; unrelated placement, name, and Mixer edits preserve it.
 
 ## Required version-7 evidence
 

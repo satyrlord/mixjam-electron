@@ -1,38 +1,76 @@
 {
   "$schema": "../schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "tropical-house",
   "label": "Tropical House",
-  "version": 2,
+  "version": 3,
   "order": 40,
   "bpmTolerance": 5,
   "coreLanes": [0, 4, 6],
-  "sections": [
-    { "name": "Beach Intro", "weight": 8, "activeLanes": [0, 1, 2, 3, 4, 5, 9, 10, 11, 12], "phraseMode": "build" },
-    { "name": "Verse", "weight": 18, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 13], "phraseMode": "steady" },
-    { "name": "Breakdown", "weight": 10, "activeLanes": [5, 6, 7, 8, 9, 10, 13, 14, 15], "phraseMode": "breakdown" },
-    { "name": "Lift", "weight": 10, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "build" },
-    { "name": "Groove Return", "weight": 20, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "return" },
-    { "name": "Countermelody Peak", "weight": 16, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "peak" },
-    { "name": "Drift", "weight": 10, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], "phraseMode": "steady" },
-    { "name": "Outro", "weight": 8, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15], "phraseMode": "outro" }
+  "pairPan": 0.4,
+  "returns": [
+    { "module": "aetherform-reverb", "preset": "Vocal Plate", "returnLevel": 0.3 },
+    { "module": "echoform-delay", "preset": "Clean Slap", "returnLevel": 0.26 }
+  ],
+  "arcs": [
+    {
+      "name": "Sunset",
+      "sections": [
+        { "name": "Beach Intro", "weight": 11, "activeLanes": [9, 10, 14], "phraseMode": "build" },
+        { "name": "Verse", "weight": 17, "activeLanes": [0, 2, 4, 5, 8, 9, 11, 13, 14], "phraseMode": "steady" },
+        { "name": "Drop", "weight": 18, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 15], "phraseMode": "steady" },
+        { "name": "Breakdown", "weight": 12, "activeLanes": [7, 8, 9, 10, 13, 14], "phraseMode": "steady" },
+        { "name": "Lift", "weight": 9, "activeLanes": [0, 2, 3, 4, 5, 8, 10, 14], "phraseMode": "build" },
+        { "name": "Groove Return", "weight": 19, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 15], "phraseMode": "steady" },
+        { "name": "Drift", "weight": 8, "activeLanes": [2, 5, 6, 9, 10, 13], "phraseMode": "steady" },
+        { "name": "Outro", "weight": 6, "activeLanes": [2, 6, 9, 10], "phraseMode": "outro" }
+      ],
+      "ops": [
+        { "op": "swap", "lane": 6, "at": "Groove Return" },
+        { "op": "swap", "lane": 5, "at": "Drop" },
+        { "op": "roll", "lane": 3, "at": "Drop", "bars": 2 },
+        { "op": "roll", "lane": 3, "at": "Groove Return", "bars": 2 },
+        { "op": "tail", "lane": 9, "at": "Breakdown" },
+        { "op": "tail", "lane": 10, "at": "Outro" }
+      ]
+    },
+    {
+      "name": "Second Drop",
+      "sections": [
+        { "name": "Beach Intro", "weight": 10, "activeLanes": [9, 12, 14], "phraseMode": "build" },
+        { "name": "Verse", "weight": 15, "activeLanes": [0, 2, 4, 5, 8, 9, 11, 13, 14], "phraseMode": "steady" },
+        { "name": "Drop", "weight": 17, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 15], "phraseMode": "steady" },
+        { "name": "Chorus", "weight": 13, "activeLanes": [0, 2, 4, 5, 6, 8, 13, 15], "phraseMode": "steady" },
+        { "name": "Breakdown", "weight": 12, "activeLanes": [7, 8, 9, 10, 13, 14], "phraseMode": "steady" },
+        { "name": "Lift", "weight": 9, "activeLanes": [0, 2, 3, 4, 5, 8, 10, 14], "phraseMode": "build" },
+        { "name": "Groove Return", "weight": 16, "activeLanes": [0, 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 15], "phraseMode": "steady" },
+        { "name": "Outro", "weight": 8, "activeLanes": [2, 6, 9, 10], "phraseMode": "outro" }
+      ],
+      "ops": [
+        { "op": "swap", "lane": 6, "at": "Groove Return" },
+        { "op": "swap", "lane": 8, "at": "Chorus" },
+        { "op": "roll", "lane": 3, "at": "Drop", "bars": 2 },
+        { "op": "tail", "lane": 9, "at": "Breakdown" },
+        { "op": "rest", "lane": 11, "from": "Breakdown", "to": "Lift" }
+      ]
+    }
   ],
   "lanes": [
-    { "name": "Soft Kick", "types": ["Kick"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [0, 8, 16, 24], "beatMutation": [0, 8, 16, 24, 30], "intentionalAnchor": true, "gain": 0.68, "pan": 0 },
-    { "name": "Soft Clap", "types": ["Snare", "Percussion"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [8, 24], "beatMutation": [8, 24, 30], "gain": 0.34, "pan": 0 },
-    { "name": "Swung Hi-hat", "types": ["Hi-hat", "Percussion"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [5, 13, 21, 29], "beatMutation": [3, 7, 11, 15, 19, 23, 27, 31], "gain": 0.32, "pan": 0 },
-    { "name": "Organic Percussion", "types": ["Percussion", "Other"], "maxBars": 1, "maxBeats": 1, "role": "percussion", "beatPattern": [6, 14, 22, 30], "beatMutation": [2, 10, 18, 26], "gain": 0.36, "pan": 0 },
-    { "name": "Breezy Bass", "types": ["Bass"], "maxBars": 8, "role": "motif", "gain": 0.52, "pan": 0 },
-    { "name": "Chord Loop", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.44, "pan": 0 },
-    { "name": "Mallet / Pluck Lead", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.48, "pan": 0 },
-    { "name": "Countermelody", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.4, "pan": 0 },
-    { "name": "Vocal", "types": ["Vocal", "Atmosphere"], "maxBars": 8, "role": "vocal", "gain": 0.38, "pan": 0 },
-    { "name": "Warm Pad", "types": ["Atmosphere", "Other"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.34, "pan": 0 },
-    { "name": "Coastal FX", "types": ["FX", "Other"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.32, "pan": 0 },
-    { "name": "Percussion Loop", "types": ["Percussion", "Hi-hat", "Snare"], "maxBars": 4, "role": "motif", "preferLong": true, "gain": 0.34, "pan": 0 },
-    { "name": "Groove Variation", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.42, "pan": 0 },
-    { "name": "Guitar / Pluck Layer", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.36, "pan": 0 },
-    { "name": "Riser", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "riser", "gain": 0.28, "pan": 0 },
-    { "name": "Impact", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "impact", "gain": 0.28, "pan": 0 }
+    { "name": "Soft Kick", "types": ["Kick"], "maxBars": 1, "maxBeats": 2, "role": "percussion", "beatPattern": [0, 8, 16, 24], "beatMutation": [0, 8, 16, 24, 30], "gain": 0.72, "pan": 0, "sends": [0, 0] },
+    { "name": "Snaps", "types": ["Snare", "Percussion"], "maxBars": 1, "maxBeats": 2, "role": "percussion", "beatPattern": [8, 24], "beatMutation": [8, 24, 30], "gain": 0.46, "pan": 0.05, "sends": [0.2, 0] },
+    { "name": "Hand Percussion", "types": ["Hi-hat", "Percussion"], "maxBars": 1, "maxBeats": 2, "role": "percussion", "beatPattern": [5, 13, 21, 29], "beatMutation": [3, 7, 11, 15, 19, 23, 27, 31], "gain": 0.4, "pan": 0.15, "sends": [0.12, 0] },
+    { "name": "Latin Percussion", "types": ["Percussion", "Other"], "maxBars": 1, "maxBeats": 2, "role": "percussion", "beatPattern": [6, 14, 22, 30], "beatMutation": [2, 10, 18, 26], "gain": 0.44, "pan": -0.25, "sends": [0.08, 0] },
+    { "name": "Breezy Bass", "types": ["Bass"], "maxBars": 8, "role": "motif", "gain": 0.66, "pan": 0, "sends": [0, 0] },
+    { "name": "Organ Chords", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.5, "pan": -0.1, "sends": [0.15, 0.12] },
+    { "name": "Mallet Hook", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.52, "pan": 0.1, "sends": [0.18, 0.18] },
+    { "name": "Lead / Piano", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.5, "pan": 0, "sends": [0.22, 0.15] },
+    { "name": "Vocal", "types": ["Vocal", "Atmosphere"], "maxBars": 8, "role": "vocal", "gain": 0.54, "pan": 0, "sends": [0.24, 0.2] },
+    { "name": "Warm Pad", "types": ["Atmosphere", "Synth"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.38, "pan": -0.12, "sends": [0.26, 0] },
+    { "name": "Coastal FX", "types": ["FX", "Other"], "maxBars": 16, "role": "atmosphere", "preferLong": true, "gain": 0.44, "pan": 0.18, "sends": [0.18, 0] },
+    { "name": "Percussion Loop", "types": ["Percussion", "Hi-hat", "Snare"], "maxBars": 4, "role": "motif", "preferLong": true, "gain": 0.42, "pan": 0.25, "sends": [0.08, 0] },
+    { "name": "Chop Layer", "types": ["Loop", "Synth"], "maxBars": 8, "role": "motif", "gain": 0.46, "pan": -0.3, "sends": [0.2, 0.22] },
+    { "name": "Guitar / Pluck Layer", "types": ["Synth", "Loop"], "maxBars": 8, "role": "motif", "gain": 0.4, "pan": 0.3, "sends": [0.18, 0.15] },
+    { "name": "Riser", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "riser", "gain": 0.3, "pan": 0, "sends": [0.18, 0] },
+    { "name": "Impact", "types": ["FX", "Other"], "maxBars": 8, "role": "transition", "transitionKind": "impact", "gain": 0.3, "pan": 0, "sends": [0.18, 0] }
   ]
 }

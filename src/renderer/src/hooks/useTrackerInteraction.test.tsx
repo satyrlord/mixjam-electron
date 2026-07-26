@@ -173,7 +173,7 @@ describe('useTrackerInteraction', () => {
     expect(scrollport.scrollLeft).toBeGreaterThan(0)
   })
 
-  it('follows playhead ticks only while the toggle is enabled during playback', () => {
+  it('centers immediately, then follows ticks only while enabled during playback', () => {
     const options = createOptions({
       currentTick: TRACKER_TOTAL_TICKS / 2,
       transportState: 'playing'
@@ -185,9 +185,11 @@ describe('useTrackerInteraction', () => {
     expect(result.current.followPlayhead).toBe(false)
     act(() => options.tickStore.set(TRACKER_TOTAL_TICKS * 5 / 8))
     expect(scrollport.scrollLeft).toBe(0)
-    act(() => result.current.onToggleFollowPlayhead())
+    act(() => {
+      result.current.onToggleFollowPlayhead()
+      expect(scrollport.scrollLeft).toBeGreaterThan(0)
+    })
     expect(result.current.followPlayhead).toBe(true)
-    expect(scrollport.scrollLeft).toBeGreaterThan(0)
 
     const followedScrollLeft = scrollport.scrollLeft
     act(() => options.tickStore.set(TRACKER_TOTAL_TICKS * 5 / 8 + 8))

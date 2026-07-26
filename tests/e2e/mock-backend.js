@@ -102,8 +102,8 @@
   // "version" in src/shared/generator-templates/templates/*.json.
   var MOCK_GENERATOR_VERSION = 3
   var MOCK_PROFILE_VERSIONS = {
-    techno: 5, trance: 5, house: 5,
-    'melodic-techno': 2, 'ambient-house': 2, 'tropical-house': 2
+    techno: 6, trance: 6, house: 6,
+    'melodic-techno': 3, 'ambient-house': 3, 'tropical-house': 3
   }
 
   function generatorPlan(parameters) {
@@ -119,6 +119,7 @@
         pan: 0,
         muted: false,
         solo: false,
+        sends: index === 0 ? [0, 0] : [0.2, 0.1],
         placements: index === 0 ? [
           { id: 'generator-kick-start', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: 0, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 2 },
           { id: 'generator-kick-end', sampleRef: MOCK_SAMPLES[0].relpath, sampleName: MOCK_SAMPLES[0].filename, startTick: targetTicks - 8, durationTicks: 8, durationSeconds: 0.5, nativeBpm: 120, slot: 2 }
@@ -129,6 +130,7 @@
       generatorVersion: MOCK_GENERATOR_VERSION,
       profileId: parameters.profileId,
       profileVersion: MOCK_PROFILE_VERSIONS[parameters.profileId] || 1,
+      arcName: 'Tunnel',
       seed: parameters.seed,
       parameters: { bpmMode: parameters.bpmMode, resolvedBpm: bpm, intensity: parameters.intensity, durationSeconds: parameters.durationSeconds },
       corpusFingerprint: 'e2e-fingerprint',
@@ -137,11 +139,16 @@
       targetTicks: targetTicks,
       quantizedDurationSeconds: bars * 240 / bpm,
       dominantKey: 'C',
+      poolToken: null,
       analysis: { attemptedFiles: 5, analyzedFiles: 5, uniqueReads: 5 },
       selections: [{ laneIndex: 0, requestedType: 'Kick', selectedType: 'Kick', sampleRefs: [MOCK_SAMPLES[0].relpath] }],
       substitutions: [],
       sections: [{ name: 'Intro', startBar: 0, endBar: bars, activeLanes: [0] }],
-      phrases: [{ sectionIndex: 0, startBar: 0, endBar: Math.min(8, bars), activeLanes: [0], motif: 'A' }],
+      phrases: [{ sectionIndex: 0, startBar: 0, endBar: Math.min(8, bars), activeLanes: [0] }],
+      returns: [
+        { index: 0, module: 'aetherform-reverb', preset: 'Small Room', returnLevel: 0.3 },
+        { index: 1, module: 'echoform-delay', preset: 'Wide Tape Echo', returnLevel: 0.28 }
+      ],
       lanes: lanes
     }
   }

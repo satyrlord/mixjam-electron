@@ -1,7 +1,6 @@
 import type {
   MixJamGeneratorLanePlan,
   MixJamGeneratorParameters,
-  MixJamGeneratorPhrasePlan,
   MixJamGeneratorSectionPlan,
   SampleType
 } from '../../../shared/backend-api'
@@ -11,11 +10,11 @@ import { generatorCandidateDurationTicks } from './generator-candidate'
 import type { GeneratorCandidate } from './generator-library'
 import { parseMotifKey } from './generator-motif'
 import { parseMusicalKey } from './musical-key'
-import type { GeneratorLaneProfile, GeneratorProfile } from './generator-profiles'
+import type { GeneratorArcProfile, GeneratorLaneProfile, GeneratorProfile } from './generator-profiles'
 
 // The shared vocabulary and primitive helpers every planning stage (selection,
-// scheduling, density, stereo, validation) builds on. Keeping them in one place
-// lets the stage modules stay independent of one another.
+// scheduling, stereo, validation) builds on. Keeping them in one place lets the
+// stage modules stay independent of one another.
 
 export const TONAL_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop', 'Vocal', 'Atmosphere'])
 // Roles whose musical value is a coherent, authored motif rather than a single
@@ -24,25 +23,22 @@ export const TONAL_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop', 'Vocal'
 export const FAMILY_ROLES = new Set(['motif', 'vocal', 'atmosphere'])
 
 // A generated arrangement must populate at least this many lanes to sound like
-// a full production, and never more than the ceiling.
+// a full production, and never more than the ceiling. These, exact song end,
+// no lane overlap, and placements inside the song are the *only* hard failures
+// the planner has — the occupancy envelope is a report (spec-021 §Envelope).
 export const MIN_GENERATED_LANES = 8
 export const MAX_GENERATED_LANES = 32
 // Minimum share of distinct placed samples that must belong to a family with
 // at least two placed parts. Lower intensities are stricter: a chill track
-// leans on fewer, more coherent authored kits.
+// leans on fewer, more coherent authored kits. This steers *selection*; it is
+// never validated, so a family-less corpus stays generatable.
 export const FAMILY_RATIO_TARGETS: Record<MixJamGeneratorParameters['intensity'], number> = {
   low: 0.8,
   medium: 0.7,
   high: 0.6
 }
-// The Pareto density rule: at least DENSE_LANE_SHARE of populated
-// non-transition lanes must have at least DENSE_BAR_SHARE of the song's bars
-// populated, where a bar counts as populated when the lane sounds on most of
-// its beat grid (see barPopulation).
-export const DENSE_LANE_SHARE = 0.8
-export const DENSE_BAR_SHARE = 0.8
-// Roughly one lane in five plays as a hard-panned stereo pair; every other
-// lane is perfectly centered. Pan is a three-way decision: -1, 0, or +1.
+// Roughly one lane in five plays as a mirrored stereo pair. Stereo *side* still
+// requires persisted pair evidence; the spread is the profile's `pairPan`.
 export const STEREO_PAIR_LANE_SHARE = 0.2
 
 export type PlanningCandidate = GeneratorCandidate & Partial<Pick<AnalyzedGeneratorCandidate,
@@ -111,11 +107,45 @@ export function intervalIsFree(lane: MixJamGeneratorLanePlan, startTick: number,
   return lane.placements.every((placement) => placementEnd(placement) <= startTick || placement.startTick >= endTick)
 }
 
+/**
+ * One musical span per sample, for the whole project.
+ *
+ * spec-011 AC-016 makes conflicting `durationTicks` for the same `sampleRef`
+ * invalid project data, so a span is a property of the *sample*, not of the
+ * site that placed it. Schedulers still trim (a monophonic lane cuts a hit at
+ * the next one), but the first trim wins everywhere and later sites reuse it
+ * rather than writing a second span. Without this the planner emits projects
+ * that its own loader rejects.
+ */
+export interface SpanRegistry {
+  /** sampleRef -> the one span every placement of that sample uses. */
+  bySample: Map<string, number>
+  /** Exclusive end of the song; nothing may extend past it. */
+  songEndTick: number
+}
+
+export function createSpanRegistry(songEndTick: number): SpanRegistry {
+  return { bySample: new Map(), songEndTick }
+}
+
+export function registeredSpan(spans: SpanRegistry, candidate: PlanningCandidate, span: number): number {
+  return spans.bySample.get(candidate.relpath) ?? span
+}
+
 export function addPlacement(
   lane: MixJamGeneratorLanePlan, candidate: PlanningCandidate, startTick: number, span: number,
-  ordinal: number, profile: GeneratorProfile, seed: string
-): void {
-  if (!intervalIsFree(lane, startTick, startTick + span)) return
+  ordinal: number, profile: GeneratorProfile, seed: string, spans: SpanRegistry
+): boolean {
+  // The registry decides the span; a caller's request only applies to a sample
+  // nothing has placed yet. Re-checking the bounds below uses the resolved span,
+  // so a widened reuse can neither overlap nor spill past the song end. Both
+  // checks live here rather than in each scheduler because a caller that
+  // computes its own bound is testing a span the registry may override.
+  const resolved = registeredSpan(spans, candidate, span)
+  if (resolved < 1 || startTick < 0 || startTick + resolved > spans.songEndTick) return false
+  if (!intervalIsFree(lane, startTick, startTick + resolved)) return false
+  spans.bySample.set(candidate.relpath, resolved)
+  span = resolved
   lane.placements.push({
     id: stableId('placement', `${seed}:${profile.id}:${profile.version}:lane-${lane.index}:${ordinal}`),
     sampleRef: candidate.relpath,
@@ -126,31 +156,13 @@ export function addPlacement(
     nativeBpm: candidate.bpm,
     slot: candidate.paletteSlot
   })
-}
-
-// The anchor family is the family of the lead (highest-ranked) candidate. A
-// motifs walk that family's numbered parts in order so the same coherent idea
-// recurs across the song and returns after a breakdown; B motifs prefer a
-// sibling family for contrast. This replaces a flat modular walk that hopped
-// between unrelated families every phrase.
-function partitionByFamily(candidates: readonly PlanningCandidate[]): {
-  anchor: PlanningCandidate[]
-  others: PlanningCandidate[]
-} {
-  if (candidates.length === 0) return { anchor: [], others: [] }
-  const anchorFamily = parseMotifKey(candidates[0]!.filename).family
-  const anchor: PlanningCandidate[] = []
-  const others: PlanningCandidate[] = []
-  for (const candidate of candidates) {
-    if (parseMotifKey(candidate.filename).family === anchorFamily) anchor.push(candidate)
-    else others.push(candidate)
-  }
-  return { anchor, others }
+  return true
 }
 
 export function maximumLegalSpan(
   laneIndex: number,
   sections: readonly MixJamGeneratorSectionPlan[],
+  arc: GeneratorArcProfile,
   profile: GeneratorProfile
 ): number {
   const lane = profile.lanes[laneIndex]!
@@ -162,24 +174,69 @@ export function maximumLegalSpan(
     }))
   }
   return Math.max(0, ...sections.flatMap((section, sectionIndex) => {
-    if (!profile.sections[sectionIndex]!.activeLanes.includes(laneIndex)) return []
+    if (!arc.sections[sectionIndex]!.activeLanes.includes(laneIndex)) return []
     const sectionSpan = (section.endBar - section.startBar) * TICKS_PER_BAR
     return [lane.role === 'atmosphere' ? sectionSpan : Math.min(8 * TICKS_PER_BAR, sectionSpan)]
   }))
 }
 
-export function candidateForPhrase(
-  selection: Selection, phrase: MixJamGeneratorPhrasePlan,
-  phraseOrdinal: number, laneIndex: number, offset = 0
+/**
+ * The candidate a lane plays at a given cue. A lane's selected pool is already
+ * family-coherent (see `selectDiverseCandidates`), so walking it in order walks
+ * one authored idea's numbered parts.
+ *
+ * `variant` is the swap generation — how many `swap` ops the lane has passed.
+ * It shifts the starting part, which is exactly §1.5.1's technique: the lane
+ * keeps its role and identity and changes to a numbered sibling at a boundary.
+ * `cue` advances within a phrase so a short motif walks parts 1 → 2 → 3 rather
+ * than tiling one fragment.
+ */
+export function candidateForCue(
+  selection: Selection, variant: number, cue: number
 ): PlanningCandidate {
-  const { anchor, others } = partitionByFamily(selection.candidates)
-  // Keep a per-lane phase so independent lanes do not lockstep on part 1.
-  const step = phraseOrdinal + offset + laneIndex
-  if (phrase.motif === 'B' && others.length > 0) {
-    return others[step % others.length]!
-  }
-  const pool = anchor.length > 0 ? anchor : selection.candidates
-  return pool[step % pool.length]!
+  const families = laneFamilies(selection)
+  if (families.length === 0) return selection.candidates[0]!
+  // With several families on the lane, a swap moves to the next family. With
+  // one — the common case for a pack whose whole role shares a stem — it moves
+  // to the next numbered part of that family. Either way the lane keeps its
+  // identity and changes to a sibling, and `cue` never crosses a family inside
+  // one phrase.
+  const family = families[variant % families.length]!
+  const offset = Math.floor(variant / families.length)
+  return family[(offset + cue) % family.length]!
 }
 
-export type { GeneratorLaneProfile, GeneratorProfile }
+/** The lane's selected pool grouped by authored family, in selection order. */
+function laneFamilies(selection: Selection): PlanningCandidate[][] {
+  const byFamily = new Map<string, PlanningCandidate[]>()
+  for (const candidate of selection.candidates) {
+    const family = parseMotifKey(candidate.filename).family
+    const members = byFamily.get(family)
+    if (members) members.push(candidate)
+    else byFamily.set(family, [candidate])
+  }
+  return [...byFamily.values()]
+}
+
+/**
+ * The first candidate at or after `cue` whose span fits `available` ticks, or
+ * null when nothing in the pool fits. Skipping rather than stopping matters: a
+ * pool holding one 8-bar sibling used to end a lane's whole phrase after the
+ * first 2-bar tile, and the deleted density repair pass existed to hide it.
+ */
+export function fittingCandidateForCue(
+  selection: Selection, variant: number, cue: number, available: number, bpm: number,
+  spans: SpanRegistry
+): { candidate: PlanningCandidate; span: number } | null {
+  for (let step = 0; step < selection.candidates.length; step++) {
+    const candidate = candidateForCue(selection, variant, cue + step)
+    // Fit against the span this sample will actually get, not its raw length —
+    // otherwise a candidate already registered longer elsewhere reports a fit
+    // and `addPlacement` then rejects it, silently truncating the phrase.
+    const span = registeredSpan(spans, candidate, durationTicks(candidate, bpm))
+    if (span <= available) return { candidate, span }
+  }
+  return null
+}
+
+export type { GeneratorArcProfile, GeneratorLaneProfile, GeneratorProfile }

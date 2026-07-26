@@ -8,6 +8,7 @@ function candidate(overrides: Partial<GeneratorCandidate> & { sampleType: Sample
   return {
     relpath: 'x.wav', filename: 'x.wav', sizeBytes: 1, mtime: 1,
     duration: 1, bpm: null, musicalKey: null, sourceGroup: 'x', paletteSlot: 0,
+    poolToken: null,
     metadataRevision: 1, analysisRevision: 1, ...overrides
   }
 }

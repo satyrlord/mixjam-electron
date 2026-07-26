@@ -61,6 +61,8 @@ export interface LaneState {
   muted: boolean
   solo: boolean
   pan: number
+  /** Generator-owned identity shared by an evidence-backed stereo lane pair. */
+  stereoPairId?: string | null
   gain: number
   sends: LaneSendLevels
   placements: ClipPlacement[]
@@ -76,6 +78,7 @@ function createLane(index: number, id = `lane-${index + 1}-${++laneIdSequence}`)
     muted: false,
     solo: false,
     pan: 0,
+    stereoPairId: null,
     gain: DEFAULT_LANE_GAIN,
     sends: [...DEFAULT_LANE_SENDS],
     placements: []

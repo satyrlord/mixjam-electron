@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MixJamGeneratorLanePlan } from '../../../shared/backend-api'
 import type { GeneratorCandidate } from './generator-library'
+import { stereoTwinMap } from './generator-motif'
 import type { GeneratorProfile } from './generator-profiles'
 import type { Selection } from './generator-planning-core'
 import { applyStereoPairs, designateStereoPairLanes, validateStereoImage } from './generator-stereo'
@@ -20,6 +21,9 @@ function laneCandidate(overrides: Partial<GeneratorCandidate> = {}): GeneratorCa
     sampleType: 'Atmosphere',
     sourceGroup: 'Sphere',
     paletteSlot: 0,
+    stereoPairKey: null,
+    stereoSide: null,
+    poolToken: null,
     metadataRevision: 1,
     analysisRevision: 1,
     ...overrides
@@ -29,26 +33,14 @@ function laneCandidate(overrides: Partial<GeneratorCandidate> = {}): GeneratorCa
 function pairCandidates(family: string, parts: readonly number[]): GeneratorCandidate[] {
   return parts.flatMap((part) => (['l', 'r'] as const).map((side) => laneCandidate({
     relpath: `Sphere/${family}-${part}-${side}.wav`,
-    filename: `${family}-${part}-${side}.wav`
+    filename: `${family}-${part}-${side}.wav`,
+    stereoPairKey: `Sphere/${family}-${part}`,
+    stereoSide: side === 'l' ? 'left' : 'right'
   })))
 }
 
 function twinMapOf(candidates: readonly GeneratorCandidate[]): Map<string, GeneratorCandidate> {
-  const twins = new Map<string, GeneratorCandidate>()
-  const byLogical = new Map<string, GeneratorCandidate[]>()
-  for (const candidate of candidates) {
-    const key = candidate.filename.replace(/-(l|r)\.wav$/, '')
-    byLogical.set(key, [...(byLogical.get(key) ?? []), candidate])
-  }
-  for (const halves of byLogical.values()) {
-    const left = halves.find((c) => c.filename.endsWith('-l.wav'))
-    const right = halves.find((c) => c.filename.endsWith('-r.wav'))
-    if (left && right) {
-      twins.set(left.relpath, right)
-      twins.set(right.relpath, left)
-    }
-  }
-  return twins
+  return stereoTwinMap(candidates)
 }
 
 function selectionOf(candidates: readonly GeneratorCandidate[]): Selection {
@@ -59,11 +51,15 @@ function selectionOf(candidates: readonly GeneratorCandidate[]): Selection {
   }
 }
 
+// Mirror pairs sit at ±pairPan, not at hard ±1 — stereo *side* still needs
+// pair evidence, but the spread is mix data the profile owns (spec-021 §Pan).
+const PAIR_PAN = 0.45
+
 // A profile just large enough that the pair-lane target rounds up to one: with
 // nine populated tonal lanes, halfUp(9 * 0.2 / 1.8) === 1.
 function profileWith(roles: readonly GeneratorProfile['lanes'][number]['role'][]): GeneratorProfile {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'fixture',
     label: 'Fixture',
     version: 1,
@@ -71,14 +67,21 @@ function profileWith(roles: readonly GeneratorProfile['lanes'][number]['role'][]
     default: false,
     bpmTolerance: 8,
     coreLanes: [0],
-    sections: [],
+    pairPan: PAIR_PAN,
+    returns: [],
+    arcs: [{
+      name: 'Fixture arc',
+      sections: [{ name: 'Groove', weight: 100, activeLanes: roles.map((_, index) => index), phraseMode: 'steady' }],
+      ops: []
+    }],
     lanes: roles.map((role, index) => ({
       name: `Lane ${index}`,
       types: role === 'motif' && index === 0 ? ['Bass'] : ['Atmosphere'],
       maxBars: 16,
       role,
       gain: 0.4,
-      pan: 0
+      pan: 0,
+      sends: []
     }))
   }
 }
@@ -89,8 +92,10 @@ function lanePlan(index: number, overrides: Partial<MixJamGeneratorLanePlan> = {
     name: `Lane ${index}`,
     gain: 0.4,
     pan: 0,
+    stereoPairId: null,
     muted: false,
     solo: false,
+    sends: [],
     placements: [],
     ...overrides
   }
@@ -145,6 +150,21 @@ describe('designateStereoPairLanes', () => {
     expect(selections[8]!.candidates).toHaveLength(2)
   })
 
+  it('does not designate L/R-looking filenames without analyzer evidence', () => {
+    const filenamesOnly = pairCandidates('cloud', [1, 2]).map((candidate) => ({
+      ...candidate,
+      stereoPairKey: null,
+      stereoSide: null
+    }))
+    const roles = Array.from({ length: 9 }, () => 'atmosphere' as const)
+    const selections = roles.map((_, index) =>
+      index === 8
+        ? selectionOf(filenamesOnly)
+        : selectionOf([laneCandidate({ relpath: `Sphere/m${index}.wav`, filename: `m${index}.wav` })])
+    )
+    expect(designateStereoPairLanes(selections, profileWith(roles), stereoTwinMap(filenamesOnly)).size).toBe(0)
+  })
+
   it('never designates a Bass motif lane even with complete pairs', () => {
     const pairs = pairCandidates('cloud', [1, 2])
     const twins = twinMapOf(pairs)
@@ -160,7 +180,7 @@ describe('designateStereoPairLanes', () => {
 describe('applyStereoPairs', () => {
   const profile = profileWith(['atmosphere', 'atmosphere'])
 
-  it('mirrors a designated lane into a hard-panned right twin lane', () => {
+  it('mirrors a designated lane into a twin lane at the profile spread', () => {
     const pairs = pairCandidates('cloud', [1, 2])
     const twins = twinMapOf(pairs)
     const lanes = [lanePlan(0, {
@@ -169,10 +189,12 @@ describe('applyStereoPairs', () => {
     })]
     applyStereoPairs(lanes, new Set([0]), twins, profile, 'seed')
     expect(lanes).toHaveLength(2)
-    expect(lanes[0]!.pan).toBe(-1)
+    expect(lanes[0]!.pan).toBe(-PAIR_PAN)
     expect(lanes[0]!.name).toBe('Sky L')
-    expect(lanes[1]!.pan).toBe(1)
+    expect(lanes[1]!.pan).toBe(PAIR_PAN)
     expect(lanes[1]!.name).toBe('Sky R')
+    expect(lanes[0]!.stereoPairId).toMatch(/^stereo-pair-/)
+    expect(lanes[1]!.stereoPairId).toBe(lanes[0]!.stereoPairId)
     expect(lanes[1]!.placements.map((p) => p.sampleRef)).toEqual([
       'Sphere/cloud-1-r.wav',
       'Sphere/cloud-2-r.wav'
@@ -186,6 +208,7 @@ describe('applyStereoPairs', () => {
     applyStereoPairs(lanes, new Set([0]), twins, profile, 'seed')
     expect(lanes).toHaveLength(1)
     expect(lanes[0]!.pan).toBe(0)
+    expect(lanes[0]!.stereoPairId).toBeNull()
   })
 
   it('leaves a lane centered when any placement lacks a twin', () => {
@@ -197,46 +220,50 @@ describe('applyStereoPairs', () => {
     applyStereoPairs(lanes, new Set([0]), twins, profile, 'seed')
     expect(lanes).toHaveLength(1)
     expect(lanes[0]!.pan).toBe(0)
+    expect(lanes[0]!.stereoPairId).toBeNull()
   })
 })
 
 describe('validateStereoImage', () => {
-  it('accepts a clean centered/paired image', () => {
+  it('accepts a mirrored pair at the profile spread beside centered lanes', () => {
     const lanes = [
-      lanePlan(0, { pan: -1, placements: [placement('a-l.wav')] }),
-      lanePlan(1, { pan: 0, placements: [placement('b.wav')] }),
-      lanePlan(2, { pan: 1, placements: [placement('a-r.wav')] })
+      lanePlan(0, { pan: -PAIR_PAN, stereoPairId: 'stereo-pair-fixture', placements: [placement('a-l.wav')] }),
+      lanePlan(1, { pan: 0.2, placements: [placement('b.wav')] }),
+      lanePlan(2, { pan: PAIR_PAN, stereoPairId: 'stereo-pair-fixture', placements: [placement('a-r.wav')] })
     ]
-    // profileLaneCount = 2: lane 2 is the appended mirror.
-    expect(() => validateStereoImage(lanes, 2)).not.toThrow()
+    // profileLaneCount = 2: lane 2 is the appended mirror of lane 0.
+    expect(() => validateStereoImage(lanes, profileWith(['motif', 'atmosphere']), new Set([0]))).not.toThrow()
   })
 
-  it('rejects a lane with variable (non-three-way) panning', () => {
+  it('rejects a non-pair lane panned past the mix-position cap', () => {
     const lanes = [lanePlan(0, { pan: 0.5 })]
-    expect(() => validateStereoImage(lanes, 1)).toThrow(/variable panning/)
+    expect(() => validateStereoImage(lanes, profileWith(['motif']), new Set()))
+      .toThrow(/past the mix-position cap/)
   })
 
-  it('rejects a mirror lane that is not hard-panned right', () => {
+  it('rejects a mirror lane that is not at the pair position', () => {
     const lanes = [
-      lanePlan(0, { pan: -1 }),
-      lanePlan(1, { pan: -1 }) // appended mirror must be +1
+      lanePlan(0, { pan: -PAIR_PAN }),
+      lanePlan(1, { pan: -PAIR_PAN })
     ]
-    expect(() => validateStereoImage(lanes, 1)).toThrow(/not hard-panned right/)
+    expect(() => validateStereoImage(lanes, profileWith(['motif']), new Set([0])))
+      .toThrow(/not at the pair position/)
   })
 
-  it('rejects unmatched left/mirror lane counts', () => {
-    // No left lane in the base region, but one appended mirror at +1.
+  it('rejects unmatched mirrored lane counts', () => {
     const lanes = [
       lanePlan(0, { pan: 0 }),
-      lanePlan(1, { pan: 1 })
+      lanePlan(1, { pan: PAIR_PAN })
     ]
-    expect(() => validateStereoImage(lanes, 1)).toThrow(/unmatched stereo pair/)
+    expect(() => validateStereoImage(lanes, profileWith(['motif']), new Set()))
+      .toThrow(/unmatched stereo pair/)
   })
 
   it('rejects more than the maximum populated lane count', () => {
     const lanes = Array.from({ length: 33 }, (_, index) =>
       lanePlan(index, { pan: 0, placements: [placement(`s${index}.wav`)] })
     )
-    expect(() => validateStereoImage(lanes, 33)).toThrow(/at most 32 are allowed/)
+    const profile = profileWith(Array.from({ length: 33 }, () => 'motif' as const))
+    expect(() => validateStereoImage(lanes, profile, new Set())).toThrow(/at most 32 are allowed/)
   })
 })

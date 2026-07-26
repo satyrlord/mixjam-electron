@@ -88,6 +88,7 @@ function candidate(overrides: Partial<GeneratorCandidate> = {}): GeneratorCandid
     sampleType: 'Kick',
     sourceGroup: 'Drums',
     paletteSlot: sourceGroupSlot('Drums'),
+    poolToken: null,
     metadataRevision: METADATA_REVISION,
     analysisRevision: ANALYSIS_REVISION,
     ...overrides

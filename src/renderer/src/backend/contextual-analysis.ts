@@ -51,8 +51,32 @@ function directoryPrefixes(relpath: string): string[] {
   return prefixes
 }
 
+// `NAME_<bpm>_<key>_<pack>` — the pack convention this corpus is authored in.
+// The key slot is a bare letter, an explicit minor, or the literal `X` for
+// unkeyed material, which is why a key-only pattern misses two thirds of the
+// library.
+const STRUCTURED_LABEL = /(?:^|_)([6-9][0-9]|1[0-9]{2}|200)_([a-g](?:#|b)?m?|x)_(?:sc|sl)[0-9]+(?=$|[_.(])/i
+
+/**
+ * The sample's **pool token** — the `(bpm, keyToken)` pair stated by the
+ * filename label, e.g. `140/A` or `125/X`. It is a pitch-coherence identity,
+ * not a musical key: `A` in this convention almost certainly means A minor, so
+ * publishing it as a key would guess a mode the label never states. Material
+ * that shares a pool token can be resampled together and stay in tune;
+ * `musicalKey` stays null for bare-letter labels (see `labeledKey`).
+ */
+export function labeledPoolToken(value: string): string | null {
+  const structured = STRUCTURED_LABEL.exec(value)
+  if (!structured) return null
+  return `${Number(structured[1])}/${structured[2]!.toUpperCase()}`
+}
+
+export function labeledSampleBpm(value: string): number | null {
+  return labeledBpm(value)
+}
+
 function labeledBpm(value: string): number | null {
-  const structured = /(?:^|_)([6-9][0-9]|1[0-9]{2}|200)_([a-g](?:#|b)?m?)_(?:sc|sl)[0-9]+(?=$|[_.(])/i.exec(value)
+  const structured = STRUCTURED_LABEL.exec(value)
   if (structured) return Number(structured[1])
   const match = /(?:^|[^a-z0-9])(?:bpm[\s_.-]*([0-9]{2,3})|([0-9]{2,3})[\s_.-]*bpm)(?=$|[^a-z0-9])/i.exec(value)
   const bpm = Number(match?.[1] ?? match?.[2])
@@ -60,7 +84,9 @@ function labeledBpm(value: string): number | null {
 }
 
 function labeledKey(value: string): string | null {
-  const structured = /(?:^|_)([6-9][0-9]|1[0-9]{2}|200)_([a-g](?:#|b)?m?)_(?:sc|sl)[0-9]+(?=$|[_.(])/i.exec(value)
+  // Only an explicit minor marker states a mode. A bare `A` is published as a
+  // pool token instead (see `labeledPoolToken`) rather than resolved to A major.
+  const structured = STRUCTURED_LABEL.exec(value)
   if (structured && /m$/i.test(structured[2]!)) return canonicalMusicalKey(structured[2]!)
   const matches = value.matchAll(
     /(?:^|[^a-z])([a-g](?:#|b)?(?:m|min|minor|maj|major))(?=$|[^a-z])/gi

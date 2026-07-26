@@ -11,6 +11,7 @@ import {
   type ProjectGeneratorMetadata
 } from './project-file'
 import { supportsExactGeneratorRegeneration } from './generator-support'
+import { MIXJAM_GENERATOR_PROFILE_VERSIONS } from '../../../shared/generator-templates'
 import {
   createDefaultFxBuses,
   createDefaultLanes,
@@ -32,7 +33,7 @@ type RawMasterBusProject = Record<string, unknown> & {
 const GENERATOR: ProjectGeneratorMetadata = {
   generatorVersion: 3,
   profileId: 'techno',
-  profileVersion: 5,
+  profileVersion: MIXJAM_GENERATOR_PROFILE_VERSIONS.techno,
   seed: 'safe-seed_42',
   parameters: {
     bpmMode: 'follow-detected',
@@ -97,7 +98,7 @@ describe('project file format', () => {
     expect(supportsExactGeneratorRegeneration({
       ...GENERATOR,
       generatorVersion: 4,
-      profileVersion: 6
+      profileVersion: MIXJAM_GENERATOR_PROFILE_VERSIONS.techno + 1
     })).toBe(false)
     expect(supportsExactGeneratorRegeneration({
       ...GENERATOR,
@@ -138,6 +139,25 @@ describe('project file format', () => {
       }]
     })
     expect(parsed.lanes[0]).toMatchObject({ gain: 0.63, solo: true, sends: [0, 0, 0, 0] })
+  })
+
+  it('round-trips optional stereo-pair evidence on project lanes', () => {
+    const project = makeProject()
+    project.lanes[0]!.stereoPairId = 'stereo-pair-1234abcd'
+    project.lanes[1]!.stereoPairId = 'stereo-pair-1234abcd'
+    project.lanes[0]!.pan = -0.5
+    project.lanes[1]!.pan = 0.5
+
+    const parsed = parseProject(serialize(project))
+    expect(parsed.lanes[0]!.stereoPairId).toBe('stereo-pair-1234abcd')
+    expect(parsed.lanes[1]!.stereoPairId).toBe('stereo-pair-1234abcd')
+    expect(parsed.lanes[2]!.stereoPairId).toBeNull()
+  })
+
+  it('rejects malformed stereo-pair evidence', () => {
+    const raw = JSON.parse(serialize()) as { lanes: Array<Record<string, unknown>> }
+    raw.lanes[0]!.stereoPairId = 42
+    expect(() => parseProject(JSON.stringify(raw))).toThrow(/stereoPairId/)
   })
 
   it('save-load-save is identical except for modifiedAt', () => {

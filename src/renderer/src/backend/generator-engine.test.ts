@@ -1,165 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type MixJamGeneratorParameters,
   type MixJamGeneratorPlan,
-  type MixJamGeneratorProfileId,
   type SampleType
 } from '../../../shared/backend-api'
 import { MIXJAM_GENERATOR_PROFILE_IDS } from '../../../shared/generator-templates'
 import { TICKS_PER_BAR } from '../engine/transport'
-import type { AnalyzedGeneratorCandidate, GeneratorPlannerKind } from './generator-analysis'
 import { generatorCandidateMatchesLane } from './generator-candidate'
 import { createMixJamGeneratorPlan } from './generator-engine'
-import { createGeneratorProfileRegistry, GENERATOR_PROFILES } from './generator-profiles'
+import { createGeneratorProfileRegistry, GENERATOR_PROFILES, MAX_TEMPLATE_PAN } from './generator-profiles'
+import { materializeGeneratedProject } from '../project/generated-project'
+import { parseProject, serializeProject } from '../project/project-file'
+import {
+  BPM,
+  CORE_LANES,
+  candidate,
+  candidates,
+  durationForTicks,
+  overlaps,
+  parameters,
+  placementEnd,
+  sourceGroupRichCandidates
+} from './generator-engine-test-support'
 
-const BPM = 140
-const TICKS_PER_BEAT = TICKS_PER_BAR / 4
-const PERCUSSION_LANES = [0, 1, 2, 3, 11] as const
-const LOOP_AND_SYNTH_LANES = [5, 6, 7, 12, 13] as const
-const CORE_LANES: Record<MixJamGeneratorProfileId, readonly number[]> = Object.fromEntries(
-  MIXJAM_GENERATOR_PROFILE_IDS.map((profileId) => [profileId, GENERATOR_PROFILES[profileId]!.coreLanes])
-)
-
-function durationForTicks(ticks: number): number {
-  return ticks * 60 / (BPM * 8)
-}
-
-function sourceSpan(sampleType: SampleType, index: number): number {
-  switch (sampleType) {
-    case 'Kick': return TICKS_PER_BEAT
-    case 'Snare': return 4
-    case 'Hi-hat': return 2
-    case 'Percussion': return 3
-    case 'Bass':
-    case 'Loop':
-    case 'Synth':
-    case 'Vocal': return (index % 2 + 1) * TICKS_PER_BAR
-    case 'Atmosphere': return (index % 2 + 2) * TICKS_PER_BAR
-    case 'FX':
-    case 'Other': return TICKS_PER_BAR
-  }
-}
-
-function kindFor(sampleType: SampleType, index: number): GeneratorPlannerKind {
-  switch (sampleType) {
-    case 'Kick':
-    case 'Snare':
-    case 'Hi-hat':
-    case 'Percussion': return 'one-shot'
-    case 'Bass':
-    case 'Synth': return 'tonal-loop'
-    case 'Loop': return 'rhythmic-loop'
-    case 'Vocal': return 'vocal'
-    case 'Atmosphere': return 'atmosphere'
-    case 'FX': return index % 2 === 0 ? 'riser' : 'impact'
-    case 'Other': return 'texture'
-  }
-}
-
-function candidate(
-  sampleType: SampleType,
-  index: number,
-  overrides: Partial<AnalyzedGeneratorCandidate> = {}
-): AnalyzedGeneratorCandidate {
-  const tonal = ['Bass', 'Loop', 'Synth', 'Vocal', 'Atmosphere'].includes(sampleType)
-  return {
-    relpath: `${sampleType}/${String(index).padStart(2, '0')}.wav`,
-    filename: `${sampleType}-${index}.wav`,
-    sizeBytes: 100 + index,
-    mtime: 1000 + index,
-    duration: durationForTicks(sourceSpan(sampleType, index)),
-    bpm: BPM,
-    musicalKey: tonal ? 'Am' : null,
-    sampleType,
-    sourceGroup: sampleType === 'Bass' ? 'Bass' : 'Unsorted',
-    paletteSlot: sampleType === 'Bass' ? 2 : 8,
-    metadataRevision: 1,
-    analysisRevision: 1,
-    rms: 0.2,
-    peak: 0.8,
-    spectralCentroid: 1200,
-    transientDensity: 0.1,
-    attackStrength: sampleType === 'FX' && index % 2 === 1 ? 0.8 : 0.3,
-    rhythmicRegularity: sampleType === 'Loop' ? 0.8 : 0.4,
-    loopConfidence: 0.85,
-    boundaryContinuity: 0.9,
-    energySlope: sampleType === 'FX' && index % 2 === 0 ? 0.8 : 0,
-    plannerKind: kindFor(sampleType, index),
-    ...overrides
-  }
-}
-
-const candidates = [
-  'Kick', 'Snare', 'Hi-hat', 'Percussion', 'Bass', 'Synth',
-  'FX', 'Vocal', 'Loop', 'Atmosphere', 'Other'
-].flatMap((type, typeIndex) => [0, 1].map((index) =>
-  candidate(type as SampleType, typeIndex * 2 + index)
-))
-
-const sourceGroupRichCandidates = [
-  ...(['Kick', 'Snare', 'Hi-hat', 'Percussion'] as const).flatMap((type, typeIndex) =>
-    Array.from({ length: 4 }, (_, index) => candidate(type, 100 + typeIndex * 10 + index, {
-      sourceGroup: 'Drum',
-      paletteSlot: 1
-    }))
-  ),
-  ...Array.from({ length: 4 }, (_, index) => candidate('Bass', 200 + index, {
-    sourceGroup: 'Bass',
-    paletteSlot: 2
-  })),
-  ...Array.from({ length: 4 }, (_, index) => candidate('Loop', 300 + index, {
-    sourceGroup: 'Loop',
-    paletteSlot: 3
-  })),
-  ...Array.from({ length: 9 }, (_, index) => candidate('Synth', 400 + index, {
-    sourceGroup: ['Keys', 'Layer', 'Seq'][index % 3]!,
-    paletteSlot: 4 + index % 3
-  })),
-  ...Array.from({ length: 6 }, (_, index) => candidate('Vocal', 500 + index, {
-    sourceGroup: index % 2 === 0 ? 'Rap' : 'Voice',
-    paletteSlot: index % 2 === 0 ? 7 : 8
-  })),
-  ...Array.from({ length: 4 }, (_, index) => candidate('Atmosphere', 600 + index, {
-    sourceGroup: 'Sphere',
-    duration: durationForTicks(10 * TICKS_PER_BAR),
-    paletteSlot: 0,
-    plannerKind: 'atmosphere'
-  })),
-  ...Array.from({ length: 8 }, (_, index) => candidate('FX', 700 + index, {
-    sourceGroup: 'Effect',
-    paletteSlot: 1,
-    plannerKind: index % 2 === 0 ? 'riser' : 'impact'
-  })),
-  ...Array.from({ length: 4 }, (_, index) => candidate('Other', 800 + index, {
-    sourceGroup: 'Xtra',
-    paletteSlot: 2,
-    plannerKind: 'texture'
-  }))
-]
-
-function parameters(
-  profileId: MixJamGeneratorProfileId,
-  seed = 'stable-seed'
-): MixJamGeneratorParameters {
-  return {
-    profileId,
-    bpmMode: 'follow-detected',
-    bpm: BPM,
-    intensity: 'medium',
-    durationSeconds: 180,
-    seed
-  }
-}
-
-function placementEnd(
-  placement: MixJamGeneratorPlan['lanes'][number]['placements'][number]
-): number {
-  return placement.startTick + placement.durationTicks
-}
-
-function overlaps(startTick: number, endTick: number, placement: MixJamGeneratorPlan['lanes'][number]['placements'][number]): boolean {
-  return placement.startTick < endTick && placementEnd(placement) > startTick
-}
+const TIMESTAMP = '2026-07-26T00:00:00.000Z'
 
 describe('MixJam generator engine', () => {
   it('plans a validated non-baseline JSON profile through the same engine path', () => {
@@ -186,7 +49,7 @@ describe('MixJam generator engine', () => {
   })
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
-    'uses every lane, every eligible sourceGroup, long material, and richer variation for %s',
+    'shapes %s as an arrangement rather than a wall of sound',
     (profileId) => {
       const plan = createMixJamGeneratorPlan(
         'root',
@@ -195,36 +58,40 @@ describe('MixJam generator engine', () => {
         parameters(profileId)
       )
       const placements = plan.lanes.flatMap((lane) => lane.placements)
-      const byRef = new Map(sourceGroupRichCandidates.map((entry) => [entry.relpath, entry]))
-      const usedSourceGroups = new Set(placements.map((placement) =>
-        byRef.get(placement.sampleRef)!.sourceGroup
-      ))
-      const eligibleSourceGroups = new Set(sourceGroupRichCandidates.map((entry) => entry.sourceGroup))
 
-      expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
-      expect(usedSourceGroups).toEqual(eligibleSourceGroups)
-      expect(Math.max(...placements.map((placement) => placement.durationTicks)))
-        .toBeGreaterThan(4 * TICKS_PER_BAR)
+      // Populated-lane floor and ceiling are structural invariants; "every lane
+      // must appear" is not, and neither is "every source group must appear".
+      // Those two rules are what forced an Ambient pad into a Techno track.
+      const populated = plan.lanes.filter((lane) => lane.placements.length > 0)
+      expect(populated.length).toBeGreaterThanOrEqual(8)
+      expect(populated.length).toBeLessThanOrEqual(32)
       expect(plan.lanes[14]!.placements.length).toBeGreaterThan(0)
       expect(plan.lanes[15]!.placements.length).toBeGreaterThan(0)
-      expect(plan.lanes.filter((lane) =>
-        new Set(lane.placements.map((placement) => placement.sampleRef)).size >= 3
-      ).length).toBeGreaterThanOrEqual(6)
+      expect(placements.length).toBeGreaterThan(0)
 
-      const sectionSignatures = plan.sections.map((section) => {
-        const startTick = section.startBar * TICKS_PER_BAR
-        const endTick = section.endBar * TICKS_PER_BAR
-        return plan.lanes.flatMap((lane) => lane.placements.some((placement) =>
-          overlaps(startTick, endTick, placement)
-        ) ? [lane.index] : []).join(',')
-      })
+      // Lanes enter and leave, so consecutive sections differ in who is playing.
+      const sectionSignatures = plan.sections
+        .filter((section) => section.endBar > section.startBar)
+        .map((section) => {
+          const startTick = section.startBar * TICKS_PER_BAR
+          const endTick = section.endBar * TICKS_PER_BAR
+          return plan.lanes.flatMap((lane) => lane.placements.some((placement) =>
+            overlaps(startTick, endTick, placement)
+          ) ? [lane.index] : []).join(',')
+        })
       expect(new Set(sectionSignatures).size).toBeGreaterThanOrEqual(4)
+
+      // The busiest section carries at least twice the quietest one.
+      const activeCounts = sectionSignatures.map((signature) =>
+        signature === '' ? 0 : signature.split(',').length
+      )
+      expect(Math.max(...activeCounts)).toBeGreaterThanOrEqual(2 * Math.min(...activeCounts))
     }
   )
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS.flatMap((profileId) =>
     (['low', 'medium', 'high'] as const).map((intensity) => ({ profileId, intensity }))
-  ))('keeps every lane, sourceGroup, and long-form role across $profileId $intensity intensity', ({
+  ))('keeps $profileId $intensity above the populated-lane floor', ({
     profileId,
     intensity
   }) => {
@@ -232,18 +99,12 @@ describe('MixJam generator engine', () => {
       ...parameters(profileId),
       intensity
     })
-    const placements = plan.lanes.flatMap((lane) => lane.placements)
-    const byRef = new Map(sourceGroupRichCandidates.map((entry) => [entry.relpath, entry]))
-
-    expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
-    expect(new Set(placements.map((placement) => byRef.get(placement.sampleRef)!.sourceGroup)))
-      .toEqual(new Set(sourceGroupRichCandidates.map((entry) => entry.sourceGroup)))
-    expect(placements.some((placement) => placement.durationTicks > 4 * TICKS_PER_BAR)).toBe(true)
+    expect(plan.lanes.filter((lane) => lane.placements.length > 0).length).toBeGreaterThanOrEqual(8)
   })
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS.flatMap((profileId) =>
     (['low', 'medium', 'high'] as const).map((intensity) => ({ profileId, intensity }))
-  ))('does not require unplaceable long material in a 30-second $profileId $intensity plan', ({
+  ))('plans a short 30-second $profileId $intensity song without repair passes', ({
     profileId,
     intensity
   }) => {
@@ -253,7 +114,9 @@ describe('MixJam generator engine', () => {
       intensity
     })
 
-    expect(plan.lanes.every((lane) => lane.placements.length > 0)).toBe(true)
+    expect(plan.lanes.filter((lane) => lane.placements.length > 0).length).toBeGreaterThanOrEqual(8)
+    expect(Math.max(...plan.lanes.flatMap((lane) => lane.placements.map(placementEnd))))
+      .toBe(plan.targetTicks)
   })
 
   it('does not use a known riser as an impact fallback', () => {
@@ -268,7 +131,7 @@ describe('MixJam generator engine', () => {
     expect(generatorCandidateMatchesLane(otherTexture, impactLane!, 'Other', BPM)).toBe(false)
   })
 
-  it('keeps sourceGroup-coverage percussion on the lane grid', () => {
+  it('keeps percussion on the lane grid even with a flood of one-shot sources', () => {
     const snareSourceGroups = Array.from({ length: 30 }, (_, index) => candidate('Snare', 900 + index, {
       sourceGroup: `Snare ${String(index).padStart(2, '0')}`,
       plannerKind: 'one-shot'
@@ -300,7 +163,9 @@ describe('MixJam generator engine', () => {
         intensity
       })
     ])) as Record<'low' | 'medium' | 'high', MixJamGeneratorPlan>
-    const minimumSamples = { low: 3, medium: 4, high: 5 } as const
+    // The reference library sits near two distinct sources per lane, so
+    // intensity moves the budget by one rather than by three.
+    const minimumSamples = { low: 2, medium: 2, high: 3 } as const
     for (const intensity of ['low', 'medium', 'high'] as const) {
       // Sparse pools cap what a lane can select, so the quota is asserted on
       // the lane majority rather than every lane.
@@ -309,9 +174,8 @@ describe('MixJam generator engine', () => {
       ).length).toBeGreaterThanOrEqual(8)
     }
 
-    // High intensity adds phrase-end fills on mutation-only offsets; the
-    // density rule keeps every intensity full, so the fill count (not raw
-    // placement count) is what separates high from low.
+    // Intensity now lives in the fills: none at low, the last bar at medium,
+    // the last two at high.
     const snareProfile = GENERATOR_PROFILES.techno.lanes[1]!
     const fillOffsets = new Set((snareProfile.beatMutation ?? []).filter((offset) =>
       !(snareProfile.beatPattern ?? []).includes(offset)
@@ -383,25 +247,32 @@ describe('MixJam generator engine', () => {
       expect(bassPlacements.length).toBeGreaterThan(0)
       expect(bassPlacements.every((placement) => placement.slot === 2)).toBe(true)
 
-      // Section names are profile data; the breakdown/peak contracts attach to
-      // the phrase MODE, so resolve sections through the profile's mode table.
-      const modeSection = (mode: string): MixJamGeneratorPlan['sections'][number] =>
-        first.sections[GENERATOR_PROFILES[profileId]!.sections.findIndex(
-          (section) => section.phraseMode === mode
-        )]!
-      const breakdown = modeSection('breakdown')
+      // Every arc has a real breakdown: its quietest section drops at least one
+      // core lane, and lanes a section gates out stay out for its whole span.
+      // Read off the plan's own sections, because which arc the seed picked is
+      // not knowable from the profile alone.
+      const withBars = first.sections.filter((section) => section.endBar > section.startBar)
+      const breakdown = [...withBars].sort((left, right) =>
+        left.activeLanes.length - right.activeLanes.length
+      )[0]!
       const breakdownStart = breakdown.startBar * TICKS_PER_BAR
       const breakdownEnd = breakdown.endBar * TICKS_PER_BAR
-      for (const laneIndex of [0, 4]) {
+      const silencedCore = CORE_LANES[profileId].filter((laneIndex) =>
+        !breakdown.activeLanes.includes(laneIndex)
+      )
+      expect(silencedCore.length).toBeGreaterThan(0)
+      for (const laneIndex of silencedCore) {
         expect(first.lanes[laneIndex]!.placements.some((placement) =>
           overlaps(breakdownStart, breakdownEnd, placement)
         )).toBe(false)
       }
 
-      const peak = modeSection('peak')
+      const peak = [...withBars].sort((left, right) =>
+        right.activeLanes.length - left.activeLanes.length
+      )[0]!
       const peakStart = peak.startBar * TICKS_PER_BAR
       const peakEnd = peak.endBar * TICKS_PER_BAR
-      for (const laneIndex of CORE_LANES[profileId]) {
+      for (const laneIndex of CORE_LANES[profileId].filter((lane) => peak.activeLanes.includes(lane))) {
         expect(first.lanes[laneIndex]!.placements.some((placement) =>
           overlaps(peakStart, peakEnd, placement)
         )).toBe(true)
@@ -416,12 +287,26 @@ describe('MixJam generator engine', () => {
         }
       }
 
-      for (const laneIndex of PERCUSSION_LANES) {
+      // Lane roles are profile data, so read them off the profile rather than
+      // assuming a fixed index layout across six different templates.
+      const profileLanes = GENERATOR_PROFILES[profileId]!.lanes
+      const tailLanes = new Set(GENERATOR_PROFILES[profileId]!.arcs
+        .flatMap((arc) => arc.ops)
+        .filter((op) => op.op === 'tail')
+        .map((op) => op.lane))
+      for (const [laneIndex, laneProfile] of profileLanes.entries()) {
+        if (laneProfile.role !== 'percussion') continue
+        // A hit is trimmed to the stride until the next hit in its pattern, so
+        // it never overlaps the following one and never outlasts a bar.
         expect(first.lanes[laneIndex]!.placements.every((placement) =>
-          placement.durationTicks <= TICKS_PER_BEAT
+          placement.durationTicks <= TICKS_PER_BAR
         )).toBe(true)
       }
-      for (const laneIndex of LOOP_AND_SYNTH_LANES) {
+      for (const [laneIndex, laneProfile] of profileLanes.entries()) {
+        // Whole-bar loop material starts on a bar line — except where a tail op
+        // deliberately places it to *end* on one instead.
+        if (laneProfile.role !== 'motif' || tailLanes.has(laneIndex)) continue
+        if (!laneProfile.types.every((type) => type === 'Loop' || type === 'Synth')) continue
         expect(first.lanes[laneIndex]!.placements.every((placement) =>
           [1, 2, 4, 8].includes(placement.durationTicks / TICKS_PER_BAR) &&
           placement.startTick % TICKS_PER_BAR === 0
@@ -437,15 +322,6 @@ describe('MixJam generator engine', () => {
         .toBe(true)
     }
   )
-
-  it('rejects a missing hard-required role', () => {
-    expect(() => createMixJamGeneratorPlan(
-      'root',
-      'fingerprint',
-      candidates.filter((entry) => entry.sampleType !== 'Kick'),
-      parameters('techno')
-    )).toThrow('requires a Kick sample')
-  })
 
   it('tolerates missing support material while at least 8 lanes stay populated', () => {
     // No Vocal or Atmosphere material: those support lanes stay empty and are
@@ -576,34 +452,38 @@ describe('MixJam generator engine', () => {
       parameters('techno')
     )
 
+    const profile = GENERATOR_PROFILES.techno
     // Percussion one-shots keep the template mix hierarchy: RMS of a transient
     // is not comparable to a loop's, so no compensation applies.
-    expect(plan.lanes[3]!.gain).toBeCloseTo(0.36)
-    expect(plan.lanes[0]!.gain).toBeCloseTo(0.78)
+    expect(plan.lanes[3]!.gain).toBeCloseTo(profile.lanes[3]!.gain)
+    expect(plan.lanes[0]!.gain).toBeCloseTo(profile.lanes[0]!.gain)
     // Tonal lanes compensate toward the tonal median, clamped to plus or minus
-    // 6 dB, and stay inside the control range.
-    expect(plan.lanes[9]!.gain).toBeCloseTo(0.34 * 10 ** (-6 / 20))
-    expect(plan.lanes.every((lane) => lane.gain >= 0 && lane.gain <= 1)).toBe(true)
+    // 6 dB, and never past 1.3x the profile gain so the mix hierarchy holds.
+    expect(plan.lanes[9]!.gain).toBeCloseTo(profile.lanes[9]!.gain * 10 ** (-6 / 20))
+    expect(plan.lanes.every((lane, index) =>
+      lane.gain >= 0 && lane.gain <= Math.min(1, profile.lanes[index]!.gain * 1.3 + 1e-9)
+    )).toBe(true)
   })
 
-  it('changes selections or phrases across seeds without changing section boundaries', () => {
-    const plans = ['seed-a', 'seed-b', 'seed-c', 'seed-d'].map((seed) =>
+  it('varies the arc, the selections, or both across seeds, and repeats exactly per seed', () => {
+    const seeds = ['seed-a', 'seed-b', 'seed-c', 'seed-d']
+    const plans = seeds.map((seed) =>
       createMixJamGeneratorPlan('root', 'fingerprint', candidates, parameters('house', seed))
     )
-    const sectionShape = plans[0]!.sections
     const signatures = plans.map((plan) => JSON.stringify({
+      arcName: plan.arcName,
       selections: plan.selections,
-      phrases: plan.phrases.map(({ sectionIndex, startBar, endBar, motif }) => ({
-        sectionIndex,
-        startBar,
-        endBar,
-        motif
-      }))
+      sections: plan.sections
     }))
-
-    expect(plans.every((plan) => JSON.stringify(plan.sections) === JSON.stringify(sectionShape)))
-      .toBe(true)
     expect(new Set(signatures).size).toBeGreaterThan(1)
+
+    // The seed picks the arc, so exact regeneration reproduces it (B9).
+    const arcs = new Set(plans.map((plan) => plan.arcName))
+    expect(arcs.size).toBeGreaterThan(1)
+    for (const [index, seed] of seeds.entries()) {
+      const repeat = createMixJamGeneratorPlan('root', 'fingerprint', candidates, parameters('house', seed))
+      expect(repeat).toEqual(plans[index])
+    }
   })
 
   it('rounds editable duration to the nearest whole 8-bar phrase and ends exactly there', () => {
@@ -638,6 +518,31 @@ describe('MixJam generator engine', () => {
       .toBe(plan.targetTicks)
   })
 
+  // A generated plan has to satisfy the *loader's* invariants, not just the
+  // planner's. They are separate checks, and a plan that passes only the second
+  // becomes a file the app refuses to open — which is how a batch of unloadable
+  // projects once shipped. The specific break was spec-011 AC-016: percussion
+  // trimming, accelerating rolls, and the song-end anchor each wrote their own
+  // span for one sample. Round-tripping catches that and any future divergence.
+  it.each(MIXJAM_GENERATOR_PROFILE_IDS)('produces a loadable project for %s', (profileId) => {
+    const plan = createMixJamGeneratorPlan('root', 'fingerprint', candidates, parameters(profileId))
+    const document = serializeProject(materializeGeneratedProject(plan), {
+      appVersion: 'test', createdAt: TIMESTAMP, modifiedAt: TIMESTAMP
+    })
+
+    expect(() => parseProject(document)).not.toThrow()
+
+    const spans = new Map<string, number>()
+    for (const lane of plan.lanes) {
+      for (const placement of lane.placements) {
+        const known = spans.get(placement.sampleRef)
+        if (known !== undefined) expect(placement.durationTicks).toBe(known)
+        spans.set(placement.sampleRef, placement.durationTicks)
+      }
+    }
+    expect(spans.size).toBeGreaterThan(0)
+  })
+
   it('uses the full-snapshot detected BPM supplied by the worker', () => {
     const plan = createMixJamGeneratorPlan(
       'root',
@@ -653,30 +558,20 @@ describe('MixJam generator engine', () => {
   })
 
   it.each(MIXJAM_GENERATOR_PROFILE_IDS)(
-    'bounds unchanged low-intensity phrase repetition for %s',
+    'lets a lane hold one unchanged idea across a whole section of %s',
     (profileId) => {
       const plan = createMixJamGeneratorPlan('root', 'fingerprint', candidates, {
         ...parameters(profileId),
         intensity: 'low'
       })
 
-      // The Pareto phrase grammar keeps contrast at roughly one non-rest
-      // phrase in five at every intensity, never two in a row.
-      const nonRest = plan.phrases.filter((phrase) => phrase.motif !== 'rest')
-      const contrast = nonRest.filter((phrase) => phrase.motif === 'B')
-      expect(contrast.length / nonRest.length).toBeLessThanOrEqual(0.4)
-      for (let index = 1; index < nonRest.length; index++) {
-        expect(nonRest[index - 1]!.motif === 'B' && nonRest[index]!.motif === 'B').toBe(false)
-      }
-
-      // Repetition stays bounded for lanes with real pools to walk; a lane
-      // whose corpus offered a single sample necessarily repeats it.
-      const walkable = new Set(plan.selections
-        .filter((selection) => new Set(selection.sampleRefs).size >= 2)
-        .map((selection) => selection.laneIndex))
-      for (const lane of plan.lanes.slice(1, 14).filter((entry) => walkable.has(entry.index))) {
+      // The deleted two-phrase repetition ban is the rule that forbade the
+      // reference library's 56-bar unchanged arp. A lane must now be *able* to
+      // repeat its phrase signature for the length of a section.
+      const runs = plan.lanes.map((lane) => {
         let previousSignature = ''
         let unchangedRun = 0
+        let longest = 0
         for (const phrase of plan.phrases) {
           const startTick = phrase.startBar * TICKS_PER_BAR
           const endTick = phrase.endBar * TICKS_PER_BAR
@@ -690,14 +585,16 @@ describe('MixJam generator engine', () => {
             continue
           }
           unchangedRun = signature === previousSignature ? unchangedRun + 1 : 1
-          expect(unchangedRun).toBeLessThanOrEqual(2)
+          longest = Math.max(longest, unchangedRun)
           previousSignature = signature
         }
-      }
+        return longest
+      })
+      expect(Math.max(...runs)).toBeGreaterThanOrEqual(2)
     }
   )
 
-  it('designates hard-panned stereo pair lanes and mirrors them exactly', () => {
+  it('designates mirrored stereo pair lanes and mirrors them exactly', () => {
     // Complete l/r pairs for the atmosphere roles: enough for the pair-lane
     // designation to trigger on the sustained tonal lanes.
     const paired = [
@@ -705,12 +602,16 @@ describe('MixJam generator engine', () => {
         relpath: `Sphere/cloud-${part}-${side}.wav`,
         filename: `cloud-${part}-${side}.wav`,
         sourceGroup: 'Sphere',
+        stereoPairKey: `Sphere/cloud-${part}`,
+        stereoSide: side === 'l' ? 'left' : 'right',
         duration: durationForTicks(4 * TICKS_PER_BAR)
       }))),
       ...[1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Other', 950 + part, {
         relpath: `Xtra/wash-${part}-${side}.wav`,
         filename: `wash-${part}-${side}.wav`,
         sourceGroup: 'Xtra',
+        stereoPairKey: `Xtra/wash-${part}`,
+        stereoSide: side === 'l' ? 'left' : 'right',
         duration: durationForTicks(4 * TICKS_PER_BAR),
         plannerKind: 'texture'
       })))
@@ -720,10 +621,15 @@ describe('MixJam generator engine', () => {
       ...paired
     ], parameters('techno'))
 
-    // Pan is a three-way decision everywhere.
-    expect(plan.lanes.every((lane) => [-1, 0, 1].includes(lane.pan))).toBe(true)
-    const leftLanes = plan.lanes.filter((lane) => lane.pan === -1)
-    const rightLanes = plan.lanes.filter((lane) => lane.pan === 1)
+    // Lane position is graded mix data capped at the non-pair limit; only an
+    // evidence-backed mirror pair reaches the wider pair spread.
+    const spread = GENERATOR_PROFILES.techno.pairPan
+    expect(plan.lanes.every((lane) =>
+      Math.abs(lane.pan) <= MAX_TEMPLATE_PAN + 1e-9 || Math.abs(lane.pan) === spread
+    )).toBe(true)
+    expect(new Set(plan.lanes.map((lane) => lane.pan)).size).toBeGreaterThanOrEqual(6)
+    const leftLanes = plan.lanes.filter((lane) => lane.pan === -spread)
+    const rightLanes = plan.lanes.filter((lane) => lane.pan === spread)
     expect(leftLanes.length).toBeGreaterThan(0)
     expect(leftLanes.length).toBe(rightLanes.length)
     // Roughly one lane in five is part of a pair.
@@ -738,6 +644,8 @@ describe('MixJam generator engine', () => {
       const right = rightLanes[index]!
       expect(left.name.endsWith(' L')).toBe(true)
       expect(right.name).toBe(`${left.name.slice(0, -2)} R`)
+      expect(left.stereoPairId).toMatch(/^stereo-pair-/)
+      expect(right.stereoPairId).toBe(left.stereoPairId)
       expect(right.gain).toBe(left.gain)
       expect(right.placements.length).toBe(left.placements.length)
       for (const [placementIndex, placement] of left.placements.entries()) {
@@ -753,7 +661,9 @@ describe('MixJam generator engine', () => {
     const paired = [1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Synth', 960 + part, {
       relpath: `Seq/glide-${part}-${side}.wav`,
       filename: `glide-${part}-${side}.wav`,
-      sourceGroup: 'Seq'
+      sourceGroup: 'Seq',
+      stereoPairKey: `Seq/glide-${part}`,
+      stereoSide: side === 'l' ? 'left' : 'right'
     })))
     // Several authored percussion families: with material to spare, no lane
     // ever needs the empty-lane reuse fallback, so cross-lane duplication is
@@ -783,7 +693,7 @@ describe('MixJam generator engine', () => {
     }
   })
 
-  it('keeps a motif lane coherent within one authored family across A phrases', () => {
+  it('keeps a motif lane coherent within one authored family across a phrase', () => {
     // Two bass families: a 3-part "deep" motif and a 2-part "warm" motif. The
     // anchor (A) phrases must walk one family's numbered parts instead of
     // hopping between the two unrelated families bar to bar.
@@ -811,8 +721,8 @@ describe('MixJam generator engine', () => {
     const familyOf = (ref: string): string =>
       ref.replace(/^Bass\//, '').replace(/-\d+\.wav$/, '')
     const bassLane = plan.lanes[4]!
-    // Within any single A phrase, every bass placement is from one family.
-    for (const phrase of plan.phrases.filter((entry) => entry.motif === 'A')) {
+    // Within any single phrase, every bass placement is from one family.
+    for (const phrase of plan.phrases) {
       const startTick = phrase.startBar * TICKS_PER_BAR
       const endTick = phrase.endBar * TICKS_PER_BAR
       const families = new Set(bassLane.placements

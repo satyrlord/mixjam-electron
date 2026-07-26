@@ -152,6 +152,25 @@ function clampPlacementStartTick(startTick: number, durationTicks: number): numb
   return clamp(Math.floor(startTick), 0, TRACKER_TOTAL_TICKS - duration)
 }
 
+/**
+ * Stereo-pair identity describes the lanes' current placement content. Any
+ * arrangement edit to either lane invalidates both halves. Mixer and naming
+ * edits do not pass through this boundary and therefore preserve the evidence.
+ */
+function invalidateStereoPairsForLanes(
+  lanes: LaneState[], changedLaneIndexes: ReadonlySet<number>
+): LaneState[] {
+  const invalidPairIds = new Set(lanes.flatMap((lane) =>
+    changedLaneIndexes.has(lane.index) && lane.stereoPairId ? [lane.stereoPairId] : []
+  ))
+  if (invalidPairIds.size === 0) return lanes
+  return lanes.map((lane) =>
+    lane.stereoPairId && invalidPairIds.has(lane.stereoPairId)
+      ? { ...lane, stereoPairId: null }
+      : lane
+  )
+}
+
 export function placeSampleOnLane(
   lanes: LaneState[],
   laneIndex: number,
@@ -167,7 +186,7 @@ export function placeSampleOnLane(
   if (boundedStartTick === null) return lanes
   const boundedDurationTicks = Math.floor(durationTicks)
 
-  return lanes.map((lane) => {
+  const next = lanes.map((lane) => {
     if (lane.index !== laneIndex) return lane
 
     placementIdSequence += 1
@@ -195,6 +214,7 @@ export function placeSampleOnLane(
       placements: sortPlacements([...lane.placements, newPlacement])
     }
   })
+  return invalidateStereoPairsForLanes(next, new Set([laneIndex]))
 }
 
 /** Exact musical end of the arrangement. Silent gaps and lane audibility do
@@ -278,7 +298,7 @@ export function movePlacement(
   // with the original id intact.
   const movedPlacement: ClipPlacement = { ...found.placement, startTick: boundedStartTick }
 
-  return lanes.map((lane) => {
+  const next = lanes.map((lane) => {
     if (lane.index === found.laneIndex && lane.index === toLaneIndex) {
       // Same lane: replace in place.
       return { ...lane, placements: sortPlacements(lane.placements.map((placement) => (placement.id === placementId ? movedPlacement : placement))) }
@@ -293,6 +313,7 @@ export function movePlacement(
     }
     return lane
   })
+  return invalidateStereoPairsForLanes(next, new Set([found.laneIndex, toLaneIndex]))
 }
 
 export function duplicatePlacement(
@@ -318,6 +339,7 @@ export interface PlacementGroupEntry {
 
 interface ResolvedPlacementGroupEntry extends PlacementGroupEntry {
   placement: ClipPlacement
+  sourceLaneIndex: number
 }
 
 function clampPlacementGroup(entries: ResolvedPlacementGroupEntry[]): ResolvedPlacementGroupEntry[] | null {
@@ -353,7 +375,9 @@ export function movePlacementGroup(lanes: LaneState[], moves: PlacementGroupEntr
   const resolved = clampPlacementGroup(moves
     .map(({ placementId, toLaneIndex, newStartTick }) => {
       const found = findPlacementById(lanes, placementId)
-      return found ? { placementId, toLaneIndex, newStartTick, placement: found.placement } : null
+      return found
+        ? { placementId, toLaneIndex, newStartTick, placement: found.placement, sourceLaneIndex: found.laneIndex }
+        : null
     })
     .filter((entry): entry is ResolvedPlacementGroupEntry => entry !== null))
   if (!resolved || resolved.length === 0) return lanes
@@ -366,12 +390,15 @@ export function movePlacementGroup(lanes: LaneState[], moves: PlacementGroupEntr
     gainsByLane.set(entry.toLaneIndex, gains)
   }
 
-  return lanes.map((lane) => {
+  const next = lanes.map((lane) => {
     const kept = lane.placements.filter((placement) => !movingIds.has(placement.id))
     const gains = gainsByLane.get(lane.index)
     if (kept.length === lane.placements.length && !gains) return lane
     return { ...lane, placements: sortPlacements(gains ? [...kept, ...gains] : kept) }
   })
+  return invalidateStereoPairsForLanes(next, new Set(resolved.flatMap((entry) => [
+    entry.sourceLaneIndex, entry.toLaneIndex
+  ])))
 }
 
 /** Batch-duplicates a selection of placements in a single pass over `lanes`.
@@ -380,7 +407,9 @@ export function duplicatePlacementGroup(lanes: LaneState[], sources: PlacementGr
   const resolved = clampPlacementGroup(sources
     .map(({ placementId, toLaneIndex, newStartTick }) => {
       const found = findPlacementById(lanes, placementId)
-      return found ? { placementId, toLaneIndex, newStartTick, placement: found.placement } : null
+      return found
+        ? { placementId, toLaneIndex, newStartTick, placement: found.placement, sourceLaneIndex: found.laneIndex }
+        : null
     })
     .filter((entry): entry is ResolvedPlacementGroupEntry => entry !== null))
   if (!resolved || resolved.length === 0) return lanes
@@ -392,11 +421,12 @@ export function duplicatePlacementGroup(lanes: LaneState[], sources: PlacementGr
     gainsByLane.set(entry.toLaneIndex, gains)
   }
 
-  return lanes.map((lane) => {
+  const next = lanes.map((lane) => {
     const gains = gainsByLane.get(lane.index)
     if (!gains) return lane
     return { ...lane, placements: sortPlacements([...lane.placements, ...gains]) }
   })
+  return invalidateStereoPairsForLanes(next, new Set(resolved.map((entry) => entry.toLaneIndex)))
 }
 
 export function removePlacementFromLane(
@@ -404,10 +434,15 @@ export function removePlacementFromLane(
   laneIndex: number,
   placementId: string
 ): LaneState[] {
-  return lanes.map((lane) => {
+  let changed = false
+  const next = lanes.map((lane) => {
     if (lane.index !== laneIndex) return lane
-    return { ...lane, placements: lane.placements.filter((placement) => placement.id !== placementId) }
+    const placements = lane.placements.filter((placement) => placement.id !== placementId)
+    if (placements.length === lane.placements.length) return lane
+    changed = true
+    return { ...lane, placements }
   })
+  return changed ? invalidateStereoPairsForLanes(next, new Set([laneIndex])) : lanes
 }
 
 /** Batch-removes placements by id across all lanes in a single pass, so a
@@ -416,11 +451,13 @@ export function removePlacementFromLane(
 export function removePlacements(lanes: LaneState[], placementIds: readonly string[]): LaneState[] {
   const ids = new Set(placementIds)
   let changed = false
+  const changedLaneIndexes = new Set<number>()
   const next = lanes.map((lane) => {
     const kept = lane.placements.filter((placement) => !ids.has(placement.id))
     if (kept.length === lane.placements.length) return lane
     changed = true
+    changedLaneIndexes.add(lane.index)
     return { ...lane, placements: kept }
   })
-  return changed ? next : lanes
+  return changed ? invalidateStereoPairsForLanes(next, changedLaneIndexes) : lanes
 }

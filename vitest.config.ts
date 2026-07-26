@@ -9,12 +9,13 @@ const NODE_BACKEND_TESTS = [
   'src/renderer/src/backend/analysis.test.ts',
   'src/renderer/src/backend/analysis-runner.test.ts',
   'src/renderer/src/backend/analysis-library.test.ts',
-  'src/renderer/src/backend/contextual-analysis.test.ts',
-  'src/renderer/src/backend/generator-engine.test.ts',
-  'src/renderer/src/backend/generator-library.test.ts',
+   'src/renderer/src/backend/contextual-analysis.test.ts',
+   'src/renderer/src/backend/generator-engine.test.ts',
+   'src/renderer/src/backend/generator-engine-context.test.ts',
+   'src/renderer/src/backend/generator-library.test.ts',
   'src/renderer/src/backend/schema.test.ts',
   'scripts/app-version.test.ts',
-  'scripts/generate-mixer-test-song.test.ts'
+  'scripts/generate-mixjam.test.ts'
 ]
 
 // V8 coverage instrumentation runs the DSP long-render tests (multi-second
@@ -39,7 +40,7 @@ export default defineConfig({
         test: {
           name: 'renderer',
           environment: 'jsdom',
-          include: ['src/renderer/src/**/*.test.{ts,tsx}'],
+          include: ['src/renderer/src/**/*.test.{ts,tsx}', 'src/shared/**/*.test.ts'],
           exclude: [...configDefaults.exclude, ...NODE_BACKEND_TESTS]
         }
       },
@@ -56,7 +57,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json'],
       reportsDirectory: './coverage-unit',
-      include: ['src/renderer/src/**/*.{ts,tsx}'],
+      include: ['src/renderer/src/**/*.{ts,tsx}', 'src/shared/**/*.ts'],
       exclude: [
         '**/out/**',
         '**/*.test.{ts,tsx}',

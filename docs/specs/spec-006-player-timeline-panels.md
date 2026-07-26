@@ -819,6 +819,9 @@ contract.
   Mixer selection after lane deletion and compaction.
 - `tmp/verify-compact-layout/evidence.md` records the matching computed
   geometry and screenshots.
+- `tests/e2e/timeline-seek.spec.ts` verifies in built Electron that enabling
+  Follow playhead during playback centers the current position immediately,
+  keeps it within the guard bands, and stops following when disabled.
 - `npm run measure:song-progress-performance` reproduces the full-capacity
   built-Chromium characterization under
   `tmp/verify-song-progress-performance/`. Six raw CDP traces cover a real

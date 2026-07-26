@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mixjam.dev/schemas/generator-template-v1.json",
+  "$id": "https://mixjam.dev/schemas/generator-template-v2.json",
   "title": "MixJam generator template",
   "type": "object",
   "additionalProperties": false,
@@ -11,12 +11,13 @@
     "version",
     "bpmTolerance",
     "coreLanes",
-    "sections",
+    "returns",
+    "arcs",
     "lanes"
   ],
   "properties": {
     "$schema": { "type": "string" },
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "id": { "type": "string", "maxLength": 64, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "label": { "type": "string", "minLength": 1, "maxLength": 64 },
     "version": { "type": "integer", "minimum": 1 },
@@ -29,10 +30,16 @@
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/laneIndex" }
     },
-    "sections": {
+    "pairPan": { "type": "number", "minimum": 0, "maximum": 0.65 },
+    "returns": {
+      "type": "array",
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/return" }
+    },
+    "arcs": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/section" }
+      "items": { "$ref": "#/$defs/arc" }
     },
     "lanes": {
       "type": "array",
@@ -52,6 +59,33 @@
     "sampleType": {
       "enum": ["Kick", "Snare", "Hi-hat", "Percussion", "Bass", "Synth", "FX", "Vocal", "Loop", "Atmosphere", "Other"]
     },
+    "return": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "preset", "returnLevel"],
+      "properties": {
+        "module": { "enum": ["aetherform-reverb", "echoform-delay"] },
+        "preset": { "type": "string", "minLength": 1 },
+        "returnLevel": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "arc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sections"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/section" }
+        },
+        "ops": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/op" }
+        }
+      }
+    },
     "section": {
       "type": "object",
       "additionalProperties": false,
@@ -65,13 +99,26 @@
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/laneIndex" }
         },
-        "phraseMode": { "enum": ["sparse", "steady", "build", "breakdown", "return", "peak", "outro"] }
+        "phraseMode": { "enum": ["build", "steady", "outro"] }
+      }
+    },
+    "op": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "lane"],
+      "properties": {
+        "op": { "enum": ["swap", "roll", "tail", "rest"] },
+        "lane": { "$ref": "#/$defs/laneIndex" },
+        "at": { "type": "string", "minLength": 1 },
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "bars": { "type": "integer", "minimum": 1, "maximum": 4 }
       }
     },
     "lane": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "types", "maxBars", "role", "gain", "pan"],
+      "required": ["name", "types", "maxBars", "role", "gain", "pan", "sends"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "types": {
@@ -85,13 +132,16 @@
         "role": { "enum": ["percussion", "motif", "vocal", "atmosphere", "transition"] },
         "beatPattern": { "$ref": "#/$defs/beatOffsets" },
         "beatMutation": { "$ref": "#/$defs/beatOffsets" },
-        "intentionalAnchor": { "type": "boolean" },
         "preferLong": { "type": "boolean" },
         "transitionKind": { "enum": ["riser", "impact"] },
         "gain": { "type": "number", "minimum": 0, "maximum": 1 },
-        "pan": { "type": "number", "minimum": -1, "maximum": 1 }
+        "pan": { "type": "number", "minimum": -0.35, "maximum": 0.35 },
+        "sends": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
       }
     }
   },
-  "$comment": "The runtime parser also enforces filename/id equality, unique names, section weights totaling 100, full lane activation, role-specific fields, and registry-wide ID/default uniqueness."
+  "$comment": "The runtime parser also enforces filename/id equality, unique names, section weights totaling 100, full lane activation per arc, one send level per declared return bus, op section-name resolution and role fit, role-specific fields, and registry-wide ID/default uniqueness."
 }

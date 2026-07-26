@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MixJamGeneratorSectionPlan, SampleType } from '../../../shared/backend-api'
 import type { GeneratorCandidate } from './generator-library'
-import type { GeneratorProfile } from './generator-profiles'
+import type { GeneratorArcProfile, GeneratorProfile } from './generator-profiles'
 import type { PlanningCandidate, Selection } from './generator-planning-core'
 import {
   applyKitCoherence,
@@ -24,6 +24,7 @@ function candidate(filename: string, overrides: Partial<PlanningCandidate> = {})
     sampleType: 'Bass',
     sourceGroup: 'Bass',
     paletteSlot: 2,
+    poolToken: null,
     metadataRevision: 1,
     analysisRevision: 1,
     ...overrides
@@ -38,7 +39,7 @@ function selectionOf(candidates: readonly PlanningCandidate[], requestedType: Sa
 // motif lane. Both accept Bass, so kit coherence and selection can run.
 function motifProfile(laneCount = 2, maxBars = 8): GeneratorProfile {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'fixture',
     label: 'Fixture',
     version: 1,
@@ -46,25 +47,36 @@ function motifProfile(laneCount = 2, maxBars = 8): GeneratorProfile {
     default: false,
     bpmTolerance: 8,
     coreLanes: [0],
-    sections: Array.from({ length: laneCount }, () => ({
-      name: 'Groove',
-      weight: 100,
-      activeLanes: Array.from({ length: laneCount }, (_, i) => i),
-      phraseMode: 'steady' as const
-    })),
+    pairPan: 0.45,
+    returns: [],
+    arcs: [{
+      name: 'Fixture arc',
+      sections: Array.from({ length: laneCount }, (_, index) => ({
+        name: `Groove ${index}`,
+        weight: index === 0 ? 100 - (laneCount - 1) : 1,
+        activeLanes: Array.from({ length: laneCount }, (_, i) => i),
+        phraseMode: 'steady' as const
+      })),
+      ops: []
+    }],
     lanes: Array.from({ length: laneCount }, (_, index) => ({
       name: `Lane ${index}`,
       types: ['Bass'] as readonly SampleType[],
       maxBars,
       role: 'motif' as const,
       gain: 0.5,
-      pan: 0
+      pan: 0,
+      sends: []
     }))
   }
 }
 
+function arcOf(profile: GeneratorProfile): GeneratorArcProfile {
+  return profile.arcs[0]!
+}
+
 function sections(profile: GeneratorProfile): MixJamGeneratorSectionPlan[] {
-  return profile.sections.map((section, index) => ({
+  return arcOf(profile).sections.map((section, index) => ({
     name: section.name,
     startBar: index * 8,
     endBar: index * 8 + 8,
@@ -124,7 +136,7 @@ describe('applyKitCoherence', () => {
 describe('findTypeCandidates', () => {
   it('returns null when no candidate matches the lane type', () => {
     const hats = [candidate('hat.wav', { sampleType: 'Hi-hat', sourceGroup: 'Drum' })]
-    expect(findTypeCandidates(hats, motifProfile(), 0, BPM, 'Am', 'seed')).toBeNull()
+    expect(findTypeCandidates(hats, motifProfile(), 0, BPM, 'Am', null, 'seed')).toBeNull()
   })
 
   it('orders a multi-part family ahead of a singleton on a motif lane', () => {
@@ -133,7 +145,7 @@ describe('findTypeCandidates', () => {
       candidate('deep-1.wav'),
       candidate('deep-2.wav')
     ]
-    const selection = findTypeCandidates(pool, motifProfile(), 0, BPM, 'Am', 'seed')
+    const selection = findTypeCandidates(pool, motifProfile(), 0, BPM, 'Am', null, 'seed')
     expect(selection).not.toBeNull()
     // The two-part "deep" family anchors ahead of the singleton.
     expect(selection!.candidates[0]!.filename.startsWith('deep')).toBe(true)
@@ -150,24 +162,26 @@ describe('selectDiverseCandidates', () => {
     const laneSelection = selectionOf([longLoop, shortLoop])
     const other = selectionOf([candidate('warm-1.wav'), candidate('warm-2.wav')])
     const { selected } = selectDiverseCandidates(
-      [laneSelection, other], 3, sections(profile), profile, BPM, new Map(), 0.6
+      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, new Map(), 0.6
     )
     const lane0 = selected[0]!
     // At least one selected candidate on lane 0 fits inside the 8-bar cap.
     expect(lane0.candidates.some((c) => c.filename === 'deep-2.wav')).toBe(true)
   })
 
-  it('reports a family-ratio shortfall for a family-less corpus', () => {
+  it('still fills every lane for a family-less corpus', () => {
     const profile = motifProfile(2, 8)
     // Every candidate is a lone family member across two lanes, so the repair
     // loop can neither grow a family nor trim below coverage: shortfall = true.
     const a = selectionOf([candidate('one.wav'), candidate('two.wav')])
     const b = selectionOf([candidate('three.wav'), candidate('four.wav')])
-    const { selected, familyRatioShortfall } = selectDiverseCandidates(
-      [a, b], 3, sections(profile), profile, BPM, new Map(), 0.8
+    const { selected } = selectDiverseCandidates(
+      [a, b], 3, sections(profile), arcOf(profile), profile, BPM, new Map(), 0.8
     )
-    expect(familyRatioShortfall).toBe(true)
+    // A family-less corpus stays generatable: the target steers selection but
+    // is never validated, so the lanes are still filled.
     expect(selected.filter(Boolean).length).toBe(2)
+    expect(familyRatioOf(selected.flatMap((entry) => entry?.candidates ?? []))).toBeLessThan(0.8)
   })
 
   it('repairs toward the family target by adding an unused sibling', () => {
@@ -180,10 +194,9 @@ describe('selectDiverseCandidates', () => {
       candidate('deep-2.wav')
     ])
     const other = selectionOf([candidate('warm-1.wav'), candidate('warm-2.wav')])
-    const { selected, familyRatioShortfall } = selectDiverseCandidates(
-      [laneSelection, other], 3, sections(profile), profile, BPM, new Map(), 0.6
+    const { selected } = selectDiverseCandidates(
+      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, new Map(), 0.6
     )
-    expect(familyRatioShortfall).toBe(false)
     const placed = selected.flatMap((s) => s?.candidates ?? [])
     expect(familyRatioOf(placed)).toBeGreaterThanOrEqual(0.6)
   })
@@ -202,7 +215,7 @@ describe('selectDiverseCandidates stereo claiming', () => {
     const laneSelection = selectionOf([left, right, candidate('deep-1.wav')])
     const other = selectionOf([candidate('warm-1.wav'), candidate('warm-2.wav')])
     const { selected } = selectDiverseCandidates(
-      [laneSelection, other], 3, sections(profile), profile, BPM, twins, 0.6
+      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, twins, 0.6
     )
     const refs = selected.flatMap((s) => s?.candidates.map((c) => c.relpath) ?? [])
     // Only one half of the cloud pair may be placed.

@@ -109,6 +109,7 @@ interface ProjectLaneRecord {
   muted: boolean
   solo: boolean
   pan: number
+  stereoPairId: string | null
   sends: [number, number, number, number]
   placements: ProjectPlacementRecord[]
 }
@@ -338,6 +339,7 @@ function toDocumentRecord(
         muted: lane.muted,
         solo: lane.solo,
         pan: lane.pan,
+        stereoPairId: lane.stereoPairId ?? null,
         sends: [...lane.sends],
         placements: [...lane.placements]
           .sort((left, right) => left.startTick - right.startTick || left.id.localeCompare(right.id))
@@ -535,7 +537,9 @@ export function parseProject(text: string): ProjectDocument {
   const lanes = record.lanes.map((value, arrayIndex): LaneState => {
     const path = `project.lanes[${arrayIndex}]`
     if (!isRecord(value)) fail(path, 'must be an object')
-    assertKeys(value, path, ['id', 'name', 'gain', 'muted', 'solo', 'pan', 'sends', 'placements'])
+    assertKeys(value, path, [
+      'id', 'name', 'gain', 'muted', 'solo', 'pan', 'stereoPairId', 'sends', 'placements'
+    ])
     const id = readString(value, 'id', path)
     if (laneIds.has(id)) fail(`${path}.id`, 'must be unique')
     laneIds.add(id)
@@ -552,6 +556,9 @@ export function parseProject(text: string): ProjectDocument {
       muted: readBoolean(value, 'muted', path),
       solo: readBoolean(value, 'solo', path),
       pan: readNumber(value, 'pan', path, -1, 1),
+      stereoPairId: value.stereoPairId === undefined || value.stereoPairId === null
+        ? null
+        : readString(value, 'stereoPairId', path),
       sends: sendsValue.map((send, sendIndex) => {
         if (typeof send !== 'number' || !Number.isFinite(send) || send < 0 || send > 1) {
           fail(`${path}.sends[${sendIndex}]`, 'must be a finite number from 0 to 1')

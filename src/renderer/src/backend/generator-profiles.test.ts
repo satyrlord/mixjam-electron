@@ -8,6 +8,8 @@ import {
 import templateSchema from '../../../shared/generator-templates/schema.json'
 import {
   GENERATOR_PROFILES,
+  MAX_PAIR_PAN,
+  MAX_TEMPLATE_PAN,
   createGeneratorProfileRegistry,
   parseGeneratorTemplate
 } from './generator-profiles'
@@ -21,7 +23,14 @@ interface MutableLane {
 interface MutableSection {
   activeLanes: number[]
   weight: number
+  name: string
   [key: string]: unknown
+}
+
+interface MutableArc {
+  name: string
+  sections: MutableSection[]
+  ops?: Array<Record<string, unknown>>
 }
 
 interface MutableTemplate {
@@ -30,7 +39,8 @@ interface MutableTemplate {
   default: boolean
   order: number
   lanes: MutableLane[]
-  sections: MutableSection[]
+  arcs: MutableArc[]
+  returns: unknown[]
   [key: string]: unknown
 }
 
@@ -62,118 +72,92 @@ describe('bundled generator templates', () => {
       'ambient-house': 'Ambient House',
       'melodic-techno': 'Melodic Techno'
     })
-    expect(MIXJAM_GENERATOR_PROFILE_VERSIONS).toEqual({
-      techno: 5,
-      trance: 5,
-      house: 5,
-      'tropical-house': 2,
-      'ambient-house': 2,
-      'melodic-techno': 2
-    })
+    expect(MIXJAM_GENERATOR_PROFILE_VERSIONS.techno).toBeGreaterThanOrEqual(6)
     expect(MIXJAM_GENERATOR_DEFAULT_PROFILE_ID).toBe('techno')
   })
 
-  it('keeps the researched baseline arcs distinct', () => {
-    expect(GENERATOR_PROFILES.techno).toMatchObject({
-      bpmTolerance: 8,
-      coreLanes: [0, 4, 6],
-      sections: [
-        expect.objectContaining({ name: 'Intro', weight: 8, phraseMode: 'build' }),
-        expect.objectContaining({ name: 'Groove', weight: 22, phraseMode: 'steady' }),
-        expect.objectContaining({ name: 'Build', weight: 12, phraseMode: 'build' }),
-        expect.objectContaining({ name: 'Breakdown', weight: 12, phraseMode: 'breakdown' }),
-        expect.objectContaining({ name: 'Drive', weight: 24, phraseMode: 'return' }),
-        expect.objectContaining({ name: 'Peak', weight: 14, phraseMode: 'peak' }),
-        expect.objectContaining({ name: 'Outro', weight: 8, phraseMode: 'outro' })
-      ]
-    })
-    expect(GENERATOR_PROFILES.trance).toMatchObject({
-      bpmTolerance: 6,
-      coreLanes: [0, 4, 5, 6],
-      sections: expect.arrayContaining([
-        expect.objectContaining({ name: 'Breakdown', weight: 12, phraseMode: 'breakdown' }),
-        expect.objectContaining({ name: 'Rebuild', weight: 8, phraseMode: 'build' }),
-        expect.objectContaining({ name: 'Main Theme', weight: 24, phraseMode: 'return' })
-      ])
-    })
-    expect(GENERATOR_PROFILES.house).toMatchObject({
-      bpmTolerance: 8,
-      coreLanes: [0, 2, 4],
-      sections: expect.arrayContaining([
-        expect.objectContaining({ name: 'Vocal Entry', weight: 12, phraseMode: 'steady' }),
-        expect.objectContaining({ name: 'Main Groove', weight: 16, phraseMode: 'return' }),
-        expect.objectContaining({ name: 'Rebuild', weight: 8, phraseMode: 'build' })
-      ])
-    })
-  })
-
-  it('keeps every template dense enough for the 80/80/80 rule with a Pareto quiet share', () => {
+  it('carries two or three seeded arcs per profile, each an authored variation', () => {
     for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
       const profile = GENERATOR_PROFILES[id]!
-      // Operationally quiet time (breakdown rest cadence and outro ramp) stays
-      // near the Pareto 20%.
-      const quiet = profile.sections
-        .filter((section) => section.phraseMode === 'breakdown' || section.phraseMode === 'outro')
-        .reduce((sum, section) => sum + section.weight, 0)
-      expect(quiet).toBeGreaterThanOrEqual(15)
-      expect(quiet).toBeLessThanOrEqual(25)
-      // At least 80% of non-transition lanes can be scheduled for 85% of bars.
-      const nonTransition = profile.lanes.flatMap((lane, index) => lane.role === 'transition' ? [] : [index])
-      const covered = nonTransition.filter((laneIndex) =>
-        profile.sections.reduce((sum, section) =>
-          sum + (section.activeLanes.includes(laneIndex) ? section.weight : 0), 0) >= 85
-      )
-      expect(covered.length).toBeGreaterThanOrEqual(Math.ceil(0.8 * nonTransition.length))
+      expect(profile.arcs.length).toBeGreaterThanOrEqual(2)
+      expect(profile.arcs.length).toBeLessThanOrEqual(3)
+      const names = profile.arcs.map((arc) => arc.name)
+      expect(new Set(names).size).toBe(names.length)
+      for (const arc of profile.arcs) {
+        expect(arc.sections.reduce((sum, section) => sum + section.weight, 0)).toBe(100)
+      }
     }
   })
 
-  it('encodes distinct tropical-house, ambient-house, and melodic-techno plans', () => {
-    expect(GENERATOR_PROFILES['tropical-house']).toMatchObject({
-      bpmTolerance: 5,
-      coreLanes: [0, 4, 6],
-      sections: expect.arrayContaining([
-        expect.objectContaining({ name: 'Beach Intro', weight: 8, phraseMode: 'build' }),
-        expect.objectContaining({ name: 'Countermelody Peak', weight: 16, phraseMode: 'peak' })
-      ])
-    })
-    expect(GENERATOR_PROFILES['tropical-house'].lanes[2]).toMatchObject({
-      name: 'Swung Hi-hat', beatPattern: [5, 13, 21, 29], gain: 0.32
-    })
-
-    expect(GENERATOR_PROFILES['ambient-house']).toMatchObject({
-      bpmTolerance: 10,
-      coreLanes: [0, 6, 9],
-      sections: expect.arrayContaining([
-        expect.objectContaining({ name: 'Atmosphere Intro', weight: 10, phraseMode: 'sparse' }),
-        expect.objectContaining({ name: 'Dissolve', weight: 12, phraseMode: 'breakdown' })
-      ])
-    })
-    expect(GENERATOR_PROFILES['ambient-house'].lanes[1]).toMatchObject({
-      name: 'Sparse Clap', beatPattern: [24], beatMutation: [8, 24], gain: 0.24
-    })
-
-    expect(GENERATOR_PROFILES['melodic-techno']).toMatchObject({
-      bpmTolerance: 6,
-      coreLanes: [0, 4, 5, 6],
-      sections: expect.arrayContaining([
-        expect.objectContaining({ name: 'Motif Reveal', weight: 14, phraseMode: 'steady' }),
-        expect.objectContaining({ name: 'Atmospheric Break', weight: 12, phraseMode: 'breakdown' }),
-        expect.objectContaining({ name: 'Melodic Peak', weight: 14, phraseMode: 'peak' })
-      ])
-    })
-    expect(GENERATOR_PROFILES['melodic-techno'].lanes[3]).toMatchObject({
-      name: 'Shaker / Rim', beatPattern: [6, 10, 20, 24, 28]
-    })
+  it('leaves every arc with quiet time and no lane running the whole song', () => {
+    for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
+      const profile = GENERATOR_PROFILES[id]!
+      for (const arc of profile.arcs) {
+        const busiest = Math.max(...arc.sections.map((section) => section.activeLanes.length))
+        const quietest = Math.min(...arc.sections.map((section) => section.activeLanes.length))
+        // A section set that never drops below half the busiest section is the
+        // wall of sound the deleted 80/80/80 density rule manufactured.
+        expect(quietest).toBeLessThanOrEqual(busiest / 2)
+        // No lane may be scheduled in every section: zero lanes above 90%
+        // occupancy is the envelope's hardest measure to hit by accident.
+        for (let laneIndex = 0; laneIndex < profile.lanes.length; laneIndex++) {
+          const share = arc.sections.reduce((sum, section) =>
+            sum + (section.activeLanes.includes(laneIndex) ? section.weight : 0), 0)
+          expect(share).toBeLessThanOrEqual(92)
+        }
+      }
+    }
   })
 
-  it('keeps template pan centered until planner stereo evidence is available', () => {
-    expect(MIXJAM_GENERATOR_PROFILE_IDS.every((id) =>
-      GENERATOR_PROFILES[id]!.lanes.every((lane) => lane.pan === 0)
-    )).toBe(true)
+  it('declares exactly one reverb and one delay return per profile', () => {
+    for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
+      const profile = GENERATOR_PROFILES[id]!
+      expect(profile.returns.map((bus) => bus.module)).toEqual(['aetherform-reverb', 'echoform-delay'])
+      expect(profile.returns.every((bus) => bus.returnLevel > 0)).toBe(true)
+      expect(profile.lanes.every((lane) => lane.sends.length === profile.returns.length)).toBe(true)
+      // The reference library puts at least 70% of lanes into a return.
+      const sending = profile.lanes.filter((lane) => lane.sends.some((send) => send > 0))
+      expect(sending.length / profile.lanes.length).toBeGreaterThanOrEqual(0.7)
+    }
+  })
+
+  it('caps template lane position at the non-pair mix limit and keeps the image wide', () => {
+    for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
+      const profile = GENERATOR_PROFILES[id]!
+      expect(profile.lanes.every((lane) => Math.abs(lane.pan) <= MAX_TEMPLATE_PAN)).toBe(true)
+      expect(profile.pairPan).toBeLessThanOrEqual(MAX_PAIR_PAN)
+      expect(new Set(profile.lanes.map((lane) => lane.pan)).size).toBeGreaterThanOrEqual(6)
+    }
+  })
+
+  it('keeps the kick at the top of the reference gain hierarchy', () => {
+    for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
+      const profile = GENERATOR_PROFILES[id]!
+      const kick = profile.lanes.find((lane) => lane.types[0] === 'Kick')!
+      // The ambient profile ties its soft pulse with its dub bass, which is what
+      // the AmbientHouse reference does; nothing may sit above the kick.
+      expect(kick.gain).toBe(Math.max(...profile.lanes.map((lane) => lane.gain)))
+      // Support material lives well below it — hats and pads at roughly half.
+      const textural = profile.lanes.filter((lane) => lane.role === 'atmosphere')
+      expect(Math.max(...textural.map((lane) => lane.gain))).toBeLessThan(kick.gain)
+    }
+  })
+
+  it('addresses every boundary op at a section its own arc declares', () => {
+    for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
+      for (const arc of GENERATOR_PROFILES[id]!.arcs) {
+        const names = new Set(arc.sections.map((section) => section.name))
+        for (const op of arc.ops) {
+          for (const reference of [op.at, op.from, op.to]) {
+            if (reference !== undefined) expect(names.has(reference)).toBe(true)
+          }
+        }
+      }
+    }
   })
 
   it('ships an editor schema aligned with the runtime schema version and lane count', () => {
-    expect(templateSchema.properties.schemaVersion.const).toBe(1)
+    expect(templateSchema.properties.schemaVersion.const).toBe(2)
     expect(templateSchema.properties.lanes.minItems).toBe(16)
     expect(templateSchema.properties.lanes.maxItems).toBe(16)
   })
@@ -182,28 +166,48 @@ describe('bundled generator templates', () => {
 describe('parseGeneratorTemplate', () => {
   it('accepts a complete genre-neutral template', () => {
     const parsed = parseGeneratorTemplate(mutableTemplate(), 'custom-profile.json')
-    expect(parsed).toMatchObject({ id: 'custom-profile', label: 'Custom profile', version: 5 })
+    expect(parsed).toMatchObject({ id: 'custom-profile', label: 'Custom profile' })
     expect(parsed.lanes).toHaveLength(16)
+    expect(parsed.arcs.length).toBeGreaterThanOrEqual(2)
   })
 
   it.each([
     ['unknown field', (value: MutableTemplate) => { value.lnaes = value.lanes }, 'template.lnaes'],
     ['unsupported type', (value: MutableTemplate) => { value.lanes[0]!.types = ['Banjo'] }, 'template.lanes[0].types[0]'],
     ['wrong lane count', (value: MutableTemplate) => { value.lanes.pop() }, 'template.lanes'],
-    ['duplicate active lane', (value: MutableTemplate) => { value.sections[0]!.activeLanes.push(value.sections[0]!.activeLanes[0]!) }, 'template.sections[0].activeLanes'],
-    ['invalid section total', (value: MutableTemplate) => { value.sections[0]!.weight = 9 }, 'template.sections'],
+    ['duplicate active lane', (value: MutableTemplate) => {
+      value.arcs[0]!.sections[0]!.activeLanes.push(value.arcs[0]!.sections[0]!.activeLanes[0]!)
+    }, 'template.arcs[0].sections[0].activeLanes'],
+    ['invalid section total', (value: MutableTemplate) => { value.arcs[0]!.sections[0]!.weight = 9 }, 'template.arcs[0].sections'],
     ['obsolete effect field', (value: MutableTemplate) => { value.lanes[0]!.effects = [] }, 'template.lanes[0].effects'],
+    ['obsolete top-level sections', (value: MutableTemplate) => { value.sections = value.arcs[0]!.sections }, 'template.sections'],
     ['missing transition kind', (value: MutableTemplate) => { delete value.lanes[14]!.transitionKind }, 'template.lanes[14].transitionKind'],
-    ['unsupported schema version', (value: MutableTemplate) => { value.schemaVersion = 2 }, 'template.schemaVersion'],
+    ['unsupported schema version', (value: MutableTemplate) => { value.schemaVersion = 1 }, 'template.schemaVersion'],
     ['unsupported stereo pairing', (value: MutableTemplate) => { value.stereoPairRules = [] }, 'template.stereoPairRules'],
     ['duplicate lane name', (value: MutableTemplate) => { value.lanes[1]!.name = value.lanes[0]!.name }, 'template.lanes'],
-    ['duplicate section name', (value: MutableTemplate) => { value.sections[1]!.name = value.sections[0]!.name }, 'template.sections'],
-    ['starved lane coverage', (value: MutableTemplate) => {
-      for (const section of value.sections) {
+    ['duplicate section name', (value: MutableTemplate) => {
+      value.arcs[0]!.sections[1]!.name = value.arcs[0]!.sections[0]!.name
+    }, 'template.arcs[0].sections'],
+    ['duplicate arc name', (value: MutableTemplate) => { value.arcs[1]!.name = value.arcs[0]!.name }, 'template.arcs'],
+    ['a lane no section ever activates', (value: MutableTemplate) => {
+      for (const section of value.arcs[0]!.sections) {
         section.activeLanes = section.activeLanes.filter((lane) => lane !== 1)
       }
-      value.sections[0]!.activeLanes.push(1)
-    }, 'template.sections']
+    }, 'template.arcs[0].sections'],
+    ['a third return bus', (value: MutableTemplate) => {
+      value.returns.push({ module: 'aetherform-reverb', preset: 'Dark Hall', returnLevel: 0.2 })
+    }, 'template.returns'],
+    ['a send vector that does not match the bus count', (value: MutableTemplate) => { value.lanes[0]!.sends = [0] }, 'template.lanes[0].sends'],
+    ['a lane panned past the mix-position cap', (value: MutableTemplate) => { value.lanes[0]!.pan = 0.8 }, 'template.lanes[0].pan'],
+    ['an op naming a section the arc does not declare', (value: MutableTemplate) => {
+      value.arcs[0]!.ops = [{ op: 'swap', lane: 5, at: 'Nowhere' }]
+    }, 'template.arcs[0].ops[0].at'],
+    ['a roll op on a sustained lane', (value: MutableTemplate) => {
+      value.arcs[0]!.ops = [{ op: 'roll', lane: 5, at: value.arcs[0]!.sections[1]!.name }]
+    }, 'template.arcs[0].ops[0].lane'],
+    ['a rest op without a range', (value: MutableTemplate) => {
+      value.arcs[0]!.ops = [{ op: 'rest', lane: 5, at: value.arcs[0]!.sections[1]!.name }]
+    }, 'template.arcs[0].ops[0].at']
   ])('rejects %s with a field-specific error', (_name, mutate, field) => {
     const value = mutableTemplate()
     mutate(value)
@@ -218,7 +222,6 @@ describe('createGeneratorProfileRegistry', () => {
     })
     expect(registry.ids).toEqual(['custom-profile'])
     expect(registry.labels).toEqual({ 'custom-profile': 'Custom profile' })
-    expect(registry.versions).toEqual({ 'custom-profile': 5 })
     expect(Object.isFrozen(registry.profiles['custom-profile'])).toBe(true)
   })
 

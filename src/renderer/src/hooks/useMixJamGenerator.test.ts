@@ -21,11 +21,13 @@ const PARAMETERS: MixJamGeneratorParameters = {
 }
 
 const SECOND_SAMPLE_FOLDER = { id: 'second-sample-folder', name: 'Other Samples' }
+import { MIXJAM_GENERATOR_PROFILE_VERSIONS } from '../../../shared/generator-templates'
 
 const PLAN: MixJamGeneratorPlan = {
   generatorVersion: 3,
   profileId: 'techno',
-  profileVersion: 5,
+  profileVersion: 6,
+  arcName: 'Tunnel',
   seed: PARAMETERS.seed,
   parameters: {
     bpmMode: 'fixed',
@@ -39,11 +41,13 @@ const PLAN: MixJamGeneratorPlan = {
   targetTicks: 32,
   quantizedDurationSeconds: 1.7,
   dominantKey: null,
+  poolToken: null,
   analysis: { attemptedFiles: 1, analyzedFiles: 1, uniqueReads: 1 },
   selections: [],
   substitutions: [],
   sections: [],
   phrases: [],
+  returns: [],
   lanes: []
 }
 
@@ -57,11 +61,13 @@ const DETAILED_PLAN: MixJamGeneratorPlan = {
   }],
   substitutions: [{ laneIndex: 0, requestedType: 'Percussion', selectedType: 'Snare' }],
   sections: [{ name: 'Intro', startBar: 0, endBar: 1, activeLanes: [0] }],
+  returns: [],
   lanes: [{
     index: 0,
     name: 'Snare',
     gain: 0.8,
     pan: 0,
+    sends: [],
     muted: false,
     solo: false,
     placements: []
@@ -164,7 +170,7 @@ describe('useMixJamGenerator', () => {
       projectGenerator: {
         generatorVersion: 3,
         profileId: 'techno',
-        profileVersion: 5,
+        profileVersion: MIXJAM_GENERATOR_PROFILE_VERSIONS.techno,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: PARAMETERS.bpmMode,
@@ -312,7 +318,7 @@ describe('useMixJamGenerator', () => {
       projectGenerator: {
         generatorVersion: 3,
         profileId: 'techno',
-        profileVersion: 5,
+        profileVersion: MIXJAM_GENERATOR_PROFILE_VERSIONS.techno,
         seed: PARAMETERS.seed,
         parameters: {
           bpmMode: 'fixed',

@@ -19,6 +19,7 @@ import {
   movePlacement,
   placeSampleOnLane,
   removePlacementFromLane,
+  removePlacements,
   resolvePendingPlacementBpms,
   songEndTick,
   toEngineLanes
@@ -35,7 +36,8 @@ import {
   renameLane,
   setLanePan,
   toggleLaneMute,
-  toggleLaneSolo
+  toggleLaneSolo,
+  type LaneState
 } from '../project/project-state'
 import { clamp } from './sample-utils'
 
@@ -237,6 +239,48 @@ describe('placeSampleOnLane', () => {
 
     expect(next).toBe(lanes)
     expect(next[0]!.placements).toEqual([])
+  })
+})
+
+describe('stereo-pair evidence invalidation', () => {
+  function pairedLanes(): LaneState[] {
+    let lanes = createDefaultLanes()
+    lanes = placeSampleOnLane(lanes, 0, 'Sphere/pad-left.wav', 'pad-left.wav', 0)
+    lanes = placeSampleOnLane(lanes, 1, 'Sphere/pad-right.wav', 'pad-right.wav', 0)
+    lanes = placeSampleOnLane(lanes, 2, 'Drums/kick.wav', 'kick.wav', 0)
+    lanes[0] = { ...lanes[0]!, stereoPairId: 'stereo-pair-fixture' }
+    lanes[1] = { ...lanes[1]!, stereoPairId: 'stereo-pair-fixture' }
+    return lanes
+  }
+
+  it.each([
+    ['add', (lanes: LaneState[]) => placeSampleOnLane(lanes, 0, 'Sphere/new.wav', 'new.wav', 64)],
+    ['replace by moving', (lanes: LaneState[]) =>
+      movePlacement(lanes, lanes[0]!.placements[0]!.id, 0, 64)],
+    ['duplicate into', (lanes: LaneState[]) =>
+      duplicatePlacement(lanes, lanes[2]!.placements[0]!.id, 0, 64)],
+    ['delete', (lanes: LaneState[]) =>
+      removePlacementFromLane(lanes, 0, lanes[0]!.placements[0]!.id)],
+    ['batch clear', (lanes: LaneState[]) =>
+      removePlacements(lanes, [lanes[0]!.placements[0]!.id])],
+    ['batch move', (lanes: LaneState[]) =>
+      movePlacementGroup(lanes, [{
+        placementId: lanes[0]!.placements[0]!.id,
+        toLaneIndex: 3,
+        newStartTick: 64
+      }])]
+  ])('%s on one paired lane clears the shared identity from both lanes', (_, mutate) => {
+    const next = mutate(pairedLanes())
+    expect(next[0]!.stereoPairId).toBeNull()
+    expect(next[1]!.stereoPairId).toBeNull()
+  })
+
+  it('preserves pair identity across unrelated placement and naming edits', () => {
+    const paired = pairedLanes()
+    const unrelatedPlacement = placeSampleOnLane(paired, 3, 'Voice/call.wav', 'call.wav', 64)
+    const renamed = renameLane(unrelatedPlacement, 0, 'Wide Pad L')
+    expect(renamed[0]!.stereoPairId).toBe('stereo-pair-fixture')
+    expect(renamed[1]!.stereoPairId).toBe('stereo-pair-fixture')
   })
 })
 

@@ -1,6 +1,6 @@
 import type { MixJamGeneratorLanePlan } from '../../../shared/backend-api'
 import type { GeneratorCandidate } from './generator-library'
-import { parseMotifKey } from './generator-motif'
+import { MAX_PAIR_PAN, MAX_TEMPLATE_PAN } from './generator-profiles'
 import {
   FAMILY_ROLES,
   MAX_GENERATED_LANES,
@@ -11,12 +11,20 @@ import {
   type Selection
 } from './generator-planning-core'
 
-// Roughly one populated lane in five plays as a hard-panned L/R pair; every
-// other lane stays perfectly centered, so pan is a three-way decision. Pair
-// lanes are designated BEFORE selection so their whole pool can be restricted
-// to left halves of complete stereo pairs: everything that ever lands on the
-// lane must have a twin for the mirror lane. Sustained tonal roles benefit
-// most from width, so atmosphere leads the preference, then vocal, then
+// Two separate ideas, deliberately kept apart (spec-021 §Pan):
+//
+//   - Stereo *side* — claiming that a file is the left or right half of one
+//     recording — still requires persisted stereo-pair evidence. Only a lane
+//     backed by real twins is ever mirrored.
+//   - Lane *position* — where an otherwise mono lane sits in the image — is mix
+//     data the profile declares, capped at ±MAX_TEMPLATE_PAN by the template
+//     parser. Nothing infers it from a filename.
+//
+// When the analyzer supplies enough evidence, the target is roughly one paired
+// lane in five. Pair lanes are designated BEFORE selection so their whole pool
+// can be restricted to left halves of complete pairs: everything that ever
+// lands on the lane must have a twin for the mirror lane. Sustained tonal roles
+// benefit most from width, so atmosphere leads the preference, then vocal, then
 // non-bass motif lanes; support lanes come before core lanes so the song's
 // backbone stays centered.
 export function designateStereoPairLanes(
@@ -45,11 +53,10 @@ export function designateStereoPairLanes(
     if (pairLanes.size >= target) break
     const selection = selections[laneIndex]!
     const paired = selection.candidates.filter((candidate) =>
-      twins.has(candidate.relpath) && parseMotifKey(candidate.filename).side === 'left'
+      twins.has(candidate.relpath) && candidate.stereoSide === 'left'
     )
-    // Two complete pairs give the lane something to walk; a multi-part paired
-    // family is preferred by the pool's own family ordering when present, but
-    // requiring one here left most corpora with no pair lanes at all under the
+    // Two complete pairs give the lane something to walk; requiring a multi-part
+    // paired family left most corpora with no pair lanes at all under the
     // bounded analysis budget.
     if (paired.length < 2) continue
     selection.candidates = paired
@@ -58,29 +65,38 @@ export function designateStereoPairLanes(
   return pairLanes
 }
 
-// Materialize each designated pair lane as two hard-panned lanes: the source
-// lane keeps its left-half files at pan -1 and a mirror lane plays the right
-// twins at pan +1 with identical timing. Runs after gain compensation so both
+// Materialize each designated pair lane as two mirrored lanes at ±pairPan: the
+// source lane keeps its left-half files and a mirror lane plays the right twins
+// with identical timing, gain, and sends. Runs after gain compensation so both
 // halves share the final gain. A lane whose placements somehow lack a twin is
-// left centered rather than half-mirrored.
+// left at its declared position rather than half-mirrored.
 export function applyStereoPairs(
   lanes: MixJamGeneratorLanePlan[], pairLanes: ReadonlySet<number>,
   twins: ReadonlyMap<string, GeneratorCandidate>, profile: GeneratorProfile, seed: string
-): void {
+): Set<number> {
+  const spread = Math.min(profile.pairPan, MAX_PAIR_PAN)
+  const mirrored = new Set<number>()
   for (const laneIndex of [...pairLanes].sort((left, right) => left - right)) {
     const lane = lanes[laneIndex]
     if (!lane || lane.placements.length === 0) continue
     if (!lane.placements.every((placement) => twins.has(placement.sampleRef))) continue
-    lane.pan = -1
+    const stereoPairId = stableId(
+      'stereo-pair', `${seed}:${profile.id}:${profile.version}:lane-${laneIndex}`
+    )
+    lane.pan = -spread
+    lane.stereoPairId = stereoPairId
+    mirrored.add(laneIndex)
     const baseName = lane.name
     lane.name = `${baseName} L`
     lanes.push({
       index: lanes.length,
       name: `${baseName} R`,
       gain: lane.gain,
-      pan: 1,
+      pan: spread,
+      stereoPairId,
       muted: false,
       solo: false,
+      sends: [...lane.sends],
       placements: lane.placements.map((placement, placementIndex) => {
         const twin = twins.get(placement.sampleRef)!
         return {
@@ -96,21 +112,36 @@ export function applyStereoPairs(
       })
     })
   }
+  return mirrored
 }
 
-export function validateStereoImage(lanes: readonly MixJamGeneratorLanePlan[], profileLaneCount: number): void {
-  for (const lane of lanes) {
-    if (lane.pan !== 0 && lane.pan !== -1 && lane.pan !== 1) {
-      throw new Error('The generator produced a lane with variable panning.')
+export function validateStereoImage(
+  lanes: readonly MixJamGeneratorLanePlan[], profile: GeneratorProfile,
+  mirrored: ReadonlySet<number>
+): void {
+  const spread = Math.min(profile.pairPan, MAX_PAIR_PAN)
+  const profileLaneCount = profile.lanes.length
+  const mirrors = lanes.slice(profileLaneCount)
+  const sourceIndexes = [...mirrored].sort((left, right) => left - right)
+  if (mirrors.length !== mirrored.size) {
+    throw new Error('The generator produced unmatched stereo pair lanes.')
+  }
+  for (const [mirrorIndex, mirror] of mirrors.entries()) {
+    if (mirror.pan !== spread) throw new Error('The generator produced a mirror lane that is not at the pair position.')
+    const source = lanes[sourceIndexes[mirrorIndex]!]
+    if (!source?.stereoPairId || mirror.stereoPairId !== source.stereoPairId) {
+      throw new Error('The generator produced stereo pair lanes without shared evidence.')
     }
   }
-  const mirrors = lanes.slice(profileLaneCount)
-  for (const mirror of mirrors) {
-    if (mirror.pan !== 1) throw new Error('The generator produced a mirror lane that is not hard-panned right.')
-  }
-  const leftLanes = lanes.slice(0, profileLaneCount).filter((lane) => lane.pan === -1)
-  if (leftLanes.length !== mirrors.length) {
-    throw new Error('The generator produced unmatched stereo pair lanes.')
+  for (const [laneIndex, lane] of lanes.slice(0, profileLaneCount).entries()) {
+    if (mirrored.has(laneIndex)) {
+      if (lane.pan !== -spread) throw new Error('The generator produced unmatched stereo pair lanes.')
+      continue
+    }
+    if (lane.stereoPairId) throw new Error('The generator attached stereo pair evidence to an unpaired lane.')
+    if (Math.abs(lane.pan) > MAX_TEMPLATE_PAN + 1e-9) {
+      throw new Error('The generator produced a non-pair lane panned past the mix-position cap.')
+    }
   }
   const populated = lanes.filter((lane) => lane.placements.length > 0)
   if (populated.length > MAX_GENERATED_LANES) {

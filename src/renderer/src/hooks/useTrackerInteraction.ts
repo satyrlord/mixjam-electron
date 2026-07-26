@@ -106,7 +106,13 @@ export function useTrackerInteraction({ arrangement, transport, browser }: UseTr
   const onTransportStop = useCallback(() => { transport.onTransportStop(); scrollToTick(0) }, [scrollToTick, transport])
   const onTransportSkipBack = useCallback(() => { transport.onTransportSkipBack(); scrollToTick(0) }, [scrollToTick, transport])
   const onTransportJumpToEnd = useCallback(() => { transport.onTransportJumpToEnd(); scrollToTick(transport.songEndTick) }, [scrollToTick, transport])
-  const onToggleFollowPlayhead = useCallback(() => setFollowPlayhead((enabled) => !enabled), [])
+  const onToggleFollowPlayhead = useCallback(() => {
+    const nextFollowPlayhead = !followPlayhead
+    if (nextFollowPlayhead && transport.transportState === 'playing') {
+      centerTickInViewport(tickStore.get())
+    }
+    setFollowPlayhead(nextFollowPlayhead)
+  }, [centerTickInViewport, followPlayhead, tickStore, transport.transportState])
   useEffect(() => {
     if (!followPlayhead || transport.transportState !== 'playing') return
     centerTickInViewport(tickStore.get())

@@ -84,6 +84,10 @@ atomically. The analyzer exposes the persisted pair key and side through the
 windowed sample and generator DTOs. The generator consumes this evidence and
 never parses a filename to infer pan.
 
+Until AC-014 is implemented, generator candidates publish NULL `stereoPairKey`
+and `stereoSide`. Filename-looking `L`/`R` suffixes remain motif-family syntax;
+they never substitute for analyzer evidence or authorize mirrored pan.
+
 Short one-shots, percussion, FX, and other ambiguous files may have NULL raw BPM
 or key. An abstention is not a vote for another value. Sample type remains the
 direct per-file classifier result and is independent of the organizational
