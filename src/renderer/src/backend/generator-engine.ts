@@ -8,18 +8,17 @@ import {
   type MixJamGeneratorSectionPlan
 } from '../../../shared/backend-api'
 import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
-import type { GeneratorCandidate } from './generator-library'
-import { stereoTwinMap } from './generator-motif'
 import { canonicalMusicalKey } from './musical-key'
 import { validateMixJamGeneratorParameters } from './generator-parameters'
 import {
   GENERATOR_PROFILES,
+  MAX_TEMPLATE_PAN,
   type GeneratorArcProfile,
   type GeneratorBoundaryOp,
   type GeneratorLaneProfile,
   type GeneratorProfile,
   type GeneratorSectionProfile
-} from './generator-profiles'
+} from '../../../shared/generator-templates'
 
 import {
   FAMILY_RATIO_TARGETS,
@@ -44,7 +43,6 @@ import {
   type SpanRegistry,
   type Selection
 } from './generator-planning-core'
-import { designateStereoPairLanes, applyStereoPairs, validateStereoImage } from './generator-stereo'
 import { findTypeCandidates, selectDiverseCandidates, applyKitCoherence } from './generator-selection'
 
 // Sections are allocated in whole 8-bar phrases, never bars: a 23-bar section
@@ -472,6 +470,14 @@ function validateArrangement(lanes: readonly MixJamGeneratorLanePlan[], targetTi
       `The generator filled ${populated.length} lanes; at most ${MAX_GENERATED_LANES} are allowed.`
     )
   }
+  // Lane *position* in the image is mix data the profile declares, bounded by
+  // spec-021 §Pan and capped by the template parser. Nothing infers it from a
+  // filename, so no lane may sit past the mix-position cap.
+  for (const lane of lanes) {
+    if (Math.abs(lane.pan) > MAX_TEMPLATE_PAN + 1e-9) {
+      throw new Error('The generator produced a lane panned past the mix-position cap.')
+    }
+  }
   // spec-011 AC-016: every placement of one sample carries the same span, so a
   // violation here means the project would be rejected by its own loader. It is
   // checked in the planner because a load-time failure names a file, not the
@@ -511,11 +517,7 @@ export function createMixJamGeneratorPlan(
   parameters: MixJamGeneratorParameters,
   analysis = { attemptedFiles: candidates.length, analyzedFiles: candidates.length, uniqueReads: candidates.length },
   detectedBpm = parameters.bpm,
-  profiles: Readonly<Record<string, GeneratorProfile>> = GENERATOR_PROFILES,
-  // The full library listing, used only to resolve stereo twins: a twin needs
-  // no audio analysis to mirror its analyzed half, so pair lanes never spend
-  // the bounded analysis budget on right halves.
-  libraryCandidates: readonly GeneratorCandidate[] = candidates
+  profiles: Readonly<Record<string, GeneratorProfile>> = GENERATOR_PROFILES
 ): MixJamGeneratorPlan {
   validateMixJamGeneratorParameters(parameters, Object.keys(profiles))
   const profile = profiles[parameters.profileId]!
@@ -531,7 +533,6 @@ export function createMixJamGeneratorPlan(
   // from the arc and the boundary ops, not from piling sources onto a lane.
   const sampleCount = parameters.intensity === 'high' ? 3 : 2
   const familyTarget = FAMILY_RATIO_TARGETS[parameters.intensity]
-  const twins = stereoTwinMap(libraryCandidates)
   const arc = selectArc(profile, parameters.seed)
   const ops = resolveOps(arc)
 
@@ -547,10 +548,9 @@ export function createMixJamGeneratorPlan(
   // before save; the populated-lane floor decides whether the remaining
   // arrangement is still viable.
   applyKitCoherence(eligibleSelections, profile)
-  const pairLanes = designateStereoPairLanes(eligibleSelections, profile, twins)
   const allocatedSections = allocateSections(arc, targetBars)
   const { selected: selections } = selectDiverseCandidates(
-    eligibleSelections, sampleCount, allocatedSections, arc, profile, bpm, twins, familyTarget
+    eligibleSelections, sampleCount, allocatedSections, arc, profile, bpm, familyTarget
   )
   const sections = allocatedSections.map((section, sectionIndex) => ({
     ...section,
@@ -652,8 +652,6 @@ export function createMixJamGeneratorPlan(
       compensatedGain(laneProfile.gain, selections[laneIndex]?.candidates ?? [], targetRms), ceiling
     )
   }
-  const mirrored = applyStereoPairs(lanes, pairLanes, twins, profile, parameters.seed)
-  validateStereoImage(lanes, profile, mirrored)
   const selectionPlans = selections.flatMap((selection, laneIndex) => selection ? [{
     laneIndex,
     requestedType: selection.requestedType,

@@ -3,9 +3,9 @@ import { decodeWav, extractDecodedAudioFeatures, type DecodedPcm } from './analy
 import { resolveFileHandle } from './folder-access'
 import { generatorCandidateMatchesLane } from './generator-candidate'
 import type { GeneratorCandidate } from './generator-library'
-import { parseMotifKey, stereoTwinMap } from './generator-motif'
+import { parseMotifKey } from './generator-motif'
 import { compareCodeUnits, hashText } from './generator-planning-core'
-import { GENERATOR_PROFILES } from './generator-profiles'
+import { GENERATOR_PROFILES } from '../../../shared/generator-templates'
 
 export const MAX_GENERATOR_ATTEMPTS = 160
 export const MAX_GENERATOR_ANALYSES = 96
@@ -70,14 +70,19 @@ function familyOrder(
 
 // Cancellation is a nominal error so it can be recognised by identity rather
 // than by matching its message text. The message is kept fixed because the
-// worker surfaces it verbatim and job-coordinator throws the same string.
+// worker surfaces it verbatim.
 const CANCELLED_MESSAGE = 'MixJam generator planning was cancelled.'
 
-class GeneratorCancelledError extends Error {
+export class GeneratorCancelledError extends Error {
   constructor() {
     super(CANCELLED_MESSAGE)
     this.name = 'GeneratorCancelledError'
   }
+}
+
+/** The one test for "was this a cancellation?". Never match on message text. */
+export function isGeneratorCancellation(error: unknown): boolean {
+  return error instanceof GeneratorCancelledError
 }
 
 function cancellationError(): Error {
@@ -113,20 +118,6 @@ function shortlistCandidates(
         return orderByFamily(left, right)
       })
   })
-  // A dedicated stereo-pair queue: analyzer-backed left halves that fit
-  // a sustained tonal lane, family-ordered. Without it the bounded budget
-  // rarely admits two complete pairs for any one lane, and the engine's pair
-  // lanes never designate.
-  const twins = stereoTwinMap(candidates)
-  const pairedQueue = [...candidates]
-    .filter((candidate) => twins.has(candidate.relpath) &&
-      candidate.stereoSide === 'left' &&
-      profile.lanes.some((lane) =>
-        (lane.role === 'motif' || lane.role === 'vocal' || lane.role === 'atmosphere') &&
-        lane.types.includes(candidate.sampleType) &&
-        generatorCandidateMatchesLane(candidate, lane, candidate.sampleType, bpm)
-      ))
-    .sort(familyOrder(`${parameters.seed}:${profile.id}:${profile.version}:stereo-pairs`))
   const sourceGroups = [...new Set(candidates.map((candidate) => candidate.sourceGroup))]
     .sort(compareCodeUnits)
   const sourceGroupQueues = sourceGroups.map((sourceGroup) => [...candidates]
@@ -141,7 +132,7 @@ function shortlistCandidates(
 
   const result: ShortlistedCandidate[] = []
   const seen = new Set<string>()
-  const allQueues = [...queues, ...sourceGroupQueues, pairedQueue]
+  const allQueues = [...queues, ...sourceGroupQueues]
   const positions = allQueues.map(() => 0)
   const addQueuePass = (queueIndexes: readonly number[]): boolean => {
     let advanced = false
@@ -167,9 +158,7 @@ function shortlistCandidates(
     return advanced
   }
   const coreQueueIndexes = laneOrder.flatMap((laneIndex, queueIndex) => core.has(laneIndex) ? [queueIndex] : [])
-  // The paired queue rotates alongside the lane queues so complete stereo
-  // pairs keep arriving throughout the budget, not only in one early burst.
-  const laneQueueIndexes = [...queues.map((_, index) => index), allQueues.length - 1]
+  const laneQueueIndexes = queues.map((_, index) => index)
   const sourceGroupQueueIndexes = sourceGroupQueues.map((_, index) => queues.length + index)
   addQueuePass(coreQueueIndexes)
   addQueuePass(sourceGroupQueueIndexes)

@@ -7,7 +7,6 @@
   "order": 60,
   "bpmTolerance": 6,
   "coreLanes": [0, 4, 6],
-  "pairPan": 0.55,
   "returns": [
     { "module": "aetherform-reverb", "preset": "Dark Hall", "returnLevel": 0.34 },
     { "module": "echoform-delay", "preset": "Dotted Motion", "returnLevel": 0.3 }

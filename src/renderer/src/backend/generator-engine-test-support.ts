@@ -7,7 +7,7 @@ import {
 import { MIXJAM_GENERATOR_PROFILE_IDS } from '../../../shared/generator-templates'
 import { TICKS_PER_BAR } from '../engine/transport'
 import type { AnalyzedGeneratorCandidate, GeneratorPlannerKind } from './generator-analysis'
-import { GENERATOR_PROFILES } from './generator-profiles'
+import { GENERATOR_PROFILES } from '../../../shared/generator-templates'
 
 export const BPM = 140
 const TICKS_PER_BEAT = TICKS_PER_BAR / 4

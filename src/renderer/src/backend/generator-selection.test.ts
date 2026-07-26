@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MixJamGeneratorSectionPlan, SampleType } from '../../../shared/backend-api'
-import type { GeneratorCandidate } from './generator-library'
-import type { GeneratorArcProfile, GeneratorProfile } from './generator-profiles'
+import type { GeneratorArcProfile, GeneratorProfile } from '../../../shared/generator-templates'
 import type { PlanningCandidate, Selection } from './generator-planning-core'
 import {
   applyKitCoherence,
@@ -47,7 +46,6 @@ function motifProfile(laneCount = 2, maxBars = 8): GeneratorProfile {
     default: false,
     bpmTolerance: 8,
     coreLanes: [0],
-    pairPan: 0.45,
     returns: [],
     arcs: [{
       name: 'Fixture arc',
@@ -162,7 +160,7 @@ describe('selectDiverseCandidates', () => {
     const laneSelection = selectionOf([longLoop, shortLoop])
     const other = selectionOf([candidate('warm-1.wav'), candidate('warm-2.wav')])
     const { selected } = selectDiverseCandidates(
-      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, new Map(), 0.6
+      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, 0.6
     )
     const lane0 = selected[0]!
     // At least one selected candidate on lane 0 fits inside the 8-bar cap.
@@ -176,7 +174,7 @@ describe('selectDiverseCandidates', () => {
     const a = selectionOf([candidate('one.wav'), candidate('two.wav')])
     const b = selectionOf([candidate('three.wav'), candidate('four.wav')])
     const { selected } = selectDiverseCandidates(
-      [a, b], 3, sections(profile), arcOf(profile), profile, BPM, new Map(), 0.8
+      [a, b], 3, sections(profile), arcOf(profile), profile, BPM, 0.8
     )
     // A family-less corpus stays generatable: the target steers selection but
     // is never validated, so the lanes are still filled.
@@ -195,31 +193,9 @@ describe('selectDiverseCandidates', () => {
     ])
     const other = selectionOf([candidate('warm-1.wav'), candidate('warm-2.wav')])
     const { selected } = selectDiverseCandidates(
-      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, new Map(), 0.6
+      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, 0.6
     )
     const placed = selected.flatMap((s) => s?.candidates ?? [])
     expect(familyRatioOf(placed)).toBeGreaterThanOrEqual(0.6)
-  })
-})
-
-// A twin map fixture confirming selection claims both halves of a stereo pair.
-describe('selectDiverseCandidates stereo claiming', () => {
-  it('never selects both halves of one stereo pair', () => {
-    const profile = motifProfile(2, 8)
-    const left = candidate('cloud-1-l.wav', { relpath: 'Bass/cloud-1-l.wav' })
-    const right = candidate('cloud-1-r.wav', { relpath: 'Bass/cloud-1-r.wav' })
-    const twins = new Map<string, GeneratorCandidate>([
-      [left.relpath, right],
-      [right.relpath, left]
-    ])
-    const laneSelection = selectionOf([left, right, candidate('deep-1.wav')])
-    const other = selectionOf([candidate('warm-1.wav'), candidate('warm-2.wav')])
-    const { selected } = selectDiverseCandidates(
-      [laneSelection, other], 3, sections(profile), arcOf(profile), profile, BPM, twins, 0.6
-    )
-    const refs = selected.flatMap((s) => s?.candidates.map((c) => c.relpath) ?? [])
-    // Only one half of the cloud pair may be placed.
-    const halves = refs.filter((ref) => ref.includes('cloud-1-'))
-    expect(halves.length).toBeLessThanOrEqual(1)
   })
 })

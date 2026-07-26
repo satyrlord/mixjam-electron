@@ -11,7 +11,7 @@ import {
   type TagOrigin
 } from '../../../shared/backend-api'
 import { isSampleType } from './analysis'
-import { getLibraryRootState, scanRootId } from './indexed-sample-persistence'
+import { scanRootId } from './indexed-sample-persistence'
 import type { BindValue, DB } from './sql'
 
 export interface TagRow {
@@ -223,24 +223,6 @@ export function deleteLibrary(db: DB, id: number): void {
 // ---------------------------------------------------------------------------
 // Sample queries
 // ---------------------------------------------------------------------------
-
-/**
- * Compatibility query for lower-level callers. Readiness is completion-based
- * so an empty completed root is ready. Roots with browseable rows from a prior
- * schema version remain usable while their first post-migration sync reconciles.
- */
-export function hasSamples(db: DB, rootKey?: string): boolean {
-  if (rootKey !== undefined) {
-    return getLibraryRootState(db, rootKey).hasUsableIndex
-  }
-  return db.prepare(
-    `SELECT 1
-     FROM scan_roots
-     WHERE last_completed_at IS NOT NULL
-        OR legacy_index_available = 1
-     LIMIT 1`
-  ).get() !== undefined
-}
 
 /**
  * Relpaths of every missing sample (scan_state = 2) under the given root.

@@ -27,9 +27,6 @@ export interface GeneratorCandidate {
   sampleType: SampleType
   sourceGroup: string
   paletteSlot: number
-  /** Analyzer-owned stereo evidence. Null/absent until spec-008 AC-014 ships. */
-  stereoPairKey?: string | null
-  stereoSide?: 'left' | 'right' | null
   /**
    * The `(bpm, keyToken)` pool the filename label states, e.g. `140/A`. Derived
    * from the relpath rather than stored: it is a pure function of the name, so
@@ -142,8 +139,6 @@ function listGeneratorCandidates(db: DB, rootId: number): GeneratorCandidate[] {
       sampleType: row.sample_type,
       sourceGroup,
       paletteSlot: sourceGroupSlot(sourceGroup),
-      stereoPairKey: null,
-      stereoSide: null,
       poolToken: labeledPoolToken(row.relpath),
       metadataRevision: row.metadata_revision,
       analysisRevision: row.analysis_revision

@@ -7,7 +7,6 @@
   "order": 40,
   "bpmTolerance": 5,
   "coreLanes": [0, 4, 6],
-  "pairPan": 0.4,
   "returns": [
     { "module": "aetherform-reverb", "preset": "Vocal Plate", "returnLevel": 0.3 },
     { "module": "echoform-delay", "preset": "Clean Slap", "returnLevel": 0.26 }

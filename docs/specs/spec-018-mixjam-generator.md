@@ -160,7 +160,6 @@ schema versions are errors rather than forward-compatible guesses. Schema versio
 | `default` | Optional boolean; at most one bundled template may set it. Techno is the shipped default; the first sorted template is a defensive fallback only. |
 | `bpmTolerance` | Finite BPM distance from 0 through 60 used to rank compatible candidates. |
 | `coreLanes` | Unique lane indexes that must be active in every arc and must find compatible material. |
-| `pairPan` | Optional mirror-pair spread from 0 through 0.65; defaults to 0.45. |
 | `returns` | Up to two return buses, each naming a module (`aetherform-reverb`, `echoform-delay`), a built-in preset name, and a return level. A module may appear once. |
 | `arcs` | One or more named arcs. Each holds ordered sections with unique names, positive weights totalling 100, valid indexes covering every lane, a phrase mode, and optional boundary operations. |
 | `lanes` | Exactly 16 unique lane plans with type chains, span limits, roles, optional patterns or transitions, gain, pan, and one send level per declared return bus. |
@@ -170,8 +169,7 @@ within their scope. Beat offsets are unique integers from 0 through 31.
 Percussion lanes require a beat pattern and are the only lanes that may declare
 beat patterns or mutations. Transition lanes require `riser` or `impact` and are
 the only lanes that may declare a transition kind. A lane's declared pan is mix
-position and is capped at ±0.35; the wider mirror-pair spread is applied by the
-engine only from persisted stereo-pair evidence (spec-021 §Pan). Boundary ops
+position and is capped at ±0.35 (spec-021 §Pan). Boundary ops
 must name a section their own arc declares, and `roll` and `tail` must bind to a
 lane whose role can carry them. Empty removable support lanes are deleted before
 save, while the project retains from 8 through 32 populated lanes.
@@ -206,11 +204,9 @@ The renderer never pulls the full sample library into the UI. A
 generator-specific BackendAPI operation returns a bounded, neutral
 `MixJamGeneratorPlan` DTO. Shared API types must not import renderer project,
 lane, or audio-processor types. Each lane plan contains its final gain, pan, and
-send vector. A mirror lane also carries the same `stereoPairId` as its source,
-but only when its candidates supplied analyzer-owned `stereoPairKey` and
-`stereoSide` evidence. The plan's `returns` list names the buses the renderer
-configures. Until spec-008 AC-014 ships, production candidates carry null stereo
-evidence and the engine creates no mirror lanes.
+send vector. The plan's `returns` list names the buses the renderer configures.
+The engine creates no mirror lanes: no stereo-side evidence exists, so every
+lane plan carries a null `stereoPairId`.
 
 The validated-template registry is shared by parameter validation, the worker,
 and the profile picker. The picker renders registry metadata in `order`, `label`,
@@ -468,7 +464,7 @@ pan — live in spec-021.
 ## Validation
 
 ```sh
-npm test -- src/renderer/src/backend/generator-profiles.test.ts
+npm test -- src/renderer/src/backend/generator-templates.test.ts
 npm test -- src/renderer/src/backend/generator-engine.test.ts
 npm test -- src/renderer/src/backend/generator-analysis.test.ts
 npm test -- src/renderer/src/backend/generator-library.test.ts

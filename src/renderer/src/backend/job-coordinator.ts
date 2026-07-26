@@ -10,7 +10,7 @@ import type {
   ScanProgress
 } from '../../../shared/backend-api'
 import { SAFE_GENERATOR_TOKEN } from '../../../shared/backend-api'
-import { analyzeGeneratorCandidates } from './generator-analysis'
+import { analyzeGeneratorCandidates, GeneratorCancelledError, isGeneratorCancellation } from './generator-analysis'
 import { createMixJamGeneratorPlan } from './generator-engine'
 import {
   fingerprintGeneratorSnapshot,
@@ -393,16 +393,17 @@ export function createBackendJobCoordinator(
         if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
         generatorProgress = { identity, status: 'running', phase: 'arranging', completed: analyzed.length, total: analyzed.length }
         emitEvent({ type: 'generator-progress', progress: generatorProgress })
-        const plan = createMixJamGeneratorPlan(rootKey, fingerprint, analyzed, selection.parameters, { attemptedFiles, analyzedFiles: analyzed.length, uniqueReads: attemptedFiles }, selection.detectedBpm, undefined, selection.candidates)
-        if (!isCurrent()) throw new Error('MixJam generator planning was cancelled.')
+        const plan = createMixJamGeneratorPlan(rootKey, fingerprint, analyzed, selection.parameters, { attemptedFiles, analyzedFiles: analyzed.length, uniqueReads: attemptedFiles }, selection.detectedBpm)
+        if (!isCurrent()) throw new GeneratorCancelledError()
         activeGenerator = null
         generatorProgress = { ...GENERATOR_IDLE }
         return plan
       } catch (error) {
         if (isCurrent()) {
+          const cancelled = isGeneratorCancellation(error)
           const message = error instanceof Error ? error.message : String(error)
           activeGenerator = null
-          generatorProgress = { identity, status: message.includes('cancelled') ? 'cancelled' : 'error', phase: generatorProgress.phase, completed: generatorProgress.completed, total: generatorProgress.total, ...(message.includes('cancelled') ? {} : { error: message }) }
+          generatorProgress = { identity, status: cancelled ? 'cancelled' : 'error', phase: generatorProgress.phase, completed: generatorProgress.completed, total: generatorProgress.total, ...(cancelled ? {} : { error: message }) }
           emitEvent({ type: 'generator-progress', progress: generatorProgress })
         }
         throw error

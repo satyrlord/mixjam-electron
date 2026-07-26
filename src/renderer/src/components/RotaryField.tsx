@@ -1,15 +1,12 @@
 import {
   memo,
   useEffect,
-  useId,
   useLayoutEffect,
   useRef,
-  useState,
   type CSSProperties,
   type MouseEvent
 } from 'react'
 import { clamp } from '../lib/sample-utils'
-import { Tooltip } from './ui/Tooltip'
 
 type RotaryDialMode = 'unipolar' | 'bipolar'
 
@@ -84,30 +81,6 @@ export const RotaryDial = memo(function RotaryDial({
     </svg>
   )
 })
-
-export function ToggleField({ label, help, checked, onChange }: {
-  label: string
-  help: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <label className="effect-toggle">
-      <strong>{label}</strong>
-      <input
-        className="effect-toggle-input"
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-      />
-      <span className="effect-toggle-control" aria-hidden="true">
-        <span className="effect-toggle-thumb" />
-      </span>
-      <span className="effect-toggle-state" aria-hidden="true">{checked ? 'On' : 'Off'}</span>
-      <span className="effect-control-help">{help}</span>
-    </label>
-  )
-}
 
 export function RotaryControl({
   className,
@@ -250,96 +223,3 @@ export function RotaryControl({
   )
 }
 
-export function RotaryField({
-  label,
-  help,
-  value,
-  defaultValue,
-  min,
-  max,
-  step,
-  suffix = '',
-  percent = false,
-  onChange
-}: {
-  label: string
-  help: string
-  value: number
-  defaultValue: number
-  min: number
-  max: number
-  step: number
-  suffix?: string
-  percent?: boolean
-  onChange: (value: number) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const interactionHintId = useId()
-  const quantize = (next: number, quantum = step) =>
-    clamp(Math.round(next / quantum) * quantum, min, max)
-  const displayValue = percent
-    ? Math.round(value * 100)
-    : Number(value.toFixed(step < 1 ? 1 : 0))
-  const unit = percent ? '%' : suffix
-  const normalizedValue = max === min ? 0 : clamp((value - min) / (max - min), 0, 1)
-  const normalizedDefault = max === min ? 0 : clamp((defaultValue - min) / (max - min), 0, 1)
-  const interactionHint = `Adjust ${label}: drag up or down or use the mouse wheel. Hold Shift for fine control. Use arrow keys to step, Home or End for the range limits, and double-click to reset.`
-  const commit = () => {
-    const parsed = Number(draft)
-    if (Number.isFinite(parsed)) onChange(quantize(percent ? parsed / 100 : parsed))
-    setEditing(false)
-  }
-  return (
-    <div className="rotary-field">
-      <strong>{label}</strong>
-      <Tooltip content={interactionHint}>
-        <span className="rotary-tooltip-trigger">
-          <RotaryControl
-            className="rotary-control"
-            label={label}
-            value={value}
-            min={min}
-            max={max}
-            step={step}
-            valueText={`${displayValue}${unit}`}
-            defaultValue={defaultValue}
-            ariaMultiplier={percent ? 100 : 1}
-            describedBy={interactionHintId}
-            onChange={onChange}
-          >
-            <RotaryDial value={normalizedValue} defaultValue={normalizedDefault} />
-          </RotaryControl>
-        </span>
-      </Tooltip>
-      <span id={interactionHintId} className="fx-visually-hidden">{interactionHint}</span>
-      {editing ? (
-        <input
-          className="rotary-value-input"
-          autoFocus
-          value={draft}
-          aria-label={`${label} value`}
-          onChange={(event) => setDraft(event.currentTarget.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') commit()
-            if (event.key === 'Escape') setEditing(false)
-          }}
-        />
-      ) : (
-        <button
-          type="button"
-          className="rotary-value"
-          onClick={() => {
-            setDraft(String(displayValue))
-            setEditing(true)
-          }}
-        >
-          {displayValue}
-          {unit}
-        </button>
-      )}
-      <span className="effect-control-help">{help}</span>
-    </div>
-  )
-}

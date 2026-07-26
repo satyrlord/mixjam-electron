@@ -7,7 +7,6 @@
   "order": 50,
   "bpmTolerance": 10,
   "coreLanes": [6, 9],
-  "pairPan": 0.6,
   "returns": [
     { "module": "aetherform-reverb", "preset": "Shimmer Cloud", "returnLevel": 0.38 },
     { "module": "echoform-delay", "preset": "Endless Wash", "returnLevel": 0.32 }

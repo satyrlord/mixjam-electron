@@ -30,7 +30,6 @@
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/laneIndex" }
     },
-    "pairPan": { "type": "number", "minimum": 0, "maximum": 0.65 },
     "returns": {
       "type": "array",
       "maxItems": 2,

@@ -140,8 +140,6 @@ export function loadCorpusCandidates(samplesDir: string, cluster: string | null)
       sourceGroup,
       paletteSlot: sourceGroupSlot(sourceGroup),
       // The filesystem-only CLI has no analyzer-owned stereo evidence.
-      stereoPairKey: null,
-      stereoSide: null,
       poolToken: labeledPoolToken(relpath),
       metadataRevision: 0,
       analysisRevision: 0,

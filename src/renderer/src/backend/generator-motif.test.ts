@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GeneratorCandidate } from './generator-library'
-import { groupMotifFamilies, parseMotifKey, stereoTwinMap } from './generator-motif'
+import { groupMotifFamilies, parseMotifKey } from './generator-motif'
 
 function candidate(filename: string, overrides: Partial<GeneratorCandidate> = {}): GeneratorCandidate {
   return {
@@ -14,8 +14,6 @@ function candidate(filename: string, overrides: Partial<GeneratorCandidate> = {}
     sampleType: 'Bass',
     sourceGroup: 'Bass',
     paletteSlot: 2,
-    stereoPairKey: null,
-    stereoSide: null,
     poolToken: null,
     metadataRevision: 1,
     analysisRevision: 1,
@@ -63,34 +61,17 @@ describe('groupMotifFamilies', () => {
     expect(families[0]!.family).toBe('babylon')
   })
 
-  it('collapses stereo pairs so an l/r pair is one logical part', () => {
+  it('never collapses L/R-looking filenames into one logical part', () => {
+    // Filename side suffixes are motif-family syntax, not stereo-pair evidence.
+    // Nothing infers a pair from a name, so both halves stay distinct members.
     const families = groupMotifFamilies([
-      candidate('pad-1-r.wav', { stereoPairKey: 'pad-1', stereoSide: 'right' }),
-      candidate('pad-1-l.wav', { stereoPairKey: 'pad-1', stereoSide: 'left' }),
-      candidate('pad-2-r.wav', { stereoPairKey: 'pad-2', stereoSide: 'right' }),
-      candidate('pad-2-l.wav', { stereoPairKey: 'pad-2', stereoSide: 'left' })
+      candidate('pad-1-r.wav'),
+      candidate('pad-1-l.wav'),
+      candidate('pad-2-r.wav'),
+      candidate('pad-2-l.wav')
     ])
     const pad = families.find((group) => group.family === 'pad')!
     expect(pad.partCount).toBe(2)
-    // The right twin is dropped even when it appears first.
-    expect(pad.members).toHaveLength(2)
-    expect(pad.members.every((member) => !member.filename.includes('-r'))).toBe(true)
-  })
-})
-
-describe('stereoTwinMap', () => {
-  it('does not infer twins from L/R-looking filenames', () => {
-    expect(stereoTwinMap([
-      candidate('cloud-1-l.wav'),
-      candidate('cloud-1-r.wav')
-    ]).size).toBe(0)
-  })
-
-  it('maps exactly one left and right candidate with shared analyzer evidence', () => {
-    const left = candidate('channel-a.wav', { stereoPairKey: 'validated-pair-1', stereoSide: 'left' })
-    const right = candidate('channel-b.wav', { stereoPairKey: 'validated-pair-1', stereoSide: 'right' })
-    const twins = stereoTwinMap([right, left])
-    expect(twins.get(left.relpath)).toBe(right)
-    expect(twins.get(right.relpath)).toBe(left)
+    expect(pad.members).toHaveLength(4)
   })
 })

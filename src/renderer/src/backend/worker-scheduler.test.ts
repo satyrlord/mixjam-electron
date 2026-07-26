@@ -124,9 +124,16 @@ vi.mock('./generator-library', () => ({
   }))
 }))
 
-vi.mock('./generator-analysis', () => ({
-  analyzeGeneratorCandidates: mocks.analyzeGeneratorCandidates
-}))
+vi.mock('./generator-analysis', async (importOriginal) => {
+  // Only the expensive analysis pass is faked. The cancellation error type and
+  // its identity test stay real, so the coordinator classifies cancellations
+  // here exactly as it does in production.
+  const actual = await importOriginal<typeof import('./generator-analysis')>()
+  return {
+    ...actual,
+    analyzeGeneratorCandidates: mocks.analyzeGeneratorCandidates
+  }
+})
 
 vi.mock('./generator-engine', () => ({
   createMixJamGeneratorPlan: mocks.createMixJamGeneratorPlan

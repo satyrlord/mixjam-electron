@@ -163,13 +163,6 @@ export function createBackendAPI(): BackendAPI {
     }),
     planMixJam: vi.fn().mockRejectedValue(new Error('Generator fixture not configured')),
     cancelMixJamPlanning: vi.fn().mockResolvedValue(undefined),
-    getGeneratorProgress: vi.fn().mockResolvedValue({
-      identity: null,
-      status: 'idle',
-      phase: null,
-      completed: 0,
-      total: 0
-    }),
     listTags: vi.fn().mockResolvedValue(DEFAULT_TAGS),
     createTag: vi.fn().mockImplementation(async (name: string, color?: string) => ({
       id: Date.now(),

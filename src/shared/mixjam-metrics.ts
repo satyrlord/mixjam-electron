@@ -18,7 +18,8 @@ export interface MeasurableLane {
   name: string
   gain: number
   pan: number
-  /** Shared identity supplied only when persisted stereo-pair evidence exists. */
+  /** Shared identity for a mirrored lane pair. The generator never sets one;
+   *  it is measured here because the project format retains the field. */
   stereoPairId?: string | null
   sends?: readonly number[]
   placements: readonly MeasurablePlacement[]

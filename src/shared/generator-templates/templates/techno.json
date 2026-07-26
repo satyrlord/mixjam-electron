@@ -8,7 +8,6 @@
   "default": true,
   "bpmTolerance": 8,
   "coreLanes": [0, 4, 6],
-  "pairPan": 0.5,
   "returns": [
     { "module": "aetherform-reverb", "preset": "Small Room", "returnLevel": 0.3 },
     { "module": "echoform-delay", "preset": "Wide Tape Echo", "returnLevel": 0.28 }

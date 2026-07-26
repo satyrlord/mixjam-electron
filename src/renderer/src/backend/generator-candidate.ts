@@ -1,7 +1,7 @@
 import type { SampleType } from '../../../shared/backend-api'
 import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
 import type { GeneratorCandidate } from './generator-library'
-import type { GeneratorLaneProfile } from './generator-profiles'
+import type { GeneratorLaneProfile } from '../../../shared/generator-templates'
 
 const WHOLE_BAR_SPAN_VALUES = [1, 2, 4, 8].map((bars) => bars * TICKS_PER_BAR)
 const WHOLE_BAR_SPANS = new Set(WHOLE_BAR_SPAN_VALUES)

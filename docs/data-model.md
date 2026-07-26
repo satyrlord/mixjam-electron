@@ -37,8 +37,6 @@ CREATE TABLE samples (
   musical_key_source TEXT,             -- 'analysis', 'manual', or NULL
   sample_type  TEXT,                   -- acoustic class; separate from tags
   sample_type_source TEXT,             -- 'analysis', 'manual', or NULL
-  stereo_pair_key TEXT,                -- validated pair identity, or NULL
-  stereo_side TEXT CHECK (stereo_side IN ('left', 'right') OR stereo_side IS NULL),
   date_added   INTEGER NOT NULL,       -- epoch ms, first-indexed time
   scan_state   INTEGER NOT NULL DEFAULT 0,  -- 0=stub, 1=metadata-ready, 2=missing, 3=metadata-unavailable
   metadata_revision INTEGER NOT NULL DEFAULT 0,
@@ -224,7 +222,6 @@ CREATE INDEX idx_samples_filename   ON samples(filename);
 CREATE INDEX idx_samples_date_added ON samples(date_added);
 CREATE INDEX idx_samples_bpm        ON samples(bpm);
 CREATE INDEX idx_samples_key        ON samples(musical_key);
-CREATE INDEX idx_samples_stereo_pair ON samples(root_id, stereo_pair_key);
 CREATE INDEX idx_analysis_groups_root ON analysis_groups(root_id, depth);
 CREATE INDEX idx_sample_tags_tag    ON sample_tags(tag_id);
 CREATE INDEX idx_folder_tag_sources_root ON folder_tag_sources(root_id);

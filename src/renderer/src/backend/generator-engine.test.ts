@@ -7,7 +7,7 @@ import { MIXJAM_GENERATOR_PROFILE_IDS } from '../../../shared/generator-template
 import { TICKS_PER_BAR } from '../engine/transport'
 import { generatorCandidateMatchesLane } from './generator-candidate'
 import { createMixJamGeneratorPlan } from './generator-engine'
-import { createGeneratorProfileRegistry, GENERATOR_PROFILES, MAX_TEMPLATE_PAN } from './generator-profiles'
+import { createGeneratorProfileRegistry, GENERATOR_PROFILES } from '../../../shared/generator-templates'
 import { materializeGeneratedProject } from '../project/generated-project'
 import { parseProject, serializeProject } from '../project/project-file'
 import {
@@ -594,76 +594,11 @@ describe('MixJam generator engine', () => {
     }
   )
 
-  it('designates mirrored stereo pair lanes and mirrors them exactly', () => {
-    // Complete l/r pairs for the atmosphere roles: enough for the pair-lane
-    // designation to trigger on the sustained tonal lanes.
-    const paired = [
-      ...[1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Atmosphere', 900 + part, {
-        relpath: `Sphere/cloud-${part}-${side}.wav`,
-        filename: `cloud-${part}-${side}.wav`,
-        sourceGroup: 'Sphere',
-        stereoPairKey: `Sphere/cloud-${part}`,
-        stereoSide: side === 'l' ? 'left' : 'right',
-        duration: durationForTicks(4 * TICKS_PER_BAR)
-      }))),
-      ...[1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Other', 950 + part, {
-        relpath: `Xtra/wash-${part}-${side}.wav`,
-        filename: `wash-${part}-${side}.wav`,
-        sourceGroup: 'Xtra',
-        stereoPairKey: `Xtra/wash-${part}`,
-        stereoSide: side === 'l' ? 'left' : 'right',
-        duration: durationForTicks(4 * TICKS_PER_BAR),
-        plannerKind: 'texture'
-      })))
-    ]
-    const plan = createMixJamGeneratorPlan('root', 'fingerprint', [
-      ...sourceGroupRichCandidates,
-      ...paired
-    ], parameters('techno'))
-
-    // Lane position is graded mix data capped at the non-pair limit; only an
-    // evidence-backed mirror pair reaches the wider pair spread.
-    const spread = GENERATOR_PROFILES.techno.pairPan
-    expect(plan.lanes.every((lane) =>
-      Math.abs(lane.pan) <= MAX_TEMPLATE_PAN + 1e-9 || Math.abs(lane.pan) === spread
-    )).toBe(true)
-    expect(new Set(plan.lanes.map((lane) => lane.pan)).size).toBeGreaterThanOrEqual(6)
-    const leftLanes = plan.lanes.filter((lane) => lane.pan === -spread)
-    const rightLanes = plan.lanes.filter((lane) => lane.pan === spread)
-    expect(leftLanes.length).toBeGreaterThan(0)
-    expect(leftLanes.length).toBe(rightLanes.length)
-    // Roughly one lane in five is part of a pair.
-    const populated = plan.lanes.filter((lane) => lane.placements.length > 0)
-    const pairedCount = leftLanes.length + rightLanes.length
-    expect(pairedCount / populated.length).toBeGreaterThanOrEqual(0.1)
-    expect(pairedCount / populated.length).toBeLessThanOrEqual(0.3)
-
-    // Every mirror matches its source placement-for-placement with the twin
-    // file, and pair lanes only ever contain complete pairs.
-    for (const [index, left] of leftLanes.entries()) {
-      const right = rightLanes[index]!
-      expect(left.name.endsWith(' L')).toBe(true)
-      expect(right.name).toBe(`${left.name.slice(0, -2)} R`)
-      expect(left.stereoPairId).toMatch(/^stereo-pair-/)
-      expect(right.stereoPairId).toBe(left.stereoPairId)
-      expect(right.gain).toBe(left.gain)
-      expect(right.placements.length).toBe(left.placements.length)
-      for (const [placementIndex, placement] of left.placements.entries()) {
-        const mirror = right.placements[placementIndex]!
-        expect(mirror.startTick).toBe(placement.startTick)
-        expect(mirror.durationTicks).toBe(placement.durationTicks)
-        expect(mirror.sampleRef).toBe(placement.sampleRef.replace(/-l\.wav$/, '-r.wav'))
-      }
-    }
-  })
-
-  it('never places one sample or its stereo twin on two different lanes', () => {
+  it('never places one sample on two different lanes', () => {
     const paired = [1, 2, 3].flatMap((part) => ['l', 'r'].map((side) => candidate('Synth', 960 + part, {
       relpath: `Seq/glide-${part}-${side}.wav`,
       filename: `glide-${part}-${side}.wav`,
-      sourceGroup: 'Seq',
-      stereoPairKey: `Seq/glide-${part}`,
-      stereoSide: side === 'l' ? 'left' : 'right'
+      sourceGroup: 'Seq'
     })))
     // Several authored percussion families: with material to spare, no lane
     // ever needs the empty-lane reuse fallback, so cross-lane duplication is
@@ -682,13 +617,11 @@ describe('MixJam generator engine', () => {
       ...percussionFamilies
     ], parameters('techno'))
 
-    const logical = (ref: string): string => ref.replace(/-(l|r)\.wav$/, '.wav')
     const owners = new Map<string, number>()
-    for (const lane of plan.lanes.filter((entry) => entry.pan === 0)) {
+    for (const lane of plan.lanes) {
       for (const placement of lane.placements) {
-        const key = logical(placement.sampleRef)
-        expect(owners.get(key) ?? lane.index).toBe(lane.index)
-        owners.set(key, lane.index)
+        expect(owners.get(placement.sampleRef) ?? lane.index).toBe(lane.index)
+        owners.set(placement.sampleRef, lane.index)
       }
     }
   })

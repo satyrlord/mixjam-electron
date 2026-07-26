@@ -10,7 +10,7 @@ import { generatorCandidateDurationTicks } from './generator-candidate'
 import type { GeneratorCandidate } from './generator-library'
 import { parseMotifKey } from './generator-motif'
 import { parseMusicalKey } from './musical-key'
-import type { GeneratorArcProfile, GeneratorLaneProfile, GeneratorProfile } from './generator-profiles'
+import type { GeneratorArcProfile, GeneratorLaneProfile, GeneratorProfile } from '../../../shared/generator-templates'
 
 // The shared vocabulary and primitive helpers every planning stage (selection,
 // scheduling, stereo, validation) builds on. Keeping them in one place lets the
@@ -37,9 +37,6 @@ export const FAMILY_RATIO_TARGETS: Record<MixJamGeneratorParameters['intensity']
   medium: 0.7,
   high: 0.6
 }
-// Roughly one lane in five plays as a mirrored stereo pair. Stereo *side* still
-// requires persisted pair evidence; the spread is the profile's `pairPan`.
-export const STEREO_PAIR_LANE_SHARE = 0.2
 
 export type PlanningCandidate = GeneratorCandidate & Partial<Pick<AnalyzedGeneratorCandidate,
   'rms' | 'peak' | 'spectralCentroid' | 'transientDensity' | 'attackStrength' |

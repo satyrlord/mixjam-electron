@@ -3492,30 +3492,7 @@ select option:disabled {
 
 .effect-control-help { color: var(--text-muted); font-size: 12px; line-height: 1.45; }
 
-.rotary-field,
-.effect-toggle {
-  width: 100%;
-  max-width: 160px;
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: 8px;
-  text-align: center;
-}
-.rotary-field {
-  grid-template-rows: minmax(18px, auto) 68px 44px minmax(36px, auto);
-}
-.effect-toggle {
-  grid-template-rows: minmax(18px, auto) 68px 44px minmax(36px, auto);
-}
-.rotary-field > strong,
-.effect-toggle > strong,
-.rotary-value,
-.rotary-value-input { font-size: 13px; }
-.rotary-field > strong,
-.effect-toggle > strong { line-height: 1.35; }
 .effect-control-help { display: block; width: 100%; min-height: 36px; }
-.rotary-tooltip-trigger { display: inline-flex; }
 .rotary-control { position: relative; width: 68px; height: 68px; border: 0; border-radius: 50%; display: grid; place-items: center; background: transparent; cursor: ns-resize; touch-action: none; }
 .rotary-dial { display: block; width: 68px; height: 68px; overflow: visible; }
 .rotary-dial-track,
@@ -3527,72 +3504,6 @@ select option:disabled {
 .rotary-dial-pointer { stroke: var(--highlight); stroke-width: 3; stroke-linecap: round; }
 .rotary-dial-center { fill: var(--highlight); }
 .rotary-control:focus-visible { outline: 2px solid var(--highlight); outline-offset: 3px; }
-.rotary-value,
-.rotary-value-input { width: 88px; min-height: 44px; padding: 6px; border: var(--edge-pill); border-radius: var(--radius); background: var(--pill-bg); color: var(--text); font: 13px/1.3 var(--font-mono); text-align: center; }
-.rotary-value { cursor: text; }
-
-/* Toggle switch: visually hidden native checkbox + styled switch. */
-.effect-toggle {
-  position: relative;
-  cursor: pointer;
-}
-
-.effect-toggle .effect-toggle-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-
-.effect-toggle-control {
-  width: 56px;
-  height: 32px;
-  margin: 18px 0;
-  padding: 3px;
-  display: flex;
-  align-items: center;
-  border: var(--edge-pill);
-  border-radius: var(--radius-pill);
-  background: var(--pill-bg);
-  box-shadow: var(--shadow-pill, none);
-  transition: background 0.15s ease;
-}
-
-.effect-toggle-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-
-.effect-toggle-state {
-  min-height: 44px;
-  display: grid;
-  place-items: center;
-  color: var(--text-muted);
-  font: 12px/1.3 var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.effect-toggle-input:checked + .effect-toggle-control {
-  background: var(--accent);
-  border-color: var(--highlight);
-}
-
-.effect-toggle-input:checked + .effect-toggle-control .effect-toggle-thumb {
-  transform: translateX(24px);
-  background: var(--on-accent);
-}
-
-.effect-toggle-input:focus-visible + .effect-toggle-control {
-  outline: 2px solid var(--highlight);
-  outline-offset: 3px;
-}
 
 .fx-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 

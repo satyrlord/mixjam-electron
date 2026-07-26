@@ -25,18 +25,7 @@ function createModules(sampleRate: number, maxBlock: number): Record<ProcessorId
   }
 }
 
-/** Explicit polymorphic surface consumed by MasterBusCore. */
-interface DownstreamChain {
-  setTopology(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): void
-  topologyEquals(order: readonly ProcessorId[], power: Readonly<Record<ProcessorId, boolean>>): boolean
-  isPowered(id: ProcessorId): boolean
-  readonly latencySamples: number
-  updateParams(read: ParamReader): void
-  process(l: Float32Array, r: Float32Array, n: number): void
-  reset(): void
-}
-
-export class ChainInstance implements DownstreamChain {
+export class ChainInstance {
   readonly modules: Record<ProcessorId, BusModule>
   private order: ProcessorId[]
   private readonly power: Record<ProcessorId, boolean>

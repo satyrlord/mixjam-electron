@@ -159,11 +159,12 @@ is:
   `stereoPairId`, and
   exactly four ordered sends corresponding to `FX1` through `FX4`. Array order
   is visible order. Numeric lane indices and channel IDs are not persisted.
-  Only the generator may set one shared `stereoPairId` on two lanes created from
-  validated spec-008 stereo-side evidence. Any placement add, move, duplicate,
-  replacement, or removal on either lane clears that ID from both lanes because
-  it no longer proves their current content. Name and Mixer edits preserve it.
-  Ordinary lanes store null or omit it.
+  Nothing currently sets a `stereoPairId`: the analyzer persists no stereo-side
+  evidence and the generator creates no mirror lanes, so lanes store null or
+  omit it. The format retains the field as the shared identity of a mirrored
+  pair. Any placement add, move, duplicate, replacement, or removal on either
+  paired lane clears that ID from both lanes because it no longer proves their
+  current content. Name and Mixer edits preserve it.
 - `fxBuses` contains exactly four entries in fixed `FX1`, `FX2`, `FX3`, `FX4`
   order. Each saves its fixed identity, module or Empty state, power, return
   level, enabled limiter, and every editable module parameter defined by
@@ -425,10 +426,10 @@ the same coherent sample population. It is never an absolute filesystem path.
   exact `FX1` through `FX4` contract, invalid modules or numeric ranges, legacy
   `channels`/`channelId`/routing/insert-FX fields, and unknown object keys.
 - [x] **AC-034:** A lane's optional `stereoPairId` accepts only null or a
-  non-empty trimmed string, survives save/load/save, and generated mirror lanes
-  persist the same evidence identity while ordinary lanes remain null. Any
-  arrangement placement edit to either paired lane clears the identity from both
-  lanes; unrelated placement, name, and Mixer edits preserve it.
+  non-empty trimmed string and survives save/load/save. Generated lanes always
+  remain null. Any arrangement placement edit to either paired lane clears the
+  identity from both lanes; unrelated placement, name, and Mixer edits preserve
+  it.
 
 ## Required version-7 evidence
 

@@ -10,7 +10,6 @@ const MAX_RETURN_BUSES = 2 as const
  *  mix position, which the template owns (spec-021 §Pan). */
 export const MAX_TEMPLATE_PAN = 0.35
 /** Cap for an evidence-backed mirror pair, applied by the engine, not the JSON. */
-export const MAX_PAIR_PAN = 0.65
 
 const SAMPLE_TYPES = new Set<string>(SAMPLE_TYPE_VALUES)
 const LANE_ROLES = ['percussion', 'motif', 'vocal', 'atmosphere', 'transition'] as const
@@ -90,8 +89,6 @@ export interface GeneratorProfile {
   default: boolean
   bpmTolerance: number
   coreLanes: readonly number[]
-  /** Mirror-pair spread, ±. Capped at MAX_PAIR_PAN. */
-  pairPan: number
   returns: readonly GeneratorReturnProfile[]
   arcs: readonly GeneratorArcProfile[]
   lanes: readonly GeneratorLaneProfile[]
@@ -368,7 +365,7 @@ export function parseGeneratorTemplate(value: unknown, source = 'template'): Gen
   const template = readRecord(value, source, path)
   rejectUnknownKeys(template, [
     '$schema', 'schemaVersion', 'id', 'label', 'version', 'order', 'default', 'bpmTolerance',
-    'coreLanes', 'pairPan', 'returns', 'arcs', 'lanes'
+    'coreLanes', 'returns', 'arcs', 'lanes'
   ], source, path)
   if (template.$schema !== undefined && typeof template.$schema !== 'string') {
     fail(source, `${path}.$schema`, 'must be a string')
@@ -424,7 +421,6 @@ export function parseGeneratorTemplate(value: unknown, source = 'template'): Gen
     default: readBoolean(template, 'default', source, path, false),
     bpmTolerance: readNumber(template, 'bpmTolerance', source, path, 0, 60),
     coreLanes,
-    pairPan: readOptionalNumber(template, 'pairPan', source, path, 0, MAX_PAIR_PAN) ?? 0.45,
     returns,
     arcs,
     lanes

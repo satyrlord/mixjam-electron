@@ -7,7 +7,6 @@
   "order": 20,
   "bpmTolerance": 6,
   "coreLanes": [0, 4, 5],
-  "pairPan": 0.45,
   "returns": [
     { "module": "aetherform-reverb", "preset": "Ambient Bloom", "returnLevel": 0.36 },
     { "module": "echoform-delay", "preset": "Dotted Motion", "returnLevel": 0.34 }

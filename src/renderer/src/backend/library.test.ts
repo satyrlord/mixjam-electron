@@ -11,7 +11,6 @@ import {
   createTag,
   deleteLibrary,
   deleteTag,
-  hasSamples,
   listLibraries,
   listMissingRelpaths,
   listTags,
@@ -639,17 +638,16 @@ describe('per-root scoping', () => {
   })
 
   it('readiness is root-scoped and treats a completed empty root as ready', () => {
-    expect(hasSamples(db, 'root-drums')).toBe(false)
+    expect(getLibraryRootState(db, 'root-drums').hasUsableIndex).toBe(false)
     const drumsRoot = ensureScanRoot(db, 'root-drums')
-    expect(hasSamples(db, 'root-drums')).toBe(false)
+    expect(getLibraryRootState(db, 'root-drums').hasUsableIndex).toBe(false)
     completeScanRoot(db, drumsRoot, 1234)
-    expect(hasSamples(db, 'root-drums')).toBe(true)
     expect(getLibraryRootState(db, 'root-drums')).toEqual({
       rootKey: 'root-drums',
       lastCompletedAt: 1234,
       hasUsableIndex: true
     })
-    expect(hasSamples(db, 'root-synths')).toBe(false)
+    expect(getLibraryRootState(db, 'root-synths').hasUsableIndex).toBe(false)
   })
 
   it('keeps current partial first-sync rows unusable but preserves migrated roots', () => {

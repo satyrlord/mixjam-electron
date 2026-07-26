@@ -52,7 +52,7 @@
 - [Song length](#song-length)
 - [Song Progress Bar](#song-progress-bar)
 - [Source duration](#source-duration)
-- [Stereo-pair evidence](#stereo-pair-evidence)
+- [Stereo pair](#stereo-pair)
 - [Tag](#tag)
 - [Theme](#theme)
 - [Track](#track)
@@ -468,16 +468,18 @@ metadata and may be shown in sample details or used to calculate playback rate.
 Once a [musical span](#musical-span) exists, source duration does not control
 placed geometry or scheduled duration by itself.
 
-## Stereo-pair evidence
+## Stereo pair
 
-Analyzer-owned proof that two mono [samples](#sample) form complementary left
-and right files. It requires an explicit terminal side token plus a matching
-partner, sample rate, and duration. A filename token alone is not evidence.
-A generator may claim a stereo *side* for a lane — mirroring it hard left and
-right — only from this persisted evidence. Lane *position* in the image is
-separate: it is mix data a generator profile declares, bounded by
-[spec 021](specs/spec-021-arrangement-model.md), and is never inferred from a
-filename either. See [spec 008](specs/spec-008-sample-analysis.md).
+Two [lanes](#lane) that play complementary left and right halves of one
+recording, sharing one `stereoPairId`. The `.mixjam` format carries the field
+(see [spec 011](specs/spec-011-project-save-load.md)), but nothing produces one:
+the analyzer persists no stereo-side evidence and the
+[MixJam Generator](#mixjam-generator) creates no mirror lanes.
+
+Lane *position* in the image is a separate idea: it is mix data a generator
+profile declares, bounded by
+[spec 021](specs/spec-021-arrangement-model.md). A filename `L`/`R` token is
+motif-family syntax and is never evidence of a pair or a pan.
 
 ## Tag
 

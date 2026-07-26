@@ -2,7 +2,6 @@ import type { MixJamGeneratorSectionPlan, SampleType } from '../../../shared/bac
 import { agreesWithFolderRole, folderRoleSegment } from '../../../shared/sample-role-hints'
 import { TICKS_PER_BAR } from '../engine/transport'
 import { generatorCandidateMatchesLane } from './generator-candidate'
-import type { GeneratorCandidate } from './generator-library'
 import { groupMotifFamilies, logicalSampleKey, parseMotifKey } from './generator-motif'
 import {
   FAMILY_ROLES,
@@ -100,12 +99,7 @@ function candidateRankCore(
   // agrees with what it was classified as.
   const leftRoleRank = agreesWithFolderRole(left.relpath, type) ? 0 : 1
   const rightRoleRank = agreesWithFolderRole(right.relpath, type) ? 0 : 1
-  if (leftRoleRank !== rightRoleRank) return leftRoleRank - rightRoleRank
-  // Prefer an analyzer-backed left/unknown candidate over a validated right
-  // half. Filename suffixes are not stereo evidence.
-  const leftIsRightHalf = left.stereoSide === 'right' ? 1 : 0
-  const rightIsRightHalf = right.stereoSide === 'right' ? 1 : 0
-  return leftIsRightHalf - rightIsRightHalf
+  return leftRoleRank - rightRoleRank
 }
 
 function candidateRank(
@@ -243,19 +237,14 @@ export function selectDiverseCandidates(
   arc: GeneratorArcProfile,
   profile: GeneratorProfile,
   bpm: number,
-  twins: ReadonlyMap<string, GeneratorCandidate>,
   familyTarget: number
 ): { selected: Array<Selection | null> } {
   const selected = selections.map((selection) => selection
     ? { ...selection, candidates: [] as PlanningCandidate[] }
     : null)
   const usedRefs = new Set<string>()
-  // Selecting a sample claims its stereo twin too: the two halves of one
-  // recording must never be picked as two independent samples on two lanes.
   const markUsed = (candidate: PlanningCandidate): void => {
     usedRefs.add(candidate.relpath)
-    const twin = twins.get(candidate.relpath)
-    if (twin) usedRefs.add(twin.relpath)
   }
   const pushCandidate = (destination: Selection, candidate: PlanningCandidate): boolean => {
     if (usedRefs.has(candidate.relpath)) return false

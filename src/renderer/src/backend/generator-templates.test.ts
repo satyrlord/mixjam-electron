@@ -8,11 +8,10 @@ import {
 import templateSchema from '../../../shared/generator-templates/schema.json'
 import {
   GENERATOR_PROFILES,
-  MAX_PAIR_PAN,
   MAX_TEMPLATE_PAN,
   createGeneratorProfileRegistry,
   parseGeneratorTemplate
-} from './generator-profiles'
+} from '../../../shared/generator-templates'
 
 interface MutableLane {
   types: unknown[]
@@ -125,7 +124,6 @@ describe('bundled generator templates', () => {
     for (const id of MIXJAM_GENERATOR_PROFILE_IDS) {
       const profile = GENERATOR_PROFILES[id]!
       expect(profile.lanes.every((lane) => Math.abs(lane.pan) <= MAX_TEMPLATE_PAN)).toBe(true)
-      expect(profile.pairPan).toBeLessThanOrEqual(MAX_PAIR_PAN)
       expect(new Set(profile.lanes.map((lane) => lane.pan)).size).toBeGreaterThanOrEqual(6)
     }
   })

@@ -115,51 +115,14 @@ function compareCodeUnits(left: string, right: string): number {
 }
 
 /**
- * Map each half of an analyzer-validated stereo pair to its opposite half.
- * Filenames, directories, and motif suffixes are never pair evidence. Ambiguous
- * or incomplete evidence is ignored defensively.
- */
-export function stereoTwinMap(candidates: readonly GeneratorCandidate[]): Map<string, GeneratorCandidate> {
-  const byPair = new Map<string, { left: GeneratorCandidate[]; right: GeneratorCandidate[] }>()
-  const ordered = [...candidates].sort((left, right) => compareCodeUnits(left.relpath, right.relpath))
-  for (const candidate of ordered) {
-    if (!candidate.stereoPairKey || !candidate.stereoSide) continue
-    const pair = byPair.get(candidate.stereoPairKey) ?? { left: [], right: [] }
-    pair[candidate.stereoSide].push(candidate)
-    byPair.set(candidate.stereoPairKey, pair)
-  }
-  const twins = new Map<string, GeneratorCandidate>()
-  for (const pair of byPair.values()) {
-    if (pair.left.length !== 1 || pair.right.length !== 1) continue
-    const [left] = pair.left
-    const [right] = pair.right
-    if (Math.abs(left!.duration - right!.duration) > 0.02) continue
-    twins.set(left!.relpath, right!)
-    twins.set(right!.relpath, left!)
-  }
-  return twins
-}
-
-/**
  * Group a lane's compatible candidates into authored families, sorted by part
- * order. Stereo halves collapse to a single logical member so an `l`/`r` pair is
- * never treated as two distinct samples. Families are returned largest-first so
- * a coherent multi-part motif outranks a lone one-off.
+ * order. Families are returned largest-first so a coherent multi-part motif
+ * outranks a lone one-off.
  */
 export function groupMotifFamilies(candidates: readonly GeneratorCandidate[]): MotifFamily[] {
   const byFamily = new Map<string, GeneratorCandidate[]>()
-  const pairRepresentatives = new Map<string, GeneratorCandidate>()
 
   for (const candidate of candidates) {
-    if (!candidate.stereoPairKey) continue
-    const current = pairRepresentatives.get(candidate.stereoPairKey)
-    if (!current || (current.stereoSide !== 'left' && candidate.stereoSide === 'left')) {
-      pairRepresentatives.set(candidate.stereoPairKey, candidate)
-    }
-  }
-
-  for (const candidate of candidates) {
-    if (candidate.stereoPairKey && pairRepresentatives.get(candidate.stereoPairKey) !== candidate) continue
     const key = parseMotifKey(candidate.filename)
     const bucket = byFamily.get(key.family) ?? []
     bucket.push(candidate)

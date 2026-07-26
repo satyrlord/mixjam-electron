@@ -3,8 +3,7 @@
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** PARTIAL — the occupancy envelope, boundary ops,
 pool coherence, lane-position pan, and the mix/FX contract are implemented.
-Evidence-backed mirror lanes remain conditional on spec-008 AC-014, which is not
-implemented. Human listening sign-off remains open.
+Human listening sign-off remains open.
 **Depends on:** spec-008 (Sample Analysis — pool token ownership), spec-010
 (Audio Effects — Echoform Delay parameters), spec-013 (Aetherform Reverb
 parameters), spec-018 (MixJam Generator Wizard — the product contract)
@@ -81,7 +80,7 @@ Definitions that matter:
 - some placement ends exactly at the song end,
 - 8–32 lanes are populated,
 - a profile's core lanes have compatible material,
-- the stereo image is consistent (see §Pan).
+- every lane's pan is within the mix-position cap (see §Pan).
 
 Everything in the envelope table is reported by `npm run audit:mixjam` and
 asserted in tests against the committed reference metrics. Enforcing an
@@ -192,29 +191,20 @@ modules.
 
 ### Pan
 
-Two separate ideas, deliberately kept apart:
+**Lane position** — where a lane sits in the image — is mix data the profile
+declares, capped at |pan| ≤ 0.35 by the template parser. Nothing infers it from
+a filename.
 
-- **Stereo side** — claiming that a file is the left or right half of one
-  recording — still requires persisted stereo-pair evidence. Spec-008's rule
-  that the generator never parses a filename to infer pan is unchanged.
-- **Lane position** — where an otherwise mono lane sits in the image — is mix
-  data the profile declares, capped at |pan| ≤ 0.35 by the template parser.
-  Nothing infers it from a filename.
+The generator creates no mirrored stereo pairs. No stereo-side evidence is
+persisted anywhere, so every generated lane plan carries a null `stereoPairId`,
+and symmetric values, lane names, and filename suffixes are never evidence of a
+pair. Template-declared lane positions supply the required pan diversity within
+the ±0.35 cap.
 
-When two candidates carry one validated spec-008 pair key and complementary
-sides, the engine may create a mirror pair at ±`pairPan`, capped at 0.65. Both
-lane plans and persisted lanes share one generated `stereoPairId`; the audit
-counts pair pan only from that identity. Symmetric values, lane names, and
-filename suffixes are never evidence.
-
-The ID describes current lane content. Adding, moving, duplicating, replacing,
-or deleting a placement on either paired lane clears the shared ID from both;
-name and Mixer edits do not.
-
-Spec-008 AC-014 is not implemented, so current database and filesystem-CLI
-candidates carry null pair evidence and current production output creates no
-mirror lanes. The template-declared lane positions still provide the required
-pan diversity within the non-pair ±0.35 cap.
+The persisted `stereoPairId` lane field remains part of the project format
+(spec-011 AC-034). It describes current lane content: adding, moving,
+duplicating, replacing, or deleting a placement on either paired lane clears the
+shared ID from both; name and Mixer edits do not.
 
 ### Gain
 
@@ -237,9 +227,8 @@ entries, span histogram). It must carry enough detail that a new measure rarely
 needs the originals back — if both copies of a reference project are lost,
 nothing it omits can be re-derived.
 
-The reference projects predate persisted `stereoPairId` evidence. Their
-baseline therefore classifies every pan as non-pair and records pair maximum as
-zero; symmetric lane positions are not retroactive evidence.
+The reference baseline classifies every pan as non-pair and records pair maximum
+as zero; symmetric lane positions are not evidence of a pair.
 
 `npm run audit:mixjam -- <path|dir>` reports the envelope per project with a
 density sparkline and a per-lane table. `--baseline` adds each measure's
@@ -272,9 +261,8 @@ distilled metrics.
   a plan configures those two buses and leaves the rest Empty. An unknown preset
   name throws.
 - [x] **AC-009:** Every template lane's declared pan is within ±0.35 and a
-  generated project uses at least 6 distinct pan values. Evidence-bearing
-  fixtures create mirror lanes at ±`pairPan` ≤ 0.65 with one shared persisted
-  `stereoPairId`; L/R-looking filenames with null evidence create no pair.
+  generated project uses at least 6 distinct pan values. L/R-looking filenames
+  create no pair, and no generated lane carries a `stereoPairId`.
 - [x] **AC-010:** No lane's compensated gain exceeds 1.3× its profile gain, and
   no lane is louder than the kick.
 - [x] **AC-011:** `computeMixJamMetrics` re-derives the committed reference
@@ -289,9 +277,8 @@ distilled metrics.
 - Unit: `src/shared/mixjam-metrics.test.ts`,
   `src/shared/sample-role-hints.test.ts`,
   `src/renderer/src/backend/generator-engine.test.ts`,
-  `src/renderer/src/backend/generator-profiles.test.ts`,
+  `src/renderer/src/backend/generator-templates.test.ts`,
   `src/renderer/src/backend/generator-selection.test.ts`,
-  `src/renderer/src/backend/generator-stereo.test.ts`,
   `src/renderer/src/project/generated-project.test.ts`.
 - Local gate: `npm run generate:mixjam` over `tmp/test-samples` for all six
   profiles, then `npm run audit:mixjam`. The absolute numbers depend on a corpus
@@ -314,6 +301,5 @@ distilled metrics.
   `src/shared/generator-reference-metrics.ts`
 - `src/shared/generator-templates.ts`, `src/shared/generator-templates/schema.json`
 - `src/renderer/src/backend/generator-engine.ts`,
-  `src/renderer/src/backend/generator-selection.ts`,
-  `src/renderer/src/backend/generator-stereo.ts`
+  `src/renderer/src/backend/generator-selection.ts`
 - `scripts/audit-mixjam.ts`, `scripts/generate-mixjam.ts`

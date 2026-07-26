@@ -468,32 +468,9 @@
   height: calc(var(--ui-size) * 1.7);
 }
 
-.rotary-value,
-.rotary-value-input,
-.effect-toggle-state {
-  min-height: var(--ui-size);
-  font-size: var(--ui-font-sm);
-}
-
 .effect-control-help {
   min-height: calc(var(--ui-size) * 0.8);
   font-size: var(--ui-font-xs);
-}
-
-.effect-toggle-control {
-  width: calc(var(--ui-size) * 1.75);
-  height: var(--ui-size);
-  margin-block: var(--ui-space-lg);
-  padding: calc(var(--ui-size) * 0.1);
-}
-
-.effect-toggle-thumb {
-  width: calc(var(--ui-size) * 0.8);
-  height: calc(var(--ui-size) * 0.8);
-}
-
-.effect-toggle-input:checked + .effect-toggle-control .effect-toggle-thumb {
-  transform: translateX(calc(var(--ui-size) * 0.75));
 }
 
 .tiles {
