@@ -794,12 +794,6 @@ contract.
   actions render with at least 44-by-44px interaction boxes in production
   Chromium. Dense Sample Browser tiles and tag-navigator rows use the separate
   30px contract above.
-- `tmp/verify-vertical-controls/evidence.md` records production Chromium
-  geometry at supported desktop widths, vertical direction, 44px targets,
-  keyboard behavior, and focus indicators across every bundled theme.
-- `tmp/verify-ui-primitives/evidence.md` records production Chromium checks for
-  pointer and keyboard resizing, menus, popovers, tabs, tooltips, dialog focus,
-  touch rotary input, and timeline keyboard stepping.
 - `tests/e2e/timeline-seek.spec.ts` verifies in production Chromium that exact
   beat clicks share playhead geometry, Skip Back resets the playhead and
   Tracker viewport, and Jump to End parks at the exact content-derived end and
@@ -817,8 +811,6 @@ contract.
   lane gain, Send, and Return adjustments commit as one project-history entry,
   while `src/renderer/src/components/PlayerView.test.tsx` verifies stable-ID
   Mixer selection after lane deletion and compaction.
-- `tmp/verify-compact-layout/evidence.md` records the matching computed
-  geometry and screenshots.
 - `tests/e2e/timeline-seek.spec.ts` verifies in built Electron that enabling
   Follow playhead during playback centers the current position immediately,
   keeps it within the guard bands, and stops following when disabled.

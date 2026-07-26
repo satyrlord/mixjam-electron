@@ -418,7 +418,13 @@ function SampleBrowser({
                     data-user-assigned={userAssigned ? 'true' : undefined}
                     onClick={() => void toggleSampleTag(tag.id)}
                   >
-                    <span className="sample-tag-editor-check" aria-hidden="true">{assigned ? '✓' : ''}</span>
+                    <span className="sample-tag-editor-check" aria-hidden="true">
+                      {assigned ? (
+                        <svg viewBox="0 0 12 12">
+                          <path d="M2 6.25 4.75 9 10 3" />
+                        </svg>
+                      ) : null}
+                    </span>
                     <span className="tag-color-dot" style={tag.color ? { backgroundColor: tag.color } : undefined} data-empty={tag.color === null ? 'true' : undefined} aria-hidden="true" />
                     <span>{tag.name}</span>
                     {labels.source && <small className="sample-tag-editor-source">{labels.source}</small>}

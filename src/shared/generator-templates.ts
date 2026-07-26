@@ -6,16 +6,13 @@ import type { MixJamGeneratorProfileId } from './backend-api'
 const GENERATOR_TEMPLATE_SCHEMA_VERSION = 2 as const
 const GENERATOR_LANE_COUNT = 16 as const
 const MAX_RETURN_BUSES = 2 as const
-/** Non-pair lane position cap. Stereo *side* still needs pair evidence; this is
- *  mix position, which the template owns (spec-021 §Pan). */
+/** Profile-authored lane position cap (spec-021 §Pan). */
 export const MAX_TEMPLATE_PAN = 0.35
-/** Cap for an evidence-backed mirror pair, applied by the engine, not the JSON. */
 
 const SAMPLE_TYPES = new Set<string>(SAMPLE_TYPE_VALUES)
 const LANE_ROLES = ['percussion', 'motif', 'vocal', 'atmosphere', 'transition'] as const
-// Three shapes, because there are only three behaviours: ramp optional lanes in,
-// hold the section's lane set, ramp them out. Everything a "breakdown" or "peak"
-// used to imply is now stated directly by that section's active-lane set.
+// Phrase modes only shape optional-lane entry and exit. Each section's
+// active-lane set states its full arrangement role.
 const PHRASE_MODES = ['build', 'steady', 'outro'] as const
 const TRANSITION_KINDS = ['riser', 'impact'] as const
 const RETURN_MODULES = ['aetherform-reverb', 'echoform-delay'] as const

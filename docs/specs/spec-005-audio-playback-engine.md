@@ -352,8 +352,8 @@ the engine never knows who is listening.
   beyond capacity and proves sparse project serialization.
 - `tests/e2e/audio-effects-rendering.spec.ts` exercises the real transport,
   send/return graph, and Return Delay in Chromium for natural end, replay,
-  explicit Stop, and Jump to End. Raw post-boundary output samples are under
-  `tmp/verify-fx-song-end/`.
+  explicit Stop, and Jump to End. The test writes raw post-boundary output
+  samples to `tmp/verify-fx-song-end/`.
 - `src/renderer/src/engine/clip-edge-fades.test.ts`,
   `clip-edge-boundary-policy.test.ts`, `lane-evaluation.test.ts`,
   `audio-engine.test.ts`, and `playback-engine.test.ts` cover sample conversion,
@@ -362,8 +362,6 @@ the engine never knows who is listening.
   playback-restart cleanup, multichannel-source graph ownership, disable
   behavior, tempo-following timing, playback starting inside a placement,
   ready and failed overlap cutoffs, and overlap-truncated envelope timing.
-- `tmp/verify-micro-fades/` records the production Chromium UI and native
-  `AudioParam` automation proof for fractional 0.5 ms/3.5 ms settings.
 - `tests/e2e/clip-edge-micro-fades.spec.ts` keeps that production Chromium
   control-to-engine automation check in the durable Electron E2E suite. It also
   renders the real voice envelope through `OfflineAudioContext` and verifies

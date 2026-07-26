@@ -107,9 +107,8 @@ describe('EchoformDelayModal', () => {
   })
 
   it('adjusts a knob with the wheel, in both directions and with Shift for fine', () => {
-    // Every other knob in the app is wheel-adjustable; this one used to be the
-    // exception. The listener is non-passive so the scroll cannot leak to the
-    // dialog body underneath.
+    // FX knobs share wheel adjustment. The listener is non-passive so the
+    // scroll cannot leak to the dialog body underneath.
     renderModal(defaultModule({ feedback: 50 }))
     const feedback = screen.getByRole('slider', { name: 'Feedback' })
     // The listener is registered natively (non-passive), so the wheel event is

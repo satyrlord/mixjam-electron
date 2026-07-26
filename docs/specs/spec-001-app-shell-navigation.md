@@ -1,7 +1,9 @@
 # Spec 001 — App Shell & Navigation
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** IMPLEMENTED
+**Spec Implementation Status:** PARTIAL — the shell and navigation are
+implemented; operating-system Media Session actions in AC-016 and the
+cross-platform production matrix in AC-017 are pending.
 **Depends on:** *(root — no dependencies)*
 
 ## Objective
@@ -88,8 +90,8 @@ Implement view switching, the header bar, and the footer.
 
 ### Settings Modal
 
-- The Player footer Settings link replaces the former User Folder and UI Size
-  footer controls. Home does not expose Settings because no project is active.
+- The Player footer exposes one Settings link for folder, UI Size, and project
+  controls. Home does not expose Settings because no project is active.
 - Settings is an exclusive modal over the mounted Player/Tracker, not a view or
   content replacement. Existing playback may continue, while background
   pointer input and ordinary app hotkeys are blocked.
@@ -142,15 +144,15 @@ connection; a competing Electron window shows an already-open notice.
 
 ### Distribution
 
-The only end-user artifacts are Electron packages. The production workflow
-runs the unit suite, builds and packages natively on Windows, Linux, and macOS,
-then verifies the native package on each matching GitHub-hosted runner. It
-produces a portable `.exe`, AppImage, and `.dmg`. The Linux proof supplies the
-AppImage's explicit generated path to the smoke test and launches that file,
-never `linux-unpacked`. The macOS proof mounts the generated DMG at a temporary
-mount point and launches `MixJam Electron.app/Contents/MacOS/MixJam Electron`
-inside that mounted image, never the unpacked `mac` directory. These native
-artifact proofs do not add `--no-sandbox`.
+The only end-user artifacts are Electron packages. The current Production
+workflow runs the unit suite, builds the Windows portable `.exe`, and verifies
+that package on `windows-latest`. AppImage and `.dmg` targets remain configured,
+but the workflow does not build, test, upload, or release them. AC-017 defines
+the pending Windows, Linux, and macOS production matrix. Its Linux proof must
+launch the explicit generated AppImage rather than `linux-unpacked`; its macOS
+proof must mount the generated DMG and launch the application inside it rather
+than the unpacked `mac` directory. Native artifact proofs do not add
+`--no-sandbox`.
 
 The Windows job records the portable executable's hash, size, and signing state,
 then launches that exact artifact with an isolated user-data directory. The
@@ -162,15 +164,16 @@ packaged application resources and preserves the main-process connection.
 When returning from the maximized Player view, the native window is re-centered
 again after Windows completes its asynchronous unmaximize transition.
 
-Every native artifact proof also runs the built Electron interaction probe at
-UI Size 50 with 16 lanes. It records Tracker vertical wheel scrolling and
-keyboard focus reveal; Mixer horizontal scrolling from a horizontal wheel,
+The Windows native artifact proof also runs the built Electron interaction
+probe at UI Size 50 with 16 lanes. It records Tracker vertical wheel scrolling
+and keyboard focus reveal; Mixer horizontal scrolling from a horizontal wheel,
 Shift+wheel, and Left/Right keys; and focus reveal of a clipped Mixer control.
 It confirms that plain vertical wheel input does not scroll the Mixer
 horizontally. The workflow uploads the Playwright report, screenshots, and raw
-measurements with the package artifacts. Manual workflow runs retain all of
-those artifacts for 14 days. A `v*` tag attaches the three packages to its
-GitHub Release only after those gates pass.
+measurements with the package artifact. Manual workflow runs retain those
+artifacts for 14 days. A `v*` tag attaches the verified portable `.exe` to its
+GitHub Release. The pending matrix applies the same interaction proof to Linux
+and macOS and attaches all three packages only after their gates pass.
 
 Code signing and macOS notarization are separate release-readiness gates. They
 are not configured, so current artifacts are unsigned and must not be described
@@ -308,7 +311,7 @@ the current display, manual restore without re-maximization, and the return to
 Home (unmaximized to 1920x1080 content, still resizable and maximizable). The renderer
 unit suite separately verifies that the Home and Player navigation actions invoke
 those shell capabilities.
-Linux CI uses a 2560x1440 virtual display with Openbox registered as its X11
+The pending Linux CI job uses a 2560x1440 virtual display with Openbox as its X11
 window manager. The framed Electron window therefore has room for the required
 1920x1080 renderer content area, and maximize and unmaximize requests exercise
 the same window-manager contract as a desktop session. The smoke test treats
@@ -318,7 +321,8 @@ because X11 frame extents depend on the active window-manager theme.
 
 The smoke test also asks Electron's `nativeImage` implementation to decode the
 same platform-specific asset passed to the live `BrowserWindow` and requires a
-non-empty result on Windows, Linux, and macOS.
+non-empty result on the platform under test. AC-017 applies that check to
+Windows, Linux, and macOS.
 
 Native artifact verification is not yet complete. The next manual or
 tag-triggered Production run must preserve its package test report, screenshots,
@@ -331,8 +335,9 @@ live HWND and compares it with a 32 by 32 PNG rendered from `public/app-icon.ico
 by Electron's `nativeImage` implementation. The current probe measured a mean
 absolute channel difference of 6.53 and 98.69 percent foreground overlap,
 confirming the live MixJam skull rather than only the source asset's existence.
-Raw bounds, display work area, frame states, icon metrics, and screenshots are
-stored under `tmp/verify-electron-window-state/`.
+The smoke test writes raw bounds, display work area, frame states, icon metrics,
+and screenshots to `tmp/verify-electron-window-state/`; the Production workflow
+uploads that directory with the package artifact.
 
 `tests/e2e/compact-layout.spec.ts` verifies the four-row Recent Projects list,
 the expanded library controls at the largest UI Size, and root-versus-Home
@@ -342,8 +347,6 @@ boundaries and proves that only the refusal surface is available.
 `src/renderer/src/components/HomeScreen.test.tsx` verifies the compact ready
 summary and its inline folder disclosure, expanded setup and recovery states,
 the sole primary action, recent-project metadata, and the four-project cap.
-`tmp/verify-home-remediation/EVIDENCE.md` records matching computed geometry and
-screenshots for the state-adaptive Home flow.
 
 ## Non-Goals (deferred to later specs)
 

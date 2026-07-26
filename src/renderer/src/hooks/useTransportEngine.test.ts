@@ -814,22 +814,30 @@ describe('useTransportEngine', () => {
   })
 
   it('resets elapsed time when leaving the Player while playing', async () => {
-    vi.useRealTimers()
+    vi.useFakeTimers()
     const api = createBackendAPI()
     vi.mocked(api.readSampleBytes).mockResolvedValue(new ArrayBuffer(8))
     const { result } = renderHook(() => useTransportEngine(api, SAMPLE_FOLDER, 'player'))
 
-    await waitFor(() => expect(result.current.playbackEngineRef.current).not.toBeNull())
+    expect(result.current.playbackEngineRef.current).not.toBeNull()
     placePlayableSample(result)
 
-    // Start playing so the timer is running
-    await act(async () => { result.current.transportPlay() })
+    await act(async () => {
+      result.current.transportPlay()
+      for (let i = 0; i < 50 && result.current.transportState !== 'playing'; i += 1) {
+        await Promise.resolve()
+      }
+    })
     expect(result.current.transportState).toBe('playing')
-    await act(async () => { await new Promise((r) => setTimeout(r, 150)) })
+    act(() => { vi.advanceTimersByTime(500) })
+    expect(result.current.elapsedMsStore.get()).toBe(500)
 
-    // Navigate away from the Player while playing to hit the timer cleanup branch.
-    await act(async () => { result.current.setView('home') })
+    act(() => { result.current.setView('home') })
     expect(result.current.view).toBe('home')
+    expect(result.current.transportState).toBe('stopped')
+    expect(result.current.elapsedMsStore.get()).toBe(0)
+    act(() => { vi.advanceTimersByTime(500) })
+    expect(result.current.elapsedMsStore.get()).toBe(0)
   })
 
   it('duplicatePlacement copies a placement to another lane', async () => {

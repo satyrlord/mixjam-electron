@@ -352,8 +352,8 @@ measured — time, level, tempo, position, gain reduction — it renders in mono
 If it is a label, it does not.
 
 **The Icon-Is-Geometry Rule.** Icon dimensions do not extend the type scale.
-Close controls use the shared inline SVG and size it as paint. The former 22px
-close glyph was icon geometry, not a typographic role.
+Close controls use the shared inline SVG and size it as paint, not as a
+typographic role.
 
 ## 4. Elevation
 

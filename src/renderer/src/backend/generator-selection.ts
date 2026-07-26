@@ -353,8 +353,8 @@ export function selectDiverseCandidates(
   for (const category of categories) {
     // Role-category diversity prefers candidates that extend an already-selected
     // family, then candidates whose family has siblings in some pool, and only
-    // then true one-offs: every forced diversity pick used to be a family
-    // singleton, which alone capped the family ratio below its target.
+    // then true one-offs. This keeps forced diversity picks from depressing the
+    // family ratio below its target.
     const familyParts = selectedFamilyParts()
     const familyGain = (candidate: PlanningCandidate): number => {
       const key = parseMotifKey(candidate.filename)

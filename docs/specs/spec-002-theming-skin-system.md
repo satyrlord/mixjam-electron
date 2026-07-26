@@ -132,7 +132,7 @@ The fixed authored typography scale is 10, 11, 12, 13, 14, 15, 16, and 18px.
 The 15px compact-title and 18px heading/display steps are formal values. The
 19, 20, and 23px values above remain generated UI Size endpoints rather than
 new fixed roles. Icon paint does not extend the type scale: close controls use
-the shared inline SVG, so the former 22px text glyph is not a typography token.
+the shared inline SVG rather than a typography token.
 
 Themes own the general, transport, and sample-bubble radii. Invariant embedded
 hardware geometry instead uses `--radius-line` (1px), `--radius-indicator`

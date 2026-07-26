@@ -1,14 +1,6 @@
-// Numeric parameter ranges for the Return effects, stated once.
-//
-// A parameter's range used to be written in three unlinked places: the
-// load-time validator in `return-effects.ts`, the DSP clamp inside the effect
-// core, and the knob spec in the editor. Nothing compared them, so a widened
-// knob could emit values the validator would later reject — a project that
-// saves but will not load.
-//
-// These tables are the single statement of each range. The validator derives
-// its bounds from them and the editors derive their knob min/max from them, so
-// the three can no longer disagree.
+// The load-time validator, DSP clamp, and editor controls derive their bounds
+// from these tables. Keeping one range per parameter prevents an editor from
+// emitting a value that the project loader rejects.
 //
 // Engine boundary: plain data. No Web Audio, no React, so the worklet realm and
 // the editor can both read it.

@@ -1,10 +1,7 @@
-// Analysis provenance, named once.
-//
 // Every analysis-owned field on `samples` is stored beside a `*_source` column.
 // A value written by the user is `'manual'` and is authoritative: no analyzer
-// pass may overwrite it. That rule used to be spelled out longhand at every
-// call site, so a new query could silently disagree with the others and quietly
-// destroy a user's edit. These builders are the single statement of it.
+// pass may overwrite it. These builders keep every query on that rule so a
+// divergent SQL fragment cannot destroy a user's edit.
 //
 // See docs/data-model.md "analysis provenance is stored per field".
 
@@ -13,8 +10,8 @@ export const PROVENANCE_FIELDS = ['bpm', 'musical_key', 'sample_type'] as const
 
 export type ProvenanceField = (typeof PROVENANCE_FIELDS)[number]
 
-// How a stored value got there is `AnalysisSource` in shared/backend-api.ts;
-// this module only ever compares against the `'manual'` literal in SQL.
+// `AnalysisSource` is owned by shared/backend-api.ts; these SQL builders only
+// compare against the `'manual'` literal.
 
 function sourceColumn(field: ProvenanceField): string {
   return `${field}_source`

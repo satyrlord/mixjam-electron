@@ -425,9 +425,8 @@ export function useLibraryData(
     refreshLibraryMetadata
   )
 
-  // Saved libraries. These were once a separate hook, but it took seven
-  // parameters — this hook's own state and setters — to return three thin
-  // callbacks, so the split cost more plumbing than it hid.
+  // Saved-library callbacks stay beside the state and setters they coordinate;
+  // extracting them would expose that state as plumbing without hiding policy.
   const saveLibrary = useCallback(async (name: string) => {
     const ruleJson = encodeLibraryRule({ textSearch: searchQuery, tagIds: selectedTagIds })
     const library = await backendAPI.saveLibrary(name, ruleJson)

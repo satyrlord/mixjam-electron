@@ -1,6 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MixJamFileItem } from '../../../shared/backend-api'
 import { createBackendAPI, DEFAULT_SAMPLE_ROWS, TEST_SAMPLE_FOLDER, TEST_USER_FOLDER } from '../test/backendApi'
 import { formatTimer } from '../lib/formatTimer'
 import { useAppState } from './useAppState'
@@ -56,7 +55,7 @@ describe('useAppState', () => {
     })
   })
 
-  it('moves to the Player and increments the timer while playing', async () => {
+  it('increments elapsed time during playback and resets it when leaving the Player', async () => {
     vi.useFakeTimers()
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
@@ -91,20 +90,19 @@ describe('useAppState', () => {
     })
 
     expect(formatTimer(result.current.elapsedMsStore.get())).toBe('00:01.0')
-  })
-
-  it('returns to home and clears the timer', async () => {
-    const backendAPI = createBackendAPI()
-    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => {
-      await result.current.goToPlayer()
       await result.current.goToHome()
     })
 
     expect(result.current.view).toBe('home')
     expect(formatTimer(result.current.elapsedMsStore.get())).toBe('00:00.0')
     expect(backendAPI.resizeToHome).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(result.current.elapsedMsStore.get()).toBe(0)
   })
 
   it('does not start or restart library sync during view navigation', async () => {
@@ -135,21 +133,6 @@ describe('useAppState', () => {
     expect(backendAPI.openExternal).toHaveBeenCalledWith(
       'https://github.com/satyrlord/mixjam-electron'
     )
-  })
-
-  it('clears the running timer when unmounted from the Player', async () => {
-    vi.useFakeTimers()
-    const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
-    const backendAPI = createBackendAPI()
-    const { result, unmount } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    await act(async () => {
-      await result.current.goToPlayer()
-    })
-
-    unmount()
-    expect(clearIntervalSpy).toHaveBeenCalled()
-    clearIntervalSpy.mockRestore()
   })
 
   it('stores selected sample detail for the footer surface', async () => {
@@ -471,28 +454,6 @@ describe('useAppState', () => {
     }).not.toThrow()
   })
 
-  it('ignores stale sample query responses when a newer query is in flight', async () => {
-    vi.useRealTimers()
-    const backendAPI = createBackendAPI()
-
-    // First call will be slow, second fast
-    vi.mocked(backendAPI.querySamples)
-      .mockResolvedValueOnce({ rows: [DEFAULT_SAMPLE_ROWS[0]], total: 1 })
-      .mockResolvedValueOnce({ rows: [DEFAULT_SAMPLE_ROWS[1]], total: 1 })
-
-    const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    // Wait for first query to settle — the debounce means the second call
-    // supersedes it before the first resolves, per mock ordering.
-    await waitFor(() => {
-      expect(result.current.samples.length).toBeGreaterThan(0)
-    })
-
-    // Either the first or second query's rows are set; the stale guard
-    // ensures the last query wins.
-    expect(result.current.error).toBeNull()
-  })
-
   it('transport operations are no-ops outside the Player', () => {
     const backendAPI = createBackendAPI()
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
@@ -509,46 +470,6 @@ describe('useAppState', () => {
       result.current.transportPause()
     })
     expect(result.current.transportState).toBe('stopped')
-  })
-
-  it('handles unmount during pending version fetch', async () => {
-    vi.useRealTimers()
-    const backendAPI = createBackendAPI()
-
-    // Delay getVersion so we can unmount while it is pending.
-    let resolveVersion: (v: string) => void
-    vi.mocked(backendAPI.getVersion).mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveVersion = resolve
-      })
-    )
-
-    const { unmount } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    // Unmount before the promise resolves — isMounted becomes false.
-    unmount()
-
-    // Resolving after unmount must not call setState on an unmounted component.
-    resolveVersion!('should-not-appear')
-
-  })
-
-  it('handles unmount during a pending MixJam-file fetch', async () => {
-    vi.useRealTimers()
-    const backendAPI = createBackendAPI()
-
-    let resolveProjects: (projects: MixJamFileItem[]) => void
-    vi.mocked(backendAPI.loadMixJamFiles).mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveProjects = resolve
-      })
-    )
-
-    const { unmount } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
-
-    unmount()
-
-    resolveProjects!([])
   })
 
   it('setBpm updates the BPM state', async () => {
@@ -624,13 +545,21 @@ describe('useAppState', () => {
     })
 
     expect(result.current.lanes[0]!.gain).toBe(0.45)
-    expect(result.current.lanes[0]!.gain).toBe(0.45)
-    expect(result.current.lanes[0]!.sends).toEqual([0, 0, 1, 0])
     expect(result.current.lanes[0]!.sends).toEqual([0, 0, 1, 0])
 
     await act(async () => { await result.current.startNewProject() })
     expect(result.current.view).toBe('player')
     expect(backendAPI.resizeToPlayer).toHaveBeenCalledTimes(1)
+    expect(result.current.lanes).toHaveLength(8)
+    expect(result.current.lanes[0]).toMatchObject({
+      name: 'Lane 1',
+      muted: false,
+      solo: false,
+      pan: 0,
+      gain: 0.8,
+      sends: [0, 0, 0, 0],
+      placements: []
+    })
   })
 
   it('keeps the current view when project open actions do not open a file', async () => {

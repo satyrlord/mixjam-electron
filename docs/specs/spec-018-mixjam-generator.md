@@ -464,7 +464,7 @@ pan — live in spec-021.
 ## Validation
 
 ```sh
-npm test -- src/renderer/src/backend/generator-templates.test.ts
+npm test -- src/shared/generator-templates.test.ts
 npm test -- src/renderer/src/backend/generator-engine.test.ts
 npm test -- src/renderer/src/backend/generator-analysis.test.ts
 npm test -- src/renderer/src/backend/generator-library.test.ts

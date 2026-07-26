@@ -277,7 +277,7 @@ distilled metrics.
 - Unit: `src/shared/mixjam-metrics.test.ts`,
   `src/shared/sample-role-hints.test.ts`,
   `src/renderer/src/backend/generator-engine.test.ts`,
-  `src/renderer/src/backend/generator-templates.test.ts`,
+  `src/shared/generator-templates.test.ts`,
   `src/renderer/src/backend/generator-selection.test.ts`,
   `src/renderer/src/project/generated-project.test.ts`.
 - Local gate: `npm run generate:mixjam` over `tmp/test-samples` for all six

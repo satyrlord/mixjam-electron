@@ -1,9 +1,6 @@
-// Context keys, named once.
-//
 // A contextual group is addressed either by a directory prefix (`Drums/Kicks`)
 // or by a virtual source cohort that spans directories (`@cohort/Drums/SC1`).
-// The cohort form used to be built in one module and re-parsed, differently,
-// in three places. This module owns both directions of the grammar.
+// This module owns both construction and parsing of the cohort grammar.
 //
 // The pack-token grammar (`SC1`, `SL12`) is the same one the motif parser reads
 // from filenames; getting it wrong does not throw, it silently mis-groups the

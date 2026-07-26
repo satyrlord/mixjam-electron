@@ -99,12 +99,9 @@ export function useBottomWorkspace(): BottomWorkspaceController {
     playerWorkspacePreferences.saveBottomTab(tab)
   }, [bottomTab])
   useLayoutEffect(() => {
-    // Restore this tab's remembered size in the SAME commit as the tab flip, so
-    // the reveal paint and this resize coalesce into one frame. The old version
-    // deferred to the next frame to avoid fighting the per-tab minSize clamp —
-    // but minSize is now a constant (below), so there is no clamp to fight, and
-    // splitting the switch across two frames was what let a stall breach the
-    // audio scheduler's lookahead margin and glitch playback.
+    // Restore the remembered size in the tab-switch commit. The constant Panel
+    // floor below cannot clamp this resize, and keeping both updates in one
+    // frame avoids a layout stall that could breach the audio lookahead margin.
     const targetPercentage = bottomTabSizesRef.current[bottomTab]
     resizeBottomTab(bottomTab, targetPercentage)
   }, [bottomTab, resizeBottomTab])
@@ -156,19 +153,13 @@ export function useBottomWorkspace(): BottomWorkspaceController {
     setExpanded(false)
     playerWorkspacePreferences.saveBottomExpansion({ expanded: false, previousBottomSize: bottomSize })
   }, [bottomTab])
-  // The Panel drag-floor is a CONSTANT (the smallest tab budget), not per-tab.
-  // A per-tab value changed on every switch, and because the three budgets
-  // differ that re-registered the panel-group constraint — a forced synchronous
-  // layout + clamp inside the switch's commit frame — which, split across a
-  // second (rAF) frame from the resize, let a stall breach the audio scheduler's
-  // margin and glitch playback. Holding it constant keeps the group from
-  // re-clamping on a tab change. The per-tab CONTENT floor is still enforced by
+  // Keep the Panel drag floor at the smallest tab budget. A per-tab constraint
+  // would re-register and synchronously clamp the group on every switch. The
+  // per-tab content floor is still enforced by
   // the CSS `min-height` on `.bottom-workspace-panel > *` (driven by
-  // `bottomMinimumHeight` below), so a tab dragged below its budget SCROLLS with
-  // every control still reachable rather than clipping; the imperative resize
-  // still lifts each tab to its own remembered budget. Not the MAX budget: that
-  // would clamp the shorter tabs up to the Master rack's height and break their
-  // remembered sizes.
+  // `bottomMinimumHeight` below), so undersized content scrolls instead of
+  // clipping. Using the largest budget here would force every tab to the Master
+  // rack height and break its remembered size.
   const bottomPanelMinimumHeight = Math.min(
     bottomMinimumHeights.master,
     bottomMinimumHeights.mixer,

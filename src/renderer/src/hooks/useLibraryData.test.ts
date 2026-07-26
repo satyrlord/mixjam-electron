@@ -239,6 +239,35 @@ describe('useLibraryData tag-only browser state', () => {
     })
   })
 
+  it('ignores a late first page after the query criteria change', async () => {
+    const api = createBackendAPI()
+    const oldPage = deferred<{ rows: SampleItem[]; total: number }>()
+    const newRow = row({ id: 2, relpath: 'Bass/new.wav', filename: 'new.wav' })
+    vi.mocked(api.querySamples).mockImplementation((request) =>
+      request.textSearch === 'bass'
+        ? Promise.resolve({ rows: [newRow], total: 1 })
+        : oldPage.promise
+    )
+    const { result } = renderHook(() =>
+      useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER)
+    )
+    await waitFor(() => expect(api.querySamples).toHaveBeenCalledWith(
+      expect.objectContaining({ textSearch: undefined, offset: 0 })
+    ))
+
+    act(() => result.current.setSearchQuery('bass'))
+    await waitFor(() => expect(result.current.samples.map((sample) => sample.relpath))
+      .toEqual(['Bass/new.wav']))
+
+    await act(async () => {
+      oldPage.resolve({ rows: [row({ relpath: 'Drums/old.wav' })], total: 1 })
+      await oldPage.promise
+    })
+
+    expect(result.current.samples.map((sample) => sample.relpath)).toEqual(['Bass/new.wav'])
+    expect(result.current.totalCount).toBe(1)
+  })
+
   it('invalidates paging immediately when query criteria change', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row()], total: 2 })

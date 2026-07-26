@@ -73,9 +73,8 @@ Rules of the process model:
   Browser queries and metadata mutations remain separate workflows. Home, the
   Middle Strip, and status controls share one presentation policy derived from
   that lifecycle state.
-- **Persistence rules are named, not repeated.** Three contracts that SQL used to
-  restate at every call site now have one owner each, because a silent
-  divergence between copies corrupts user data rather than throwing:
+- **Persistence rules are named, not repeated.** Three SQL contracts have one
+  owner each because divergent copies would corrupt user data rather than throw:
   `scan-state.ts` owns the `scan_state` codes and the "ready"/"present"
   predicates; `analysis-provenance.ts` owns the rule that a `manual` value is
   authoritative and no analyzer pass may overwrite it; `context-key.ts` owns

@@ -64,11 +64,9 @@ describe('AudioEngine', () => {
     expect(gainAfterReplace).toBeDefined()
   })
 
-  // Regression: loading a project rebuilds all four Return processors. A
-  // replaced AudioWorkletNode that is merely disconnected stays actively
-  // processing — Chromium keeps rendering its DSP every quantum for the rest of
-  // the session and never collects it — so a few consecutive loads used to pile
-  // up delays and reverbs until playback went choppy. Replacement must retire
+  // Loading a project rebuilds all four Return processors. A replaced
+  // AudioWorkletNode that is merely disconnected stays active, so Chromium
+  // keeps rendering it for the rest of the session. Replacement must retire
   // the outgoing processor.
   it('retires the outgoing Return processor when a project load replaces the buses', async () => {
     const context = createMockContext()

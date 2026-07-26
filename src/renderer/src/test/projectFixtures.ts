@@ -1,14 +1,8 @@
 // Project fixtures for tests.
 //
-// A lane fixture used to be hand-written per test file — `sends: [0, 0, 0, 0]`
-// alone appeared in thirteen files, fifteen times in one of them. That spreads
-// the "exactly four Sends" invariant (docs/architecture.md) across the suite,
-// so changing the FX bus count would mean editing dozens of literals instead of
-// one factory.
-//
-// These builders derive their shape from the project model, so a fixture stays
-// valid by construction. Ids are deterministic (`lane-1`, `lane-2`, ...) so a
-// test can address a lane without capturing what the factory returned.
+// These builders keep the four-Sends invariant in one factory and derive their
+// shape from the project model. Ids are deterministic (`lane-1`, `lane-2`, ...)
+// so a test can address a lane without capturing what the factory returned.
 import type { PlaybackChannelSnapshot } from '../engine/playback-engine'
 import {
   DEFAULT_LANE_GAIN,

@@ -331,8 +331,8 @@ Returns sum with dry lane output before the unchanged Master path.
 
 ## Recent Projects rail
 
-Use [MixJam Browser](#mixjam-browser). *Recent Projects rail* does not name
-the full `.mixjam` file browser.
+The Home Screen region that lists up to four recently opened projects. It is a
+shortcut list, not the Player's full [MixJam Browser](#mixjam-browser).
 
 ## Sample
 

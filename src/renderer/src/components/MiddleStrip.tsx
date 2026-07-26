@@ -140,10 +140,8 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
 /**
  * The Middle Strip's props, grouped by the region each one drives.
  *
- * These were once 35 flat props, which meant `PlayerView` unpacked its already
- * grouped prop bundles into a 33-line list just to pass them back down. Naming
- * the groups here lets the caller forward what it already holds, and makes it
- * obvious which part of the strip a prop belongs to.
+ * The caller already owns these groups. Keeping that shape at this boundary
+ * makes each prop's region explicit without unpacking and repacking it.
  */
 interface MiddleStripScrollportProps {
   /** The Tracker viewport the Song Progress Bar scrolls. */

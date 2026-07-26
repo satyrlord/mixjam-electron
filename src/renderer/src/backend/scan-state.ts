@@ -1,9 +1,6 @@
-// The `samples.scan_state` column, named once.
-//
 // The integers are the persisted encoding (see docs/data-model.md); this module
-// is the only place that spells them. SQL builders below keep the predicates
-// that read the column in one place too, so "which rows are live" cannot mean
-// two different things in two different queries.
+// owns them and the SQL predicates that read the column, so queries share one
+// meaning for live rows.
 
 /** Persisted `samples.scan_state` codes. */
 export const SCAN_STATE = {

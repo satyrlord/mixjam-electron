@@ -1,15 +1,10 @@
-// The FX editor knob, owned in one place.
-//
 // Both Return editors need a rotary control whose scale can be perceptual
 // (log), which the shared `RotaryControl` does not support: it quantizes
 // linearly against raw min/max, so a 20 Hz - 2 kHz sweep is unusable on a
-// linear drag. Each editor used to carry its own ~110-line copy of this
-// control, kept in step by hand. They had already drifted.
-//
-// This module is that control. The interaction contract — drag weighting,
-// wheel sensitivity, Shift for fine steps, the six keyboard bindings,
-// double-click to default — is therefore stated once, so identical gestures
-// cannot behave differently across FX.
+// linear drag. This shared control owns the interaction contract: drag
+// weighting, wheel sensitivity, Shift for fine steps, the six keyboard
+// bindings, and double-click to default. Identical gestures therefore behave
+// the same across FX.
 //
 // Each editor keeps its own CSS namespace (`ef-`, `af-`), passed as
 // `classPrefix`, so the two skins stay independent while the behavior does not.
