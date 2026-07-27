@@ -488,9 +488,9 @@ infrequent commands out of the permanent button row.
 - Default sizing, collapse behavior, and visual treatment follow the
   [Style Guide](../style-guide.md#layout-architecture).
 - Its right edge resizes only the upper MixJam Browser/Tracker split. The
-  current split persists in localStorage as `mixjam:upper-work-layout`.
-  Unrecognized or obsolete keys are ignored and do not constrain the Bottom
-  Workspace.
+  current split persists in localStorage as `mixjam:upper-work-layout` and does
+  not constrain the Bottom Workspace. A stored value whose panel names or number
+  types do not match the current layout is rejected in favor of the default.
 - Includes a collapse/expand toggle (state persisted to localStorage as
   `mixjam:recents-rail-collapsed`). When collapsed, only the toggle button is
   visible, and the browser stays visually flush so it does not leave a stray
@@ -701,10 +701,10 @@ window-level mouse listeners.
   Size grows the active panel when required. The active panel retains a
   defensive vertical scrollport for later content growth; no interactive
   content is clipped.
-- [x] **AC-016c:** Unknown or obsolete layout keys are ignored in favor of a
-  fresh 24% Bottom Workspace preference. The rendered height clamps to the
-  active tab minimum. The current layout is stored, and later manual resizing
-  persists across reloads.
+- [x] **AC-016c:** A missing or malformed stored layout falls back to a fresh
+  24% Bottom Workspace preference. The rendered height clamps to the active tab
+  minimum. The current layout is stored, and later manual resizing persists
+  across reloads.
 - [ ] **AC-016b:** The flat tag navigator remains searchable and independently
   scrollable for the real `tmp/test-samples` catalog at UI Sizes 30, 40, and 50.
   Identically named subfolders appear once and active filters stay visible.
@@ -801,12 +801,12 @@ contract.
   from the parked end restarts at tick 0 without being cancelled by end
   detection.
 - `tests/e2e/compact-layout.spec.ts` verifies the 75% shared Tracker geometry,
-  all-lane visibility, the 80px Middle Strip, fresh 24% Bottom Workspace,
-  obsolete-key isolation, later manual persistence, and root overflow across
-  every UI Size. Its lane-count matrix verifies Tracker and Mixer fit plus
-  horizontal reachability with 1, 8, and 64 lanes. Its Middle Strip matrix
-  covers all 16 shipped themes at 1920×1080 in idle, syncing, analyzing, and
-  error states.
+  all-lane visibility, the 80px Middle Strip, a fresh 24% Bottom Workspace
+  clamping to the active tab minimum, later manual persistence, and root
+  overflow across every UI Size. Its lane-count matrix verifies Tracker and
+  Mixer fit plus horizontal reachability with 1, 8, and 64 lanes. Its Middle
+  Strip matrix covers all 16 shipped themes at 1920×1080 in idle, syncing,
+  analyzing, and error states.
 - `src/renderer/src/hooks/useTransportEngine.test.ts` verifies that continuous
   lane gain, Send, and Return adjustments commit as one project-history entry,
   while `src/renderer/src/components/PlayerView.test.tsx` verifies stable-ID

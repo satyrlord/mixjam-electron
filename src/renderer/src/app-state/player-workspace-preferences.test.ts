@@ -10,9 +10,7 @@ describe('player workspace preferences', () => {
     vi.restoreAllMocks()
   })
 
-  it('loads validated defaults and ignores obsolete compatibility state', () => {
-    localStorage.setItem('mixjam-left-col-w', '320')
-
+  it('loads validated defaults when nothing is stored', () => {
     const preferences = loadPlayerWorkspacePreferences()
 
     expect(preferences.upperLayout).toEqual({ browser: 18, tracker: 82 })

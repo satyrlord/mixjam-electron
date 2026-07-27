@@ -7,8 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { BACKEND_API_METHODS } from '../../../shared/backend-api'
 import { createBackendAPI } from '../test/backendApi'
 
-// Vitest runs with the repo root as cwd (see vitest.config.ts `root`).
-const E2E_MOCK_SOURCE = resolve('tests/e2e/mock-backend.js')
+const E2E_MOCK_SOURCE = resolve(process.cwd(), 'tests/e2e/mock-backend.js')
 
 const TYPED_TEST_METHODS = Object.entries(
   createBackendAPI() as unknown as Record<string, unknown>

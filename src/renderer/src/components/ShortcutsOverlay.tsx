@@ -19,7 +19,6 @@ export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
     <DialogRoot open onOpenChange={onClose}>
       <BlockingDialogContent
         className="shortcuts-panel"
-        aria-label="Keyboard shortcuts"
         aria-modal="true"
         aria-describedby={undefined}
         onOverlayClick={onClose}

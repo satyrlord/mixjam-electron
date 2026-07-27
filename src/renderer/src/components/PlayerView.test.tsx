@@ -218,9 +218,7 @@ describe('PlayerView', () => {
   // failing assertion cannot leak state into later mounts.
   afterEach(() => {
     vi.restoreAllMocks()
-    localStorage.removeItem('mixjam-left-col-w')
     localStorage.removeItem('mixjam:bottom-workspace-tab')
-    localStorage.removeItem('mixjam-bottom-workspace-size')
     localStorage.removeItem('mixjam:upper-work-layout')
     localStorage.removeItem('mixjam:bottom-workspace-layout-v2')
     localStorage.removeItem('mixjam:bottom-workspace-expansion-v2')
@@ -825,17 +823,6 @@ describe('PlayerView', () => {
       expanded: false,
       previousBottomSize: 42
     })
-  })
-
-  it('ignores expansion state saved for the previous workspace layout', () => {
-    localStorage.setItem('mixjam:bottom-workspace-tab', 'samples')
-    localStorage.setItem('mixjam:bottom-workspace-expansion', JSON.stringify({
-      expanded: true,
-      previousBottomSize: 36
-    }))
-    renderPlayer({})
-
-    expect(screen.getByRole('button', { name: 'Expand Samples' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('does not treat a manually saved 60 percent workspace as expanded', () => {
@@ -1725,12 +1712,12 @@ describe('PlayerView', () => {
     expect(document.querySelector('[data-panel="true"]#tracker')).toBeInTheDocument()
   })
 
-  it('AC-002d: obsolete pixel-width storage does not affect the panel layout', () => {
-    localStorage.setItem('mixjam-left-col-w', '200')
+  it('AC-002d: the browser seam reports the persisted upper split', () => {
+    localStorage.setItem('mixjam:upper-work-layout', JSON.stringify({ browser: 30, tracker: 70 }))
     renderPlayer({})
 
     const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
-    expect(Number(seam.getAttribute('aria-valuenow'))).toBe(18)
+    expect(Number(seam.getAttribute('aria-valuenow'))).toBe(30)
   })
 
   it('AC-004: Mixer is a peer tab instead of a reveal toggle', () => {

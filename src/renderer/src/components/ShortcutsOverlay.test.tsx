@@ -40,7 +40,7 @@ describe('ShortcutsOverlay', () => {
     const dialog = screen.getByRole('dialog')
     expect(dialog).toBeTruthy()
     expect(dialog.getAttribute('aria-modal')).toBe('true')
-    expect(dialog.getAttribute('aria-label')).toBe('Keyboard shortcuts')
+    expect(screen.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBe(dialog)
   })
 
   it('calls onClose when close button is clicked', () => {

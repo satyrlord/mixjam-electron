@@ -25,7 +25,6 @@ const ALL_THEMES = [
   'riso',
   'arcade'
 ]
-const LEGACY_BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout'
 const BOTTOM_LAYOUT_KEY = 'mixjam:bottom-workspace-layout-v2'
 // Settings shows percentage labels; the underlying UI Size values remain 30/40/50.
 const UI_SIZE_BUTTON_LABELS: Record<number, string> = { 30: '75%', 40: '100%', 50: '125%' }
@@ -276,10 +275,7 @@ test('expanded Home library controls fit at the largest UI Size during active wo
 
 test('compact Tracker keeps all lanes reachable and shared geometry across themes', async ({ seededPage: page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
-  await page.evaluate(({ legacyKey, currentKey }) => {
-    localStorage.setItem(legacyKey, JSON.stringify({ upper: 40, bottom: 60 }))
-    localStorage.removeItem(currentKey)
-  }, { legacyKey: LEGACY_BOTTOM_LAYOUT_KEY, currentKey: BOTTOM_LAYOUT_KEY })
+  await page.evaluate((key) => localStorage.removeItem(key), BOTTOM_LAYOUT_KEY)
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
 
   for (const theme of STRESS_THEMES) {
@@ -937,12 +933,9 @@ test('Middle Strip menus keep their labels and dialog layering', async ({ seeded
   expect(dialogLayers.visibleTooltipCount).toBe(0)
 })
 
-test('versioned Bottom Workspace layout resets once and then preserves manual resizing', async ({ seededPage: page }) => {
+test('an unstored Bottom Workspace layout clamps to the tab minimum and then preserves manual resizing', async ({ seededPage: page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
-  await page.evaluate(({ legacyKey, currentKey }) => {
-    localStorage.setItem(legacyKey, JSON.stringify({ upper: 40, bottom: 60 }))
-    localStorage.removeItem(currentKey)
-  }, { legacyKey: LEGACY_BOTTOM_LAYOUT_KEY, currentKey: BOTTOM_LAYOUT_KEY })
+  await page.evaluate((key) => localStorage.removeItem(key), BOTTOM_LAYOUT_KEY)
   await page.getByRole('button', { name: 'Start New MixJam' }).click()
 
   await expect.poll(async () => page.evaluate((key) => {
