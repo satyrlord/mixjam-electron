@@ -3,14 +3,14 @@ import type { PlaybackEngine, PlaybackReturnSnapshot } from '../engine/playback-
 import type { ReturnModule } from '../engine/return-effects'
 import { createValueStore, type ReadableStore } from '../lib/value-store'
 import {
-  toPlaybackProjectGraphSnapshot,
+  toPlaybackChannelSnapshots,
+  toPlaybackReturnSnapshots,
   type LaneState,
   type ProjectFxBuses
 } from '../project/project-state'
 
 const PEAK_HOLD_DECAY_DB_PER_S = 30
 const SILENCE_DB = -100
-const LEGACY_STORAGE_KEY = 'mixjam-mixer-channels'
 
 /** One visual telemetry frame: RMS level and peak-hold in dBFS per channel. */
 export interface ChannelMeterFrame {
@@ -47,32 +47,23 @@ function rmsToDb(rms: number): number {
  */
 export function useMixer(
   playbackEngineRef: React.RefObject<PlaybackEngine | null>,
-  view: string,
   lanes: readonly LaneState[],
   fxBuses: ProjectFxBuses
 ): Mixer {
-  const projectGraphSnapshot = useMemo(
-    () => toPlaybackProjectGraphSnapshot({ lanes: [...lanes], fxBuses }),
-    [fxBuses, lanes]
+  const channels = useMemo(() => toPlaybackChannelSnapshots(lanes), [lanes])
+  const returnBuses = useMemo(
+    () => toPlaybackReturnSnapshots(fxBuses) as MixerState['returnBuses'],
+    [fxBuses]
   )
-  const returnBuses = projectGraphSnapshot.returns as MixerState['returnBuses']
   const [channelMetersStore] = useState(() => createValueStore<ChannelMeterFrame>(SILENT_FRAME))
   const [visualTelemetryActive, setVisualTelemetryActive] = useState(false)
 
-  const channelsRef = useRef(projectGraphSnapshot.channels)
-  channelsRef.current = projectGraphSnapshot.channels
+  const channelsRef = useRef(channels)
+  channelsRef.current = channels
   const peaksRef = useRef(new Map<number, number>())
   const lastFrameRef = useRef(0)
   const meterBuffersRef = useRef(new Map<number, Float32Array>())
   const prevLevelsRef = useRef(new Map<number, number>())
-
-  useEffect(() => {
-    try {
-      localStorage.removeItem(LEGACY_STORAGE_KEY)
-    } catch {
-      // Storage can be unavailable. Current Mixer state is project-owned.
-    }
-  }, [])
 
   useEffect(() => {
     if (!visualTelemetryActive) return
@@ -177,11 +168,6 @@ export function useMixer(
       lastFrameRef.current = 0
     }
   }, [playbackEngineRef, visualTelemetryActive, channelMetersStore])
-
-  useEffect(() => {
-    if (view !== 'player') return
-    playbackEngineRef.current?.applyProjectGraphSnapshot(projectGraphSnapshot)
-  }, [playbackEngineRef, projectGraphSnapshot, view])
 
   const previewReturnBus = useCallback((bus: PlaybackReturnSnapshot) => {
     playbackEngineRef.current?.applyReturnSnapshot([

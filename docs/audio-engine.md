@@ -185,16 +185,18 @@ before the existing Master gain and meter. This is not a Master limiter: the
 sum can still exceed -1 dBFS.
 
 Playback consumes one complete project snapshot and atomically reconciles lane
-paths and the four buses. React state updaters never mutate the Web Audio graph
-or replay individual fields in order. Removing a lane disconnects every node it
-owns. Clearing an FX bus immediately replaces it with Empty and cuts its active
-tail. Powering a populated module off blocks new input but lets its existing tail
-finish.
-Creating or replacing a playback engine applies the complete snapshot before
-the engine is exposed for use. A Sample Folder change therefore preserves
-unchanged gain, pan, mute/solo, Sends, and Returns. Lane pan is applied once in
-the reusable channel path; a voice connects directly to that path and never
-creates a second lane panner.
+paths, the four buses, and the Master Bus. React state updaters never mutate the
+Web Audio graph or replay individual fields in order. Transport orchestration is
+the sole renderer owner of graph application; runtime lifecycle code creates or
+replaces the engine, and Mixer state only derives display records. Removing a
+lane disconnects every node it owns. Clearing an FX bus immediately replaces it
+with Empty and cuts its active tail. Powering a populated module off blocks new
+input but lets its existing tail finish.
+Creating or replacing a playback engine causes transport orchestration to apply
+the current complete snapshot once. A Sample Folder change therefore preserves
+unchanged gain, pan, mute/solo, Sends, Returns, and Master Bus state. Lane pan is
+applied once in the reusable channel path; a voice connects directly to that
+path and never creates a second lane panner.
 The snapshot may arrive before playback creates any lane channels. Playback
 therefore retains each lane's four Send values and replays them, including the
 Return connections, when the first voice lazily creates that channel.
@@ -205,6 +207,12 @@ An FX module is a black box with a stable type, display metadata, defaults,
 validation, editor, summary, processor, live-update behavior, tail policy, and
 tests. The Return host provides input, output, level, limiter, lifecycle, and
 persistence. A module cannot reach another bus or the Master directly.
+
+Each effect-owned module contains its state, defaults, preset table, validator,
+runtime descriptor, processor adapter, and worklet message protocol. One UI
+editor registry dispatches summaries and modals. One shared editor-session hook
+owns draft, preview, Mix, preset, and Power behavior, leaving effect modals with
+their controls and visualizers only.
 
 `Empty` is the identity processor with no latency. The host gates an Empty bus
 to silence so a nonzero Send cannot duplicate the dry signal. The effect
@@ -354,7 +362,7 @@ costs about ten times more than in production.
 ### Parameter and message flow
 
 ```text
-UI knob -> React state -> project history edit
+UI knob -> React state -> grouped project history edit
         -> port.postMessage {paramId, value}
 worklet: drain queue at block start -> per-parameter smoother (20 ms one-pole)
         -> module reads smoothed value per sample or per block
@@ -362,6 +370,10 @@ worklet -> port.postMessage snapshot at 33 ms:
         {vuDb, peakL, peakR, compGrDb, limGrDb, latencySamples, stalled?}
 UI: latest-snapshot store -> animation-frame paint while Master tab active
 ```
+
+The history owner begins, applies, commits, or cancels a continuous gesture as
+one undo entry. Non-user synchronization updates both the live value and the
+gesture baseline, so Undo never rolls back an asynchronous system correction.
 
 - Every continuous parameter has a 20 ms one-pole smoother; gains smooth in
   the linear domain, frequencies in log domain. A smoothing test asserts the

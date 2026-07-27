@@ -135,11 +135,10 @@ browser adjacencies.
   editable BPM or gain control.
 - Default layout proportion and sizing follow the
   [Style Guide](../style-guide.md#layout-architecture). The current layout
-  persists under `mixjam:bottom-workspace-layout-v2`. The v2 key intentionally
-  ignores the previous unversioned layout once so existing users receive the
-  compact default; every later manual resize updates v2 and survives remounts.
-- One Player workspace-preference module owns validation, defaults, legacy
-  browser-width migration, and storage for both panel layouts, the active tab,
+  persists under `mixjam:bottom-workspace-layout-v2`. Other layout keys are
+  ignored. Every manual resize updates the current key and survives remounts.
+- One Player workspace-preference module owns validation, defaults, and storage
+  for both panel layouts, the active tab,
   Samples expansion/restore state, and MixJam Browser collapse. Rendering code
   coordinates live panel refs but does not parse or write storage formats.
 - The Bottom Workspace module owns that live coordination: panel refs, tab-size
@@ -445,7 +444,9 @@ infrequent commands out of the permanent button row.
 - Each entry is an immutable project edit snapshot or delta with structural
   sharing, capped at 100 entries. A new edit clears the redo stack.
 - One continuous pointer, wheel, or repeated-key adjustment gesture collapses
-  into one history entry.
+  into one history entry. The project-history hook owns the gesture baseline,
+  live updates, commit, cancel, and synchronization behavior; feature hooks do
+  not keep a second gesture snapshot.
 - Bindings: Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes; the platform primary
   modifier is accepted for these commands. The Middle Strip
   buttons mirror the same actions and disable when their stack is empty.
@@ -487,9 +488,9 @@ infrequent commands out of the permanent button row.
 - Default sizing, collapse behavior, and visual treatment follow the
   [Style Guide](../style-guide.md#layout-architecture).
 - Its right edge resizes only the upper MixJam Browser/Tracker split. The
-  current split persists in localStorage as `mixjam:upper-work-layout`; the
-  older `mixjam-left-col-w` value is read only as a one-time fallback. Neither
-  value constrains the Bottom Workspace.
+  current split persists in localStorage as `mixjam:upper-work-layout`.
+  Unrecognized or obsolete keys are ignored and do not constrain the Bottom
+  Workspace.
 - Includes a collapse/expand toggle (state persisted to localStorage as
   `mixjam:recents-rail-collapsed`). When collapsed, only the toggle button is
   visible, and the browser stays visually flush so it does not leave a stray
@@ -546,9 +547,8 @@ Sizing and visual treatment follow the [Style Guide](../style-guide.md#resize-ha
 **MixJam Browser vertical handle** (`.upper-work-resize`):
 
 - Resizes only the MixJam Browser/Tracker split and persists the expanded width
-  as `mixjam:upper-work-layout`; `mixjam-left-col-w` is a compatibility fallback
-  for values saved before the rename. The existing collapse state remains
-  authoritative while collapsed.
+  as `mixjam:upper-work-layout`. The existing collapse state remains
+  authoritative while collapsed; no prior width key is read.
 - Does not cross the Middle Strip or change the Bottom Workspace width.
 
 **Browser vertical handle** (`.browser-resize-v`):
@@ -701,10 +701,10 @@ window-level mouse listeners.
   Size grows the active panel when required. The active panel retains a
   defensive vertical scrollport for later content growth; no interactive
   content is clipped.
-- [x] **AC-016c:** An unversioned vertical layout from a prior format is ignored
-  in favor of a fresh 24% Bottom Workspace preference. The rendered height
-  clamps to the active tab minimum. The resulting v2 layout is stored, and
-  later manual resizing persists across reloads.
+- [x] **AC-016c:** Unknown or obsolete layout keys are ignored in favor of a
+  fresh 24% Bottom Workspace preference. The rendered height clamps to the
+  active tab minimum. The current layout is stored, and later manual resizing
+  persists across reloads.
 - [ ] **AC-016b:** The flat tag navigator remains searchable and independently
   scrollable for the real `tmp/test-samples` catalog at UI Sizes 30, 40, and 50.
   Identically named subfolders appear once and active filters stay visible.
@@ -802,7 +802,7 @@ contract.
   detection.
 - `tests/e2e/compact-layout.spec.ts` verifies the 75% shared Tracker geometry,
   all-lane visibility, the 80px Middle Strip, fresh 24% Bottom Workspace,
-  v1-to-v2 one-time reset, later manual persistence, and root overflow across
+  obsolete-key isolation, later manual persistence, and root overflow across
   every UI Size. Its lane-count matrix verifies Tracker and Mixer fit plus
   horizontal reachability with 1, 8, and 64 lanes. Its Middle Strip matrix
   covers all 16 shipped themes at 1920×1080 in idle, syncing, analyzing, and

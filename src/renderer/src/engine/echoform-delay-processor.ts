@@ -4,8 +4,10 @@ import {
   prepareReturnWorklet,
   type WorkletFactory
 } from './return-worklet-processor'
-import type { EchoformDelayModule, ReturnModuleProcessor } from './return-effects'
+import type { ReturnModuleProcessor } from './return-effects'
 import type { EchoformDelayState } from './echoform-delay-types'
+import type { EchoformDelayModule } from './return-effects/echoform-delay'
+import { echoformDelayStateMessage } from './return-effects/echoform-delay-protocol'
 
 const PROCESSOR_NAME = 'echoform-delay-processor'
 
@@ -49,6 +51,7 @@ export function createEchoformDelayProcessor(
     url: echoformDelayProcessorUrl,
     type: 'echoform-delay',
     tempoAware: true,
-    toState
+    toState,
+    createStateMessage: echoformDelayStateMessage
   }, createNode)
 }

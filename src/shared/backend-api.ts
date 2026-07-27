@@ -590,3 +590,57 @@ export interface BackendAPI {
   onAnalysisDone: (cb: (done: AnalysisDone) => void) => () => void
   onGeneratorProgress: (cb: (progress: MixJamGeneratorProgress) => void) => () => void
 }
+
+/** Runtime inventory for adapters that cannot consume the TypeScript interface. */
+export const BACKEND_API_METHODS = [
+  'getVersion',
+  'resizeToPlayer',
+  'resizeToHome',
+  'openExternal',
+  'loadFolderSelections',
+  'saveFolderSelections',
+  'loadMixJamFiles',
+  'recordRecentProject',
+  'openMixJamFile',
+  'readMixJamFile',
+  'saveMixJamFileAs',
+  'createGeneratedMixJamFile',
+  'writeMixJamFile',
+  'findMissingSampleFiles',
+  'pickFolder',
+  'validateFolder',
+  'requestFolderAccess',
+  'startLibrarySync',
+  'cancelLibrarySync',
+  'getLibraryRootState',
+  'getScanProgress',
+  'getAnalysisProgress',
+  'querySamples',
+  'getGeneratorReadiness',
+  'planMixJam',
+  'cancelMixJamPlanning',
+  'getGeneratorProgress',
+  'listTags',
+  'createTag',
+  'renameTag',
+  'setTagColor',
+  'deleteTag',
+  'assignTag',
+  'unassignTag',
+  'updateSampleAnalysis',
+  'reanalyzeSample',
+  'listLibraries',
+  'saveLibrary',
+  'deleteLibrary',
+  'listMissingRelpaths',
+  'readSampleBytes',
+  'onScanProgress',
+  'onScanDone',
+  'onAnalysisProgress',
+  'onAnalysisDone',
+  'onGeneratorProgress'
+] as const satisfies readonly (keyof BackendAPI)[]
+
+type MissingBackendAPIMethod = Exclude<keyof BackendAPI, (typeof BACKEND_API_METHODS)[number]>
+const BACKEND_API_METHODS_ARE_COMPLETE: Record<MissingBackendAPIMethod, never> = {}
+void BACKEND_API_METHODS_ARE_COMPLETE

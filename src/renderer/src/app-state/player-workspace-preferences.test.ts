@@ -10,12 +10,12 @@ describe('player workspace preferences', () => {
     vi.restoreAllMocks()
   })
 
-  it('loads validated defaults and migrates the legacy browser width', () => {
+  it('loads validated defaults and ignores obsolete compatibility state', () => {
     localStorage.setItem('mixjam-left-col-w', '320')
 
-    const preferences = loadPlayerWorkspacePreferences(1600, 200)
+    const preferences = loadPlayerWorkspacePreferences()
 
-    expect(preferences.upperLayout).toEqual({ browser: 20, tracker: 80 })
+    expect(preferences.upperLayout).toEqual({ browser: 18, tracker: 82 })
     expect(preferences.verticalLayout).toEqual({ upper: 76, bottom: 24 })
     expect(preferences.bottomTab).toBe('master')
     expect(preferences.bottomTabSizes).toEqual({ master: 24, mixer: 60, samples: 24 })
@@ -37,7 +37,7 @@ describe('player workspace preferences', () => {
       samples: 24
     }))
 
-    const preferences = loadPlayerWorkspacePreferences(1000, 200)
+    const preferences = loadPlayerWorkspacePreferences()
 
     expect(preferences.upperLayout).toEqual({ browser: 18, tracker: 82 })
     expect(preferences.verticalLayout).toEqual({ upper: 76, bottom: 24 })
@@ -54,7 +54,7 @@ describe('player workspace preferences', () => {
     playerWorkspacePreferences.saveBottomTabSizes({ master: 40, mixer: 62, samples: 52 })
     playerWorkspacePreferences.saveMixJamBrowserCollapsed(true)
 
-    expect(loadPlayerWorkspacePreferences(1000, 200)).toMatchObject({
+    expect(loadPlayerWorkspacePreferences()).toMatchObject({
       upperLayout: { browser: 25, tracker: 75 },
       verticalLayout: { upper: 48, bottom: 52 },
       bottomTabSizes: { master: 40, mixer: 62, samples: 52 },
@@ -66,6 +66,6 @@ describe('player workspace preferences', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new DOMException('blocked') })
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('blocked') })
     expect(() => playerWorkspacePreferences.saveBottomTab('mixer')).not.toThrow()
-    expect(loadPlayerWorkspacePreferences(1000, 200).bottomTab).toBe('master')
+    expect(loadPlayerWorkspacePreferences().bottomTab).toBe('master')
   })
 })

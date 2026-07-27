@@ -6,10 +6,9 @@
 // from filenames; getting it wrong does not throw, it silently mis-groups the
 // corpus. It is stated here and imported, never re-typed.
 
-const COHORT_PREFIX = '@cohort/'
+import { PACK_TOKEN_PATTERN } from './filename-evidence'
 
-/** The authored source-pack token in a filename, e.g. `SC1` or `SL12`. */
-export const PACK_TOKEN_PATTERN = '(?:sc|sl)[0-9]+'
+const COHORT_PREFIX = '@cohort/'
 
 const PACK_TOKEN_IN_NAME = new RegExp(`(?:^|_)(${PACK_TOKEN_PATTERN})(?=$|[_.(])`, 'i')
 

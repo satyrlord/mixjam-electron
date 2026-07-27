@@ -67,6 +67,11 @@ Rules of the process model:
   single-sample analysis refuses to start under the generator.
   Workflow-owned persistence modules group indexed-sample lifecycle, analysis
   provenance, and sample/saved-library SQL without opening another connection.
+- **The backend transport contract has one authority.** `BackendAPI` defines the
+  typed facade and exports its complete runtime method inventory for adapters
+  that cannot consume a TypeScript interface. The worker proxy routes typed
+  events through one event map. Worker entry tests cover dispatch and transport;
+  coordinator tests own scheduling and job-policy behavior.
 - **Renderer library-sync lifecycle has one owner.** A dedicated runtime hook
   filters root/job events, hydrates coalesced jobs, projects progress into one
   renderer state, and exposes automatic, manual, retry, and cancel actions.
@@ -89,8 +94,10 @@ Rules of the process model:
   `TONAL_TYPES`. A set that differs from it describes a different concept and
   must not reuse the name.
   Directory ancestry and structured filename labels are evidence, not a promise
-  that a complete folder is uniform. Batch and individual requests run the same
-  engine. There is no folder-calibration analyzer beside it.
+  that a complete folder is uniform. `filename-evidence.ts` owns the low-level
+  filename grammar used by analysis and generation; semantic projection remains
+  in contextual analysis. Batch and individual requests run the same engine.
+  There is no folder-calibration analyzer beside it.
 - **Renderer requests are windowed.** The virtual list asks for the visible
   slice + buffer (`LIMIT`/`OFFSET` or keyset pagination), never the full result set.
 - **No absolute paths anywhere.** Folders are `FolderRef`s (an id keying a
@@ -120,6 +127,10 @@ Rules of the process model:
   A project support module interprets persisted generator metadata and returns
   planner parameters only for an exact supported generator/profile version;
   the generation hook owns dialog and job lifecycle, not metadata decoding.
+  Within the backend, `generator-selection.ts` owns candidate and motif choice,
+  `generator-engine.ts` owns scheduling and arrangement construction, and
+  `generator-determinism.ts` owns shared deterministic primitives. No planning
+  hub re-exports these layers or creates an import cycle between them.
 - **The project model owns the complete saved snapshot.** Song settings and one
   to 64 stable-identity lanes live with their placements, name, mute, solo,
   pan, volume, and exactly four aligned Send values. The same snapshot owns
@@ -134,13 +145,21 @@ Rules of the process model:
   shows only the derived channel number; its accessible name and tooltip retain
   the lane-owned name. Pan is edited only in the lane header. No Mixer command
   adds, removes, routes, or reorders channels.
-- **Graph reconciliation belongs to playback.** Playback consumes one complete
-  project snapshot and reconciles lane gain, pan, mute/solo gating, dry output,
-  four post-fader/post-pan Sends, four modular Return processors, Return levels,
-  and Return limiters before the unchanged Master stage. A newly created engine
-  hydrates that complete graph before use, including after Sample Folder
-  replacement. Each lane has one pan stage in its channel path; voices do not
-  add a second panner. Returns cannot feed one another.
+- **Graph reconciliation has one renderer owner.** Transport orchestration
+  projects the current project edit state into one complete playback snapshot
+  and is the only renderer module that applies it. Playback atomically
+  reconciles lane gain, pan, mute/solo gating, dry output, four
+  post-fader/post-pan Sends, four modular Return processors, Return levels,
+  Return limiters, and the Master Bus. Runtime lifecycle code only creates and
+  replaces the engine; Mixer views only derive display state. Engine creation
+  and Sample Folder replacement trigger one complete application. Each lane has
+  one pan stage in its channel path; voices do not add a second panner. Returns
+  cannot feed one another.
+- **Project history owns edit grouping.** The generic history module owns the
+  start, live update, commit, cancel, undo, redo, and non-user synchronization
+  rules for continuous gestures. Transport orchestration classifies edits but
+  does not maintain a parallel gesture snapshot. A system synchronization that
+  lands during a gesture is retained when that gesture is undone.
 - **Player preferences and global commands have policy owners.** One app-state
   module validates and persists panel layouts, the active Bottom Workspace tab,
   UI Size, expansion state, and MixJam Browser collapse. One shortcut module
@@ -155,6 +174,17 @@ Rules of the process model:
   Workspace module owns live panel refs, tab changes, expansion, and layout
   persistence calls. The Player view composes those regions and does not retain
   a second copy of their interaction state.
+- **App orchestration exposes feature surfaces.** App state groups library,
+  transport, Mixer, project, and navigation owners instead of flattening their
+  APIs. A Player view-model adapter turns those groups into stable region props.
+  Sample-library state owns only browse and metadata workflows; app version,
+  User Folder project discovery, and project-list refresh belong to project
+  persistence.
+- **Return effects own their contracts.** Each effect module owns its state,
+  defaults, presets, validation, runtime descriptor, processor adapter, and
+  worklet protocol. The Return host owns only shared routing and limiting. One
+  editor registry owns UI dispatch, while one editor-session hook owns shared
+  draft, preview, Mix, preset, and Power policy.
 - **Host-local persistence follows its workflow.** Folder selection plus the
   best-effort `mixjam.json` mirror belong to app state. User Folder discovery,
   recent-project validation, merging, and ordering belong to the project

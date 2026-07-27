@@ -1,9 +1,12 @@
 import { TONAL_SAMPLE_TYPES } from './analysis'
 import {
   cohortContextKeyForRelpath,
-  PACK_TOKEN_PATTERN,
   parseCohortContextKey
 } from './context-key'
+import {
+  labeledMusicalKey,
+  labeledSampleBpm
+} from './filename-evidence'
 import { canonicalMusicalKey } from './musical-key'
 import type {
   AnalysisGroupState,
@@ -56,59 +59,6 @@ function directoryPrefixes(relpath: string): string[] {
   }
   return prefixes
 }
-
-// `NAME_<bpm>_<key>_<pack>` — the pack convention this corpus is authored in.
-// The key slot is a bare letter, an explicit minor, or the literal `X` for
-// unkeyed material, which is why a key-only pattern misses two thirds of the
-// library. The pack slot reuses the shared token grammar so this label and the
-// cohort key can never disagree about what a pack token looks like.
-const STRUCTURED_LABEL = new RegExp(
-  `(?:^|_)([6-9][0-9]|1[0-9]{2}|200)_([a-g](?:#|b)?m?|x)_${PACK_TOKEN_PATTERN}(?=$|[_.(])`,
-  'i'
-)
-
-/**
- * The sample's **pool token** — the `(bpm, keyToken)` pair stated by the
- * filename label, e.g. `140/A` or `125/X`. It is a pitch-coherence identity,
- * not a musical key: `A` in this convention almost certainly means A minor, so
- * publishing it as a key would guess a mode the label never states. Material
- * that shares a pool token can be resampled together and stay in tune;
- * `musicalKey` stays null for bare-letter labels (see `labeledKey`).
- */
-export function labeledPoolToken(value: string): string | null {
-  const structured = STRUCTURED_LABEL.exec(value)
-  if (!structured) return null
-  return `${Number(structured[1])}/${structured[2]!.toUpperCase()}`
-}
-
-export function labeledSampleBpm(value: string): number | null {
-  const structured = STRUCTURED_LABEL.exec(value)
-  if (structured) return Number(structured[1])
-  const match = /(?:^|[^a-z0-9])(?:bpm[\s_.-]*([0-9]{2,3})|([0-9]{2,3})[\s_.-]*bpm)(?=$|[^a-z0-9])/i.exec(value)
-  const bpm = Number(match?.[1] ?? match?.[2])
-  return Number.isFinite(bpm) && bpm >= MIN_TEMPO_BPM && bpm <= MAX_TEMPO_BPM ? bpm : null
-}
-
-function labeledKey(value: string): string | null {
-  // Only an explicit minor marker states a mode. A bare `A` is published as a
-  // pool token instead (see `labeledPoolToken`) rather than resolved to A major.
-  const structured = STRUCTURED_LABEL.exec(value)
-  if (structured && /m$/i.test(structured[2]!)) return canonicalMusicalKey(structured[2]!)
-  const matches = value.matchAll(
-    /(?:^|[^a-z])([a-g](?:#|b)?(?:m|min|minor|maj|major))(?=$|[^a-z])/gi
-  )
-  let key: string | null = null
-  for (const match of matches) {
-    const token = match[1]!
-      .replace(/minor$/i, 'm')
-      .replace(/min$/i, 'm')
-      .replace(/major$/i, '')
-      .replace(/maj$/i, '')
-    key = canonicalMusicalKey(token) ?? key
-  }
-  return key
-}
-
 
 function cohortKey(relpath: string): string {
   const slash = relpath.lastIndexOf('/')
@@ -229,7 +179,7 @@ function inferGroup(relpathPrefix: string, items: readonly StoredAnalysisEvidenc
     return bpm === null ? [] : [bpm]
   })
   const pathKeys = evidenceItems.flatMap((item) => {
-    const key = labeledKey(item.relpath)
+    const key = labeledMusicalKey(item.relpath)
     return key === null ? [] : [key]
   })
 
@@ -373,7 +323,7 @@ function explicitSampleEvidence(item: StoredAnalysisEvidence): {
   bpm: number | null
   musicalKey: string | null
 } {
-  return { bpm: labeledSampleBpm(item.relpath), musicalKey: labeledKey(item.relpath) }
+  return { bpm: labeledSampleBpm(item.relpath), musicalKey: labeledMusicalKey(item.relpath) }
 }
 
 export function resolveContextualAnalysis(

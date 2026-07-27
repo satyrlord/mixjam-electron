@@ -364,10 +364,11 @@ persistence tests cover complete bus replacement on load and New.
 
 ## Module Registration Contract
 
-New module types plug into the host through one descriptor, not by editing
-per-type branches scattered across the engine, the project loader, and the
-Mixer UI. Each effect owns a folder and exports a single descriptor; the host
-holds a registry keyed by module type and never names an individual effect.
+New module types plug into the runtime host through one descriptor, not through
+per-type branches scattered across the engine and project loader. Each effect
+owns a folder containing its state, defaults, presets, validator, descriptor,
+processor adapter, and worklet protocol. The runtime host holds a registry keyed
+by module type and never implements an individual effect.
 
 A module descriptor declares:
 
@@ -438,9 +439,15 @@ The host derives every effect-agnostic operation from the registry:
   where `supportsClearTail`, and tempo controls only where `tempoAware`, rather
   than inferring them from optional prop presence.
 
-The registry is the only place that enumerates concrete effect types. Adding a
-type means adding its folder and registering its descriptor; removing a type
-means deleting its folder and registry entry. No host file changes for either.
+The runtime registry is the only engine/project place that enumerates concrete
+effect types. The UI has one parallel editor-adapter registry for summaries and
+modal rendering, avoiding React dependencies in engine and worklet bundles.
+Adding a type means adding its effect folder and registering its runtime and UI
+adapters; no Mixer slot or project-parser branch changes.
+
+Both editors use one `useReturnEffectEditorSession` hook for draft, preview,
+Mix, preset, and Power policy. The effect modal owns only its controls,
+visualizer, preset presentation, and effect-specific commands.
 
 The per-effect internals stay fully separate and are **not** shared across
 effects: the DSP core, the modal editor and its visualizer, the knob controls,

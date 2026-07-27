@@ -5,7 +5,7 @@ import type {
   MixJamGeneratorProgress,
   ScanProgress
 } from '../../../shared/backend-api'
-import type { BackendCalls, BackendOp, WorkerMessage, WorkerRequest } from './protocol'
+import type { BackendCalls, BackendOp, WorkerEvent, WorkerMessage, WorkerRequest } from './protocol'
 
 interface WorkerLike {
   onmessage: ((event: MessageEvent<WorkerMessage>) => void) | null
@@ -36,11 +36,19 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
   let nextSeq = 1
   let stoppedError: Error | null = null
   const pending = new Map<number, Pending>()
-  const progressListeners = new Set<(progress: ScanProgress) => void>()
-  const doneListeners = new Set<(done: LibraryScanDone) => void>()
-  const analysisProgressListeners = new Set<(progress: AnalysisProgress) => void>()
-  const analysisDoneListeners = new Set<(done: AnalysisDone) => void>()
-  const generatorProgressListeners = new Set<(progress: MixJamGeneratorProgress) => void>()
+  type EventListener = (event: WorkerEvent) => void
+  const eventListeners = new Map<WorkerEvent['type'], Set<EventListener>>()
+
+  function subscribe<T extends WorkerEvent['type']>(
+    type: T,
+    listener: (event: Extract<WorkerEvent, { type: T }>) => void
+  ): () => void {
+    const listeners = eventListeners.get(type) ?? new Set<EventListener>()
+    eventListeners.set(type, listeners)
+    const adapted = listener as EventListener
+    if (!stoppedError) listeners.add(adapted)
+    return () => listeners.delete(adapted)
+  }
 
   function stop(error: Error): void {
     if (stoppedError) return
@@ -50,11 +58,7 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
     worker.terminate()
     for (const entry of pending.values()) entry.reject(error)
     pending.clear()
-    progressListeners.clear()
-    doneListeners.clear()
-    analysisProgressListeners.clear()
-    analysisDoneListeners.clear()
-    generatorProgressListeners.clear()
+    eventListeners.clear()
   }
 
   worker.onmessage = (event) => {
@@ -67,25 +71,7 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
       else entry.reject(new Error(message.error))
       return
     }
-    if (message.type === 'scan-progress') {
-      for (const listener of progressListeners) listener(message.progress)
-      return
-    }
-    if (message.type === 'scan-done') {
-      for (const listener of doneListeners) listener(message.done)
-      return
-    }
-    if (message.type === 'analysis-progress') {
-      for (const listener of analysisProgressListeners) listener(message.progress)
-      return
-    }
-    if (message.type === 'analysis-done') {
-      for (const listener of analysisDoneListeners) listener(message.done)
-      return
-    }
-    if (message.type === 'generator-progress') {
-      for (const listener of generatorProgressListeners) listener(message.progress)
-    }
+    for (const listener of eventListeners.get(message.type) ?? []) listener(message)
   }
 
   worker.onerror = (event) => {
@@ -104,24 +90,19 @@ export function createWorkerProxy(worker: WorkerLike): WorkerProxy {
       })
     },
     onScanProgress(listener) {
-      if (!stoppedError) progressListeners.add(listener)
-      return () => progressListeners.delete(listener)
+      return subscribe('scan-progress', (event) => listener(event.progress))
     },
     onScanDone(listener) {
-      if (!stoppedError) doneListeners.add(listener)
-      return () => doneListeners.delete(listener)
+      return subscribe('scan-done', (event) => listener(event.done))
     },
     onAnalysisProgress(listener) {
-      if (!stoppedError) analysisProgressListeners.add(listener)
-      return () => analysisProgressListeners.delete(listener)
+      return subscribe('analysis-progress', (event) => listener(event.progress))
     },
     onAnalysisDone(listener) {
-      if (!stoppedError) analysisDoneListeners.add(listener)
-      return () => analysisDoneListeners.delete(listener)
+      return subscribe('analysis-done', (event) => listener(event.done))
     },
     onGeneratorProgress(listener) {
-      if (!stoppedError) generatorProgressListeners.add(listener)
-      return () => generatorProgressListeners.delete(listener)
+      return subscribe('generator-progress', (event) => listener(event.progress))
     },
     dispose() {
       stop(new Error('Backend worker disposed'))

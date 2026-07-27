@@ -22,7 +22,6 @@ interface PlayerWorkspacePreferences {
 }
 
 const STORAGE_KEYS = Object.freeze({
-  legacyBrowserWidth: 'mixjam-left-col-w',
   upperLayout: 'mixjam:upper-work-layout',
   verticalLayout: 'mixjam:bottom-workspace-layout-v2',
   bottomExpansion: 'mixjam:bottom-workspace-expansion-v2',
@@ -107,17 +106,10 @@ function loadBottomTabSizes(fallbackSize: number): BottomWorkspaceTabSizes {
   }
 }
 
-export function loadPlayerWorkspacePreferences(
-  viewportWidth: number,
-  legacyBrowserMinimumPx: number
-): PlayerWorkspacePreferences {
-  const legacyWidth = Number(readStorage(STORAGE_KEYS.legacyBrowserWidth))
-  const browserPercent = Number.isFinite(legacyWidth) && legacyWidth >= legacyBrowserMinimumPx
-    ? Math.max(15, Math.min(45, legacyWidth / viewportWidth * 100))
-    : 18
+export function loadPlayerWorkspacePreferences(): PlayerWorkspacePreferences {
   const upperLayout = loadPanelLayout(STORAGE_KEYS.upperLayout, {
-    browser: browserPercent,
-    tracker: 100 - browserPercent
+    browser: 18,
+    tracker: 82
   })
   const verticalLayout = loadPanelLayout(STORAGE_KEYS.verticalLayout, {
     upper: 100 - DEFAULT_BOTTOM_WORKSPACE_SIZE_PERCENT,

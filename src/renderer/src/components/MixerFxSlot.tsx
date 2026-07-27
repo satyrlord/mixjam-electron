@@ -4,12 +4,14 @@ import {
   createEmptyReturnModule,
   getReturnEffect,
   returnEffectDescriptors,
-  type AetherformReverbModule,
-  type EchoformDelayModule,
   type ReturnModule
 } from '../engine/return-effects'
-import EchoformDelayModal from './EchoformDelayModal'
-import AetherformReverbModal from './AetherformReverbModal'
+import {
+  openReturnEffectEditor,
+  ReturnEffectEditor,
+  returnEffectSummary,
+  type ReturnEffectEditingState
+} from './return-effect-editor-registry'
 import { slotAccentStyle } from './mixer-accent'
 import { RotaryControl, RotaryDial } from './RotaryField'
 import { Tooltip } from './ui/Tooltip'
@@ -60,24 +62,6 @@ function moduleDisplayName(module: ReturnModule): string {
   return getReturnEffect(module.type)?.label ?? 'Empty'
 }
 
-function moduleSummary(module: ReturnModule, mix: number): string {
-  if (module.type === 'echoform-delay') {
-    return `${module.mode === 'sync' ? module.divisionL : `${Math.round(module.timeMsL)} ms`} · Feedback ${Math.round(module.feedback)}% · ${module.character} · Mix ${Math.round(mix * 100)}%`
-  }
-  if (module.type === 'aetherform-reverb') {
-    const decay = module.decaySeconds < 10
-      ? module.decaySeconds.toFixed(1)
-      : String(Math.round(module.decaySeconds))
-    const shimmer = module.shimmerEnabled ? ` · Shimmer +${module.shimmerIntervalSemitones}` : ''
-    return `${module.spaceModel} · ${decay} s · ${module.character}${shimmer} · Mix ${Math.round(mix * 100)}%`
-  }
-  return 'No effect assigned'
-}
-
-type EditingState =
-  | { kind: 'echoform-delay'; module: EchoformDelayModule; powered: boolean }
-  | { kind: 'aetherform-reverb'; module: AetherformReverbModule; powered: boolean }
-
 function MixerFxSlot({
   bus,
   bpm = 120,
@@ -88,7 +72,7 @@ function MixerFxSlot({
   onGestureStart,
   onGestureEnd
 }: MixerFxSlotProps) {
-  const [editing, setEditing] = useState<EditingState | null>(null)
+  const [editing, setEditing] = useState<ReturnEffectEditingState | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const module = bus.module
@@ -130,11 +114,7 @@ function MixerFxSlot({
     if (!descriptor) return
     const next = module.type === type ? { ...module } : descriptor.createDefault(`fx-${slot}`)
     onPreview({ ...bus, module: next, powered: bus.powered })
-    if (next.type === 'echoform-delay') {
-      setEditing({ kind: 'echoform-delay', module: next, powered: bus.powered })
-    } else if (next.type === 'aetherform-reverb') {
-      setEditing({ kind: 'aetherform-reverb', module: next, powered: bus.powered })
-    }
+    setEditing(openReturnEffectEditor(next, bus.powered))
   }
 
   // Edit reopens the editor matching the module in the slot. An Empty slot has
@@ -159,7 +139,7 @@ function MixerFxSlot({
     onSet({ ...bus, module: createEmptyReturnModule(`fx-${slot}`) })
   }
 
-  const summary = moduleSummary(module, mix)
+  const summary = returnEffectSummary(module, mix)
 
   return (
     <div className="mixer-fx-slot-wrap" style={slotAccentStyle(slot)}>
@@ -255,32 +235,16 @@ function MixerFxSlot({
           </Tooltip>
         </div>
       </section>
-      {editing?.kind === 'echoform-delay' && (
-        <EchoformDelayModal
-          value={editing.module}
-          powered={editing.powered}
-          mix={bus.returnLevel}
+      {editing && (
+        <ReturnEffectEditor
+          editing={editing}
+          bus={bus}
           bpm={bpm}
           onSetBpm={onSetBpm}
-          slot={slot}
           onCancel={cancel}
           onSave={saveModule}
-          onRestoreFocus={() => triggerRef.current?.focus()}
-          onPreview={previewFromEditor}
-        />
-      )}
-      {editing?.kind === 'aetherform-reverb' && (
-        <AetherformReverbModal
-          value={editing.module}
-          powered={editing.powered}
-          mix={bus.returnLevel}
-          slot={slot}
-          onCancel={cancel}
-          onSave={saveModule}
-          // Clear Tail is exposed only when the effect declares the capability
-          // in the registry, not merely because the host wired the command.
           onClearTail={
-            getReturnEffect(editing.kind)?.supportsClearTail && onClearTail
+            getReturnEffect(editing.module.type)?.supportsClearTail && onClearTail
               ? () => onClearTail(bus.index)
               : undefined
           }

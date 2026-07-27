@@ -8,7 +8,6 @@ import {
   loadPlayerWorkspacePreferences,
   playerWorkspacePreferences
 } from '../app-state/player-workspace-preferences'
-import { LEFT_COL_MIN_PX } from '../lib/arrangement'
 import { usePanelRef, type PanelLayout } from './ui/ResizablePanels'
 import { useUiGeometry, type UiGeometry } from '../ui-size'
 
@@ -66,7 +65,7 @@ interface BottomWorkspaceController {
 
 /** Owns Bottom Workspace tab, size, expansion, and persisted layout behavior. */
 export function useBottomWorkspace(): BottomWorkspaceController {
-  const [workspaceDefaults] = useState(() => loadPlayerWorkspacePreferences(window.innerWidth, LEFT_COL_MIN_PX))
+  const [workspaceDefaults] = useState(loadPlayerWorkspacePreferences)
   const uiGeometry = useUiGeometry()
   const bottomMinimumHeights = useMemo(
     () => bottomWorkspaceMinimumHeights(uiGeometry),

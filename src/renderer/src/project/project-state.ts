@@ -12,7 +12,11 @@ import {
   type MasterBusPresetName,
   type MasterBusState
 } from '../engine/masterbus/presets'
-import type { PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
+import type {
+  PlaybackChannelSnapshot,
+  PlaybackProjectGraphSnapshot,
+  PlaybackReturnSnapshot
+} from '../engine/playback-engine'
 import {
   createEmptyReturnModule,
   RETURN_BUS_COUNT,
@@ -376,17 +380,8 @@ export function projectEditStateFromProject(project: ProjectState): ProjectEditS
   }
 }
 
-/** Adapt project-owned lane, Return, and Master Bus state to the one snapshot
- * consumed by playback graph reconciliation. Callers that only reconcile lanes
- * and Returns (visual telemetry) may omit masterBus. */
-export function toPlaybackProjectGraphSnapshot(
-  project: Pick<ProjectEditState, 'lanes' | 'fxBuses'> & Partial<Pick<ProjectEditState, 'masterBus'>>
-): PlaybackProjectGraphSnapshot {
-  return {
-    ...(project.masterBus === undefined
-      ? {}
-      : { masterBus: cloneMasterBusState(project.masterBus) }),
-    channels: project.lanes.map((lane) => ({
+export function toPlaybackChannelSnapshots(lanes: readonly LaneState[]): PlaybackChannelSnapshot[] {
+  return lanes.map((lane) => ({
       laneId: lane.id,
       channelIndex: lane.index,
       gain: lane.gain,
@@ -394,13 +389,24 @@ export function toPlaybackProjectGraphSnapshot(
       muted: lane.muted,
       solo: lane.solo,
       sends: [...lane.sends]
-    })),
-    returns: project.fxBuses.map((bus) => ({
+    }))
+}
+
+export function toPlaybackReturnSnapshots(fxBuses: ProjectFxBuses): PlaybackReturnSnapshot[] {
+  return fxBuses.map((bus) => ({
       index: bus.index,
       module: { ...bus.module } as ReturnModule,
       powered: bus.powered,
       returnLevel: bus.returnLevel,
       limiterEnabled: bus.limiterEnabled
     }))
+}
+
+/** Adapt the complete project-owned graph state to playback's sole snapshot. */
+export function toPlaybackProjectGraphSnapshot(project: ProjectEditState): PlaybackProjectGraphSnapshot {
+  return {
+    masterBus: cloneMasterBusState(project.masterBus),
+    channels: toPlaybackChannelSnapshots(project.lanes),
+    returns: toPlaybackReturnSnapshots(project.fxBuses)
   }
 }

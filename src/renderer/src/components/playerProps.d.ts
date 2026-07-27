@@ -1,6 +1,7 @@
 import type {
   LibraryItem,
   LibrarySyncState,
+  MixJamFileItem,
   SampleListItem,
   SampleAnalysisPatch,
   TagItem
@@ -139,4 +140,14 @@ export interface PlayerProjectProps {
   onSaveAs: () => Promise<boolean>
   onRegenerateExact: (opener?: HTMLElement) => void
   onRegenerateCurrent: (opener?: HTMLElement) => void
+}
+
+export interface PlayerViewModel {
+  mixJamFiles: MixJamFileItem[]
+  browser: PlayerBrowserProps
+  arrangement: TrackerArrangementProps
+  transport: PlayerTransportProps
+  masterBus: PlayerMasterBusProps
+  mixer: PlayerMixerProps
+  project: PlayerProjectProps
 }

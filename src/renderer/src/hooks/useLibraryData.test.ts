@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LibraryScanDone, SampleItem, TagItem } from '../../../shared/backend-api'
-import { createBackendAPI, TEST_SAMPLE_FOLDER, TEST_USER_FOLDER } from '../test/backendApi'
+import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
 import { useLibraryData } from './useLibraryData'
 
 const USER_TAG: TagItem = {
@@ -53,13 +53,11 @@ afterEach(() => {
 })
 
 describe('useLibraryData tag-only browser state', () => {
-  it('loads version, projects, active-root tags, and libraries', async () => {
+  it('loads active-root tags and libraries', async () => {
     const api = createBackendAPI()
     vi.mocked(api.listTags).mockResolvedValue([FOLDER_TAG, USER_TAG])
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
 
-    await waitFor(() => expect(result.current.version).toBe('v0.test.0'))
-    await waitFor(() => expect(result.current.mixJamFiles).toHaveLength(2))
     await waitFor(() => expect(result.current.tags).toEqual([FOLDER_TAG, USER_TAG]))
     expect(api.listTags).toHaveBeenCalledWith(TEST_SAMPLE_FOLDER.id)
   })
@@ -67,7 +65,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('maps database rows to source groups and preserves folder assignment provenance', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row()], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
 
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
     expect(result.current.samples[0]).toMatchObject({
@@ -78,13 +76,13 @@ describe('useLibraryData tag-only browser state', () => {
   it('uses Unsorted as the source group for root-level files', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row({ relpath: 'flat.wav' })], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples[0]?.sourceGroup).toBe('Unsorted'))
   })
 
   it('passes all active tags to the windowed backend query', async () => {
     const api = createBackendAPI()
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(api.querySamples).toHaveBeenCalled())
     act(() => result.current.setSelectedTagIds([5, 7]))
     await waitFor(() => expect(api.querySamples).toHaveBeenLastCalledWith(expect.objectContaining({ tagIds: [5, 7] })))
@@ -97,7 +95,7 @@ describe('useLibraryData tag-only browser state', () => {
       rootKey === otherFolder.id ? new Promise(() => {}) : Promise.resolve([FOLDER_TAG])
     )
     const { result, rerender } = renderHook(
-      ({ folder }) => useLibraryData(api, TEST_USER_FOLDER, folder),
+      ({ folder }) => useLibraryData(api, folder),
       { initialProps: { folder: TEST_SAMPLE_FOLDER } }
     )
     await waitFor(() => expect(result.current.tags).toEqual([FOLDER_TAG]))
@@ -128,7 +126,7 @@ describe('useLibraryData tag-only browser state', () => {
       folder.id === TEST_SAMPLE_FOLDER.id ? oldMissing.promise : Promise.resolve(['new-missing.wav'])
     )
     const { result, rerender } = renderHook(
-      ({ folder }) => useLibraryData(api, TEST_USER_FOLDER, folder),
+      ({ folder }) => useLibraryData(api, folder),
       { initialProps: { folder: TEST_SAMPLE_FOLDER } }
     )
     await waitFor(() => expect(api.listTags).toHaveBeenCalledWith(TEST_SAMPLE_FOLDER.id))
@@ -163,7 +161,7 @@ describe('useLibraryData tag-only browser state', () => {
     vi.mocked(api.listTags)
       .mockResolvedValueOnce([FOLDER_TAG])
       .mockResolvedValue([])
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.tags).toEqual([FOLDER_TAG]))
     await waitFor(() => expect(result.current.librarySyncState.status).toBe('checking'))
     act(() => result.current.setSelectedTagIds([FOLDER_TAG.id]))
@@ -182,7 +180,7 @@ describe('useLibraryData tag-only browser state', () => {
     vi.mocked(api.querySamples)
       .mockResolvedValueOnce({ rows: [row()], total: 2 })
       .mockResolvedValueOnce({ rows: [row({ id: 2, relpath: 'Bass/bass.wav', filename: 'bass.wav' })], total: 2 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.hasMoreSamples).toBe(true))
     act(() => result.current.loadMoreSamples())
     await waitFor(() => expect(result.current.samples).toHaveLength(2))
@@ -208,7 +206,7 @@ describe('useLibraryData tag-only browser state', () => {
       return request.rootId === otherFolder.id ? newPage.promise : oldPage.promise
     })
     const { result, rerender } = renderHook(
-      ({ folder }) => useLibraryData(api, TEST_USER_FOLDER, folder),
+      ({ folder }) => useLibraryData(api, folder),
       { initialProps: { folder: TEST_SAMPLE_FOLDER } }
     )
     await waitFor(() => expect(result.current.samples[0]?.relpath).toBe('old/one.wav'))
@@ -249,7 +247,7 @@ describe('useLibraryData tag-only browser state', () => {
         : oldPage.promise
     )
     const { result } = renderHook(() =>
-      useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER)
+      useLibraryData(api, TEST_SAMPLE_FOLDER)
     )
     await waitFor(() => expect(api.querySamples).toHaveBeenCalledWith(
       expect.objectContaining({ textSearch: undefined, offset: 0 })
@@ -271,7 +269,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('invalidates paging immediately when query criteria change', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row()], total: 2 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.hasMoreSamples).toBe(true))
 
     act(() => result.current.setSearchQuery('kick'))
@@ -288,14 +286,14 @@ describe('useLibraryData tag-only browser state', () => {
   it('surfaces query errors without stale results', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockRejectedValue(new Error('failed'))
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.error).toBe('Unable to query library.'))
     expect(result.current.samples).toEqual([])
   })
 
   it('does not query without a Sample Folder', async () => {
     const api = createBackendAPI()
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, null))
+    const { result } = renderHook(() => useLibraryData(api, null))
     await waitFor(() => expect(result.current.librarySyncState.status).toBe('unavailable'))
     expect(api.querySamples).not.toHaveBeenCalled()
     expect(result.current.samples).toEqual([])
@@ -305,7 +303,7 @@ describe('useLibraryData tag-only browser state', () => {
     const api = createBackendAPI()
     vi.mocked(api.listTags).mockResolvedValue([USER_TAG])
     vi.mocked(api.createTag).mockResolvedValue({ ...USER_TAG, id: 9, name: 'Warm' })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.tags).toEqual([USER_TAG]))
     await act(() => result.current.createTag('Warm'))
     expect(api.createTag).toHaveBeenCalledWith('Warm', undefined, TEST_SAMPLE_FOLDER.id)
@@ -322,7 +320,7 @@ describe('useLibraryData tag-only browser state', () => {
     const activeRootTag = { ...staleOldRootTag, folderDerived: false }
     vi.mocked(api.listTags).mockResolvedValue([staleOldRootTag])
     vi.mocked(api.createTag).mockResolvedValue(activeRootTag)
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.tags).toEqual([staleOldRootTag]))
 
     await act(() => result.current.createTag('Bass'))
@@ -340,7 +338,7 @@ describe('useLibraryData tag-only browser state', () => {
       .mockResolvedValueOnce([dual])
       .mockResolvedValue([demoted])
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row({ tagIds: [7], folderTagIds: [7], userTagIds: [], tags: ['Drums'] })], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
     await act(() => result.current.deleteTag(7))
     expect(result.current.tags).toEqual([demoted])
@@ -352,7 +350,7 @@ describe('useLibraryData tag-only browser state', () => {
     const secondTag = { ...USER_TAG, id: 6, name: 'Warm' }
     vi.mocked(api.listTags).mockResolvedValue([USER_TAG, secondTag])
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row({ tagIds: [], folderTagIds: [], userTagIds: [], tags: [] })], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
     await act(() => result.current.assignTagToSample(result.current.samples[0]!, 5))
     await act(() => result.current.assignTagToSample(result.current.samples[0]!, 6))
@@ -372,7 +370,7 @@ describe('useLibraryData tag-only browser state', () => {
         : { rows: [], total: 0 }
     })
     vi.mocked(api.unassignTag).mockImplementation(async () => { assigned = false })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
     act(() => result.current.setSelectedTagIds([USER_TAG.id]))
     await waitFor(() => expect(api.querySamples).toHaveBeenLastCalledWith(
@@ -388,7 +386,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('does not unassign a folder-derived assignment', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row({ tagIds: [7], folderTagIds: [7], userTagIds: [], tags: ['Drums'] })], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
     await act(() => result.current.unassignTagFromSample(result.current.samples[0]!, 7))
     expect(api.unassignTag).not.toHaveBeenCalled()
@@ -397,7 +395,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('saves match-all tag rules and restores valid tags immediately', async () => {
     const api = createBackendAPI()
     vi.mocked(api.listTags).mockResolvedValue([USER_TAG, FOLDER_TAG])
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.tags).toHaveLength(2))
     act(() => {
       result.current.setSearchQuery('kick')
@@ -420,7 +418,7 @@ describe('useLibraryData tag-only browser state', () => {
 
   it('toggles sort direction and changes sort columns', async () => {
     const api = createBackendAPI()
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     act(() => result.current.handleSortChange('filename'))
     expect(result.current.sortDir).toBe('desc')
     act(() => result.current.handleSortChange('duration'))
@@ -430,7 +428,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('updates sample analysis with a BPM patch in the local row', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row()], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
 
     await act(() => result.current.updateSampleAnalysis(result.current.samples[0]!, { bpm: 128 }))
@@ -442,7 +440,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('updates sample analysis with multiple fields', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row()], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
 
     await act(() => result.current.updateSampleAnalysis(result.current.samples[0]!, {
@@ -461,7 +459,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('clearing a field triggers reanalyze for that field', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row()], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
 
     await act(() => result.current.updateSampleAnalysis(result.current.samples[0]!, { bpm: null }))
@@ -474,7 +472,7 @@ describe('useLibraryData tag-only browser state', () => {
   it('reanalyzeSample delegates to the backend reanalyzer', async () => {
     const api = createBackendAPI()
     vi.mocked(api.querySamples).mockResolvedValue({ rows: [row()], total: 1 })
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.samples).toHaveLength(1))
 
     await act(() => result.current.reanalyzeSample(result.current.samples[0]!))
@@ -486,7 +484,7 @@ describe('useLibraryData tag-only browser state', () => {
 
   it('reanalyzeSample is a no-op when no sample folder is set', async () => {
     const api = createBackendAPI()
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, null))
+    const { result } = renderHook(() => useLibraryData(api, null))
     await act(() => result.current.reanalyzeSample(result.current.samples[0]!))
     expect(api.reanalyzeSample).not.toHaveBeenCalled()
   })
@@ -497,7 +495,7 @@ describe('useLibraryData tag-only browser state', () => {
     vi.mocked(api.listMissingRelpaths)
       .mockResolvedValueOnce(['missing1.wav'])
       .mockRejectedValueOnce(new Error('boom'))
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.missingSamplePaths.size).toBe(1))
 
     // Trigger the error path by changing sample folder (causes re-render)
@@ -506,7 +504,7 @@ describe('useLibraryData tag-only browser state', () => {
       rootKey: otherFolder.id, lastCompletedAt: 1, hasUsableIndex: true
     })
     vi.mocked(api.listMissingRelpaths).mockRejectedValue(new Error('boom-again'))
-    const { result: result2 } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, otherFolder))
+    const { result: result2 } = renderHook(() => useLibraryData(api, otherFolder))
     await waitFor(() => expect(result2.current.missingSamplePaths.size).toBe(0))
   })
 
@@ -515,7 +513,7 @@ describe('useLibraryData tag-only browser state', () => {
     vi.mocked(api.querySamples)
       .mockResolvedValueOnce({ rows: [row()], total: 2 })
       .mockRejectedValueOnce(new Error('network error'))
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     await waitFor(() => expect(result.current.hasMoreSamples).toBe(true))
     act(() => result.current.loadMoreSamples())
     // Should not crash; error is just logged
@@ -524,7 +522,7 @@ describe('useLibraryData tag-only browser state', () => {
 
   it('saves and deletes a library', async () => {
     const api = createBackendAPI()
-    const { result } = renderHook(() => useLibraryData(api, TEST_USER_FOLDER, TEST_SAMPLE_FOLDER))
+    const { result } = renderHook(() => useLibraryData(api, TEST_SAMPLE_FOLDER))
     // Wait for initial library list to resolve
     await waitFor(() => expect(result.current.libraries).toBeDefined())
     const lib = await act(() => result.current.saveLibrary('My Hits'))

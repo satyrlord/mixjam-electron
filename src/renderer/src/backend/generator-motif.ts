@@ -1,4 +1,6 @@
 import type { GeneratorCandidate } from './generator-library'
+import { compareCodeUnits } from './generator-determinism'
+import { stripStructuredLabelSuffix } from './filename-evidence'
 
 /**
  * Sample libraries are authored as numbered motif families: `babylon-1.wav`,
@@ -40,7 +42,6 @@ const PART_SUFFIX = /(?:[\s_.-]?)(\d+)$/
 // before the part index is read, or the pack ordinal (`SC1`, `SL3`) is mistaken
 // for the part and every file in the library becomes its own one-member family
 // — which silently disables family coherence for the whole corpus.
-const STRUCTURED_LABEL_SUFFIX = /_(?:[6-9][0-9]|1[0-9]{2}|200)_(?:[a-g](?:#|b)?m?|x)_(?:sc|sl)[0-9]+$/i
 // `ROLE###_STYLE` — the part index sits in the middle once the label is gone
 // (`KICK010_PROGR`). Only used when no trailing index was found.
 const INFIX_PART = /^(.*?[a-z])(\d{2,3})([\s_.-].+)$/i
@@ -65,7 +66,7 @@ export function parseMotifKey(filename: string): MotifKey {
     side = parenthesized[1]!.toLowerCase() === 'l' ? 'left' : 'right'
     stem = stem.slice(0, stem.length - parenthesized[0].length)
   }
-  stem = stem.replace(STRUCTURED_LABEL_SUFFIX, '')
+  stem = stripStructuredLabelSuffix(stem)
 
   if (side === 'mono') {
     const sideMatch = stem.match(STEREO_SUFFIX)
@@ -104,14 +105,6 @@ export function logicalSampleKey(candidate: GeneratorCandidate): string {
   // NUL separators so a directory or family that contains a space can never
   // collide with a different directory/family split.
   return `${directory}\u0000${key.family}\u0000${key.part}`
-}
-
-// Kept local (not imported from generator-planning-core, which exports the same
-// comparator): planning-core imports parseMotifKey from this module as a value,
-// so importing back would form a runtime import cycle. This is a pure, stable
-// string comparator with no cross-stage coupling, so a leaf copy is safe.
-function compareCodeUnits(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
 }
 
 /**

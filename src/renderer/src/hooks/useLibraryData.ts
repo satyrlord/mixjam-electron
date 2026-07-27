@@ -4,7 +4,6 @@ import type {
   FolderRef,
   LibraryItem,
   LibrarySyncState,
-  MixJamFileItem,
   SampleItem,
   SampleAnalysisPatch,
   SampleListItem,
@@ -21,8 +20,6 @@ export type SampleSortColumn = 'filename' | 'duration' | 'dateAdded'
 export type SampleSortDirection = 'asc' | 'desc'
 
 export interface LibraryDataState {
-  version: string
-  mixJamFiles: MixJamFileItem[]
   /** The loaded prefix of the current windowed DB query; empty until the
    *  active Sample Folder's first scan completes. */
   samples: SampleListItem[]
@@ -67,7 +64,6 @@ export interface LibraryDataActions {
   deleteLibrary: (id: number) => Promise<void>
   /** Restores the filter state a saved library encodes (spec-004 AC-013). */
   applyLibrary: (library: LibraryItem) => void
-  reloadMixJamFiles: () => Promise<void>
   handleSortChange: (col: SampleSortColumn) => void
 }
 
@@ -106,11 +102,8 @@ const DB_SAMPLE_PAGE_SIZE = 500
 
 export function useLibraryData(
   backendAPI: BackendAPI,
-  userFolder: FolderRef | null,
   sampleFolder: FolderRef | null
 ): LibraryData {
-  const [version, setVersion] = useState('')
-  const [mixJamFiles, setMixJamFiles] = useState<MixJamFileItem[]>([])
   const [samples, setSamples] = useState<SampleListItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -139,33 +132,6 @@ export function useLibraryData(
   const requestQueryRefresh = useCallback(() => {
     setQueryRefreshVersion((version) => version + 1)
   }, [])
-
-  // Version
-  useEffect(() => {
-    let isMounted = true
-    void backendAPI
-      .getVersion()
-      .then((v) => { if (isMounted) setVersion(v) })
-      .catch((error: unknown) => {
-        console.error('Failed to read app version:', error)
-        if (isMounted) setVersion('version unavailable')
-      })
-    return () => { isMounted = false }
-  }, [backendAPI])
-
-  // MixJam files
-  const reloadMixJamFiles = useCallback(async () => {
-    try {
-      setMixJamFiles(await backendAPI.loadMixJamFiles(userFolder))
-    } catch (err) {
-      console.error('Failed to load MixJam files:', err)
-      setMixJamFiles([])
-    }
-  }, [backendAPI, userFolder])
-
-  useEffect(() => {
-    void reloadMixJamFiles()
-  }, [reloadMixJamFiles])
 
   const refreshMissingSamplePaths = useCallback(async () => {
     const rootId = sampleFolder?.id
@@ -458,8 +424,6 @@ export function useLibraryData(
   }, [])
 
   return {
-    version,
-    mixJamFiles,
     samples,
     searchQuery,
     loading,
@@ -493,7 +457,6 @@ export function useLibraryData(
     saveLibrary,
     deleteLibrary,
     applyLibrary,
-    reloadMixJamFiles,
     handleSortChange
   }
 }

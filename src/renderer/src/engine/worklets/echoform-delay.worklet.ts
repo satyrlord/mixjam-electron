@@ -1,12 +1,12 @@
 import { EchoformDelayCore } from '../echoform-delay-core'
 import type { EchoformDelayState } from '../echoform-delay-types'
 import { registerReturnWorklet } from './return-worklet-class'
+import type {
+  EchoformDelayProcessorOptions,
+  EchoformDelayWorkletMessage
+} from '../return-effects/echoform-delay-protocol'
 
-type EchoformDelayWorkletMessage =
-  | { type: 'state'; state: EchoformDelayState; bpm: number }
-  | { type: 'reset' }
-
-registerReturnWorklet<EchoformDelayState, EchoformDelayCore, { state?: EchoformDelayState; bpm?: number }>({
+registerReturnWorklet<EchoformDelayState, EchoformDelayCore, EchoformDelayProcessorOptions>({
   name: 'echoform-delay-processor',
   // The delay tail is a host-graph concern: when the node is fully
   // disconnected there is nothing to ring, so output silence rather than

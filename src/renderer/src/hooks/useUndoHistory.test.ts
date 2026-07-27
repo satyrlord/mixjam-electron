@@ -47,13 +47,6 @@ describe('useUndoHistory', () => {
     expect(result.current.current).toBe('start')
   })
 
-  it('setCurrent does not push to undo history', () => {
-    const { result } = renderHook(() => useUndoHistory(0))
-    act(() => { result.current.setCurrent(5) })
-    expect(result.current.current).toBe(5)
-    expect(result.current.canUndo).toBe(false)
-  })
-
   it('pushEdit clears future on new edit after undo', () => {
     const { result } = renderHook(() => useUndoHistory(0))
     act(() => { result.current.pushEdit(() => 1) })
@@ -79,5 +72,115 @@ describe('useUndoHistory', () => {
     expect(result.current.current).toBe(42)
     expect(result.current.canUndo).toBe(false)
     expect(result.current.canRedo).toBe(false)
+  })
+
+  it('commits multiple live grouped updates as one undo entry', () => {
+    const { result } = renderHook(() => useUndoHistory(0))
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.applyGroupedEdit(() => 1)
+      result.current.applyGroupedEdit(() => 2)
+      result.current.applyGroupedEdit(() => 3)
+      result.current.commitGroup()
+    })
+
+    expect(result.current.current).toBe(3)
+    expect(result.current.canUndo).toBe(true)
+    act(() => { result.current.undo() })
+    expect(result.current.current).toBe(0)
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('does not create an entry for a no-op grouped edit', () => {
+    const initial = { value: 1 }
+    const { result } = renderHook(() => useUndoHistory(initial))
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.applyGroupedEdit((current) => current)
+      result.current.commitGroup()
+    })
+
+    expect(result.current.current).toBe(initial)
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('commits an open group before undo and preserves its final value for redo', () => {
+    const { result } = renderHook(() => useUndoHistory(0))
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.applyGroupedEdit(() => 5)
+      result.current.undo()
+    })
+
+    expect(result.current.current).toBe(0)
+    expect(result.current.canRedo).toBe(true)
+    act(() => { result.current.redo() })
+    expect(result.current.current).toBe(5)
+  })
+
+  it('reset and cancel discard an open grouped edit', () => {
+    const { result } = renderHook(() => useUndoHistory(0))
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.applyGroupedEdit(() => 4)
+      result.current.cancelGroup()
+    })
+    expect(result.current.current).toBe(0)
+    expect(result.current.canUndo).toBe(false)
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.applyGroupedEdit(() => 8)
+      result.current.reset(42)
+    })
+    expect(result.current.current).toBe(42)
+    expect(result.current.canUndo).toBe(false)
+    expect(result.current.canRedo).toBe(false)
+  })
+
+  it('keeps synchronized state outside an open user edit', () => {
+    const { result } = renderHook(() => useUndoHistory({ user: 0, system: 0 }))
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.applyGroupedEdit((current) => ({ ...current, user: 2 }))
+      result.current.synchronize((current) => ({ ...current, system: 1 }))
+      result.current.commitGroup()
+      result.current.undo()
+    })
+
+    expect(result.current.current).toEqual({ user: 0, system: 1 })
+  })
+
+  it('does not create history when only system synchronization occurs in a group', () => {
+    const { result } = renderHook(() => useUndoHistory({ value: 0 }))
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.synchronize((current) => ({ value: current.value + 1 }))
+      result.current.commitGroup()
+    })
+
+    expect(result.current.current).toEqual({ value: 1 })
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('commits an open group before a separate edit', () => {
+    const { result } = renderHook(() => useUndoHistory(0))
+
+    act(() => {
+      result.current.beginGroup()
+      result.current.applyGroupedEdit(() => 1)
+      result.current.pushEdit(() => 2)
+    })
+
+    act(() => result.current.undo())
+    expect(result.current.current).toBe(1)
+    act(() => result.current.undo())
+    expect(result.current.current).toBe(0)
   })
 })

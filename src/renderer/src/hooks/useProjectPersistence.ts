@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   BackendAPI,
   FolderRef,
   MixJamFileContents,
+  MixJamFileItem,
   OpenedMixJamFileContents
 } from '../../../shared/backend-api'
 import {
@@ -27,6 +28,8 @@ interface ProjectMetadata {
 }
 
 export interface ProjectPersistenceState {
+  version: string
+  mixJamFiles: MixJamFileItem[]
   projectPath: string | null
   projectName: string
   projectDirty: boolean
@@ -45,6 +48,7 @@ export interface ProjectPersistenceActions {
   saveProjectAs: () => Promise<boolean>
   saveGeneratedProject: (project: ProjectData, basename: string) => Promise<string | null>
   clearProjectNotice: () => void
+  reloadMixJamFiles: () => Promise<void>
 }
 
 export type ProjectPersistence = ProjectPersistenceState & ProjectPersistenceActions
@@ -55,7 +59,6 @@ interface UseProjectPersistenceParams {
   sampleFolder: FolderRef | null
   project: ProjectState
   replaceProject: (state: ProjectState) => void
-  reloadMixJamFiles: () => Promise<void>
 }
 
 /** Trailing debounce for the dirty-flag fingerprint. Long enough that a
@@ -83,9 +86,10 @@ export function useProjectPersistence({
   userFolder,
   sampleFolder,
   project,
-  replaceProject,
-  reloadMixJamFiles
+  replaceProject
 }: UseProjectPersistenceParams): ProjectPersistence {
+  const [version, setVersion] = useState('')
+  const [mixJamFiles, setMixJamFiles] = useState<MixJamFileItem[]>([])
   const [projectGenerator, setProjectGenerator] = useState<ProjectGeneratorMetadata | null>(null)
   const currentProject = useMemo<ProjectData>(() => ({
     ...project,
@@ -114,6 +118,60 @@ export function useProjectPersistence({
   const [projectWarning, setProjectWarning] = useState<string | null>(null)
   const [projectMissingSamplePaths, setProjectMissingSamplePaths] =
     useState<ReadonlySet<string>>(new Set())
+  const projectCatalogRequestRef = useRef(0)
+  const activeUserFolderIdRef = useRef(userFolder?.id ?? null)
+  activeUserFolderIdRef.current = userFolder?.id ?? null
+
+  useEffect(() => {
+    let active = true
+    void backendAPI.getVersion()
+      .then((nextVersion) => { if (active) setVersion(nextVersion) })
+      .catch((error: unknown) => {
+        console.error('Failed to read app version:', error)
+        if (active) setVersion('version unavailable')
+      })
+    return () => { active = false }
+  }, [backendAPI])
+
+  const refreshMixJamFiles = useCallback(async (): Promise<boolean> => {
+    const request = ++projectCatalogRequestRef.current
+    const userFolderId = userFolder?.id ?? null
+    try {
+      const files = await backendAPI.loadMixJamFiles(userFolder)
+      if (
+        request !== projectCatalogRequestRef.current ||
+        userFolderId !== activeUserFolderIdRef.current
+      ) {
+        return false
+      }
+      setMixJamFiles(files)
+      return true
+    } catch (error) {
+      if (
+        request !== projectCatalogRequestRef.current ||
+        userFolderId !== activeUserFolderIdRef.current
+      ) {
+        return false
+      }
+      setMixJamFiles([])
+      throw error
+    }
+  }, [backendAPI, userFolder])
+
+  const reloadMixJamFiles = useCallback(async () => {
+    try {
+      await refreshMixJamFiles()
+    } catch (error) {
+      console.error('Failed to load MixJam files:', error)
+    }
+  }, [refreshMixJamFiles])
+
+  useEffect(() => {
+    void reloadMixJamFiles()
+    return () => {
+      projectCatalogRequestRef.current += 1
+    }
+  }, [reloadMixJamFiles])
 
   useEffect(() => {
     // A pending replacement is waiting for this fingerprint to match the
@@ -340,7 +398,7 @@ export function useProjectPersistence({
         failedUpdates.push('add it to recent projects')
       }
       try {
-        await reloadMixJamFiles()
+        await refreshMixJamFiles()
       } catch {
         failedUpdates.push('refresh the project list')
       }
@@ -356,7 +414,7 @@ export function useProjectPersistence({
     } finally {
       setOperation('idle')
     }
-  }, [backendAPI, reloadMixJamFiles, sampleFolder, userFolder])
+  }, [backendAPI, refreshMixJamFiles, sampleFolder, userFolder])
 
   const beginNewProject = useCallback(() => {
     const project: ProjectData = createDefaultProjectState()
@@ -377,6 +435,8 @@ export function useProjectPersistence({
   }, [replaceProject])
 
   return {
+    version,
+    mixJamFiles,
     projectPath: metadata.path,
     projectName: metadata.displayName,
     projectDirty: replacementTarget === null && (
@@ -394,6 +454,7 @@ export function useProjectPersistence({
     saveProject,
     saveProjectAs,
     saveGeneratedProject,
-    clearProjectNotice
+    clearProjectNotice,
+    reloadMixJamFiles
   }
 }

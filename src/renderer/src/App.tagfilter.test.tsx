@@ -14,9 +14,12 @@ vi.mock('./hooks/useAppState', async (importOriginal) => {
       const [selectedTagIds, setSelectedTagIds] = useState<number[]>([5])
       return {
         ...result,
-        tags: [{ id: 5, name: 'Cool', color: '#f00' }],
-        selectedTagIds,
-        setSelectedTagIds
+        library: {
+          ...result.library,
+          tags: [{ id: 5, name: 'Cool', color: '#f00' }],
+          selectedTagIds,
+          setSelectedTagIds
+        }
       }
     }
   }

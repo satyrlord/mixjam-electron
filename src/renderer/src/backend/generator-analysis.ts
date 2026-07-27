@@ -4,7 +4,7 @@ import { resolveFileHandle } from './folder-access'
 import { generatorCandidateMatchesLane } from './generator-candidate'
 import type { GeneratorCandidate } from './generator-library'
 import { parseMotifKey } from './generator-motif'
-import { compareCodeUnits, hashText } from './generator-planning-core'
+import { compareCodeUnits, hashText } from './generator-determinism'
 import { GENERATOR_PROFILES } from '../../../shared/generator-templates'
 
 export const MAX_GENERATOR_ATTEMPTS = 160
@@ -39,9 +39,8 @@ export interface GeneratorAnalysisProgress {
   total: number
 }
 
-// Classification-local type sets. These are NOT the planning vocabulary:
-// `generator-planning-core` exports a wider `TONAL_TYPES` that includes Vocal
-// and Atmosphere. Here those two are already claimed by earlier branches of
+// Classification-local type sets are narrower than pool coherence, which also
+// includes Vocal and Atmosphere. Those two are already claimed by earlier branches of
 // `plannerKind`, so this set is only what still falls through to `tonal-loop`.
 const ONE_SHOT_CANDIDATE_TYPES = new Set<SampleType>(['Kick', 'Snare', 'Hi-hat', 'Percussion'])
 const TONAL_LOOP_FALLTHROUGH_TYPES = new Set<SampleType>(['Bass', 'Synth', 'Loop'])

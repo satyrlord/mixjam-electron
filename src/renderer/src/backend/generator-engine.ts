@@ -8,6 +8,10 @@ import {
   type MixJamGeneratorSectionPlan
 } from '../../../shared/backend-api'
 import { TICKS_PER_BAR, TICKS_PER_BEAT } from '../engine/transport'
+import { TONAL_SAMPLE_TYPES } from './analysis'
+import { generatorCandidateDurationTicks } from './generator-candidate'
+import { compareCodeUnits, hashText } from './generator-determinism'
+import { parseMotifKey } from './generator-motif'
 import { canonicalMusicalKey } from './musical-key'
 import { validateMixJamGeneratorParameters } from './generator-parameters'
 import {
@@ -23,27 +27,130 @@ import {
 import {
   FAMILY_RATIO_TARGETS,
   FAMILY_ROLES,
-  MAX_GENERATED_LANES,
-  MIN_GENERATED_LANES,
-  TONAL_TYPES,
-  addPlacement,
-  candidateForCue,
-  clamp,
-  createSpanRegistry,
-  fittingCandidateForCue,
-  compareCodeUnits,
-  durationTicks,
-  halfUp,
-  hashText,
-  intervalIsFree,
-  placementEnd,
-  quantizeUpToBeat,
-  registeredSpan,
+  applyKitCoherence,
+  findTypeCandidates,
+  selectDiverseCandidates,
   type PlanningCandidate,
-  type SpanRegistry,
   type Selection
-} from './generator-planning-core'
-import { findTypeCandidates, selectDiverseCandidates, applyKitCoherence } from './generator-selection'
+} from './generator-selection'
+
+const MIN_GENERATED_LANES = 8
+const MAX_GENERATED_LANES = 32
+
+function halfUp(value: number): number {
+  return Math.floor(value + 0.5)
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.max(minimum, Math.min(maximum, value))
+}
+
+function quantizeUpToBeat(tick: number): number {
+  return Math.ceil(tick / TICKS_PER_BEAT) * TICKS_PER_BEAT
+}
+
+const durationTicks = generatorCandidateDurationTicks
+
+function placementEnd(placement: MixJamGeneratorLanePlan['placements'][number]): number {
+  return placement.startTick + placement.durationTicks
+}
+
+function intervalIsFree(
+  lane: MixJamGeneratorLanePlan,
+  startTick: number,
+  endTick: number
+): boolean {
+  return lane.placements.every(
+    (placement) => placementEnd(placement) <= startTick || placement.startTick >= endTick
+  )
+}
+
+interface SpanRegistry {
+  bySample: Map<string, number>
+  songEndTick: number
+}
+
+function createSpanRegistry(songEndTick: number): SpanRegistry {
+  return { bySample: new Map(), songEndTick }
+}
+
+function registeredSpan(
+  spans: SpanRegistry,
+  candidate: PlanningCandidate,
+  span: number
+): number {
+  return spans.bySample.get(candidate.relpath) ?? span
+}
+
+function stableId(prefix: string, source: string): string {
+  return `${prefix}-${hashText(source).toString(16).padStart(8, '0')}`
+}
+
+function addPlacement(
+  lane: MixJamGeneratorLanePlan,
+  candidate: PlanningCandidate,
+  startTick: number,
+  span: number,
+  ordinal: number,
+  profile: GeneratorProfile,
+  seed: string,
+  spans: SpanRegistry
+): boolean {
+  const resolved = registeredSpan(spans, candidate, span)
+  if (resolved < 1 || startTick < 0 || startTick + resolved > spans.songEndTick) return false
+  if (!intervalIsFree(lane, startTick, startTick + resolved)) return false
+  spans.bySample.set(candidate.relpath, resolved)
+  lane.placements.push({
+    id: stableId('placement', `${seed}:${profile.id}:${profile.version}:lane-${lane.index}:${ordinal}`),
+    sampleRef: candidate.relpath,
+    sampleName: candidate.filename,
+    startTick,
+    durationTicks: resolved,
+    durationSeconds: candidate.duration,
+    nativeBpm: candidate.bpm,
+    slot: candidate.paletteSlot
+  })
+  return true
+}
+
+function laneFamilies(selection: Selection): PlanningCandidate[][] {
+  const byFamily = new Map<string, PlanningCandidate[]>()
+  for (const candidate of selection.candidates) {
+    const family = parseMotifKey(candidate.filename).family
+    const members = byFamily.get(family)
+    if (members) members.push(candidate)
+    else byFamily.set(family, [candidate])
+  }
+  return [...byFamily.values()]
+}
+
+function candidateForCue(
+  selection: Selection,
+  variant: number,
+  cue: number
+): PlanningCandidate {
+  const families = laneFamilies(selection)
+  if (families.length === 0) return selection.candidates[0]!
+  const family = families[variant % families.length]!
+  const offset = Math.floor(variant / families.length)
+  return family[(offset + cue) % family.length]!
+}
+
+function fittingCandidateForCue(
+  selection: Selection,
+  variant: number,
+  cue: number,
+  available: number,
+  bpm: number,
+  spans: SpanRegistry
+): { candidate: PlanningCandidate; span: number } | null {
+  for (let step = 0; step < selection.candidates.length; step++) {
+    const candidate = candidateForCue(selection, variant, cue + step)
+    const span = registeredSpan(spans, candidate, durationTicks(candidate, bpm))
+    if (span <= available) return { candidate, span }
+  }
+  return null
+}
 
 // Sections are allocated in whole 8-bar phrases, never bars: a 23-bar section
 // ends in a 7- or 1-bar tail phrase that whole-bar loops cannot fill, which
@@ -97,12 +204,12 @@ function dominantTonalContext(
   candidates: readonly PlanningCandidate[], profile: GeneratorProfile, bpm: number, seed: string
 ): TonalContext {
   const tokenVotes = candidates.flatMap((candidate) =>
-    TONAL_TYPES.has(candidate.sampleType) && candidate.bpm !== null && candidate.poolToken !== null
+    TONAL_SAMPLE_TYPES.has(candidate.sampleType) && candidate.bpm !== null && candidate.poolToken !== null
       ? [candidate.poolToken]
       : []
   )
   const keyVotes = candidates.flatMap((candidate) =>
-    TONAL_TYPES.has(candidate.sampleType) && candidate.musicalKey
+    TONAL_SAMPLE_TYPES.has(candidate.sampleType) && candidate.musicalKey
       ? [canonicalMusicalKey(candidate.musicalKey) ?? []].flat()
       : []
   )
@@ -122,7 +229,7 @@ function dominantTonalContext(
   // a misleading missing-core-role error instead of generating.
   return contexts.sort((left, right) => {
     const votes = (context: TonalContext): number => candidates.filter((candidate) =>
-      TONAL_TYPES.has(candidate.sampleType) && candidate.bpm !== null &&
+      TONAL_SAMPLE_TYPES.has(candidate.sampleType) && candidate.bpm !== null &&
       candidate.poolToken === context.poolToken &&
       (candidate.musicalKey ? canonicalMusicalKey(candidate.musicalKey) : null) === context.key
     ).length

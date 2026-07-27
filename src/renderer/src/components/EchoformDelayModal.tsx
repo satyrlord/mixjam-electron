@@ -24,6 +24,7 @@ import {
 import { LinearSlider } from './ui/Slider'
 import { ECHOFORM_DELAY_RANGES } from '../engine/return-param-ranges'
 import FxKnob, { type FxKnobSpec } from './FxKnob'
+import { useReturnEffectEditorSession } from '../hooks/useReturnEffectEditorSession'
 
 /**
  * The Echoform Delay editor. Renders the module's real state; every control
@@ -136,49 +137,38 @@ export default function EchoformDelayModal({
   onPreview,
   onRestoreFocus
 }: EchoformDelayModalProps) {
-  const [draft, setDraft] = useState(value)
-  const [powerOn, setPowerOn] = useState(powered)
-  const [mixPercent, setMixPercent] = useState(Math.round(clamp(mixProp, 0, 1) * 100))
-  const [preset, setPreset] = useState<EchoformDelayPresetName | 'Custom'>(() => detectPreset(value, mixProp))
+  const {
+    draft,
+    powerOn,
+    mixPercent,
+    preset,
+    setField,
+    setMixPercent,
+    applyPreset
+  } = useReturnEffectEditorSession({
+    value,
+    powered,
+    mix: mixProp,
+    detectPreset,
+    applyPreset: applyEchoformDelayPreset,
+    presetMix: PRESET_MIX,
+    onPreview
+  })
   const [localBpm, setLocalBpm] = useState(bpm)
   const [tapFlash, setTapFlash] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
   const tapTimesRef = useRef<number[]>([])
-  const applyingPresetRef = useRef(false)
   const reducedMotion = usePrefersReducedMotion()
 
   useEffect(() => { setLocalBpm(bpm) }, [bpm])
 
-  // Keep the live DSP in sync with every draft change.
-  useEffect(() => {
-    onPreview?.(draft, powerOn, mixPercent / 100)
-  }, [draft, powerOn, mixPercent, onPreview])
-
-  const markCustom = () => { if (!applyingPresetRef.current) setPreset('Custom') }
-
-  const setField = <K extends keyof EchoformDelayModule>(key: K, next: EchoformDelayModule[K]) => {
-    setDraft((current) => ({ ...current, [key]: next }))
-    markCustom()
-  }
-
   const setKnob = (key: KnobKey, next: number) => {
-    if (key === 'mix') { setMixPercent(Math.round(next)); markCustom(); return }
-    setDraft((current) => ({ ...current, [key]: next }))
-    markCustom()
+    if (key === 'mix') { setMixPercent(next); return }
+    setField(key, next)
   }
 
   const knobValue = (key: KnobKey): number =>
     key === 'mix' ? mixPercent : (draft[key as keyof EchoformDelayModule] as number)
-
-  const applyPreset = (name: EchoformDelayPresetName) => {
-    applyingPresetRef.current = true
-    setDraft(applyEchoformDelayPreset(draft, name))
-    setMixPercent(PRESET_MIX[name])
-    setPowerOn(true)
-    setPreset(name)
-    // Clear the guard after React has queued the state updates.
-    window.setTimeout(() => { applyingPresetRef.current = false }, 0)
-  }
 
   const times = useMemo(() => ({
     left: echoformDelaySeconds(draft.mode, draft.divisionL, draft.timeMsL, localBpm) * 1000,

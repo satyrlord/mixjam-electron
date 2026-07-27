@@ -1,23 +1,16 @@
-// The BackendAPI contract, checked across every facade that must implement it.
-//
-// `BackendAPI` is restated four times: the contract type, the worker's
-// `BackendCalls`, the vitest facade, and the plain-JS e2e mock. Only the first
-// two are type-checked against each other, so a method added to one and
-// forgotten in another surfaces as a runtime TypeError in an e2e run — or, as
-// happened with `getGeneratorProgress`, is simply never exposed to the UI.
-//
-// The vitest facade is fully typed as `BackendAPI`, so its own key set is a
-// trustworthy, self-maintaining list of the contract's members. These tests
-// hold the untyped facades against it.
+// Typed adapters are checked by TypeScript. BACKEND_API_METHODS is the complete
+// runtime inventory used to hold the injected plain-JavaScript E2E adapter to
+// the same seam.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { BACKEND_API_METHODS } from '../../../shared/backend-api'
 import { createBackendAPI } from '../test/backendApi'
 
 // Vitest runs with the repo root as cwd (see vitest.config.ts `root`).
 const E2E_MOCK_SOURCE = resolve('tests/e2e/mock-backend.js')
 
-const CONTRACT_METHODS = Object.entries(
+const TYPED_TEST_METHODS = Object.entries(
   createBackendAPI() as unknown as Record<string, unknown>
 )
   .filter(([, value]) => typeof value === 'function')
@@ -26,24 +19,21 @@ const CONTRACT_METHODS = Object.entries(
 
 describe('BackendAPI contract', () => {
   it('exposes a non-trivial surface', () => {
-    expect(CONTRACT_METHODS.length).toBeGreaterThan(30)
-    expect(CONTRACT_METHODS).toContain('querySamples')
-    expect(CONTRACT_METHODS).toContain('readSampleBytes')
+    expect(new Set(BACKEND_API_METHODS).size).toBe(BACKEND_API_METHODS.length)
+    expect(BACKEND_API_METHODS.length).toBeGreaterThan(30)
+    expect(BACKEND_API_METHODS).toContain('querySamples')
+    expect(BACKEND_API_METHODS).toContain('readSampleBytes')
   })
 
-  it('exposes generator planning together with its progress', () => {
-    // The pair that had drifted: the worker serviced `getGeneratorProgress`
-    // but no facade exposed it, so nothing but a test could reach it.
-    expect(CONTRACT_METHODS).toContain('planMixJam')
-    expect(CONTRACT_METHODS).toContain('cancelMixJamPlanning')
-    expect(CONTRACT_METHODS).toContain('getGeneratorProgress')
+  it('the typed test adapter implements the runtime inventory exactly', () => {
+    expect(TYPED_TEST_METHODS).toEqual([...BACKEND_API_METHODS].sort())
   })
 
   it('the e2e mock implements every contract method', () => {
     // Plain ES5 and untyped by necessity (it is injected via addInitScript),
     // so this source check is the only guard available to it.
     const text = readFileSync(E2E_MOCK_SOURCE, 'utf8')
-    const missing = CONTRACT_METHODS.filter(
+    const missing = BACKEND_API_METHODS.filter(
       (name) => !new RegExp(`\\b${name}\\s*:`).test(text)
     )
     expect(missing).toEqual([])

@@ -1,23 +1,81 @@
-import type { MixJamGeneratorSectionPlan, SampleType } from '../../../shared/backend-api'
+import type {
+  MixJamGeneratorParameters,
+  MixJamGeneratorSectionPlan,
+  SampleType
+} from '../../../shared/backend-api'
+import type {
+  GeneratorArcProfile,
+  GeneratorLaneProfile,
+  GeneratorProfile
+} from '../../../shared/generator-templates'
 import { agreesWithFolderRole, folderRoleSegment } from '../../../shared/sample-role-hints'
 import { TICKS_PER_BAR } from '../engine/transport'
-import { generatorCandidateMatchesLane } from './generator-candidate'
-import { groupMotifFamilies, logicalSampleKey, parseMotifKey } from './generator-motif'
+import { TONAL_SAMPLE_TYPES } from './analysis'
+import type { AnalyzedGeneratorCandidate } from './generator-analysis'
 import {
-  FAMILY_ROLES,
-  TONAL_TYPES,
-  candidateFamily,
-  compareCodeUnits,
-  durationTicks,
-  hashText,
-  keyRank,
-  maximumLegalSpan,
-  type GeneratorArcProfile,
-  type GeneratorLaneProfile,
-  type GeneratorProfile,
-  type PlanningCandidate,
-  type Selection
-} from './generator-planning-core'
+  generatorCandidateDurationTicks,
+  generatorCandidateMatchesLane
+} from './generator-candidate'
+import { compareCodeUnits, hashText } from './generator-determinism'
+import type { GeneratorCandidate } from './generator-library'
+import { groupMotifFamilies, logicalSampleKey, parseMotifKey } from './generator-motif'
+import { parseMusicalKey } from './musical-key'
+
+export const FAMILY_ROLES = new Set(['motif', 'vocal', 'atmosphere'])
+
+export const FAMILY_RATIO_TARGETS: Record<MixJamGeneratorParameters['intensity'], number> = {
+  low: 0.8,
+  medium: 0.7,
+  high: 0.6
+}
+
+export type PlanningCandidate = GeneratorCandidate & Partial<Pick<AnalyzedGeneratorCandidate,
+  'rms' | 'peak' | 'spectralCentroid' | 'transientDensity' | 'attackStrength' |
+  'rhythmicRegularity' | 'loopConfidence' | 'boundaryContinuity' | 'energySlope' | 'plannerKind'>>
+
+export interface Selection {
+  requestedType: SampleType
+  selectedType: SampleType
+  candidates: PlanningCandidate[]
+}
+
+function keyRank(value: string | null, target: string | null): number {
+  if (target === null) return 0
+  if (value === null) return 2
+  const source = parseMusicalKey(value)
+  const destination = parseMusicalKey(target)
+  if (!source || !destination) return 3
+  if (source.root === destination.root && source.minor === destination.minor) return 0
+  const relativeRoot = destination.minor ? (destination.root + 3) % 12 : (destination.root + 9) % 12
+  return source.minor !== destination.minor && source.root === relativeRoot ? 1 : 3
+}
+
+function maximumLegalSpan(
+  laneIndex: number,
+  sections: readonly MixJamGeneratorSectionPlan[],
+  arc: GeneratorArcProfile,
+  profile: GeneratorProfile
+): number {
+  const lane = profile.lanes[laneIndex]!
+  const songEnd = sections.at(-1)!.endBar * TICKS_PER_BAR
+  if (lane.role === 'transition') {
+    return Math.max(0, ...sections.slice(1).map((section) => {
+      const boundary = section.startBar * TICKS_PER_BAR
+      return lane.transitionKind === 'riser' ? boundary : songEnd - boundary
+    }))
+  }
+  return Math.max(0, ...sections.flatMap((section, sectionIndex) => {
+    if (!arc.sections[sectionIndex]!.activeLanes.includes(laneIndex)) return []
+    const sectionSpan = (section.endBar - section.startBar) * TICKS_PER_BAR
+    return [lane.role === 'atmosphere' ? sectionSpan : Math.min(8 * TICKS_PER_BAR, sectionSpan)]
+  }))
+}
+
+function candidateFamily(candidate: PlanningCandidate): string {
+  return parseMotifKey(candidate.filename).family
+}
+
+const durationTicks = generatorCandidateDurationTicks
 
 /**
  * Material this candidate would be *resampled* to reach the project tempo. Only
@@ -26,7 +84,7 @@ import {
  * (spec-021 §Pool coherence).
  */
 function isStretchedPitched(candidate: PlanningCandidate, type: SampleType): boolean {
-  return TONAL_TYPES.has(type) && candidate.bpm !== null
+  return TONAL_SAMPLE_TYPES.has(type) && candidate.bpm !== null
 }
 
 /** The category a lane's material is diversified over — the acoustic role
@@ -47,7 +105,7 @@ function compatibilityRank(
   profile: GeneratorProfile
 ): number {
   const bpmRank = candidate.bpm === null ? 1 : Math.abs(candidate.bpm - bpm) <= profile.bpmTolerance ? 0 : 2
-  const tonal = TONAL_TYPES.has(type)
+  const tonal = TONAL_SAMPLE_TYPES.has(type)
   return bpmRank * 4 + (tonal ? keyRank(candidate.musicalKey, key) : 0)
 }
 
@@ -58,7 +116,7 @@ function candidateRankCore(
   left: PlanningCandidate, right: PlanningCandidate, lane: GeneratorLaneProfile,
   type: SampleType, bpm: number, key: string | null, profile: GeneratorProfile
 ): number {
-  const tonal = TONAL_TYPES.has(type)
+  const tonal = TONAL_SAMPLE_TYPES.has(type)
   const leftBpmRank = left.bpm === null ? 1 : Math.abs(left.bpm - bpm) <= profile.bpmTolerance ? 0 : 2
   const rightBpmRank = right.bpm === null ? 1 : Math.abs(right.bpm - bpm) <= profile.bpmTolerance ? 0 : 2
   if (leftBpmRank !== rightBpmRank) return leftBpmRank - rightBpmRank
@@ -119,7 +177,7 @@ function orderedCandidates(
   type: SampleType, bpm: number, key: string | null, poolToken: string | null, seed: string
 ): PlanningCandidate[] {
   const lane = profile.lanes[laneIndex]!
-  const tonal = TONAL_TYPES.has(type)
+  const tonal = TONAL_SAMPLE_TYPES.has(type)
   const eligible = candidates
     .filter((candidate) => candidate.sampleType === type && generatorCandidateMatchesLane(candidate, lane, type, bpm))
     .filter((candidate) => !tonal || keyRank(candidate.musicalKey, key) < 3)

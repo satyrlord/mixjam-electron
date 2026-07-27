@@ -8,13 +8,19 @@ import { useMediaSessionControls } from './useMediaSessionControls'
 
 const GITHUB_URL = 'https://github.com/satyrlord/mixjam-electron'
 
-export type AppState = LibraryData & TransportEngine & Mixer & ProjectPersistence & {
-  setChannelGain: (channelIndex: number, gain: number) => void
-  setChannelSend: (channelIndex: number, sendIndex: number, value: number) => void
+export interface AppNavigation {
   startNewProject: () => Promise<void>
   goToPlayer: () => Promise<void>
   goToHome: () => Promise<void>
   openRepo: () => Promise<void>
+}
+
+export interface AppState {
+  library: LibraryData
+  transport: TransportEngine
+  mixer: Mixer
+  project: ProjectPersistence
+  navigation: AppNavigation
 }
 
 /**
@@ -31,9 +37,9 @@ export function useAppState(
   userFolder: FolderRef | null,
   sampleFolder: FolderRef | null
 ): AppState {
-  const lib = useLibraryData(backendAPI, userFolder, sampleFolder)
+  const lib = useLibraryData(backendAPI, sampleFolder)
   const engine = useTransportEngine(backendAPI, sampleFolder)
-  const mixer = useMixer(engine.playbackEngineRef, engine.view, engine.lanes, engine.fxBuses)
+  const mixer = useMixer(engine.playbackEngineRef, engine.lanes, engine.fxBuses)
   const activeProject = useMemo(() => ({
     song: engine.song,
     lanes: engine.lanes,
@@ -45,15 +51,12 @@ export function useAppState(
     userFolder,
     sampleFolder,
     project: activeProject,
-    replaceProject: engine.replaceProjectState,
-    reloadMixJamFiles: lib.reloadMixJamFiles
+    replaceProject: engine.replaceProjectState
   })
 
   const {
     resolvePendingPlacementBpms,
     setView,
-    setLaneGain,
-    setLaneSend,
     transportPlay,
     transportPause,
     transportSkipBack,
@@ -61,16 +64,6 @@ export function useAppState(
   } = engine
   useMediaSessionControls({ transportPlay, transportPause, transportSkipBack, transportJumpToEnd })
   const { setSelectedSampleDetail } = lib
-  // Depend on the individual actions, not the whole `engine` object: that object
-  // is a fresh literal every render, so an `[engine]` dependency would rebuild
-  // these callbacks on every edit and invalidate the memoized Mixer panel props.
-  const setChannelGain = useCallback((channelIndex: number, gain: number) => {
-    setLaneGain(channelIndex, gain)
-  }, [setLaneGain])
-  const setChannelSend = useCallback((channelIndex: number, sendIndex: number, value: number) => {
-    const next = Math.max(0, Math.min(1, value))
-    setLaneSend(channelIndex, sendIndex, next)
-  }, [setLaneSend])
   const {
     beginNewProject,
     openProjectPicker: openProjectFromPicker,
@@ -119,24 +112,22 @@ export function useAppState(
     await backendAPI.openExternal(GITHUB_URL)
   }, [backendAPI])
 
-  const missingSamplePaths = useMemo(() => new Set([
-    ...lib.missingSamplePaths,
-    ...project.projectMissingSamplePaths
-  ]), [lib.missingSamplePaths, project.projectMissingSamplePaths])
-
-  return {
-    ...lib,
-    ...engine,
-    ...mixer,
-    setChannelGain,
-    setChannelSend,
-    ...project,
-    missingSamplePaths,
+  const navigation = useMemo<AppNavigation>(() => ({
     startNewProject,
-    openProjectPicker,
-    openProjectPath,
     goToPlayer,
     goToHome,
     openRepo
+  }), [goToHome, goToPlayer, openRepo, startNewProject])
+
+  return {
+    library: lib,
+    transport: engine,
+    mixer,
+    project: {
+      ...project,
+      openProjectPicker,
+      openProjectPath
+    },
+    navigation
   }
 }

@@ -347,6 +347,9 @@ the same coherent sample population. It is never an absolute filesystem path.
 - The MixJam Browser (spec-006) merges this registry with `.mixjam`
   files discovered by recursively scanning the current User Folder and
   deduplicates entries by canonical file path.
+- Catalog refreshes are bound to the User Folder and request generation that
+  started them. A late result or failure from an older folder or older refresh
+  cannot replace or clear the active folder's project list.
 - When the rail is built, registry entries with `lastOpened` timestamps sort
   newest-first ahead of discovered-but-never-opened projects.
 
@@ -430,6 +433,10 @@ the same coherent sample population. It is never an absolute filesystem path.
   remain null. Any arrangement placement edit to either paired lane clears the
   identity from both lanes; unrelated placement, name, and Mixer edits preserve
   it.
+- [x] **AC-035:** Switching User Folders while project discovery is pending
+  ignores both late success and late failure from the previous folder; only the
+  newest request for the active folder may replace or clear the MixJam Browser
+  catalog.
 
 ## Required version-7 evidence
 
@@ -445,8 +452,12 @@ do not synthesize or replace a second top-level channel array.
   cloning of lane mixer and return state, and atomic lane add/delete snapshots.
 - Persistence integration tests cover complete replacement, immediate dirty
   state during continuous edits, exact baseline reconciliation after settling,
-  unsupported-format failure without state mutation, external Save As, and no
-  app-level persistence of project-owned audio state.
+  unsupported-format failure without state mutation, external Save As, stale
+  project-catalog success and failure, and no app-level persistence of
+  project-owned audio state.
+- Project persistence owns app version, User Folder project discovery, and
+  project-list refresh after a successful save. Sample-library state does not
+  own or reload the project catalog.
 - Built Chromium verification covers save/load roundtrips, missing-sample
   warnings, and exact restoration of lane identities, Mixer sends, return
   modules, return levels, power, and limiters.

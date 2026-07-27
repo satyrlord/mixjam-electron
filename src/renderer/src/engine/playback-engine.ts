@@ -83,7 +83,7 @@ export interface PlaybackProjectGraphSnapshot {
   channels: readonly PlaybackChannelSnapshot[]
   returns: readonly PlaybackReturnSnapshot[]
   /** Master Bus Strip record (spec-012); consumed by the master bus engine wiring. */
-  masterBus?: MasterBusState
+  masterBus: MasterBusState
 }
 
 export class PlaybackEngine {
@@ -138,6 +138,11 @@ export class PlaybackEngine {
 
   get audioEngine(): AudioEngine {
     return this.engine
+  }
+
+  /** Audio-clock time used for scheduler-aligned preview commands. */
+  get currentAudioTime(): number {
+    return this.engine.currentTime
   }
 
   get activeVoiceCount(): number {
@@ -213,9 +218,7 @@ export class PlaybackEngine {
     mode: 'reconcile' | 'replace-project' = 'reconcile'
   ): void {
     this.applyChannelSnapshot(snapshot.channels)
-    if (snapshot.masterBus) {
-      this.applyMasterBusState(snapshot.masterBus, mode === 'reconcile' ? 'reconcile' : 'replace')
-    }
+    this.applyMasterBusState(snapshot.masterBus, mode === 'reconcile' ? 'reconcile' : 'replace')
     if (mode === 'reconcile') {
       this.applyReturnSnapshot(snapshot.returns)
       return

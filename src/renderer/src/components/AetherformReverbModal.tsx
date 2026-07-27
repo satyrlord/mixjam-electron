@@ -24,6 +24,7 @@ import {
 import { LinearSlider } from './ui/Slider'
 import { AETHERFORM_REVERB_RANGES } from '../engine/return-param-ranges'
 import FxKnob, { type FxKnobSpec } from './FxKnob'
+import { useReturnEffectEditorSession } from '../hooks/useReturnEffectEditorSession'
 
 /**
  * The Aetherform Reverb editor. Renders the module's real state; every control
@@ -136,50 +137,39 @@ export default function AetherformReverbModal({
   onClearTail,
   onRestoreFocus
 }: AetherformReverbModalProps) {
-  const [draft, setDraft] = useState(value)
-  const [powerOn, setPowerOn] = useState(powered)
-  const [mixPercent, setMixPercent] = useState(Math.round(clamp(mixProp, 0, 1) * 100))
-  const [preset, setPreset] = useState<AetherformReverbPresetName | 'Custom'>(() => detectPreset(value, mixProp))
+  const {
+    draft,
+    powerOn,
+    mixPercent,
+    preset,
+    setField,
+    setMixPercent,
+    applyPreset
+  } = useReturnEffectEditorSession({
+    value,
+    powered,
+    mix: mixProp,
+    detectPreset,
+    applyPreset: applyAetherformReverbPreset,
+    presetMix: PRESET_MIX,
+    onPreview
+  })
   const [clearing, setClearing] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const applyingPresetRef = useRef(false)
   const clearTimerRef = useRef<number | null>(null)
   const reducedMotion = usePrefersReducedMotion()
-
-  // Keep the live DSP in sync with every draft change.
-  useEffect(() => {
-    onPreview?.(draft, powerOn, mixPercent / 100)
-  }, [draft, powerOn, mixPercent, onPreview])
 
   useEffect(() => () => {
     if (clearTimerRef.current !== null) window.clearTimeout(clearTimerRef.current)
   }, [])
 
-  const markCustom = () => { if (!applyingPresetRef.current) setPreset('Custom') }
-
-  const setField = <K extends keyof AetherformReverbModule>(key: K, next: AetherformReverbModule[K]) => {
-    setDraft((current) => ({ ...current, [key]: next }))
-    markCustom()
-  }
-
   const setKnob = (key: KnobKey, next: number) => {
-    if (key === 'mix') { setMixPercent(Math.round(next)); markCustom(); return }
-    setDraft((current) => ({ ...current, [key]: next }))
-    markCustom()
+    if (key === 'mix') { setMixPercent(next); return }
+    setField(key, next)
   }
 
   const knobValue = (key: KnobKey): number =>
     key === 'mix' ? mixPercent : (draft[key as keyof AetherformReverbModule] as number)
-
-  const applyPreset = (name: AetherformReverbPresetName) => {
-    applyingPresetRef.current = true
-    setDraft(applyAetherformReverbPreset(draft, name))
-    setMixPercent(PRESET_MIX[name])
-    setPowerOn(true)
-    setPreset(name)
-    // Clear the guard after React has queued the state updates.
-    window.setTimeout(() => { applyingPresetRef.current = false }, 0)
-  }
 
   // Clear Tail is a momentary command: flush the live DSP, flash the button and
   // field, and leave every parameter (and the preset selector) untouched.

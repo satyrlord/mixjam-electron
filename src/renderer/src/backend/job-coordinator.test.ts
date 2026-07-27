@@ -7,6 +7,7 @@
 // persistence module stay out of it.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
+  AnalysisProgress,
   DistributiveOmit,
   LibrarySyncTrigger,
   MixJamGeneratorParameters,
@@ -22,9 +23,21 @@ interface PendingScan {
   reject: (error: unknown) => void
 }
 
+interface PendingSingleAnalysis {
+  sampleId: number
+  emit: (progress: DistributiveOmit<AnalysisProgress, 'identity'>) => void
+  resolve: () => void
+  reject: (error: unknown) => void
+}
+
 const mocks = vi.hoisted(() => ({
   pendingScans: [] as PendingScan[],
-  pendingPlans: [] as Array<{ resolve: (plan: unknown) => void; reject: (e: unknown) => void }>,
+  pendingPlans: [] as Array<{
+    emit: (progress: { phase: 'analyzing' | 'shortlisting'; completed: number; total: number }) => void
+    resolve: (plan: unknown) => void
+    reject: (e: unknown) => void
+  }>,
+  pendingSingleAnalyses: [] as PendingSingleAnalysis[],
   storedReadiness: { status: 'ready' } as unknown
 }))
 
@@ -41,7 +54,14 @@ vi.mock('./indexer', () => ({
 
 vi.mock('./analysis-runner', () => ({
   runPendingAnalysis: vi.fn(async () => undefined),
-  runSingleAnalysis: vi.fn(async () => undefined)
+  runSingleAnalysis: (
+    _db: unknown,
+    sampleId: number,
+    _file: File,
+    emit: (progress: DistributiveOmit<AnalysisProgress, 'identity'>) => void
+  ) => new Promise<void>((resolve, reject) => {
+    mocks.pendingSingleAnalyses.push({ sampleId, emit, resolve, reject })
+  })
 }))
 
 vi.mock('./folder-access', () => ({
@@ -64,8 +84,13 @@ vi.mock('./generator-analysis', async () => {
   const actual = await vi.importActual<typeof import('./generator-analysis')>('./generator-analysis')
   return {
     ...actual,
-    analyzeGeneratorCandidates: () => new Promise((resolve, reject) => {
-      mocks.pendingPlans.push({ resolve, reject })
+    analyzeGeneratorCandidates: (
+      _root: unknown,
+      _candidates: unknown,
+      _parameters: unknown,
+      emit: (progress: { phase: 'analyzing' | 'shortlisting'; completed: number; total: number }) => void
+    ) => new Promise((resolve, reject) => {
+      mocks.pendingPlans.push({ emit, resolve, reject })
     })
   }
 })
@@ -87,6 +112,7 @@ let jobs: ReturnType<typeof createBackendJobCoordinator>
 beforeEach(() => {
   mocks.pendingScans.length = 0
   mocks.pendingPlans.length = 0
+  mocks.pendingSingleAnalyses.length = 0
   mocks.storedReadiness = { status: 'ready' }
   events = []
   jobs = createBackendJobCoordinator(DB_STUB, (message) => events.push(message))
@@ -109,6 +135,13 @@ async function settleScan(rootKey: string, occurrence = 1): Promise<void> {
   const scan = await awaitScan(rootKey, occurrence)
   scan.resolve(Date.now())
   await vi.waitFor(() => expect(jobs.getScanProgress().status).not.toBe('scanning'))
+}
+
+async function awaitSingle(sampleId: number): Promise<PendingSingleAnalysis> {
+  await vi.waitFor(() => expect(
+    mocks.pendingSingleAnalyses.some((pending) => pending.sampleId === sampleId)
+  ).toBe(true))
+  return mocks.pendingSingleAnalyses.find((pending) => pending.sampleId === sampleId)!
 }
 
 describe('readiness reflects who owns the root', () => {
@@ -194,6 +227,31 @@ describe('library sync admission', () => {
     expect(mutation.disposition).toBe('queued')
     expect(mocks.pendingScans).toHaveLength(1)
   })
+
+  it('deduplicates queued mutations and can cancel one without dropping another', async () => {
+    const single = jobs.reanalyzeSample('root-owner', 40, 'active.wav')
+    const pending = await awaitSingle(40)
+    const kept = start('root-kept', 'mutation')
+    expect(start('root-kept', 'mutation')).toEqual(kept)
+    const removed = start('root-removed', 'mutation')
+    jobs.cancelLibrarySync(removed.identity.jobId)
+
+    pending.resolve()
+    await single
+    await awaitScan('root-kept')
+    expect(mocks.pendingScans.some((scan) => scan.rootKey === 'root-removed')).toBe(false)
+  })
+
+  it('does not suppress an automatic retry after a failed first attempt', async () => {
+    const first = start('root-retry', 'automatic')
+    ;(await awaitScan('root-retry')).reject(new Error('temporary read failure'))
+    await vi.waitFor(() => expect(jobs.getScanProgress()).toMatchObject({
+      identity: first.identity,
+      status: 'error'
+    }))
+    expect(start('root-retry', 'automatic').disposition).toBe('started')
+    await awaitScan('root-retry', 2)
+  })
 })
 
 describe('cancellation', () => {
@@ -259,6 +317,95 @@ describe('generator exclusion', () => {
 
     jobs.cancelMixJamPlanning('gen-1')
     expect(jobs.getGeneratorProgress()).toMatchObject({ status: 'cancelled' })
+  })
+
+  it('keeps generation active for a suppressed same-root automatic sync', async () => {
+    const completed = start('root-a', 'automatic')
+    await settleScan('root-a')
+    const planning = jobs.planMixJam('root-a', 'gen-suppressed', PARAMETERS)
+    await vi.waitFor(() => expect(mocks.pendingPlans).toHaveLength(1))
+
+    expect(start('root-a', 'automatic')).toEqual({
+      identity: completed.identity,
+      disposition: 'suppressed'
+    })
+    expect(jobs.getGeneratorProgress()).toMatchObject({ status: 'running' })
+
+    jobs.cancelMixJamPlanning('gen-suppressed')
+    mocks.pendingPlans[0]!.resolve([])
+    await expect(planning).rejects.toThrow()
+  })
+
+  it('cancels a cross-root generator before suppressing a completed automatic sync', async () => {
+    const completed = start('root-a', 'automatic')
+    await settleScan('root-a')
+    const planning = jobs.planMixJam('root-b', 'gen-cross-root', PARAMETERS)
+    await vi.waitFor(() => expect(mocks.pendingPlans).toHaveLength(1))
+
+    expect(start('root-a', 'automatic')).toEqual({
+      identity: completed.identity,
+      disposition: 'suppressed'
+    })
+    expect(jobs.getGeneratorProgress()).toMatchObject({ status: 'cancelled' })
+
+    mocks.pendingPlans[0]!.resolve([])
+    await expect(planning).rejects.toThrow()
+  })
+
+  it('publishes planning progress and returns a completed plan', async () => {
+    const planning = jobs.planMixJam('root-a', 'gen-complete', PARAMETERS)
+    await vi.waitFor(() => expect(mocks.pendingPlans).toHaveLength(1))
+    mocks.pendingPlans[0]!.emit({ phase: 'analyzing', completed: 2, total: 3 })
+    mocks.pendingPlans[0]!.emit({ phase: 'shortlisting', completed: 3, total: 3 })
+    mocks.pendingPlans[0]!.resolve([{ relpath: 'kick.wav' }])
+
+    await expect(planning).resolves.toEqual({ planId: 'plan-1' })
+    expect(jobs.getGeneratorProgress()).toMatchObject({ status: 'idle' })
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'generator-progress',
+      progress: expect.objectContaining({ phase: 'analyzing', completed: 2 })
+    }))
+  })
+
+  it('rejects a stale expected corpus fingerprint before analysis', async () => {
+    await expect(jobs.planMixJam('root-a', 'gen-stale', PARAMETERS, 'stale'))
+      .rejects.toThrow('The Sample Folder has changed since this project was generated.')
+    expect(mocks.pendingPlans).toHaveLength(0)
+  })
+})
+
+describe('single-sample analysis admission', () => {
+  it('queues automatic and mutation syncs while rejecting a manual sync', async () => {
+    const analysis = jobs.reanalyzeSample('root-a', 50, 'active.wav')
+    const pending = await awaitSingle(50)
+
+    expect(start('root-auto', 'automatic').disposition).toBe('queued')
+    expect(start('root-mutation', 'mutation').disposition).toBe('queued')
+    expect(() => start('root-manual', 'manual'))
+      .toThrow('Wait for the current sample analysis to finish')
+
+    pending.resolve()
+    await analysis
+    await awaitScan('root-auto')
+  })
+
+  it('keeps completion typed and an analysis failure observable', async () => {
+    const success = jobs.reanalyzeSample('root-a', 60, 'one.wav')
+    const pendingSuccess = await awaitSingle(60)
+    pendingSuccess.emit({ status: 'analyzing', analyzed: 1, total: 1 })
+    pendingSuccess.resolve()
+    await expect(success).resolves.toMatchObject({
+      identity: { rootKey: 'root-a', sampleId: 60 }
+    })
+    expect(events).toContainEqual(expect.objectContaining({ type: 'analysis-done' }))
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const failure = jobs.reanalyzeSample('root-a', 61, 'broken.wav')
+    const pendingFailure = await awaitSingle(61)
+    pendingFailure.reject(new Error('decode failed'))
+    await expect(failure).rejects.toThrow('decode failed')
+    expect(jobs.getAnalysisProgress()).toMatchObject({ status: 'error', error: 'decode failed' })
+    consoleError.mockRestore()
   })
 })
 

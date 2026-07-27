@@ -9,6 +9,11 @@ const mocks = vi.hoisted(() => ({
     canStart: true,
     pickUser: vi.fn(), pickSample: vi.fn(), restoreUser: vi.fn(), restoreSample: vi.fn()
   } as Record<string, unknown>,
+  library: {} as Record<string, unknown>,
+  transport: {} as Record<string, unknown>,
+  project: {} as Record<string, unknown>,
+  navigation: {} as Record<string, unknown>,
+  mixer: {} as Record<string, unknown>,
   app: {} as Record<string, unknown>,
   generator: {} as Record<string, unknown>
 }))
@@ -16,6 +21,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./hooks/useFolderSetup', () => ({ useFolderSetup: () => mocks.folder }))
 vi.mock('./hooks/useAppState', () => ({ useAppState: () => mocks.app }))
 vi.mock('./hooks/useMixJamGenerator', () => ({ useMixJamGenerator: () => mocks.generator }))
+vi.mock('./app-state/usePlayerViewModel', () => ({
+  usePlayerViewModel: (_app: unknown, commands: unknown) => ({ project: commands })
+}))
 vi.mock('./theme/themes', () => ({ selectTheme: (key: string) => key === 'bad' ? 'emerald' : key }))
 vi.mock('./components/ui/Tooltip', () => ({ TooltipProvider: ({ children }: { children: ReactNode }) => children }))
 vi.mock('./components/Header', () => ({ default: (props: { onHome: () => void; onThemeChange: (key: string) => void; theme: string }) => (
@@ -48,13 +56,29 @@ function resetState() {
     userFolder: { status: 'unset' }, sampleFolder: { status: 'unset' }, canStart: true,
     pickUser: vi.fn(), pickSample: vi.fn(), restoreUser: vi.fn(), restoreSample: vi.fn()
   })
+  Object.assign(mocks.library, {
+    retryLibrarySync: vi.fn().mockResolvedValue(undefined),
+    cancelLibrarySync: vi.fn().mockResolvedValue(undefined),
+    librarySyncState: { status: 'unavailable' },
+    selectedSampleDetail: null
+  })
+  Object.assign(mocks.transport, {
+    view: 'home', timerText: '00:00', bpm: 120, getSampleBuffer: vi.fn()
+  })
+  Object.assign(mocks.project, {
+    projectError: null, projectWarning: 'Heads up', clearProjectNotice: vi.fn(),
+    mixJamFiles: [], projectBusy: false, openProjectPicker: vi.fn(), openProjectPath: vi.fn(),
+    version: 'test', projectGenerator: null, saveGeneratedProject: vi.fn()
+  })
+  Object.assign(mocks.navigation, {
+    goToHome: vi.fn(), startNewProject: vi.fn(), openRepo: vi.fn()
+  })
   Object.assign(mocks.app, {
-    view: 'home', timerText: '00:00', projectError: null, projectWarning: 'Heads up',
-    clearProjectNotice: vi.fn(), goToHome: vi.fn(), retryLibrarySync: vi.fn().mockResolvedValue(undefined),
-    cancelLibrarySync: vi.fn().mockResolvedValue(undefined), librarySyncState: { status: 'unavailable' },
-    mixJamFiles: [], projectBusy: false, startNewProject: vi.fn(), openProjectPicker: vi.fn(),
-    openProjectPath: vi.fn(), version: 'test', selectedSampleDetail: null, openRepo: vi.fn(),
-    getSampleBuffer: vi.fn()
+    library: mocks.library,
+    transport: mocks.transport,
+    project: mocks.project,
+    navigation: mocks.navigation,
+    mixer: mocks.mixer
   })
   Object.assign(mocks.generator, {
     open: false, readiness: null, initialParameters: undefined, generating: false, saving: false,
@@ -78,21 +102,21 @@ describe('App wiring coverage', () => {
     fireEvent.click(screen.getByText('Restore generator focus mock'))
     fireEvent.click(screen.getByText('Theme mock'))
     fireEvent.click(screen.getByText('Home mock'))
-    expect(mocks.app.clearProjectNotice).toHaveBeenCalled()
-    expect(mocks.app.retryLibrarySync).toHaveBeenCalled()
-    expect(mocks.app.cancelLibrarySync).toHaveBeenCalled()
+    expect(mocks.project.clearProjectNotice).toHaveBeenCalled()
+    expect(mocks.library.retryLibrarySync).toHaveBeenCalled()
+    expect(mocks.library.cancelLibrarySync).toHaveBeenCalled()
     expect(mocks.generator.openNew).toHaveBeenCalled()
     expect(generatorOpener).toHaveFocus()
     expect(screen.getByText('enterprise')).toBeInTheDocument()
-    expect(mocks.app.goToHome).toHaveBeenCalled()
+    expect(mocks.navigation.goToHome).toHaveBeenCalled()
   })
 
   it('resolves set folders and renders the Player error branch', () => {
     mocks.folder.userFolder = { status: 'set', ref: { id: 'u', name: 'User' } }
     mocks.folder.sampleFolder = { status: 'set', ref: { id: 's', name: 'Samples' } }
-    mocks.app.view = 'player'
-    mocks.app.projectWarning = null
-    mocks.app.projectError = 'Load failed'
+    mocks.transport.view = 'player'
+    mocks.project.projectWarning = null
+    mocks.project.projectError = 'Load failed'
     render(<App />)
     expect(screen.getByText('Player view mock')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveClass('project-notice-error')
@@ -112,7 +136,7 @@ describe('App wiring coverage', () => {
   })
 
   it('renders without a project notice', () => {
-    mocks.app.projectWarning = null
+    mocks.project.projectWarning = null
     render(<App />)
     expect(screen.queryByRole('alert')).toBeNull()
   })

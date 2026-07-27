@@ -4,8 +4,13 @@ import {
   prepareReturnWorklet,
   type WorkletFactory
 } from './return-worklet-processor'
-import type { AetherformReverbModule, ReturnModuleProcessor } from './return-effects'
+import type { ReturnModuleProcessor } from './return-effects'
 import type { AetherformReverbState } from './aetherform-reverb-types'
+import type { AetherformReverbModule } from './return-effects/aetherform-reverb'
+import {
+  AETHERFORM_CLEAR_TAIL,
+  aetherformReverbStateMessage
+} from './return-effects/aetherform-reverb-protocol'
 
 const PROCESSOR_NAME = 'aetherform-reverb-processor'
 
@@ -54,8 +59,9 @@ export function createAetherformReverbProcessor(
     url: aetherformReverbProcessorUrl,
     type: 'aetherform-reverb',
     toState,
+    createStateMessage: aetherformReverbStateMessage,
     commands: {
-      clearTail: (port) => port.postMessage({ type: 'clear-tail' })
+      clearTail: (port) => port.postMessage(AETHERFORM_CLEAR_TAIL)
     }
   }, createNode)
 }

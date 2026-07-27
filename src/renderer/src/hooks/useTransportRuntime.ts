@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BackendAPI, FolderRef } from '../../../shared/backend-api'
 import { type Transport, type TransportState, createTransport, TICKS_PER_BEAT } from '../engine/transport'
-import { PlaybackEngine, type PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
+import { PlaybackEngine } from '../engine/playback-engine'
 import type { EngineLane } from '../engine/lane-evaluation'
 import { useSyncedRef } from './useSyncedRef'
 import { createValueStore, type ValueStore } from '../lib/value-store'
@@ -25,7 +25,6 @@ interface UseTransportRuntimeParams {
   sampleFolder: FolderRef | null
   active: boolean
   getLanes: () => EngineLane[]
-  getProjectGraphSnapshot: () => PlaybackProjectGraphSnapshot
   songEndTick: number
   initialBpm: number
   initialMasterGain: number
@@ -34,6 +33,8 @@ interface UseTransportRuntimeParams {
 
 export interface TransportRuntime {
   playbackEngineRef: React.RefObject<PlaybackEngine | null>
+  /** Changes whenever the runtime exposes a newly created playback module. */
+  playbackEngineRevision: number
   transportState: RuntimeTransportState
   /** Playhead tick, written at the 10 Hz poll cadence. A store (not React
    *  state) so a tick advance re-renders only subscribed leaves, never the
@@ -69,7 +70,6 @@ export function useTransportRuntime({
   sampleFolder,
   active,
   getLanes,
-  getProjectGraphSnapshot,
   songEndTick,
   initialBpm,
   initialMasterGain,
@@ -78,6 +78,7 @@ export function useTransportRuntime({
   const transportRef = useRef<Transport | null>(null)
   const playbackEngineRef = useRef<PlaybackEngine | null>(null)
   const [transportState, setTransportState] = useState<RuntimeTransportState>('stopped')
+  const [playbackEngineRevision, setPlaybackEngineRevision] = useState(0)
   const [bpm, setBpmState] = useState(initialBpm)
   const [masterGain, setMasterGainState] = useState(initialMasterGain)
   const initialFades = initialClipEdgeMicroFades ?? DEFAULT_CLIP_EDGE_MICRO_FADES
@@ -90,7 +91,6 @@ export function useTransportRuntime({
   const songEndTickRef = useSyncedRef(songEndTick)
   const activeRef = useSyncedRef(active)
   const getLanesRef = useSyncedRef(getLanes)
-  const projectGraphSnapshotRef = useSyncedRef(getProjectGraphSnapshot)
   const bpmRef = useRef(initialBpm)
   const masterGainRef = useRef(initialMasterGain)
   const clipEdgeMicroFadesRef = useRef(initialFades)
@@ -203,9 +203,9 @@ export function useTransportRuntime({
       clipEdgeMicroFades: clipEdgeMicroFadesRef.current
     })
     playbackEngine.setMasterGain(masterGainRef.current)
-    playbackEngine.applyProjectGraphSnapshot(projectGraphSnapshotRef.current())
     transportRef.current = transport
     playbackEngineRef.current = playbackEngine
+    setPlaybackEngineRevision((revision) => revision + 1)
     commitTransportState(transport.state)
 
     const meterTimer = window.setInterval(() => {
@@ -233,7 +233,7 @@ export function useTransportRuntime({
       tickStore.set(0)
       masterMeterStore.set(emptyMasterMeterSnapshot())
     }
-  }, [active, backendAPI, sampleFolder, getLanesRef, projectGraphSnapshotRef, tickStore, masterMeterStore, songEndTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState, stopAndReset])
+  }, [active, backendAPI, sampleFolder, getLanesRef, tickStore, masterMeterStore, songEndTickRef, resetElapsedTimer, cancelPendingStart, commitTransportState, stopAndReset])
 
   const transportPlay = useCallback(() => {
     if (!activeRef.current) return
@@ -318,7 +318,7 @@ export function useTransportRuntime({
     if (transport?.state === 'playing') {
       const tick = playbackEngine.currentTick
       const downbeat = Math.ceil((tick + 1) / TICKS_PER_BEAT) * TICKS_PER_BEAT
-      const when = transport.tickToTime(downbeat, tick, playbackEngine.audioEngine.currentTime)
+      const when = transport.tickToTime(downbeat, tick, playbackEngine.currentAudioTime)
       void playbackEngine.previewSample(samplePath, nativeBPM, when)
     } else {
       void playbackEngine.previewSample(samplePath, nativeBPM)
@@ -380,6 +380,7 @@ export function useTransportRuntime({
 
   return {
     playbackEngineRef,
+    playbackEngineRevision,
     transportState,
     tickStore,
     bpm,

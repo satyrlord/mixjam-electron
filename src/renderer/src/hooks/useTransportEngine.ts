@@ -154,14 +154,20 @@ export function useTransportEngine(
     createDefaultProjectEditState(),
     UNDO_HISTORY_LIMIT
   )
-  const { lanes, fxBuses, masterBus } = projectHistory.current
+  const projectEditState = projectHistory.current
+  const { lanes, fxBuses, masterBus } = projectEditState
   const songEndTick = useMemo(() => deriveSongEndTick(lanes), [lanes])
+  const projectGraphSnapshot = useMemo(
+    () => toPlaybackProjectGraphSnapshot(projectEditState),
+    [projectEditState]
+  )
+  const pendingGraphModeRef = useRef<'reconcile' | 'replace-project'>('reconcile')
+  const appliedGraphRef = useRef<{
+    engine: PlaybackEngine | null
+    snapshot: typeof projectGraphSnapshot | null
+  }>({ engine: null, snapshot: null })
   const getEngineLanes = useCallback(
     () => toEngineLanes(projectHistory.currentRef.current.lanes),
-    [projectHistory.currentRef]
-  )
-  const getProjectGraphSnapshot = useCallback(
-    () => toPlaybackProjectGraphSnapshot(projectHistory.currentRef.current),
     [projectHistory.currentRef]
   )
   const runtime = useTransportRuntime({
@@ -169,7 +175,6 @@ export function useTransportEngine(
     sampleFolder,
     active: view === 'player',
     getLanes: getEngineLanes,
-    getProjectGraphSnapshot,
     songEndTick,
     initialBpm: defaultSong.bpm,
     initialMasterGain: defaultSong.masterGain,
@@ -177,6 +182,7 @@ export function useTransportEngine(
   })
   const {
     playbackEngineRef,
+    playbackEngineRevision,
     transportState,
     tickStore,
     bpm,
@@ -201,45 +207,30 @@ export function useTransportEngine(
     setMasterBusMetersActive
   } = runtime
 
-  const { pushEdit, undo, redo, setCurrent, reset } = projectHistory
-  const mixerGestureStartRef = useRef<ProjectEditState | null>(null)
+  const {
+    pushEdit,
+    beginGroup: beginMixerGesture,
+    applyGroupedEdit: applyMixerEdit,
+    commitGroup: commitMixerGesture,
+    synchronize,
+    undo: handleUndo,
+    redo: handleRedo,
+    reset
+  } = projectHistory
 
-  const beginMixerGesture = useCallback(() => {
-    mixerGestureStartRef.current ??= projectHistory.currentRef.current
-  }, [projectHistory.currentRef])
-
-  const commitMixerGesture = useCallback(() => {
-    const start = mixerGestureStartRef.current
-    if (!start) return
-    mixerGestureStartRef.current = null
-    const final = projectHistory.currentRef.current
-    if (final === start) return
-    // useUndoHistory records the value present when pushEdit starts. Restore
-    // that reference synchronously, then publish the gesture's final snapshot
-    // as one command without exposing the restore to a React render.
-    setCurrent(start)
-    pushEdit(() => final)
-  }, [projectHistory.currentRef, pushEdit, setCurrent])
-
-  const applyMixerEdit = useCallback((edit: (current: ProjectEditState) => ProjectEditState) => {
-    if (mixerGestureStartRef.current) {
-      const current = projectHistory.currentRef.current
-      const next = edit(current)
-      if (next !== current) setCurrent(next)
-      return
-    }
-    pushEdit(edit)
-  }, [projectHistory.currentRef, pushEdit, setCurrent])
-
-  const handleUndo = useCallback(() => {
-    commitMixerGesture()
-    undo()
-  }, [commitMixerGesture, undo])
-
-  const handleRedo = useCallback(() => {
-    commitMixerGesture()
-    redo()
-  }, [commitMixerGesture, redo])
+  // This is the sole renderer owner for graph application. Runtime creates and
+  // replaces playback modules; project edits supply one complete snapshot.
+  useEffect(() => {
+    if (view !== 'player') return
+    const engine = playbackEngineRef.current
+    if (!engine) return
+    const mode = pendingGraphModeRef.current
+    const applied = appliedGraphRef.current
+    if (mode === 'reconcile' && applied.engine === engine && applied.snapshot === projectGraphSnapshot) return
+    engine.applyProjectGraphSnapshot(projectGraphSnapshot, mode)
+    pendingGraphModeRef.current = 'reconcile'
+    appliedGraphRef.current = { engine, snapshot: projectGraphSnapshot }
+  }, [playbackEngineRef, playbackEngineRevision, projectGraphSnapshot, view])
 
   const song = useMemo<ProjectSongState>(() => ({
     bpm,
@@ -248,16 +239,12 @@ export function useTransportEngine(
   }), [bpm, clipEdgeMicroFades, masterGain])
 
   const replaceProjectState = useCallback((state: ProjectState) => {
-    mixerGestureStartRef.current = null
     transportStop()
     const editState = projectEditStateFromProject(state)
+    pendingGraphModeRef.current = 'replace-project'
     reset(editState)
     replaceSongState(state.song)
-    playbackEngineRef.current?.applyProjectGraphSnapshot(
-      toPlaybackProjectGraphSnapshot(editState),
-      'replace-project'
-    )
-  }, [playbackEngineRef, replaceSongState, reset, transportStop])
+  }, [replaceSongState, reset, transportStop])
 
   const placeSampleDetailOnLane = useCallback(
     (detail: FooterSampleDetail, laneIndex: number, startTick: number) => {
@@ -285,10 +272,11 @@ export function useTransportEngine(
   )
 
   const handleResolvePendingPlacementBpms = useCallback((sampleBpms: ReadonlyMap<string, number>) => {
-    const current = projectHistory.currentRef.current
-    const lanes = resolvePendingPlacementBpms(current.lanes, sampleBpms)
-    if (lanes !== current.lanes) setCurrent({ ...current, lanes })
-  }, [projectHistory.currentRef, setCurrent])
+    synchronize((current) => {
+      const lanes = resolvePendingPlacementBpms(current.lanes, sampleBpms)
+      return lanes === current.lanes ? current : { ...current, lanes }
+    })
+  }, [synchronize])
 
   const handleToggleLaneMute = useCallback((laneIndex: number) => {
     applyMixerEdit((current) => ({ ...current, lanes: toggleLaneMute(current.lanes, laneIndex) }))
@@ -391,13 +379,6 @@ export function useTransportEngine(
   const handleApplyMasterBusPreset = useCallback((name: MasterBusPresetName) => {
     applyMixerEdit((current) => ({ ...current, masterBus: applyMasterBusPreset(current.masterBus, name) }))
   }, [applyMixerEdit])
-
-  // Live strip edits (including undo/redo restores) reconcile into the
-  // running audio graph; the worklet crossfades topology changes and
-  // smooths parameter moves. Project replacement snaps separately.
-  useEffect(() => {
-    playbackEngineRef.current?.applyMasterBusState(masterBus, 'reconcile')
-  }, [masterBus, playbackEngineRef])
 
   const handleRenameLane = useCallback(
     (laneIndex: number, name: string) => {

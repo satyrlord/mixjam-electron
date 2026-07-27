@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
+  LibrarySyncState,
   MixJamGeneratorParameters,
   MixJamGeneratorProgress,
   MixJamGeneratorReadiness
 } from '../../../shared/backend-api'
-import type { AppState } from './useAppState'
 import type { GeneratorResult } from '../components/MixJamGeneratorDialog'
 import { materializeGeneratedProject } from '../project/generated-project'
 import { SAFE_SEED } from '../../../shared/backend-api'
 import { persistedGeneratorParameters } from '../project/generator-support'
+import type { ProjectData, ProjectGeneratorMetadata } from '../project/project-file'
 
 export type MixJamGeneratorMode = 'new' | 'regenerate-exact'
 
@@ -41,11 +42,26 @@ export interface UseMixJamGeneratorResult {
   onOpenResult: (path: string) => Promise<void>
 }
 
+export interface MixJamGeneratorHost {
+  bpm: number
+  librarySyncState: LibrarySyncState
+  projectGenerator: ProjectGeneratorMetadata | null
+  saveGeneratedProject: (project: ProjectData, basename: string) => Promise<string | null>
+  openProjectPath: (projectRelpath: string) => Promise<boolean>
+}
+
 export function useMixJamGenerator(
-  app: AppState,
+  host: MixJamGeneratorHost,
   backendAPI: typeof window.backendAPI,
   resolvedSampleFolder: { id: string; name: string } | null
 ): UseMixJamGeneratorResult {
+  const {
+    bpm: hostBpm,
+    librarySyncState,
+    projectGenerator,
+    saveGeneratedProject,
+    openProjectPath
+  } = host
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<MixJamGeneratorMode>('new')
   const [readiness, setReadiness] = useState<MixJamGeneratorReadiness | null>(null)
@@ -76,9 +92,8 @@ export function useMixJamGenerator(
   }, [])
 
   const storedGeneratorParameters = useCallback((): MixJamGeneratorParameters | null => {
-    const generator = app.projectGenerator
-    return generator ? persistedGeneratorParameters(generator) : null
-  }, [app.projectGenerator])
+    return projectGenerator ? persistedGeneratorParameters(projectGenerator) : null
+  }, [projectGenerator])
 
   const resetState = useCallback((modeValue: MixJamGeneratorMode, params: MixJamGeneratorParameters | undefined) => {
     setMode(modeValue)
@@ -144,17 +159,17 @@ export function useMixJamGenerator(
     setReadiness({
       status: 'ready',
       analysisState: 'resolved',
-      detectedBpm: parameters.bpm ?? app.bpm,
+      detectedBpm: parameters.bpm ?? hostBpm,
       eligibleSamples: 0,
       tempoClusters: [{
         relpathPrefix: parameters.tempoClusterPrefix ?? '',
         sampleCount: 0,
-        bpm: parameters.bpm ?? app.bpm,
+        bpm: parameters.bpm ?? hostBpm,
         musicalKey: null,
         confidence: 1
       }]
     })
-  }, [app.bpm, resetState, storedGeneratorParameters])
+  }, [hostBpm, resetState, storedGeneratorParameters])
 
   const openRegenerateCurrent = useCallback(() => {
     const parameters = storedGeneratorParameters()
@@ -187,12 +202,12 @@ export function useMixJamGenerator(
     updateRunState({ status: 'planning', jobId })
     try {
       const expectedFingerprint = mode === 'regenerate-exact'
-        ? app.projectGenerator?.corpusFingerprint
+        ? projectGenerator?.corpusFingerprint
         : undefined
       const plan = await backendAPI.planMixJam(resolvedSampleFolder, jobId, parameters, expectedFingerprint)
       if (!ownsRun(jobId)) return
       updateRunState({ status: 'saving', jobId })
-      const path = await app.saveGeneratedProject(
+      const path = await saveGeneratedProject(
         materializeGeneratedProject(plan),
         `${plan.profileId}-${plan.parameters.resolvedBpm}bpm-${plan.parameters.intensity}-${await seedDigest(plan.seed)}`
       )
@@ -219,7 +234,7 @@ export function useMixJamGenerator(
     } finally {
       if (ownsRun(jobId)) updateRunState({ status: 'idle' })
     }
-  }, [app, backendAPI, mode, ownsRun, resolvedSampleFolder, updateRunState])
+  }, [backendAPI, mode, ownsRun, projectGenerator, resolvedSampleFolder, saveGeneratedProject, updateRunState])
 
   useEffect(() => backendAPI.onGeneratorProgress((next) => {
     const current = runStateRef.current
@@ -236,7 +251,7 @@ export function useMixJamGenerator(
       return
     }
     requestReadiness(resolvedSampleFolder)
-  }, [app.librarySyncState.status, requestReadiness, resolvedSampleFolder])
+  }, [librarySyncState.status, requestReadiness, resolvedSampleFolder])
 
   const onGenerate = useCallback((parameters: MixJamGeneratorParameters) => {
     void runGenerate(parameters)
@@ -244,8 +259,8 @@ export function useMixJamGenerator(
 
   const onOpenResult = useCallback(async (path: string) => {
     setOpen(false)
-    await app.openProjectPath(path)
-  }, [app])
+    await openProjectPath(path)
+  }, [openProjectPath])
 
   useEffect(() => {
     if (!open || mode !== 'regenerate-exact' || !initialParameters ||

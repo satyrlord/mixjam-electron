@@ -8,8 +8,7 @@ import type {
   MixJamGeneratorReadiness
 } from '../../../shared/backend-api'
 import { createBackendAPI, TEST_SAMPLE_FOLDER } from '../test/backendApi'
-import type { AppState } from './useAppState'
-import { useMixJamGenerator } from './useMixJamGenerator'
+import { useMixJamGenerator, type MixJamGeneratorHost } from './useMixJamGenerator'
 
 const PARAMETERS: MixJamGeneratorParameters = {
   profileId: 'techno',
@@ -84,7 +83,7 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function appState(overrides: Partial<AppState> = {}): AppState {
+function appState(overrides: Partial<MixJamGeneratorHost> = {}): MixJamGeneratorHost {
   return {
     bpm: 140,
     librarySyncState: {
@@ -96,7 +95,7 @@ function appState(overrides: Partial<AppState> = {}): AppState {
     saveGeneratedProject: vi.fn(),
     openProjectPath: vi.fn(),
     ...overrides
-  } as unknown as AppState
+  }
 }
 
 describe('useMixJamGenerator', () => {

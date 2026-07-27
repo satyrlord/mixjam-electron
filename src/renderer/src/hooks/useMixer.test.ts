@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlaybackEngine, PlaybackReturnSnapshot } from '../engine/playback-engine'
-import { createDefaultLanes, type LaneState } from '../project/project-state'
+import { createDefaultLanes } from '../project/project-state'
 import { createEmptyReturnModule } from '../engine/return-effects'
 import { createDefaultFxBuses } from '../project/project-state'
 import { useMixer } from './useMixer'
@@ -42,25 +42,12 @@ describe('useMixer', () => {
     vi.restoreAllMocks()
   })
 
-  it('applies lane-derived channels and four default Returns only in Player view', () => {
+  it('derives telemetry channels without mutating the project graph', () => {
     const engine = engineStub()
     const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
     const lanes = createDefaultLanes().slice(0, 2)
-    const { rerender } = renderHook(
-      ({ view, snapshot }: { view: string; snapshot: LaneState[] }) =>
-        useMixer(playbackEngineRef, view, snapshot, createDefaultFxBuses()),
-      { initialProps: { view: 'home', snapshot: lanes } }
-    )
+    renderHook(() => useMixer(playbackEngineRef, lanes, createDefaultFxBuses()))
     expect(engine.applyProjectGraphSnapshot).not.toHaveBeenCalled()
-
-    rerender({ view: 'player', snapshot: lanes })
-    expect(engine.applyProjectGraphSnapshot).toHaveBeenLastCalledWith({
-      channels: expect.arrayContaining([expect.objectContaining({ channelIndex: 0 })]),
-      returns: expect.arrayContaining([
-        expect.objectContaining({ index: 0 }),
-        expect.objectContaining({ index: 3 })
-      ])
-    })
   })
 
   it('derives and previews Return snapshots without aliasing modules', () => {
@@ -68,7 +55,7 @@ describe('useMixer', () => {
     const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
     const fxBuses = createDefaultFxBuses()
     fxBuses.forEach((bus) => { bus.returnLevel = 0.5 })
-    const { result } = renderHook(() => useMixer(playbackEngineRef, 'player', [], fxBuses))
+    const { result } = renderHook(() => useMixer(playbackEngineRef, [], fxBuses))
     expect(result.current.returnBuses.every((bus) => bus.returnLevel === 0.5)).toBe(true)
     expect(result.current.returnBuses[0].module).not.toBe(fxBuses[0].module)
 
@@ -91,7 +78,6 @@ describe('useMixer', () => {
     const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
     const { result, unmount } = renderHook(() => useMixer(
       playbackEngineRef,
-      'player',
       createDefaultLanes().slice(0, 1),
       createDefaultFxBuses()
     ))
@@ -124,7 +110,6 @@ describe('useMixer', () => {
     const playbackEngineRef = { current: engine as unknown as PlaybackEngine }
     const { result } = renderHook(() => useMixer(
       playbackEngineRef,
-      'player',
       createDefaultLanes().slice(0, 1),
       createDefaultFxBuses()
     ))
@@ -143,15 +128,11 @@ describe('useMixer', () => {
     expect(result.current.channelMetersStore.get().peaks.get(0)).toBeCloseTo(-6, 5)
   })
 
-  it('handles missing engines, missing analysers, silence decay, and storage failure', () => {
-    const remove = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
-      throw new Error('storage unavailable')
-    })
+  it('handles missing engines, missing analysers, and silence decay', () => {
     const playbackEngineRef = { current: null as PlaybackEngine | null }
     const lanes = createDefaultLanes().slice(0, 1)
     const { result } = renderHook(() => useMixer(
       playbackEngineRef,
-      'player',
       lanes,
       createDefaultFxBuses()
     ))
@@ -180,6 +161,5 @@ describe('useMixer', () => {
     act(() => callbacks.shift()!(300))
     expect(result.current.channelMetersStore.get().levels.get(0)).toBe(-100)
     expect(result.current.channelMetersStore.get().peaks.get(0)).toBe(-100)
-    expect(remove).toHaveBeenCalledWith('mixjam-mixer-channels')
   })
 })

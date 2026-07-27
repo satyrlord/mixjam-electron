@@ -30,6 +30,7 @@ interface EffectHarnessWindow extends Window {
 
 async function installEffectHarness(page: Page): Promise<void> {
   const runtimePath = resolve(process.cwd(), 'src/renderer/src/hooks/useTransportRuntime.ts').replaceAll('\\', '/')
+  const projectStatePath = resolve(process.cwd(), 'src/renderer/src/project/project-state.ts').replaceAll('\\', '/')
   const valueStorePath = resolve(process.cwd(), 'src/renderer/src/lib/value-store.ts').replaceAll('\\', '/')
   const result = await build({
     configFile: false,
@@ -45,6 +46,7 @@ async function installEffectHarness(page: Page): Promise<void> {
           import React, { useEffect } from 'react'
           import { createRoot } from 'react-dom/client'
           import { useTransportRuntime } from ${JSON.stringify(runtimePath)}
+          import { createDefaultMasterBusState } from ${JSON.stringify(projectStatePath)}
           import { useStoreValue } from ${JSON.stringify(valueStorePath)}
 
           let root = null
@@ -71,7 +73,8 @@ async function installEffectHarness(page: Page): Promise<void> {
                 laneId: 'lane-0', channelIndex: 0, gain: 1, pan: 0,
                 muted: false, solo: false, sends: [1, 0, 0, 0]
               }],
-              returns: [returnBus]
+              returns: [returnBus],
+              masterBus: createDefaultMasterBusState()
             })
             const sampleFolder = { id: 'test-samples', name: 'Test Samples' }
 
@@ -81,13 +84,18 @@ async function installEffectHarness(page: Page): Promise<void> {
                 sampleFolder,
                 active: true,
                 getLanes,
-                getProjectGraphSnapshot,
                 songEndTick,
                 initialBpm: 240,
                 initialMasterGain: 1
               })
               window.mixjamTransportHarness = runtime
               const currentTick = useStoreValue(runtime.tickStore)
+              useEffect(() => {
+                runtime.playbackEngineRef.current?.applyProjectGraphSnapshot(
+                  getProjectGraphSnapshot(),
+                  'replace-project'
+                )
+              }, [runtime.playbackEngineRevision])
               useEffect(() => {
                 window.mixjamTransportStateHistory.push(runtime.transportState)
               }, [runtime.transportState])

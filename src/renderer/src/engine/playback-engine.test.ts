@@ -6,6 +6,7 @@ import { MockAudioContext, MockBufferSourceNode, createMockContext } from '../te
 import type { ClipEdgeMicroFadeSettings } from './clip-edge-fades'
 import type { ClipEdgeBoundaryPolicy } from './clip-edge-boundary-policy'
 import { createEmptyReturnModule } from './return-effects'
+import { defaultMasterBusState } from './masterbus/presets'
 
 function mockClock(): SchedulerClock & { fire: () => void } {
   let pending: (() => void) | null = null
@@ -62,6 +63,7 @@ describe('PlaybackEngine deferred graph hydration', () => {
     })
     playbackEngine.applyProjectGraphSnapshot({
       channels: [],
+      masterBus: defaultMasterBusState(),
       returns: Array.from({ length: 4 }, (_, index) => ({
         index,
         module: createEmptyReturnModule(`fx-${index + 1}`),

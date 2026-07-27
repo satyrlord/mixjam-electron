@@ -13,8 +13,8 @@ import {
 import { analysisOwnsAnyFieldSql } from './analysis-provenance'
 import { contextKeyContainsRelpath } from './context-key'
 import { SCAN_STATE, SCAN_STATE_PRESENT_SQL, SCAN_STATE_READY_SQL } from './scan-state'
-import { labeledPoolToken } from './contextual-analysis'
-import { compareCodeUnits } from './generator-planning-core'
+import { labeledPoolToken } from './filename-evidence'
+import { compareCodeUnits } from './generator-determinism'
 import { ANALYSIS_REVISION, METADATA_REVISION } from './schema'
 import type { DB } from './sql'
 

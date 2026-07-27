@@ -18,6 +18,16 @@ const USER_FOLDER: FolderRef = { id: 'user-folder', name: 'MixJam' }
 const SAMPLE_FOLDER: FolderRef = { id: 'sample-folder', name: 'Samples' }
 const CREATED_AT = '2026-07-13T10:00:00.000Z'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 function makeProject(bpm = 128, masterGain = 0.67): ProjectData {
   const lanes = createDefaultLanes()
   lanes[0] = {
@@ -58,7 +68,6 @@ function projectText(project: ProjectData): string {
 
 function useHarness(
   api: ReturnType<typeof createBackendAPI>,
-  reloadMixJamFiles: () => Promise<void> = async () => undefined,
   userFolder: FolderRef | null = USER_FOLDER,
   sampleFolder: FolderRef | null = SAMPLE_FOLDER
 ) {
@@ -68,8 +77,7 @@ function useHarness(
     userFolder,
     sampleFolder,
     project: activeProject,
-    replaceProject: setActiveProject,
-    reloadMixJamFiles
+    replaceProject: setActiveProject
   })
 
   return {
@@ -92,6 +100,105 @@ describe('useProjectPersistence', () => {
 
   beforeEach(() => {
     api = createBackendAPI()
+  })
+
+  it('owns the app version and User Folder project catalog', async () => {
+    const { result } = renderHook(() => useHarness(api))
+
+    await waitFor(() => expect(result.current.project.version).toBe('v0.test.0'))
+    await waitFor(() => expect(result.current.project.mixJamFiles).toHaveLength(2))
+    expect(api.loadMixJamFiles).toHaveBeenCalledWith(USER_FOLDER)
+  })
+
+  it('ignores a stale catalog result after the User Folder changes', async () => {
+    const oldFolder: FolderRef = { id: 'old-user-folder', name: 'Old MixJam' }
+    const newFolder: FolderRef = { id: 'new-user-folder', name: 'New MixJam' }
+    const oldRequest = deferred<Awaited<ReturnType<typeof api.loadMixJamFiles>>>()
+    const newRequest = deferred<Awaited<ReturnType<typeof api.loadMixJamFiles>>>()
+    vi.mocked(api.loadMixJamFiles)
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise)
+    const { result, rerender } = renderHook(
+      ({ userFolder }) => useHarness(api, userFolder),
+      { initialProps: { userFolder: oldFolder } }
+    )
+    await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledWith(oldFolder))
+
+    rerender({ userFolder: newFolder })
+    await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledWith(newFolder))
+    await act(async () => {
+      newRequest.resolve([{ path: 'new.mixjam', displayName: 'new', lastOpened: null }])
+      await newRequest.promise
+    })
+    expect(result.current.project.mixJamFiles.map((item) => item.path)).toEqual(['new.mixjam'])
+
+    await act(async () => {
+      oldRequest.resolve([{ path: 'old.mixjam', displayName: 'old', lastOpened: null }])
+      await oldRequest.promise
+    })
+    expect(result.current.project.mixJamFiles.map((item) => item.path)).toEqual(['new.mixjam'])
+  })
+
+  it('ignores a stale catalog failure after the User Folder changes', async () => {
+    const oldFolder: FolderRef = { id: 'old-user-folder', name: 'Old MixJam' }
+    const newFolder: FolderRef = { id: 'new-user-folder', name: 'New MixJam' }
+    const oldRequest = deferred<Awaited<ReturnType<typeof api.loadMixJamFiles>>>()
+    const newRequest = deferred<Awaited<ReturnType<typeof api.loadMixJamFiles>>>()
+    vi.mocked(api.loadMixJamFiles)
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      const { result, rerender } = renderHook(
+        ({ userFolder }) => useHarness(api, userFolder),
+        { initialProps: { userFolder: oldFolder } }
+      )
+      await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledWith(oldFolder))
+
+      rerender({ userFolder: newFolder })
+      await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledWith(newFolder))
+      await act(async () => {
+        newRequest.resolve([{ path: 'new.mixjam', displayName: 'new', lastOpened: null }])
+        await newRequest.promise
+      })
+      await act(async () => {
+        oldRequest.reject(new Error('old folder unavailable'))
+        await oldRequest.promise.catch(() => undefined)
+      })
+
+      expect(result.current.project.mixJamFiles.map((item) => item.path)).toEqual(['new.mixjam'])
+      expect(errorSpy).not.toHaveBeenCalled()
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('ignores an older overlapping catalog refresh for the same User Folder', async () => {
+    const { result } = renderHook(() => useHarness(api))
+    await waitFor(() => expect(result.current.project.mixJamFiles).toHaveLength(2))
+    const oldRequest = deferred<Awaited<ReturnType<typeof api.loadMixJamFiles>>>()
+    const newRequest = deferred<Awaited<ReturnType<typeof api.loadMixJamFiles>>>()
+    vi.mocked(api.loadMixJamFiles)
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise)
+
+    let oldRefresh!: Promise<void>
+    let newRefresh!: Promise<void>
+    act(() => { oldRefresh = result.current.project.reloadMixJamFiles() })
+    await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledTimes(2))
+    act(() => { newRefresh = result.current.project.reloadMixJamFiles() })
+    await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledTimes(3))
+
+    await act(async () => {
+      newRequest.resolve([{ path: 'new.mixjam', displayName: 'new', lastOpened: null }])
+      await newRefresh
+    })
+    await act(async () => {
+      oldRequest.resolve([{ path: 'old.mixjam', displayName: 'old', lastOpened: null }])
+      await oldRefresh
+    })
+
+    expect(result.current.project.mixJamFiles.map((item) => item.path)).toEqual(['new.mixjam'])
   })
 
   it('saves a generated project as a new artifact without replacing the loaded project', async () => {
@@ -134,30 +241,32 @@ describe('useProjectPersistence', () => {
 
   it('returns the committed generated path when the project-list refresh fails', async () => {
     vi.mocked(api.createGeneratedMixJamFile).mockResolvedValue({ path: 'techno-seed-001.mixjam', contents: '{}' })
-    const reloadMixJamFiles = vi.fn().mockRejectedValueOnce(new Error('refresh failed'))
-    const { result } = renderHook(() => useHarness(api, reloadMixJamFiles))
+    const { result } = renderHook(() => useHarness(api))
+    await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledOnce())
+    vi.mocked(api.loadMixJamFiles).mockRejectedValueOnce(new Error('refresh failed'))
 
     let path: string | null = 'not-run'
     await act(async () => { path = await result.current.project.saveGeneratedProject(makeProject(), 'techno-seed') })
 
     expect(path).toBe('techno-seed-001.mixjam')
     expect(api.recordRecentProject).toHaveBeenCalledWith('techno-seed-001.mixjam')
-    expect(reloadMixJamFiles).toHaveBeenCalledOnce()
+    expect(api.loadMixJamFiles).toHaveBeenCalledTimes(2)
     expect(result.current.project.projectError).toBeNull()
     expect(result.current.project.projectWarning).toContain('could not refresh the project list')
   })
 
   it('reports a pre-commit generated-file failure and does not run post-commit updates', async () => {
     vi.mocked(api.createGeneratedMixJamFile).mockRejectedValueOnce(new Error('write failed'))
-    const reloadMixJamFiles = vi.fn().mockResolvedValue(undefined)
-    const { result } = renderHook(() => useHarness(api, reloadMixJamFiles))
+    const { result } = renderHook(() => useHarness(api))
+    await waitFor(() => expect(api.loadMixJamFiles).toHaveBeenCalledOnce())
+    vi.mocked(api.loadMixJamFiles).mockClear()
 
     let path: string | null = 'not-run'
     await act(async () => { path = await result.current.project.saveGeneratedProject(makeProject(), 'techno-seed') })
 
     expect(path).toBeNull()
     expect(api.recordRecentProject).not.toHaveBeenCalled()
-    expect(reloadMixJamFiles).not.toHaveBeenCalled()
+    expect(api.loadMixJamFiles).not.toHaveBeenCalled()
     expect(result.current.project.projectError).toBe('write failed')
     expect(result.current.project.projectWarning).toBeNull()
   })
@@ -256,7 +365,7 @@ describe('useProjectPersistence', () => {
       path: 'sets/returns.mixjam',
       contents: projectText(loaded)
     })
-    const { result } = renderHook(() => useHarness(api, undefined, USER_FOLDER, SAMPLE_FOLDER))
+    const { result } = renderHook(() => useHarness(api, USER_FOLDER, SAMPLE_FOLDER))
 
     await act(async () => { await result.current.project.openProjectPath('sets/returns.mixjam') })
     expect(result.current.fxBuses[0].returnLevel).toBe(0.45)
@@ -414,7 +523,7 @@ describe('useProjectPersistence', () => {
   })
 
   it('reports missing folder requirements and a cancelled picker', async () => {
-    const noFolders = renderHook(() => useHarness(api, undefined, null, null))
+    const noFolders = renderHook(() => useHarness(api, null, null))
 
     await act(async () => {
       expect(await noFolders.result.current.project.openProjectPicker()).toBe(false)

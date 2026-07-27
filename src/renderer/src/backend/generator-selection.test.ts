@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MixJamGeneratorSectionPlan, SampleType } from '../../../shared/backend-api'
 import type { GeneratorArcProfile, GeneratorProfile } from '../../../shared/generator-templates'
-import type { PlanningCandidate, Selection } from './generator-planning-core'
+import type { PlanningCandidate, Selection } from './generator-selection'
 import {
   applyKitCoherence,
   familyRatioOf,

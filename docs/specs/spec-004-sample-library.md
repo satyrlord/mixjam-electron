@@ -104,6 +104,8 @@ and user-defined organization. Libraries are saved queries, not file copies.
   cancel actions. `useLibraryData` owns browse queries and mutations. Home,
   Middle Strip, and status controls derive shared capabilities from
   `lib/library-sync-presentation.ts` while keeping view-specific copy local.
+  It does not load the app version or scan the User Folder for projects; those
+  are project-persistence and project-catalog responsibilities from spec-011.
 - Contextual sample analysis is part of the single worker-owned analysis job.
   It has no separate command or scan variant; spec-008 owns its inference rules.
 

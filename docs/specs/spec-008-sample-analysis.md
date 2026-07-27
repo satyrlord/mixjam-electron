@@ -251,6 +251,9 @@ short/one-shot-heavy group, and one group whose correct result is unresolved.
 - `backend/contextual-analysis.ts` owns structured path-label parsing, directory
   and SC/SL cohort groups, alias-aware tempo inference, group states, and final
   automatic projections.
+- `backend/filename-evidence.ts` owns the low-level structured filename grammar
+  shared by contextual analysis and generator candidate evidence. It does not
+  assign sample semantics or stereo sides.
 - `backend/analysis-persistence.ts` owns raw evidence, atomic group replacement,
   manual-field protection, and the canonical root/cluster summary.
 - `backend/analysis-runner.ts` owns batch and individual orchestration through
@@ -270,6 +273,7 @@ atomic projection updates, and generator readiness DTOs. Run:
 npm test -- src/renderer/src/backend/analysis.test.ts
 npm test -- src/renderer/src/backend/analysis-library.test.ts
 npm test -- src/renderer/src/backend/analysis-runner.test.ts
+npm test -- src/renderer/src/backend/filename-evidence.test.ts
 npm test -- src/renderer/src/backend/worker-scheduler.test.ts
 npm run typecheck
 npm run lint

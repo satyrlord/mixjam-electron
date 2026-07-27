@@ -2,10 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBackendAPI } from '../test/backendApi'
 import { useTransportRuntime } from './useTransportRuntime'
-import { PlaybackEngine, type PlaybackProjectGraphSnapshot } from '../engine/playback-engine'
-import { createDefaultEchoformDelayReturnModule } from '../engine/return-effects'
-
-const EMPTY_GRAPH: PlaybackProjectGraphSnapshot = { channels: [], returns: [] }
+import { PlaybackEngine } from '../engine/playback-engine'
 
 describe('useTransportRuntime', () => {
   afterEach(() => {
@@ -19,7 +16,6 @@ describe('useTransportRuntime', () => {
       sampleFolder: null,
       active: false,
       getLanes: () => [],
-      getProjectGraphSnapshot: () => EMPTY_GRAPH,
       songEndTick: 0,
       initialBpm: 120,
       initialMasterGain: 0.8
@@ -53,7 +49,6 @@ describe('useTransportRuntime', () => {
         sampleFolder: null,
         active: true,
         getLanes,
-        getProjectGraphSnapshot: () => EMPTY_GRAPH,
         songEndTick: 0,
         initialBpm: 120,
         initialMasterGain: 0.8
@@ -83,7 +78,6 @@ describe('useTransportRuntime', () => {
         sampleFolder: null,
         active: true,
         getLanes,
-        getProjectGraphSnapshot: () => EMPTY_GRAPH,
         songEndTick: 160,
         initialBpm: 120,
         initialMasterGain: 0.8
@@ -117,7 +111,6 @@ describe('useTransportRuntime', () => {
       sampleFolder,
       active: true,
       getLanes,
-      getProjectGraphSnapshot: () => EMPTY_GRAPH,
       songEndTick: 8,
       initialBpm: 120,
       initialMasterGain: 0.8
@@ -128,37 +121,15 @@ describe('useTransportRuntime', () => {
     expect(readSampleBytes).not.toHaveBeenCalled()
   })
 
-  it('hydrates every replacement engine from the complete current project graph', () => {
-    const graph: PlaybackProjectGraphSnapshot = {
-      channels: [{
-        laneId: 'lane-1',
-        channelIndex: 0,
-        gain: 0.37,
-        pan: -0.6,
-        muted: true,
-        solo: false,
-        sends: [0.1, 0.2, 0.3, 0.4]
-      }],
-      returns: [{
-        index: 0,
-        module: createDefaultEchoformDelayReturnModule('fx-1'),
-        powered: false,
-        returnLevel: 0.55,
-        limiterEnabled: false
-      }]
-    }
-    const apply = vi.spyOn(PlaybackEngine.prototype, 'applyProjectGraphSnapshot')
-      .mockImplementation(() => undefined)
+  it('announces every replacement engine to the graph owner', () => {
     const backendAPI = createBackendAPI()
     const getLanes = () => []
-    const getProjectGraphSnapshot = () => graph
-    const { rerender } = renderHook(
+    const { result, rerender } = renderHook(
       ({ sampleFolder }) => useTransportRuntime({
         backendAPI,
         sampleFolder,
         active: true,
         getLanes,
-        getProjectGraphSnapshot,
         songEndTick: 0,
         initialBpm: 120,
         initialMasterGain: 0.8
@@ -166,24 +137,21 @@ describe('useTransportRuntime', () => {
       { initialProps: { sampleFolder: { id: 'samples-a', name: 'Samples A' } } }
     )
 
-    expect(apply).toHaveBeenLastCalledWith(graph)
+    const firstRevision = result.current.playbackEngineRevision
+    expect(firstRevision).toBeGreaterThan(0)
     rerender({ sampleFolder: { id: 'samples-b', name: 'Samples B' } })
-    expect(apply).toHaveBeenCalledTimes(2)
-    expect(apply).toHaveBeenLastCalledWith(graph)
+    expect(result.current.playbackEngineRevision).toBeGreaterThan(firstRevision)
   })
 
-  it('keeps the engine while lane and graph getters receive new closures', () => {
+  it('keeps the engine while the lane getter receives a new closure', () => {
     const backendAPI = createBackendAPI()
     const sampleFolder = { id: 'samples', name: 'Samples' }
-    const apply = vi.spyOn(PlaybackEngine.prototype, 'applyProjectGraphSnapshot')
-      .mockImplementation(() => undefined)
     const { result, rerender } = renderHook(
       ({ generation }) => useTransportRuntime({
         backendAPI,
         sampleFolder,
         active: true,
         getLanes: () => generation === 1 ? [] : [],
-        getProjectGraphSnapshot: () => EMPTY_GRAPH,
         songEndTick: 0,
         initialBpm: 120,
         initialMasterGain: 0.8
@@ -191,11 +159,11 @@ describe('useTransportRuntime', () => {
       { initialProps: { generation: 1 } }
     )
     const engine = result.current.playbackEngineRef.current
-    const applyCount = apply.mock.calls.length
+    const revision = result.current.playbackEngineRevision
 
     rerender({ generation: 2 })
 
     expect(result.current.playbackEngineRef.current).toBe(engine)
-    expect(apply).toHaveBeenCalledTimes(applyCount)
+    expect(result.current.playbackEngineRevision).toBe(revision)
   })
 })

@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBackendAPI, DEFAULT_SAMPLE_ROWS, TEST_SAMPLE_FOLDER, TEST_USER_FOLDER } from '../test/backendApi'
 import { formatTimer } from '../lib/formatTimer'
-import { useAppState } from './useAppState'
+import { useAppState as useGroupedAppState } from './useAppState'
 
 const USER_FOLDER = TEST_USER_FOLDER
 const SAMPLE_FOLDER = TEST_SAMPLE_FOLDER
@@ -10,6 +10,16 @@ const LIBRARY_JOB = {
   rootKey: SAMPLE_FOLDER.id,
   jobId: 'library-job',
   trigger: 'automatic' as const
+}
+
+function useAppState(...args: Parameters<typeof useGroupedAppState>) {
+  const app = useGroupedAppState(...args)
+  return {
+    ...app.library,
+    ...app.transport,
+    ...app.project,
+    ...app.navigation
+  }
 }
 
 describe('useAppState', () => {
@@ -540,8 +550,8 @@ describe('useAppState', () => {
     const { result } = renderHook(() => useAppState(backendAPI, USER_FOLDER, SAMPLE_FOLDER))
 
     act(() => {
-      result.current.setChannelGain(0, 0.45)
-      result.current.setChannelSend(0, 2, 2)
+      result.current.setLaneGain(0, 0.45)
+      result.current.setLaneSend(0, 2, 2)
     })
 
     expect(result.current.lanes[0]!.gain).toBe(0.45)

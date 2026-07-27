@@ -71,7 +71,7 @@ export function prepareReturnWorklet(
   return registration
 }
 
-export interface ReturnWorkletProcessorConfig<M extends ReturnModule> {
+export interface ReturnWorkletProcessorConfig<M extends ReturnModule, S> {
   /** Registered AudioWorkletProcessor name (matches the worklet's registration). */
   readonly name: string
   /** `?worker&url` import for this effect's worklet module. */
@@ -79,7 +79,9 @@ export interface ReturnWorkletProcessorConfig<M extends ReturnModule> {
   /** Serialized module type this processor accepts on update. */
   readonly type: M['type']
   /** Project the host module record to the worklet's transferable state. */
-  readonly toState: (module: M) => unknown
+  readonly toState: (module: M) => S
+  /** Builds the effect-owned message shared with the receiving worklet. */
+  readonly createStateMessage: (state: S, bpm: number) => unknown
   /**
    * Whether the effect reads project tempo. When true, `bpm` is threaded into
    * the initial `processorOptions` and every `state` message; when false (the
@@ -99,11 +101,11 @@ export interface ReturnWorkletProcessorConfig<M extends ReturnModule> {
  * do not read it. When the context has no registered worklet (or node creation
  * throws), returns a zero-latency identity processor so the graph still runs.
  */
-export function createReturnWorkletProcessor<M extends ReturnModule>(
+export function createReturnWorkletProcessor<M extends ReturnModule, S>(
   context: BaseAudioContext,
   module: M,
   bpm: number,
-  config: ReturnWorkletProcessorConfig<M>,
+  config: ReturnWorkletProcessorConfig<M, S>,
   createNode: WorkletFactory = defaultCreateNode
 ): ReturnModuleProcessor {
   const input = context.createGain()
@@ -152,10 +154,7 @@ export function createReturnWorkletProcessor<M extends ReturnModule>(
     ...commands,
     update(next, nextBpm): void {
       if (next.type !== config.type) return
-      const message = tempoAware
-        ? { type: 'state', state: config.toState(next as M), bpm: nextBpm }
-        : { type: 'state', state: config.toState(next as M) }
-      node.port.postMessage(message)
+      node.port.postMessage(config.createStateMessage(config.toState(next as M), nextBpm))
     },
     dispose(): void {
       // Retire the processor BEFORE unwiring, and do not close the port first:

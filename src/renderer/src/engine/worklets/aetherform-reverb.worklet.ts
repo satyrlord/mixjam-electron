@@ -1,13 +1,12 @@
 import { AetherformReverbCore } from '../aetherform-reverb-core'
 import type { AetherformReverbState } from '../aetherform-reverb-types'
 import { registerReturnWorklet } from './return-worklet-class'
+import type {
+  AetherformReverbProcessorOptions,
+  AetherformReverbWorkletMessage
+} from '../return-effects/aetherform-reverb-protocol'
 
-type AetherformReverbWorkletMessage =
-  | { type: 'state'; state: AetherformReverbState }
-  | { type: 'clear-tail' }
-  | { type: 'reset' }
-
-registerReturnWorklet<AetherformReverbState, AetherformReverbCore>({
+registerReturnWorklet<AetherformReverbState, AetherformReverbCore, AetherformReverbProcessorOptions>({
   name: 'aetherform-reverb-processor',
   // A silent or inactive upstream must not cut the tail: the network keeps
   // ringing after input stops, so process silence instead.

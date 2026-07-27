@@ -1725,12 +1725,12 @@ describe('PlayerView', () => {
     expect(document.querySelector('[data-panel="true"]#tracker')).toBeInTheDocument()
   })
 
-  it('AC-002d: a persisted browser width is applied on mount', () => {
+  it('AC-002d: obsolete pixel-width storage does not affect the panel layout', () => {
     localStorage.setItem('mixjam-left-col-w', '200')
     renderPlayer({})
 
     const seam = screen.getByRole('separator', { name: 'Resize MixJam Browser' })
-    expect(Number(seam.getAttribute('aria-valuenow'))).toBeGreaterThan(0)
+    expect(Number(seam.getAttribute('aria-valuenow'))).toBe(18)
   })
 
   it('AC-004: Mixer is a peer tab instead of a reveal toggle', () => {

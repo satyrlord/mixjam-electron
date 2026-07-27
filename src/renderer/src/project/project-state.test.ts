@@ -234,12 +234,5 @@ describe('project state', () => {
     expect(graph.returns[0]!.module).not.toBe(project.fxBuses[0]!.module)
     expect(graph.masterBus).toEqual(project.masterBus)
     expect(graph.masterBus).not.toBe(project.masterBus)
-
-    // Telemetry-only callers reconcile lanes and Returns without a strip record.
-    const partial = toPlaybackProjectGraphSnapshot({
-      lanes: project.lanes,
-      fxBuses: project.fxBuses
-    })
-    expect(partial.masterBus).toBeUndefined()
   })
 })

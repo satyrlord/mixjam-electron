@@ -447,6 +447,10 @@ pan — live in spec-021.
   or acoustic sample type.
 - `backend/generator-engine.ts` owns pure deterministic arc, section, phrase, op,
   placement, gain, and pruning planning from generic template primitives.
+- `backend/generator-selection.ts` owns compatible candidate ranking, family
+  selection, and motif choice. `backend/generator-determinism.ts` owns shared
+  seed hashing, stable ordering, and deterministic sampling. No umbrella
+  planning module re-exports these owners or creates a cycle between them.
 - `backend/generator-parameters.ts` validates the complete request, including a
   registry lookup for `profileId`, before worker I/O. `backend/musical-key.ts`
   owns enharmonic parsing shared by manual analysis validation and generator
@@ -469,6 +473,7 @@ npm test -- src/renderer/src/backend/generator-engine.test.ts
 npm test -- src/renderer/src/backend/generator-analysis.test.ts
 npm test -- src/renderer/src/backend/generator-library.test.ts
 npm test -- src/renderer/src/backend/generator-parameters.test.ts
+npm test -- src/renderer/src/backend/filename-evidence.test.ts
 npm test -- src/renderer/src/project/generated-project.test.ts
 npm test -- src/renderer/src/project/project-file.test.ts
 npm test -- src/renderer/src/hooks/useMixJamGenerator.test.ts
