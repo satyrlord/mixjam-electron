@@ -57,32 +57,42 @@ test('generator saves, opens, plays, and keeps Sample Browser and Tracker colors
   const canvas = page.locator('.lane-sample-bubble-canvas').first()
 
   async function assertPaletteMatch(): Promise<string> {
-    const colors = await sampleBubble.evaluate((element) => {
-      const style = getComputedStyle(element)
-      const slot = /--palette-(\d+)/.exec((element as HTMLElement).style.backgroundColor)?.[1]
-      const token = slot === undefined
-        ? ''
-        : getComputedStyle(document.documentElement).getPropertyValue(`--palette-${slot}`).trim()
-      return { bubble: style.backgroundColor, token, slot }
-    })
-    expect(colors.slot).toBeDefined()
-    const rgb = colors.bubble.match(/\d+/g)?.slice(0, 3).map(Number)
-    expect(rgb).toHaveLength(3)
-    const tokenHex = colors.token.replace('#', '')
-    const tokenRgb = [0, 2, 4].map((offset) => Number.parseInt(tokenHex.slice(offset, offset + 2), 16))
-    expect(rgb).toEqual(tokenRgb)
-    const pixelCount = await canvas.evaluate((element, expected) => {
-      const data = element.getContext('2d')?.getImageData(0, 0, element.width, element.height).data
-      if (!data) return 0
-      let count = 0
-      for (let index = 0; index < data.length; index += 4) {
-        if (data[index] === expected[0] && data[index + 1] === expected[1] &&
-            data[index + 2] === expected[2] && data[index + 3] >= 250) count++
-      }
-      return count
-    }, rgb!)
-    expect(pixelCount).toBeGreaterThan(20)
-    return colors.bubble
+    // Theme switches update CSS custom properties on the root element, then
+    // asynchronously propagate to the bubble's computed style and to the
+    // canvas repaint (via a MutationObserver hop). Poll until both the DOM
+    // color and the canvas pixels agree, instead of asserting on whatever
+    // is present the instant after the theme selection resolves.
+    let rgb: number[] = []
+    await expect(async () => {
+      const colors = await sampleBubble.evaluate((element) => {
+        const style = getComputedStyle(element)
+        const slot = /--palette-(\d+)/.exec((element as HTMLElement).style.backgroundColor)?.[1]
+        const token = slot === undefined
+          ? ''
+          : getComputedStyle(document.documentElement).getPropertyValue(`--palette-${slot}`).trim()
+        return { bubble: style.backgroundColor, token, slot }
+      })
+      expect(colors.slot).toBeDefined()
+      const parsedRgb = colors.bubble.match(/\d+/g)?.slice(0, 3).map(Number)
+      expect(parsedRgb).toHaveLength(3)
+      const tokenHex = colors.token.replace('#', '')
+      const tokenRgb = [0, 2, 4].map((offset) => Number.parseInt(tokenHex.slice(offset, offset + 2), 16))
+      expect(parsedRgb).toEqual(tokenRgb)
+      rgb = parsedRgb!
+
+      const pixelCount = await canvas.evaluate((element, expected) => {
+        const data = element.getContext('2d')?.getImageData(0, 0, element.width, element.height).data
+        if (!data) return 0
+        let count = 0
+        for (let index = 0; index < data.length; index += 4) {
+          if (data[index] === expected[0] && data[index + 1] === expected[1] &&
+              data[index + 2] === expected[2] && data[index + 3] >= 250) count++
+        }
+        return count
+      }, rgb)
+      expect(pixelCount).toBeGreaterThan(20)
+    }).toPass()
+    return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`
   }
 
   const emeraldColor = await assertPaletteMatch()
