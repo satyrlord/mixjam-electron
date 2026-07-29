@@ -3,6 +3,35 @@
 Preserve meaning and intentional voice. Remove prose that makes the next
 reader reconstruct the point or that conflicts with the surrounding document.
 
+The mechanical checks below are what removes slop. The judgment checks that
+follow them need context. A checker cannot certify judgment, and slop is not
+about judgment.
+
+## Mechanical checks
+
+Apply these to documentation, READMEs, pull-request text, error messages,
+release notes, and comments. Do not apply them to code, identifiers, or command
+syntax. See the writing-style rules in [AGENTS.md](../../../AGENTS.md) for the
+full standard.
+
+- Sentences over 20 words in an instruction, or over 25 in description
+- Semicolons where two sentences read better
+- Contractions
+- Passive voice where the actor is known
+- An "-ing" main verb where a simple tense works
+- A nominalization ("perform an analysis") where a verb works
+- A phrasal verb ("spin up") where a plain verb works
+- A long word where a short one works: utilize, facilitate, ensure, prior to,
+  subsequent to, regarding, obtain, demonstrate, additionally, furthermore
+- Marketing adjectives: seamless, robust, powerful, cutting-edge, effortless,
+  world-class, next-generation, revolutionary
+- One thing named two ways within the same document set
+- Non-American spelling
+- Steps written as prose where a numbered list, one action per item, works
+- A command written before its condition
+
+Fix each hit. Do not rewrite the surrounding sentence beyond the fix.
+
 ## Empty framing
 
 - Throat-clearing, hand-holding, and signposting before the actual point

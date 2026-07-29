@@ -86,6 +86,22 @@ Check every line for **relevance**: does it still bear on what the skill does?
 Then hunt **no-ops** sentence by sentence, not just line by line: run the no-op test on each sentence in isolation, and when one fails,
 delete the whole sentence rather than trim words from it. Be aggressive — most prose that fails should go, not be rewritten.
 
+## Prose style
+
+Write skill text in ASD-STE100 Simplified Technical English, strict mode: active voice, one
+instruction per sentence, max 20 words, no semicolons, no contractions, no nominalizations or
+phrasal verbs, one name per thing. The full rule set and self-lint live in
+[`AGENTS.md`](../../../AGENTS.md).
+
+STE serves **predictability** directly. An active-voice **step** names both the actor and the action.
+The agent cannot read a different process out of it. Passive voice hides the actor. A stacked
+sentence hides which clause is the instruction. Two names for one thing split the agent's attention
+across a phantom distinction.
+
+Two rules bend for skills. **Leading words** override the plain-word rule: a **leading word** is
+chosen for the priors it recruits, so keep it even when a plainer word exists. Em dashes are fine —
+STE bans the semicolon, not the em dash.
+
 ## Leading words
 
 A **leading word** is a compact concept already living in the model's pretraining that the agent thinks with while running the skill

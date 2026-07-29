@@ -2,7 +2,63 @@
 
 Imperative rules for AI coding agents. For background and rationale, see [docs/README.md](docs/README.md).
 
-Use simple English: short sentences, common words, plain structure. No idioms or jargon unless defined in the glossary.
+## Writing style
+
+Write all prose in ASD-STE100 Simplified Technical English. This covers documentation, specs,
+READMEs, pull-request text, error messages, release notes, commit messages, comments, and chat
+replies. It does not cover code, identifiers, or command syntax.
+
+Use two modes:
+
+- **Strict** for procedures, runbooks, safety text, and error messages. Apply every rule and both
+  length caps.
+- **STE-flavored** for general prose. Apply the sentence, paragraph, and active-voice rules. Relax
+  the controlled dictionary so the text keeps enough range to read naturally.
+
+Words:
+
+- Use one name for one thing. Do not call the same item by two different names.
+- Use the short common word: start (not begin, commence, or initiate), use (not utilize), help (not
+  facilitate), make sure (not ensure), before (not prior to), after (not subsequent to), about (not
+  regarding), get (not obtain), show (not demonstrate), also (not additionally, furthermore, or
+  moreover).
+- Give each word one meaning. "Fall" means to move down. It does not mean to decrease.
+- No marketing adjectives: seamless, robust, powerful, cutting-edge, effortless, world-class,
+  next-generation, revolutionary.
+- American spelling.
+
+Verbs:
+
+- Use active voice. Write "the parser reads the file", not "the file is read by the parser".
+- Use a verb for an action. Write "analyze the log", not "perform an analysis of the log".
+- Do not stack auxiliaries. Write "this improves X", not "it is important to note that this may help
+  to improve X".
+- Do not use an "-ing" main verb where a simple tense works.
+- Do not use a phrasal verb where a plain verb works. Write "start the server", not "spin up the
+  server".
+
+Sentences and structure:
+
+- One instruction per sentence. Maximum 20 words for an instruction. Maximum 25 words for a
+  descriptive sentence.
+- No contractions. Use the articles a, an, the, this, and these.
+- No semicolons. Write two sentences instead.
+- One topic per paragraph. Maximum six sentences.
+- For steps, use a numbered vertical list. One action per item, in imperative form.
+- Put a condition before its command.
+- No idioms or jargon unless the glossary defines the term.
+
+Run this self-lint before you return text:
+
+1. Split any sentence over 20 words.
+2. Replace any semicolon with a period.
+3. Expand any contraction.
+4. Convert any passive voice with a known actor to active voice.
+5. Replace any "-ing" main verb, nominalization, or phrasal verb with a plain verb.
+6. Pick one name when the same thing is named two ways.
+
+These rules fix the form of the text. They cannot make a hollow paragraph true. The free official
+standard is at https://asd-ste100.org. Do not paste it in full, because it is copyrighted.
 
 ## Roles and capability levels
 
