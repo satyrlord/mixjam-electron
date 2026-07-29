@@ -63,6 +63,7 @@ describe('ManagePanel', () => {
     fireEvent.change(screen.getByLabelText('Rename tag Alpha'), { target: { value: 'Alpha 2' } })
     fireEvent.keyDown(screen.getByLabelText('Rename tag Alpha'), { key: 'Enter' })
     await vi.waitFor(() => expect(onRenameTag).toHaveBeenCalledWith(1, 'Alpha 2'))
+    await screen.findByLabelText('Delete tag Alpha')
 
     fireEvent.change(screen.getByLabelText('Set color for tag Alpha'), { target: { value: '#123456' } })
     fireEvent.click(screen.getByLabelText('Delete tag Alpha'))

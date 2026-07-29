@@ -52,7 +52,7 @@ Implement view switching, the header bar, and the footer.
   - The hero retains the app logo from `public/app-icon-128.png`, "MixJam"
     wordmark, and tagline. Setup guidance adapts to the active composition
     instead of remaining permanently expanded. Theme selection stays in the
-    header selector and is not duplicated in Home content.
+    header selector. Home content does not duplicate it.
   - Library Setup, Create or Open, and Generate a MixJam remain independent
     workflow regions with no enclosing panel.
   - Recent Projects: when projects exist, a sibling region shows up to four
@@ -93,8 +93,8 @@ Implement view switching, the header bar, and the footer.
 - The Player footer exposes one Settings link for folder, UI Size, and project
   controls. Home does not expose Settings because no project is active.
 - Settings is an exclusive modal over the mounted Player/Tracker, not a view or
-  content replacement. Existing playback may continue, while background
-  pointer input and ordinary app hotkeys are blocked.
+  content replacement. Existing playback may continue. The modal blocks
+  background pointer input and ordinary app hotkeys.
 - The modal traps focus and initially focuses its Close control. Close or Escape
   closes it. The modal ignores outside pointer interaction. It restores focus
   to the footer Settings trigger.
@@ -111,7 +111,7 @@ Implement view switching, the header bar, and the footer.
 - Clicking "Start New MixJam" on the Home Screen replaces the content area
   with the MixJam Player.
 - "Load MixJam" opens the project file picker and navigates to the Player only
-  after a valid project loads. Cancelling stays on Home.
+  after a valid project loads. Canceling stays on Home.
 - Clicking the home link "&lt; Return to Main Menu" in the Player header
   returns to the Home Screen.
 - View switching must be instantaneous (no page reload, no navigation delay).
@@ -147,7 +147,9 @@ The only end-user artifacts are Electron packages. The current Production
 workflow runs the unit suite, builds the Windows portable `.exe`, and verifies
 that package on `windows-latest`. AppImage and `.dmg` targets remain configured,
 but the workflow does not build, test, upload, or release them. AC-017 defines
-the pending Windows, Linux, and macOS production matrix. Its Linux proof must
+  the pending Windows, Linux, and macOS production matrix.
+
+Its Linux proof must
 launch the explicit generated AppImage rather than `linux-unpacked`. Its macOS
 proof must mount the generated DMG and launch the application inside it rather
 than the unpacked `mac` directory. Native artifact proofs do not add
@@ -157,17 +159,20 @@ The Windows job records the portable executable's hash, size, and signing state.
 It then launches that exact artifact with an isolated user-data directory. The
 gate requires the portable NSIS bootstrap to produce a stable, responsive
 MixJam Electron native window. It records the process and window evidence before
-cleanup. The bootstrap starts a child process. The deeper Playwright assertions
+  cleanup.
+
+The bootstrap starts a child process. The deeper Playwright assertions
 then drive `win-unpacked/MixJam Electron.exe`. This file contains the same
 packaged application resources and preserves the main-process connection.
-When returning from the maximized Player view, the native window is re-centered
-again after Windows completes its asynchronous unmaximize transition.
+When the app returns from the maximized Player view, it centers the native window
+after Windows completes its asynchronous unmaximize transition.
 
 The Windows native artifact proof also runs the built Electron interaction
 probe at UI Size 50 with 16 lanes. It records Tracker vertical wheel scrolling
 and keyboard focus reveal. It records Mixer horizontal scrolling from a
 horizontal wheel, Shift+wheel, and Left/Right keys. It also records focus reveal
-for a clipped Mixer control.
+  for a clipped Mixer control.
+
 It confirms that plain vertical wheel input does not scroll the Mixer
 horizontally. The workflow uploads the Playwright report, screenshots, and raw
 measurements with the package artifact. Manual workflow runs retain those
@@ -175,9 +180,9 @@ artifacts for 14 days. A `v*` tag attaches the verified portable `.exe` to its
 GitHub Release. The pending matrix applies the same interaction proof to Linux
 and macOS. It attaches all three packages only after their gates pass.
 
-Code signing and macOS notarization are separate release-readiness gates. They
-are not configured, so current artifacts are unsigned and must not be described
-as signed, notarized, or warning-free.
+Code signing and macOS notarization are separate release-readiness gates. The
+current configuration does not include them. Thus, current artifacts are
+unsigned. Do not describe them as signed, notarized, or warning-free.
 
 ### Header Bar (both views)
 
@@ -185,7 +190,7 @@ as signed, notarized, or warning-free.
 - **Home Screen state:** brand "MixJam Electron" anchored to the left margin.
   Theme selector dropdown on the right (behavior owned by spec-002).
 - **Player state:** the home link "&lt; Return to Main Menu" is on the left.
-  The "MixJam Electron" brand follows it. The timer is centered. The theme
+  The "MixJam Electron" brand follows it. The header centers the timer. The theme
   selector dropdown is on the right. Spec-002 owns its behavior. The
   home link is not present in the Home Screen state.
 - The timer is never a flex sibling of the left/right header content.
@@ -209,16 +214,16 @@ as signed, notarized, or warning-free.
   empty. User Folder selection remains in Home Library Setup.
 - Player shows Settings on the left and the version on the right. The Sample
   Browser selection model may populate a center detail slot (spec-004).
-- The center footer slot is empty when no sample is selected.
-- Version string uses the semantic version in `package.json`, which is inlined
-  into both the main and renderer builds. Clicking the version link opens the
+- The center footer slot is empty when the selection model has no sample.
+- Version string uses the semantic version in `package.json`. The build inlines
+  it into the main and renderer builds. Clicking the version link opens the
   default system browser to
   `https://github.com/satyrlord/mixjam-electron`.
 
 ## Acceptance Criteria (testable)
 
 Spec validation confirms these criteria are complete and testable as requirements.
-Implementation validation should be tracked in implementation PR/test evidence.
+Track implementation validation in implementation PR/test evidence.
 
 - [x] **AC-001:** App launches with a 1920x1080 renderer content area centered
   on screen (Home Screen), with maximize and resize enabled.
@@ -238,7 +243,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
   vertical overflow or scrollbar. This applies to idle, sync, analysis, error,
   and ready states. The Library Setup scanner
   expands for active work and collapses when ready. Any number of available
-  recent projects keeps the same layout because only the first four are rendered.
+  recent projects keeps the same layout because Home renders only the first four.
 - [x] **AC-002d:** Recent Projects renders at most four readable rows. Every row
   prioritizes the display name and exposes its relative location, last-opened
   metadata when available, and full relative path. "Start New MixJam" remains
@@ -261,7 +266,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
 - [x] **AC-005:** In the Player, the header shows the home link and "MixJam
   Electron" brand. It also shows the `00:00.0` timer.
 - [x] **AC-005a:** The home link "&lt; Return to Main Menu" is NOT present in the Home Screen header. It only appears in the Player header.
-- [x] **AC-006:** The timer is absolutely centered in the header — it does not shift when left/right content changes.
+- [x] **AC-006:** The header centers the timer absolutely. Left or right content changes do not move it.
 - [x] **AC-007:** Once both folders are available, "Load MixJam" opens a
   filtered file picker. A valid project selection navigates to the Player. The
   Electron shell resizes the window. Cancellation stays on Home.
@@ -275,7 +280,7 @@ Implementation validation should be tracked in implementation PR/test evidence.
   their detailed current layout and controls.
 - [x] **AC-011:** At or above 1920x1080, the app occupies the full viewport
   height with no overflow scrollbar on the root. Below 1920 pixels wide or 1080
-  pixels high, only the unsupported-resolution notice is mounted. No Home,
+  pixels high, the renderer mounts only the unsupported-resolution notice. No Home,
   Player, navigation, or project action remains operable.
 - [x] **AC-012:** The app window uses a non-empty custom icon from the `public/`
   folder, not the default Electron icon. The runtime selects `app-icon.ico` on
@@ -299,11 +304,12 @@ Implementation validation should be tracked in implementation PR/test evidence.
   executable metadata. It launches the portable bootstrap to a responsive
   native window and smoke-tests its packaged app directory. Linux launches the
   AppImage, and macOS mounts the DMG and launches its contained application.
+
   Neither native artifact uses `--no-sandbox`. At UI Size 50 with 16 lanes, each
   proof uploads keyboard, wheel, and focus-reveal evidence. This includes the
   Mixer plain-vertical-wheel non-scroll assertion. It attaches one portable `.exe`,
-  one AppImage, and one `.dmg` to the GitHub Release. Signing and notarization
-  status is stated accurately.
+  one AppImage, and one `.dmg` to the GitHub Release. The workflow states the
+  signing and notarization status accurately.
 
 ## Native Window Evidence
 
@@ -312,9 +318,12 @@ through Playwright's Electron main-process bridge. It must verify centered
 1920x1080 renderer content bounds in the resizable and maximizable Home state.
 It must verify the once-maximized Player state on the current display. It must
 verify manual restoration without re-maximization. It must verify the return to
-Home at 1920x1080, without maximization. The window must remain resizable and
+Home at 1920x1080, without maximization.
+
+The window must remain resizable and
 maximizable. The renderer unit suite separately verifies the Home and Player
 navigation actions. These actions must invoke the shell capabilities.
+
 The pending Linux CI job uses a 2560x1440 virtual display with Openbox as its X11
 window manager. The framed Electron window therefore has room for the required
 1920x1080 renderer content area. Maximize and unmaximize requests exercise the
@@ -340,6 +349,7 @@ live HWND. It compares the icon with a 32 by 32 PNG from
 The current probe measured a mean absolute channel difference of 6.53. It also
 measured 98.69 percent foreground overlap. These results confirm the live MixJam
 skull, not only the source asset's existence.
+
 The smoke test writes raw bounds, display work area, frame states, icon metrics,
 and screenshots to `tmp/verify-electron-window-state/`. The Production workflow
 uploads that directory with the package artifact.

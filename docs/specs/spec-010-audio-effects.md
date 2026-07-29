@@ -41,8 +41,8 @@ The effect modules are the Echoform Delay and the Aetherform Reverb
 
 - The Mixer always contains FX 1, FX 2, FX 3, and FX 4. One 2x2 section follows
   the lane strips. Each container also owns the controls for its matching
-  Return. Slots cannot be added, deleted, reordered, chained, or routed into
-  one another.
+  Return. Users cannot add, delete, reorder, chain, or route slots into one
+  another.
 - Return bus N feeds FX slot N. Each slot receives only the sum of lane send N.
 - Every slot contains exactly one module record with a stable slot identity.
   The supported module types are `empty`, `echoform-delay`, and
@@ -126,11 +126,14 @@ are L 500 ms (1/4) and R 375 ms (1/8 dotted).
 | Bypass | Off, On | Off |
 | Mix | 0–100% (shared FX-return level) | container-owned |
 
-The 15 divisions start with 1/1, 1/1 dotted, 1/1 triplet, 1/2, 1/2 dotted, and
-1/2 triplet. They also include 1/4, 1/4 dotted, 1/4 triplet, 1/8, 1/8 dotted, and
+The 15 divisions start with 1/1, 1/1 dotted, and 1/1 triplet. They continue with
+1/2, 1/2 dotted, and 1/2 triplet. They also include 1/4, 1/4 dotted, 1/4 triplet,
+1/8, 1/8 dotted, and
 1/8 triplet. The final divisions are 1/16, 1/16 dotted, and 1/16 triplet. A
-straight 1/N lasts 4/N quarter beats. Dotted × 1.5. Triplet ×
-2/3. Left and right divisions and free times are independent. Sync divisions
+straight 1/N lasts 4/N quarter beats. Dotted uses × 1.5, and Triplet uses ×
+2/3.
+
+Left and right divisions and free times are independent. Sync divisions
 stay saved while Free is active and vice versa, so switching modes restores each
 mode's last values. Power (Space) toggles whether new input reaches the delay
 while preserving its tail. It is distinct from the in-module Bypass.
@@ -156,8 +159,8 @@ Conceptual stereo flow, all inside the module black box:
 8. Apply ducking gain to the wet only (soft knee, wet-only attenuation).
 9. Apply Output level.
 
-The module renders **100% wet**. The dry path is owned by the lane send/return
-model, and Mix is the FX-return level (see Mix contract). Feedback maps 0–110% →
+The module renders **100% wet**. The lane send/return model owns the dry path,
+and Mix is the FX-return level (see Mix contract). Feedback maps 0–110% →
 loop gain 0.0–1.10.
 
 ### Buffer allocation
@@ -193,7 +196,9 @@ Drive ("Smash") applies gain-compensated soft saturation to the signal
 **entering** the delay. It acts before the feedback network. This input
 distortion differs from the in-loop Character coloration. The ducking detector
 reads the input before Drive. Thus, ducking follows the natural transient, not
-the smashed level. Drive acts before the network write. Driven material then
+the smashed level.
+
+Drive acts before the network write. Driven material then
 recirculates, and the grit develops across repeats. The curve is `tanh(x·g)/g`
 with `g = 1 + drive·8` and mild makeup. The Drive amount blends this result with
 the clean input. Thus, 0% is an exact bypass. Per-sample smoothing prevents
@@ -211,9 +216,9 @@ sum of lane sends N
   -> unchanged Master input
 ```
 
-- The limiter is enabled by default and its enabled/bypassed setting is saved
-  per return.
-- Enabled behavior is fixed: ceiling -1 dBFS, 5 ms lookahead, 100 ms release,
+- The app enables the limiter by default. It saves the enabled or bypassed
+  setting for each return.
+- The contract fixes enabled behavior: ceiling -1 dBFS, 5 ms lookahead, 100 ms release,
   and stereo-linked gain reduction. These values are not user-editable.
 - Stereo linking applies one gain-reduction envelope to both channels so image
   position does not shift during limiting.
@@ -231,7 +236,9 @@ sum of lane sends N
 - **Mix is one parameter.** The FX-slot circular Mix knob and editor Mix knob
   have the same value. This value is the bus return level from 0..1 linear to
   the return-gain node. The module always renders 100% wet. There is no second in-DSP dry/wet
-  crossfade. Updating either surface immediately updates the other, and
+  crossfade.
+
+  Updating either surface immediately updates the other, and
   automation from either surface targets the same return level. This preserves
   the established "wet-return amount" meaning of Mix for old projects.
 - **Bypass** follows the FX-return contract. The in-module Bypass crossfades the
@@ -244,8 +251,8 @@ sum of lane sends N
 
 ### Form and layout
 
-- The Echoform Delay editor is a centered blocking modal. Its target desktop
-  size is exactly 760 × 680 CSS px. Its width is
+- The centered blocking Echoform Delay editor targets exactly 760 × 680 CSS px.
+  Its width is
   `min(760px, 100vw − 28px)`. Its height is
   `min(680px, 100vh − 28px)`. It scrolls internally when smaller. The control grid
   collapses to two columns below ~720px and one column below ~500px. It is
@@ -284,12 +291,14 @@ sum of lane sends N
   The left area contains a tempo and mode chip. The center contains a two-lane
   echo grid with an amber L lane and teal R lane. Current delay times and
   feedback place mock tap markers. Ping-pong alternates lanes. Normal stereo
-  uses independent taps. More feedback adds more taps and a longer sustained
+  uses independent taps.
+
+  More feedback adds more taps and a longer sustained
   pattern. The right area contains L/R time readouts
   and stereo state. Marker shape follows character (Digital squared, Analog
-  round, Tape irregular). A restrained playhead scans unless bypassed or
-  reduced-motion is set. Parameter state supplies all visualizer data. Audio
-  telemetry supplies none. An accessible description gives L/R times, feedback,
+  round, Tape irregular). A restrained playhead scans unless bypassed or the
+  user enables reduced motion. Parameter state supplies all visualizer data, and
+  audio telemetry supplies none. An accessible description gives L/R times, feedback,
   and ping-pong state.
 
 ### Controls and keyboard contract
@@ -297,6 +306,7 @@ sum of lane sends N
 - Continuous controls use circular hardware-style knobs with a 270° arc and a
   value readout. Stereo width uses a horizontal range. Pointer or touch dragging
   turns knobs. Vertical movement is primary, with a small horizontal component.
+
   Shift gives fine adjustment. A double-click resets the default. Knobs expose
   `role="slider"` with continuously updated `aria-valuemin/max/now/valuetext`
   and `aria-orientation`. Frequency and time knobs use a perceptual log skew.
@@ -304,8 +314,8 @@ sum of lane sends N
   step. Shift + arrow gives fine control. Page Up/Down moves ten steps. Home/End
   sets the minimum or maximum. Values clamp to their documented ranges.
 - Bypass, Ping-pong, Sync/Free, and Character are real buttons with
-  `aria-pressed`. Character is a single-selection group. Hidden Sync or Free
-  controls are removed from the tab order.
+  `aria-pressed`. Character is a single-selection group. The interface removes
+  hidden Sync or Free controls from the tab order.
 - Tap Tempo records tap timestamps. It resets after a >2000 ms gap and keeps the
   six most recent taps. It averages at least two intervals and clamps BPM to
   40–240. It flashes for ~150 ms. The delay's tempo ownership drives real delay
@@ -360,8 +370,8 @@ Parsing rejects:
 - a non-boolean Power, Ping-pong, Bypass, or limiter-enabled value, and
 - delay parameter fields attached to Empty.
 
-Version 7 is the current format. Spec-011 owns strict version validation. Older
-project formats are rejected rather than migrated.
+Version 7 is the current format. Spec-011 owns strict version validation. The
+parser rejects older project formats and does not migrate them.
 
 Return modules, Power, Return level, and limiter state share the project command
 history with lanes. One complete project edit saves a modal draft or clears a
@@ -390,8 +400,8 @@ A module descriptor declares:
   `true`, and delay uses `false`.
 - `createProcessor(context, module, bpm)` — builds the black-box
   `ReturnModuleProcessor` for the live graph.
-- `prepareWorklet(context)` — registers the effect's AudioWorklet before a
-  populated snapshot is materialized. Resolves `false` where worklets are
+- `prepareWorklet(context)` — registers the effect's AudioWorklet before the
+  host materializes a populated snapshot. Resolves `false` where worklets are
   unavailable so the identity fallback applies.
 - `createDefault(id)` — the default module record (its default preset).
 - `validate(module)` — the load-time guard proving every field is present,
@@ -464,8 +474,9 @@ modal editor, visualizer, knob controls, state interface, and preset table. The
 effects share only host-side plumbing. One `createReturnWorkletProcessor`
 factory supplies the worklet-processor scaffolding. This scaffolding includes
 context registration records, node creation, identity fallback, connections,
-and disposal. One worklet-class helper supplies input/output channel extraction
-and message dispatch. Effects differ in their core and `toState` projection.
+and disposal. One worklet-class helper supplies input/output channel extraction.
+
+It also supplies message dispatch. Effects differ in their core and `toState` projection.
 They also differ in extra commands, such as the reverb's Clear Tail.
 
 ## Black-Box Verification Contract
@@ -485,7 +496,9 @@ checks straight, dotted, and triplet division math at several BPM values. It
 checks independent L/R impulse timing and free minimums and maximums. It compares
 ping-pong cross-channel routing with normal-stereo routing. It checks feedback
 decay below 100% and bounded behavior at 100–110%. Extreme settings must produce
-no NaN or Inf values. It checks low/high-cut accumulation across repeats and
+no NaN or Inf values.
+
+It checks low/high-cut accumulation across repeats and
 width at 0/100/200%. It checks modulation bounds and disables modulation at depth
 0. It checks character differences, wet-only ducking, and tail-preserving bypass.
 It checks output-gain conversion and sample-rate reinitialization. Limiter
@@ -530,7 +543,7 @@ release, stereo linking, and zero limiter latency while bypassed.
   side. Sync follows project BPM. The module produces stereo 100%-wet output.
 - [ ] **AC-005:** Feedback maps 0–110% → loop gain 0.0–1.10. Over-unity feedback
   stays finite through the in-loop soft limiter without hard-clipping ordinary
-  repeats. Low/high-cut filters and character colour the loop across repeats.
+  repeats. Low/high-cut filters and character color the loop across repeats.
 - [ ] **AC-006:** Container Power off stops new input while an existing tail
   rings. Power on resumes input without resetting settings.
 - [ ] **AC-007:** Clear immediately replaces the module with Empty and cuts its

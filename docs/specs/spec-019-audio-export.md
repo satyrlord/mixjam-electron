@@ -28,9 +28,9 @@ and spec-009 tempo-following resampling.
 ### Export Flow
 
 - Triggered from the Player UI (export button or menu item).
-- User selects the format only: WAV or MP3. V1 fixes the encoding parameters —
-  16-bit for WAV, 320 kbps CBR for MP3 — so there is no bit-depth or bitrate
-  choice in the UI. See the WAV Export and MP3 Export sections below.
+- The user selects only the WAV or MP3 format. V1 fixes the encoding parameters.
+  WAV uses 16-bit encoding. MP3 uses 320 kbps CBR. The UI has no bit-depth or
+  bitrate choice. See the WAV Export and MP3 Export sections below.
 - User chooses output file location via native save dialog.
 - Default filename: project name + format extension.
 - Default location: User Folder (spec-003).
@@ -39,8 +39,8 @@ and spec-009 tempo-following resampling.
 
 - Uses an `OfflineAudioContext` to render the arrangement faster than
   real-time.
-- The entire arrangement is rendered to a single stereo buffer through this
-  graph for each lane:
+- This graph renders the complete arrangement to one stereo buffer for each
+  lane:
 
   ```text
   placement voice -> lane input -> lane volume/pan/mute/solo
@@ -51,8 +51,8 @@ and spec-009 tempo-following resampling.
                    `-> send 4 -> FX 4 module -> return 4 level -> limiter 4 -|
   ```
 
-- Each Mixer track is derived from the lane at the same visible position and
-  retains that lane's stable identity. There is no
+- Each Mixer track comes from the lane at the same visible position. It retains
+  that lane's stable identity. There is no
   separate lane-routing or insert-effect path.
 - Rendering respects lane volume, pan, mute, and solo state.
   It respects all four send levels and all four Empty or Delay configurations.
@@ -63,7 +63,7 @@ and spec-009 tempo-following resampling.
 - The four return limiters are part of their return paths before the Master sum.
   They are not a Master limiter. Export does not add a limiter, normalization,
   gain, or other processor to the Master path.
-- The rendered buffer is then encoded to WAV or MP3.
+- The encoder then converts the rendered buffer to WAV or MP3.
 
 ### WAV Export
 
@@ -80,37 +80,38 @@ and spec-009 tempo-following resampling.
 
 ### Progress & Cancellation
 
-- Export progress is reported: `{ percent: 0–100, phase: "rendering" | "encoding" }`.
+- The exporter reports progress: `{ percent: 0–100, phase: "rendering" | "encoding" }`.
 - A cancel button stops the export and discards partial output.
-- Export runs asynchronously — the UI is not blocked (though user interaction
-  may be limited during export to prevent state changes).
+- Export runs asynchronously, and it does not block the UI. The app may limit
+  user interaction during export to prevent state changes.
 
 ### Export Scope
 
-- The arrangement renders from tick 0 through the last placement end, then all
-  Delay inputs close and the four Returns ring out. The renderer evaluates the
+- The arrangement renders from tick 0 through the last placement end. Then, all
+  Delay inputs close, and the four Returns ring out. The renderer evaluates the
   rendered Return outputs. It ends the ring-out when all four outputs remain
   below -90 dBFS for 500 ms.
 - Ring-out analysis may inspect at most 120 seconds after the last placement.
   If the Returns do not reach the threshold, export fails clearly instead of
   silently truncating an audible tail.
-- A configurable silence tail, default 2 seconds, is appended after the
-  detected FX ring-out. It does not replace or cap ring-out rendering.
+- The exporter appends a configurable silence tail after the detected FX
+  ring-out. The default is 2 seconds. It does not replace or cap ring-out rendering.
 
 ## Acceptance Criteria (testable)
 
 - [ ] **AC-001:** Exporting as WAV produces a valid WAV file playable in any audio player.
 - [ ] **AC-002:** Exporting as MP3 produces a valid MP3 file playable in any audio player.
-- [ ] **AC-003:** The exported audio matches playback: same timing, lane pan and
-  volume, send levels, Delay output, return levels, return limiting, and Master
-  output.
+- [ ] **AC-003:** The exported audio matches playback timing, lane pan, volume,
+  and send levels. It also matches Delay output, return levels, return limiting,
+  and Master output.
 - [ ] **AC-004:** Changing a lane's mixer volume and re-exporting produces a correspondingly louder/quieter file.
 - [ ] **AC-005:** Muting a lane and exporting excludes that lane from the output.
-- [ ] **AC-006:** Export progress is reported and the UI remains responsive during export.
-- [ ] **AC-007:** Cancelling an export mid-way produces no output file.
+- [ ] **AC-006:** The exporter reports progress, and the UI remains responsive
+  during export.
+- [ ] **AC-007:** Canceling an export midway produces no output file.
 - [ ] **AC-008:** A 16-bit WAV export has valid 16-bit samples (no clipping above 0 dBFS unless intentional).
 - [ ] **AC-009:** Export renders Delay ring-out until every Return satisfies the
-  -90 dBFS for 500 ms rule, then appends the configured silence tail. A Return
+  -90 dBFS for 500 ms rule. It then appends the configured silence tail. A Return
   that does not decay within 120 seconds fails export instead of being cut.
 - [ ] **AC-010:** Export applies the same placement-owned playback rates as live
   playback instead of exporting placed samples at native rate.

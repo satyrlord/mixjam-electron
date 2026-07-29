@@ -7,7 +7,7 @@ style rules and contain only functional requirements and acceptance criteria.
 
 The theming system (spec-002) implements this style guide through CSS custom
 properties and JSON theme files. This document describes the *design intent*.
-spec-002 defines the *token mechanics*.
+Spec-002 defines the *token mechanics*.
 
 **Relationship to DESIGN.md:** [DESIGN.md](../DESIGN.md) is the **design token manifest**.
 It defines token names, Emerald default values, component pattern tables, shadows, and gradients.
@@ -700,6 +700,7 @@ horizontal scrollport that follows the Mixer scroll conventions.
 **Hardware palette exception.** The rack is a fixed hardware surface. Its
 faceplate finishes, family chip colors, and meter face colors are rack constants.
 This rule matches the fixed hardware and the Mixer reference board.
+
 Everything around the rack (panel chrome, scrollbars, focus
 ring, text outside faceplates) uses theme tokens. Rack text uses the theme
 font roles (`--font-label` for labels, `--font-mono` for ordinals, values,
@@ -714,6 +715,7 @@ detail as a non-interactive decoration.
 The Bus Compressor is 184px wide, and the two meter modules are 196px wide.
 Each faceplate has a vertical gradient, dark hairline border, and inner top highlight.
 The reorderable processor has a fixed top-to-bottom order.
+
 It starts with the grip, ordinal, and power LED row.
 Then it has the family chip, module name, control grid, and optional GR LED row.
 

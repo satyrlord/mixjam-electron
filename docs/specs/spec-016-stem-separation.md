@@ -1,10 +1,16 @@
 # Spec 016 — On-Device Stem Separation
 
 **Spec Validation Status:** STUB — NOT VALIDATED
+
 **Spec Implementation Status:** NOT IMPLEMENTED
-**Depends on:** spec-005 (Audio Playback Engine), spec-009 (Time-Stretching),
-spec-015 (Local Semantic Audio Search — shares the ONNX Runtime Web
-infrastructure and inference worker)
+
+**Depends on:**
+
+- spec-005 (Audio Playback Engine)
+- spec-009 (Time-Stretching)
+- spec-015 (Local Semantic Audio Search)
+
+This dependency shares the ONNX Runtime Web infrastructure and inference worker.
 
 ## Objective
 
@@ -23,7 +29,7 @@ tempo-following, and mixing contracts as other samples.
   cancel the operation.
 - **US-003:** As a user, I see separated stems as virtual browser samples
   under their parent. I can drag each stem onto a lane.
-- **US-004:** As a user, stems I have already separated are cached — requesting
+- **US-004:** As a user, the cache keeps stems I have already separated. Requesting
   separation again is instant.
 - **US-005:** As a user, separated stems follow spec-009 time-stretching.
   A stem inherits a known parent BPM and stretches to the project BPM.
@@ -40,8 +46,8 @@ tempo-following, and mixing contracts as other samples.
 - Use a Hybrid Transformer Demucs (HTDemucs) derived model exported to ONNX.
   HTDemucs achieves state-of-the-art SDR on MUSDB18 and separates into four
   stems: drums, bass, vocals, other (melody/harmony).
-- The ONNX model is quantized (INT8 or FP16) to reduce size. Target: under
-  80 MB for the quantized checkpoint. The model is lazy-loaded on first use —
+- Use INT8 or FP16 quantization to reduce the ONNX model size. Target: under
+  80 MB for the quantized checkpoint. The worker loads the model on first use —
   it is never bundled with the app binary.
 - Model delivery: ship the model as an Electron renderer asset under
   `public/models/`, served from the `app://` protocol. Inference is local and
@@ -51,13 +57,13 @@ tempo-following, and mixing contracts as other samples.
 
 - Runs in the **dedicated inference worker** via ONNX Runtime Web (shared
   with spec-015's embedding inference. See spec-015's worker-placement
-  design). WebGPU execution provider is preferred. Falls back to WASM (CPU)
+  design). Prefer the WebGPU execution provider. Fall back to WASM (CPU)
   if WebGPU is unavailable.
-- Input: raw PCM float32 samples from an AudioBuffer (mono-mixed or stereo,
-  resampled to the model's expected rate — typically 44.1 kHz).
-- The model processes audio in overlapping chunks (segment length ~7.8s with
-  ~0.25s overlap, matching Demucs default) to bound peak memory. Chunks are
-  processed sequentially. Results are crossfade-stitched.
+- Input: raw PCM float32 samples from an AudioBuffer.
+  Use mono-mixed or stereo audio at the model rate, typically 44.1 kHz.
+- The model uses approximately 7.8-second chunks with 0.25-second overlap.
+  This Demucs default bounds peak memory. Chunks are
+  processed sequentially. The worker crossfade-stitches the results.
 - Output: four float32 waveforms (drums, bass, vocals, other), each the same
   length as the input.
 - Progress reporting: the worker posts `{ type: 'stem-progress', percent }`
@@ -65,9 +71,9 @@ tempo-following, and mixing contracts as other samples.
 
 ### Storage and Caching
 
-- Separated stems are stored as WAV blobs in OPFS under a dedicated cache
-  directory (e.g. `stems/<parent_sample_id>/drums.wav`). They are derived data,
-  not source files — always rebuildable by re-separation.
+- The cache stores separated stems as WAV blobs in OPFS under a dedicated
+  directory, such as `stems/<parent_sample_id>/drums.wav`. The app can rebuild
+  this derived data through separation.
 - A `stem_cache` table in SQLite tracks cached separations:
 
 ```sql
@@ -82,21 +88,21 @@ CREATE TABLE stem_cache (
 );
 ```
 
-- Total cache size is bounded (configurable, default 2 GB). LRU eviction
-  removes the oldest separations when the cap is hit.
-- If the parent sample's `mtime` changes (file re-indexed), cached stems are
-  invalidated (the source material changed).
+- Configuration limits the total cache size to 2 GB by default. LRU eviction
+  removes the oldest separations when the cache reaches this limit.
+- If the parent sample's `mtime` changes, the app invalidates cached stems.
+  This change shows that the source material changed.
 
 ### Virtual Samples
 
 - Stems surface in the UI as **virtual samples** — they appear in the Sample
   Browser grouped under their parent (e.g. "Loop.wav > Drums", "Loop.wav >
-  Bass"). They are not physical files in the Sample Folder. They are read from
-  OPFS cache via a `readStemBytes(sampleId, stemType)` backend call.
+  Bass"). They are not physical files in the Sample Folder. The backend reads
+  them from the OPFS cache through `readStemBytes(sampleId, stemType)`.
 - Virtual samples carry the parent's metadata (duration, sample rate, BPM) and
   inherit tags.
-- Virtual samples can be placed on lanes, time-stretched, and effected exactly
-  like physical samples. The audio engine reads them through the same
+- Users can place, stretch, and apply effects to virtual samples like physical
+  samples. The audio engine reads them through the same
   `loadSampleBytes` path, extended to resolve stem references.
 
 ### Integration with Existing Systems
@@ -109,10 +115,9 @@ CREATE TABLE stem_cache (
   It places four stems on lanes N, N+1, N+2, and N+3.
   Each stem starts at the source placement start tick.
 - **Tempo following (spec-009):** stems inherit their parent's `nativeBPM` for
-  first-placement span estimation and are resampled like physical samples.
-- **Semantic search (spec-015):** stems get their own embeddings computed during
-  a background pass after separation, so "find similar" works on individual
-  stems.
+  first-placement span estimation. The audio engine resamples them like physical samples.
+- **Semantic search (spec-015):** a background pass computes a stem embedding
+  after separation. Thus, "find similar" works on each stem.
 - **Audio engine (spec-005):** no changes to the engine's voice/channel model —
   stems are just samples loaded from a different path.
 
@@ -122,14 +127,14 @@ CREATE TABLE stem_cache (
   - WebGPU (discrete GPU): under 30 seconds.
   - WASM CPU fallback (2020 laptop, 4-core): under 3 minutes.
 - Peak additional memory during inference: under 1 GB.
-- These are targets, not guarantees — a spike is needed to validate on real
+- These are targets, not guarantees. A spike must validate them with real
   hardware before committing to UX promises.
 
 ## Acceptance Criteria (draft)
 
 - [ ] **AC-001:** "Separate stems" on a sample produces four stem files in OPFS
   cache. Each stem's duration matches the source within 1ms tolerance.
-- [ ] **AC-002:** Progress is reported during separation. Cancellation stops
+- [ ] **AC-002:** The worker reports progress during separation. Cancellation stops
   inference and produces no partial cache entry.
 - [ ] **AC-003:** Stems appear as virtual samples in the browser, grouped under
   the parent. Clicking one plays only that stem.
@@ -144,8 +149,8 @@ CREATE TABLE stem_cache (
   fallback — slower but correct. No crash, no blank output.
 - [ ] **AC-008:** Cache eviction removes the oldest stems when total cache size
   exceeds the configured cap.
-- [ ] **AC-009:** If the parent sample is re-indexed with a new mtime, cached
-  stems are invalidated.
+- [ ] **AC-009:** If the indexer records a new parent `mtime`, the app invalidates
+  the cached stems.
 - [ ] **AC-010:** Stems inherit the parent's nativeBPM and stretch correctly
   when project BPM differs.
 
@@ -157,13 +162,13 @@ CREATE TABLE stem_cache (
 - No user-selectable stem count or custom model upload (four fixed stems in v1).
 - No fine-grained stem editing (trim, fade) beyond what the Tracker already
   provides for any clip placement.
-- No re-synthesis or remix automation ("make the drums louder in this mix") —
-  stems are independent placements, mixed via the existing channel gain/pan/FX.
-- No stem separation quality comparison across multiple models in this spec —
-  use one, swap later if measured SDR or inference speed improves.
+- No resynthesis or remix automation.
+  Stems are independent placements that use existing channel gain, pan, and FX.
+- No stem quality comparison across multiple models in this spec.
+  Use one model. Replace it later if measurements improve.
 - No model training or fine-tuning.
-- No separation of stems into more than four categories (e.g. No "piano" vs
-  "guitar" sub-separation of the "other" stem).
+- The app does not separate stems into more than four categories.
+  It does not split the "other" stem into "piano" and "guitar".
 
 ## Open Questions
 
@@ -182,7 +187,7 @@ CREATE TABLE stem_cache (
 - **Stereo vs mono inference:** HTDemucs supports stereo input natively. Should
   the pipeline always run in stereo (higher quality, 2x compute), or offer a
   "fast mono" mode?
-- **Integration with spec-015 embeddings:** should stem embeddings be computed
+- **Integration with spec-015 embeddings:** should the pipeline compute stem embeddings
   eagerly (immediately after separation) or lazily (next background re-index)?
   Eager gives immediate "find similar" on stems. Lazy avoids blocking the user.
 - **Memory pressure on low-end devices:** Inference can use 1 GB peak memory.

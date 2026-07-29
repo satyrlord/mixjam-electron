@@ -14,16 +14,15 @@ user-defined organization. Libraries are saved queries, not file copies.
 
 - **US-001:** As a user, I see my Sample Folder library after I open the
   Tracker. The app indexes it automatically without a manual import.
-- **US-002:** As a user, I can browse samples in a scrollable bubble grid that stays
-  responsive even with thousands of files.
+- **US-002:** As a user, I can browse thousands of samples in a responsive, scrollable bubble grid.
 - **US-002a:** As a user, I see the selected sample path, metadata, and tags in
   the Player footer. The browser keeps its list width.
 - **US-003:** As a user, I can search samples by filename and get instant
   results as I type.
 - **US-004:** As a user, I can create custom tags and assign them to samples,
   building my own organizational system.
-- **US-005:** As a user, I can find folder-derived and custom tags through one
-  searchable navigator instead of traversing a category tree.
+- **US-005:** As a user, I can find folder-derived and custom tags through one searchable navigator.
+  I do not traverse a category tree.
 - **US-006:** As a user, I can filter samples by one or more tags and see only
   matching results.
 - **US-007:** As a user, I can save a set of filters as a named "library"
@@ -33,9 +32,8 @@ user-defined organization. Libraries are saved queries, not file copies.
 
 ### First-Run Indexing
 
-- After an accessible Sample Folder is selected or restored, the app
-  automatically schedules one incremental library sync for that root during
-  the app session. Sync starts from Home and does not wait for Player entry.
+- After the user selects or restores an accessible Sample Folder, the app schedules one incremental library sync.
+  Each root gets one automatic sync per app session. Sync starts from Home and does not wait for Player entry.
 - On the first sync, the app scans the folder for audio files (`.wav`, `.mp3`,
   `.flac`, `.ogg`, `.aiff`).
 - The app registers each file in SQLite.
@@ -43,14 +41,14 @@ user-defined organization. Libraries are saved queries, not file copies.
   modification time, and import date.
 - **Phase 1:** file enumeration creates stub rows. Metadata columns (duration,
   sample rate, channels) are left empty.
-- **Phase 2:** audio headers are parsed to fill duration, sample rate, and
-  channels. Metadata parsing uses four concurrent readers. Database updates
+- **Phase 2:** Four concurrent readers parse audio headers to get duration, sample rate, and channels.
+  Database updates
   stay serialized in the backend worker.
 - The first sync is non-modal. Home shows phase and progress inside the Sample
-  Folder card. If the user enters Player before `scan-done`, the Samples panel
-  shows an empty syncing state and the Middle Strip carries the same job status.
+  Folder card. If the user enters Player before `scan-done`, the Samples panel shows an empty sync state.
+  The Middle Strip shows the same job status.
   Navigation and project actions remain available.
-- Samples are queried and displayed after `scan-done`. First-sync rows do not
+- The app queries and displays samples after `scan-done`. First-sync rows do not
   appear incrementally during phase 1 or phase 2.
 - Scan status uses a native progress element with a visible text equivalent and
   an accessible label. Indeterminate phases omit a fabricated numeric value.
@@ -58,35 +56,30 @@ user-defined organization. Libraries are saved queries, not file copies.
 
 ### Automatic Incremental Sync and Manual Recovery
 
-- A worker-owned scheduler keyed by the string `FolderRef.id` reconciles an
-  indexed folder automatically once per app session after its handle is
-  restored. Existing indexed samples stay browsable during this background
+- A worker-owned scheduler uses the string `FolderRef.id` as its key.
+  It reconciles an indexed folder once per app session after handle restoration. Existing indexed samples stay browsable during this background
   sync.
 - View changes, component remounts, and React development remount behavior do
   not schedule duplicate syncs. The backend worker runs one library job at a
   time. Duplicate requests for the same root return the existing job identity.
-  Selecting a different root cancels the old root at its next checkpoint,
-  discards its queued automatic request, and prioritizes the newly selected
-  root.
-- An app-owned filesystem mutation, such as a completed spec-020 download,
-  schedules a sync even when the root already used its once-per-session
-  automatic trigger. If the same root is active, the worker marks it dirty and
+  Selecting a different root cancels the old root at its next checkpoint.
+  It discards that root's queued request and gives priority to the new root.
+- An app-owned filesystem mutation schedules a sync after the root uses its automatic trigger.
+  A completed spec-020 download is one example. If the same root is active, the worker marks it dirty and
   guarantees one follow-up reconciliation after the current job. Repeated
   mutation events collapse into that one follow-up.
 - New files: added as stubs, queued for metadata extraction.
-- Changed files: metadata is re-extracted. Tags, bpm/key fields, and original
-  import date are preserved, while folder-derived tags are recomputed.
-- Missing files: marked as missing (not deleted) so tags survive a temporarily
+- Changed files: the app extracts metadata again. It preserves tags, bpm/key fields, and the original import date.
+  The app computes folder-derived tags again.
+- Missing files: the app marks them as missing and does not delete them, so tags survive a temporarily
   disconnected drive. Hidden from normal browsing.
 - Unchanged files with a completed metadata attempt are not metadata-parsed or
   automatically analyzed again. Persisted revision and completion state makes
   a completed empty folder valid. It prevents a retry of terminal metadata
   failures and valid NULL analysis results after each launch.
-  The manual Re-scan action retries unchanged rows whose
-  metadata is marked unavailable.
-- One manual **Re-scan Sample Folder** action invokes the same incremental
-  pipeline only for the rare case where files change after the session's
-  automatic sync. It lives in the Middle Strip utility menu rather than as
+  The manual Re-scan action retries unchanged rows whose metadata status is unavailable.
+- One manual **Re-scan Sample Folder** action invokes the same incremental pipeline.
+  Use it only when files change after the session's automatic sync. It lives in the Middle Strip utility menu rather than as
   permanent primary chrome.
 - A single "Cancel library sync" action is available while a job is active.
   Cancelling bumps a generation counter. The in-flight work stops at its next
@@ -96,8 +89,8 @@ user-defined organization. Libraries are saved queries, not file copies.
   one contextual **Retry library sync** action in the current status surface.
   This recovery action is not permanent Middle Strip chrome and does not create
   a second scan variant.
-- Progress and completion events include root and job identity, so switching
-  Sample Folder during a scan cannot update the new root with stale events.
+- Progress and completion events include the root and job identity.
+  Thus, stale events cannot update a new root after a Sample Folder change.
 - `hooks/useLibrarySyncRuntime.ts` is the renderer lifecycle owner. It filters
   those root/job events, hydrates coalesced work, and exposes sync, retry, and
   cancel actions. `useLibraryData` owns browse queries and mutations. Home,
@@ -130,23 +123,22 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   inside the browser region (defined in spec-006). It supports pointer, touch,
   and keyboard resizing and exposes its current value through separator ARIA.
 - Selected sample details do not open a third pane inside the browser region.
-  They render in the center slot of the app-wide Player footer (spec-001) so
-  the browser keeps its two-column navigator/grid layout.
+  They render in the center slot of the app-wide Player footer (spec-001).
+  Thus, the browser keeps its two-column navigator/grid layout.
 
 ### Sample Browser Grid
 
 - Samples render as the same bubble used by the Tracker. Bubble geometry,
   appearance, and behavior follow the [Style Guide](../style-guide.md#sample-bubbles).
-  Before first placement, the browser estimates the span from source duration
-  and detected BPM, or the current project BPM when detection is unavailable,
-  following spec-009.
+  Before first placement, the browser estimates the span from source duration and detected BPM.
+  Per spec-009, it uses the current project BPM when detection is unavailable.
 - Sort controls support filename, duration, and date added. Selecting the active
   sort again toggles ascending/descending.
 - Each browser bubble resolves its palette slot from the sample's top-level
   relative-path segment. A flat file uses the unsorted slot. Active tag filters
   never recolor a result or replace the slot stored in its drag payload.
-- Selecting a bubble highlights it, previews its audio, and populates the Player
-  footer with the path, assigned tags, and decoded waveform.
+- Selecting a bubble highlights it and previews its audio.
+  It also puts the path, assigned tags, and decoded waveform in the Player footer.
 - The grid does not use inline expansion.
 - Functional development and scan checks use the real fixture corpus under
   `tmp/test-samples`. Scale validation against 100k+ samples remains deferred.
@@ -165,15 +157,16 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - Query results load as windowed pages on demand. The first page loads eagerly.
   The grid requests the next page near the end of the loaded rows.
   Each page request belongs to one root/filter/sort generation.
-  Changing any query input invalidates pending pagination immediately, and a
-  late response cannot append rows or release another generation's paging
-  guard. The renderer never accumulates the full result set up front.
+  Changing a query input immediately invalidates pending pagination.
+
+  A late response cannot append rows or release another generation's paging guard.
+  The renderer never accumulates the full result set up front.
 
 ### Library Controls
 
 - The Middle Strip owns sample search plus one compact library-status region
   for sync and analysis progress. Its utility menu contains the single manual
-  Re-scan recovery action. Cancel is exposed only while a job is active.
+  Re-scan recovery action. The UI exposes Cancel only while a job is active.
 - The Home Sample Folder card shows the same sync lifecycle while Home is
   visible. Progress follows the job across view changes without restarting it.
 - The Samples panel's filter/results toolbar owns active tag filters, the
@@ -183,8 +176,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   sort group visible. The count remains present at zero. Active tag filters are
   removable and expose their optional color indicator. The active sort exposes
   both pressed state and direction in its accessible name.
-- Contextual BPM, key, and type results are produced automatically by the one
-  analyzer defined in spec-008. There is no separate analysis-management action.
+- The analyzer in spec-008 automatically produces contextual BPM, key, and type results.
+  There is no separate analysis-management action.
 - These controls never bypass the SQLite-backed query/filter flow. They only
   change the current browser query state or trigger the indexed sync path.
 - Manage replaces the sample-results pane while it is open. Covered result and
@@ -196,10 +189,10 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - An unindexed or actively syncing first library uses a quiet, non-modal loading
   state in the Samples panel. It explains that MixJam is preparing the library
   and exposes busy semantics without showing incomplete scan rows.
-- A filtered query with zero matches explains that no samples match and offers
-  one action that clears search and tag filters together.
-- A completed folder with no supported audio files is a valid folder-empty state,
-  not an error and not a prompt to run another scan.
+- A filtered query with zero matches explains the result.
+  It offers one action that clears search and tag filters together.
+- A completed folder with no supported audio files is a valid folder-empty state.
+  It is not an error or a prompt to run another scan.
 - An unavailable Sample Folder directs the user to Home to restore or choose the
   folder. A cancelled first sync points to the contextual Retry action in the
   library-status surface. A failed first sync shows the worker-provided error and
@@ -209,7 +202,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 ### Tag Organization
 
 - Users can create, rename, and delete tags.
-- Tags can be assigned to one or more samples. Right-clicking a sample tile
+- A user can assign tags to one or more samples. Right-clicking a sample tile
   exposes one **Edit tags** action that opens a searchable, collision-aware
   assignment surface. The UI never mounts the complete tag catalog once per
   sample tile.
@@ -226,8 +219,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - Tag assignment is many-to-many: one sample can have many tags, one tag can
   apply to many samples.
 - Deleting a tag removes it from all assigned samples (no orphaned references).
-- `querySamples` returns each row's assigned tag ids and names (aggregated
-  subqueries), so tiles and the footer show tags without N+1 lookups.
+- `querySamples` returns each row's assigned tag ids and names through aggregated subqueries.
+  Thus, tiles and the footer show tags without N+1 lookups.
 
 ### Folder-Derived Tags
 
@@ -236,12 +229,12 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   while `House/Bass/bass.wav` receives `House` and the same `Bass` tag identity.
   A sample directly in the Sample Folder root receives the hardcoded
   `Unsorted` tag.
-- Folder-derived tags are root-scoped and read-only. They are reconciled only
-  after a complete scan. A cancelled or failed scan preserves the prior
+- Folder-derived tags are root-scoped and read-only. A complete scan reconciles them.
+  A cancelled or failed scan preserves the prior
   complete projection.
 - User-created tags remain global and editable. When a user tag and a
-  folder-derived tag share a name, they share one visible tag identity while
-  retaining independent assignment provenance. The per-sample editor can pin
+  folder-derived tag share a name, they share one visible tag identity.
+  They retain independent assignment provenance. The per-sample editor can pin
   or unpin the user provenance. The folder assignment stays visibly active.
   Thus, an explicit assignment can survive a later file move.
 - A changed or moved file recomputes folder-derived assignments while keeping
@@ -249,19 +242,18 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   folder tags visible.
 - Multiple active tags use match-all semantics. Selecting `Bass` alone spans
   every parent, while selecting `Hard Trance` and `Bass` narrows to their
-  intersection. Because a nested sample receives every directory-segment tag,
-  selecting a top-level folder tag includes its deeper samples without a
-  recursive category query.
-- Assigning, unassigning, or deleting a tag invalidates the current windowed
-  query, so filtered membership and the result count reflect the committed
-  SQLite state. A completed sync prunes selected ids that are no longer visible
+  intersection. A nested sample receives every directory-segment tag.
+  Thus, selecting a top-level folder tag includes its deeper samples without a recursive category query.
+- Assigning, unassigning, or deleting a tag invalidates the current windowed query.
+  Thus, filtered membership and the result count reflect the committed SQLite state.
+  A completed sync prunes selected ids that are no longer visible
   in the active root before refreshing results.
 
 ### Libraries (Saved Queries)
 
 - A library is a named, saved set of filter/search/tag criteria.
 - Creating a library saves the current filter state under a user-chosen name.
-- Library metadata and its compiled rule are created in one transaction. A
+- The backend creates library metadata and its compiled rule in one transaction. A
   failed rule write leaves no orphan library row.
 - Opening a library parses its `rule_json` and restores search text plus tag
   filters. Stale tag ids are ignored.
@@ -278,9 +270,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - All filtering, sorting, and searching executes against SQLite — never
   in-memory JavaScript array operations on the full dataset.
 - The UI requests windowed pages of results, not the entire dataset.
-- Virtualized rendering ensures constant DOM node count regardless of result
-  set size. Tiles are packed into fixed-height rows and virtualized with
-  TanStack Virtual. Only rows intersecting the scroll viewport are mounted. A
+- Virtualized rendering keeps a constant DOM node count for each result set size.
+  TanStack Virtual packs tiles into fixed-height rows and virtualizes them.
+  The browser mounts only rows that intersect the scroll viewport. A
   visible unmeasured viewport may render only a bounded first-paint window.
   Hidden viewports mount no rows and never request another result page.
 - `tests/e2e/ui-performance.spec.ts` proves the bound with fewer than 40
@@ -289,24 +281,25 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   It also proves that each page mounts
   distinct samples. Repeatedly fetching offset zero or fully rendering a
   500-row page cannot satisfy the test.
-- No current 100k-row latency claim has been measured. Any throughput or query
-  latency claim must be recorded with the real fixture/library subset and the
-  exact measurement procedure.
+- No current 100k-row latency measurement exists.
+  Record each throughput or query latency claim with the real fixture or library subset.
+  Also record the exact measurement procedure.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** A folder's first sync starts automatically from Home and
-  shows accessible phase and progress without a full-screen overlay. Entering
+- [x] **AC-001:** A folder's first sync starts automatically from Home.
+  It shows accessible phase and progress without a full-screen overlay. Entering
   Player keeps the job running and shows a non-modal syncing state.
-- [x] **AC-002:** After `scan-done`, the browser queries the active folder and displays its indexed samples. First-scan results are not exposed before completion.
+- [x] **AC-002:** After `scan-done`, the browser queries the active folder and displays its indexed samples.
+  The browser hides first-scan results before completion.
 - [x] **AC-003:** Phase 2 persists duration, sample rate, and channel metadata.
   Terminal unsupported or damaged files become metadata-unavailable without
   aborting the sync. Transient I/O failure keeps the job incomplete for Retry.
-- [x] **AC-004:** The sample bubble grid is virtualized.
+- [x] **AC-004:** The UI virtualizes the sample bubble grid.
   The DOM row count stays bounded as the user scrolls indexed samples.
   A hidden Samples tab mounts no rows or additional query pages.
-- [x] **AC-004a:** The UI exposes one manual "Re-scan Sample Folder" recovery
-  action, one compact library-status region, and Cancel only while active. It
+- [x] **AC-004a:** The UI exposes one manual "Re-scan Sample Folder" recovery action.
+  It exposes one compact library-status region and Cancel only while active. It
   exposes no second scan variant. The Samples panel retains result count and
   filter/sort controls. A cancelled or failed first sync may expose one
   contextual "Retry library sync" action in that status region.
@@ -320,7 +313,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   The user can set or clear its color later.
   Tag controls show the color indicator, and the user can assign the tag.
 - [x] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.
-- [x] **AC-009:** User can delete a tag — it is removed from all assigned samples.
+- [x] **AC-009:** A user can delete a tag. The delete action removes it from all assigned samples.
 - [x] **AC-010:** A complete sync assigns one shared tag per directory segment.
   Identically named subfolders under different parents share one tag identity,
   and flat-root samples receive the hardcoded `Unsorted` tag.
@@ -330,39 +323,37 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   stale tag id filtering the result set.
 - [x] **AC-010b:** Folder-derived assignments are root-scoped and read-only.
   User-created tags are global and editable. Sync reconciliation never removes
-  user assignments or another root's folder-derived projection. A shared
-  folder/user tag can be pinned independently for a sample. Tag mutation
-  completions reconcile through the current root and cannot overwrite a new
-  Sample Folder's projection after a root switch.
+  user assignments or another root's folder-derived projection.
+  A user can independently pin the folder or user tag for a sample.
+  Tag mutation completions reconcile through the current root.
+  They cannot overwrite a new Sample Folder projection after a root switch.
 - [x] **AC-011:** Multiple tag filters use match-all semantics. `Bass` alone
-  spans parents. `Hard Trance` plus `Bass` narrows to their intersection, and a
-  top-level folder tag includes nested samples because they carry it directly.
+  spans parents. `Hard Trance` plus `Bass` narrows to their intersection.
+  A top-level folder tag includes nested samples because they carry it directly.
   Membership mutations refresh the SQLite window and total count.
 - [x] **AC-012:** User can save the current filter/search state as a named library.
 - [x] **AC-013:** Opening a saved library restores search and valid tag filters
   and shows matching samples. Stale tag ids are ignored.
-- [x] **AC-014:** Deleting a library removes only the saved query — samples and tags are unaffected.
-- [x] **AC-015:** Automatic and manual incremental sync detect new, changed,
-  missing, and restored files plus added, removed, renamed, moved, empty, and
-  unsupported-only directories. A completed sync atomically replaces the
-  folder-derived tag projection for that Sample Folder, preserves user tags,
-  and never exposes another Sample Folder's folder tags. Existing indexed
+- [x] **AC-014:** Deleting a library removes only the saved query. It does not affect samples or tags.
+- [x] **AC-015:** Automatic and manual incremental sync detect file and directory changes.
+  Files can be new, changed, missing, or restored.
+  Sync detects added, removed, renamed, moved, empty, and unsupported-only directories.
+  A completed sync atomically replaces that Sample Folder's folder-derived tag projection.
+  It preserves user tags and never exposes another Sample Folder's folder tags. Existing indexed
   samples remain usable, and cancellation retains the prior complete tag
   projection.
 - [x] **AC-015a:** Folder selection/restoration schedules at most one sync for
   that root during the app session. The worker-owned scheduler uses
   `FolderRef.id`, duplicate requests return the active job identity, and view
   changes never start another job.
-- [x] **AC-015b:** A second automatic sync over an unchanged corpus performs
-  zero metadata parses and zero sample analyses, including for persisted
-  terminal metadata failures. Manual Re-scan may explicitly retry unavailable
+- [x] **AC-015b:** A second automatic sync over an unchanged corpus performs no metadata parse or sample analysis.
+  This rule includes saved terminal metadata failures. Manual Re-scan may explicitly retry unavailable
   metadata.
-- [x] **AC-015c:** A completed empty folder is a ready indexed root, while a
-  cancelled or failed first sync remains incomplete and offers contextual
-  Retry.
-- [x] **AC-015d:** Root/job identity prevents progress, completion, and
-  folder-derived tag refreshes from an old folder being applied after the active
-  Sample Folder changes. Missing-path and paged-query responses obey the same
+- [x] **AC-015c:** A completed empty folder is a ready indexed root.
+  A cancelled or failed first sync remains incomplete and offers contextual Retry.
+- [x] **AC-015d:** Root and job identity block old progress, completion, and folder-derived tag updates.
+  These old updates cannot apply after the active Sample Folder changes.
+  Missing-path and paged-query responses obey the same
   root/generation rule. A folder change clears active tag filters immediately.
 - [x] **AC-015e:** A completed app-owned filesystem mutation schedules or queues
   reconciliation even after the root's session-start sync. Mutation during an
@@ -375,8 +366,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   first placement it uses the spec-009 span estimate, so the first drop and both
   views remain pixel-identical.
 - [x] **AC-018:** Sample actions use an accessible, viewport-aware context menu.
-  The tag-navigator/sample separator works by pointer, touch, and keyboard, and scan
-  progress exposes native progress semantics plus visible status text. Manage
+  The tag-navigator/sample separator works by pointer, touch, and keyboard.
+  Scan progress exposes native progress semantics and visible status text. Manage
   replaces the results pane, receives focus, and restores focus when closed.
 
 ## Non-Goals (deferred to later specs)

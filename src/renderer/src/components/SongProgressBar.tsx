@@ -9,7 +9,7 @@ import {
 } from 'react'
 
 interface SongProgressBarProps {
-  scrollportRef: RefObject<HTMLDivElement>
+  scrollportRef: RefObject<HTMLDivElement | null>
   scrollportId: string
 }
 

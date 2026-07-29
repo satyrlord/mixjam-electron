@@ -10,22 +10,22 @@ spec-010 (Audio Effects)
 Implement project persistence. Save the arrangement, Song settings, lane Mixer
 settings, sends, and four return buses to a versioned file.
 Load the file to restore the complete project. These values belong to the project and must not
-persist as app-level state across sessions. Samples are referenced by relative
-path, never embedded.
+persist as app-level state across sessions. The project references samples by relative path.
+It never embeds them.
 
 ## User Stories
 
-- **US-001:** As a user, I can save my project to a .mixjam file so I can continue
-  working on it later.
+- **US-001:** As a user, I can save my project to a .mixjam file.
+  I can continue work on it later.
 - **US-002:** As a user, I can open a saved .mixjam file.
   The Player restores all lanes, placements, Song settings, Mixer settings,
   sends, and return FX.
 - **US-003:** As a user, I see a clear warning for a missing referenced sample.
   The rest of the .mixjam project still loads.
-- **US-004:** As a user, my .mixjam files include a format version so unsupported
-  project formats are rejected clearly instead of being interpreted incorrectly.
-- **US-005:** As a user, projects I save or open appear in the MixJam Browser
-  so I can reopen them quickly later.
+- **US-004:** As a user, my .mixjam files include a format version.
+  The parser rejects unsupported formats clearly and does not misinterpret them.
+- **US-005:** As a user, projects I save or open appear in the MixJam Browser.
+  I can reopen them quickly later.
 - **US-006:** As a user, each project uses its own saved or default state.
   This state includes Song, lane Mixer, sends, and return buses.
   A project does not inherit these values from another session or project.
@@ -134,21 +134,21 @@ is:
 }
 ```
 
-- Each placement's `sampleRef` is a path relative to the Sample Folder root,
-  never an absolute path or embedded audio bytes. `nativeBPM` is the analysis
+- Each placement's `sampleRef` is relative to the Sample Folder root.
+  It is never an absolute path or embedded audio bytes. `nativeBPM` is the analysis
   value captured when that placement was added. Null means no native tempo was
   known, not that placed playback bypasses spec-009 tempo following.
 - All placements with the same `sampleRef` use one project-owned
   `durationTicks` value. Conflicting spans are invalid project data rather than
   an implicit choice based on lane or array order.
-- The 999-bar arrangement capacity from specs 005 and 006 is implicit and is
-  never materialized as empty bar, beat, or tick records. A `.mixjam` file saves
+- The 999-bar arrangement capacity from specs 005 and 006 is implicit.
+  The serializer never creates empty bar, beat, or tick records. A `.mixjam` file saves
   only actual project state and placement records.
 - A placement end is exclusive: `startTick + durationTicks` may equal 31,968
   but may not exceed it. Capacity validation errors identify the placement's
   `durationTicks` field and state the exclusive-end calculation.
-- `songEndTick` is derived on load as the latest placement end and is not stored
-  as redundant timeline padding or metadata. Internal and trailing empty bars
+- The loader derives `songEndTick` as the latest placement end.
+  The serializer does not store it as redundant timeline padding or metadata. Internal and trailing empty bars
   therefore add no project-file size.
 - `song` contains every saved project-wide sound setting.
   It contains Middle Strip BPM, Master Volume (`masterGain`), and automatic
@@ -158,32 +158,34 @@ is:
   Each entry owns an immutable ID, arrangement data, Mixer values, and an
   optional nullable `stereoPairId`.
   Each entry has four ordered sends for `FX1` through `FX4`. Array order
-  is visible order. Numeric lane indices and channel IDs are not persisted.
-  Nothing currently sets a `stereoPairId`: the analyzer persists no stereo-side
-  evidence and the generator creates no mirror lanes, so lanes store null or
-  omit it. The format retains the field as the shared identity of a mirrored
+  is visible order. The serializer does not save numeric lane indices or channel IDs.
+
+  Nothing currently sets a `stereoPairId`. The analyzer saves no stereo-side evidence, and the generator creates no mirror lanes.
+  Thus, lanes store null or omit it. The format retains the field as the shared identity of a mirrored
   pair. Any placement edit on either paired lane clears the ID from both lanes.
   These edits include add, move, duplicate, replacement, and removal.
+
   After an edit, the ID no longer proves current content.
   Name and Mixer edits preserve it.
-- `fxBuses` contains exactly four entries in fixed `FX1`, `FX2`, `FX3`, `FX4`
-  order. Each saves its fixed identity, module or Empty state, power, return
-  level, enabled limiter, and every editable module parameter defined by
-  spec-010. Returns are not lanes and do not count toward the 64-lane maximum.
+- `fxBuses` contains exactly four entries in fixed `FX1`, `FX2`, `FX3`, `FX4` order.
+  Each saves its fixed identity, module or Empty state, power, return level, and enabled limiter.
+  It also saves each editable module parameter that spec-010 defines.
+  Returns are not lanes and do not count toward the 64-lane maximum.
 - The canonical in-memory project model owns Song, lanes, placements, lane mixer
-  state, the four return buses, defaults, and deep-cloning rules. Project
-  serialization, New, load, and the
-  MixJam Generator consume that model rather than importing persistence types
-  or defaults from renderer hooks.
+  state, the four return buses, defaults, and deep-cloning rules.
+  Project serialization, New, load, and the MixJam Generator consume that model.
+  They do not import persistence types or defaults from renderer hooks.
 - The in-memory model requires all four return buses. Its construction, cloning,
   and serialization boundaries reject any other bus count before producing a
   project file.
-- `formatVersion` is incremented when the schema changes in a breaking way.
+- Increment `formatVersion` when the schema changes in a breaking way.
 - `appVersion` records which app version saved the file.
 - Version 7 adds the required spec-012 `masterBus` record.
   It stores an order permutation for the ten reorderable processors.
   It stores one power flag per processor and each strip parameter.
-  It also stores the selected preset name or null. The pinned Gain Stage
+  It also stores the selected preset name or null.
+
+  The pinned Gain Stage
   is always active and fixed before the Input Meter, so only `gain.trim`
   persists. `gain` is invalid in `order` and `power`. Spec-012 lists the
   record's rejection rules. This spec owns the wire format.
@@ -194,8 +196,7 @@ is:
   It does not migrate an older format.
   It rejects an older file without changing active project state.
   The error identifies an unsupported format that requires project recreation.
-- Objects reject unknown keys. Required arrays and fields may not be omitted,
-  duplicated, inferred, or repaired from array order.
+- Objects reject unknown keys. Do not omit, duplicate, infer, or repair required arrays and fields from array order.
 - `masterBus.order` contains each of the ten downstream processor IDs exactly
   once. `masterBus.power` contains exactly those same ten keys with boolean
   values. A `gain` order entry or power key is invalid. `gain.trim` remains a
@@ -212,9 +213,8 @@ is:
   `fx-1`/0/`FX1` through `fx-4`/3/`FX4`. Module payloads use the closed
   spec-010 union, including `{ "type": "empty" }` for Empty. Power and limiter
   fields are booleans, and return levels are finite values from 0 through 1.
-- Placement validation remains strict, including safe relative paths, unique
-  placement IDs, finite timing, arrangement capacity, and one consistent
-  `durationTicks` for each `sampleRef`.
+- Placement validation remains strict.
+  It covers safe relative paths, unique placement IDs, finite timing, arrangement capacity, and one `durationTicks` per `sampleRef`.
 
 ### Format version 7 generator metadata extension
 
@@ -253,7 +253,7 @@ app-level state and is never stored in the recent-project registry.
 
 `parameters.tempoClusterPrefix` is optional. When present, it is the selected
 spec-008 analysis-group key. It may be a relative directory prefix or a virtual
-`@cohort/<top-level>/<SC|SL token>` key. It is stored so exact regeneration uses
+`@cohort/<top-level>/<SC|SL token>` key. The generator block stores it so exact regeneration uses
 the same coherent sample population. It is never an absolute filesystem path.
 
 ### Persistence Ownership
@@ -262,6 +262,7 @@ the same coherent sample population. It is never an absolute filesystem path.
   state. This state contains Song, lanes, placements, Mixer state, and buses.
   The module also owns defaults, cloning, pure edits, and history shapes.
   It adapts the project state to the playback graph.
+
   Save, load, New, and generator paths use this owner instead of reconstructing
   flattened field lists. The project-file module owns format validation and
   unsupported-version rejection. It reuses this neutral state contract.
@@ -269,9 +270,8 @@ the same coherent sample population. It is never an absolute filesystem path.
 - Song settings, lane Mixer settings, sends, and return FX exist in memory
   while a project is active. They persist only in that project's `.mixjam`
   file.
-- Project-owned values must not be stored in or restored from `localStorage`,
-  IndexedDB, OPFS app state, the recent-project registry, or another app-level
-  persistence mechanism.
+- Do not store or restore project-owned values in an app-level persistence mechanism.
+  These mechanisms include `localStorage`, IndexedDB, OPFS app state, and the recent-project registry.
 - The first project-state change marks the document dirty immediately.
   Exact fingerprint serialization can settle after a continuous gesture.
   Thus, Undo can clear the indicator without serializing each pointer move.
@@ -285,21 +285,20 @@ the same coherent sample population. It is never an absolute filesystem path.
 - App preferences that do not affect the song or its sound may remain app-level
   state. Examples include the selected Bottom Workspace tab, panel sizes,
   and collapsed panels.
-- Closing with unsaved Song, lane Mixer, send, or return-FX changes may lose those changes because
-  auto-save and crash recovery are out of scope.
+- Closing can lose unsaved Song, lane Mixer, send, or return-FX changes.
+  Auto-save and crash recovery are out of scope.
 
 ### Save Flow
 
-- "New" in the Middle Strip project menu starts a default project through the
-  same reset path as the Home Screen's new-project action. Spec-006 owns the
+- "New" in the Middle Strip project menu uses the Home Screen new-project reset path.
+  It starts a default project. Spec-006 owns the
   compact menu presentation.
 - "Save" (Ctrl+S) writes to the current project file path.
 - "Save As…" (Ctrl+Shift+S) opens a native file picker to choose a new
   location (defaults to User Folder). The chosen file must remain inside the
   User Folder. The app never writes project data elsewhere.
-- Save shortcuts do not fire or suppress browser defaults from text-entry
-  controls, on repeated keydown events, or while another project operation is
-  busy.
+- Save shortcuts do not fire from text-entry controls or during repeated keydown events.
+  They also do not fire while another project operation is busy. They do not suppress browser defaults in these cases.
 - First save of a new project triggers "Save As…".
 - Unsaved changes indicator: a dot/asterisk next to the project name in the
   Middle Strip. Any arrangement, Song, lane Mixer, send, or return-FX edit marks the
@@ -308,8 +307,8 @@ the same coherent sample population. It is never an absolute filesystem path.
   Writes use the implementation temporary backing file.
   They replace the target only after `close()` succeeds.
   The app aborts a failed write.
-- A user-initiated open or save action requests access again when a persisted
-  User Folder handle is in Chromium's `prompt` state. The action fails with
+- A user open or save action requests access again for a saved User Folder handle in Chromium's `prompt` state.
+  The action fails with
   the folder-required message only if access is unavailable afterward.
 
 ### Load Flow
@@ -317,9 +316,9 @@ the same coherent sample population. It is never an absolute filesystem path.
 - "Load MixJam" from the Home Screen or "Open" from the Player opens a native
   file picker filtered to `.mixjam`. The user may load a project from any
   folder because the picker grants read access to the selected file.
-- A project opened outside the User Folder is a read-only import: it keeps its
-  filename for display but has no current writable path. Its first Save opens
-  Save As so it can be stored inside the User Folder. It does not enter the
+- A project opened outside the User Folder is a read-only import.
+  It keeps its display filename but has no current writable path. Its first Save opens
+  Save As so the user can store it inside the User Folder. It does not enter the
   User Folder-relative recent-project registry until that save succeeds.
 - On load:
   1. Parse JSON and validate `formatVersion`.
@@ -342,23 +341,22 @@ the same coherent sample population. It is never an absolute filesystem path.
   - project file path relative to the User Folder ('/'-separated)
   - display name derived from the filename
   - last-opened timestamp
-- Deduplication uses the relative path as the canonical key. No absolute
-  filesystem paths are stored.
+- Deduplication uses the relative path as the canonical key.
+  The registry stores no absolute filesystem paths.
 - Successfully opening a `.mixjam` file updates or inserts its registry entry.
 - Successfully saving a new project path updates or inserts its registry entry.
-- The MixJam Browser (spec-006) merges this registry with `.mixjam`
-  files discovered by recursively scanning the current User Folder and
-  deduplicates entries by canonical file path.
-- Catalog refreshes are bound to the User Folder and request generation that
-  started them. A late result or failure from an older folder or older refresh
-  cannot replace or clear the active folder's project list.
-- When the rail is built, registry entries with `lastOpened` timestamps sort
+- The MixJam Browser (spec-006) merges this registry with discovered `.mixjam` files.
+  A recursive scan finds them in the current User Folder. The browser deduplicates entries by canonical file path.
+- The catalog owner binds refreshes to the User Folder and the request generation that started them.
+  An older folder or refresh can return a late result or failure.
+  That result cannot replace or clear the active folder project list.
+- When the UI builds the rail, registry entries with `lastOpened` timestamps sort
   newest-first ahead of discovered-but-never-opened projects.
 
 ### Unsupported Formats
 
-- Format version 7 has no migration from version 6 or earlier. Unsupported
-  versions are rejected before project replacement or sample checks.
+- Format version 7 has no migration from version 6 or earlier.
+  The parser rejects unsupported versions before project replacement or sample checks.
 - App-level audio storage from a prior format is not project data.
   Do not import or merge it into a new or loaded project.
   Do not let it override the project.
@@ -370,14 +368,15 @@ the same coherent sample population. It is never an absolute filesystem path.
 - [ ] **AC-002:** Save the project, close the app, reopen it, and load the
   project. The load restores lanes, placements, Song settings, and Mixer state.
   It restores four sends per lane and four fixed return buses.
-- [ ] **AC-003:** The unsaved changes indicator appears immediately after any
-  arrangement change, including lane add/delete/rename, or Song, lane Mixer,
-  send, or return-FX modification. It does not wait for deferred fingerprint
+- [ ] **AC-003:** The unsaved changes indicator appears immediately after each arrangement change.
+  Changes include lane add/delete/rename or Song, lane Mixer, send, and return-FX modifications.
+  It does not wait for deferred fingerprint
   serialization and disappears after save.
 - [x] **AC-004:** Ctrl+S saves to the current path. Ctrl+Shift+S triggers "Save As…".
-- [x] **AC-005:** Loading a project with a missing sample file shows a warning badge on the affected lane(s) — other lanes load correctly.
-- [x] **AC-006:** Loading any project whose `formatVersion` is not 7 shows the
-  clear unsupported-format error and does not change the active project. There
+- [x] **AC-005:** Loading a project with a missing sample shows a warning badge on each affected lane.
+  Other lanes load correctly.
+- [x] **AC-006:** Loading a project whose `formatVersion` is not 7 shows the clear unsupported-format error.
+  It does not change the active project. There
   is no version-6 migration.
 - [x] **AC-007:** `sampleRef` fields are relative paths, never absolute paths, never base64-encoded audio.
 - [x] **AC-008:** The project file survives a roundtrip: save → load → save produces an identical file (minus `modifiedAt` timestamp).
@@ -390,25 +389,24 @@ the same coherent sample population. It is never an absolute filesystem path.
   send, and return-bus state. No value from project A leaks into project B.
 - [x] **AC-013:** Edit a saved project without saving, then restart the app.
   Loading restores the last saved values, not the unsaved values.
-- [x] **AC-014:** User-initiated save actions can restore write access to a
-  persisted User Folder handle whose permission state is `prompt`. Opening a
+- [x] **AC-014:** User save actions can restore write access to a saved User Folder handle.
+  This applies when its permission state is `prompt`. Opening a
   picker-selected project does not require User Folder permission.
 - [x] **AC-015:** Save shortcuts do not call `preventDefault()` in blocked
   contexts. These contexts include text input, repeated keydown, and busy
   project I/O.
 - [x] **AC-016:** Loading rejects projects that assign conflicting
   `durationTicks` values to placements with the same `sampleRef`.
-- [x] **AC-021:** The open picker loads a valid `.mixjam` file selected from
-  outside the User Folder without requesting write access to that location.
+- [x] **AC-021:** The open picker loads a valid `.mixjam` file from outside the User Folder.
+  It does not request write access to that location.
 - [x] **AC-022:** A project loaded from outside the User Folder has no writable
   current path. Save routes through Save As, and no write begins unless the
   selected destination is inside the User Folder.
-- [x] **AC-023:** Saving a project serializes placement records without a
-  preallocated 999-bar timeline, empty bar/beat/tick entries, or a redundant
-  `songEndTick`. Loading derives the exact end from the saved placements.
-- [x] **AC-024:** Loading rejects a placement whose exclusive end tick
-  (`startTick + durationTicks`) exceeds 31,968, and the validation error points
-  to that placement's `durationTicks` field.
+- [x] **AC-023:** Saving a project serializes placement records without a preallocated 999-bar timeline.
+  It includes no empty bar, beat, or tick entries and no redundant `songEndTick`.
+  Loading derives the exact end from the saved placements.
+- [x] **AC-024:** Loading rejects a placement whose exclusive end tick (`startTick + durationTicks`) exceeds 31,968.
+  The validation error points to that placement's `durationTicks` field.
 - [ ] **AC-026:** New in the Middle Strip project menu starts the same exactly
   eight-lane blank project used by the Home Screen.
 - [ ] **AC-027:** Version-7 save and load preserves automatic clip-edge fade
@@ -417,15 +415,14 @@ the same coherent sample population. It is never an absolute filesystem path.
 - [x] **AC-028:** New, load, save, transport replacement, and generated tests
   use one nested Song-state contract. They use one canonical default factory.
   They do not list Song fields independently.
-- [x] **AC-029:** Versions 6 and earlier are rejected clearly and atomically.
+- [x] **AC-029:** The parser rejects versions 6 and earlier clearly and atomically.
   The parser exposes no migration path into version 7.
 - [ ] **AC-030:** A version-7 generator block validates and survives a
   load/save roundtrip. It preserves all generator identifiers and parameters.
   It preserves the optional analysis-group key, corpus fingerprint, and Sample
   Folder key.
-- [ ] **AC-031:** A generated version-7 project exposes its generator metadata to
-  exact and current-corpus regeneration without storing it in app state or the
-  recent-project registry.
+- [ ] **AC-031:** A generated version-7 project exposes its generator metadata to exact and current-corpus regeneration.
+  It does not store this metadata in app state or the recent-project registry.
 - [ ] **AC-032:** Strict parsing requires 1 through 64 lanes.
   It rejects duplicate or malformed stable IDs and persisted numeric IDs.
   Each lane must have exactly four finite 0-through-1 send values.
@@ -436,8 +433,8 @@ the same coherent sample population. It is never an absolute filesystem path.
   remain null. Any arrangement placement edit to either paired lane clears the
   identity from both lanes. Unrelated placement, name, and Mixer edits preserve
   it.
-- [x] **AC-035:** Switching User Folders while project discovery is pending
-  ignores both late success and late failure from the previous folder. Only the
+- [x] **AC-035:** Switching User Folders during project discovery ignores late success and failure from the previous folder.
+  Only the
   newest request for the active folder may replace or clear the MixJam Browser
   catalog.
 
@@ -447,11 +444,13 @@ The in-memory `ProjectState` matches the physical version-7 model: Song, lanes,
 and four Return buses. Parsing, generation, dirty fingerprints, and persistence
 do not synthesize or replace a second top-level channel array.
 
-- Project-file unit tests cover version acceptance and version-6 rejection.
-  They cover unknown keys, lane limits, stable IDs, and lane order.
-  They also cover sends, buses, modules, ranges, paths, and placement validation.
-- Project-state tests cover the exactly-eight-lane blank default, isolated
-  cloning of lane mixer and return state, and atomic lane add/delete snapshots.
+- Project-file unit tests cover:
+  - exact format-version acceptance and version-6 rejection,
+  - unknown keys, one-lane and 64-lane boundaries, stable IDs, and lane order,
+  - four sends, four ordered buses, module payloads, and numeric ranges, and
+  - safe relative paths and unchanged placement validation.
+- Project-state tests cover the exactly-eight-lane blank default and isolated cloning of lane Mixer and Return state.
+  They also cover atomic lane add/delete snapshots.
 - Persistence integration tests cover complete replacement and immediate dirty
   state. They cover baseline reconciliation and unsupported-format failure
   without mutation. They cover external Save As and stale catalog results.
@@ -459,9 +458,8 @@ do not synthesize or replace a second top-level channel array.
 - Project persistence owns app version, User Folder project discovery, and
   project-list refresh after a successful save. Sample-library state does not
   own or reload the project catalog.
-- Built Chromium verification covers save/load roundtrips, missing-sample
-  warnings, and exact restoration of lane identities, Mixer sends, return
-  modules, return levels, power, and limiters.
+- Built Chromium verification covers save/load roundtrips and missing-sample warnings.
+  It also covers exact restoration of lane identities, Mixer sends, return modules, return levels, power, and limiters.
 
 ## Non-Goals
 

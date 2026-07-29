@@ -21,14 +21,19 @@ const NODE_BACKEND_TESTS = [
 // V8 coverage instrumentation runs the DSP long-render tests (multi-second
 // reverb tails at 48 kHz) roughly 8x slower, so the 5 s default timeout is
 // marginal under `--coverage` even though those tests finish in ~2 s
-// uninstrumented. Widen the default timeout for coverage runs only; normal
-// unit runs keep the strict 5 s. Detection mirrors the perf tests' BUDGET_FACTOR.
+// uninstrumented. Widen the default timeout for coverage runs the most.
+// Detection mirrors the perf tests' BUDGET_FACTOR.
+//
+// Unit runs use 15 s rather than 5 s: under React 19 the App-level shell and
+// theming specs render enough to cross 5 s when the suite runs in parallel on a
+// loaded machine. Every one of them passes in well under a second in isolation,
+// so the old budget measured host contention instead of the code under test.
 const COVERAGE_RUN = (process.env.npm_lifecycle_event ?? '').includes('coverage')
 
 export default defineConfig({
   plugins: [react()],
   test: {
-    testTimeout: COVERAGE_RUN ? 30000 : 5000,
+    testTimeout: COVERAGE_RUN ? 30000 : 15000,
     // The real-time allocation gate measures retained heap after explicit GC.
     // Passing this to Vitest workers keeps that measurement stable under V8
     // coverage instrumentation as well as in the normal unit run.

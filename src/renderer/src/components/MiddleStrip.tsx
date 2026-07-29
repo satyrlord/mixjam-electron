@@ -145,7 +145,7 @@ function LibraryActivity({ state, onCancel, onRetry }: LibraryActivityProps) {
  */
 interface MiddleStripScrollportProps {
   /** The Tracker viewport the Song Progress Bar scrolls. */
-  ref: RefObject<HTMLDivElement>
+  ref: RefObject<HTMLDivElement | null>
   id: string
 }
 

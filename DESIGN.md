@@ -587,5 +587,5 @@ pixels.
 - **Do not** invent hardware that no spec defines.
   The reference board controls structure and density only.
 - **Do not** apply a full-saturation accent to inactive or disabled states.
-- **Do not** use a colored side border wider than 1px on a card, list item, or callout.
+- **Do not** use `border-left` or `border-right` wider than 1px on a card, list item, or callout.
 - **Do not** animate for decoration. Motion only shows a state change, feedback, loading, or reveal.

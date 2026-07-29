@@ -206,7 +206,7 @@ cohort keys use their deterministic cohort-membership matcher instead of path
 containment. Planner scoring must not recompute semantic BPM, key, or sample
 type.
 
-Set `PRAGMA foreign_keys = ON` for each connection because SQLite disables it by default.
+Set `PRAGMA foreign_keys = ON;` for each connection because SQLite disables it by default.
 There is no WAL under opfs-sahpool. Queries and the indexer share the single
 worker connection. Phase-1 stub upserts and folder-tag assignments are batched in
 transactions and yield to the worker event loop between batches. Phase-2

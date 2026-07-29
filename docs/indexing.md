@@ -102,8 +102,10 @@ resumes naturally by re-upserting phase-1 rows and processing remaining stubs.
 indexed samples available immediately. The same backend worker then runs the
 one analyzer. It extracts per-file evidence, BPM, musical key, acoustic sample
 type from PCM/IEEE-float WAV files. Direct BPM/key results are stored separately
-from their contextual projections. The analyzer derives group summaries for
-directory prefixes and structured SC/SL source cohorts, then exposes resolved
+from their contextual projections.
+The analyzer derives group summaries for directory prefixes and structured SC/SL source cohorts.
+
+It then exposes resolved
 non-overlapping groups as tempo/key clusters. A folder path or filename cohort
 is group evidence, not a uniformity contract.
 

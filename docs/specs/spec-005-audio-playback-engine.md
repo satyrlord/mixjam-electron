@@ -9,8 +9,8 @@ paths, and send/return graph are implemented. Unchecked validation remains
 
 Build the pure audio playback core. It includes transport control, a lookahead
 scheduler, sample voices, lane-owned mixing, and four fixed send/return buses.
-At the end of this slice, a test can load a sample, place it on a lane, press
-play, and hear audio. The engine is fully decoupled from the UI layer.
+At the end of this slice, a test can load and place a sample. It can then play the sample.
+The engine has no UI layer dependency.
 
 ## User Stories
 
@@ -23,13 +23,12 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   immediately.
 - **US-005:** As a user, each lane has its own volume and stereo pan control
   that affects its sound independently.
-- **US-006:** As a user, I can change the master output volume without altering
-  the relative balance between lanes and return buses.
+- **US-006:** As a user, I can change the master output volume.
+  This change preserves the balance between lanes and return buses.
 - **US-007:** As a user, the UI can display a master loudness meter driven by
   the engine's real output level.
-- **US-008:** As a user, playback suppresses clicks at placement edges next to
-  silence without changing my source files or creating a noticeable attack or
-  release.
+- **US-008:** As a user, playback suppresses clicks at placement edges next to silence.
+  It does not change source files or create a noticeable attack or release.
 
 ## Scope
 
@@ -54,9 +53,9 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 
 ### Song Boundary and Arrangement Capacity
 
-- The arrangement has a capacity of 999 bars. In 4/4 at 8 ticks per beat,
-  this is 32 ticks per bar and an exclusive capacity boundary of 31,968 ticks.
-- Capacity is not song length. `songEndTick` is derived as the maximum
+- The arrangement has a capacity of 999 bars. In 4/4 at 8 ticks per beat, each bar has 32 ticks.
+  The exclusive capacity boundary is 31,968 ticks.
+- Capacity is not song length. The engine derives `songEndTick` as the maximum
   `startTick + durationTicks` across every placement on every lane. A song with
   content in bars 1-10 and silence in bar 10-11.
   Later content through bar 30 makes the song end at the bar 31 boundary.
@@ -64,16 +63,16 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   truncate it.
 - A final placement that ends partway through a bar makes that exact tick the
   song end. The value is not rounded to the next beat or bar.
-- Every placement record contributes to `songEndTick`, including placements on
-  muted or currently unsoloed lanes and placements whose sample file is
-  missing. Mixer state and temporary file availability never change song
+- Every placement record contributes to `songEndTick`.
+  This includes muted or currently unsoloed lanes and placements with a missing sample file.
+  Mixer state and temporary file availability never change song
   length. A project with no placements has `songEndTick = 0`.
 - Natural playback reaching `songEndTick` automatically stops playback and
   resets the playhead to tick 0. Play on an empty project remains stopped at
   tick 0. Explicit navigation to the end may park the stopped playhead at
   `songEndTick`. It is not treated as natural playback reaching the boundary.
-  Pressing Play from that parked end synchronizes the engine and visual
-  playhead to tick 0 before preparation, then starts from the beginning.
+  Pressing Play from that parked end sets the engine and visual playhead to tick 0.
+  Preparation then starts playback from the beginning.
 - Transport completion uses the **Ring Out** contract.
   Natural song end, explicit Stop, and Jump to End stop all source voices.
   They prevent new scheduling but do not reset return-bus effect processors.
@@ -82,12 +81,12 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   while transport state is `stopped`. Pause and discontinuous seek use the
   same source-stop behavior. Project replacement and engine close terminate
   the AudioContext and cut any remaining tail.
-- If an edit shortens the song below the current playhead, a stopped or paused
-  playhead and its view clamp to the new `songEndTick`. During playback, the
+- If an edit shortens the song below the current playhead, the stopped or paused playhead clamps to `songEndTick`.
+  Its view also clamps to that value. During playback, the
   same edit applies the natural-end rule and resets to tick 0.
 - Placements retain their complete duration. Drops and moves clamp their start
-  tick so `startTick + durationTicks` does not exceed 31,968. A placement whose
-  duration alone exceeds the entire capacity is rejected without a dialog.
+  tick so `startTick + durationTicks` does not exceed 31,968.
+  The app silently rejects a placement whose duration exceeds the entire capacity.
   The interaction surface provides unavailable-cursor or equivalent inline
   feedback instead of interrupting the user.
 
@@ -117,14 +116,15 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - Provides one stable mixer path per lane ID. A lane owns its gain, pan, mute,
   solo, meter, and four ordered send values. There is no independent channel
   registry or lane-to-channel routing assignment.
-- Provides `triggerVoice({ buffer, laneId, when, playbackRate? })` — creates a
-  new `AudioBufferSourceNode`, routes it through that lane's mixer path, and
-  returns a `Voice` handle.
+- Provides `triggerVoice({ buffer, laneId, when, playbackRate? })`.
+  It creates an `AudioBufferSourceNode` and routes it through the lane mixer path.
+  It returns a `Voice` handle.
 - Provides `setMasterGain(value)` — 0 to 1 range, applied after all lane
   and return-bus summing. The existing Master behavior is unchanged.
-- Provides a project-owned read-only master snapshot with RMS dBFS fallback,
-  Momentary/Short-term/Integrated LUFS, maximum true peak in dBTP, and
-  Loudness Range in LU. Package-specific message types do not cross the engine
+- Provides a project-owned read-only master snapshot with RMS dBFS fallback.
+  It includes Momentary, Short-term, and Integrated LUFS.
+  It also includes maximum true peak in dBTP and Loudness Range in LU.
+  Package-specific message types do not cross the engine
   boundary.
 - Initializes the self-hosted `loudness-worklet` 1.6.9 asset from `resume()` at
   most once. Registration failure warns once, does not block playback, and
@@ -137,18 +137,18 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - `stopAllVoices()` — immediately stops all active voices.
 - `resume()` — resumes the AudioContext (required after user gesture for
   autoplay policy).
-- AudioContext is created lazily (on first user gesture), not at app startup.
+- The engine creates the AudioContext lazily on the first user gesture, not at app startup.
 
 ### Sample Loading & Caching
 
-- Samples are decoded once into `AudioBuffer` and cached by their sample relpath
+- The engine decodes samples once into `AudioBuffer` and caches them by sample relpath
   within the active Sample Folder.
 - An LRU eviction policy prevents unbounded memory growth — the cache has a
   configurable maximum size.
 - File bytes reach the audio engine through the injected `loadSampleBytes`
   callback. `BackendAPI.readSampleBytes(rootId, relpath)` uses the Sample
   Folder directory handle. The engine does not access the file system.
-- Decoding failures are reported as errors — a corrupt or unreadable sample
+- The engine reports decoding failures as errors. A corrupt or unreadable sample
   does not crash the engine.
 
 ### Lane mixer path and return buses
@@ -167,8 +167,8 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   Sample Folder replacement hydrate all lane and Return state before use.
   Lane pan has one owner in the reusable channel path. A voice does not create
   or traverse a second lane panner.
-- Every return bus has one replaceable module host, power state, return level,
-  an enabled safety limiter, and a route to the unchanged master bus. A blank
+- Every return bus has one replaceable module host, power state, return level, and enabled safety limiter.
+  Each bus routes to the unchanged master bus. A blank
   project initializes each module to `Empty`.
   Power uses the module host default. Return level is 100%.
   The limiter is enabled, and every lane send is 0%.
@@ -212,13 +212,12 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
   below, rather than the placements' nominal visual spans. MixJam has no
   edit-boundary crossfade in this slice.
 - Fade suppression also requires the touching sample to be decoded and ready.
-  A missing, unreadable, corrupt, or not-yet-prepared neighbor is treated as a
-  possible silence edge, so the playable placement keeps its protective fade.
+  Treat a missing, unreadable, corrupt, or unprepared neighbor as a possible silence edge.
+  Thus, the playable placement keeps its protective fade.
   Silence classification propagates across consecutive failed placements until
   the next playable placement.
-- Starting playback inside a placement starts its source at the corresponding
-  source offset and schedules the gain from the corresponding point in the
-  envelope.
+- Starting playback inside a placement starts its source at the corresponding source offset.
+  It schedules gain from the corresponding envelope point.
 - The decoded `AudioBuffer` and source file remain unchanged.
 - Explicit placement fades, loop crossfades, reverse playback, and offline
   export are not implemented. Future explicit fades must replace, not stack
@@ -248,8 +247,8 @@ play, and hear audio. The engine is fully decoupled from the UI layer.
 - The mixer strip in visible position N is the same project entity as Lane N.
   Adding a lane is the only way to add a lane mixer strip. Deleting a lane is
   the only way to delete one.
-- During playback, the scheduler evaluates each lane's placements: when the
-  playhead reaches an audible placement's start position, a voice is triggered.
+- During playback, the scheduler evaluates each lane's placements.
+  When the playhead reaches an audible placement start, the scheduler triggers a voice.
 - Solo overrides mute: if any lane is soloed, only soloed lanes play.
 
 ### Engine Boundary
@@ -265,7 +264,7 @@ the engine never knows who is listening.
 - [x] **AC-002:** Calling `pause()` holds the current tick. Calling `play()` again resumes from that tick.
 - [x] **AC-003:** Calling `stop()` resets the playhead to tick 0 and sets state to `stopped`.
 - [x] **AC-004:** Changing BPM from 120 to 140 changes the step duration from
-  62.5ms to ~53.6ms. Subsequent ticks fire at the new tempo without mutating
+  62.5ms to ~53.6ms. Later ticks fire at the new tempo without mutating
   placement start ticks or musical durations. Placement audio rendering follows
   spec-009.
 - [x] **AC-005:** The scheduler fires `onSchedule(tick, when)` callbacks for ticks within the lookahead window. A unit test with a mock clock verifies this.
@@ -290,7 +289,7 @@ the engine never knows who is listening.
 - [x] **AC-009c:** The audible master route remains
   `masterGain -> analyser -> destination`. The loudness worklet is a parallel,
   measurement-only branch whose failure cannot mute or alter output.
-- [x] **AC-009d:** Worklet initialization is memoized.
+- [x] **AC-009d:** The engine memoizes worklet initialization.
   It uses the self-hosted checksummed 1.6.9 asset under the production CSP.
   It reports every 100 ms and logs at most one warning.
   It retains the RMS fallback.
@@ -301,7 +300,7 @@ the engine never knows who is listening.
   normalized snapshot field changes. Unchanged stopped-state snapshots do not
   rerender the Player.
 - [x] **AC-010:** Decoding the same sample twice returns the cached `AudioBuffer` — no duplicate decode.
-- [x] **AC-011:** A corrupt audio file triggers a decode error that is reported (does not crash the engine).
+- [x] **AC-011:** A corrupt audio file triggers a decode error that the engine reports. The error does not crash the engine.
 - [x] **AC-012:** The engine module has zero imports from React, DOM, or any UI code. A static analysis check confirms this.
 - [x] **AC-013:** A soloed lane plays. All non-soloed lanes are silent. Un-soloing restores normal playback.
 - [x] **AC-014:** The engine exposes the 31,968-tick capacity separately from
@@ -337,28 +336,24 @@ the engine never knows who is listening.
 - [x] **AC-022:** Starting playback inside a sounding placement uses the
   matching source offset and envelope gain. Disabling the project setting
   restores direct source-to-lane playback without an automatic envelope.
-- [x] **AC-023:** An overlapping placement cuts the prior voice at the later
-  placement's exact audio-clock start, not when the lookahead schedules it.
+- [x] **AC-023:** An overlapping placement cuts the prior voice at the later placement's exact audio-clock start.
+  The lookahead schedule time does not cut it.
   The cutoff remains scheduled when the later sample is unavailable, and fade
   planning uses the same overlap-truncated audible duration.
 
 ## Song-Boundary Implementation Evidence
 
-- `src/renderer/src/lib/arrangement.test.ts` verifies the 31,968-tick capacity,
-  exact latest-placement end across silent gaps and muted lanes, empty-song
-  zero, complete-placement clamping, oversized-sample rejection, and
-  offset-preserving group clamping.
-- `src/renderer/src/hooks/useTransportEngine.test.ts` verifies empty-song Play,
-  exact Jump to End parking, delayed replay from the parked end, natural-end
-  stop/reset, and edit-time playhead clamping.
+- `src/renderer/src/lib/arrangement.test.ts` verifies the 31,968-tick capacity and exact latest-placement end.
+  It covers silent gaps, muted lanes, empty-song zero, complete-placement clamping, oversized-sample rejection, and offset-preserving group clamping.
+- `src/renderer/src/hooks/useTransportEngine.test.ts` verifies empty-song Play and exact Jump to End parking.
+  It also verifies delayed replay, natural-end stop/reset, and edit-time playhead clamping.
 - `src/renderer/src/project/project-file.test.ts` rejects persisted placements
   beyond capacity and proves sparse project serialization.
-- `tests/e2e/audio-effects-rendering.spec.ts` exercises the real transport,
-  send/return graph, and Return Delay in Chromium for natural end, replay,
-  explicit Stop, and Jump to End. The test writes raw post-boundary output
+- `tests/e2e/audio-effects-rendering.spec.ts` exercises the real transport, send/return graph, and Return Delay in Chromium.
+  It covers natural end, replay, explicit Stop, and Jump to End. The test writes raw post-boundary output
   samples to `tmp/verify-fx-song-end/`.
 - Five engine test files cover the automatic fade contracts.
-  They are `clip-edge-fades.test.ts`, `clip-edge-boundary-policy.test.ts`,
+  They are `src/renderer/src/engine/clip-edge-fades.test.ts`, `clip-edge-boundary-policy.test.ts`,
   `lane-evaluation.test.ts`, `audio-engine.test.ts`, and
   `playback-engine.test.ts`. They cover conversion, short clips, endpoints,
   boundaries, readiness, cleanup, channel ownership, and disable behavior.
@@ -374,9 +369,9 @@ the engine never knows who is listening.
 
 ## Non-Goals
 
-- Transport controls and the visual playhead are specified by spec-006.
-- Tempo-following resampling is specified by spec-009.
-- Mixer send/return effects are specified by spec-010.
+- Spec-006 specifies transport controls and the visual playhead.
+- Spec-009 specifies tempo-following resampling.
+- Spec-010 specifies Mixer send/return effects.
 - No offline rendering for export. Export is spec-019.
 - No loop-boundary crossfade or edit-boundary crossfade.
 - No explicit user-authored placement fade editor. A future explicit fade

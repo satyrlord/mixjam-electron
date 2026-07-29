@@ -20,8 +20,8 @@ Folder selections persist as app state across restarts.
 - **US-003:** As a user, I must pick the User Folder first.
   The app then makes the Sample Folder available.
   This order gives the app a write destination before it reads samples.
-- **US-004:** As a user, the "Start New MixJam" button is disabled until both
-  folders are selected, with a hint explaining what is missing.
+- **US-004:** As a user, I cannot use "Start New MixJam" until I select both folders.
+  A hint identifies the missing selection.
 - **US-005:** As a user, the app restores my selected folders after launch.
   I do not have to select them after each launch.
 - **US-006:** As a user, I see a clear error when a selected folder is not
@@ -46,7 +46,7 @@ workflow column (right side of two-column layout)
   └── Generate a MixJam card — owned by spec-018
 ```
 
-The Recent Projects rail remains below the hero and is owned by spec-001.
+The Recent Projects rail remains below the hero. Spec-001 owns it.
 
 ### Folder Cards
 
@@ -55,9 +55,8 @@ Each card shows:
 - **Icon** and **label** indicating the folder role (e.g. "User Folder",
   "Sample Folder").
 - **"Pick Folder" button** — opens the File System Access directory picker.
-- **Status text** — shows the selected folder's name, or a prompt if none
-  selected. (MixJam stores no absolute paths, a folder is a `FolderRef` whose
-  handle is persisted in IndexedDB.)
+- **Status text** — shows the selected folder name or a prompt when no selection exists.
+  MixJam stores no absolute paths. A folder is a `FolderRef`, and IndexedDB stores its handle.
 - **Library status** in the full-width scanner row below both folder controls —
   Unindexed, Syncing, Ready, Cancelled, or Error. Checking, syncing, and
   analysis expand the row with the current phase, native progress semantics,
@@ -73,14 +72,14 @@ Each card shows:
 - Always enabled. The user can pick or change the output folder at any time.
 - Role: read-write. The app writes projects, exports, and app config into
   this folder.
-- The picker is hinted to start in the OS Documents folder (`startIn`).
+- The picker uses `startIn` to suggest the OS Documents folder.
 - The Player Settings modal also exposes a **Select User Folder** action. It
   uses this same picker, validation, and persisted `FolderRef` flow. The Home
   Library Setup card remains the primary onboarding surface.
 
 **Sample Folder card:**
 
-- **Disabled** (greyed out, non-interactive) until the User Folder is selected.
+- The app disables this card until the user selects a User Folder.
 - Once the User Folder is set, the Sample Folder card becomes active and the
   user can pick the input folder.
 - Role: read-only. The app reads audio samples from this folder but never
@@ -88,38 +87,35 @@ Each card shows:
 
 ### Create or Open
 
-- The launch gate lives in an independent card below Library Setup. Its action
-  row uses a 2:1 width ratio so "Start New MixJam" visually leads while "Load
-  MixJam" remains a quieter outlined secondary action.
-- "Start New MixJam" is **disabled** until both folders are selected.
+- The launch gate uses an independent card below Library Setup.
+  Its action row uses a 2:1 width ratio. "Start New MixJam" leads the quieter outlined "Load MixJam" action.
+- The app disables "Start New MixJam" until the user selects both folders.
 - When disabled, a hint label appears below the button: "Select both folders
   above to start."
 - Once both folders are set, the button becomes active and clicking it
   navigates to the MixJam Player (per spec-001).
-- "Load MixJam" uses the same two-folder readiness gate. Project paths
-  are User Folder-relative and sample references are Sample Folder-relative,
-  so both folders must be available before a project can load.
+- "Load MixJam" uses the same two-folder readiness gate.
+  Project paths are User Folder-relative, and sample references are Sample Folder-relative.
+  Both folders must be available before a project can load.
 
 ### Folder Picker Behavior
 
 - Clicking "Pick Folder" opens the File System Access directory picker
   (`showDirectoryPicker`). Its mode matches the folder role.
   The User Folder uses `readwrite`. The Sample Folder uses `read`.
-- Picking a folder that was picked before reuses its existing `FolderRef`
-  (via `isSameEntry`), so the folder's scan root and indexed samples survive
-  re-picking.
+- Picking a folder again reuses its existing `FolderRef` through `isSameEntry`.
+  Thus, the folder keeps its scan root and indexed samples.
 - After selection, the app validates the folder is accessible:
   - User Folder: permission granted and writable (probed with a temp file).
   - Sample Folder: permission granted and readable.
-- If validation fails, an error message is displayed on the card: "Cannot
+- If validation fails, the card displays this error: "Cannot
   access this folder. Check permissions and try again."
-- If validation succeeds, the folder's name is displayed on the card.
+- If validation succeeds, the card displays the folder name.
 - The user can change the folder at any time by clicking "Pick Folder" again.
-- If a previously saved folder no longer exists, the card shows an error
-  state: "Folder not accessible — pick a new one."
-- If a previously saved folder exists but reports
-  `queryPermission() === 'prompt'`, the card offers "Restore access to
-  `folder`" and re-requests permission in a user gesture. This is a defensive
+- If a saved folder no longer exists, the card shows this error:
+  "Folder not accessible — pick a new one."
+- If a saved folder reports `queryPermission() === 'prompt'`, the card offers "Restore access to `folder`".
+  A user gesture requests permission again. This is a defensive
   recovery path because the Electron shell normally auto-grants access.
 - `backend/folder-access.ts` owns role-to-permission mapping, stored-handle
   loading, automatic-access checks, explicit user-gesture recovery, relative
@@ -128,55 +124,51 @@ Each card shows:
 
 ### App State Persistence
 
-- Selected `FolderRef`s are persisted in localStorage. Their directory handles
-  are persisted in IndexedDB. Both survive app restarts on the same origin.
-- On app launch, the persisted folders are loaded and restored into the cards
-  automatically.
-- If both folders restore successfully, the "Start New MixJam" button is
-  immediately active — the user can enter the tracker without re-picking
-  folders.
+- localStorage stores selected `FolderRef` values. IndexedDB stores their directory handles.
+  Both survive app restarts on the same origin.
+- On app launch, the app automatically loads the saved folders and restores them into the cards.
+- If both folders restore successfully, the "Start New MixJam" button is immediately active.
+  The user can enter the tracker without another folder selection.
 - No network, no cloud sync.
 
 ### App Config File
 
-When both folders are selected and the User Folder is accessible, the app
-writes an app configuration file into the User Folder:
+When the user selects both folders, the app writes an app configuration file into the accessible User Folder:
 
 - `mixjam.json` — app metadata (app version, folder names, last opened
   timestamp).
 
-This file is written automatically after folder selection (through the User
-Folder's directory handle). It is not user-editable.
+The app writes this file automatically through the User Folder directory handle after folder selection.
+The user cannot edit it.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** Library Setup shows the User Folder and Sample Folder controls
-  side by side, with one scanner row spanning beneath them.
+- [x] **AC-001:** Library Setup shows the User Folder and Sample Folder controls side by side.
+  One scanner row spans beneath them.
 - [x] **AC-002:** User Folder card is always active — "Pick Folder" button is clickable.
-- [x] **AC-003:** Sample Folder card is initially disabled (greyed out, non-interactive).
-- [x] **AC-004:** Sample Folder card becomes active only after a User Folder is selected.
-- [x] **AC-005:** "Start New MixJam" button is disabled when either folder is unset.
+- [x] **AC-003:** The app initially disables the Sample Folder card.
+- [x] **AC-004:** The app activates the Sample Folder card only after the user selects a User Folder.
+- [x] **AC-005:** The app disables "Start New MixJam" when either folder is unset.
 - [x] **AC-006:** A hint label appears below the disabled button: "Select both folders above to start."
 - [x] **AC-007:** When both folders are set, "Start New MixJam" becomes active and navigates to the MixJam Player on click.
-- [x] **AC-008:** "Load MixJam" is disabled until both folders are available,
-  then becomes active and opens the spec-011 project picker.
+- [x] **AC-008:** The app disables "Load MixJam" until both folders are available.
+  It then activates the control and opens the spec-011 project picker.
 - [x] **AC-009:** Each "Pick Folder" button opens the directory picker with the mode matching its folder role.
-- [x] **AC-010:** Selected folder names are displayed on their respective cards after successful validation.
-- [x] **AC-010b:** The User Folder picker is hinted to start in the OS Documents folder.
-- [x] **AC-010c:** Select User Folder in the Player Settings modal uses the same
-  validated picker and persisted app state as the Home User Folder card.
+- [x] **AC-010:** Each card displays its selected folder name after successful validation.
+- [x] **AC-010b:** The User Folder picker uses `startIn` to suggest the OS Documents folder.
+- [x] **AC-010c:** Select User Folder in Player Settings uses the Home User Folder card's validated picker.
+  It also uses the same saved app state.
   Neither surface stores an absolute path.
 - [x] **AC-010a:** If a selected folder is not accessible (permissions error), the card shows: "Cannot access this folder. Check permissions and try again."
 - [x] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
 - [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
-- [x] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
+- [x] **AC-013:** If a restored folder is inaccessible, its card shows this error: "Folder not accessible — pick a new one."
 - [x] **AC-013a:** If a restored handle unexpectedly needs a permission
   re-grant, the card offers "Restore access to `folder`". Granting it validates
   the folder and opens the gate.
-- [x] **AC-014:** A `mixjam.json` app config file is written to the User Folder after both folders are selected.
+- [x] **AC-014:** The app writes a `mixjam.json` configuration file to the User Folder after the user selects both folders.
 - [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
-- [x] **AC-016:** Selecting or restoring an accessible Sample Folder schedules
-  exactly one automatic library sync for that folder during the app session.
+- [x] **AC-016:** Selecting or restoring an accessible Sample Folder schedules one automatic library sync per app session.
   Re-renders and Home/Player transitions do not start duplicate jobs.
 - [x] **AC-017:** While Home is visible, the Library Setup scanner row shows
   the sync or analysis phase and progress. It collapses to a compact ready

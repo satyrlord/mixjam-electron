@@ -13,24 +13,24 @@ Results populate acoustic metadata without changing tags.
 
 ## User Stories
 
-- **US-001:** As a user, my sample library is analyzed automatically without a
+- **US-001:** As a user, the analyzer automatically analyzes my sample library without a
   second calibration workflow.
-- **US-002:** As a user, samples receive useful BPM, key, and acoustic type
-  results even when individual files are short or ambiguous.
-- **US-003:** As a user, product, style, author, and source-pack relationships
-  may improve results across nested folders without flattening a mixed library.
+- **US-002:** As a user, samples receive useful BPM, key, and acoustic type results.
+  This also applies when files are short or ambiguous.
+- **US-003:** As a user, product, style, author, and source-pack relationships can improve results across nested folders.
+  They do not flatten a mixed library.
 - **US-004:** As a user, I can see progress and manually correct any automatic
   value.
-- **US-005:** As a user, Generate MixJam can choose one coherent analysis
-  cluster when my Sample Folder contains several tempos or keys.
+- **US-005:** As a user, Generate MixJam can choose one coherent analysis cluster.
+  My Sample Folder can contain several tempos or keys.
 
 ## Scope
 
 ### One analysis pipeline
 
-- One analyzer owns automatic sync analysis, individual re-analysis, contextual
-  grouping, cluster inference, and the BPM/key/type semantics used by Generate
-  MixJam. There is no Uniform Folder Calibration operation, confirmation, API,
+- One analyzer owns automatic sync analysis, individual re-analysis, contextual grouping, and cluster inference.
+  It also owns the BPM, key, and type semantics that Generate MixJam uses.
+  There is no Uniform Folder Calibration operation, confirmation, API,
   progress state, or product control.
 - The analyzer runs in the backend worker and never blocks the UI.
 - Automatic analysis follows indexing. It processes only new, changed,
@@ -51,12 +51,14 @@ Results populate acoustic metadata without changing tags.
 
 ### Evidence model
 
-The analyzer stores its direct per-file BPM and key results in `raw_bpm` and
-`raw_musical_key` before deriving the user-facing `bpm` and `musical_key`.
+The analyzer stores direct per-file results in `raw_bpm` and `raw_musical_key`.
+It then derives the user-facing `bpm` and `musical_key`.
 Duration, sample type, and relative path come from the existing sample row.
 Conservative structured BPM/key tokens in the relative path are additional
-context evidence. A manual value is authoritative for that sample, but it is
-excluded from group votes so one local correction cannot train sibling files.
+context evidence.
+
+A manual value is authoritative for that sample.
+Group votes exclude it, so one local correction cannot train sibling files.
 Contextual projection never replaces the manual field itself.
 
 The analyzer combines repeated numbered or stereo filename variants into one
@@ -76,30 +78,30 @@ tag organization.
 ### Contextual groups
 
 A contextual group is a set of current samples with one stable context key. The
-root uses the empty key. Every directory prefix is evaluated, so a product or
+root uses the empty key. The analyzer evaluates every directory prefix, so a product or
 style can resolve even when it contains many instrument subfolders. Structured
 source-pack suffixes such as `SC1` or `SL4` also create virtual
 `@cohort/<top-level>/<suffix>` keys that relate files across instrument
-subfolders. No group is assumed uniform.
+subfolders. The analyzer does not assume that a group is uniform.
 
-Each persisted group records its context key in `relpath_prefix`, depth, sample count, state,
-representative BPM/key when resolved, BPM/key support, confidence, and analysis
-revision. Its state is `resolved`, `mixed`, or `uncertain`.
+Each saved group records its context key in `relpath_prefix`, depth, sample count, and state.
+It also records resolved BPM/key values, their support, confidence, and the analysis revision.
+Its state is `resolved`, `mixed`, or `uncertain`.
 
 ### Analysis clusters
 
 An analysis cluster is a resolved contextual group selected from the context tree.
-Cluster summaries are derived from persisted group rows rather than stored in a
+The backend derives cluster summaries from saved group rows instead of storing them in a
 second cluster table.
 
 - Tempo clustering compares exact candidates and musically plausible half- or
   double-tempo aliases. Duration-grid and onset evidence must agree before an
-  ambiguous alias is promoted.
+  The analyzer promotes no ambiguous alias.
 - Key clustering canonicalizes pitch plus major/minor mode across raw and
   structured path evidence. NULL detections abstain.
 - A resolved parent is one cluster. A mixed parent exposes its nearest resolved,
   non-overlapping descendant or cohort groups as selectable clusters. Multimodal
-  evidence must split by context or remain mixed. It must never be collapsed to
+  evidence must split by context or remain mixed. Inference must never collapse it to
   the largest root-wide mode.
 - A sample first considers its virtual source cohort, then its deepest resolved
   directory ancestor. It inherits BPM/key only when that group has adequate
@@ -119,14 +121,14 @@ key.
 - Loop-length files (1.4 s and longer) snap the raw estimate to the
   duration-based whole-bar tempo grid. The analyzer considers octave aliases.
   It prefers the canonical 100–160 BPM band and power-of-two bar counts.
-  Loops are trimmed to whole beats, so duration constrains tempo more
-  reliably than the raw beat tracker, which scatters on real loop material.
+  The analyzer trims loops to whole beats.
+  Thus, duration constrains tempo better than the raw beat tracker on real loops.
 - Raw musical-key evidence comes from chromagram analysis. Contextual inference
   combines it with structured path-label and resolved-group support.
-- A key is reported only when the best profile score exceeds the second-best by
-  the confidence margin (ratio 1.02). Wrong-key detections are almost always
-  near-ties, so a low-margin reading becomes NULL (unknown) instead of a
-  confidently wrong label that downstream compatibility rules would hard-reject.
+- The analyzer reports a key only when its best profile score exceeds the second-best score.
+  The confidence margin uses ratio 1.02. Wrong-key detections are almost always
+  near-ties. Thus, a low-margin reading becomes NULL instead of a confident but incorrect label.
+  Downstream compatibility rules would reject that incorrect label.
 - Either field remains NULL when evidence is insufficient or contradictory.
 - Automatic values expose `analysis` provenance in existing sample surfaces.
   Raw evidence and group summaries remain available to backend diagnostics and
@@ -151,12 +153,15 @@ folder-derived or user-assigned tags. Analysis never replaces organization.
 
 Classification separates loop-shaped material from drum one-shots by duration
 shape, not only duration. A whole-bar file at its detected tempo is never a
-one-shot, even when short. For example, a one-bar loop at 140 BPM lasts 1.7
-seconds. The old rule incorrectly classified it as a snare. A hi-hat requires noise
-character — high spectral centroid AND high zero-crossing rate — because a
-bright tonal stab shares the centroid but not the noise. Dark whole-bar loops
-(low centroid, low zero-crossing rate) classify as Bass rather than generic
-Loop, and sustained low-transient beds stay Atmosphere even when bar-trimmed.
+one-shot, even when short.
+
+For example, a one-bar loop at 140 BPM lasts 1.7 seconds.
+The old rule incorrectly classified it as a snare.
+A hi-hat requires high spectral centroid and high zero-crossing rate.
+A bright tonal stab shares the centroid but not the noise.
+
+Dark whole-bar loops have low centroid and low zero-crossing rate. They classify as Bass instead of generic Loop.
+Sustained low-transient beds stay Atmosphere even when the analyzer trims them to bars.
 
 Generate MixJam must consume persisted BPM, key, and sample type. Its bounded
 scoring pass must not derive competing semantic values for those fields.
@@ -164,13 +169,13 @@ scoring pass must not derive competing semantic values for those fields.
 ### Incremental invalidation
 
 - A new or byte-changed file resets its metadata and analysis revisions. Its raw
-  evidence and automatic projections are stale until that file is decoded again.
+  evidence and automatic projections are stale until the analyzer decodes that file again.
 - A path change invalidates membership in the old/new directory and cohort
   groups.
   With the current `(root_id, relpath)` identity it appears as missing plus new.
   Content move detection remains out of scope.
-- After pending files are decoded, group summaries and automatic projections for
-  the affected root are rebuilt from stored raw evidence. Unchanged siblings are
+- After the analyzer decodes pending files, it rebuilds group summaries and automatic projections from saved raw evidence.
+  This rebuild covers the affected root. Unchanged siblings are
   not decoded. A grouping-only algorithm revision also reuses raw evidence.
 - Updated group rows and contextual projections commit atomically, so a
   cancelled job cannot expose a partially rewritten model.
@@ -198,10 +203,12 @@ the file count, byte count, relevant tree snapshot, and analyzer revisions with
 every accuracy result.
 
 `tmp/test-samples` is a confirmed 140 BPM/A-minor reference corpus. The
-read-only `E:/_samples/eJay` inventory is a mixed-root structural corpus with
-100,951 WAV files across product, style, instrument, and source-pack cohorts.
-Its explicit labels demonstrate both locally uniform cohorts and genuine mixed
-groups. Validation must include one resolved nested context and one
+read-only `E:/_samples/eJay` inventory is a mixed-root structural corpus with 100,951 WAV files.
+It covers product, style, instrument, and source-pack cohorts.
+Its explicit labels show both locally uniform cohorts and genuine mixed
+groups.
+
+Validation must include one resolved nested context and one
 cross-folder source cohort. It must include one mixed parent with resolved
 descendants. It must also include one short/one-shot-heavy group and one
 unresolved group.
@@ -214,13 +221,13 @@ unresolved group.
   and leaves the windowed library responsive.
 - [x] **AC-003:** Clear rhythmic and tonal fixtures produce reasonable BPM and
   key results. Ineligible one-shots may abstain instead of adding false votes.
-- [x] **AC-004:** Raw BPM/key evidence and acoustic sample type are produced from
-  one analyzer decode. Raw BPM/key are persisted separately from contextual
+- [x] **AC-004:** One analyzer decode produces raw BPM/key evidence and acoustic sample type.
+  The backend saves raw BPM/key separately from contextual
   projections.
 - [x] **AC-005:** Manual BPM, key, and type values survive sync, regrouping, and
   re-analysis. Clearing one permits automatic projection for that field.
-- [x] **AC-006:** Every directory prefix is evaluated independently, and stable
-  SC/SL suffixes may form a virtual cohort across instrument folders. A resolved
+- [x] **AC-006:** The analyzer evaluates each directory prefix independently.
+  Stable SC/SL suffixes can form a virtual cohort across instrument folders. A resolved
   product/style parent may cover nested folders while a mixed parent exposes
   resolved descendants or cohorts.
 - [x] **AC-007:** A mixed root exposes multiple coherent cluster summaries or an
@@ -242,8 +249,8 @@ unresolved group.
   cross-folder source cohort. It also proves a mixed parent with resolved
   descendants. It does not flatten the heterogeneous root or complete library.
 - [x] **AC-014:** No filename token produces stereo-side evidence. The analyzer
-  persists no pair key or side, and generator candidates carry no stereo
-  evidence, so no mirrored pan is ever inferred from a name.
+  saves no pair key or side. Generator candidates carry no stereo evidence.
+  Thus, a name never causes an inferred mirrored pan.
 
 ## Implementation Ownership
 
@@ -266,9 +273,8 @@ unresolved group.
 
 ## Validation
 
-Focused tests must cover raw evidence extraction, directory/cohort grouping,
-multimodal states, abstentions, manual precedence, incremental invalidation,
-atomic projection updates, and generator readiness DTOs. Run:
+Focused tests must cover raw evidence extraction, directory/cohort grouping, multimodal states, and abstentions.
+They must also cover manual precedence, incremental invalidation, atomic projection updates, and generator readiness DTOs. Run:
 
 ```sh
 npm test -- src/renderer/src/backend/analysis.test.ts
@@ -281,9 +287,8 @@ npm run lint
 npm run build
 ```
 
-Real-corpus evidence must record analyzer revisions, path-group and cluster
-summaries, raw evidence coverage, abstentions, alias conflicts, decoded file
-count, reused-evidence count, and rebuilt-root count. Performance claims
+Real-corpus evidence must record analyzer revisions, path-group and cluster summaries, raw evidence coverage, abstentions, and alias conflicts.
+It must also record decoded file, reused-evidence, and rebuilt-root counts. Performance claims
 must state the machine, corpus snapshot, cold/warm state, and measured workload.
 
 ## Non-Goals

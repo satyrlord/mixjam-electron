@@ -101,7 +101,7 @@ Radix primitives for keyboard navigation, focus management, portals, dialogs,
 menus, tabs, tooltips, and ARIA state. Interactive controls expose visible
 focus, keyboard value changes, and unit-aware value text. Square library and
 management actions use the selected 30x30, 40x40, or 50x50 UI Size target.
-text-bearing actions use the selected value as their minimum height.
+Text-bearing actions use the selected value as their minimum height.
 
 Reduced-motion preferences remove or simplify decorative state transitions and
 visualizer motion. The supported renderer content area is 1920x1080. Smaller

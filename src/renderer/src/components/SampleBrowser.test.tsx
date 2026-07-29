@@ -54,7 +54,7 @@ describe('SampleBrowser tag workflow', () => {
     renderBrowser()
     const toggle = screen.getByRole('button', { name: 'Manage tags and libraries' })
     expect(screen.getByRole('group', { name: 'Active tag filters, match all' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /kick 1.0s/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /kick\s*1\.0s/i })).toBeInTheDocument()
 
     fireEvent.click(toggle)
 
@@ -62,19 +62,19 @@ describe('SampleBrowser tag workflow', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Tags', 'Libraries'])
     expect(screen.queryByRole('separator', { name: 'Resize tag navigator' })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Active tag filters, match all' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /kick 1.0s/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /kick\s*1\.0s/i })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Close manage panel' }))
 
     expect(toggle).toHaveFocus()
     expect(screen.getByRole('separator', { name: 'Resize tag navigator' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Active tag filters, match all' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /kick 1.0s/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /kick\s*1\.0s/i })).toBeInTheDocument()
   })
 
   it('opens one searchable tag editor from the sample context menu', async () => {
     renderBrowser()
-    fireEvent.contextMenu(screen.getByRole('button', { name: /kick 1.0s/i }))
+    fireEvent.contextMenu(screen.getByRole('button', { name: /kick\s*1\.0s/i }))
     expect(screen.getAllByRole('menuitem')).toHaveLength(2)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Edit tags…' }))
     expect(await screen.findByRole('dialog', { name: 'Tags for kick.wav' })).toBeInTheDocument()
@@ -84,7 +84,7 @@ describe('SampleBrowser tag workflow', () => {
   it('assigns user tags but keeps folder-only tags read-only', async () => {
     const onUnassignTagFromSample = vi.fn(async () => undefined)
     renderBrowser({ onUnassignTagFromSample })
-    fireEvent.contextMenu(screen.getByRole('button', { name: /kick 1.0s/i }))
+    fireEvent.contextMenu(screen.getByRole('button', { name: /kick\s*1\.0s/i }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Edit tags…' }))
     await screen.findByRole('dialog', { name: 'Tags for kick.wav' })
     fireEvent.click(screen.getByRole('button', { name: 'Punchy' }))
@@ -98,7 +98,7 @@ describe('SampleBrowser tag workflow', () => {
       tags: [TAGS[0]!, { ...TAGS[1]!, origin: 'shared' as const }],
       onAssignTagToSample
     })
-    fireEvent.contextMenu(screen.getByRole('button', { name: /kick 1.0s/i }))
+    fireEvent.contextMenu(screen.getByRole('button', { name: /kick\s*1\.0s/i }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Edit tags…' }))
     await screen.findByRole('dialog', { name: 'Tags for kick.wav' })
 

@@ -6,9 +6,9 @@
 
 ## Objective
 
-Make project BPM a musical-time mapping, as in conventional DAWs. Changing BPM
-must preserve every placement's start tick and musical duration while rendering
-its source audio faster or slower to fill that unchanged span. Consecutive
+Make project BPM a musical-time mapping, as in conventional DAWs.
+Changing BPM must preserve each placement start tick and musical duration.
+Render its source audio faster or slower to fill that unchanged span. Consecutive
 sample bubbles remain consecutive visually and audibly at every supported BPM.
 
 The implemented playback mode is real-time re-pitch resampling through Web
@@ -21,21 +21,21 @@ obey the same placement timing contract.
 - The project grid uses eight ticks per beat and the MVP has one global BPM.
 - Placed audio follows project tempo by default. MixJam does not currently
   expose a per-placement opt-out equivalent to an unwarped DAW clip.
-- A user-created gap or overlap is represented by placement start ticks. The
+- Placement start ticks represent a user-created gap or overlap. The
   engine must not infer either one from source-buffer duration.
-- **Decision:** musical span is placement-owned, not analysis-owned. Native BPM
-  is valuable for estimating a sample's first span and for unplaced preview,
-  but it is nullable, late, and editable. Making it the playback authority
+- **Decision:** musical span is placement-owned, not analysis-owned.
+  Native BPM helps estimate a sample's first span and unplaced preview.
+  However, it is nullable, late, and editable. Making it the playback authority
   caused the reported arrangement morphing and silence. Persisted
   `durationTicks` is stable, already belongs to the project, and directly
   expresses the musical relationship the user created.
 
 ## User Stories
 
-- **US-001:** As a user, when I change project BPM, my arrangement keeps the
-  same bar/beat relationships and placed audio follows the new tempo.
-- **US-002:** As a user, consecutive sample bubbles remain gapless after a BPM
-  change instead of exposing silence caused by native-rate playback.
+- **US-001:** As a user, my arrangement keeps the same bar and beat relationships after a project BPM change.
+  Placed audio follows the new tempo.
+- **US-002:** As a user, consecutive sample bubbles remain gapless after a BPM change.
+  Native-rate playback does not expose silence between them.
 - **US-003:** As a user, a sample without detected BPM still follows the
   project once placed. Missing analysis metadata must not disable resampling.
 - **US-004:** As a user, changing project BPM audibly changes placed sample
@@ -48,18 +48,18 @@ obey the same placement timing contract.
 - `startTick` and `durationTicks` are the arrangement authority.
 - `durationSeconds` is immutable source-file metadata. It is not a Tracker
   width or scheduled-duration authority after placement.
-- On first placement, the musical span is established as follows:
+- On first placement, establish the musical span as follows:
   - If the sample has a positive detected BPM, convert its source duration to
     ticks at that BPM.
   - Otherwise, convert its source duration to ticks at the current project BPM.
     This makes first-drop playback native-rate while still creating a stable
     musical span for future tempo changes.
-  - Later placements of the same sample in the project reuse its established
-    span, even if BPM metadata or project BPM has changed.
+  - Later placements of the same sample reuse its established project span.
+    This rule applies after BPM metadata or project BPM changes.
 - Project BPM changes never mutate `startTick`, `durationTicks`, or the order of
   placements. They only change tick-to-seconds conversion and rendered audio.
-- A background analysis result may still fill captured `nativeBPM` provenance,
-  but it must not silently rewrite an existing placement's musical span.
+- A background analysis result can still fill captured `nativeBPM` provenance.
+  It must not silently rewrite an existing placement's musical span.
 
 ### Playback ratio
 
@@ -77,24 +77,22 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
   consecutive placement may trigger at `startTick + durationTicks` without an
   intentional gap or overlap.
 - Spec-005 automatic micro-fades use output-time milliseconds after the
-  playback-rate ratio is applied. Exact same-lane adjacency is not faded to
-  silence on both sides, so tempo changes preserve gapless boundaries without
-  introducing an automatic level dip.
+  playback-rate ratio is applied. Exact same-lane adjacency does not fade to silence on both sides.
+  Thus, tempo changes preserve gapless boundaries without an automatic level dip.
 - Example: a 140 BPM four-bar loop stored as 128 ticks targets 8.648649 seconds
   at 111 BPM. Its speed ratio is `111 / 140`, independent of whether analysis
   metadata is present.
 
 ## Resampling Engine
 
-- Each Tracker voice uses the decoded source `AudioBuffer` directly and sets
-  `AudioBufferSourceNode.playbackRate` from source duration, placement
-  `durationTicks`, and current project BPM.
+- Each Tracker voice uses the decoded source `AudioBuffer` directly.
+  It sets `AudioBufferSourceNode.playbackRate` from source duration, placement `durationTicks`, and current project BPM.
 - Nullable native-BPM metadata never decides whether a placed sample follows
   project tempo. It is only an input when first establishing a placement span
   and when previewing an unplaced sample.
-- A cache-sized window of the nearest upcoming unique samples is decoded before
-  the scheduler starts, then refilled as scheduled placements consume that
-  window. Decode work runs with bounded concurrency. There is no offline render,
+- The engine decodes a cache-sized window of the nearest upcoming unique samples before the scheduler starts.
+  Scheduled placements consume this window, and the engine refills it.
+  Decode work runs with bounded concurrency. There is no offline render,
   generated tempo buffer, WASM processor, or ratio-dependent audio cache.
 - Sample Browser preview has no placement span. It derives playback rate from
   detected sample BPM when available and otherwise previews at native rate.
@@ -108,7 +106,7 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 
 ## Caching and Failure
 
-- The existing decoded-source LRU cache is shared by every playback rate. A BPM
+- Every playback rate shares the existing decoded-source LRU cache. A BPM
   edit does not allocate another audio buffer.
 - Preparation never requests more unique samples than the LRU can retain.
   Editing BPM while stopped performs no file read or decode. Editing while
@@ -124,12 +122,11 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 
 ## Visual Contract
 
-- A placed sample bubble's x position and width are derived only from
+- Only these values determine a placed sample bubble's x position and width:
   `startTick`, `durationTicks`, and the shared pixels-per-tick scale.
 - Changing BPM must not move or resize placed bubbles.
-- The Sample Browser uses the same project-owned duration tick count for a
-  sample that is already placed, so the same sample remains pixel-identical
-  across views.
+- The Sample Browser uses the project-owned duration tick count for an already placed sample.
+  Thus, the same sample remains pixel-identical across views.
 - Before first placement, the Sample Browser estimates a musical span using
   detected sample BPM or, when unknown, current project BPM. The first drop
   freezes that span for the project.
@@ -141,7 +138,7 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
   gaps.
 - [x] **AC-002:** A source whose placement spans 128 ticks targets 128 ticks at
   every BPM. At 111 BPM its audible duration is approximately 8.648649 seconds.
-- [x] **AC-003:** A placement with `nativeBPM: null` is resampled from its
+- [x] **AC-003:** The engine resamples a placement with `nativeBPM: null` from its
   source duration to its stored musical span. Null BPM does not bypass Tracker
   tempo following.
 - [x] **AC-004:** Place three consecutive copies at ticks 0, 128, and 256.
@@ -149,16 +146,15 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
   Scheduling or render rounding stays within one output sample frame.
 - [x] **AC-005:** An existing sample has the same pixel width in the Tracker and
   Sample Browser. A BPM edit does not change that width.
-- [x] **AC-006:** Two placements of the same unanalysed sample reuse its first
-  project-owned musical span even when the second is added at another BPM.
+- [x] **AC-006:** Two placements of the same unanalyzed sample reuse its first project-owned musical span.
+  This rule applies when the user adds the second placement at another BPM.
 - [x] **AC-007:** At 111 BPM, a 140 BPM loop voice has
   `AudioBufferSourceNode.playbackRate` approximately `111 / 140`. Its source
   buffer remains at native duration while its audible duration fills 128 ticks.
 - [x] **AC-008:** Tempo following does not create an offline buffer whose
   nominal duration is longer than its audible content.
-- [x] **AC-009:** While cold decoding is pending, transport shows `preparing`,
-  elapsed time does not advance, and duplicate Play requests do not start
-  duplicate schedulers. Stop or Space cancels preparation.
+- [x] **AC-009:** During cold decoding, transport shows `preparing`, and elapsed time does not advance.
+  Duplicate Play requests do not start duplicate schedulers. Stop or Space cancels preparation.
 - [x] **AC-010:** Editing BPM while playing restarts scheduling from the current
   tick with voices using the new playback rate.
 - [x] **AC-011:** Invalid placement timing falls back to native-rate playback

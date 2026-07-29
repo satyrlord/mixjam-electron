@@ -1,7 +1,9 @@
 # Spec 014 — Musical Compatibility Filtering
 
 **Spec Validation Status:** STUB — NOT VALIDATED
+
 **Spec Implementation Status:** NOT IMPLEMENTED
+
 **Depends on:** spec-004 (Sample Library — `rule_json` query engine),
 spec-008 (Sample Analysis — populates `samples.bpm` and `samples.musical_key`)
 
@@ -27,20 +29,20 @@ library building. The embedding-based half ("sounds like") is
 
 ## User Stories
 
-- **US-001:** As a user, I can filter the sample browser by "compatible with
-  key Am." I get Am samples and the C, Em, and Dm harmonic neighbors.
-- **US-002:** As a user, I can filter by "compatible with 120 BPM."
-  I get samples near 120, 60, and 240 BPM (half/double time).
+- **US-001:** As a user, I filter the browser by compatibility with Am.
+  I get Am, C, Em, and Dm samples.
+- **US-002:** As a user, I filter by "compatible with 120 BPM."
+  I get samples near 120 BPM. Half-time and double-time matching includes 60 and
+  240 BPM.
 - **US-003:** As a user, I can choose "Find compatible" for an analyzed sample.
   This action filters by the detected key and BPM.
-- **US-004:** As a user, I can save the current compatibility filter as a
-  library, and it automatically includes matching samples that are analyzed
-  later.
+- **US-004:** As a user, I can save the compatibility filter as a library.
+  It includes matching samples that the app analyzes later.
 - **US-005:** As a user, I do not see samples without a detected key or BPM
   in compatibility results. This behavior matches the existing `bpm` range
   leaf. NULL never matches.
 
-## Scope (high-level — to be validated)
+## Scope (high-level, validation pending)
 
 ### `rule_json` leaf kinds (additive, version stays 1)
 
@@ -61,9 +63,9 @@ full compiler in `query-schema.md` must exist before these leaves can run.
   "includeHalfDouble": true }
 ```
 
-- The stored JSON keeps the *reference* (semantic intent), not the expanded
-  set — expansion happens at compile time, mirroring how `withinDays` is
-  resolved at query time. If the adjacency table or tolerance policy improves
+- The stored JSON keeps the semantic reference, not the expanded set.
+  The compiler expands it, as it resolves `withinDays` during a query.
+  If the adjacency table or tolerance policy improves
   later, saved libraries pick up the improvement for free.
 - `keyCompatible` compiles to `samples.musical_key IN (?, ...)` over the
   expanded key set. The v1 set contains the reference key and its relative
@@ -84,8 +86,8 @@ full compiler in `query-schema.md` must exist before these leaves can run.
 
 ### UI
 
-- "Find compatible" appears in the sample context menu and detail panel,
-  enabled only when the sample has a detected (or manually set) key or BPM.
+- "Find compatible" appears in the sample context menu and detail panel.
+  The app enables it only for a detected or manually set key or BPM.
   It applies `keyCompatible` and/or `bpmCompatible` leaves to the browser's
   ad-hoc filter, from which the existing save-as-library flow takes over.
 - The active filter renders as editable chips like existing leaves (reference
@@ -96,18 +98,18 @@ full compiler in `query-schema.md` must exist before these leaves can run.
 - [ ] **AC-001:** A `keyCompatible` leaf uses `Am` and `neighbors: 1`.
   It matches exactly {Am, C, Em, Dm}. A table-driven test uses the full
   Camelot mapping.
-- [ ] **AC-002:** A `bpmCompatible` leaf for 120 with `includeHalfDouble` and
-  4% tolerance matches samples at 60, 120, and 240 within tolerance, and
-  rejects 90.
+- [ ] **AC-002:** A `bpmCompatible` leaf uses 120, `includeHalfDouble`, and
+  4% tolerance. It matches 60, 120, and 240 within tolerance.
+  It rejects 90.
 - [ ] **AC-003:** Samples with NULL `musical_key` / `bpm` never match a
   compatibility leaf.
-- [ ] **AC-004:** Compiled SQL is fully parameterized (no literal user values)
+- [ ] **AC-004:** The compiler binds all user values as SQL parameters
   and uses the existing `idx_samples_key` / `idx_samples_bpm` indexes (verified
   via `EXPLAIN QUERY PLAN`).
 - [ ] **AC-005:** A saved compatibility library includes a newly analyzed
   matching sample after analysis completes, with no edit to the library.
-- [ ] **AC-006:** "Find compatible" is disabled with an explanatory affordance
-  on samples that have neither key nor BPM.
+- [ ] **AC-006:** The app disables "Find compatible" for samples without a key
+  or BPM. An explanatory affordance shows the reason.
 - [ ] **AC-007:** Enharmonic inputs (`Db` vs `C#`) produce identical match
   sets.
 
@@ -127,14 +129,14 @@ full compiler in `query-schema.md` must exist before these leaves can run.
 - Define the exact 24-string canonical key vocabulary.
   Define normalization ownership to prevent drift between spec-008, manual
   key entry, and this compiler. A shared mapping module is the likely answer.
-- Default `neighbors` depth (1 seems right for harmonic mixing practice) and
-  whether the UI exposes it or hardcodes it in v1.
+- Select the default `neighbors` depth.
+  A depth of 1 appears suitable for harmonic mixing.
+  Decide whether the UI shows it or fixes it to that depth in v1.
 - Default `tolerancePercent`, and whether half/double bands default on or off
   for "Find compatible".
 - Whether "Find compatible" combines key and BPM with `AND` (stricter, likely
   right) or `OR` when the sample has both.
-- Should the browser surface how many samples were excluded for lacking
-  analysis data (nudging users toward running analysis), or is that noise?
+- Decide whether the browser shows the count of samples without analysis.
 
 ## References
 

@@ -8,33 +8,29 @@ implemented. Remaining unchecked criteria require their listed proof
 ## Objective
 
 Establish a theme system with named design-token themes and runtime theme
-switching. All 16 themes are fully implemented with distinct appearances.
-They are Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial,
-Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, and Arcade.
+switching. All 16 themes have complete implementations and distinct appearances.
+The first eight are Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial, Club PA, and Beton Brut.
+The other eight are Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, and Arcade.
 Emerald is the default.
 
 ## User Stories
 
-- **US-001:** As a user, I see the app in the Emerald theme by default so the
-  UI has a consistent, polished look on first launch.
-- **US-002:** As a user, I can see all 16 available theme names listed in the
-  theme selector dropdown so I know what options exist.
-- **US-003:** As a user, selecting the Emerald theme applies it immediately
-  across the entire app (header, content, footer, all views).
-- **US-004:** As a user, selecting any theme applies it immediately across
-  the entire app so I can use all 16 themes.
+- **US-001:** As a user, I see the Emerald theme by default. The first launch has a consistent, polished appearance.
+- **US-002:** As a user, I see all 16 theme names in the theme selector. I know which options exist.
+- **US-003:** As a user, selecting Emerald applies it immediately across the header, content, footer, and all views.
+- **US-004:** As a user, selecting any theme applies it immediately across the app. I can use all 16 themes.
 
 ## Scope
 
-Visual design intent (layout, spacing, typography, color philosophy, surface
-treatments, interaction patterns, and theme design rules) is centralized in
-the [Style Guide](../style-guide.md). This spec defines the token mechanics
+The [Style Guide](../style-guide.md) defines the visual design intent.
+This intent covers layout, spacing, typography, color, surfaces, interactions, and theme design rules.
+This spec defines the token mechanics
 and runtime behavior that implement the style guide.
 
 ### Theme Token System
 
 A theme is a set of named design tokens. Every theme defines the same token
-keys. Only the values differ. Tokens are consumed by the UI layer to style all
+keys. Only the values differ. The UI layer uses tokens to style all
 elements consistently.
 
 | Token | Role | Applies to |
@@ -60,27 +56,26 @@ elements consistently.
 | `--meter-green` | Meter safe zone | Channel dB meter (-60 to -12 dB) |
 | `--meter-yellow` | Meter caution zone | Channel dB meter (-12 to -3 dB) |
 | `--meter-red` | Meter danger zone | Channel dB meter (-3 to 0 dB) |
-| `--transport` | Idle transport button base color; drives the derived `--on-transport` glyph ink | Transport Ribbon buttons |
-| `--transport-active` | Active transport button base color; drives `--on-transport-active` | Playing transport button |
-| `--fx-accent-1` … `--fx-accent-4` | Per-slot rotary, power LED, and Edit-cog accent; falls back to `--accent` for a missing or invalid color | Mixer FX bank, channel-strip sends 1-4 |
+| `--transport` | Idle transport button base color. It drives the derived `--on-transport` glyph ink | Transport Ribbon buttons |
+| `--transport-active` | Active transport button base color. It drives `--on-transport-active` | Playing transport button |
+| `--fx-accent-1` … `--fx-accent-4` | Per-slot rotary, power LED, and Edit-cog accent. It uses `--accent` for a missing or invalid color | Mixer FX bank, channel-strip sends 1-4 |
 | `--radius` | Border radius | Placements, buttons, panels |
-| `--radius-transport` | Transport button corner shape | Transport Ribbon buttons; `50%` = round hardware (Analog, Rust), rounded-rect for modern themes |
-| `--radius-sample-bubble` | Sample-bubble corner radius, px | Lane placements (canvas-drawn) and DOM sample bubbles; `0px` for hard-edged themes |
-| `--border-width` | Structural hairline width | Lane separators, panel borders, ruler edge — everything drawn with `--border`; `2px` gives Beton Brut its black rules |
+| `--radius-transport` | Transport button corner shape | Transport Ribbon buttons. `50%` = round hardware (Analog, Rust), rounded-rect for modern themes |
+| `--radius-sample-bubble` | Sample-bubble corner radius, px | Lane placements (canvas-drawn) and DOM sample bubbles. `0px` for hard-edged themes |
+| `--border-width` | Structural hairline width | Lane separators, panel borders, and ruler edge use `--border`. `2px` gives Beton Brut its black rules |
 | `--border-width-pill` | Control border width | Pill-family borders (`--pill-border`): theme selector, mute/solo, M/S, transport, chips |
-| `--border-width-header` | Header bottom-rule width | Header bottom edge; `3px` on Beton Brut, `2px` on Vintage/Riso |
-| `--sample-bubble-font-weight` | Sample-bubble label weight | Canvas and DOM sample bubbles; `700` for statement themes (Beton, Mono, Neon), `600` Riso, `400` otherwise |
-| `--sample-bubble-case` | Sample-bubble label case | `uppercase` or `none`; canvas uppercases the drawn string, DOM uses `text-transform` |
+| `--border-width-header` | Header bottom-rule width | Header bottom edge. `3px` on Beton Brut, `2px` on Vintage/Riso |
+| `--sample-bubble-font-weight` | Sample-bubble label weight | Canvas and DOM sample bubbles. `700` for statement themes (Beton, Mono, Neon), `600` Riso, `400` otherwise |
+| `--sample-bubble-case` | Sample-bubble label case | `uppercase` or `none`. Canvas uppercases the drawn string, and DOM uses `text-transform` |
 
 `--bg-grid` is the lane
 canvas beat-line color (bar lines stay `--border` for structural hierarchy).
 `--sample-bubble-missing` fills the 45-degree hazard stripes on placements whose sample row
-is missing (`scan_state = 2`). `--shadow-sample-bubble-text` applies to canvas bubble
-labels and DOM bubbles (both drop the shadow when the
-per-slot ink resolves dark, matching `sampleBubbleDomStyle`).
+is missing (`scan_state = 2`). `--shadow-sample-bubble-text` applies to canvas and DOM bubble labels.
+Both labels drop the shadow when the per-slot ink resolves dark, as `sampleBubbleDomStyle` specifies.
 
-Sample bubbles use one shared UI Size geometry source for tracker canvas
-drawing, browser virtualization, drag images, and DOM height tokens.
+Sample bubbles use one shared UI Size geometry source.
+It controls tracker canvas drawing, browser virtualization, drag images, and DOM height tokens.
 Canvas rounded rectangles clamp the theme radius to the actual bubble width and
 height, including the minimum-width 12px browser bubble.
 
@@ -137,9 +132,8 @@ the shared inline SVG rather than a typography token.
 Themes own the general, transport, and sample-bubble radii. Invariant embedded
 hardware geometry instead uses `--radius-line` (1px), `--radius-indicator`
 (1.5px), `--radius-control` (2px), `--radius-track` (3px),
-`--radius-handle` (5px), and `--radius-pill` (999px). These tokens do not vary
-by theme and are limited to lines, indicators, compact controls, tracks,
-handles, and true pills.
+`--radius-handle` (5px), and `--radius-pill` (999px). Themes do not vary these
+tokens. Only lines, indicators, compact controls, tracks, handles, and true pills use them.
 
 UI Size does not alter musical time, pixels per tick, project data, audio, clip
 placement, or sample-bubble width. It is app state and is not written to a
@@ -152,8 +146,8 @@ placement, or sample-bubble width. It is app state and is not written to a
 | 50 | 41px | 61px |
 
 The bubble rectangle keeps the same height in the Tracker, Sample Browser, and
-drag image. At 1920x1080 with UI Size 50 and Mixer open, the full ruler and one
-complete lane remain visible without a vertical scrollbar.
+drag image. At 1920x1080, UI Size 50 and an open Mixer show the full ruler.
+One complete lane also remains visible without a vertical scrollbar.
 
 Depth tokens use `depth.*` in JSON and matching CSS custom properties.
 They contain theme-dependent gradient and shadow values.
@@ -173,15 +167,15 @@ Thus, the active theme can change the same semantic treatment (AC-008):
 | `--shadow-lane` | Inset well shadow on the lane placement area (Rack, Soft) |
 | `--shadow-playhead` | Playhead glow (Cosmic, Neon) |
 | `--shadow-sample-bubble` | Sample-bubble drop-shadow, parsed by the lane canvas — strict format `<x>px <y>px <blur>px <color>` or `none` |
-| `--border-sample-bubble` | Sample-bubble outline, parsed by the lane canvas — strict format `<width>px <color>` or `none`; gives Beton Brut/Arcade their hard ink borders |
-| `--gradient-sample-bubble` | Sample-bubble gloss, canvas-parsed — `linear-gradient(180deg, <top>, <bottom>)` or `none`; stops use hex (`#RRGGBBAA`, never rgba()); Rack's pressed metal |
+| `--border-sample-bubble` | Sample-bubble outline, parsed by the lane canvas. Strict format `<width>px <color>` or `none`. Gives Beton Brut/Arcade their hard ink borders |
+| `--gradient-sample-bubble` | Sample-bubble gloss, canvas-parsed. `linear-gradient(180deg, <top>, <bottom>)` or `none`. Stops use hex (`#RRGGBBAA`, never rgba()). Rack's pressed metal |
 | `--shadow-meter` | box-shadow on meter fills (channel dB meter, loudness bar) — LED glow on Rack, `none` elsewhere |
-| `--gradient-mixer-device` | Mixer device surface behind channel and FX panels; a CSS background texture or `none` for flat chrome |
+| `--gradient-mixer-device` | Mixer device surface behind channel and FX panels. A CSS background texture or `none` for flat chrome |
 | `--gradient-mixer-panel` | Mixer panel surface image layered over `--bg-panel` (Analog warm gradient, Rack faceplate with corner screws) or `none` |
-| `--shadow-mixer-panel` | Mixer channel-bank and FX-bank shadow; theme-specific depth, bevel, glow, or `none` |
+| `--shadow-mixer-panel` | Mixer channel-bank and FX-bank shadow. Theme-specific depth, bevel, glow, or `none` |
 | `--shadow-mixer-slot` | box-shadow on channel strips and FX cards — same treatment family as `--shadow-mixer-panel`, one step smaller, or `none` |
-| `--shadow-mixer-led` | Glow behind Mixer status and FX power LEDs; `currentColor` glows in each LED's own accent (the LED elements set `color`); `none` = flat dot (print/flat themes) |
-| `--fill-mixer-knob` | Solid face color of Mixer rotary knobs (SVG fill; darker than the slot on hardware themes, cream/ivory on print/desktop themes) |
+| `--shadow-mixer-led` | Glow behind Mixer status and FX power LEDs. `currentColor` uses each LED's accent. The LED elements set `color`. `none` = flat dot (print/flat themes) |
+| `--fill-mixer-knob` | Solid face color of Mixer rotary knobs. SVG fill is darker on hardware themes and cream/ivory on print/desktop themes |
 | `--border-mixer-knob` | Rim color of Mixer rotary knobs and the fader-thumb edge (full-strength neon rims on Arcade/Neon/Rave, near-black on Beton/Rack) |
 
 ### Sample Palette
@@ -190,15 +184,16 @@ The active theme `palette` paints every sample bubble.
 It contains eight slot colors and `palette-unsorted`.
 The fixed mapping is 0 Drums/Percussion, 1 Loop, and 2 Bass.
 It continues with 3 Keys/Guitar/Chords/Piano and 4 Synth/Lead.
+
 The remaining slots are 5 Voice/Vocal/FX/Vox, 6 Arp, and
 7 Pad/Atmosphere/Xtra/Texture. Unknown names map deterministically.
 Each theme uses its own color family for these slots.
 
 Placements store the slot, not the color: `ClipPlacement` and drag payloads carry `slot?: number`
 (0-7, 8 = Unsorted). The hex resolves at draw time from the active palette,
-so switching themes recolors every placed sample bubble live. Slot storage keeps the
-original stability goal — changing a folder name never recolors existing placements —
-while making color a theme concern. No persisted migration was needed:
+so switching themes recolors every placed sample bubble live.
+Slot storage keeps the original stability goal while making color a theme concern.
+Changing a folder name never recolors existing placements. This change required no persisted migration:
 project save/load (spec-011) persists placements in `.mixjam` files.
 
 `applyTheme` derives `--palette-0..8`, `--palette-ink-N`, and
@@ -206,6 +201,7 @@ project save/load (spec-011) persists placements in `.mixjam` files.
 `bubbleTextColor` selects WCAG-compliant ink.
 Light ink uses `var(--shadow-sample-bubble-text)`. Dark ink uses `none`
 because a dark text shadow smears dark ink.
+
 The lane canvas reads these properties into its token cache.
 Thus, canvas placements and DOM bubbles always agree.
 Palette entries MUST be 6-digit hex — the ink
@@ -219,7 +215,7 @@ adapters over the same painter. Browser bubbles consume the DOM adapter. Theme
 or geometry rules do not live independently in those rendering modules.
 
 Contrast policy: slot colors are surfaces, not signals — the 3:1 signal gate
-does not apply to them. Label contrast is guaranteed per slot by the derived
+does not apply to them. The derived ink guarantees label contrast for each slot
 ink (white or near-black, whichever clears the higher ratio). Themes whose
 slots sit close to `--bg-lane` (Soft, PA, Beton) compensate with
 `--shadow-sample-bubble` or `--border-sample-bubble`, same as the mockups.
@@ -229,7 +225,7 @@ slots sit close to `--bg-lane` (Soft, PA, Beton) compensate with
 Each theme defines font families for three typographic roles. The families listed
 below are the **Emerald defaults**. Individual themes may override any role with
 a different bundled font (e.g. The Rust theme sets both chrome and label to
-Special Elite). Every font listed in the table is bundled with the app.
+Special Elite). The app bundles every font in the table.
 
 | Token | Role | Emerald Default | Also Used By |
 | --- | --- | --- | --- |
@@ -241,14 +237,14 @@ A theme's typeface is part of its identity, so each theme's font files live in
 `src/renderer/public/fonts/`.
 
 Typeface-wide metric corrections belong on the theme root and inherit through
-the UI. They must not be repeated as component-by-component font-size overrides.
+the UI. Do not repeat them as component-specific font-size overrides.
 Arcade uses one inherited `font-size-adjust` rule for its small-x-height pixel
 fonts.
 
-All fonts must be bundled with the app and loaded from local files (no
-external CDN or Google Fonts dependency). Font files live in `src/renderer/public/fonts/`.
-Runtime font tokens put the selected bundled family first and append the
-documented system family only as a safety fallback if that local resource fails.
+Bundle all fonts with the app, and load them from local files.
+Do not use an external CDN or Google Fonts dependency. Font files live in `src/renderer/public/fonts/`.
+Runtime font tokens put the selected bundled family first.
+They append the documented system family only if the local resource fails.
 The fallback is not a selectable theme family.
 
 ### Sixteen Themes
@@ -316,12 +312,12 @@ Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
 
 ### Runtime Behavior
 
-- Emerald is applied on app startup before the first frame paints (no flash of
+- The app applies Emerald on startup before the first frame paints (no flash of
   unstyled content).
-- Theme tokens are applied to the root element (e.g. `:root` or equivalent).
-- Theme-dependent semantic colors come from tokens. Fixed neutral overlays,
-  canvas safety fallbacks, and invariant selection ink may use local black/white
-  literals when they do not encode theme identity.
+- The app applies theme tokens to the root element (e.g. `:root` or equivalent).
+- Theme-dependent semantic colors come from tokens.
+  Fixed neutral overlays, canvas safety fallbacks, and invariant selection ink may use local black or white literals.
+  These literals must not encode theme identity.
 - Switching between Home Screen and Player does not reset or re-apply the
   theme.
 - Native select popups explicitly pair `--text` with `--chrome` instead of
@@ -329,11 +325,10 @@ Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
   uses the system `HighlightText` and `Highlight` colors. Custom dropdown menus
   use the same readable token pairs. Destructive items use a colored edge and
   the standard menu accent pair for their highlighted state.
-- Every scroll surface styles `::-webkit-scrollbar*` from theme tokens
-  (via `color-mix` over `--text`/`--bg-panel`) so the native light Windows
-  scrollbar never appears on dark themes. The standard `scrollbar-color`
-  property is deliberately not set — Chromium disables `::-webkit-scrollbar`
-  styling when it is present, and Electron only renders through Chromium.
+- Every scroll surface styles `::-webkit-scrollbar*` from theme tokens.
+  It uses `color-mix` over `--text` and `--bg-panel` to prevent a light Windows scrollbar on dark themes.
+  Do not set the standard `scrollbar-color` property.
+  Chromium disables `::-webkit-scrollbar` styles when that property is present. Electron renders only through Chromium.
 - A `prefers-reduced-motion: reduce` media block replaces the scan spinner and
   locate-in-browser flash with static indicators and removes transitions.
 - The playhead line carries a small
@@ -344,7 +339,7 @@ Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
 
 ### Theme File Format
 
-Each theme is defined as a standalone JSON file in `public/themes/`:
+Each theme uses a standalone JSON file in `public/themes/`:
 
 ```json
 {
@@ -422,40 +417,41 @@ Each theme is defined as a standalone JSON file in `public/themes/`:
 ```
 
 All 16 theme files exist in `public/themes/` with their own distinct token
-values (no placeholder copies). Theme design rules (gradient layering,
-contrast policy, case transforms, depth-token use, sanctioned exceptions)
-are defined in the [Style Guide](../style-guide.md#theme-design-rules).
+values (no placeholder copies). The [Style Guide](../style-guide.md#theme-design-rules)
+defines theme design rules. They cover gradient layering, contrast policy, case
+transforms, depth-token use, and sanctioned exceptions.
 
-The tracker learns which
-placements reference missing samples through a root-scoped backend query
-`listMissingRelpaths(sampleFolder)` (`SELECT relpath FROM samples WHERE
-root_id = ? AND scan_state = 2`), refreshed when the library loads and after
-every completed scan. Missing-sample visual treatment follows the
+The root-scoped `listMissingRelpaths(sampleFolder)` backend query identifies placements that reference missing samples.
+It runs `SELECT relpath FROM samples WHERE root_id = ? AND scan_state = 2`.
+The app refreshes it when the library loads and after each completed scan.
+Missing-sample visual treatment follows the
 [Style Guide](../style-guide.md#sample-bubbles).
 
-The typed UI Size preset values live in `src/renderer/src/ui-size.tsx`. Their
-global geometry rules live in the separately owned
-`src/renderer/src/ui-size.css`, loaded after base and Mixer styles so the
-preset layer has one clear cascade boundary.
+The typed UI Size preset values live in `src/renderer/src/ui-size.tsx`.
+The separately owned `src/renderer/src/ui-size.css` contains their global geometry rules.
+It loads after base and Mixer styles. This order gives the preset layer one clear cascade boundary.
 
 ## Acceptance Criteria (testable)
 
-- [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
-- [x] **AC-002:** The Emerald theme JSON implements all 23 `ThemeColors` entries plus the documented palette, font, depth, radius, border, and sample-bubble typography tokens.
-- [x] **AC-003:** All bundled fonts are loaded from local files — no external network requests for fonts.
+- [x] **AC-001:** App launches with the Emerald theme applied to the header,
+  content, and footer. No default or unthemed flash occurs.
+- [x] **AC-002:** The Emerald theme JSON implements all 23 `ThemeColors` entries.
+  It also implements the documented palette, font, depth, radius, border, and sample-bubble typography tokens.
+- [x] **AC-003:** The app loads all bundled fonts from local files. It makes no external font request.
 - [x] **AC-004:** The theme selector lists all 16 themes.
-  The list is Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial,
-  Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, and Arcade.
+  The first eight are Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial, Club PA, and Beton Brut.
+  The other eight are Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, and Arcade.
 - [x] **AC-005:** Default selection in the theme selector is "Emerald".
 - [x] **AC-006:** Selecting any theme from the dropdown immediately applies that theme across the entire UI.
 - [x] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.
-- [x] **AC-008:** Theme-dependent semantic colors are defined in the JSON source of truth. Local color literals are limited to invariant neutral overlays, selection ink, and defensive canvas fallbacks.
-- [x] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
-- [x] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
-- [x] **AC-011:** Placements and sample bubbles are painted from the active theme's `palette` by slot.
-  Switching themes recolors placements and browser tiles without reloading, and the canvas and DOM resolve identical colors for the same slot.
+- [x] **AC-008:** The JSON source of truth defines theme-dependent semantic colors. Only invariant neutral overlays, selection ink, and canvas fallbacks use local literals.
+- [x] **AC-009:** Switching between Home Screen and Player does not change the active theme. It causes no reapply flicker.
+- [x] **AC-010:** A JSON validator can parse the valid Emerald theme JSON file. The file has no syntax errors or duplicate keys.
+- [x] **AC-011:** The bubble painter paints placements and sample bubbles from the active theme's `palette` by slot.
+  Switching themes recolors placements and browser tiles without a reload.
+  The canvas and DOM resolve identical colors for the same slot.
 - [x] **AC-012:** The lane canvas draws beat lines in `--bg-grid` and bar lines in `--border`. No theme renders beat lines from the structural border color.
-- [x] **AC-013:** A sample bubble whose sample row is missing (`scan_state = 2`) renders 45-degree hazard stripes derived from `--sample-bubble-missing`.
+- [x] **AC-013:** A sample bubble with a missing sample row (`scan_state = 2`) renders 45-degree `--sample-bubble-missing` hazard stripes.
 - [x] **AC-014:** Canvas sample-bubble labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
 - [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`. Beton Brut renders 2px structural rules and a 3px header rule.
 - [x] **AC-016:** The playhead renders a triangular cap colored from `--playhead`.
@@ -463,20 +459,20 @@ preset layer has one clear cascade boundary.
   both Home and Player. Home content has no theme-preview grid or duplicate
   theme control. The selector retains all 16 themes, its explicit selected
   state, and the selected theme name.
-- [x] **AC-018:** Every native select trigger, option popup, and custom dropdown
-  menu maintains at least 4.5:1 text contrast in all 16 bundled themes. Native
+- [x] **AC-018:** Each native select trigger, option popup, and custom dropdown menu has at least 4.5:1 text contrast.
+  This requirement applies to all 16 bundled themes. Native
   option rows have an explicit themed background rather than a white user-agent
   fallback. The automated contrast check rejects malformed colors unless they
   use the required `#RRGGBB` form.
-- [x] **AC-019:** Soft theme `--text-muted` maintains at least 4.5:1 contrast
-  against its normal text-bearing base, panel, lane, chrome, and pill surfaces.
+- [x] **AC-019:** Soft theme `--text-muted` has at least 4.5:1 contrast.
+  Test its normal text-bearing base, panel, lane, chrome, and pill surfaces.
 - [x] **AC-020:** The Player Settings modal has one global UI Size selector.
   Its label is Zoom Level. Values 30, 40, and 50 appear as 75%, 100%, and 125%.
   The app defaults to 40 and persists the choice outside project files.
-- [x] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
-  controls, targets, panels, Mixer components, spacing, and supporting type.
-  Every numeric linear slider retains a 30/40/50px cross-axis target while its
-  compact rectangular painted handle scales with the shared Mixer grammar. The
+- [x] **AC-021:** Switching UI Size applies one token set.
+  It controls app chrome, controls, targets, panels, Mixer components, spacing, and supporting type.
+  Each numeric linear slider retains a 30/40/50px cross-axis target.
+  Its compact rectangular painted handle scales with the shared Mixer grammar. The
   fixed-height Tracker ruler keeps its documented compact seek target. The
   active Bottom Workspace tab re-clamps to its content-safe minimum.
 - [x] **AC-022:** Sample bubbles and lanes use the documented 24/37, 33/49, and
@@ -486,18 +482,16 @@ preset layer has one clear cascade boundary.
   Mixer. It shows the full ruler and one complete lane.
   It has no vertical scrollbar, clipping, overlap, or small interaction targets.
 - [x] **AC-024:** Fixed authored typography uses the documented 10–18px scale.
-  15px and 18px are formal type steps, while close icons are SVG paint rather
-  than a 22px text glyph. Embedded hardware radii resolve through the invariant
+  The 15px and 18px values are formal type steps. Close icons use SVG paint instead of a 22px text glyph.
+  Embedded hardware radii resolve through the invariant
   micro-radius tokens instead of local 1–5px or 999px literals.
 
 ## Non-Goals (deferred to later specs)
 
-- No theme import/export — themes are bundled with the app, not loaded from
-  external files at runtime.
-- No theme validation/sanitization for untrusted theme files (relevant when
-  import is added).
-- No theme persistence across app restarts — app always starts in Emerald
-  until an app-state theme preference store is wired.
+- No theme import or export. The app bundles themes and does not load external theme files at runtime.
+- No validation or sanitization for untrusted theme files. Future import work must add it.
+- No theme persistence across app restarts. The app starts in Emerald until a
+  theme preference store controls this state.
 - No custom theme creation or editing UI.
 - No theme preview thumbnails in the dropdown.
 - No light/dark mode toggle separate from theme selection.

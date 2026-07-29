@@ -1,9 +1,16 @@
 # Spec 020 — Sample Folder Builder (archive.org)
 
 **Spec Validation Status:** STUB — NOT VALIDATED
+
 **Spec Implementation Status:** NOT IMPLEMENTED
-**Depends on:** spec-003 (Folder & App State Management), spec-004 (Sample Library),
-Electron renderer architecture (Sample Folder is a persisted `FileSystemDirectoryHandle`)
+
+**Depends on:**
+
+- spec-003 (Folder & App State Management)
+- spec-004 (Sample Library)
+- Electron renderer architecture
+
+The renderer persists the Sample Folder as a `FileSystemDirectoryHandle`.
 
 Local semantic audio search belongs to
 [spec-015](spec-015-semantic-audio-search.md). This spec covers only the
@@ -22,30 +29,30 @@ users who do not already have samples.
 ## User Stories
 
 - **US-001:** As a user with an empty Sample Folder, I can search archive.org
-  audio from inside MixJam without leaving the app.
+  audio inside MixJam. I do not have to leave the app.
 - **US-002:** As a user, I can preview a result before deciding to download it.
-- **US-003:** As a user, I can download selected files into my Sample Folder
-  and see them appear after automatic library sync.
+- **US-003:** As a user, I can download selected files into my Sample Folder.
+  I see them after the automatic library sync.
 - **US-004:** As a user, I can see each item license before I download it.
   The license shows how I can use the item.
 - **US-005:** As a user, I see download progress and can cancel pending
   downloads.
 
-## Scope (high-level — to be validated)
+## Scope (high-level, validation pending)
 
 ### Discovery
 
-- Search backed by the archive.org Advanced Search API (`mediatype:audio`),
-  scoped to a curated set of collections known to hold usable material
-  (e.g. `opensource_audio`, netlabels, 78rpm/Great 78 Project).
+- Search uses the archive.org Advanced Search API (`mediatype:audio`). It uses a
+  curated set of collections with usable material. Examples include
+  `opensource_audio`, netlabels, `78rpm`, and the Great 78 Project.
 - Results show title, collection, duration where available, and license.
 
 ### Download
 
-- Selected files are written into the Sample Folder via the granted
-  `FileSystemDirectoryHandle` (`createWritable()`), under a dedicated
-  top-level subfolder (e.g. `archive.org/<item>/…`) so the existing
-  folder-to-tag mapping (spec-004) labels them automatically.
+- The builder uses the granted `FileSystemDirectoryHandle` and `createWritable()`.
+  It writes selected files under a dedicated top-level subfolder, such as
+  `archive.org/<item>/…`. The existing folder-to-tag mapping from spec-004 labels
+  them automatically.
 - A completed download batch schedules the same incremental library sync owned
   by spec-004 through its app-mutation trigger. This trigger is not suppressed
   when the root already completed its once-per-session automatic sync. It
@@ -53,20 +60,22 @@ users who do not already have samples.
   one follow-up reconciliation after an active job. Repeated download events
   collapse into that one follow-up and do not prompt for a second manual scan
   action.
-- License/attribution metadata is preserved (e.g. A sidecar `.json` or
-  `ATTRIBUTION.txt` per item).
+- The builder preserves license and attribution metadata. It can use a sidecar
+  `.json` file or an `ATTRIBUTION.txt` file for each item.
 
 ### Access gating and write permission
 
-- Entry point appears on the Home Screen when a Sample Folder is configured
-  but empty (or from the sample browser at any time).
+- The entry point appears on the Home Screen when a configured Sample Folder is
+  empty. The sample browser always shows the entry point.
 - The Sample Folder stays **read-only** in normal use (spec-003 picks it with
   mode `'read'`). Write access is an **upgrade on demand**.
   When the builder starts a download batch, it calls
   `requestPermission({ mode: 'readwrite' })` on the existing Sample Folder
   handle. The user gesture starts this call. The Electron
-  shell auto-grants the upgrade. The upgrade
-  is not persisted as the folder's default role. Day-to-day scanning and
+  shell auto-grants the upgrade.
+
+  The upgrade
+  does not change the folder's saved default role. Day-to-day scanning and
   playback continue to require only read access.
 - The feature never writes anywhere other than the Sample Folder's
   `archive.org/` subtree.
@@ -101,10 +110,9 @@ users who do not already have samples.
   or download-then-audition? Needs a CORS spike against real collection URLs.
 - Curated collection list: which collections, and is the list hardcoded or
   remotely updatable?
-- Format handling: many archive.org items are FLAC/OGG/78rpm MP3 — download
-  as-is and rely on Electron Chromium decode support, or transcode? (`AUDIO_EXTENSIONS`
-  in `src/renderer/src/backend/indexer.ts` defines what the indexer accepts
-  today.)
+- Format handling: many archive.org items are FLAC, OGG, or 78 rpm MP3 files.
+  Should the app download these files as-is or transcode them? `AUDIO_EXTENSIONS`
+  in `src/renderer/src/backend/indexer.ts` defines the current accepted formats.
 - Rate limiting / politeness: max concurrent downloads and item-size caps.
 
 ## References

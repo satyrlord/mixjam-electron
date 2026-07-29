@@ -56,6 +56,7 @@ Rules of the process model:
 - **Backend job policy has one owner.** The worker entry module initializes the
   database and dispatches typed requests. Its dispatch table *is* its allow-list.
   The code derives this table instead of restating it.
+
   Thus, an operation is callable exactly when the table
   provides it. A deep job-coordination module owns
   admission, queueing, replacement, cancellation, identity, and progress for
@@ -92,6 +93,7 @@ Rules of the process model:
 - **Analysis has one semantic owner.** The analyzer stores direct per-file BPM/key evidence.
   It validates stereo-pair side evidence and derives directory and virtual source-cohort groups.
   It infers zero or more coherent clusters and stores current BPM/key/type projections.
+
   `TONAL_SAMPLE_TYPES` (in `analysis.ts`, the backend's lowest module) is the one
   definition of which sample types carry pitch. The planner re-exports it as
   `TONAL_TYPES`. A set that differs from it describes a different concept and
@@ -126,6 +128,7 @@ Rules of the process model:
   neutral planning. The generator may decode its bounded shortlist for planner
   metrics, but it consumes analyzer-owned BPM, key, and type and does not derive
   competing semantic values. The renderer adapts the plan and serializes it through the production project format.
+
   It writes the plan inside the User Folder.
   It updates recent projects only after the write succeeds.
   A project support module interprets stored generator metadata.
@@ -140,8 +143,9 @@ Rules of the process model:
   to 64 stable-identity lanes live with their placements, name, mute, solo,
   pan, volume, and exactly four aligned Send values. The same snapshot owns
   exactly four fixed-order FX buses. There is no separate channel array or
-  routing model. The project-state module also owns lane defaults, cloning,
-  pure lane/Mixer edits, the lane/Return edit-history shape, and the adapter to
+  routing model. The project-state module also owns lane defaults and cloning.
+
+  It also owns pure lane/Mixer edits, the lane/Return edit-history shape, and the adapter to
   playback graph data. Renderer hooks coordinate live edits.
   They do not define persistence types or reconstruct project defaults.
 - **Mixer channels are derived from lanes.** Adding a lane appends its channel.
@@ -173,8 +177,9 @@ Rules of the process model:
   UI Size, expansion state, and MixJam Browser collapse. One shortcut module
   owns global matching, modal suppression, dispatch, and displayed command
   text. The project Dialog/blocking-modal abstraction owns the shared global
-  hotkey-block lifecycle and return-focus restoration. Feature dialogs own
-  feature-specific dismissal rules and initial-focus selection when their
+  hotkey-block lifecycle and return-focus restoration.
+
+  Feature dialogs own feature-specific dismissal rules and initial-focus selection when their
   owning specifications require them. The Media Session API owns OS media
   actions. The shell does not register invasive system-wide shortcuts.
 - **Player regions own their live behavior.** The Tracker interaction module

@@ -51,6 +51,7 @@ protect the budget.
 - **Per-tick work stays flat.** Scheduler work must not increase with the arrangement size.
   Lane evaluation and the UI-to-engine lane mapping use array identity as a cache key.
   By convention, lane state is immutable.
+
   Thus, an edit always misses the cache, and a stale hit is impossible.
   Each lane also keeps a start-tick index.
   A tick lookup reads this map and does not sort all placements again.
@@ -68,7 +69,7 @@ This interval is ten times longer than the lookahead.
   samples with bounded concurrency. Refill that window as scheduled placements
   consume it. Never read an entire large arrangement into a smaller cache.
 - Working-set replacement invalidates decoded and pending non-member entries.
-  late decode completion cannot restore an entry that was discarded. A failed
+  Late decode completion cannot restore an entry that was discarded. A failed
   serialized preload does not prevent later playback sessions from preparing.
 - File bytes reach the engine through the injected `loadSampleBytes` callback.
   `BackendAPI.readSampleBytes(rootId, relpath)` implements the callback.
@@ -278,7 +279,7 @@ The branch limits bandwidth before shifting and uses the in-loop soft limiter.
 
 Other stages provide equal-power early/late blend, mid/side width, wet-only ducking, and output trim.
 Retimes use dual read-head crossfades.
-modulation is deterministic (seeded, no RNG). Clear Tail is a momentary
+Modulation is deterministic (seeded, no RNG). Clear Tail is a momentary
 `clear-tail` port command exposed through `ReturnModuleProcessor.clearTail()`
 and `AudioEngine.clearReturnTail(index)`. The reverb worklet processes silence
 when its upstream input is inactive so tails ring out. Full
@@ -423,8 +424,8 @@ active instance.
 
 - One shared oversampler implementation: 4x via two cascaded 2x half-band
   linear-phase FIR polyphase stages (up and down). Soft Clip, Tube, and
-  Maximizer use 4x. Tape uses one 2x stage because its nonlinearity is gentler.
-  pre-emphasis already tilts the spectrum). The Limiter's true-peak
+  Maximizer use 4x. Tape uses one 2x stage. Its nonlinearity is gentler, and
+  pre-emphasis already tilts the spectrum. The Limiter's true-peak
   sidechain uses a 4x up-only path per signed channel.
 - Tap counts: 63 (outer stage, Kaiser beta 9) and 45 (inner stage, running
   at the doubled rate). They are chosen so every round trip is an INTEGER

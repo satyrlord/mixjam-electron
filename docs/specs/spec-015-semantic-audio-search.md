@@ -1,7 +1,9 @@
 # Spec 015 — Local Semantic Audio Search
 
 **Spec Validation Status:** STUB — NOT VALIDATED
+
 **Spec Implementation Status:** NOT IMPLEMENTED
+
 **Depends on:** spec-004 (Sample Library browser, search, `rule_json` query
 engine), Electron renderer architecture (backend worker owns the database)
 
@@ -18,6 +20,7 @@ An embedding model runs entirely on the local device.
 It uses WebGPU acceleration with a CPU-WASM fallback.
 Users can enter "warm analog bass" or select "Find similar" on a sample.
 They can save a similarity-based library or accept suggested tags.
+
 No audio or embeddings leave the device. The accepted Chromium-only,
 backend-worker architecture keeps this processing local.
 
@@ -28,24 +31,23 @@ indexed samples.
 
 ## User Stories
 
-- **US-001:** As a user with an indexed Sample Folder, I can type a
-  descriptive phrase (e.g. "dark ambient pad", "crisp hi-hat") into the
-  sample browser search bar and get results ranked by how they sound,
-  regardless of filename or folder.
+- **US-001:** As a user with an indexed Sample Folder, I enter a descriptive
+  phrase in semantic search. Examples include "dark ambient pad" and "crisp hi-hat."
+  Results rank by sound, regardless of filename or folder.
 - **US-002:** As a user, I can select "Find similar" on any library sample.
   I see the most sonically similar samples without a text query.
-- **US-003:** As a user, I can save a "sounds like this" filter as a library
-  that automatically includes similar samples indexed later.
+- **US-003:** As a user, I save a "sounds like this" filter as a library.
+  The library includes similar samples that the app indexes later.
 - **US-004:** As a user, I can review and accept suggested tags for my
   samples (e.g. "kick", "vocal", "lofi") produced by zero-shot
   classification, instead of tagging thousands of files by hand.
-- **US-005:** As a user with a library indexed before this feature existed, I
-  can trigger embedding computation from a visible affordance. Until then,
-  semantic features are disabled gracefully, not broken.
+- **US-005:** As a user with an older library, I can start embedding
+  computation from a visible control. Until then, the app disables semantic
+  features without errors.
 - **US-006:** As a user without WebGPU, everything still works via CPU
   inference — slower, but correct and non-blocking.
 
-## Scope (high-level — to be validated)
+## Scope (high-level, validation pending)
 
 ### Embedding pipeline
 
@@ -56,8 +58,8 @@ indexed samples.
   BLOB` column, 512-dim float32, ~2 KB per sample). ~100 MB of OPFS for a
   50k-sample library. Always rebuildable by rescan, so treated as cache (no
   migration burden).
-- The model (~150 MB quantized ONNX) is lazy-loaded on first need, never
-  bundled with the app binary. Delivery follows the same static-asset
+- The app loads the model (~150 MB quantized ONNX) on first need. The app binary
+  does not include it. Delivery follows the same static-asset
   pattern as spec-016's separation model (`app://` in the shell, HTTPS fetch
   cached in renderer OPFS).
 - **Worker placement:** inference runs in a dedicated inference worker that
@@ -67,7 +69,7 @@ indexed samples.
   indexer transactions. Spec-016 shares this worker and the
   ONNX runtime instance.
 - Embedding computation is a separate future phase after the existing metadata
-  and sample-analysis work. Its exact ordering must be validated before
+  and sample-analysis work. The team must validate its exact order before
   implementation. Samples with `scan_state = 1` and NULL embedding form its
   resumable work queue, and it reports its own progress.
 
@@ -86,9 +88,9 @@ indexed samples.
 
 ### "Find similar"
 
-- Context-menu and detail-panel action on any embedded sample: use its stored
-  embedding as the query vector, rank by cosine similarity, exclude the
-  source sample.
+- The context menu and detail panel show this action for each embedded sample.
+  Use its stored embedding as the query vector.
+  Rank by cosine similarity and exclude the source sample.
 
 ### `similarTo` query predicate (additive `rule_json` leaf, version stays 1)
 
@@ -102,58 +104,55 @@ indexed samples.
 - A threshold (not top-N) keeps the leaf a pure `WHERE` predicate composable
   with every other leaf under AND/OR/NOT. Similarity *ordering* remains a
   browser sort mode, orthogonal to filtering.
-- If the reference sample is missing or soft-deleted, the leaf matches
-  nothing and the library UI surfaces the broken reference (exact affordance
-  to be validated).
+- If the reference sample is missing or soft-deleted, the leaf matches nothing.
+  The library shows the broken reference. The exact control needs validation.
 
 ### Zero-shot tag suggestions
 
-- A curated label set (e.g. kick, snare, hi-hat, bass, pad, vocal, fx, loop)
-  is encoded once through the CLAP text encoder. Each sample's embedding is
+- The CLAP text encoder encodes a curated label set once. Examples include kick,
+  snare, hi-hat, bass, pad, vocal, fx, and loop. Each sample's embedding is
   scored against it and labels above a confidence threshold become *pending
   tag suggestions*.
 - Suggestions surface in the manage panel (and sample detail) for one-click
   accept/reject. Accepted suggestions become ordinary rows in `tags` /
-  `sample_tags`. Nothing is auto-assigned without confirmation in v1.
+  `sample_tags`. The app never assigns a suggestion without confirmation in v1.
 - This spec never writes folder-derived tag provenance. Spec-004 owns the flat
   folder-derived and user-managed tag model. Spec-008's heuristic classifier writes `sample_type`, not tags.
   Suggestions here remain tags only.
 
 ### Degradation and gating
 
-- All semantic affordances are gated on embeddings existing. Libraries
+- Existing embeddings gate all semantic affordances. Libraries
   indexed before this feature show a "compute embeddings" affordance that
   runs the backfill phase.
-- Without WebGPU, CPU-WASM inference is used. Indexing remains interruptible
+- Without WebGPU, the inference worker uses CPU-WASM. Indexing remains interruptible
   and the UI stays responsive (the inference worker is not the DB worker).
 
 ## Acceptance Criteria (draft)
 
 - [ ] **AC-001:** Semantic search returns cosine-similarity-ranked results
-  for natural-language queries. Results are deterministically ordered for the
-  same query and DB state.
+  for natural-language queries. The engine orders results deterministically for
+  the same query and DB state.
 - [ ] **AC-002:** "Find similar" on a sample returns the top-N most similar
   samples excluding itself. The source sample ranks first (similarity 1.0)
-  when the full library is inspected in a test assertion.
-- [ ] **AC-003:** A library saved with a `similarTo` leaf includes a newly
-  indexed similar sample after its embedding is computed, with no edit to the
-  library.
+  when a test inspects the full library.
+- [ ] **AC-003:** Save a library with a `similarTo` leaf.
+  After embedding computation, it includes a newly indexed similar sample.
+  The library needs no edit.
 - [ ] **AC-004:** A `similarTo` leaf composes with other leaves (e.g. AND
   with `ext` and `bpm`) in one compiled parameterized query.
 - [ ] **AC-005:** A library indexed before embedding support shows a
-  "compute embeddings" affordance. Semantic search is gracefully disabled
-  (not broken) until embeddings exist.
+  "compute embeddings" affordance. The app disables semantic search without
+  errors until embeddings exist.
 - [ ] **AC-006:** Tag suggestions appear for a sample whose content matches a
   curated label. Accepting one creates a normal tag assignment. Rejecting one
   removes the suggestion without side effects.
-- [ ] **AC-007:** No suggested tag is written without explicit user acceptance.
-  Folder-derived assignments are never touched by this feature.
-- [ ] **AC-008:** With WebGPU unavailable, embedding computation completes
-  via CPU-WASM and the UI remains responsive throughout (no long tasks on
-  the backend worker attributable to inference).
-- [ ] **AC-009:** Deleting the reference sample of a `similarTo` library
-  yields an empty result plus a visible broken-reference indication, not an
-  error state.
+- [ ] **AC-007:** The app writes no suggested tag without explicit user
+  acceptance. This feature never changes folder-derived assignments.
+- [ ] **AC-008:** Without WebGPU, CPU-WASM completes embedding computation.
+  The UI stays responsive. Inference causes no long backend-worker task.
+- [ ] **AC-009:** Delete the reference sample of a `similarTo` library.
+  It shows an empty result and a broken-reference indication, not an error.
 
 ## Non-Goals
 
@@ -163,14 +162,14 @@ indexed samples.
 - No duplicate detection / near-duplicate clustering (a future use of the
   same embeddings).
 - No user-supplied custom models or label sets in v1.
-- No stem embeddings — spec-016 specifies when and how stems are embedded
+- No stem embeddings — spec-016 specifies when and how the app embeds stems
   using this pipeline.
 
 ## Open Questions
 
-- CLAP model selection: which pretrained checkpoint, and what quantization
-  level (INT8 vs FP16) balances embedding quality against model size and
-  inference latency in WebGPU? Needs a spike comparing LAION-CLAP, MS-CLAP,
+- Select the CLAP checkpoint and INT8 or FP16 quantization level.
+  Balance embedding quality, model size, and WebGPU latency.
+  A spike must compare LAION-CLAP, MS-CLAP,
   and WavCaps-derived checkpoints on music/sample retrieval tasks.
 - Embedding dimension trade-off: 512-dim vs 1024-dim — storage cost vs
   retrieval quality. Start with 512-dim and measure.
@@ -180,8 +179,8 @@ indexed samples.
 - Cosine similarity in SQLite: confirm scalar-function registration works in
   the sqlite-wasm build and measure per-row cost at 100k rows. Decide the
   JS-side fallback shape if not.
-- Long samples: CLAP encoders take fixed-length windows (~10 s) — embed the
-  head, an average over windows, or multiple embeddings per sample? Affects
+- Long samples: select head-only, window-average, or multiple embeddings.
+  CLAP encoders use fixed windows of approximately 10 seconds. The choice affects
   loops vs one-shots differently.
 - Decode path for embedding input: compare inference-worker WAV parsing with
   WebCodecs for compressed formats. `AUDIO_EXTENSIONS` includes mp3, flac,

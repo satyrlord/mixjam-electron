@@ -129,7 +129,7 @@ variable-width visual representation.
 The nonvisual arrangement record that places a [sample](#sample) on a
 [lane](#lane), including its start tick and [musical span](#musical-span). The
 Tracker renders the referenced sample as a [sample bubble](#sample-bubble).
-placement data does not create a second kind of visual object.
+Placement data does not create a second kind of visual object.
 
 ## Contextual group
 
