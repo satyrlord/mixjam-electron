@@ -1,86 +1,78 @@
 ---
 name: full-code-review
-description: Reviews a change set against an unusually strict maintainability bar, emphasizing code-judo simplification, abstraction quality, the 1k-line rule, and spaghetti growth.
+description: Reviews a change set for code-judo simplification, clear ownership, clean contracts, file growth, and spaghetti growth.
 disable-model-invocation: true
 ---
 
 # Full Code Review
 
-Run a read-only **code-judo review** by default: look for restructurings that
-preserve behavior while deleting concepts, branches, wrappers, or layers.
-Do not edit files unless the user explicitly asks to apply the findings.
+Run a read-only **code-judo review** by default.
+Seek changes that remove concepts, branches, wrappers, or layers without changing behavior.
+Edit files only when the user requests fixes.
 
 ## Review
 
-1. Establish the review surface from the user's scope, current diff, and
-   relevant canonical docs. Preserve unrelated dirty work.
-2. Read every changed file and enough callers, tests, and contracts to judge
-   the change in context.
-3. Apply every standard below. Record evidence before assigning severity.
-4. Prefer a small number of high-conviction structural findings over cosmetic
-   notes.
-5. If the user requested fixes, implement only findings within the requested
-   scope and invoke `run-quality-gate` afterward. Otherwise, remain read-only.
+1. Establish the review surface from the user scope, current diff, and canonical documents.
+   Complete this step when every file in scope has an owner.
+2. Read each changed file with its relevant callers, tests, and contracts.
+   Complete this step when each change has enough context for a judgment.
+3. Apply every standard below and record evidence before assigning severity.
+   Complete this step when every standard has a recorded result.
+4. Report only findings with a concrete risk and remedy.
+   Complete this step when each finding cites exact evidence.
+5. If the user requested fixes, repair only findings inside the authorized scope.
+   Complete this step when each requested finding has a verified result.
+
+Preserve unrelated work throughout the review.
+Run `run-quality-gate` after an authorized repair.
 
 ## Standards
 
 ### Code judo
 
-- **Smell:** complexity moves without reducing what a reader must hold.
-- **Remedy:** reframe ownership or state so branches, modes, or layers vanish.
+- **Smell:** A change moves complexity without reducing the reader's mental model.
+- **Remedy:** Change ownership or state so a branch, mode, wrapper, or layer disappears.
 
-### 1k-line crossing
+### File growth
 
-- **Smell:** a change pushes a file from below 1000 lines to above it.
-- **Remedy:** decompose before landing unless the file remains compellingly
-  cohesive and the exception is justified.
+- **Smell:** A change pushes a file from below 1,000 lines to above 1,000 lines.
+- **Remedy:** Split the file unless one clear concept owns all its content.
 
 ### Spaghetti growth
 
-- **Smell:** ad-hoc conditionals, nullable modes, or special cases spread
-  through unrelated flows.
-- **Remedy:** move the policy to the module that owns the concept or replace
-  flags with an explicit state model.
+- **Smell:** Conditions, nullable modes, or special cases spread through unrelated flows.
+- **Remedy:** Move the policy to its owner or use an explicit state model.
 
-### Direct over magical
+### Direct code
 
-- **Smell:** identity wrappers, generic machinery hiding a simple shape, or
-  copy-pasted logic.
-- **Remedy:** inline, extract one pure function, or collapse duplicate paths.
+- **Smell:** Identity wrappers, generic machinery, or copied logic hide a simple shape.
+- **Remedy:** Inline the wrapper, extract one pure function, or collapse duplicate paths.
 
 ### Clean contracts
 
-- **Smell:** casts, unnecessary optionality, silent fallback, or ad-hoc object
-  shapes obscure an invariant.
-- **Remedy:** make the type and process boundary explicit.
+- **Smell:** Casts, optional values, silent fallbacks, or custom shapes obscure an invariant.
+- **Remedy:** Express the invariant at the type or process boundary.
 
 ### Canonical ownership
 
-- **Smell:** feature logic leaks into shared code or duplicates an existing
-  helper.
-- **Remedy:** place logic in the layer that owns the documented concept and
-  reuse its canonical contract.
+- **Smell:** Feature logic enters shared code or duplicates an existing contract.
+- **Remedy:** Move the logic to the documented owner and reuse its contract.
 
 ### Atomic orchestration
 
-- **Smell:** independent work is serialized or related updates can remain
-  half-applied.
-- **Remedy:** simplify orchestration through parallel independence or one
-  atomic state transition.
-
-Use [REFERENCE.md](REFERENCE.md) only when a smell needs a concrete remedy
-pattern.
+- **Smell:** Independent work runs in sequence, or related updates can remain incomplete.
+- **Remedy:** Run independent work concurrently or use one atomic state transition.
 
 ## Output
 
-Order findings by severity. For each finding, provide the path and location,
-the structural risk, the evidence, and one actionable remedy. State explicitly
-when no blocking findings remain.
+Order findings by severity.
+Give each finding a location, risk, evidence, and actionable remedy.
+State when no blocking findings remain.
 
 ## Completion Criterion
 
-The read-only review is complete when every changed file is accounted for,
-every standard has been applied, each finding carries concrete evidence and an
-actionable remedy, and no file was edited. The fix branch is complete only
-when the requested findings are implemented and `run-quality-gate` outcomes
-are reported without concealing blockers.
+The read-only branch is complete when every review step meets its criterion.
+The agent must not change files in that branch.
+
+The repair branch is complete when each requested repair has objective evidence.
+Report all `run-quality-gate` results without hiding blockers.

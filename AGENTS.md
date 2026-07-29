@@ -58,7 +58,7 @@ Run this self-lint before you return text:
 6. Pick one name when the same thing is named two ways.
 
 These rules fix the form of the text. They cannot make a hollow paragraph true. The free official
-standard is at https://asd-ste100.org. Do not paste it in full, because it is copyrighted.
+standard is on the [ASD-STE100 website](https://asd-ste100.org). Do not paste the standard because it is copyrighted.
 
 ## Roles and capability levels
 

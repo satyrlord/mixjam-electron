@@ -1,110 +1,25 @@
-# Design Theme Catalog
+# Bundled Theme Catalog
 
-Read this catalog only when the user has not named an exact theme slug.
+If the user names no bundled theme, use this catalog.
+The JSON files in [`public/themes`](../../../public/themes) own all theme values.
 
-## Minimal and clean
+| Key | Name | Select for this visual direction |
+| --- | --- | --- |
+| `emerald` | Emerald | Restrained dark studio hardware with green signals |
+| `enterprise` | Enterprise | Dark blue software surfaces with clean sans-serif type |
+| `rave` | Neon Rave | Dark club surfaces with cyan and magenta light |
+| `analog` | Warm Analog | Warm brown hardware with amber controls |
+| `ide` | IDE | Dark editor surfaces with monospace type |
+| `rust` | Rust Industrial | Dark industrial hardware with brass and olive colors |
+| `pa` | Club PA | Flat black hardware with high-contrast white controls |
+| `beton` | Beton Brut | Square charcoal surfaces with a heavy sans-serif voice |
+| `mono` | Mono | Square black surfaces with green phosphor signals |
+| `cosmic` | Cosmic | Rounded dark navy surfaces with blue space accents |
+| `neon` | Neon | Dark club hardware with lime and cyan signals |
+| `vintage` | Vintage | Square light-gray desktop hardware with teal controls |
+| `rack` | Rack | Gray physical rack hardware with orange controls |
+| `soft` | Soft | Rounded light surfaces with teal controls and soft depth |
+| `riso` | Riso | Square light paper surfaces with magenta and blue ink |
+| `arcade` | Arcade | Square purple arcade hardware with pixel type |
 
-| Slug | Choose for |
-| --- | --- |
-| `minimal` | Maximum whitespace and stripped-back clarity |
-| `clean` | Simple, legible, low-clutter application UI |
-| `sleek` | Modern minimalism with subtle interaction |
-| `spacious` | Generous whitespace and open grids |
-| `geometric` | Precise shapes and neutral structure |
-| `codex` | Typography-led black-and-white canvas |
-| `shadcn` | Monochrome utility-first components |
-| `flat` | Vibrant two-dimensional surfaces |
-
-## Professional and enterprise
-
-| Slug | Choose for |
-| --- | --- |
-| `professional` | Trustworthy business-ready design |
-| `corporate` | Brand-aligned enterprise patterns |
-| `ant` | Dense enterprise web applications |
-| `enterprise` | Dark cloud-platform dashboards |
-| `stitch` | High-contrast data workflows |
-| `roku` | Purple developer-first dashboards |
-| `levels` | Conversion-focused funnels and calls to action |
-| `agentic` | AI and delegated-task interfaces |
-
-## Editorial and print
-
-| Slug | Choose for |
-| --- | --- |
-| `editorial` | Magazine-style serif layouts |
-| `modern` | Contemporary editorial marketing |
-| `basic` | Print-inspired reports and books |
-| `paper` | Tactile paper texture |
-| `claude` | Warm research-journal aesthetic |
-| `refined` | Curated minimal serif design |
-| `square` | Delicate polished typography |
-| `impeccable` | Graphic editorial posters |
-| `terracotta` | Clay tones and display serifs |
-
-## Premium and dramatic
-
-| Slug | Choose for |
-| --- | --- |
-| `premium` | Apple-inspired precision |
-| `power` | High-end dark monochrome |
-| `bold` | Heavy type and strong contrast |
-| `dramatic` | Theatrical unconventional composition |
-| `fantasy` | Premium game-inspired visuals |
-| `futuristic` | Sleek technology-forward design |
-| `cosmic` | Neon science-fiction depth |
-| `matrix` | Dark cyber-slick interfaces |
-| `mono` | Compact monospace hacker aesthetic |
-
-## Playful and friendly
-
-| Slug | Choose for |
-| --- | --- |
-| `friendly` | Rounded forms and soft pastels |
-| `lingo` | Bright tactile learning interfaces |
-| `creative` | Character-driven landing pages |
-| `expressive` | Vibrant personality with structure |
-| `vibrant` | Warm, lively typography |
-| `colorful` | High-contrast palettes and gradients |
-| `fiction` | Children's-book illustration |
-| `doodle` | Hand-drawn marks and type |
-| `sketch` | Pencil texture on cream |
-| `cafe` | Cozy, relaxed browsing |
-| `storytelling` | Narrative emotional journeys |
-| `immersive` | Exhibit-style interactive stories |
-
-## Effects and materials
-
-| Slug | Choose for |
-| --- | --- |
-| `glassmorphism` | Frosted translucent layers |
-| `claymorphism` | Puffy rounded 3D forms |
-| `neumorphism` | Soft extruded monochrome controls |
-| `skeumorphism` | Physical texture and metaphor |
-| `gradient` | Gradient-rich surfaces |
-| `neon` | Electric glow and contrast |
-| `perspective` | Isometric spatial depth |
-| `material` | Google Material patterns |
-
-## Retro and raw
-
-| Slug | Choose for |
-| --- | --- |
-| `retro` | Vintage type and nostalgic color |
-| `vintage` | Mid-century through 1990s nostalgia |
-| `dithered` | Limited-palette dot rendering |
-| `riso` | Two-color risograph print |
-| `brutalism` | Raw anti-design |
-| `neobrutalism` | Bold borders and vivid accents |
-| `pacman` | 8-bit arcade visuals |
-| `sega` | Chunky arcade controls |
-| `tetris` | Block-game geometry |
-| `artistic` | Expressive high-contrast typography |
-| `pulse` | Motion through bold geometric shapes |
-
-## Layout-driven
-
-| Slug | Choose for |
-| --- | --- |
-| `bento` | Modular card grids |
-| `contemporary` | Current minimal bento layouts |
+If the user supplies no useful visual direction, select `emerald`.

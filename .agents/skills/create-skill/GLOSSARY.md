@@ -1,273 +1,135 @@
-# Glossary — Creating Skills
+# Create Skill Glossary
 
-The domain model for what makes a skill effective. A skill exists to make a stochastic system follow a predictable process; every term below supports that goal. This is the disclosed reference for [`create-skill`](SKILL.md).
+This glossary owns the skill vocabulary. [`SKILL.md`](SKILL.md) owns the authoring procedure.
 
-**Bold terms** in any definition are themselves defined in this glossary; find them by their heading.
-
-## Language
+## Core Terms
 
 ### Predictability
 
-The degree to which a skill makes the agent behave the same *way* on every run — the same process, not the same output (a brainstorming
-skill should *predictably* diverge; its tokens vary, its behaviour doesn't). The root virtue every other term serves — cost and
-maintainability are symptoms of it, not rivals.
+Predictability measures how consistently a skill guides the same process. It does not require identical output.
 
-*Avoid*: consistency, reliability, robustness, output-determinism
+### Model-Invoked Skill
 
-### Model-Invoked
+A model-invoked skill exposes its description to the agent. The agent, the user, or another skill can invoke it.
 
-A skill that keeps its **description** field, so the agent can see it and fire it autonomously — and the human can still type its name,
-so model-invocation always *includes* user reach. There is no model-only state: a description only ever *adds* agent discovery, never
-removes the human's. Pays a permanent **context load** on every turn in exchange for that discoverability. Reachable by other skills,
-because the description that makes it agent-discoverable makes it invocable. A model-invoked skill whose content is all **reference** is
-also one home for shared reference: another skill can invoke it, so reference needed by several skills lives in one place. Pick
-model-invocation only when the agent must reach the skill on its own; if it never fires except by hand, drop the description and pay
-no context load.
+This skill omits `disable-model-invocation`.
 
-*Avoid*: ability, tool, capability
+### User-Invoked Skill
 
-### User-Invoked
+A user-invoked skill hides its description from model invocation. The user invokes it by name.
 
-A skill with its **description** stripped — invisible to the agent and reachable only by the human typing its name (user-*only*, where
-**model-invoked** is user-*and-agent*). Trades agent-discoverability for zero **context load**. Because it has no description, nothing
-but the human can reach it: no other skill can fire it.
-
-*Avoid*: procedure, workflow, command
+This skill sets `disable-model-invocation: true`. It retains a concise, human-facing description for skill catalogs.
 
 ### Description
 
-The skill's machine-readable trigger, and the one **context pointer** a **model-invoked** skill is forced to keep loaded at all times.
-Its mere presence *is* the invocation axis: keep it and the skill is model-invoked (and reachable by other skills); delete it and the
-skill is **user-invoked**, reachable only by the human. The source of a model-invoked skill's **context load**.
+The description summarizes a skill in its frontmatter. A model-invoked description also states each distinct trigger branch.
 
-*Avoid*: frontmatter, summary
+A user-invoked description states only the skill purpose. The invocation setting hides it from the agent.
 
 ### Context Pointer
 
-A reference held in the agent's context that names some out-of-context material and encodes the condition for reaching it. The
-**description** is the top-level context pointer (context window → skill); pointers to disclosed files are the same object one level
-down. Its wording, not the target, decides *when* the agent reaches — and *how reliably*. A must-have target behind a weakly worded
-pointer is a variance bug: fix the wording first, and inline the material only if sharpening fails.
+A context pointer names reference material and states when the agent must read it. Its wording controls reliable use.
 
-*Avoid*: link, reference, import
+A model-invoked description is the top-level context pointer. A package link can point to disclosed reference at the next level.
 
 ### Context Load
 
-The cost a **model-invoked** skill imposes on the agent's context window — its **description**, always loaded, spending both tokens and
-attention. What **user-invoked** skills escape by having no description, and the brake on splitting into more model-invoked skills.
-
-*Avoid*: token cost, context bloat
+Context load is the agent attention and token cost from visible skill descriptions and loaded skill text.
 
 ### Cognitive Load
 
-The cost a **user-invoked** skill imposes on the human — what they must hold in their head: which skills exist and when to reach for
-each (the human is the index). What **model-invocation** removes by being agent-discoverable, and the brake on splitting into more
-user-invoked skills. Not a cost to minimise: it is the price of human agency, the reason some skills stay user-invoked. Spend it where
-human judgement matters; remove it where it does not.
-
-*Avoid*: human index, burden, overhead
+Cognitive load is the information that a user must remember to select a user-invoked skill.
 
 ### Granularity
 
-How finely you divide skills. Finer division spends one of the two loads: more **model-invoked** skills spend **context load** (more
-descriptions crowding the window and competing for attention); more **user-invoked** skills spend **cognitive load** (more for the human
-to remember and reach for). Two cuts guide the division. By **invocation**, split off a model-invoked skill where you have a distinct
-**leading word** to trigger it — a trigger word you actually use in your prompts. By **sequence**, split a run of **steps** where a
-step's **post-completion steps** need hiding, since isolating it in its own context clears what follows. Beware the reverse: merging
-sequences exposes each step's post-completion steps to what follows, inviting premature completion.
-
-*Avoid*: chunking, modularity
+Granularity describes how narrowly a skill package divides its work. Each split adds context load or cognitive load.
 
 ### Router Skill
 
-A **user-invoked** skill whose job is to point at your other user-invoked skills — naming each and when to reach for it — so the human
-has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no **description**, so nothing
-but the human can reach them. The cure for **cognitive load** when user-invoked skills multiply.
+A router skill helps a user select a user-invoked skill. It names each available route and its distinct purpose.
 
-*Avoid*: dispatcher, menu, registry, index, router procedure
+The router cannot invoke another user-invoked skill.
+
+## Content Terms
 
 ### Information Hierarchy
 
-A skill's content ranked by how immediately the agent needs it — a single ladder, produced by two cuts: in-file or behind a pointer,
-and step or reference. The rungs:
-
-- **Steps** — in-file, primary
-- **Reference**, in-file — secondary
-- **Reference**, disclosed — behind a **context pointer**
-
-A skill with no **steps** uses just the bottom two rungs — often a legitimately flat peer-set (e.g. every rule of a review on one
-rung), which is a fine arrangement, not a smell. The hierarchy is independent of invocation: a skill can be model- or user-invoked
-whether it is all steps, all reference, or both. When a skill has steps, in-file reference that should be disclosed buries them and
-turns attending to them into a coin-flip — a variance lever, not just a legibility one. Keep the top of the ladder legible; push down
-it whatever you can.
-
-*Avoid*: structure, organization, layout
+The information hierarchy ranks content by immediate need. Steps come first, common reference follows, and conditional reference stays behind a context pointer.
 
 ### Co-location
 
-Keeping the material an agent needs at once in one place — a concept's definition, rules, and caveats under a single heading, not
-scattered across the file — so reading one part brings its neighbours with it. The within-file companion to the **Information
-Hierarchy**: the hierarchy ranks *how far down* a piece sits; co-location decides *what sits beside it* once there. There is no formula
-for the right format of a body of **reference**; the test is that a skill should read like documentation written for the agent, and
-grouped material reads that way where scattered material does not. Distinct from **Duplication**: that repeats one meaning in two places,
-where scattering fragments a single meaning across many.
-
-*Avoid*: grouping, clustering, cohesion
+Co-location keeps a concept, its rules, and its caveats together. It prevents scattered guidance.
 
 ### Branch
 
-A distinct way a skill can be invoked — a case the skill handles — so different runs take different paths through it. A skill with many steps may carry many branches; a linear one has none.
-
-*Avoid*: path, case, fork
+A branch is one distinct way to use a skill. Different branches need different actions or reference material.
 
 ### Progressive Disclosure
 
-Moving **reference** down the ladder — out of SKILL.md and behind a **context pointer** — so the top stays legible. Not primarily a
-token optimisation; it is how the **information hierarchy** is protected. Licensed by **branching**: disclose what only some branches
-need, inline what every path needs, and if a pointer fires unreliably on must-have material, sharpen its wording, and pull it back inline
-only if that fails.
+Progressive disclosure moves conditional reference from `SKILL.md` to a linked file. This change keeps the main procedure concise.
 
-*Avoid*: lazy loading, chunking
+### Step
 
-### Steps
-
-The ordered actions the agent performs — when a skill has them, the primary tier of its content, and the part that earns its place in
-SKILL.md. Not every skill has steps: a skill can be all steps (`tdd`), all **reference** (a review), or both, independent of invocation.
-Every step ends on a **completion criterion**, clear or vague.
-
-*Avoid*: workflow, instructions, choreography
+A step is one ordered action in `SKILL.md`. Each step ends with a local completion criterion.
 
 ### Completion Criterion
 
-The condition that tells the agent a unit of work is done — the target it judges against. Two properties make it a lever, not just a
-quality. Its **clarity** (can the agent tell done from not-done?) resists **premature completion** — a vague bound ("understanding
-reached") lets the agent declare done and slip to the next step; this axis needs *steps* to bite, since premature completion is a
-between-steps failure. Its **demand** (how much it requires) sets **legwork** — "every modified model accounted for" forces thorough
-work where "produce a change list" does not — and this axis is *not* step-bound: it can bind a body of flat reference too, which is how
-a skill with no steps still carries an exhaustiveness bar ("every rule applied"). The strongest criteria are both checkable and
-exhaustive.
+A completion criterion states the observable condition that finishes a step or skill. A strong criterion is clear, checkable, and exhaustive.
 
-*Avoid*: done condition, exit condition, stopping rule
+An all-reference skill needs one exhaustive criterion. That criterion applies every rule to every item in the stated scope.
 
-### Post-Completion Steps
+### Post-Completion Step
 
-The **steps** that follow the current step. Visible, they pull the agent forward into **premature completion** — the more it sees, the
-stronger the tug; the defence is to hide them by splitting the sequence of steps into two.
-
-*Avoid*: horizon, fog of war, lookahead
+A post-completion step follows the current step. Visible later work can draw attention away from the current criterion.
 
 ### Legwork
 
-The work an agent does behind the scenes within a single step — reading files, exploring the codebase, making changes, digging up what
-it needs rather than offloading to the user. It lives below the step structure: never written as its own step, latent in the wording,
-controlled by the agent rather than the skill. The within-step counterpart to **post-completion steps**' across-step pull. Raised by a
-**leading word** (*comprehensive*, *thorough*) or a **completion criterion** that demands the work be exhaustive — including the demand
-axis applied to flat reference, which is what drives a skill of flat reference to cover all its rungs. Goes thin either when that demand
-is missing or when **premature completion** cuts the step short.
-
-*Avoid*: scope, effort, diligence, coverage
+Legwork is the evidence collection inside a step. An exhaustive criterion controls its required scope.
 
 ### Reference
 
-Material the agent refers to on demand — definitions, facts, parameters, examples, conditional instructions. When a skill has **steps**
-it is secondary to them; when a skill has none it is the entire content; or it lives outside any skill entirely — see **External
-Reference**. Reached via **context pointers**, and the prime candidate for **progressive disclosure**.
+Reference provides facts, rules, parameters, or examples that support a skill. Reference does not define an ordered action.
 
-*Avoid*: supporting material, docs, background
+### Disclosed Reference
+
+A disclosed reference is a linked file inside one skill package. A context pointer loads it only when its material applies.
 
 ### External Reference
 
-**Reference** that lives outside the skill system — a plain file, no **description**, no **steps**, not invocable — that any skill can
-point at. The home for shared reference that needn't fire on its own, and the only shared home two **user-invoked** skills can use,
-since neither has a description and so neither can fire the other.
-
-*Avoid*: doc, resource, knowledge base
+An external reference is a linked file outside the skill package. Several skills can use this shared material.
 
 ### Leading Word
 
-A compact concept — also called a *Leitwort* — already living in the model's pretraining, that the agent thinks with while running
-the skill. It encodes a behavioural principle in the fewest possible tokens by invoking priors the model already holds (e.g. *lesson*,
-*proximal zone of development*, *fog of war*, *tracer bullets*). Repeated as a token, never as a sentence, it accumulates a distributed
-definition across the skill and anchors a whole region of behaviour. Coining your own works if you define it clearly, but a made-up word
-recruits no priors — you pay in definition tokens what a pretrained word gives free. Reach for an existing word first.
+A leading word is a compact, established concept that changes agent behavior. It can strengthen invocation or guide execution.
 
-A leading word serves **predictability** twice. In the body it anchors **execution** — the agent reaches for the same behaviour every
-time the concept appears, and inside flat reference it focuses attention on a class of thing to look for, recruiting the right checks
-each run. In the **description** it anchors **invocation** — and not only within the skill: when the same word lives in your prompts,
-your docs, and your codebase, the agent links that shared language to the skill and fires it more reliably. Word a description with the
-leading words you actually use when you want the skill.
-
-*Avoid*: keyword, term, motif
+Repeat the word when it guides behavior. Do not repeat its definition.
 
 ### Single Source of Truth
 
-The desired state where each meaning lives in exactly one authoritative place, so a change to the skill's behaviour is a change in one
-place. **Duplication** is its violation.
-
-*Avoid*: home, canonical location
+A single source of truth gives one meaning one authoritative location. All other locations point to that source.
 
 ### Relevance
 
-Whether a line still bears on what the skill does — the lens for what to keep. A line loses relevance either by never bearing on the
-task (mere exposition, or a **branch** that should be disclosed) or by going stale: drifting out of date as the behaviour or world it
-describes changes. Shorter skills are easier to keep relevant, because each line is cheaper to check. Distinct from **no-op**: relevance
-asks whether a line bears on the task, not whether it changes behaviour.
-
-*Avoid*: load-bearing, staleness, freshness
+Relevance measures whether a statement affects the current skill behavior. Stale or unrelated statements lack relevance.
 
 ## Failure Modes
 
 ### Premature Completion
 
-Ending the current step before it is genuinely done, because the agent's attention slips to being done rather than to the work. A
-between-steps failure: it needs **steps** to occur — a skill with no steps that quits early isn't premature completion but thin
-**legwork** under an unmet demand. A tug-of-war between two forces: visible **post-completion steps** (the pull forward) and the
-**completion criterion**'s clarity (the resistance — a sharp, checkable bar holds; a vague one gives way). Fuzziness is the necessary
-condition: a sharp bound resists the pull no matter how many later steps are visible, so a step that never rushes needs no defending.
-Two levers hold a step that does, but reach for them in order: **sharpen the bound first** — it is local and cheap. Only when the
-criterion is irreducibly fuzzy *and* you actually observe the rush do you **hide the later steps** — and hiding only works across a real
-context boundary (a user-invoked hand-off or a subagent dispatch; an inline model-invoked call leaves the later steps in context and
-clears nothing). One cause of thin legwork, but distinct from it: legwork can be thin even when a step runs to full completion.
-
-*Avoid*: premature closure, the rush, rushing, shortcutting
+Premature completion ends a step before its criterion is true. An unclear criterion and visible later steps can cause it.
 
 ### Duplication
 
-The same meaning given more than one **single source of truth**. It costs maintenance (change one place, you must change the others),
-costs tokens, and inflates prominence — repeating a meaning weights it on the ladder past its real rank. The accidental inverse of a
-**leading word**, which raises attention on purpose by repeating a token, never the meaning.
-
-*Avoid*: repetition, redundancy
+Duplication gives one meaning more than one authoritative statement. It increases maintenance cost and can change the apparent importance of that meaning.
 
 ### Sediment
 
-Layers of old content that settle in a skill and are never cleared, because adding feels safe and removing feels risky — so stale and
-irrelevant lines accumulate and you must core down through them to find what is still live. The default fate of any skill without a
-pruning discipline; the slow erosion of **relevance**, as opposed to **duplication**'s repeated meaning.
-
-*Avoid*: accretion, bloat, cruft, rot
+Sediment is stale skill content that remains after its purpose ends. It obscures current guidance.
 
 ### Sprawl
 
-A skill that is simply too long — too many lines in SKILL.md — independent of whether they are stale or repeated. Even an all-live,
-all-unique skill can sprawl. It costs readability (the agent wades through more before it can act, and attention thins across the
-excess), maintainability (every extra line is one more to keep **relevant**), and tokens. The cure is the **information hierarchy**: push
-**reference** down behind **context pointers**, and split by **branch** or sequence so each path carries only what it needs. Distinct
-from **sediment** (length from stale accumulation) and **duplication** (length from repeated meaning) — sprawl is length itself,
-whatever its cause.
-
-*Avoid*: bloat, length, size, verbosity
+Sprawl is excessive main-file length, even when each statement remains useful. Progressive disclosure or a justified split can reduce it.
 
 ### No-Op
 
-An instruction that changes nothing because the model already does it by default — you pay load to tell the agent what it would do
-anyway. The test: does a line change behaviour versus the default? A line can be perfectly **relevant** and still be a no-op. The same
-priors that make a **leading word** free make a no-op worthless.
-
-A leading word is a *technique*; No-Op is a *verdict* on a line — and they cross. A leading word too weak to beat the default is a no-op
-(*be thorough* when the agent is already thorough-ish), and the fix is a stronger word that passes the verdict (*relentless*), not a
-different technique. So the No-Op test — does it change behaviour versus the default? — is also how you grade whether a leading word is
-earning its repetitions. This is model-relative, not reader-relative: two people disagreeing over whether a line is a no-op disagree
-about the default, and settle it by running the skill, not by debate.
-
-*Avoid*: redundant instruction, restating the obvious, belaboring
+A no-op is an instruction that does not change agent behavior. Delete a no-op instead of rewriting it.

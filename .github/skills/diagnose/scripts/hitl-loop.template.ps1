@@ -1,21 +1,13 @@
 #!/usr/bin/env pwsh
-# Human-in-the-loop reproduction loop.
-# Copy this file, edit the steps below, and run it.
-# The agent runs the script; the user follows prompts in their terminal.
-#
-# Usage:
-#   ./hitl-loop.template.ps1
-#
-# Two helpers:
-#   step "<instruction>"          → show instruction, wait for Enter
-#   capture VAR "<question>"      → show question, read response into VAR
-#
-# At the end, captured values are printed as KEY=VALUE for the agent to parse.
+# This script controls a human-only reproduction loop.
+# Copy this file and replace each example prompt.
+# The agent runs this script.
+# The user follows each terminal instruction.
 
 function step {
   param([string]$message)
   Write-Host "`n>>> $message"
-  Read-Host "    [Enter when done]" | Out-Null
+  Read-Host "    [Press Enter after the action]" | Out-Null
 }
 
 function capture {
@@ -25,16 +17,12 @@ function capture {
   Set-Variable -Name $varName -Value $answer -Scope 1
 }
 
-# --- edit below ---------------------------------------------------------
+# Replace the prompts below.
 
-step "Open the app at http://localhost:3000 and sign in."
+step "Perform the exact action that triggers the reported symptom."
+capture OBSERVED "Did the reported symptom occur? Enter yes or no."
+capture DETAILS "Enter the exact error, result, timing, or visible state."
 
-capture ERRORED "Click the 'Export' button. Did it throw an error? (y/n)"
-
-capture ERROR_MSG "Paste the error message (or 'none'):"
-
-# --- edit above ---------------------------------------------------------
-
-Write-Host "`n--- Captured ---"
-Write-Host "ERRORED=$ERRORED"
-Write-Host "ERROR_MSG=$ERROR_MSG"
+Write-Host "`n--- Captured result ---"
+Write-Host "OBSERVED=$OBSERVED"
+Write-Host "DETAILS=$DETAILS"

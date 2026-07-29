@@ -1,22 +1,27 @@
 # Grill Me Examples
 
-## Example 1: Pressure-Test an Architecture Change
+Use these patterns when the first useful question is not clear.
 
-- Prompt shape: "Grill me on this tracker-dropout architecture change."
-- Good behaviour: ask one high-risk question at a time and force resolution
-  of release risk, rollback, and ownership assumptions.
-- Good result: a smaller decision tree and one clear next owning skill.
+## Architecture Decision
 
-## Example 2: Branch Reduction Before Spec Work
+Plan: Replace the tracker update contract.
 
-- Prompt shape: "I have two ways to store debug artifacts. Grill me."
-- Good behaviour: challenge scope, persistence, safety, and doc ownership
-  before any spec text is written.
-- Good result: a stable choice or a clearly human-only unresolved decision.
+Recommendation: Keep the current contract until evidence proves that it causes the reported fault.
 
-## Example 3: Naming and Terminology Check
+Question: Which measured fault must the replacement remove?
 
-- Prompt shape: "Help me choose the right term for this new import seam."
-- Good behaviour: cross-check `docs/glossary.md` before asking the user to
-  coin a new term.
-- Good result: one canonical term ready for `add-feature`.
+## Persistence Decision
+
+Plan: Store debug artifacts in the project file.
+
+Recommendation: Keep diagnostic data outside the project file unless playback needs it.
+
+Question: Which product behavior requires this data after the diagnostic session?
+
+## Project Term Decision
+
+Plan: Add a new name for an existing import operation.
+
+Recommendation: Use the term from `docs/glossary.md` unless the behavior differs.
+
+Question: Which behavior makes the existing term incorrect?

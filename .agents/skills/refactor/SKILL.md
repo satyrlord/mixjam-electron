@@ -1,49 +1,37 @@
 ---
 name: refactor
 description: >
-  Surgical, behavior-preserving cleanup for the MixJam Electron (MJE)
-  repository. Use when the user asks to refactor — reduce complexity or make
-  code easier to change without adding features.
+  Refactors MixJam code when the user requests simpler structure without new
+  features, contract changes, or behavior changes.
 ---
 
 # Refactor
 
-Reduce structural and local complexity without changing behavior, contracts,
-or validation coverage. Take small steps and validate after each one; do not
-mix cleanup with new feature work or widen into drive-by edits.
+Use a **surgical** scope.
+Each change must remove a named source of complexity without changing behavior.
 
-Project-specific hazards — read more context before touching these
-(Chesterton's fence):
+## Process
 
-- IPC channel lifecycle: main-to-renderer contracts defined in the preload
-  contextBridge; changing channel names, payload shapes, or sync/async
-  semantics silently breaks the typed API between processes
-- React stale closures (renderer): memoized callbacks or effect
-  dependencies that capture stale state; "simplifying" by moving state
-  outside hooks can break reactive updates silently
-- Web Audio lifecycle: `AudioContext` state transitions (suspended/resumed)
-  must be handled asynchronously; simplifying AudioNode creation patterns
-  can leak nodes or break scheduling
-- SQLite query hazards: sqlite-wasm calls are synchronous on the backend
-  worker's single connection; long scans must stay batched in transactions
-  that yield between batches. Refactoring query builders can accidentally
-  drop parameterized bindings or FTS5 match syntax
+1. Define the exact behavior, contracts, files, and validation in scope.
+   Complete this step when the scope has no unresolved boundary.
+2. Read the affected code, callers, tests, and canonical documents.
+   Complete this step when each current invariant has evidence.
+3. If a listed hazard applies, read [REFERENCE.md](REFERENCE.md) before editing.
+   Complete this step when every applicable hazard has a control.
+4. Add focused regression evidence before a risky structural change.
+   Complete this step when the evidence passes before the structural change.
+5. Apply one coherent structural change.
+   Complete this step when the diff removes a named branch, concept, dependency, or duplicate.
+6. Run the narrow validation after each coherent change.
+   Complete this step when the affected checks pass.
+7. Run the final applicable quality gates.
+   Complete this step when each gate has a recorded result.
 
-Delete dead code only when you can prove it is off the active path
-(`dead-code-audit` owns the full sweep).
-
-Add a focused regression test before risky structural changes. If the
-cleanup changes a durable seam, follow with `add-feature`.
+Use `dead-code-audit` when the request includes a broad dead-code sweep.
+Stop when a requested change would alter a documented contract or behavior.
 
 ## Completion Criterion
 
-The refactor is done when all of the following are true:
-
-- **Behavior preserved** — all existing tests pass. No regression uncovered
-  by the change.
-- **Complexity reduced** — the refactored code is simpler, smaller, or more
-  readable than before. Not a lateral move.
-- **No new dead code** — no paths left orphaned by the change. (If you
-  suspect dead code remains, run `dead-code-audit`.)
-- **No drive-by edits** — every changed line serves the refactoring goal.
-  No scope-creep fixes or features mixed in.
+Complete the refactor only when every process step meets its criterion.
+The final diff must contain only changes that serve the stated refactor.
+Record unchanged contracts and all validation results.

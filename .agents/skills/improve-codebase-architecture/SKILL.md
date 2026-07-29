@@ -1,106 +1,74 @@
 ---
 name: improve-codebase-architecture
-description: Surface architectural friction across the entire project and propose deepening opportunities — refactors that turn shallow modules into deep ones.
-disable-model-invocation: true
+description: >
+  Review project architecture and find deep-module candidates. Use for a
+  full architecture review or when diagnose finds weak test seams or hidden coupling.
 ---
 
 # Improve Codebase Architecture
 
-Surface architectural friction and propose **deepening opportunities** — refactors that turn shallow modules into deep ones. The aim is testability and AI-navigability.
+Find architecture changes that hide complexity behind small interfaces.
+Use this skill after `diagnose` reports a missing test seam or hidden coupling.
 
-Use this shared design vocabulary — stay on these terms, don't drift into
-"component," "service," "API," or "boundary":
+## Design Terms
 
-- **module** — a unit of code with a single responsibility
-- **interface** — what a module exposes; the surface callers depend on
-- **depth** — how much complexity a module hides behind its interface;
-  a **deep** module has a small interface hiding a large implementation
-- **seam** — the place where two modules meet; their shared contract
-- **adapter** — a module whose sole job is to translate between two seams
-- **leverage** — how much work a module does relative to what a caller
-  must understand to use it
-- **locality** — how close related code lives; code that changes together
-  should live together
+- A **module** is code with one clear responsibility.
+- An **interface** is the surface that callers use.
+- **Depth** compares hidden complexity with interface size.
+- A **seam** is the contract between two modules.
+- An **adapter** translates between two seams.
+- **Leverage** compares module work with required caller knowledge.
+- **Locality** keeps code together when it changes together.
 
-Principles:
+Use exact project terms from `docs/glossary.md` and the owning documents.
+Keep exact names such as `BackendAPI` when the project defines them.
 
-- **Deletion test** — would deleting this module concentrate complexity
-  (good, it's deep), or just move it (bad, it's shallow)?
-- **The interface is the test surface** — if a module is hard to test,
-  its interface is wrong
-- **One adapter = hypothetical seam, two = real** — the first adapter on a
-  seam is scaffolding; the second proves the seam is right
+Apply the deletion test to a suspected shallow module.
+Deletion must concentrate complexity rather than move the same complexity.
 
-The domain language in `docs/architecture.md`, `docs/data-model.md`, and
-`docs/glossary.md` names good seams.
+## 1. Review the Project
 
-## Process
+- Read `docs/architecture.md`, `docs/data-model.md`, and `docs/glossary.md`.
+- Read other documents that own each inspected area.
+- For a full review, map every source area, entry point, interface, and test surface.
+- For a diagnose handoff, map the reported flow, connected callers, interfaces, and tests.
+- Delegate independent read-only areas when worker tools are available.
+- Trace representative data and control flows across each selected area.
+- Record each navigation or testability problem with file evidence.
+- Apply the deletion test to each suspected shallow module.
 
-### 1. Explore
+This step is complete when the selected scope has mapped evidence and each candidate passes the deletion test.
 
-Read the project's architecture docs (`docs/architecture.md`,
-`docs/data-model.md`) and `docs/glossary.md` first.
+## 2. Present Candidates
 
-Then delegate independent, read-heavy areas to exploration subagents and walk
-the **entire codebase** — not just recently changed files or the current branch diff.
-Don't follow rigid heuristics — explore organically and note where you
-experience friction:
+For each candidate, report these fields.
 
-- Where does understanding one concept require bouncing between many small modules?
-- Where are modules **shallow** — interface nearly as complex as the implementation?
-- Where have pure functions been extracted just for testability, but the real bugs hide in how they're called (no **locality**)?
-- Where do tightly-coupled modules leak across their seams?
-- Which parts of the codebase are untested, or hard to test through their current interface?
+- **Files**: Name every involved file and module.
+- **Problem**: State the measured navigation, ownership, or testability cost.
+- **Change**: State the proposed responsibility shift.
+- **Benefits**: State the expected locality, leverage, and test effects.
+- **Decision conflict**: Name any existing decision that conflicts.
+- **Strength**: Use `Strong`, `Worth exploring`, or `Speculative`.
 
-Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
+End with one top recommendation and its evidence.
+Do not propose detailed interfaces before the user selects a candidate.
+Ask which candidate the user wants to explore.
 
-### 2. Present candidates
+The review branch is complete when each candidate includes file evidence and every required field.
+One recommendation must rank first.
 
-For each candidate found during exploration, present a structured summary:
+## 3. Deepen a Chosen Candidate
 
-- **Files** — which files/modules are involved
-- **Problem** — why the current architecture is causing friction
-- **Solution** — plain English description of what would change
-- **Benefits** — explained in terms of locality and leverage, and how tests would improve
-- **Recommendation strength** — one of `Strong`, `Worth exploring`, `Speculative`
+- Define the module responsibility and excluded responsibilities.
+- Define the smallest interface that hides the required complexity.
+- Compare two interfaces when more than one interface remains credible.
+- Apply the deletion test and leverage test to each interface.
+- Present the selected interface and rejected alternatives.
+- If the user authorizes document edits, invoke `add-feature`.
+- Record new cross-cutting terms only when authorized document edits require them.
+- Run `markdownlint-cli2` on each changed Markdown file.
 
-End with a **Top recommendation** section: which candidate you'd tackle first and why.
+The branch is complete when one testable interface and all rejected alternatives have evidence.
+Record them only when the user authorizes document edits.
 
-**Use the domain vocabulary from `docs/architecture.md`,
-`docs/data-model.md`, and the terms defined above.** If `docs/glossary.md`
-exists, use its terms — don't drift into "component," "service," "API," or
-"boundary."
-
-**Existing decision conflicts**: if a candidate contradicts a decision recorded in an existing doc, only surface it when the friction is
-real enough to warrant revisiting that decision. Mark it clearly. Don't list every theoretical refactor a past decision forbids.
-
-Do NOT propose interfaces yet. After presenting the candidates, ask the user: "Which of these would you like to explore?"
-
-### 3. Deepen the chosen candidate
-
-Once the user picks a candidate, use `add-feature` to record durable decisions as you work through the design with them:
-
-- **Naming a deepened module after a concept not yet documented?** Add the
-  term to the relevant doc under `docs/`; use `docs/glossary.md` for
-  cross-cutting terminology.
-- **Sharpening a fuzzy term during the conversation?** Update the relevant
-  doc right there.
-- **User rejects the candidate with a load-bearing reason?** Offer to record
-  it as a durable decision in the relevant doc, framed as: _"Want me to
-  record this so future architecture reviews don't re-suggest it?"_ Only
-  offer when the reason would actually be needed by a future explorer to
-  avoid re-suggesting the same thing — skip ephemeral reasons ("not worth it
-  right now") and self-evident ones.
-- **Want to explore alternative interfaces for the deepened module?** Design
-  two competing interfaces in parallel, compare them against the deletion
-  test and leverage, and record the winner.
-
-## Completion Criterion
-
-The architecture review is complete when:
-
-- the exploration covers the full codebase (not just recent changes),
-- the candidates and their trade-offs are clearly communicated,
-- the top recommendation is explicit,
-- and any durable architecture decisions that emerge are recorded in the
-  relevant docs.
+Do not change code unless the user also authorizes that change.

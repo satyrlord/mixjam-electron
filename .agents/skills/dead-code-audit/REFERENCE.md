@@ -1,49 +1,52 @@
 # Dead Code Audit Reference
 
+## Evidence Paths
+
+Check every path that can apply to a finding:
+
+- direct symbol, export, and file references
+- Electron main, preload, renderer, and worker entrypoints
+- React component references and conditional element use
+- IPC channels and `contextBridge` API members
+- reflection, dynamic imports, and computed property access
+- serialization and deserialization contracts
+- state selectors and subscriptions
+- tests, fixtures, generated artifacts, and configuration files
+- CSS names in source files and template strings
+
+Classify a tool finding as a false positive when one of these paths proves live use.
+
+Recommend the narrowest suppression only when the same false positive can recur.
+
 ## Deletion Standard
 
-Delete a finding only when all of the following are true locally:
+Delete a finding only when all applicable evidence paths prove its absence.
 
-- no static references remain
-- no framework entrypoint or config file needs it
-- no dynamic lookup, reflection, or serialization contract relies on it
-- no nearby test or generated artifact expects it
+Do not delete when one path remains unresolved. Report the unresolved path and its smallest next check.
 
-If any one of those points is unresolved, stop and report instead of deleting.
+## Validation Sequence
 
-## False Positive Checklist
+After each edit, run these checks in this order:
 
-Treat a finding as alive when it is used through one of these paths:
+1. Search for the removed symbol, file, and export.
+   Complete this check when no unintended reference remains.
+2. Run the narrowest test for the owning module or entrypoint.
+   Complete this check when the test passes.
+3. Run `npm run typecheck`.
+   Complete this check when the command passes.
+4. Run `npm run lint`.
+   Complete this check when the command passes.
+5. Run `npm run fallow` after the final cleanup edit.
+   Complete this check when the command passes and the removed findings do not return.
 
-- React component references, JSX element usage, or conditional rendering
-- JSON serialization and deserialization contracts
-- reflection, dynamic imports, or template literal access
-- Build entry files (Electron main process entry, preload scripts,
-  renderer entry, backend Web Worker entry)
-- test-only or fixture-only reachability that the scan intentionally excludes
-- IPC channel names and contextBridge API surface — symbols exposed to the
-  renderer via preload may appear unused in main-process scans
-- state store selectors or subscriptions (renderer)
-- CSS class name references that appear in template strings
-
-## Audit Validation
-
-After each deletion:
-
-1. Search again for the removed symbol, file, and exported name.
-2. Run the narrowest test that exercises the owning module or entrypoint.
-3. Run `npm run typecheck` and `npm run lint`.
-4. Re-run `npm run fallow` before completing the cleanup.
-
-If any command fails, restore neither unrelated code nor speculative
-replacements. Report the exact failure and the smallest next check.
+If a command fails, preserve unrelated code. Report the exact failure and the smallest next check.
 
 ## Reporting Contract
 
-For every finding, report:
+Report these fields for every finding:
 
-- path and symbol,
-- classification: live, false positive, removed, or unresolved,
-- concrete reachability or absence evidence,
-- validation commands and outcomes,
-- any residual uncertainty.
+- path and symbol
+- classification as live, false positive, removed, or unresolved
+- direct evidence for reachability or absence
+- validation commands and results
+- remaining uncertainty

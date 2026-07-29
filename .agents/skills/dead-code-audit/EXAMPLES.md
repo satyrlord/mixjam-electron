@@ -1,24 +1,25 @@
 # Dead Code Audit Examples
 
-## Example 1: Audit-Only Scan
+## Audit-Only Scan
 
-- Prompt shape: "Run a dead-code scan and tell me what is really dead."
-- Good behavior: run the scan, inspect only reported artifacts, and return a
-  findings list without editing code.
-- Good result: separate provable dead code from false positives caused by entry
-  wiring or generated usage.
+**Request:** "Run a dead-code scan and report what is dead."
 
-## Example 2: Cleanup Of One Proven Helper
+**Action:** Run the tools. Inspect each finding. Return the classifications without edits.
 
-- Prompt shape: "Clean up the unused parser helper reported by the scan."
-- Good behavior: prove there are no direct uses, reflection hooks, or test
-  dependencies before deleting the smallest slice.
-- Good result: one focused deletion followed by targeted validation.
+**Result:** The report separates proven dead code from false positives and unresolved findings.
 
-## Example 3: False Positive From Host Wiring
+## Proven Helper Cleanup
 
-- Prompt shape: "Why did the scan mark this view model unused?"
-- Good behavior: trace the component through React tree usage, Zustand store
-  selectors, and dynamic imports before deleting it.
-- Good result: report the false positive and recommend the narrowest recurring
-  suppression only if the same pattern will keep appearing.
+**Request:** "Remove the unused parser helper from the scan."
+
+**Action:** Check every applicable evidence path before you remove the smallest dead slice.
+
+**Result:** The focused deletion passes the complete validation sequence.
+
+## Host-Wiring False Positive
+
+**Request:** "Explain why the scan marks this view model as unused."
+
+**Action:** Trace React use, state selectors, dynamic imports, IPC, and entrypoint wiring before any edit.
+
+**Result:** The report identifies the live path and gives a narrow recurring suppression only when necessary.

@@ -1,44 +1,36 @@
 # Code Slop
 
-Use the surrounding file and one sibling as the style and architecture
-baseline. Flag a candidate only when it departs from that baseline without a
-documented need.
+Use the file and one current sibling as the style and architecture baseline.
+If repository evidence gives no valid reason for the difference, flag the candidate.
 
-## Comments and errors
+## Comments and Errors
 
-- Narrative comments that restate self-documenting code
-- Obvious internal JSDoc where siblings rely on types and names
-- Swallowed exceptions that collapse distinct failures without policy
-- Debug logging left in production paths
-- Commented-out implementations and expired migration notes
+- Remove a comment that only repeats clear code.
+- If types and names state the full contract, remove internal JSDoc.
+- Flag an exception handler that hides an actionable failure without a policy.
+- Remove debug logs from production paths.
+- Remove commented code and expired migration notes.
+- Keep a comment that preserves a hidden format, lifecycle, or architecture constraint.
 
-Keep comments that preserve a non-obvious format, lifecycle, compatibility,
-or architectural constraint.
+## Types and Control Flow
 
-## Types and control flow
+- If an available precise type expresses the contract, replace `any` or the type assertion.
+- After you prove its upstream invariant and error policy, remove a duplicate guard.
+- Flag a broad catch block that hides an actionable failure.
+- Remove half-renamed symbols, unused imports, and abandoned artifacts.
+- Remove a local state branch that duplicates the owned state model.
 
-- `any` or assertions used only to bypass an available precise type
-- Defensive guards already guaranteed by the caller's documented contract
-- Broad catch blocks that hide actionable failures
-- Half-renamed symbols, unused imports, and artifacts from abandoned attempts
-- Ad-hoc flags or branches that duplicate an existing state model
+## Structure and Dependencies
 
-Do not remove a guard until its upstream invariant and error policy are proven.
-
-## Structure and dependencies
-
-- A helper that duplicates a live canonical utility
-- An import whose package or export does not exist
-- A pass-through abstraction that hides no policy or complexity
-- Re-declared types that duplicate an owned contract
-- Environment-specific values embedded where the repository already has a
-  configuration seam
-
-Hardcoded values are not slop when they express an intentional local constant
-and no configuration requirement exists.
+- If a local helper duplicates the owned utility, use the owned utility.
+- If an import target does not exist, remove or correct the import.
+- Remove an abstraction that hides no policy or complexity.
+- If a local type duplicates the owned type, use the owned type.
+- Use the repository configuration path for an environment-specific value.
+- If no configuration requirement exists, keep an intentional local constant.
 
 ## Style
 
-Match imports, module extensions, quotes, indentation, semicolons, and blank
-line rhythm to the file family. Use an existing formatter when one owns the
-style; do not hand-normalize against a personal preference.
+Match imports, module extensions, quotes, indentation, punctuation, and blank lines to the file family.
+If an owned formatter exists, use it.
+Do not apply a personal style preference.

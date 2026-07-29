@@ -1,6 +1,6 @@
 ---
 name: run-quality-gate
-description: Runs the repository quality gate in verification or repair mode. Use to assess release readiness, clear diagnostics, fix lint or test failures, or enforce the unit-coverage policy.
+description: Runs repository gates when the user requests verification, release readiness, failed-gate repair, or coverage enforcement.
 ---
 
 # Run Quality Gate
@@ -9,55 +9,66 @@ Run a fixed **gate** sequence with objective command evidence.
 
 ## Select Mode
 
-- **Verify mode:** use when the user asks whether the branch passes. Run every
-  applicable gate and report failures without editing source, tests, or config.
-- **Repair mode:** use when the user asks to clean or fix the branch. Close each
-  gate before moving to the next; edit only causes within the requested
-  repository scope.
+- **Verify mode:** Run every applicable gate without editing source, tests, or configuration.
+- **Repair mode:** Repair each failed gate inside the authorized repository scope.
+- **Release mode:** Run all gates, package the application, and test the packaged artifact.
 
-Never introduce suppressions, exclusions, disabled rules, or lower thresholds
-without explicit user approval.
+Mode selection is complete when the user request authorizes one branch.
+Never add suppressions, exclusions, disabled rules, or lower thresholds without user approval.
 
-Read [REFERENCE.md](REFERENCE.md) once before execution for command discovery,
-coverage interpretation, stop conditions, and the report contract.
+Read [REFERENCE.md](REFERENCE.md) before execution.
+It owns command discovery, coverage policy, stop conditions, and the report contract.
 
 ## Gates
 
-Run in this order:
+Run these gates in order.
 
-1. **Problems:** use a whole-workspace diagnostics API when one is available.
-   Otherwise mark this gate `N-A` with the missing capability; do not claim the
-   Problems panel is empty.
-2. **Markdown:** run the discovered repository Markdown command or the
-   documented fallback. Pass only on zero findings.
-3. **ESLint:** run the discovered lint command. Pass only on a clean exit.
-4. **Fallow:** run the dead-code command. Pass only on zero findings.
-5. **Unit:** run the discovered unit suite. Pass when all tests pass; use `N-A`
-   only when no suite exists.
-6. **E2E:** run the discovered Electron E2E suite. Pass when all tests pass; use
-   `N-A` only when no suite exists.
-7. **Coverage:** run unit coverage, supplementary E2E coverage when available,
-   and the combined report. Pass only when every reported unit Statements,
-   Branches, Functions, and Lines cell is at least 70%.
+1. **Problems:** Use a whole-workspace diagnostics source when available.
+   Pass when that source reports no problems.
+   Otherwise record `N-A` and the missing capability.
+2. **Markdown:** Run the discovered Markdown command.
+   Pass only when it reports zero findings.
+3. **ESLint:** Run the discovered lint command.
+   Pass only when it exits cleanly.
+4. **Fallow:** Run the discovered dead-code command.
+   Pass only when it reports zero findings.
+5. **Typecheck:** Run the discovered TypeScript check.
+   Pass only when it exits cleanly.
+6. **Build:** Run the discovered production build.
+   Pass only when it exits cleanly.
+7. **Unit:** Run the discovered unit suite.
+   Pass only when every test passes.
+8. **E2E:** Run the discovered Electron E2E suite.
+   Pass only when every test passes.
+9. **Coverage:** Run unit coverage and each available supplementary report.
+   Pass only when the unit report meets [REFERENCE.md](REFERENCE.md).
+10. **Package:** In release mode, run the discovered Electron package command.
+    Pass only when the expected native artifact exists.
+11. **Packaged smoke:** In release mode, test the exact packaged artifact.
+    Pass only when the native window and packaged Electron checks pass.
 
-In verify mode, continue after a failed gate when later commands remain safe
-and independent. In repair mode, stop at a condition defined in
-[REFERENCE.md](REFERENCE.md).
+Use `N-A` only when the repository has no applicable command or capability.
+In verify mode, continue when later gates remain safe and independent.
+In repair mode, stop at a condition from [REFERENCE.md](REFERENCE.md).
 
 ## Repair Loop
 
-For each open gate in repair mode:
+1. Capture the failing command and diagnostic.
+   Complete this step when the failure is reproducible.
+2. Identify the smallest in-scope root cause.
+   Complete this step when evidence distinguishes it from alternatives.
+3. Apply the smallest authorized repair.
+   Complete this step when the diff contains no unrelated change.
+4. Run the failed gate again.
+   Complete this step when the gate passes or reaches a stop condition.
+5. Record every changed file.
+   Complete this step when the repair has a complete file list.
 
-1. Capture the exact failing command and diagnostic.
-2. Identify the smallest root cause.
-3. Apply the smallest in-scope repair.
-4. Re-run that gate until it passes or reaches a stop condition.
-5. Record every changed file before advancing.
+Repeat the loop for each open gate.
 
 ## Completion Criterion
 
-The gate run is complete when every applicable gate has an objective status,
-commands and outcomes are recorded in order, no unauthorized suppression or
-edit occurred, and the final output satisfies the report contract in
-[REFERENCE.md](REFERENCE.md). Claim an overall pass only when every applicable
-gate passes.
+Complete the run when every applicable gate has an objective status.
+Record commands and outcomes in execution order.
+Claim an overall pass only when every applicable gate passes.
+The final report must satisfy [REFERENCE.md](REFERENCE.md).

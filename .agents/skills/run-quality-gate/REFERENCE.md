@@ -2,48 +2,52 @@
 
 ## Discovery
 
-Read `package.json` scripts once. Prefer a repository script over a direct
-tool invocation.
+Read `package.json` scripts once.
+Prefer a repository script over a direct tool command.
 
-| Gate | Command order |
-| --- | --- |
-| Problems | whole-workspace diagnostics API; otherwise `N-A` |
-| Markdown | `npm run lint:md`; `npm run markdownlint`; `npx markdownlint-cli2 "**/*.md"` |
-| ESLint | `npm run lint`; `npm run eslint`; `npx eslint .` |
-| Fallow | `npm run fallow`; `npx fallow dead-code` |
-| Unit | `npm run test:unit`; `npm test`; `npx vitest run` |
-| E2E | `npm run test:e2e`; `npm run e2e`; `npx playwright test` |
-| Unit coverage | `npm run test:coverage` |
-| E2E coverage | `npm run test:e2e:coverage` |
-| Combined report | `npm run coverage:report`; `node scripts/merge-coverage.mjs` |
+Use this command order for each gate.
 
-Use ESLint auto-fix only in repair mode and inspect its diff before continuing.
+- **Problems:** Use the available whole-workspace diagnostics source. Otherwise record `N-A`.
+- **Markdown:** Try `npm run lint:md`, then `npm run markdownlint`, then `npx markdownlint-cli2 "**/*.md"`.
+- **ESLint:** Try `npm run lint`, then `npm run eslint`, then `npx eslint .`.
+- **Fallow:** Try `npm run fallow`, then `npx fallow dead-code`.
+- **Typecheck:** Try `npm run typecheck`, then `npx tsc -b`.
+- **Build:** Try `npm run build`.
+- **Unit:** Try `npm run test`, then `npm test`, then `npx vitest run`.
+- **E2E:** Try `npm run test:e2e`, then `npx playwright test`.
+- **Unit coverage:** Try `npm run test:coverage`.
+- **E2E coverage:** Try `npm run test:e2e:coverage`.
+- **Combined report:** Try `npm run coverage:report`.
+- **Package:** Run `npm run package:electron`.
+- **Packaged smoke:** Run the Windows packaged-smoke command from `.github/workflows/production.yml`.
 
-## Coverage Interpretation
+Use ESLint automatic repair only in repair mode.
+Inspect its diff before continuing.
 
-- Apply the unit threshold defined in `SKILL.md` to every reported Statements,
-  Branches, Functions, and Lines cell, globally and per file or module.
-- Treat E2E coverage as supplementary integration evidence. Do not apply the
-  70% threshold to bundled E2E coverage or combine its statement identifiers
-  numerically with unit coverage.
-- Add targeted tests or improve testability to close gaps. Follow the
-  authorization rule in `SKILL.md` for exclusions, ignores, or threshold
-  changes.
-- Record exact cells and values for every coverage blocker.
+## Coverage Policy
+
+Apply the 70 percent threshold to every unit coverage cell.
+Check Statements, Branches, Functions, and Lines globally and per reported module.
+
+Treat E2E coverage as supplementary integration evidence.
+Do not apply the unit threshold to E2E coverage.
+Do not combine unit and E2E statement identifiers.
+
+Add targeted tests or improve testability to close gaps.
+Record each failing cell and value.
+Require approval for exclusions, ignores, or threshold changes.
 
 ## Stop Conditions
 
-Stop the repair sequence when a command requires secrets, manual login,
-unavailable interactive access, out-of-scope changes, or a suppression the
-user has not approved. Include the smallest next action that would close the
-gate.
+Stop repair when a command requires secrets, manual login, or unavailable interactive access.
+Stop when the repair requires an out-of-scope change or an unapproved suppression.
+Report the smallest action that can remove the blocker.
 
 ## Report Contract
 
-Report:
+Report these items.
 
-1. Problems, Markdown, ESLint, Fallow, Unit, E2E, and Coverage status as
-   `PASS`, `FAIL`, `BLOCKED`, or `N-A`.
-2. Commands in execution order with exit outcomes.
-3. Files changed, or `none` in verify mode.
-4. Exact remaining blockers and the smallest next action.
+1. Give each gate a `PASS`, `FAIL`, `BLOCKED`, or `N-A` status.
+2. List commands and exit outcomes in execution order.
+3. List changed files or report `none` in verify mode.
+4. Give each blocker its smallest next action.

@@ -1,133 +1,74 @@
 ---
 name: generate-mix
-description: Hand-author a .mixjam mix from the sample corpus, after web research into the genre.
+description: Hand-author a .mixjam file from an available sample corpus after current genre research.
 disable-model-invocation: true
-argument-hint: "Genre and constraints, e.g. 'melodic techno, moody, ~4 minutes'."
+argument-hint: "Genre and constraints, such as melodic techno, moody, and about four minutes."
 ---
 
 # Generate Mix
 
-Hand-author a complete `.mixjam` the way the reference projects in
-`tmp/generated-songs/` were made: research the genre on the web, scout the
-corpus, compose through a one-off build script, and prove the file by
-round-trip. Run no repository generator (`scripts/generate-*`, the
-`generator-*` engine) and change nothing outside `tmp/` — no app code, specs,
-tests, or docs.
+Create one manual `.mixjam` file under `tmp/generated-songs/`.
+Do not use the MixJam generator or change product files.
 
-The invocation text is the commission: genre plus any BPM, length, mood, or
-material constraints. When it is empty, pick a corpus-supported genre that
-`tmp/generated-songs/` does not cover yet. When it asks to revise an existing
-manual mix, edit that mix's build script under `tmp/` and redo steps 3–4.
+The invocation text gives the genre and optional tempo, duration, mood, or sample constraints.
+If the text names an existing manual mix, revise that mix.
+If the text is empty, select a genre that the available corpus supports.
 
-## 1. Research the genre
+## 1. Confirm Inputs
 
-Web-search the genre before touching samples. The deliverable is an
-arrangement brief written to `tmp/<slug>/brief.md`:
+- Check whether the invocation names a corpus.
+- Otherwise, check whether `tmp/test-samples/` exists and contains readable WAV files.
+- If no corpus is available, report the missing input and stop.
+- Inventory actual filenames, roles, tempos, keys, and stereo pairs.
+- For a revision, parse the current `.mixjam` file before you plan changes.
 
-- Tempo norm (must match a corpus pool, step 2) and typical track length.
-- Section arc in 8-bar phrases (e.g. Intro → Groove → Breakdown → Drop → Peak
-  → Outro) with bar counts and an energy curve.
-- Signature elements: rhythm patterns (offbeat bass, shuffled hats, four-on-
-  the-floor…), instrumentation per section, build and transition habits.
-- Mix and FX conventions: what gets reverb vs delay, stereo treatment,
-  what stays dry.
+This step is complete when the inventory proves which requested constraints the corpus can support.
 
-Complete only when every brief item is grounded in something read this run,
-not prior knowledge alone.
+## 2. Research the Genre
 
-## 2. Scout the corpus
+- Search current, authoritative sources for the genre.
+- Record source links in `tmp/<slug>/brief.md`.
+- Record the normal tempo, duration, section arc, instrumentation, transitions, and effects.
+- Reconcile each requested constraint with the corpus inventory.
+- Mark each unsupported constraint and select the closest supported choice.
 
-`tmp/test-samples` holds ~25k WAVs as `Genre/Role/ROLE###_STYLE_BPM_KEY_PACK.wav`
-(roles: Bass, Beats, Drum, FX, Keys, Loop, Sphere, Vocals, Voice, Xtra,
-Guitar, Singleshots; `(L)`/`(R)` suffixes are stereo pairs; key `X` means
-unkeyed). Major BPM/key pools: 140/A, 125/A, 160/C, 132/A, 104/A, 90/C.
+This step is complete when each brief item has current source evidence and a corpus-backed choice.
 
-- Pick one pool for all tempo-stretched pitched material. Natural-rate
-  placements (`nativeBPM: null`, true pitch, non-rhythmic or one-shot) are
-  exempt and may come from any pool.
-- Write a scout script in `tmp/<slug>/` after the pattern of
-  `tmp/agent-manual-trance/scout-new-corpus.ts`: list candidates per role,
-  decode each with `decodeWav`, and verify duration against the stated BPM's
-  whole-bar grid before trusting a file.
-- Cover every role the brief calls for, including riser/impact FX and at
-  least one stereo pair. Target 24–40 distinct samples, ~2 per lane.
+## 3. Scout the Corpus
 
-## 3. Compose
+- Create `tmp/<slug>/scout-<slug>.ts`.
+- Import `decodeWav` from `src/renderer/src/backend/analysis.ts`.
+- Decode each candidate before you select it.
+- Calculate duration from the decoded sample count and sample rate.
+- Check rhythmic candidates against the selected tempo and whole-bar duration.
+- Select every role that the brief requires.
+- Keep sample paths relative to the selected corpus root.
 
-Write a one-off build script `tmp/<slug>/build-<slug>.ts` and run it with
-`npx tsx`. It must live under `tmp/`, not the scratchpad — cross-drive
-relative imports into `src/` fail. Start from
-`tmp/agent-manual-trance/build-trance2.ts` and reuse the repo's plumbing
-rather than reimplementing it: `placeSampleOnLane` and
-`placementDurationTicks` (`src/renderer/src/lib/arrangement.ts`),
-`sourceGroupFromRelpath` and `sourceGroupSlot`
-(`src/shared/sample-palette.ts`), `TICKS_PER_BAR` and
-`tickDurationSeconds` (`engine/transport.ts`), `serializeProject` and
-`parseProject` (`project/project-file.ts`), the `createDefault*` factories
-(`project/project-state.ts`), and the return-effect factories
-(`engine/return-effects.ts`).
+This step is complete when every selected file decodes and satisfies its documented musical role.
 
-Format v7 traps: all placements of one sampleRef share `durationTicks`;
-placement ids unique; sampleRefs forward-slash relative; exactly 4 fx buses
-with fixed ids `fx-1`…`fx-4`; 1–64 lanes; no extra fields (`assertKeys`
-rejects them); omit `generator` metadata on manual builds.
+## 4. Compose the Mix
 
-Playback model: the engine resamples each clip so its audio fills
-`durationTicks` at project BPM — set `nativeBPM` to the song BPM for
-bar-locked loops (playback rate 1, no artifacts) and `null` for true-pitch
-one-shots. Lanes are monophonic: a new trigger cuts the previous voice, which
-is what makes accelerating one-shot rolls work.
+Before this step, read [COMPOSITION.md](COMPOSITION.md) and apply every required project rule.
 
-Arrangement craft, proven on the reference projects — apply what the brief
-supports and let the research drive genre-specific choices:
+- Create `tmp/<slug>/build-<slug>.ts`.
+- Import each production module that `COMPOSITION.md` specifies.
+- Build the project with production factories and placement functions.
+- Apply the researched section arc and sample roles.
+- Serialize the project with `serializeProject`.
+- Parse the serialized text with `parseProject`.
+- Compare the parsed project with the intended project values.
 
-- Sections on 8-bar phrases; song length a multiple of 8 bars, 96–160 bars.
-- End-align risers so they finish exactly on the boundary
-  (`bar * TICKS_PER_BAR - durationTicks`); follow big arrivals with a
-  down-sweep starting on the boundary.
-- Tail clearance is arithmetic: place odd-length pads so start + duration
-  lands on a structural line.
-- Sibling swaps at the peak: harder same-family numbered variants raise
-  intensity without breaking lane identity.
-- One bass at a time; hand the low end off between sections.
-- Build by subtraction plus acceleration: drums and bass out for the last 2
-  bars before a boundary while one-shot rolls accelerate (4 → 8 → 16
-  hits/bar) into it.
-- Breakdown = pads + lead + sparse vocal; the emotional statement lives
-  there, not in the drop. Vocal hooks land on phrase lines, never mid-phrase.
-- Gain hierarchy: kick ~0.78, bass ~0.66, lead/voice ~0.5, hats/stabs ~0.42,
-  pads ~0.36, spheres ~0.32. Pans: mirrored pairs ±0.5–0.65, everything else
-  within ±0.35, at least 6 distinct values.
-- FX returns: exactly two modules — Aetherform reverb + Echoform delay — with
-  genre-matched settings from the brief (trance: ~4.5 s hall + ducked
-  dotted-eighth ping-pong; techno: small room + 1/4 tape echo; house: plate +
-  1/8 slap). Sends on most lanes; kick and bass stay dry.
+This step is complete when the round-trip preserves every intended lane, placement, return, tempo, and project value.
 
-## 4. Validate and report
+## 5. Write and Report
 
-1. Round-trip the serialized text through `parseProject` inside the build
-   script before writing — it enforces the whole schema.
-2. Write to `tmp/generated-songs/Agent-Manual-<Genre>-<BPM>-<NNN>.mixjam`
-   (next free NNN) and verify the file exists.
-3. Have the build script measure and print the envelope self-check
-   (targets measured on the reference library):
+- For a revision, preserve the named mix path.
+- For a new mix, select the next free `tmp/generated-songs/Agent-Manual-<Genre>-<BPM>-<NNN>.mixjam` path.
+- Store that stable output path in the build script.
+- Run the build script and check that the output file exists.
+- Run the build script again from a clean process.
+- Check that the second run writes the same path and project content.
+- Report the path, tempo, duration, sections, corpus, sample count, and source links.
+- Report each requested constraint as met, adapted, or unsupported.
 
-   | Measure | Target |
-   | --- | --- |
-   | Bars | multiple of 8, 96–160 |
-   | Populated lanes | 12–18 |
-   | Distinct samples | 24–40, median ~2 per lane |
-   | Mean lane occupancy | 30–55%; no lane >90%; ≥30% of lanes <50% |
-   | Entries per lane (mean) | 3–8 |
-   | Quiet stretch | ≥8 contiguous bars at ≤35% of peak density |
-   | Peak stretch | ≥8 contiguous bars at ≥85% of peak density |
-   | Sends | non-zero on ≥70% of lanes; exactly 2 return modules |
-   | Pan | ≥6 distinct values; ≤±0.35 non-pair, ≤±0.65 pairs |
-   | Song end | last placement ends exactly at the final tick |
-
-4. Report the file path, BPM, bars, duration, section arc, the pool used, and
-   the envelope table with each measure's actual value. A missed target is
-   not a failure — explain any deliberate deviation instead of hiding it.
-
-Complete only when the file round-trips, exists on disk, and every envelope
-row is reported with a measured value.
+This skill is complete when the output passes both round-trips and the report accounts for every requested constraint.

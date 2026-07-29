@@ -1,23 +1,27 @@
 # Add Feature Examples
 
-## Example 1: Clarify Playback Contract
+Use these examples only when the document shape remains unclear after you read the reference.
 
-- Prompt shape: "Update the playback spec for this new event-span behavior."
-- Good behavior: edit the owning playback contract doc, define success
-  criteria, and keep non-goals explicit.
-- Good result: the next implementation slice becomes unambiguous.
+## Playback Contract
 
-## Example 2: Record A Durable Trade-Off
+**Request:** "Update the playback specification for this event-span behavior."
 
-- Prompt shape: "Record why we are not versioning `.mixjam` files."
-- Good behavior: capture the decision, rationale, and consequences in the
-  owning numbered spec under `specs/` instead of scattering the answer across
-  chat history.
-- Good result: future architecture or format work stops re-litigating the same
-  question.
+**Action:** Edit the owning playback specification. Define the behavior, testable success criteria, and explicit non-goals.
 
-## Example 3: Add A Glossary Term
+**Result:** The specification gives implementation one clear contract.
 
-- Prompt shape: "Define 'output library root' so the docs stop drifting."
-- Good behavior: add the smallest durable glossary entry in the owning doc.
-- Good result: later prompts and specs use one canonical term.
+## Lasting Trade-Off
+
+**Request:** "Record why `.mixjam` files require an exact format version."
+
+**Action:** Record the context, selected choice, and reason in the owning specification.
+
+**Result:** Future format work can use the recorded decision.
+
+## Shared Term
+
+**Request:** "Define source duration so the documents use one term."
+
+**Action:** Add the smallest complete entry to `docs/glossary.md`.
+
+**Result:** Later specifications use one project term.

@@ -1,102 +1,43 @@
 ---
 name: dead-code-audit
-description: >
-  Audits the MixJam Electron (MJE) codebase for dead TypeScript code, orphan
-  files, and unused symbols across main and renderer processes.
+description: Audit MixJam TypeScript for dead code, orphan files, and unused symbols. Remove proven dead code only when the user requests cleanup.
 ---
 
 # Dead Code Audit
 
-## Goal
+Use direct evidence to classify each reported finding. Treat tool output as a finding, not as permission to edit.
 
-Gather deterministic **evidence** of dead code in the TypeScript codebase
-(main + renderer processes) — hard proof, not suspicion. Inspect only the
-reported findings and either:
+Do not use this skill for general review, security review, performance review, or merge readiness.
+For those requests, recommend that the user invoke `full-code-review`.
 
-- report live findings and validated false positives, or
-- remove provably dead code when the user explicitly asked for cleanup.
+## Procedure
 
-Use this skill for dead-code work only. Ordinary review, security review,
-performance review, and merge-readiness review are out of scope here — that
-is `full-code-review`'s domain.
+1. Confirm whether the request authorizes an audit or cleanup.
+   Complete this step when the allowed scope and edit authority are explicit.
+2. Read `AGENTS.md` and the standards in [`REFERENCE.md`](REFERENCE.md).
+   Complete this step when you can apply every evidence, deletion, validation, and reporting rule.
+3. Run `npm run fallow` from the repository root.
+   Complete this step when the command returns a usable report and you capture every finding.
+   If execution prevents a usable report, report the exact failure and stop.
+4. Run `npm run typecheck` from the repository root.
+   Complete this step when you preserve every type diagnostic as evidence.
+5. Run `npm run lint` from the repository root.
+   Complete this step when you preserve every lint diagnostic as evidence.
+6. Search project references for findings that static tools cannot classify.
+   Complete this step when each such finding has evidence from every applicable path in the reference.
+7. Classify every finding as live, false positive, removed, or unresolved.
+   Complete this step when each classification satisfies the applicable evidence standard.
+8. In audit mode, report the results without edits.
+   Complete this step when the report covers every finding in the requested scope.
+9. In cleanup mode, remove only findings that satisfy the deletion standard.
+   Complete this step when each edit removes the smallest proven dead slice.
+10. After each edit, run the validation sequence from the reference.
+   Complete this step when every required check passes or the report states the exact blocker.
+11. Format the result with the reporting contract from the reference.
+    Complete this step when every finding contains every required report field.
 
-## Read First
-
-1. `AGENTS.md`
-
-## Run Fallow Static Analysis First
-
-Before gathering other evidence, run Fallow from the repository root:
-
-```PowerShell
-npm run fallow
-```
-
-Treat its output as findings, not permission to edit. In audit-only mode,
-record and triage findings without changing files. In cleanup mode, edit only
-findings covered by the user's request and the Deletion Standard.
-
-If Fallow fails to run, report the exact failure and stop.
-
-## Gather Evidence
-
-Run from the repository root and collect findings from:
-
-```PowerShell
-# TypeScript compiler diagnostics (unused variables, unreachable code, unused parameters)
-npm run typecheck
-
-# ESLint diagnostics (unused imports, unused variables, dead code patterns)
-npm run lint
-```
-
-For symbols the compiler cannot judge (unused exports, orphan files,
-unreferenced CSS or assets), search for references with `rg`
-across the project.
-
-If typecheck or lint fails, preserve the diagnostics as evidence. Do not delete
-anything until the relevant failure is understood and the deletion can be
-validated independently.
-
-## Weigh the Evidence
-
-For each finding, gather the smallest local proof before editing:
-
-- direct usages and references
-- entrypoint wiring (main process, preload, renderer), React component
-  tree, or IPC glue
-- reflection, serialization, CSS class references, or dynamic imports
-- contextBridge API surface — symbols exposed to the renderer may appear
-  unused in the main process but are consumed over IPC
-- tests or fixtures that rely on the symbol or file
-
-If the evidence shows the finding is a false positive (still alive through
-one of these paths), report the concrete reason rather than deleting.
-
-## Act on the Evidence
-
-1. If the request is audit-only, report findings and their evidence without
-   editing.
-2. If the request includes cleanup and the evidence meets the Deletion
-   Standard in [REFERENCE.md](REFERENCE.md), delete the smallest slice that
-   removes it.
-3. After each deletion, run Audit Validation before widening scope.
-4. For false positives, suggest the narrowest suppression or config
-   refinement only when the same false positive is likely to recur.
+Use [`EXAMPLES.md`](EXAMPLES.md) only when a finding matches one of its stated scenarios.
 
 ## Completion Criterion
 
-The audit is complete when:
-
-- the requested audit or cleanup scope is explicit,
-- every reported finding has been triaged as live, false positive, or removed,
-- the evidence for each decision is explicit,
-- no cleanup was performed without proof,
-- and Audit Validation passes after every edit, or the exact blocker is
-  reported without claiming completion.
-
-## Deep Reference
-
-Use [REFERENCE.md](REFERENCE.md) for the Deletion Standard, False Positive
-Checklist, Reporting contract, and Audit Validation steps. Use
-[EXAMPLES.md](EXAMPLES.md) for concrete audit and cleanup scenarios.
+The audit is complete when every in-scope finding has evidence, one classification, and the required validation result.

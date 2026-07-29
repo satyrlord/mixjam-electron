@@ -1,32 +1,44 @@
 # Add Feature Reference
 
-## Durable Decision Workflow
+Use this reference to select a document owner and decide whether a choice needs lasting documentation.
 
-Code explains what exists. Documentation explains why the repo chose this
-shape instead of a nearby alternative.
+## Document Ownership
 
-Write durable documentation for:
+- Feature behavior and acceptance criteria belong in the owning `docs/specs/spec-NNN-name.md` file.
+- Architecture and process rules belong in `docs/architecture.md`.
+- Data models and schemas belong in `docs/data-model.md`.
+- Query formats and compilation rules belong in `docs/query-schema.md`.
+- Library scan rules belong in `docs/indexing.md`.
+- Audio engine decisions belong in `docs/audio-engine.md`.
+- Shared project terms belong in `docs/glossary.md`.
+- Design tokens and component patterns belong in `DESIGN.md`.
+- Design intent and interaction rules belong in `docs/style-guide.md`.
+- A lasting trade-off belongs in its specification or domain document.
 
-- architecture or layering changes
-- documented project format or version changes
-- persistence contract changes
-- import or playback behavior changes that affect future compatibility
-- resolved terminology conflicts that should stay consistent across docs
+Create a new numbered specification only when no existing specification owns the behavior. This project does not use separate architecture decision records.
 
-Use `docs/glossary.md` only for shared language that spans multiple specs or
-workflows. Pick one preferred term, keep definitions tight, and record
-relationships or flagged ambiguities only when future readers would otherwise
-reuse the wrong term.
+## Lasting Decision Test
 
-## Decision-Record Threshold
+Record a choice when all three conditions apply:
 
-Record a decision durably only when all three are true:
+- Reversal would require costly work.
+- The choice would surprise a future maintainer without context.
+- The team selected the choice from meaningful alternatives.
 
-- hard to reverse
-- surprising without context
-- the result of a real trade-off
+Record the context, selected choice, and reason. Add options, consequences, or status only when they affect future work.
 
-Use the lightest structure that still records the trade-off clearly: one
-small block stating context, decision, and why this path won. Add `Status`,
-`Considered Options`, or `Consequences` sections only when they add genuine
-value for the decision at hand.
+## Glossary Test
+
+Use `docs/glossary.md` only for a term that spans multiple specifications or work areas.
+
+Select one preferred term. Add relationships or ambiguity notes only when they prevent likely misuse.
+
+## Unresolved Choices
+
+Ask the user when an unresolved choice changes the scope or contract. Continue when existing documents answer the choice.
+
+## Local Comment Test
+
+Add a local comment when a hidden format or timing fact can cause an incorrect implementation.
+
+Do not add commented code or unresolved `TODO` text.
