@@ -30,7 +30,7 @@ For those requests, recommend that the user invoke `full-code-review`.
 8. In audit mode, report the results without edits.
    Complete this step when the report covers every finding in the requested scope.
 9. In cleanup mode, remove only findings that satisfy the deletion standard.
-   Complete this step when each edit removes the smallest proven dead slice.
+   Complete this step when each edit removes only the proven finding.
 10. After each edit, run the validation sequence from the reference.
    Complete this step when every required check passes or the report states the exact blocker.
 11. Format the result with the reporting contract from the reference.

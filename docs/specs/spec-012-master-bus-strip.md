@@ -3,16 +3,17 @@
 **Spec Validation Status:** VALIDATED
 
 **Spec Implementation Status:** IMPLEMENTED — DSP core, worklet integration,
-rack UI, format-7 persistence, and unified undo are in place. Unit evidence:
-`src/renderer/src/engine/masterbus/**` (chain, modules, null/THD/limiter,
-EBU compliance via the production loudness meter, calibration, allocation
-and CPU gates), `MasterBusStrip.test.tsx`, `master-bus-chain.test.ts`,
-`master-bus.worklet.test.ts`, `useMasterBusMeters.test.tsx`, project
-state/file suites. E2E evidence: `tests/e2e/master-bus-strip.spec.ts`
+rack UI, format-7 persistence, and unified undo are in place.
+Unit evidence includes `src/renderer/src/engine/masterbus/**` and the project
+state and file suites. It covers the chain, modules, EBU compliance,
+calibration, allocation, and CPU gates. Other tests include
+`MasterBusStrip.test.tsx`, `master-bus-chain.test.ts`,
+`master-bus.worklet.test.ts`, and `useMasterBusMeters.test.tsx`.
+E2E evidence: `tests/e2e/master-bus-strip.spec.ts`
 (rack contract, keyboard reorder, bypass, presets, save/load round trip,
 and the shipped worklet's true-peak ceiling rendered offline under
 production CSP). Pointer drag-reorder is implemented but has no automated
-proof yet (keyboard reorder is the automated path); AC-009 stays open on
+proof yet (keyboard reorder is the automated path). AC-009 stays open on
 that evidence.
 
 **Depends on:** spec-005 (Audio Playback Engine), spec-006 (Player Timeline
@@ -26,10 +27,10 @@ Panels), spec-007 (Lane-Bound Mixer), spec-011 (Project Save & Load)
 Add a 13-slot mastering strip on the stereo Master bus. Slot 01 is the pinned,
 always-on Gain Stage, slot 02 is the pinned input meter, and slot 13 is the
 pinned output meter. Slots 03 through 12 are ten DSP processors the user can
-reorder freely and bypass individually. The chain is calibrated so that a
-nominal mix at -18 dBFS RMS
-lands at -14 LUFS integrated with true peak at or below -1 dBTP using the
-default preset, matching Spotify's published loudness guidance.
+reorder freely and bypass individually.
+The default preset calibrates a nominal mix at -18 dBFS RMS.
+It targets -14 LUFS integrated and a true peak at or below -1 dBTP.
+This target matches Spotify published loudness guidance.
 
 This checked-in spec is the authoritative contract for the layout, module set,
 control ranges, defaults, faceplate finishes, and interactions. The optional
@@ -55,26 +56,26 @@ functional contract and acceptance criteria.
 - **US-005:** I can watch live gain reduction on the Bus Compressor and
   Limiter, and live LUFS and true peak on the output meter.
 - **US-006:** I can trust the output: with the Limiter active, true peak
-  never exceeds the Ceiling; if I bypass the Limiter, the OVER lamp latches
+  never exceeds the Ceiling. If I bypass the Limiter, the OVER lamp latches
   when true peak exceeds -1 dBTP.
 - **US-007:** My chain order, bypass states, and parameter values save and
   load with the project.
 
 ## Placement and Signal Position
 
-- The strip is the content of the **Master tab** of the Bottom Workspace. It
-  renders as one horizontal rack inside a horizontal scrollport, following
-  the Mixer's scroll conventions (Shift+wheel, trackpad horizontal, Left and
-  Right keys, focus reveal, themed always-visible horizontal scrollbar).
+- The strip is the content of the **Master tab** of the Bottom Workspace.
+  One horizontal scrollport contains the horizontal rack.
+  It follows Mixer scroll conventions for wheel, trackpad, keyboard, focus,
+  and the themed scrollbar.
 - The strip REPLACES the previous Master tab content entirely: the Master
   Volume fader and the Output Level meter block are removed. Gain staging
-  into the chain is owned by the strip's Gain Stage; output metering by the
+  into the chain is owned by the strip's Gain Stage. Output metering by the
   strip's pinned output meter (Momentary, Short-term, Integrated, and true
   peak). Clip Edge Fades live in the Player Settings modal (spec-001).
 - `song.masterGain` remains project state applied before the chain (the
   Bottom Workspace tab row keeps its read-only Master status). With no
   editable control, new projects default it to unity so the chain receives
-  nominal program level; loaded projects keep their saved value.
+  nominal program level. Loaded projects keep their saved value.
 - Audio position: the chain processes the full Master sum after the Master
   Volume gain and before the destination:
   `lanes + returns -> masterGain -> master bus chain -> analyser -> destination`.
@@ -83,10 +84,10 @@ functional contract and acceptance criteria.
 - Inside the chain, the Gain Stage module runs before the Input Meter so the
   VU needle reflects the trimmed signal. The signal path through the strip is:
   `Gain Stage -> Input Meter -> remaining processors -> Output Meter`.
-- The loudness measurement branch (spec-005 Master loudness metering) taps
-  after the chain, so the Middle Strip readouts and the strip's output meter
-  report the same delivery-accurate values from one measurement engine.
-- The dither/export stage is out of scope; if added later it slots after the
+- The spec-005 loudness branch taps after the chain.
+  Thus, the Middle Strip and output meter report the same delivery values.
+  One measurement engine produces these values.
+- The dither/export stage is out of scope. If added later it slots after the
   Limiter and before the output meter (see spec-019).
 
 ## Chain Contract
@@ -94,10 +95,10 @@ functional contract and acceptance criteria.
 Thirteen slots. Slots 01 (Gain Stage) and 02 (Input Meter) and 13 (Output Meter)
 are pinned and cannot move or bypass. Slots 03 through 12 hold the ten remaining
 processors below, in this default order. The user may reorder slots 03 through
-12 freely; slot ordinals renumber live.
+12 freely. Slot ordinals renumber live.
 
-The Input Meter is pinned to slot 02, immediately after the Gain Stage, so the
-VU needle always reflects the gain-staged signal regardless of downstream
+The Input Meter is pinned to slot 02 after the Gain Stage.
+Thus, the VU needle always shows the gain-staged signal after downstream
 reordering.
 
 | # | Module | Family | Controls (range, default) |
@@ -132,7 +133,7 @@ Behavioral requirements per module (algorithms and their justification in
 - **Tube Saturation:** asymmetric waveshaper with predominantly even
   harmonics, DC blocker after the nonlinearity, oversampled, dry/wet mix,
   approximately unity loudness across Drive (automatic gain compensation).
-- **Trim EQ:** 12 dB/oct Butterworth high-pass; Mud and Harsh are RBJ
+- **Trim EQ:** 12 dB/oct Butterworth high-pass. Mud and Harsh are RBJ
   peaking cuts with narrow Q (2.5 to 4). The name signals focused cleanup,
   not a sub-bass processor.
 - **Bus Compressor:** feed-forward, stereo-linked, RMS-style detector with a
@@ -149,7 +150,7 @@ Behavioral requirements per module (algorithms and their justification in
   15 IPS, about 35 Hz at 30 IPS) and the HF roll-off corner.
 - **Stereo Imaging:** mid/side processing where the mid signal passes
   through untouched. An LR4 high-pass at Mono Below on the side signal
-  discards the low side band (mono below the crossover); Width scales the
+  discards the low side band (mono below the crossover). Width scales the
   remaining high side band. Mono compatibility is exact by construction
   (L + R = 2M at every sample).
 - **Multiband Comp:** LR4 crossovers at 120 Hz and 2 kHz. Each amount macro
@@ -166,12 +167,12 @@ Behavioral requirements per module (algorithms and their justification in
 ## Calibration (non-negotiable)
 
 - Input reference: 0 VU = -18 dBFS. Default parameters assume nominal
-  program near -18 dBFS RMS; every nonlinear stage's sweet spot is tuned to
+  program near -18 dBFS RMS. Every nonlinear stage's sweet spot is tuned to
   that level.
-- Delivery target: -14 LUFS integrated, true peak at or below -1 dBTP. With
-  the Cheat Sheet preset and a -18 dBFS RMS pop/electronic reference
-  program, the chain lands within plus or minus 1 LU of -14 LUFS-I without
-  user intervention. Verified by an automated test against the repository's
+- Delivery target: -14 LUFS integrated, true peak at or below -1 dBTP.
+  Use the Cheat Sheet preset with a -18 dBFS RMS reference program.
+  The chain then lands within 1 LU of -14 LUFS-I without user action.
+  An automated test verifies this result against the repository's
   deterministic reference program (see Testing).
 
 ## Interaction Contract
@@ -185,17 +186,18 @@ Behavioral requirements per module (algorithms and their justification in
   (`aria-pressed`). Off
   dims and desaturates the module body and disables its controls. Bypass and
   re-enable are click-free. The Gain Stage and pinned meters have no power
-  control; Gain Trim remains editable in every preset.
-- **Knobs:** shared rotary behavior per the Style Guide: vertical drag,
-  wheel steps, Shift for fine, double-click and Home reset to default, Arrow
-  keys step, read-only value text, `aria-valuetext` with unit. Bipolar knobs
-  (Trim) fill from center; unipolar knobs fill from minimum.
+  control. Gain Trim remains editable in every preset.
+- **Knobs:** use shared rotary behavior from the Style Guide.
+  It includes vertical drag, wheel steps, Shift fine control, and Arrow keys.
+  Double-click and Home reset the value.
+  Values are read-only, and `aria-valuetext` includes the unit. Bipolar knobs
+  (Trim) fill from center. Unipolar knobs fill from minimum.
 - **Speed switch (Tape):** a two-state switch showing `15 IPS` or `30 IPS`
   with `role="switch"` semantics.
 - **Presets:** four chips in the strip header: Cheat Sheet, Gentle, Loud,
   Bypass All. Activating a chip applies the preset and marks the chip
   active. Applying a preset is one undoable project edit.
-- **OVER lamp:** latches when output true peak exceeds -1 dBTP; click
+- **OVER lamp:** latches when output true peak exceeds -1 dBTP. Click
   resets it. The lamp is UI state, not saved state.
 - Focus-visible outlines and `prefers-reduced-motion` are respected
   throughout.
@@ -203,7 +205,7 @@ Behavioral requirements per module (algorithms and their justification in
 ## Factory Presets
 
 Every preset first resets all parameters to their defaults, then applies its
-overrides and power map. Only Cheat Sheet restores the default slot order;
+overrides and power map. Only Cheat Sheet restores the default slot order.
 the other presets keep the current order.
 
 | Preset | Power | Overrides |
@@ -215,21 +217,23 @@ the other presets keep the current order.
 
 ## Metering and UI Data
 
-- The engine publishes a meter snapshot at least 30 times per second while
-  the Master tab is active: input VU level and L/R peak flags, Bus
-  Compressor GR dB, Limiter GR dB, output Momentary/Short-term/Integrated
-  LUFS, and output true peak dBTP.
-- While the Master tab is hidden, the UI disables the snapshot stream (a
-  `meters` enable message to the worklet), so the audio thread posts
-  nothing for meters nobody can see. The loudness measurement itself is
-  never paused; Integrated LUFS keeps accumulating in its own worklet.
-- The UI renders meters from the latest snapshot on an animation-frame loop
-  that runs only while the Master tab is active (same policy as the Mixer
-  meter loop, spec-006). Snapshot values reach the strip through a
-  subscription store; they never pass through App-level React state.
+- The engine publishes at least 30 meter snapshots each second.
+  It publishes only while the Master tab is active.
+  A snapshot contains input VU, peak flags, compressor GR, and limiter GR.
+  It also contains output loudness and true peak dBTP.
+- While the Master tab is hidden, the UI disables the snapshot stream.
+  It sends a `meters` enable message to the worklet.
+  Thus, the audio thread does not post hidden meter data.
+  The loudness measurement itself is
+  never paused. Integrated LUFS keeps accumulating in its own worklet.
+- The UI renders the latest snapshot on an animation-frame loop.
+  This loop runs only while the Master tab is active.
+  This policy matches the spec-006 Mixer meter loop.
+  Snapshot values reach the strip through a
+  subscription store. They never pass through App-level React state.
 - If the snapshot stream stalls, meters freeze at their last values. They
   never show fabricated or garbage data.
-- GR LED rows: Bus Compressor thresholds 0.5/1/1.5/2/3/4 dB; Limiter
+- GR LED rows: Bus Compressor thresholds 0.5/1/1.5/2/3/4 dB. Limiter
   thresholds 0.5/1/2/3/4.5/6 dB. A LED lights when GR meets its threshold.
 
 ## Real-Time Constraints (summary)
@@ -238,31 +242,32 @@ Owned in detail by [audio-engine.md](../audio-engine.md#master-bus-strip):
 
 - All DSP runs in one AudioWorkletProcessor. The per-block processing path
   performs no allocation, no locks, and no I/O.
-- All continuous parameters are smoothed (20 ms); no zipper noise.
+- All continuous parameters are smoothed (20 ms). No zipper noise.
 - Bypass, reorder, and preset recall crossfade old and new downstream-chain
-  outputs with a 30 ms equal-power crossfade; no clicks. The Gain Stage runs
+  outputs with a 30 ms equal-power crossfade. No clicks. The Gain Stage runs
   exactly once before the Input Meter and before the signal is copied to both
   crossfade branches.
-- Shared 4x oversampling infrastructure for nonlinear stages; each stage
-  reports latency; the total chain latency is reported in the meter
+- Shared 4x oversampling infrastructure for nonlinear stages. Each stage
+  reports latency. The total chain latency is reported in the meter
   snapshot.
-- Denormals are flushed; NaN/Inf guards at module boundaries; a misbehaving
+- Denormals are flushed. NaN/Inf guards at module boundaries. A misbehaving
   module can never take down the Master bus.
 
 ## Persistence
 
-- The complete strip state serializes into the project file as one
-  `masterBus` JSON object: slot order (array of the ten downstream processor
-  ids), one power flag for each downstream processor, every parameter value
-  including `gain.trim`, and the selected preset name (or none after manual
-  edits). Gain has no persisted order entry or power flag.
+- One `masterBus` JSON object stores the complete strip state.
+  It stores the ten downstream processor IDs in slot order.
+  It stores one power flag for each downstream processor.
+  It stores all parameters, including `gain.trim`, and the selected preset.
+  Manual edits can make the preset null.
+  Gain has no persisted order entry or power flag.
 - This record is required by project **format version 7** (spec-011 owns the
   wire format).
 - Parsing rejects: a slot order that is not a permutation of the ten
-  downstream processor ids; `gain` in the order or power map; unknown module
-  or parameter ids; missing parameters;
-  non-finite values; values outside documented ranges; non-boolean power
-  flags; and an unknown preset name.
+  downstream processor ids. `gain` in the order or power map. Unknown module
+  or parameter ids. Missing parameters.
+  Non-finite values. Values outside documented ranges. Non-boolean power
+  flags, and an unknown preset name.
 - Strip edits (parameter change, bypass, reorder, preset recall) join the
   unified project command history. One continuous knob gesture is one
   history entry. Undo and Redo restore the complete strip record.
@@ -274,9 +279,9 @@ These suites gate the DSP phase and the integration phase:
 
 - **Per-module unit tests** (headless, pure TypeScript DSP core, node
   vitest project): impulse and frequency response against spec within
-  0.5 dB where linear; THD sweeps proving even-dominant harmonics for Tube
-  and odd-leaning for Tape; compressor static curve and attack/release
-  timing; limiter true peak never above Ceiling across an inter-sample-peak
+  0.5 dB where linear. THD sweeps proving even-dominant harmonics for Tube
+  and odd-leaning for Tape. Compressor static curve and attack/release
+  timing. Limiter true peak never above Ceiling across an inter-sample-peak
   torture set.
 - **Null tests:** every module at neutral settings nulls against a
   latency-compensated bypass below -100 dBFS. The Trim EQ's
@@ -287,27 +292,29 @@ These suites gate the DSP phase and the integration phase:
 - **Loudness compliance:** Momentary, Short-term, Integrated, and true peak
   validated against the EBU Tech 3341 and 3342 test vectors within the
   tolerances those documents specify.
-- **Calibration test:** the deterministic seeded reference program
-  (pseudo-music: kick-like impulses, bass tone, and shaped noise bursts,
-  normalized to -18 dBFS RMS) through the Cheat Sheet preset lands at
-  -14 plus or minus 1 LUFS-I with true peak at or below -1 dBTP. A licensed
+- **Calibration test:** use the deterministic seeded reference program.
+  It contains kick-like impulses, bass tone, and shaped noise bursts.
+  It is normalized to -18 dBFS RMS.
+  With Cheat Sheet, it reaches -14 plus or minus 1 LUFS-I.
+  Its true peak stays at or below -1 dBTP. A licensed
   commercial mix cannot be committed, so the seeded generator is the
   repository verification asset.
 - **Reorder glitch test:** render while programmatically reordering and
-  bypassing mid-signal; assert no sample-to-sample discontinuity above the
+  bypassing mid-signal. Assert no sample-to-sample discontinuity above the
   documented threshold (see audio-engine.md).
 - **Smoothing test:** a full-range parameter jump produces no step larger
   than the smoothing slope allows.
 - **Allocation test:** the per-block processing path performs no allocation
   (verified by allocation tracking around a long render).
-- **Performance budget:** processing 1 s of 48 kHz stereo through the full
-  default chain in 512-sample blocks must take at most 20 % of real time on
-  the CI reference runner; each module at most 4 %. The benchmark fails on
+- **Performance budget:** process one second of 48 kHz stereo.
+  Use the full default chain with 512-sample blocks.
+  The CI reference runner must use at most 20% of real time.
+  Each module can use at most 4%. The benchmark fails on
   regression.
-- **E2E (Electron Playwright):** drag-reorder, keyboard reorder, bypass,
-  preset recall, OVER lamp latch with Limiter bypassed, and save/load
-  persistence, asserting persisted state fields rather than trusting single
-  click events, per the repo's E2E conventions.
+- **E2E (Electron Playwright):** test drag and keyboard reorder, bypass, and
+  preset recall. Test the OVER lamp with the Limiter bypassed.
+  Test save/load persistence through persisted fields.
+  Do not rely on single click events.
 
 ## Design Decisions
 
@@ -325,45 +332,45 @@ These suites gate the DSP phase and the integration phase:
 
 ## Acceptance Criteria
 
-- [x] **AC-001:** The Master tab renders the 13-slot rack: pinned Gain Stage,
-  pinned input meter, ten processors in persisted order, and pinned output
-  meter, with live ordinal renumbering and the Mixer's horizontal-scroll
-  conventions.
+- [x] **AC-001:** The Master tab renders the 13-slot rack.
+  It contains a pinned Gain Stage, input meter, and output meter.
+  Ten processors appear in persisted order with live ordinal changes.
+  The rack uses Mixer horizontal-scroll conventions.
 - [x] **AC-002:** Every control matches the ranges, defaults, units, and
   step behavior in the Chain Contract table, with the documented knob,
   switch, and keyboard interactions.
 - [x] **AC-003:** The always-on Gain Stage and all ten downstream processors
   audibly process audio per their
-  behavioral requirements; the per-module unit and THD tests pass.
+  behavioral requirements. The per-module unit and THD tests pass.
 - [x] **AC-004:** Every module at neutral settings nulls against bypass
-  below -100 dBFS; imaging and multiband null against their allpass
+  below -100 dBFS. Imaging and multiband null against their allpass
   references.
 - [x] **AC-005:** The input meter shows VU ballistics with 0 VU = -18 dBFS,
   L/R sample-peak lamps, and a numeric dBFS readout.
 - [x] **AC-006:** The output meter shows Momentary, Short-term, and gated
   Integrated LUFS plus 4x true peak, validated against EBU Tech 3341/3342
-  vectors; the green band marks -14 LUFS-I and the red line -1 dBTP.
+  vectors. The green band marks -14 LUFS-I and the red line -1 dBTP.
 - [x] **AC-007:** With the Limiter active, output true peak never exceeds
   Ceiling across the torture set. With the Limiter bypassed and a hot
   chain, the OVER lamp latches and click resets it.
-- [x] **AC-008:** The Cheat Sheet preset on the -18 dBFS RMS reference
-  program lands at -14 plus or minus 1 LUFS-I with true peak at or below
-  -1 dBTP.
+- [x] **AC-008:** Apply Cheat Sheet to the -18 dBFS RMS reference program.
+  It reaches -14 plus or minus 1 LUFS-I.
+  True peak stays at or below -1 dBTP.
 - [ ] **AC-009:** Reordering and bypassing while audio runs produce no
   click above the documented glitch threshold (automated render test), and
   both work by pointer and keyboard.
-- [x] **AC-010:** All continuous parameters are smoothed; the zipper test
+- [x] **AC-010:** All continuous parameters are smoothed. The zipper test
   passes.
 - [x] **AC-011:** The four factory presets apply their documented power
-  maps and overrides; only Cheat Sheet restores default order; each recall
+  maps and overrides. Only Cheat Sheet restores default order. Each recall
   is one undoable edit.
 - [x] **AC-012:** Strip state round-trips through the version-7 project
-  format; invalid records are rejected per the Persistence rules; Undo and
+  format. Invalid records are rejected per the Persistence rules. Undo and
   Redo restore the complete strip record.
-- [x] **AC-013:** Meters refresh at 30 Hz or better from real engine data
-  while the Master tab is active, and freeze without garbage if the stream
-  stalls. Bus Compressor and Limiter GR LED rows show live gain reduction.
-- [x] **AC-014:** The allocation test proves no per-block allocation; NaN
+- [x] **AC-013:** Active-tab meters refresh at 30 Hz or better from engine data.
+  They freeze at valid values if the stream stalls.
+  Bus Compressor and Limiter GR LEDs show live gain reduction.
+- [x] **AC-014:** The allocation test proves no per-block allocation. NaN
   injection into any single module leaves the bus output finite.
 - [x] **AC-015:** The performance benchmark meets the documented budget and
   fails on regression.
@@ -372,7 +379,7 @@ These suites gate the DSP phase and the integration phase:
 
 - No sidechain inputs, external hardware I/O, or video sync.
 - No A/B snapshot morphing.
-- No dithering or export pipeline (spec-019 owns export; the dither stage
+- No dithering or export pipeline (spec-019 owns export, the dither stage
   would slot after the Limiter).
 - No user-defined presets in this phase.
 - No per-module UI beyond the rack faceplates (no expanded editor modals).

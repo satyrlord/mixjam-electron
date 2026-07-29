@@ -19,7 +19,7 @@ obey the same placement timing contract.
 ## Assumptions and Decision
 
 - The project grid uses eight ticks per beat and the MVP has one global BPM.
-- Placed audio follows project tempo by default; MixJam does not currently
+- Placed audio follows project tempo by default. MixJam does not currently
   expose a per-placement opt-out equivalent to an unwarped DAW clip.
 - A user-created gap or overlap is represented by placement start ticks. The
   engine must not infer either one from source-buffer duration.
@@ -37,7 +37,7 @@ obey the same placement timing contract.
 - **US-002:** As a user, consecutive sample bubbles remain gapless after a BPM
   change instead of exposing silence caused by native-rate playback.
 - **US-003:** As a user, a sample without detected BPM still follows the
-  project once placed; missing analysis metadata must not disable resampling.
+  project once placed. Missing analysis metadata must not disable resampling.
 - **US-004:** As a user, changing project BPM audibly changes placed sample
   speed instead of padding the native-rate audio with silence.
 
@@ -70,7 +70,7 @@ targetDurationSeconds = durationTicks * 60 / (projectBPM * 8)
 playbackRate = sourceDurationSeconds / targetDurationSeconds
 ```
 
-- A rate greater than 1 shortens and pitches up the source; a rate less than 1
+- A rate greater than 1 shortens and pitches up the source. A rate less than 1
   lengthens and pitches it down.
 - Rate 1 plays the decoded source unchanged.
 - The scheduler triggers the source at `startTick`. The next
@@ -108,12 +108,12 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 
 ## Caching and Failure
 
-- The existing decoded-source LRU cache is shared by every playback rate; a BPM
+- The existing decoded-source LRU cache is shared by every playback rate. A BPM
   edit does not allocate another audio buffer.
 - Preparation never requests more unique samples than the LRU can retain.
-  Editing BPM while stopped performs no file read or decode; editing while
+  Editing BPM while stopped performs no file read or decode. Editing while
   playing prepares the upcoming window before scheduling resumes.
-- A failed preload rejects only its requesting operation; the serialized queue
+- A failed preload rejects only its requesting operation. The serialized queue
   recovers so later playback sessions can prepare normally.
 - Working-set replacement invalidates both decoded and in-flight non-member
   samples, so a late decode cannot repopulate a discarded cache entry.
@@ -137,22 +137,22 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 ## Acceptance Criteria (testable)
 
 - [x] **AC-001:** Changing project BPM preserves every placement's `startTick`
-  and `durationTicks`; Tracker bubbles do not move, resize, or create visual
+  and `durationTicks`. Tracker bubbles do not move, resize, or create visual
   gaps.
 - [x] **AC-002:** A source whose placement spans 128 ticks targets 128 ticks at
   every BPM. At 111 BPM its audible duration is approximately 8.648649 seconds.
 - [x] **AC-003:** A placement with `nativeBPM: null` is resampled from its
   source duration to its stored musical span. Null BPM does not bypass Tracker
   tempo following.
-- [x] **AC-004:** Three consecutive copies placed at ticks 0, 128, and 256 have
-  no audible boundary gap after changing project BPM from 140 to 111, within
-  one output sample frame of scheduling/render rounding.
-- [x] **AC-005:** The same already-placed sample has the same pixel width in the
-  Tracker and Sample Browser, and that width is unchanged by a BPM edit.
+- [x] **AC-004:** Place three consecutive copies at ticks 0, 128, and 256.
+  Change the project BPM from 140 to 111. No audible boundary gap occurs.
+  Scheduling or render rounding stays within one output sample frame.
+- [x] **AC-005:** An existing sample has the same pixel width in the Tracker and
+  Sample Browser. A BPM edit does not change that width.
 - [x] **AC-006:** Two placements of the same unanalysed sample reuse its first
   project-owned musical span even when the second is added at another BPM.
 - [x] **AC-007:** At 111 BPM, a 140 BPM loop voice has
-  `AudioBufferSourceNode.playbackRate` approximately `111 / 140`; its source
+  `AudioBufferSourceNode.playbackRate` approximately `111 / 140`. Its source
   buffer remains at native duration while its audible duration fills 128 ticks.
 - [x] **AC-008:** Tempo following does not create an offline buffer whose
   nominal duration is longer than its audible content.
@@ -165,9 +165,10 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
   without crashing or blocking other lanes.
 - [x] **AC-012:** Sample Browser preview follows detected sample BPM when
   present and remains native-rate when no preview timing reference exists.
-- [x] **AC-013:** Playback preparation is bounded to the decoded-source cache
-  capacity with limited concurrent reads, refills during playback, and performs
-  no arrangement reads for a stopped BPM edit. One failed preparation does not
+- [x] **AC-013:** Playback preparation stays within the decoded-source cache
+  capacity. It limits concurrent reads and refills during playback.
+  A stopped BPM edit performs no arrangement reads.
+  One failed preparation does not
   poison later sessions, and late invalidated decodes do not re-enter the cache.
 
 ## Verification Evidence
@@ -181,9 +182,10 @@ playbackRate = sourceDurationSeconds / targetDurationSeconds
 - `arrangement.test.ts`, `useTransportEngine.test.ts`, and
   `SampleTileGrid.test.tsx` cover BPM-invariant geometry, first-drop span
   capture, same-sample span reuse, and cross-view width.
-- `tests/e2e/time-stretch-content.spec.ts` proves the Electron renderer uses
-  a deterministic generated PCM WAV at a `111 / 140` playback rate and fills
-  the expected 8.648649-second span without relying on a local fixture corpus.
+- `tests/e2e/time-stretch-content.spec.ts` uses a deterministic generated PCM
+  WAV in the Electron renderer. It uses a `111 / 140` playback rate and fills
+  the expected 8.648649-second span. The test does not use a local fixture
+  corpus.
 - Verification commands:
   - `npm run typecheck`
   - targeted `vitest` suites for stretching, playback, arrangement, transport,

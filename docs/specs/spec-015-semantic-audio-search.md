@@ -13,16 +13,18 @@ in [spec-008](spec-008-sample-analysis.md) owns acoustic sample type.
 
 ## Objective
 
-Find samples by how they sound, not by filename. An embedding model runs
-entirely locally (WebGPU-accelerated, CPU-WASM fallback) so users can type
-"warm analog bass", click "Find similar" on any sample, save a
-similarity-based library, or accept suggested tags — with no audio or
-embeddings ever leaving the machine. The accepted Chromium-only,
+Find samples by how they sound, not by filename.
+An embedding model runs entirely on the local device.
+It uses WebGPU acceleration with a CPU-WASM fallback.
+Users can enter "warm analog bass" or select "Find similar" on a sample.
+They can save a similarity-based library or accept suggested tags.
+No audio or embeddings leave the device. The accepted Chromium-only,
 backend-worker architecture keeps this processing local.
 
-Because a library is a saved query, similarity is not just a search mode: a
-`similarTo` predicate in `rule_json` makes "everything within distance X of
-this reference" a living library that updates as new samples are indexed.
+A library is a saved query, so similarity is not only a search mode.
+A `similarTo` predicate in `rule_json` defines a maximum distance from a
+reference. This predicate creates a living library that includes newly
+indexed samples.
 
 ## User Stories
 
@@ -30,15 +32,15 @@ this reference" a living library that updates as new samples are indexed.
   descriptive phrase (e.g. "dark ambient pad", "crisp hi-hat") into the
   sample browser search bar and get results ranked by how they sound,
   regardless of filename or folder.
-- **US-002:** As a user, I can click "Find similar" on any sample in my
-  library and see the most sonically similar samples, without typing a query.
+- **US-002:** As a user, I can select "Find similar" on any library sample.
+  I see the most sonically similar samples without a text query.
 - **US-003:** As a user, I can save a "sounds like this" filter as a library
   that automatically includes similar samples indexed later.
 - **US-004:** As a user, I can review and accept suggested tags for my
   samples (e.g. "kick", "vocal", "lofi") produced by zero-shot
   classification, instead of tagging thousands of files by hand.
 - **US-005:** As a user with a library indexed before this feature existed, I
-  can trigger embedding computation from a visible affordance; until then,
+  can trigger embedding computation from a visible affordance. Until then,
   semantic features are disabled gracefully, not broken.
 - **US-006:** As a user without WebGPU, everything still works via CPU
   inference — slower, but correct and non-blocking.
@@ -47,22 +49,22 @@ this reference" a living library that updates as new samples are indexed.
 
 ### Embedding pipeline
 
-- During indexing, compute a compact audio embedding vector per sample using
-  a quantized CLAP-style (Contrastive Language-Audio Pretraining) model via
-  ONNX Runtime Web, WebGPU execution provider preferred, CPU-WASM fallback.
+- During indexing, compute one compact audio embedding vector for each sample.
+  Use a quantized CLAP-style (Contrastive Language-Audio Pretraining) model
+  through ONNX Runtime Web. Prefer WebGPU and use CPU-WASM as the fallback.
 - Store the embedding as a float32 blob on the `samples` row (`embedding
   BLOB` column, 512-dim float32, ~2 KB per sample). ~100 MB of OPFS for a
-  50k-sample library; always rebuildable by rescan, so treated as cache (no
+  50k-sample library. Always rebuildable by rescan, so treated as cache (no
   migration burden).
 - The model (~150 MB quantized ONNX) is lazy-loaded on first need, never
   bundled with the app binary. Delivery follows the same static-asset
   pattern as spec-016's separation model (`app://` in the shell, HTTPS fetch
   cached in renderer OPFS).
-- **Worker placement:** inference runs in a dedicated inference worker owned
-  by the backend worker, which posts embedding results back for batched DB
-  writes — DB access stays exclusively in the backend worker (hard rule),
-  and model execution never serializes against Phase 2 metadata parsing and
-  indexer transactions on one thread. Spec-016 shares this worker and the
+- **Worker placement:** inference runs in a dedicated inference worker that
+  the backend worker owns. The inference worker returns embedding results for
+  batched database writes. Only the backend worker accesses the database.
+  Model execution does not share one thread with Phase 2 metadata parsing or
+  indexer transactions. Spec-016 shares this worker and the
   ONNX runtime instance.
 - Embedding computation is a separate future phase after the existing metadata
   and sample-analysis work. Its exact ordering must be validated before
@@ -73,12 +75,12 @@ this reference" a living library that updates as new samples are indexed.
 
 - The sample browser search bar gains a mode toggle: "Keywords" (FTS5,
   existing behavior) and "Semantic". In semantic mode the query text is
-  encoded through the CLAP text encoder; cosine similarity against stored
+  encoded through the CLAP text encoder. Cosine similarity against stored
   embeddings ranks results.
-- Ranking runs inside SQLite via a registered `cosine_similarity` scalar
-  function (sqlite-wasm supports function registration; needs a spike) so
-  windowed paging keeps working — the UI never receives a full result set,
-  per the existing hard rule. JS-side scoring over candidate rows is the
+- Ranking runs inside SQLite through a registered `cosine_similarity` scalar
+  function. Sqlite-wasm supports function registration, but this design needs
+  a spike. Windowed paging continues to work. The UI never receives a full
+  result set, per the existing hard rule. JS-side scoring over candidate rows is the
   fallback design if registration proves unworkable.
 - Hybrid keyword+semantic scoring is out of scope for v1 (mode toggle only).
 
@@ -94,11 +96,11 @@ this reference" a living library that updates as new samples are indexed.
 { "kind": "similarTo", "sampleId": 123, "maxDistance": 0.35 }
 ```
 
-- Compiles to a parameterized threshold condition using the same
-  `cosine_similarity` function, with the reference embedding bound as a
-  parameter (looked up at compile time, not stored in the JSON).
+- Compiles to a parameterized threshold condition with the same
+  `cosine_similarity` function. The compiler finds the reference embedding
+  and binds it as a parameter. The JSON does not store the embedding.
 - A threshold (not top-N) keeps the leaf a pure `WHERE` predicate composable
-  with every other leaf under AND/OR/NOT; similarity *ordering* remains a
+  with every other leaf under AND/OR/NOT. Similarity *ordering* remains a
   browser sort mode, orthogonal to filtering.
 - If the reference sample is missing or soft-deleted, the leaf matches
   nothing and the library UI surfaces the broken reference (exact affordance
@@ -107,31 +109,31 @@ this reference" a living library that updates as new samples are indexed.
 ### Zero-shot tag suggestions
 
 - A curated label set (e.g. kick, snare, hi-hat, bass, pad, vocal, fx, loop)
-  is encoded once through the CLAP text encoder; each sample's embedding is
+  is encoded once through the CLAP text encoder. Each sample's embedding is
   scored against it and labels above a confidence threshold become *pending
   tag suggestions*.
 - Suggestions surface in the manage panel (and sample detail) for one-click
-  accept/reject; accepted suggestions become ordinary rows in `tags` /
+  accept/reject. Accepted suggestions become ordinary rows in `tags` /
   `sample_tags`. Nothing is auto-assigned without confirmation in v1.
 - This spec never writes folder-derived tag provenance. Spec-004 owns the flat
-  folder-derived and user-managed tag model. Spec-008's heuristic classifier writes `sample_type`, not tags;
-  suggestions here remain tags only.
+  folder-derived and user-managed tag model. Spec-008's heuristic classifier writes `sample_type`, not tags.
+  Suggestions here remain tags only.
 
 ### Degradation and gating
 
-- All semantic affordances are gated on embeddings existing; libraries
+- All semantic affordances are gated on embeddings existing. Libraries
   indexed before this feature show a "compute embeddings" affordance that
   runs the backfill phase.
-- Without WebGPU, CPU-WASM inference is used; indexing remains interruptible
+- Without WebGPU, CPU-WASM inference is used. Indexing remains interruptible
   and the UI stays responsive (the inference worker is not the DB worker).
 
 ## Acceptance Criteria (draft)
 
 - [ ] **AC-001:** Semantic search returns cosine-similarity-ranked results
-  for natural-language queries; results are deterministically ordered for the
+  for natural-language queries. Results are deterministically ordered for the
   same query and DB state.
 - [ ] **AC-002:** "Find similar" on a sample returns the top-N most similar
-  samples excluding itself; the source sample ranks first (similarity 1.0)
+  samples excluding itself. The source sample ranks first (similarity 1.0)
   when the full library is inspected in a test assertion.
 - [ ] **AC-003:** A library saved with a `similarTo` leaf includes a newly
   indexed similar sample after its embedding is computed, with no edit to the
@@ -139,13 +141,13 @@ this reference" a living library that updates as new samples are indexed.
 - [ ] **AC-004:** A `similarTo` leaf composes with other leaves (e.g. AND
   with `ext` and `bpm`) in one compiled parameterized query.
 - [ ] **AC-005:** A library indexed before embedding support shows a
-  "compute embeddings" affordance; semantic search is gracefully disabled
+  "compute embeddings" affordance. Semantic search is gracefully disabled
   (not broken) until embeddings exist.
 - [ ] **AC-006:** Tag suggestions appear for a sample whose content matches a
-  curated label; accepting one creates a normal tag assignment; rejecting one
+  curated label. Accepting one creates a normal tag assignment. Rejecting one
   removes the suggestion without side effects.
-- [ ] **AC-007:** No suggested tag is written without explicit user acceptance;
-  folder-derived assignments are never touched by this feature.
+- [ ] **AC-007:** No suggested tag is written without explicit user acceptance.
+  Folder-derived assignments are never touched by this feature.
 - [ ] **AC-008:** With WebGPU unavailable, embedding computation completes
   via CPU-WASM and the UI remains responsive throughout (no long tasks on
   the backend worker attributable to inference).
@@ -176,15 +178,15 @@ this reference" a living library that updates as new samples are indexed.
   typical 2020 laptop without WebGPU? Does it still complete indexing within
   acceptable wall-clock time for a 10k sample library?
 - Cosine similarity in SQLite: confirm scalar-function registration works in
-  the sqlite-wasm build and measure per-row cost at 100k rows; decide the
+  the sqlite-wasm build and measure per-row cost at 100k rows. Decide the
   JS-side fallback shape if not.
 - Long samples: CLAP encoders take fixed-length windows (~10 s) — embed the
   head, an average over windows, or multiple embeddings per sample? Affects
   loops vs one-shots differently.
-- Decode path for embedding input: reuse WAV parsing in the inference worker
-  vs WebCodecs for compressed formats (`AUDIO_EXTENSIONS` includes mp3, flac,
-  ogg, aiff) — the audio engine's decode path lives on the main thread and
-  cannot be used here.
+- Decode path for embedding input: compare inference-worker WAV parsing with
+  WebCodecs for compressed formats. `AUDIO_EXTENSIONS` includes mp3, flac,
+  ogg, and aiff. The audio engine decode path uses the main thread, so this
+  feature cannot use it.
 - `maxDistance` UX: raw cosine distance is meaningless to users — expose a
   labeled scale (tight/loose) mapped to calibrated thresholds?
 - Suggestion threshold and label-set curation: fixed defaults or

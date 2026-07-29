@@ -7,9 +7,9 @@
 ## Objective
 
 Use one background analyzer to detect BPM, musical key, and acoustic sample
-type. The analyzer combines raw per-file evidence with the context of a
-real sample collection without assuming that a complete Sample Folder has one
-tempo or key. Results populate acoustic metadata without changing tags.
+type. The analyzer combines raw file evidence with real collection context.
+It does not assume one tempo or key for the complete Sample Folder.
+Results populate acoustic metadata without changing tags.
 
 ## User Stories
 
@@ -38,7 +38,7 @@ tempo or key. Results populate acoustic metadata without changing tags.
   replaced.
 - Multi-field manual patches validate every supplied field before writing and
   commit as one transaction. A readable unsupported or damaged file clears
-  stale automatic values; a transient read failure preserves them for retry.
+  stale automatic values. A transient read failure preserves them for retry.
 - Batch progress reports `{ analyzed: N, total: M }`. `scan-done` exposes the
   indexed library before analysis begins. `analysis-done` refreshes the current
   windowed query and publishes current cluster summaries.
@@ -59,9 +59,9 @@ context evidence. A manual value is authoritative for that sample, but it is
 excluded from group votes so one local correction cannot train sibling files.
 Contextual projection never replaces the manual field itself.
 
-Repeated numbered or stereo filename variants inside one directory are
-collapsed to one voting cohort before group inference, so duplicated exports do
-not dominate a context merely by file count.
+The analyzer combines repeated numbered or stereo filename variants into one
+voting cohort before group inference. Thus, duplicated exports do not dominate
+a context only because of their file count.
 
 Filename-looking `L`/`R` suffixes are motif-family syntax only. The analyzer
 persists no stereo-side evidence, and nothing infers a stereo pair or a mirrored
@@ -99,7 +99,7 @@ second cluster table.
   structured path evidence. NULL detections abstain.
 - A resolved parent is one cluster. A mixed parent exposes its nearest resolved,
   non-overlapping descendant or cohort groups as selectable clusters. Multimodal
-  evidence must split by context or remain mixed; it must never be collapsed to
+  evidence must split by context or remain mixed. It must never be collapsed to
   the largest root-wide mode.
 - A sample first considers its virtual source cohort, then its deepest resolved
   directory ancestor. It inherits BPM/key only when that group has adequate
@@ -114,22 +114,22 @@ key.
 
 ### BPM and key detection
 
-- Raw BPM evidence comes from onset/IOI analysis; contextual inference combines
+- Raw BPM evidence comes from onset/IOI analysis. Contextual inference combines
   it with duration-grid, structured path-label, and resolved-group support.
-- Loop-length files (1.4 s and longer) snap the raw estimate to the whole-bar
-  tempo grid implied by their duration, considering octave (half/double)
-  aliases, preferring the canonical 100–160 BPM band and power-of-two bar
-  counts. Loops are trimmed to whole beats, so duration constrains tempo more
+- Loop-length files (1.4 s and longer) snap the raw estimate to the
+  duration-based whole-bar tempo grid. The analyzer considers octave aliases.
+  It prefers the canonical 100–160 BPM band and power-of-two bar counts.
+  Loops are trimmed to whole beats, so duration constrains tempo more
   reliably than the raw beat tracker, which scatters on real loop material.
-- Raw musical-key evidence comes from chromagram analysis; contextual inference
+- Raw musical-key evidence comes from chromagram analysis. Contextual inference
   combines it with structured path-label and resolved-group support.
 - A key is reported only when the best profile score exceeds the second-best by
   the confidence margin (ratio 1.02). Wrong-key detections are almost always
   near-ties, so a low-margin reading becomes NULL (unknown) instead of a
   confidently wrong label that downstream compatibility rules would hard-reject.
 - Either field remains NULL when evidence is insufficient or contradictory.
-- Automatic values expose `analysis` provenance in existing sample surfaces;
-  raw evidence and group summaries remain available to backend diagnostics and
+- Automatic values expose `analysis` provenance in existing sample surfaces.
+  Raw evidence and group summaries remain available to backend diagnostics and
   generator readiness.
 
 ### Sample type and generator scoring
@@ -137,22 +137,22 @@ key.
 The analyzer's decoded buffer produces acoustic sample type. The generator may
 retain its bounded audio scoring pass for arrangement-only measures such as:
 
-- RMS energy;
-- spectral centroid;
-- zero-crossing rate;
-- onset, transient, and rhythmic-regularity measures;
-- duration, loop, and boundary-continuity measures; and
+- RMS energy,
+- spectral centroid,
+- zero-crossing rate,
+- onset, transient, and rhythmic-regularity measures,
+- duration, loop, and boundary-continuity measures, and
 - energy slope and a planner kind such as one-shot, rhythmic loop, tonal loop,
   vocal, atmosphere, riser, impact, or texture.
 
 The acoustic type is one of Kick, Snare, Hi-hat, Percussion, Bass, Synth, FX,
 Vocal, Loop, Atmosphere, or Other. `sample_type` remains separate from
-folder-derived or user-assigned tags; analysis never replaces organization.
+folder-derived or user-assigned tags. Analysis never replaces organization.
 
 Classification separates loop-shaped material from drum one-shots by duration
-shape, not duration alone: a file whose length is a whole number of bars at its
-detected tempo is never a one-shot, even when short (a 1-bar loop at 140 BPM
-lasts 1.7 s and previously misfiled as a snare). A hi-hat requires noise
+shape, not only duration. A whole-bar file at its detected tempo is never a
+one-shot, even when short. For example, a one-bar loop at 140 BPM lasts 1.7
+seconds. The old rule incorrectly classified it as a snare. A hi-hat requires noise
 character — high spectral centroid AND high zero-crossing rate — because a
 bright tonal stab shares the centroid but not the noise. Dark whole-bar loops
 (low centroid, low zero-crossing rate) classify as Bass rather than generic
@@ -167,8 +167,8 @@ scoring pass must not derive competing semantic values for those fields.
   evidence and automatic projections are stale until that file is decoded again.
 - A path change invalidates membership in the old/new directory and cohort
   groups.
-  With the current `(root_id, relpath)` identity it appears as missing plus new;
-  content move detection remains out of scope.
+  With the current `(root_id, relpath)` identity it appears as missing plus new.
+  Content move detection remains out of scope.
 - After pending files are decoded, group summaries and automatic projections for
   the affected root are rebuilt from stored raw evidence. Unchanged siblings are
   not decoded. A grouping-only algorithm revision also reuses raw evidence.
@@ -201,9 +201,10 @@ every accuracy result.
 read-only `E:/_samples/eJay` inventory is a mixed-root structural corpus with
 100,951 WAV files across product, style, instrument, and source-pack cohorts.
 Its explicit labels demonstrate both locally uniform cohorts and genuine mixed
-groups. Validation must include at least one resolved nested context, one
-cross-folder source cohort, one mixed parent with resolved descendants, one
-short/one-shot-heavy group, and one group whose correct result is unresolved.
+groups. Validation must include one resolved nested context and one
+cross-folder source cohort. It must include one mixed parent with resolved
+descendants. It must also include one short/one-shot-heavy group and one
+unresolved group.
 
 ## Acceptance Criteria
 
@@ -212,21 +213,21 @@ short/one-shot-heavy group, and one group whose correct result is unresolved.
 - [x] **AC-002:** Analysis runs in the worker, reports root/job-scoped progress,
   and leaves the windowed library responsive.
 - [x] **AC-003:** Clear rhythmic and tonal fixtures produce reasonable BPM and
-  key results; ineligible one-shots may abstain instead of adding false votes.
+  key results. Ineligible one-shots may abstain instead of adding false votes.
 - [x] **AC-004:** Raw BPM/key evidence and acoustic sample type are produced from
-  one analyzer decode; raw BPM/key are persisted separately from contextual
+  one analyzer decode. Raw BPM/key are persisted separately from contextual
   projections.
 - [x] **AC-005:** Manual BPM, key, and type values survive sync, regrouping, and
-  re-analysis; clearing one permits automatic projection for that field.
+  re-analysis. Clearing one permits automatic projection for that field.
 - [x] **AC-006:** Every directory prefix is evaluated independently, and stable
   SC/SL suffixes may form a virtual cohort across instrument folders. A resolved
   product/style parent may cover nested folders while a mixed parent exposes
   resolved descendants or cohorts.
 - [x] **AC-007:** A mixed root exposes multiple coherent cluster summaries or an
   unresolved state. It never exposes one root median as the detected tempo.
-- [x] **AC-008:** On the confirmed `tmp/test-samples` corpus, at least 80 percent
-  of all WAV files are within 5 BPM of 140 and at least 80 percent are exactly
-  `Am`; NULL results count as misses.
+- [x] **AC-008:** Use the confirmed `tmp/test-samples` corpus.
+  At least 80 percent of WAV files are within 5 BPM of 140.
+  At least 80 percent are exactly `Am`. NULL results count as misses.
 - [x] **AC-009:** Controlled mixed-tempo, mixed-key, and half/double-tempo alias
   fixtures remain separated unless independent evidence supports one alias.
 - [x] **AC-010:** Changing one file decodes only that file, then rebuilds the
@@ -237,9 +238,9 @@ short/one-shot-heavy group, and one group whose correct result is unresolved.
 - [x] **AC-012:** Generate MixJam receives current resolved-group summaries and
   restricts candidates to the selected context key. Its bounded scoring pass
   does not recompute BPM, key, or sample type.
-- [x] **AC-013:** The eJay structural fixture proves a resolved nested context,
-  a cross-folder source cohort, a mixed parent with resolved descendants, and a
-  heterogeneous root without flattening the complete library.
+- [x] **AC-013:** The eJay fixture proves a resolved nested context and a
+  cross-folder source cohort. It also proves a mixed parent with resolved
+  descendants. It does not flatten the heterogeneous root or complete library.
 - [x] **AC-014:** No filename token produces stereo-side evidence. The analyzer
   persists no pair key or side, and generator candidates carry no stereo
   evidence, so no mirrored pan is ever inferred from a name.
@@ -260,7 +261,7 @@ short/one-shot-heavy group, and one group whose correct result is unresolved.
   the same analyzer path.
 - `backend/schema.ts` owns the schema-v4 raw evidence and `analysis_groups`
   migration.
-- `backend/generator-library.ts` consumes canonical group summaries; it does not
+- `backend/generator-library.ts` consumes canonical group summaries. It does not
   define BPM, key, or acoustic sample type.
 
 ## Validation

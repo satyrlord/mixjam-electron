@@ -23,7 +23,7 @@ A listed sign starts an inspection. It does not prove slop.
 
 ## Process
 
-1. List every file in scope and record its content type and source status.
+1. Inventory every in-scope file by content type and source status.
    Finish when the inventory classifies each file as source, generated, vendored, locked, or binary.
 2. Select one current sibling or owning reference for each file family.
    Finish when each family has a valid comparison source.

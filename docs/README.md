@@ -1,15 +1,16 @@
 # MixJam Electron — Developer Guide
 
-An Electron desktop app, in two halves:
+MixJam Electron is a desktop app with two parts:
 
-1. A **sample-library browser and tagger** over a large local collection (35GB+,
-   100,000+ samples, 850+ folders) with flat searchable tags derived from folder
-   names or created by the user, plus full-text search, sorting, and filtering.
-2. A **tracker/player** for arranging and playing back those samples — deliberately
-   eJay/Sony Acid-simple, not a full DAW.
+1. A **sample-library browser and tagger** manages a large local collection.
+   The target scale is 35GB+, 100,000+ samples, and 850+ folders.
+   Flat searchable tags come from folder names or user input.
+   The browser also provides full-text search, sorting, and filters.
+2. A **tracker/player** arranges and plays these samples.
+   It uses the simple eJay/Sony Acid model, not a full DAW model.
 
-Performance at that data scale and pixel-perfect CSS skinning are the two hard
-requirements that drive every architectural choice.
+Two requirements control each architecture choice.
+The app must perform at the target data scale and support pixel-accurate CSS themes.
 
 ## Document map
 
@@ -26,14 +27,14 @@ requirements that drive every architectural choice.
 ## Prerequisites
 
 - Node.js latest LTS
-- Desktop work area large enough for a 1920x1080 renderer content area. The
-  native window frame is additional, so a physical 1080p display may not expose
-  enough usable work area on every operating system. Below that renderer size,
-  MixJam shows only an unsupported-resolution notice and does not mount the
-  functional application.
+- A desktop work area that can contain a 1920x1080 renderer content area.
+  The native window frame needs more space.
+  Thus, a physical 1080p display can have insufficient work area on some operating systems.
+  Below this renderer size, MixJam shows only an unsupported-resolution notice.
+  It does not mount the functional app.
 
-There are no native modules — SQLite runs as WebAssembly
-(`@sqlite.org/sqlite-wasm`), so no build toolchain or ABI rebuilds are needed.
+The app has no native modules.
+SQLite runs as WebAssembly (`@sqlite.org/sqlite-wasm`), so it needs no build toolchain or ABI rebuild.
 
 ## Getting started
 
@@ -42,8 +43,8 @@ npm install
 npm run dev       # starts Electron with hot reload via electron-vite
 ```
 
-If Electron fails to launch, check whether `ELECTRON_RUN_AS_NODE` is set in your
-environment — remove it before running `dev` or `build`.
+If Electron does not start, check the `ELECTRON_RUN_AS_NODE` environment variable.
+Remove this variable before you run `dev` or `build`.
 
 The production renderer is loaded by Electron from the privileged
 `app://bundle` origin. The renderer bundle is not deployed as a website.
@@ -55,9 +56,8 @@ npm run build     # production build via electron-vite
 npm run preview   # preview the production build
 ```
 
-The semantic version in `package.json` is the single version authority for npm,
-the Electron runtime, packaged metadata, and the footer. Keep the lockfile
-root version in sync when changing it.
+The semantic version in `package.json` controls npm, the Electron runtime, packaged metadata, and the footer.
+When you change this version, update the lockfile root version too.
 
 ## Testing
 
@@ -72,22 +72,24 @@ npm run coverage:all  # collect unit and Electron e2e coverage
 npm run coverage:report # merge collected coverage reports
 ```
 
-Each Playwright run clears raw Electron coverage before collecting current-run
-data, so removed or renamed scenarios cannot contribute stale hits.
+Each Playwright run clears raw Electron coverage before it collects current-run data.
+Thus, removed or renamed scenarios cannot add stale hits.
 
-Electron E2E commands build first, then launch `out/main/index.js` directly
-through Playwright with a temporary user-data directory. They exercise the
-packaged-style `app://bundle` renderer; no static HTTP test server is used.
+Electron E2E commands build first.
+They then use Playwright to start `out/main/index.js` with a temporary user-data directory.
+They test the packaged-style `app://bundle` renderer.
+They do not use a static HTTP test server.
+
 Both Electron test projects use the same launch policy. If a managed local
 Windows environment terminates sandboxed child processes with a native
 breakpoint, set `MIXJAM_ELECTRON_NO_SANDBOX=true` for that built-entry test
 run. This test-only override never applies to a native packaged artifact.
-Linux CI provides a 2560x1440 virtual display and an Openbox window manager so
-the framed Electron window can contain the required 1920x1080 renderer content
-area and exercise real maximize and unmaximize transitions.
+Linux CI provides a 2560x1440 virtual display and an Openbox window manager.
+This display contains the framed Electron window and its required 1920x1080 renderer area.
+The tests use real maximize and unmaximize transitions.
 
-The SQL-layer and indexer suites run against sqlite-wasm with an in-memory
-database in a plain Node vitest project; everything else runs under jsdom.
+The SQL-layer and indexer suites use sqlite-wasm with an in-memory database in a plain Node Vitest project.
+All other suites use jsdom.
 
 ### Where a test belongs
 
@@ -98,15 +100,14 @@ usually duplicates coverage that already exists somewhere else.
 interface. This is the default. A test file is named after the module it tests,
 so the subject is findable from the filename.
 
-**`src/renderer/src/specs/`** — numbered acceptance tests carrying `AC-###` ids
-from `docs/specs/`. Only for behavior that *no single module owns*: a contract
-spanning several modules. Re-driving one module through `<App/>` belongs in that
-module's own test.
+**`src/renderer/src/specs/`** — numbered acceptance tests that contain `AC-###` IDs from `docs/specs/`.
+Use this location only for a contract that spans multiple modules.
+Put a repeated test of one module through `<App/>` in that module's test.
 
-**`src/renderer/src/architecture/`** — conformance checks that read source text
-rather than run it, for boundaries a type cannot express (for example, "the
-engine imports no DOM"). These are lint rules: they assert on files, not
-behavior.
+**`src/renderer/src/architecture/`** — conformance checks that read source text instead of running it.
+Use these checks for boundaries that a type cannot express.
+For example, one check states that the engine imports no DOM.
+These lint rules test files, not behavior.
 
 **`tests/e2e/`, `tests/electron/`** — Playwright against the built
 `app://bundle` renderer, for anything needing the real Chromium/Electron
@@ -114,22 +115,31 @@ surface.
 
 Shared helpers live in `src/renderer/src/test/`:
 
-- `render.tsx` — render with the app's context providers. Use this, not
-  `@testing-library/react` directly, for anything rendering project components:
-  a bare sub-tree render disagrees with how the app actually mounts it.
-- `projectFixtures.ts` — lanes, placements, and channel snapshots. Never
-  hand-write `sends: [0, 0, 0, 0]`; the four-Sends invariant belongs to the
-  factory, not to every test that needs a lane.
+- `render.tsx` — render with the app's context providers.
+  Use this helper for project components instead of `@testing-library/react`.
+  A bare sub-tree render differs from the app mount.
+- `projectFixtures.ts` — lanes, placements, and channel snapshots.
+  Do not write `sends: [0, 0, 0, 0]` by hand.
+  The factory owns the four-Sends invariant.
 - `backendApi.ts` — the typed `BackendAPI` facade, installed globally.
 - `mockAudioContext.ts` — the Web Audio stand-in for jsdom.
 
 ### Test setup details
 
-- Vitest globals are disabled (`globals: false`). `testing-library` auto-cleanup is off. `setup.ts` calls `cleanup()` in `afterEach`.
-- The shared BackendAPI mock for the renderer lives in `src/renderer/src/test/backendApi.ts` (installed as `window.backendAPI`).
-- Vitest runs two projects: `renderer` (jsdom) for UI and app-state, and `backend` (node) for the suites listed as `NODE_BACKEND_TESTS` in `vitest.config.ts`, which use an in-memory database.
-- Indexer tests use a map-backed fake `FileSystemDirectoryHandle` plus generated minimal WAV files so `parseBlob` extracts real metadata.
-- `setup.ts` stubs `HTMLCanvasElement.getContext` with a no-op 2D context (jsdom's own throws "Not implemented"). Tests that assert drawing must install their own mock.
+- Vitest globals are disabled (`globals: false`).
+  `testing-library` automatic cleanup is off.
+  `setup.ts` calls `cleanup()` in `afterEach`.
+- The shared renderer `BackendAPI` mock is in `src/renderer/src/test/backendApi.ts`.
+  The setup installs it as `window.backendAPI`.
+- Vitest runs the `renderer` and `backend` projects.
+  The `renderer` project uses jsdom for UI and app-state tests.
+  The `backend` project uses Node and an in-memory database.
+  `NODE_BACKEND_TESTS` in `vitest.config.ts` lists its suites.
+- Indexer tests use a map-backed fake `FileSystemDirectoryHandle` and generated minimal WAV files.
+  Thus, `parseBlob` extracts real metadata.
+- `setup.ts` replaces `HTMLCanvasElement.getContext` with a no-op 2D context.
+  The jsdom implementation throws "Not implemented."
+  Tests that check drawing must install their own mock.
 - On Windows, call `setSize()` before `setResizable(false)` or the size call is silently ignored.
 
 ## Type-checking and linting
@@ -144,27 +154,29 @@ npm run package:electron # package portable/AppImage/dmg artifacts
 ## Distribution
 
 Electron packages are the only end-user artifacts. The current Production
-workflow builds, tests, and publishes the Windows portable `.exe`. Tag pushes
-matching `v*` attach it to a GitHub Release; manual runs retain it as a workflow
-artifact for 14 days. AppImage and `.dmg` targets remain configured, but the
-current workflow does not build, test, upload, or release them.
+workflow builds, tests, and publishes the Windows portable `.exe`.
+Tag pushes that match `v*` attach it to a GitHub Release.
+Manual runs keep it as a workflow artifact for 14 days.
+AppImage and `.dmg` targets remain configured.
+The current workflow does not build, test, upload, or release them.
 
 Windows records the portable executable's hash, size, and signing state, then
 launches that exact artifact with an isolated user-data directory. The gate
 requires the portable NSIS bootstrap to produce a stable, responsive MixJam
 Electron native window and records the process and window evidence before
-cleanup. Because the bootstrap starts a child process, the deeper Playwright
-assertions then drive `win-unpacked/MixJam Electron.exe`, which contains the
-same packaged application resources and preserves the main-process connection.
+cleanup. The bootstrap then starts a child process.
+The deeper Playwright checks drive `win-unpacked/MixJam Electron.exe`.
+This executable contains the same packaged app resources and keeps the main-process connection.
 
-The Windows artifact run must collect the UI Size 50, 16-lane interaction
-evidence: Tracker vertical wheel scrolling, keyboard focus reveal, and Mixer
-horizontal scrolling by horizontal wheel, Shift+wheel, Left/Right keys, and
-focus reveal for a clipped control. It must also confirm that a plain vertical
-wheel does not move the Mixer horizontally. Upload the test report, screenshots,
-and raw measurements with the package artifact. The cross-platform release
-contract in spec-001 remains pending until hosted Linux and macOS builds are
-enabled and proven.
+The Windows artifact run must collect UI Size 50 interaction evidence with 16 lanes.
+The evidence must cover Tracker vertical wheel scrolling and keyboard focus reveal.
+It must also cover Mixer horizontal scrolling with all specified input methods.
+These methods are the horizontal wheel, Shift+wheel, Left/Right keys, and focus reveal for a clipped control.
+Confirm that a plain vertical wheel does not move the Mixer horizontally.
+
+Upload the test report, screenshots, and raw measurements with the package artifact.
+The cross-platform release contract in spec-001 remains pending.
+Hosted Linux and macOS builds must prove this contract.
 
 Signing and macOS notarization are not configured. Current packages are
 unsigned and may trigger operating-system trust warnings. Do not describe a
@@ -195,20 +207,23 @@ public/themes/    Theme JSON files
 Some working directories are machine-local and gitignored: `tmp/` holds ad-hoc
 scratch files, fixtures (`tmp/test-samples`), and verification scripts.
 
-The backend worker owns all database access; the UI talks to it through the
-typed BackendAPI facade. The Electron shell adds only host capabilities — the
-renderer stays sandboxed with no `nodeIntegration`.
+The backend worker owns all database access.
+The UI communicates with it through the typed `BackendAPI` facade.
+The Electron shell adds only host capabilities.
+The renderer stays sandboxed with no `nodeIntegration`.
 
 ## Specs
 
 Feature specifications live in `docs/specs/`. They describe the target product
-contract; an acceptance criterion is implemented only when its own evidence or
-the linked test suite proves it. The lane-bound Mixer, four-bus send/return FX,
+contract.
+An acceptance criterion is implemented only when its evidence or linked test suite proves it.
+The lane-bound Mixer, four-bus send/return FX,
 format-7 project model, dynamic lane count, and global UI Size contracts are a
 coordinated overhaul. Mixer routing and a standalone FX tab are outside the
 product model and have no separate specification. Check each spec for its
-acceptance wording and evidence; tests live beside the relevant source domain
-under `src/`.
+acceptance wording and evidence.
+
+Tests live beside the relevant source domain under `src/`.
 
 ## Theming and skinning
 

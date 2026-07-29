@@ -12,7 +12,7 @@
 
 **Request:** "Remove the unused parser helper from the scan."
 
-**Action:** Check every applicable evidence path before you remove the smallest dead slice.
+**Action:** Check every applicable evidence path before you remove only the proven finding.
 
 **Result:** The focused deletion passes the complete validation sequence.
 

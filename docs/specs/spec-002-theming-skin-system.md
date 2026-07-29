@@ -2,16 +2,16 @@
 
 **Spec Validation Status:** VALIDATED
 **Spec Implementation Status:** PARTIAL — theme system and global UI Size
-implemented; remaining unchecked criteria require their listed proof
+implemented. Remaining unchecked criteria require their listed proof
 **Depends on:** spec-001 (App Shell & Navigation)
 
 ## Objective
 
-Establish the theme system: named themes defined as design tokens and a
-runtime theme switching mechanism. All 16 themes (Emerald, Enterprise, Neon
-Rave, Warm Analog, IDE, Rust Industrial, Club PA, Beton Brut, Mono, Cosmic,
-Neon, Vintage, Rack, Soft, Riso, Arcade) are fully implemented with distinct
-visual appearances; Emerald is the default.
+Establish a theme system with named design-token themes and runtime theme
+switching. All 16 themes are fully implemented with distinct appearances.
+They are Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial,
+Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, and Arcade.
+Emerald is the default.
 
 ## User Stories
 
@@ -34,7 +34,7 @@ and runtime behavior that implement the style guide.
 ### Theme Token System
 
 A theme is a set of named design tokens. Every theme defines the same token
-keys; only the values differ. Tokens are consumed by the UI layer to style all
+keys. Only the values differ. Tokens are consumed by the UI layer to style all
 elements consistently.
 
 | Token | Role | Applies to |
@@ -73,9 +73,9 @@ elements consistently.
 | `--sample-bubble-case` | Sample-bubble label case | `uppercase` or `none`; canvas uppercases the drawn string, DOM uses `text-transform` |
 
 `--bg-grid` is the lane
-canvas beat-line color (bar lines stay `--border` for structural hierarchy);
+canvas beat-line color (bar lines stay `--border` for structural hierarchy).
 `--sample-bubble-missing` fills the 45-degree hazard stripes on placements whose sample row
-is missing (`scan_state = 2`); `--shadow-sample-bubble-text` applies to canvas bubble
+is missing (`scan_state = 2`). `--shadow-sample-bubble-text` applies to canvas bubble
 labels and DOM bubbles (both drop the shadow when the
 per-slot ink resolves dark, matching `sampleBubbleDomStyle`).
 
@@ -91,14 +91,14 @@ UI Size is an app-wide presentation preference with three discrete values: 30,
 **Zoom Level** as the segmented `[75%][100%][125%]` control. New app state
 defaults to 40.
 
-The value selects one coherent token set for controls, interaction targets,
-Mixer components, lane heads, tabs, menus, toolbars, footer and header chrome,
-spacing, supporting type, lanes, and sample bubbles. Components must not mix
+The value selects one coherent token set for all interface parts.
+This set covers controls, targets, Mixer components, lane heads, tabs, menus,
+toolbars, chrome, spacing, type, lanes, and sample bubbles. Components must not mix
 magic dimensions from different size sets.
 
 The same preset derives a content-safe Bottom Workspace minimum for Master,
-Mixer, and Samples. Changing UI Size re-clamps the active tab and grows it when
-needed; it never leaves newly enlarged controls outside their cards.
+Mixer, and Samples. A UI Size change clamps the active tab and grows it when
+necessary. It keeps enlarged controls inside their cards.
 
 Square controls and swatches use the selected UI Size as both dimensions.
 Text-bearing controls use it as their minimum cross-axis target while width
@@ -108,10 +108,10 @@ table is the single numeric source used by CSS and JavaScript geometry:
 
 Numeric linear sliders keep a UI-Size pointer and focus target while painting
 the smaller Mixer-derived rectangular rail handle inside it. UI Size never
-turns the painted handle into a full-size circle. The fixed-height Tracker
-ruler seek surface is not a parameter slider: it reuses the shared behavior and
-handle tokens but keeps its documented compact target inside the invariant 33px
-ruler row.
+turns the painted handle into a full-size circle.
+The fixed-height Tracker ruler seek surface is not a parameter slider.
+It reuses the shared behavior and handle tokens. Its documented compact target
+stays inside the invariant 33px ruler row.
 
 | Token | Size 30 | Size 40 | Size 50 |
 | --- | ---: | ---: | ---: |
@@ -155,9 +155,9 @@ The bubble rectangle keeps the same height in the Tracker, Sample Browser, and
 drag image. At 1920x1080 with UI Size 50 and Mixer open, the full ruler and one
 complete lane remain visible without a vertical scrollbar.
 
-Depth tokens (`depth.*` in the JSON, applied as the same-named CSS custom
-properties) carry theme-dependent gradient/shadow value strings so the same
-semantic treatment can change with the active theme (AC-008):
+Depth tokens use `depth.*` in JSON and matching CSS custom properties.
+They contain theme-dependent gradient and shadow values.
+Thus, the active theme can change the same semantic treatment (AC-008):
 
 | Depth token | Role |
 | --- | --- |
@@ -186,13 +186,13 @@ semantic treatment can change with the active theme (AC-008):
 
 ### Sample Palette
 
-Every sample bubble is painted from the active theme's `palette`:
-eight slot colors plus `palette-unsorted`. Slots keep the fixed semantic
-mapping (0 Drums/Percussion, 1 Loop, 2 Bass, 3 Keys/Guitar/Chords/Piano,
-4 Synth/Lead, 5 Voice/Vocal/FX/Vox, 6 Arp, 7 Pad/Atmosphere/Xtra/Texture;
-unknown names hash to a slot deterministically). Each theme authors its slots
-inside its own color family (Cosmic blues/violets, Riso pink/blue inks, Arcade
-PICO-8, Beton concrete blacks with a brick jolt).
+The active theme `palette` paints every sample bubble.
+It contains eight slot colors and `palette-unsorted`.
+The fixed mapping is 0 Drums/Percussion, 1 Loop, and 2 Bass.
+It continues with 3 Keys/Guitar/Chords/Piano and 4 Synth/Lead.
+The remaining slots are 5 Voice/Vocal/FX/Vox, 6 Arp, and
+7 Pad/Atmosphere/Xtra/Texture. Unknown names map deterministically.
+Each theme uses its own color family for these slots.
 
 Placements store the slot, not the color: `ClipPlacement` and drag payloads carry `slot?: number`
 (0-7, 8 = Unsorted). The hex resolves at draw time from the active palette,
@@ -201,20 +201,21 @@ original stability goal — changing a folder name never recolors existing place
 while making color a theme concern. No persisted migration was needed:
 project save/load (spec-011) persists placements in `.mixjam` files.
 
-`applyTheme` derives per-slot custom properties so DOM bubbles restyle
-without a React re-render: `--palette-0..8` (8 = unsorted), `--palette-ink-N`
-(WCAG ink via the shared `bubbleTextColor` luminance picker), and
-`--palette-shadow-N` (`var(--shadow-sample-bubble-text)` for light ink, `none` for
-dark ink — dark ink under a dark text-shadow smears). The lane canvas reads
-the same custom properties into its token cache, so canvas placements and DOM
-bubbles can never disagree (AGENTS.md hard rule: a sample bubble renders
-identically everywhere). Palette entries MUST be 6-digit hex — the ink
+`applyTheme` derives `--palette-0..8`, `--palette-ink-N`, and
+`--palette-shadow-N` for each slot. Eight is the unsorted slot.
+`bubbleTextColor` selects WCAG-compliant ink.
+Light ink uses `var(--shadow-sample-bubble-text)`. Dark ink uses `none`
+because a dark text shadow smears dark ink.
+The lane canvas reads these properties into its token cache.
+Thus, canvas placements and DOM bubbles always agree.
+Palette entries MUST be 6-digit hex — the ink
 derivation needs a parseable luminance.
 
-The sample-bubble visual module owns DOM palette styles and one resolved canvas
-visual model covering color, ink, label case, radius, shadow, border, gloss,
+The sample-bubble visual module owns the DOM palette styles.
+It also owns one resolved canvas model for all bubble properties.
+These properties include color, ink, label case, radius, shadow, border, gloss,
 missing state, and paint geometry. The Tracker canvas and drag image are two
-adapters over the same painter; browser bubbles consume the DOM adapter. Theme
+adapters over the same painter. Browser bubbles consume the DOM adapter. Theme
 or geometry rules do not live independently in those rendering modules.
 
 Contrast policy: slot colors are surfaces, not signals — the 3:1 signal gate
@@ -226,8 +227,8 @@ slots sit close to `--bg-lane` (Soft, PA, Beton) compensate with
 ### Typography Tokens
 
 Each theme defines font families for three typographic roles. The families listed
-below are the **Emerald defaults**; individual themes may override any role with
-a different bundled font (e.g. the Rust theme sets both chrome and label to
+below are the **Emerald defaults**. Individual themes may override any role with
+a different bundled font (e.g. The Rust theme sets both chrome and label to
 Special Elite). Every font listed in the table is bundled with the app.
 
 | Token | Role | Emerald Default | Also Used By |
@@ -240,7 +241,7 @@ A theme's typeface is part of its identity, so each theme's font files live in
 `src/renderer/public/fonts/`.
 
 Typeface-wide metric corrections belong on the theme root and inherit through
-the UI. They must not be repeated as component-by-component font-size overrides;
+the UI. They must not be repeated as component-by-component font-size overrides.
 Arcade uses one inherited `font-size-adjust` rule for its small-x-height pixel
 fonts.
 
@@ -296,7 +297,7 @@ Emerald fallback.
 | `--radius` | `0.22rem` |
 
 Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
-`#AB4700`, `#BF6601`, `#D48915`, `#E6AD33`, `#BFAD00`, `#7DA500`; unsorted
+`#AB4700`, `#BF6601`, `#D48915`, `#E6AD33`, `#BFAD00`, `#7DA500`. Unsorted
 `#555E6A`). Emerald's construction tokens are the neutral defaults:
 `border-width` triple `1px`,
 `sample-bubble-font-weight` `400`, `sample-bubble-case` `none`, `gradient-sample-bubble` `none`,
@@ -305,7 +306,7 @@ Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
 ### Theme Selector
 
 - Present in both Home Screen and Player headers (right side).
-- Spec-001 owns the selector's shell placement; this spec owns its runtime
+- Spec-001 owns the selector's shell placement. This spec owns its runtime
   behavior.
 - Dropdown lists all 16 theme names.
 - Default selection: **Emerald**.
@@ -326,7 +327,7 @@ Emerald uses a warm 8-slot palette (`#982A00`, `#830000`,
 - Native select popups explicitly pair `--text` with `--chrome` instead of
   inheriting the operating system's default popup surface. The selected row
   uses the system `HighlightText` and `Highlight` colors. Custom dropdown menus
-  use the same readable token pairs; destructive items use a colored edge and
+  use the same readable token pairs. Destructive items use a colored edge and
   the standard menu accent pair for their highlighted state.
 - Every scroll surface styles `::-webkit-scrollbar*` from theme tokens
   (via `color-mix` over `--text`/`--bg-panel`) so the native light Windows
@@ -442,19 +443,21 @@ preset layer has one clear cascade boundary.
 - [x] **AC-001:** App launches with the Emerald theme applied to all UI (header, content, footer) — no flash of default/unthemed appearance.
 - [x] **AC-002:** The Emerald theme JSON implements all 23 `ThemeColors` entries plus the documented palette, font, depth, radius, border, and sample-bubble typography tokens.
 - [x] **AC-003:** All bundled fonts are loaded from local files — no external network requests for fonts.
-- [x] **AC-004:** Theme selector lists all 16 themes: Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial, Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, Arcade.
+- [x] **AC-004:** The theme selector lists all 16 themes.
+  The list is Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial,
+  Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, and Arcade.
 - [x] **AC-005:** Default selection in the theme selector is "Emerald".
 - [x] **AC-006:** Selecting any theme from the dropdown immediately applies that theme across the entire UI.
 - [x] **AC-007:** Selecting Emerald from the dropdown (when already Emerald) is a no-op — no visual flicker.
 - [x] **AC-008:** Theme-dependent semantic colors are defined in the JSON source of truth. Local color literals are limited to invariant neutral overlays, selection ink, and defensive canvas fallbacks.
 - [x] **AC-009:** Switching from Home Screen to Player and back does not change the active theme or cause a re-apply flicker.
 - [x] **AC-010:** The Emerald theme JSON file is valid and parseable by a JSON validator — no syntax errors, no duplicate keys.
-- [x] **AC-011:** Placements and sample bubbles are painted from the active theme's `palette` by slot;
-  switching themes recolors placements and browser tiles without reloading, and the canvas and DOM resolve identical colors for the same slot.
-- [x] **AC-012:** The lane canvas draws beat lines in `--bg-grid` and bar lines in `--border`; no theme renders beat lines from the structural border color.
+- [x] **AC-011:** Placements and sample bubbles are painted from the active theme's `palette` by slot.
+  Switching themes recolors placements and browser tiles without reloading, and the canvas and DOM resolve identical colors for the same slot.
+- [x] **AC-012:** The lane canvas draws beat lines in `--bg-grid` and bar lines in `--border`. No theme renders beat lines from the structural border color.
 - [x] **AC-013:** A sample bubble whose sample row is missing (`scan_state = 2`) renders 45-degree hazard stripes derived from `--sample-bubble-missing`.
 - [x] **AC-014:** Canvas sample-bubble labels honor `--sample-bubble-font-weight`, `--sample-bubble-case`, and `--shadow-sample-bubble-text` (shadow dropped under dark ink), identically to DOM bubbles.
-- [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`; Beton Brut renders 2px structural rules and a 3px header rule.
+- [x] **AC-015:** Border widths come from `--border-width`, `--border-width-pill`, and `--border-width-header`. Beton Brut renders 2px structural rules and a 3px header rule.
 - [x] **AC-016:** The playhead renders a triangular cap colored from `--playhead`.
 - [x] **AC-017:** The header selector is the sole theme-selection control in
   both Home and Player. Home content has no theme-preview grid or duplicate
@@ -467,9 +470,9 @@ preset layer has one clear cascade boundary.
   use the required `#RRGGBB` form.
 - [x] **AC-019:** Soft theme `--text-muted` maintains at least 4.5:1 contrast
   against its normal text-bearing base, panel, lane, chrome, and pill surfaces.
-- [x] **AC-020:** The Player Settings modal exposes one global UI Size selector,
-  labeled Zoom Level, with values 30, 40, and 50 rendered as 75%, 100%, and
-  125%. The app defaults to 40 and persists the choice outside project files.
+- [x] **AC-020:** The Player Settings modal has one global UI Size selector.
+  Its label is Zoom Level. Values 30, 40, and 50 appear as 75%, 100%, and 125%.
+  The app defaults to 40 and persists the choice outside project files.
 - [x] **AC-021:** Switching UI Size applies one coherent token set to app chrome,
   controls, targets, panels, Mixer components, spacing, and supporting type.
   Every numeric linear slider retains a 30/40/50px cross-axis target while its
@@ -479,10 +482,10 @@ preset layer has one clear cascade boundary.
 - [x] **AC-022:** Sample bubbles and lanes use the documented 24/37, 33/49, and
   41/61 pixel height pairs. Tracker, browser, and drag-image bubble rectangles
   match at each size, while bubble width and musical placement do not change.
-- [x] **AC-023:** Built Chromium proof at 1920x1080, UI Size 50, and an open Mixer
-  shows the full ruler and one complete lane with no vertical scrollbar,
-  clipping, overlap, or shrunken interaction targets.
-- [x] **AC-024:** Fixed authored typography uses the documented 10–18px scale;
+- [x] **AC-023:** Built Chromium proof uses 1920x1080, UI Size 50, and an open
+  Mixer. It shows the full ruler and one complete lane.
+  It has no vertical scrollbar, clipping, overlap, or small interaction targets.
+- [x] **AC-024:** Fixed authored typography uses the documented 10–18px scale.
   15px and 18px are formal type steps, while close icons are SVG paint rather
   than a 22px text glyph. Embedded hardware radii resolve through the invariant
   micro-radius tokens instead of local 1–5px or 999px literals.

@@ -172,9 +172,9 @@ components:
 
 ## Relationship to style-guide.md
 
-This file (`DESIGN.md`) is the **design token manifest** — it declares the concrete
-colors, typography faces, radii, spacing, shadow vocabulary, and component
-patterns that the CSS token system implements. It is the authoritative source for
+This file (`DESIGN.md`) is the **design token manifest**.
+It defines colors, typefaces, radii, spacing, shadows, and component patterns.
+The CSS token system implements this manifest. It is the authoritative source for
 token names and their Emerald default values.
 
 [docs/style-guide.md](docs/style-guide.md) is the **design intent document** —
@@ -191,54 +191,59 @@ visual feature, consult both: `DESIGN.md` for the token contract and defaults,
 ### Creative North Star: "The Studio Rack"
 
 MixJam is not a website that plays audio. It is a local-first piece of gear. The
-Home surface gets the user from folder setup to a new, loaded, or generated
-project; the Player then holds the tracker, browser, Mixer, and Master surfaces.
-The Master tab holds thirteen module faceplates in a rack shell; the Mixer holds
-channel strips and combined FX/Return slots on a device surface; knobs have real
-pointers and value arcs, LEDs glow when a bus is live, and faders ride in
-recessed rails. Depth in this interface is hardware depth, never decoration.
+Home surface guides the user from folder setup to a new, loaded, or generated project.
+The Player contains the Tracker, browser, Mixer, and Master surfaces.
+The Master tab has thirteen module faceplates in a rack shell.
+The Mixer has channel strips and combined FX/Return slots on a device surface.
+
+Knobs have pointers and value arcs.
+LEDs glow when a bus is live, and faders use recessed rails.
+Depth in this interface is hardware depth, never decoration.
 When a surface lifts off the page, it is because it represents something the
 user can operate.
 
-The second half of the identity is that the hardware is skinnable. Sixteen
-themes ship in `public/themes/`: Emerald, Enterprise, Neon Rave, Warm Analog,
-IDE, Rust Industrial, Club PA, Beton Brut, Mono, Cosmic, Neon, Vintage, Rack,
-Soft, Riso, and Arcade. Each repaints the instrument — surfaces, accents, font
+The second half of the identity is that the hardware is skinnable.
+Sixteen themes ship in `public/themes/`.
+They are Emerald, Enterprise, Neon Rave, Warm Analog, IDE, Rust Industrial, and Club PA.
+The other themes are Beton Brut, Mono, Cosmic, Neon, Vintage, Rack, Soft, Riso, and Arcade.
+
+Each repaints the instrument — surfaces, accents, font
 roles, gradients, shadows, knob faces, and corner radii — without moving a
-control. Geometry is fixed and shared; identity is token-driven. Emerald is the
+control. Geometry is fixed and shared. Identity is token-driven. Emerald is the
 default, but Mono's phosphor voice, Riso's print palette, and the lighter skins
 are equally native rather than bolted-on modes.
 
 This system explicitly rejects the SaaS dashboard: no metric-card grids, no
 gradients-for-the-sake-of-gradients, no glassmorphism, no corporate sheen. It
-also rejects full-DAW density theater — the eJay / Sony Acid tracker model is
-deliberately simple, and the chrome must stay quiet enough that a 100,000-sample
-library still feels instant. The tool disappears into the task.
+also rejects unnecessary full-DAW density.
+The eJay / Sony Acid tracker model is deliberately simple.
+The chrome must stay quiet enough that a 100,000-sample library still feels fast.
+The tool does not distract the user from the task.
 
 **Key Characteristics:**
 
-- Dark by default; light themes (Vintage, Soft, Riso) are first-class, not afterthoughts.
+- Dark by default. Light themes (Vintage, Soft, Riso) are first-class, not afterthoughts.
 - Every semantic color is a CSS custom property. Hardcoded hex is a defect.
 - One primary accent action per surface. Everything else is quiet or ghost.
 - Continuous surface: related controls share a rounded group background rather than each rendering as a raised bordered slab.
 - Three font roles (chrome / label / mono), with bundled families first and
   explicit runtime fallbacks.
 - Fixed pixel geometry at three UI Sizes (30 / 40 / 50), exposed to users as
-  75%, 100%, and 125%; typography remains fixed rather than fluid.
+  75%, 100%, and 125%. Typography remains fixed rather than fluid.
 - The root viewport never scrolls. Internal panels do.
 
 ## 2. Colors
 
-A dark, desaturated instrument surface with one saturated accent carrying live
-state — restrained by doctrine, but the doctrine is per-theme, and sixteen
-themes redefine every value below.
+A dark, desaturated instrument surface uses one saturated accent for live state.
+Each theme applies this rule and defines every value below.
 
 ### Primary
 
 - **Signal Green** (`--accent`, #00674F in Emerald): The one committed color.
   Reserved for the active transport state, current selection, filled value arcs,
   and live indicators. Never used for decoration or for inactive states.
-- **Deep Signal** (`--accent-dark`, #004434): The pressed and recessed companion to the accent; value-arc backing and active-state depth.
+- **Deep Signal** (`--accent-dark`, #004434): The pressed and recessed companion to the accent.
+  It supplies value-arc backing and active-state depth.
 - **Pale Mint** (`--highlight`, #8FBCB2): The light-on-dark counterpart used where accent-on-dark would lose legibility, and for lane shading.
 
 ### Secondary
@@ -246,7 +251,7 @@ themes redefine every value below.
 - **Slot Accents** (`--fx-accent-1` … `--fx-accent-4`, #22B573 in Emerald): Four
   per-slot accents that map FX slots to channel-strip sends 1:1 by color. Themes
   with a genuine multi-accent system (Arcade, Neon, Neon Rave, Riso, IDE) ship
-  four distinct values; single-voice themes such as Mono deliberately repeat one.
+  four distinct values. Single-voice themes such as Mono deliberately repeat one.
   Any missing slot falls back to `--accent`.
 
 ### Tertiary
@@ -307,25 +312,26 @@ The exception is the rack, not a license.
 
 ## 3. Typography
 
-**Chrome Font:** Josefin Sans (`--font-chrome`) — header, brand, chrome UI
-**Label Font:** Ubuntu (`--font-label`) — body copy, labels, buttons
-**Mono Font:** JetBrains Mono (`--font-mono`) — ruler, timer, bar numbers, dB readouts, LCD text
+**Chrome Font:** Josefin Sans (`--font-chrome`) for the header, brand, and chrome UI.
+**Label Font:** Ubuntu (`--font-label`) for body copy, labels, and buttons.
+**Mono Font:** JetBrains Mono (`--font-mono`) for the ruler, timer, values, and LCD text.
 
 **Character:** Three roles, one job each. A geometric sans for the shell, a
 humanist sans for everything you read while working, and a mono for anything
 that represents a measured value. The pairing works on a contrast axis, and
 each theme may substitute its own bundled families for all three. Eighteen
-families ship in `src/renderer/public/fonts/`; the three `*-theme-alternates`
-metadata roles in the frontmatter list the allowed families, while
-`runtime-fallbacks` records the separate safety fallback appended after the
-selected bundled family. All primary font files are bundled, with no CDN,
+families ship in `src/renderer/public/fonts/`.
+The three `*-theme-alternates` frontmatter roles list the allowed families.
+`runtime-fallbacks` records the safety fallback after the selected bundled family.
+
+All primary font files are bundled, with no CDN,
 Google Fonts, or other network dependency.
 
 ### Hierarchy
 
 Product UI, so the authored scale is fixed in pixels and tight: 10, 11, 12,
 13, 14, 15, 16, and 18px. There is no fluid type and no clamp() anywhere in
-this system. The UI Size presets may select larger generated endpoints; their
+this system. The UI Size presets can select larger generated endpoints. Their
 full 30 / 40 / 50 table remains the geometry source of truth.
 
 - **Micro Label** (400, 10px, 1.2): Dense hardware annotations and panel counts.
@@ -335,7 +341,8 @@ full 30 / 40 / 50 table remains the geometry source of truth.
 - **Compact Title** (400, 15px, 1.3): Compact dialog and panel titles.
 - **Heading** (400, 18px, 1.3): Section headings and fixed hardware displays.
 - **Status / Helper** (400, 12px minimum, 1.4): Tooltips, hints, secondary status.
-- **Lane Name** (400, 11px, 1.3): The densest text in the app; truncates with ellipsis and a tooltip.
+- **Lane Name** (400, 11px, 1.3): The densest text in the app.
+  It truncates with an ellipsis and a tooltip.
 - **Mono Readout** (400, 12px, 1.2): Timer (`00:00.0`), bar numbers, compact
   Mixer headers (`01`), dB values (`-2 dB`, `−∞ dB`), FX slot summaries.
 
@@ -357,25 +364,28 @@ typographic role.
 
 ## 4. Elevation
 
-Elevation is delegated entirely to the theme. There is no cross-theme depth
-doctrine beyond the token contract: each theme's `depth` block defines the full
-vocabulary, and a theme may legitimately be flat, deeply shadowed, neumorphic,
-beveled, or glowing. Emerald sets `shadow-lane`, `shadow-pill`,
-`shadow-sample-bubble`, `shadow-meter`, and `shadow-mixer-slot` to `none` while
-still carrying a deep `shadow-mixer-panel` and an LED glow; Rack, Beton Brut,
-and Soft make very different choices from the same keys. Components must read
+The theme controls all elevation.
+The token contract is the only cross-theme depth rule.
+Each theme `depth` block defines the full vocabulary.
+A theme can be flat, deeply shadowed, neumorphic, beveled, or glowing.
+Emerald sets five general shadow tokens to `none`.
+They are `shadow-lane`, `shadow-pill`, `shadow-sample-bubble`, `shadow-meter`, and `shadow-mixer-slot`.
+
+It still uses a deep `shadow-mixer-panel` and an LED glow.
+Rack, Beton Brut, and Soft use the same keys in different ways. Components must read
 the tokens and must never hardcode a shadow or gradient of their own.
 
 ### Shadow Vocabulary
 
-Every theme defines all of these; values below are Emerald's.
+Each theme defines all of these values. The values below are for Emerald.
 
 - **Mixer panel** (`--shadow-mixer-panel`: `0 8px 20px rgba(0,10,6,0.55)`): The channel-bank and FX-bank slabs lifting off the device surface.
 - **Mixer slot** (`--shadow-mixer-slot`: `none`): Channel strips and FX cards. Flat in Emerald.
 - **Mixer LED** (`--shadow-mixer-led`: `0 0 5px rgba(34,181,115,0.6)`): Glow behind status and FX power LEDs. `currentColor` makes the LED glow in its own slot accent.
-- **Transport** (`--shadow-transport`: `0 1px 2px rgba(0,0,0,0.35)`; active: `0 1px 3px rgba(0,0,0,0.4)`): The only chrome button family permitted its own resting shadow.
+- **Transport** (`--shadow-transport`: `0 1px 2px rgba(0,0,0,0.35)`, active: `0 1px 3px rgba(0,0,0,0.4)`): The only chrome button family with its own resting shadow.
 - **Bubble text** (`--shadow-sample-bubble-text`: `1.5px 1.5px 2px rgba(0,0,0,0.55)`): Applied only when the computed bubble ink is white.
-- **Rack shell** (fixed, unthemed): Deep drop shadow under the 14px rack slab; faceplates carry a hairline dark border and inner top highlight.
+- **Rack shell** (fixed, unthemed): Deep drop shadow under the 14px rack slab.
+  Faceplates have a hairline dark border and inner top highlight.
 
 ### Surface Gradient Vocabulary
 
@@ -383,7 +393,8 @@ Every theme defines all of these; values below are Emerald's.
 - `--gradient-transport` / `--gradient-transport-active`: idle and active transport faces.
 - `--gradient-mixer-device`: the texture behind the Mixer panels (scanlines, starfield, halftone, grain, or `none`).
 - `--gradient-mixer-panel`: the panel surface layered over `--bg-panel`.
-- `--gradient-sample-bubble`: canvas-parsed bubble gloss; stops must be space-free colors such as `#RRGGBBAA`.
+- `--gradient-sample-bubble`: canvas-parsed bubble gloss.
+  Stops must be space-free colors such as `#RRGGBBAA`.
 
 ### Elevation Named Rules
 
@@ -405,9 +416,9 @@ drag image. Change one, change all three.
 - **Micro geometry:** invariant hardware paint uses `--radius-line` (1px),
   `--radius-indicator` (1.5px), `--radius-control` (2px), `--radius-track`
   (3px), `--radius-handle` (5px), and `--radius-pill` (999px). These values do
-  not change with the theme; theme-owned radii still shape normal surfaces.
+  not change with the theme. Theme-owned radii still shape normal surfaces.
 - **Transport:** The one filled accent family. Play is accent-colored when
-  stopped, Pause when playing; the face uses `--gradient-transport` /
+  stopped, and Pause when playing. The face uses `--gradient-transport` /
   `--gradient-transport-active` over the `--transport` / `--transport-active`
   solids, with glyph contrast derived automatically into `--on-transport`.
 - **Ghost / Quiet:** Transparent at rest with `--text-muted` ink. Hover, focus-visible, and active paint an accent-tinted `--pill-bg` surface. This is the default for every non-transport command.
@@ -420,15 +431,15 @@ drag image. Change one, change all three.
 
 Project-owned `LinearSlider` over Radix Slider. Canonical visual: recessed
 rectangular rail, accent value fill, low-profile rectangular handle. Hit target
-uses selected UI Size; painted handle scales with `--ui-scale` only. Horizontal
+uses selected UI Size. The painted handle scales with `--ui-scale` only. Horizontal
 sliders rotate the same handle geometry. See [docs/style-guide.md](docs/style-guide.md)
 for full interaction, keyboard, and ARIA rules.
 
 ### Rotary Controls
 
 Shared project-owned SVG: 270-degree range track, high-contrast value arc, inset
-cap, short pointer. Size changes dimensions only; never substitute a CSS-only
-circle. Unipolar fills from minimum; bipolar fills outward from center. See
+cap, short pointer. Size changes dimensions only. Never substitute a CSS-only
+circle. Unipolar fills from minimum. Bipolar fills outward from center. See
 [docs/style-guide.md](docs/style-guide.md) for full interaction, keyboard, ARIA,
 and pan right-click-cycle rules.
 
@@ -442,7 +453,7 @@ and pan right-click-cycle rules.
 
 See [docs/style-guide.md](docs/style-guide.md) for the complete Home and Player
 layout architecture, state-adaptive workflow rules, and component placement.
-Theme choice uses the header selector only (all sixteen themes); geometry is
+Theme choice uses the header selector only for all sixteen themes. Geometry is
 fixed, identity is token-driven.
 
 ### Tracker shell and browser
@@ -453,9 +464,10 @@ resize-handle patterns.
 
 ### Sample Bubbles
 
-The signature component. A bubble is the same object everywhere it appears —
-Tracker canvas, browser grid, drag image, any future surface — at the same
-height (24 / 33 / 41px by UI Size), the same width, the same treatment.
+The signature component. A bubble is the same object on all surfaces.
+These surfaces include the Tracker canvas, browser grid, drag image, and future surfaces.
+It has the same height, width, and treatment everywhere.
+UI Size sets the height to 24, 33, or 41px.
 
 - **Fill:** the top-level source-group slot color (`--palette-0` … `--palette-7`, unsorted
   `--palette-unsorted`). **Ink:** computed per slot for contrast, never picked by
@@ -467,31 +479,37 @@ height (24 / 33 / 41px by UI Size), the same width, the same treatment.
 ### Channel Strip and FX Slot
 
 - **Channel strip:** 76px wide at UI Size 30. Its compact selectable header
-  visibly shows only the zero-padded derived number (`01`); the lane-owned name
+  visibly shows only the zero-padded derived number (`01`). The lane-owned name
   remains in its tooltip and accessible text. A 2x2 group of four send dials,
   each tinted with its matching slot accent, precedes the fader, segmented
   dry-RMS meter column, and mono dB readout. Pan is controlled only in the lane
   header.
-- **FX slot:** 160x112px at UI Size 30. Header carries the mono slot number, the
-  module name, and a round power LED tinted with the slot accent — on a populated
-  slot the LED *is* the toggle (`aria-pressed`, unlit when bypassed). Body holds
+- **FX slot:** 160x112px at UI Size 30.
+  The header has the mono slot number, module name, and a round slot-accent power LED.
+  On a populated slot, the LED is the `aria-pressed` toggle.
+  It is unlit when bypassed.
+
+  The body holds
   Edit (cog, slot-tinted), the square limiter toggle, and a Mix rotary. Foot is a
-  one-line mono summary. The FX picker and editor are registry-driven; the
+  one-line mono summary.
+  The FX picker and editor are registry-driven. The
   current modules are Echoform Delay and Aetherform Reverb.
 - **Bypass:** dims the container to half opacity and desaturates. It stops new input but lets the current tail finish.
 
 ### Master Bus Rack
 
-Thirteen module faceplates in a horizontal scrollport inside a rounded rack
-slab (14px radius, dark vertical gradient, 16px/18px padding, 9px gaps, deep
-drop shadow, decorative screw-head corners). Faceplates are 152px wide (Bus
-Compressor 184, meters 196) by 420px tall at 6px radius, in one of eight fixed
-finishes — cream, graphite, oxblood, steel, sand, sage, night, meter — each
-defining face gradient, ink, dim ink, knob cap, and pointer color. Reorderable
+Thirteen module faceplates use a horizontal scrollport inside a rounded rack slab.
+The slab has a 14px radius, dark gradient, 16px/18px padding, 9px gaps, and a deep shadow.
+It also has decorative screw-head corners.
+Standard faceplates are 152px wide and 420px tall with a 6px radius.
+The Bus Compressor is 184px wide, and meters are 196px wide.
+Eight fixed finishes are cream, graphite, oxblood, steel, sand, sage, night, and meter.
+
+Each finish defines the face gradient, ink, dim ink, knob cap, and pointer color. Reorderable
 processor anatomy runs top to bottom: grip + ordinal + power LED, family chip +
 module name, control grid, optional GR LED row, hairline, description block.
 The pinned Gain Stage keeps its ordinal and Trim control but has no grip or
-power LED; pinned meters omit both controls. Rack knobs are the shared rotary
+power LED. Pinned meters omit both controls. Rack knobs are the shared rotary
 at 46px (standard) or 74px (large).
 
 | Finish | Face | Ink | Cap | Pointer | Used by |
@@ -538,31 +556,36 @@ pixels.
 ### Do
 
 - **Do** read every color from a theme token. Add a new semantic need to `ThemeColors` and to all sixteen theme JSONs, then use it.
-- **Do** keep the root viewport free of scrollbars. Every shell view fits 1920x1080 exactly; internal panels (lane list, browser grid, Mixer strips, FX containers) scroll instead.
+- **Do** keep the root viewport free of scrollbars.
+  Each shell view fits 1920x1080 exactly. Internal lane, browser, Mixer, and FX panels scroll.
 - **Do** use fixed pixel geometry from the UI Size tokens (30 / 40 / 50, shown as
-  75% / 100% / 125%). Square controls take the token exactly; text-bearing
+  75% / 100% / 125%). Square controls take the token exactly. Text-bearing
   controls take it as a minimum cross-axis size.
 - **Do** hold transitions to 150–250ms. Users are in flow.
-- **Do** give every interactive component its full state set: default, hover, focus-visible, active, disabled, and where applicable loading, selected, and bypassed.
+- **Do** give each interactive component all applicable states.
+  These states include default, hover, focus-visible, active, disabled, loading, selected, and bypassed.
 - **Do** honor `prefers-reduced-motion: reduce` — the scan spinner and locate-in-browser flash become static indicators and transitions are removed.
-- **Do** verify a change against all sixteen themes, light ones included. Vintage, Soft, and Riso are light; a change that only reads on dark is unfinished.
+- **Do** verify a change against all sixteen themes, including the light themes.
+  Vintage, Soft, and Riso are light. A change that only reads on dark is incomplete.
 - **Do** keep `--text-muted` genuinely readable. Muted is a hierarchy signal, not a license for low contrast.
 - **Do** use the invariant micro-radius tokens for hardware lines, indicators,
   compact controls, tracks, handles, and true pills.
 
-### Don't
+### Do not
 
-- **Don't** hardcode a color, shadow, gradient, or radius. Invariant neutral overlays, selection ink, and canvas safety fallbacks are the only exceptions.
-- **Don't** build the SaaS-dashboard aesthetic PRODUCT.md rejects by name: no metric-card grids, no gradients-for-the-sake-of-gradients, no glassmorphism, no corporate sheen.
-- **Don't** reach for full-DAW complexity. No piano rolls, no automation lanes, no plugin hosting. The eJay / Sony Acid model is the point.
-- **Don't** render idle buttons as raised bordered slabs. Group them on one shared rounded surface.
-- **Don't** put a second filled accent action on a surface that already has Play/Pause.
-- **Don't** rely on browser-default typography. Placeholder text and input values use the same tokenized font stacks as the rest of the surface.
-- **Don't** use fluid typography. No `clamp()` headings; this is product UI at a fixed minimum resolution.
-- **Don't** use font size to paint an icon. Use a code-native SVG with explicit
+- **Do not** hardcode a color, shadow, gradient, or radius. Only invariant overlays, selection ink, and canvas fallbacks are exceptions.
+- **Do not** use the SaaS dashboard style that PRODUCT.md rejects.
+  Do not use metric-card grids, decorative gradients, glassmorphism, or corporate styling.
+- **Do not** add full-DAW complexity. Do not add piano rolls, automation lanes, or plugin hosting.
+- **Do not** render idle buttons as raised bordered slabs. Group them on one shared rounded surface.
+- **Do not** put a second filled accent action on a surface that has Play/Pause.
+- **Do not** use browser-default typography. Placeholder text and input values use the tokenized font stacks.
+- **Do not** use fluid typography. Do not use `clamp()` headings at the fixed minimum resolution.
+- **Do not** use font size to paint an icon. Use a code-native SVG with explicit
   geometry and an accessible control name.
-- **Don't** overlap interactive containers or fight with z-index.
-- **Don't** invent hardware that no spec calls for. The reference board governs structure and density only — no invented screws, tape labels, or fake wear on the Mixer.
-- **Don't** apply full-saturation accent to inactive or disabled states.
-- **Don't** use `border-left` or `border-right` greater than 1px as a colored accent stripe on any card, list item, or callout.
-- **Don't** animate for decoration. Motion here conveys state change, feedback, loading, or reveal — nothing else.
+- **Do not** overlap interactive containers or create z-index conflicts.
+- **Do not** invent hardware that no spec defines.
+  The reference board controls structure and density only.
+- **Do not** apply a full-saturation accent to inactive or disabled states.
+- **Do not** use a colored side border wider than 1px on a card, list item, or callout.
+- **Do not** animate for decoration. Motion only shows a state change, feedback, loading, or reveal.

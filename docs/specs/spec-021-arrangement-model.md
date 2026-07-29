@@ -58,13 +58,13 @@ Measured by `computeMixJamMetrics` and evaluated by `evaluateOccupancyEnvelope`
 Definitions that matter:
 
 - **Occupancy** is the share of song bars in which a lane has audible material.
-  A placement occupies every bar it sounds in; a clip ending exactly on a bar
+  A placement occupies every bar it sounds in. A clip ending exactly on a bar
   line does not claim the next bar.
 - **Entries** are contiguous occupancy runs — how many times a lane enters the
   arrangement.
 - The **sustained peak** is the 90th-percentile bar density, not the single-bar
-  maximum. A riser, an impact, and every lane coinciding for one bar is a spike;
-  measuring a plateau against it reports 1–3 bars even for arrangements that
+  maximum. A riser, an impact, and every lane coinciding for one bar is a spike.
+  Measuring a plateau against it reports 1–3 bars even for arrangements that
   plainly hold an 8-bar peak.
 
 ### The envelope is a report
@@ -90,7 +90,7 @@ manufactured a wall of sound, and the reference library itself scores 13–16 of
 
 ## Section arcs
 
-A **profile** is the musical style contract; a **bundled template** is the JSON
+A **profile** is the musical style contract. A **bundled template** is the JSON
 document that declares one. Each profile carries **two or three section arcs**.
 The seed picks one, so exact regeneration reproduces it: seed plus profile
 version selects the arc, and the chosen arc's name is persisted on the plan as
@@ -122,7 +122,7 @@ ever being muted for a whole section.
 ## Boundary ops
 
 A short declarative op list adds boundary accents. Ops address sections **by
-name**, so a template stays duration-independent; the engine resolves names to
+name**, so a template stays duration-independent. The engine resolves names to
 bars after section allocation. No op takes an expression or a condition, which
 keeps spec-018's "no executable code in templates" non-goal intact.
 
@@ -159,7 +159,7 @@ The constraint binds to **stretching, not material**:
 - A corpus with no filename labels has no pool token and is unaffected.
 
 The **analysis cluster is the material pool**. Templates declare no folder names
-and stay corpus-independent; the wizard's cluster picker is the genre lever, and
+and stay corpus-independent. The wizard's cluster picker is the genre lever, and
 the headless CLI's `--cluster` stands in for it. Because the cluster already
 bounds the material, category coverage is no longer a cross-genre requirement —
 under a genre-first corpus that rule actively forced an Ambient pad and a Brazil
@@ -185,9 +185,9 @@ modules.
 - Each lane declares one send level per declared bus. The plan widens that
   vector into the project's four send slots.
 - The shipped presets cover the measured genre recipes: trance `Ambient Bloom` +
-  `Dotted Motion`; techno `Small Room` + `Wide Tape Echo`; house and tropical
-  house `Vocal Plate` + `Clean Slap`; melodic techno `Dark Hall` +
-  `Dotted Motion`; ambient house `Shimmer Cloud` + `Endless Wash`.
+  `Dotted Motion`. Techno `Small Room` + `Wide Tape Echo`. House and tropical
+  house `Vocal Plate` + `Clean Slap`. Melodic techno `Dark Hall` +
+  `Dotted Motion`. Ambient house `Shimmer Cloud` + `Endless Wash`.
 
 ### Pan
 
@@ -204,7 +204,7 @@ the ±0.35 cap.
 The persisted `stereoPairId` lane field remains part of the project format
 (spec-011 AC-034). It describes current lane content: adding, moving,
 duplicating, replacing, or deleting a placement on either paired lane clears the
-shared ID from both; name and Mixer edits do not.
+shared ID from both. Name and Mixer edits do not.
 
 ### Gain
 
@@ -228,7 +228,7 @@ needs the originals back — if both copies of a reference project are lost,
 nothing it omits can be re-derived.
 
 The reference baseline classifies every pan as non-pair and records pair maximum
-as zero; symmetric lane positions are not evidence of a pair.
+as zero. Symmetric lane positions are not evidence of a pair.
 
 `npm run audit:mixjam -- <path|dir>` reports the envelope per project with a
 density sparkline and a per-lane table. `--baseline` adds each measure's
@@ -249,10 +249,10 @@ distilled metrics.
   than 92 weight, and every arc's quietest section carries at most half the
   lanes of its busiest.
 - [x] **AC-005:** `swap`, `roll`, `tail`, and `rest` ops resolve section names
-  declared by their own arc; a `roll` binds to a percussion lane and a `tail` to
+  declared by their own arc. A `roll` binds to a percussion lane and a `tail` to
   a sustained one. An unresolvable or misapplied op is a template parse error.
 - [x] **AC-006:** All stretched pitched placements in a plan share the plan's
-  `poolToken`; natural-rate placements are exempt. A corpus without filename
+  `poolToken`. Natural-rate placements are exempt. A corpus without filename
   labels plans with a null pool token.
 - [x] **AC-007:** A bare-letter filename label produces a pool token and leaves
   `musicalKey` null.
@@ -270,7 +270,7 @@ distilled metrics.
   density curve for every reference project.
 - [x] **AC-012:** `npm run audit:mixjam` reports every envelope measure with its
   target, the measured value, and PASS/FAIL, plus a density sparkline and a
-  per-lane table; `--baseline` adds distance from the reference range.
+  per-lane table. `--baseline` adds distance from the reference range.
 
 ## Validation
 
@@ -283,7 +283,7 @@ distilled metrics.
 - Local gate: `npm run generate:mixjam` over `tmp/test-samples` for all six
   profiles, then `npm run audit:mixjam`. The absolute numbers depend on a corpus
   that is not in the repository, so CI can assert only the committed distilled
-  metrics; a full generation run is a local gate.
+  metrics. A full generation run is a local gate.
 - **Listening remains the real gate.** The envelope is necessary, not
   sufficient — it can be satisfied by a project that is still musically wrong.
 
@@ -291,7 +291,7 @@ distilled metrics.
 
 - Inferring a genre from audio. The profile and the cluster carry the genre.
 - Executable code, expressions, or conditionals inside templates.
-- A per-lane timeline script. The coarse arc stays gate-driven; ops add boundary
+- A per-lane timeline script. The coarse arc stays gate-driven. Ops add boundary
   accents only.
 - Throwing on an aesthetic measure.
 

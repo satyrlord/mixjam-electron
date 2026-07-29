@@ -1,8 +1,8 @@
 ---
 name: grill-me
 description: >
-  Stress-test a plan through one decision question at a time. Use when the
-  user requests plan pressure, design questions, or closure for open decisions.
+  Challenge a plan with one decision question at a time. Use when the user
+  requests plan critique, design questions, or help with open decisions.
 ---
 
 # Grill Me

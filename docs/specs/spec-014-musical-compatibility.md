@@ -18,29 +18,27 @@ and indexes that already exist (`idx_samples_bpm`, `idx_samples_key`):
 - `bpmCompatible` expands a reference BPM into tolerance ranges including
   half- and double-time equivalents.
 
-Because a library is a saved query, saving a compatibility filter yields a
-living "fits my song" library that grows as new samples are indexed and
-analyzed. No model, no new storage, no schema change — pure compile-time
+Saving a compatibility filter creates a living "fits my song" library.
+The library grows as the app indexes and analyzes new samples.
+No model, no new storage, no schema change — pure compile-time
 expansion in the rule compiler. This is the deterministic half of perceptual
-library building; the embedding-based half ("sounds like") is
+library building. The embedding-based half ("sounds like") is
 [spec-015](spec-015-semantic-audio-search.md).
 
 ## User Stories
 
 - **US-001:** As a user, I can filter the sample browser by "compatible with
-  key Am" and get samples in Am plus its harmonic neighbors (C, Em, Dm), not
-  just exact-key matches.
-- **US-002:** As a user, I can filter by "compatible with 120 BPM" and get
-  samples near 120 as well as near 60 and 240 (half/double time).
-- **US-003:** As a user, I can right-click any analyzed sample and choose
-  "Find compatible" to filter the browser by that sample's detected key and
-  BPM in one action.
+  key Am." I get Am samples and the C, Em, and Dm harmonic neighbors.
+- **US-002:** As a user, I can filter by "compatible with 120 BPM."
+  I get samples near 120, 60, and 240 BPM (half/double time).
+- **US-003:** As a user, I can choose "Find compatible" for an analyzed sample.
+  This action filters by the detected key and BPM.
 - **US-004:** As a user, I can save the current compatibility filter as a
   library, and it automatically includes matching samples that are analyzed
   later.
-- **US-005:** As a user, samples with no detected key or BPM are excluded
-  from compatibility results (same semantics as the existing `bpm` range
-  leaf: NULL never matches).
+- **US-005:** As a user, I do not see samples without a detected key or BPM
+  in compatibility results. This behavior matches the existing `bpm` range
+  leaf. NULL never matches.
 
 ## Scope (high-level — to be validated)
 
@@ -48,9 +46,9 @@ library building; the embedding-based half ("sounds like") is
 
 Per the versioning policy in [query-schema.md](../query-schema.md), new leaf
 kinds are additive and do not bump the format version. The current decoder
-rejects a rule containing any unknown leaf (`decodeLibraryRule` returns empty
-filters), so the validator and full compiler defined in `query-schema.md` must
-land before these leaves become executable.
+rejects a rule that contains an unknown leaf.
+`decodeLibraryRule` returns empty filters for this rule. The validator and
+full compiler in `query-schema.md` must exist before these leaves can run.
 
 ```jsonc
 // Camelot-wheel adjacency around a reference key.
@@ -68,21 +66,21 @@ land before these leaves become executable.
   resolved at query time. If the adjacency table or tolerance policy improves
   later, saved libraries pick up the improvement for free.
 - `keyCompatible` compiles to `samples.musical_key IN (?, ...)` over the
-  expanded key set. Compatibility set for v1: the reference key itself, its
-  relative major/minor (same Camelot slot, other letter), and the same-letter
-  slots at distance `neighbors` in each direction.
-- `bpmCompatible` compiles to an OR of inclusive ranges
-  (`samples.bpm BETWEEN ? AND ?`), one per band: the reference band and, when
-  `includeHalfDouble` is set, the same percentage band around `bpm / 2` and
+  expanded key set. The v1 set contains the reference key and its relative
+  major or minor key. It also contains same-letter slots at the `neighbors`
+  distance in each direction.
+- `bpmCompatible` compiles to one inclusive range per band
+  (`samples.bpm BETWEEN ? AND ?`). It uses the reference band.
+  When `includeHalfDouble` is set, it also uses bands around `bpm / 2` and
   `bpm * 2`.
 - All values bound as parameters, per the existing hard rule.
 
 ### Key canonicalization
 
-- A single canonical key vocabulary (24 values, e.g. `Am`, `C#m`, `F`) shared
-  with spec-008's detector output. Enharmonic spellings (`Db` vs `C#`)
-  normalize to one canonical form at write time (spec-008) and at rule-compile
-  time (this spec), so `IN` matching never misses an enharmonic equivalent.
+- One canonical key vocabulary has 24 values, such as `Am`, `C#m`, and `F`.
+  Spec-008 detector output uses this vocabulary. Enharmonic spellings
+  (`Db` and `C#`) normalize at write time and rule-compile time.
+  Thus, `IN` matching finds each enharmonic equivalent.
 
 ### UI
 
@@ -95,9 +93,9 @@ land before these leaves become executable.
 
 ## Acceptance Criteria (draft)
 
-- [ ] **AC-001:** A `keyCompatible` leaf for `Am` with `neighbors: 1` matches
-  samples in exactly {Am, C, Em, Dm} and no others (table-driven test over the
-  full Camelot mapping).
+- [ ] **AC-001:** A `keyCompatible` leaf uses `Am` and `neighbors: 1`.
+  It matches exactly {Am, C, Em, Dm}. A table-driven test uses the full
+  Camelot mapping.
 - [ ] **AC-002:** A `bpmCompatible` leaf for 120 with `includeHalfDouble` and
   4% tolerance matches samples at 60, 120, and 240 within tolerance, and
   rejects 90.
@@ -116,7 +114,7 @@ land before these leaves become executable.
 ## Non-Goals
 
 - No audio-content similarity — that is spec-015 (`similarTo`).
-- No key/BPM *detection* — that is spec-008; this spec only consumes its
+- No key/BPM *detection* — that is spec-008. This spec only consumes its
   columns.
 - No pitch-shifting or re-tuning suggestions ("shift +2 semitones to fit") —
   filtering only.
@@ -126,9 +124,9 @@ land before these leaves become executable.
 
 ## Open Questions
 
-- Canonical key vocabulary: exact 24-string set, and where normalization
-  lives so spec-008 output, manual key entry, and this spec's compiler cannot
-  drift (a shared module with the mapping table is the likely answer).
+- Define the exact 24-string canonical key vocabulary.
+  Define normalization ownership to prevent drift between spec-008, manual
+  key entry, and this compiler. A shared mapping module is the likely answer.
 - Default `neighbors` depth (1 seems right for harmonic mixing practice) and
   whether the UI exposes it or hardcodes it in v1.
 - Default `tolerancePercent`, and whether half/double bands default on or off

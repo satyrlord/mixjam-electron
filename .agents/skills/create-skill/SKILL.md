@@ -35,7 +35,7 @@ A skill can contain only reference. Its completion criterion must apply every ru
 
 ## Authoring Procedure
 
-1. Inventory every target package file, then read each file and its catalog entry.
+1. Inventory each target package from its files and catalog entry.
    Complete this step when you can name the skill purpose, invocation mode, branches, and package files.
 2. Classify each statement as a step, common reference, branch reference, or no-op.
    Complete this step when every statement has one classification.

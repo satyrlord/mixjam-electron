@@ -6,17 +6,18 @@ interaction patterns, and surface treatments. Specs reference this guide for
 style rules and contain only functional requirements and acceptance criteria.
 
 The theming system (spec-002) implements this style guide through CSS custom
-properties and JSON theme files. This document describes the *design intent*;
+properties and JSON theme files. This document describes the *design intent*.
 spec-002 defines the *token mechanics*.
 
-**Relationship to DESIGN.md:** [DESIGN.md](../DESIGN.md) is the **design token
-manifest** — the concrete token names, Emerald default values, component pattern
-tables, and shadow/gradient vocabulary that the CSS token system implements.
-This file (`docs/style-guide.md`) is the **design intent document**. Both are
-authoritative for different concerns: `DESIGN.md` for the token contract and
-defaults, this file for layout architecture, spacing rhythm, color philosophy,
-interaction rules, and accessibility foundations. When adding or modifying a
-visual feature, consult both.
+**Relationship to DESIGN.md:** [DESIGN.md](../DESIGN.md) is the **design token manifest**.
+It defines token names, Emerald default values, component pattern tables, shadows, and gradients.
+The CSS token system implements this manifest.
+This file (`docs/style-guide.md`) is the **design intent document**.
+Each document controls different content.
+`DESIGN.md` controls the token contract and defaults.
+
+This file controls layout, spacing, color, interactions, and accessibility.
+For a visual feature, consult both documents.
 
 ---
 
@@ -62,7 +63,7 @@ visual feature, consult both.
 7. **Bundled theme fonts first.** Every text label, button, link, and piece of
    chrome must inherit or explicitly reference a theme font-family token whose
    first family is bundled. A system family may appear only as the final safety
-   fallback if the local font resource cannot load; it is never theme identity.
+   fallback if the local font resource cannot load. It is never theme identity.
 
 8. **No overlapping control containers.** No interactive control
    container (button, input, fader, knob, menu, panel) may overlap any
@@ -72,12 +73,11 @@ visual feature, consult both.
 
 9. **No scrollbars on the main view.** The root viewport must never
    show a scrollbar. Every view must fit within the available viewport
-   without overflow. Use the already-available empty space to redesign
-   the layout, optimize screen real-estate, minimize dead space, and
-   eliminate any need for root-level scrolling. Internal scroll
-   surfaces (lane list, browser grid, Mixer strips, FX containers) may
-   scroll, but the shell (header, content, footer) must occupy exactly
-   the viewport with no overflow.
+   without overflow. Use available empty space to improve the layout.
+   Minimize unused space and prevent root-level scrolling.
+   Internal lane, browser, Mixer, and FX surfaces can scroll.
+
+   The header, content, and footer must occupy the viewport with no overflow.
 
 ---
 
@@ -114,9 +114,10 @@ Home (1920x1080 renderer content minimum, resizable, maximizable)
   expand inline.
 - The header selector is the only theme-selection control. Home content does
   not repeat the theme catalog.
-- "Start New MixJam" remains the sole filled primary action. Recent Projects
-  uses up to four readable rows with a strong project name, relative location,
-  last-opened metadata when available, and access to the full relative path.
+- "Start New MixJam" remains the sole filled primary action.
+  Recent Projects uses up to four readable rows.
+  Each row shows a strong project name and relative location.
+  It shows last-opened metadata when available and gives access to the full relative path.
   It does not promote the newest project into a competing Continue action.
 - The workflow cards have no enclosing outer panel. Headings, spacing, and
   surface contrast establish their grouping.
@@ -156,7 +157,7 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 ### Header Bar (both views)
 
 - Its base height is 48px at UI Size 30 and scales with the selected size.
-- **Home state:** brand "MixJam Electron" anchored left; theme selector right.
+- **Home state:** brand "MixJam Electron" anchored left. Theme selector right.
 - **Player state:** home link "&lt; Return to Main Menu" (left), brand
   "MixJam Electron" (right of home link), timer (absolute center,
   `position:absolute; left:50%; transform:translateX(-50%)`), theme selector
@@ -170,7 +171,7 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 - Cards use theme tokens, the 8px spacing grid, and the selected UI Size targets.
   They do not introduce a new palette or control grammar.
 - The Tracker stays mounted behind a non-blurring backdrop. Background pointer
-  input and ordinary app hotkeys are blocked; existing playback may continue.
+  input and ordinary app hotkeys are blocked. Existing playback can continue.
 - Focus starts on Close, remains trapped, and returns to the Player footer
   Settings link after Close or Escape. Outside pointer input does not dismiss it.
 
@@ -191,7 +192,7 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 
 - Occupies upper-left region of the active Player.
 - Defaults to 18% of upper work band (240px at common desktop size).
-- Collapsible via toggle; when collapsed, only the toggle button shows.
+- A toggle collapses the region. When collapsed, only the toggle button shows.
 - Lists merged recent + discovered `.mixjam` files.
 
 ### Middle Strip
@@ -212,19 +213,20 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
 - Tabs: Master, Mixer, Samples (in that order).
 - Requested default height: 24% of Player. The rendered height clamps to the
   active tab's content-safe minimum.
-- All three panels remain mounted; inactive panels are visually hidden and
+- All three panels remain mounted. Inactive panels are visually hidden and
   removed from accessibility/focus paths.
 - Tablist uses automatic activation with arrow-key navigation.
 - Mixer and the other tabs remember separate app-local heights. Entering Mixer
-  expands it to its last usable height; leaving restores the other tab height.
-- Each tab has a content-safe minimum derived from the selected UI Size,
-  enforced as a CSS content floor so the active panel's content always stays
-  laid out at its full budget instead of letting controls paint outside their
-  cards. The panel's drag floor is a single constant (the smallest tab's
-  minimum) so a tab switch never re-clamps the panel group (which glitched
-  playback); dragging a taller tab below its own budget scrolls the panel
-  through its defensive vertical scrollport. Every interactive control stays
-  reachable — visible at or above the budget, scroll-reachable below it; clipping
+  expands it to its last usable height. Leaving restores the other tab height.
+- Each tab has a content-safe minimum from the selected UI Size.
+  A CSS content floor keeps the active panel content at its full budget.
+  Thus, controls do not paint outside their cards.
+  One constant defines the panel drag floor, which is the smallest tab minimum.
+  Thus, a tab switch does not clamp the panel group again and cause playback defects.
+  Below its budget, a taller tab uses its defensive vertical scrollport.
+
+  Every interactive control stays
+  reachable. It is visible at or above the budget and scroll-reachable below it. Clipping
   a control is not an accepted fallback.
 - The active tab already names its surface. Mixer has no redundant internal
   title band, so its content-safe minimum is one title row lower at every UI
@@ -242,14 +244,14 @@ Player (minimum 1920x1080 renderer content, resizable, starts maximized in Elect
   list. Active tag filters form a horizontally scrollable quiet group on the
   left. The always-visible count and the Name/Duration/Added sort group stay
   together on the right. Active filters and the active sort use clear pressed
-  treatment; inactive controls remain quiet until hover or focus.
+  treatment. Inactive controls remain quiet until hover or focus.
 - The tag navigator uses a flat searchable list. Every tag toggle exposes
   pressed state, optional color, visible focus, and the selected UI Size target.
   The list scrolls independently and does not expand the results toolbar.
 - Loading, filtered-zero, folder-empty, unavailable, cancelled, and error states
   occupy the sample-list surface instead of changing the two-column layout.
   Their copy explains the state and the next valid action. Only filtered-zero
-  adds a local Clear filters action; recovery for folder access or first-sync
+  adds a local Clear filters action. Recovery for folder access or first-sync
   failure stays in Home or the shared library-status surface.
 
 ### Resize Handles
@@ -300,9 +302,9 @@ weights, and line-heights.
   through the UI. Do not repeat as component-level font-size overrides.
 - A theme's typeface is part of its identity. Each theme may override any
   role with a different bundled font.
-- Every text-bearing element (labels, buttons, links, chrome, status text,
-  tooltips, menu items, placeholder text, input values) must use a theme
-  font-family token with the selected bundled family first. The token may end
+- Each text element must use a theme font-family token.
+  This rule covers labels, buttons, links, chrome, status, tooltips, menus, placeholders, and input values.
+  Put the selected bundled family first. The token may end
   with the documented system safety fallback, but components must not name or
   select that fallback directly.
 - The fixed authored type scale is 10, 11, 12, 13, 14, 15, 16, and 18px:
@@ -320,7 +322,7 @@ weights, and line-heights.
 
   The UI Size table may select larger generated endpoints. Icon dimensions do
   not extend this type scale. Close controls use the shared SVG, not a text
-  glyph sized through `font-size`; 22px is therefore not a typography token.
+  glyph sized through `font-size`. Thus, 22px is not a typography token.
 
 ### Text Transform Rules
 
@@ -375,7 +377,7 @@ are defined in JSON theme files under `public/themes/` and applied to
   `--chrome`
 - **Accent tokens:** `--accent`, `--accent-dark`, `--highlight`
 - **Mixer slot accents:** `--fx-accent-1` … `--fx-accent-4`, one per FX/Return
-  slot and its matching channel-strip send; each falls back to `--accent`
+  slot and its matching channel-strip Send. Each uses `--accent`
 - **Text tokens:** `--text`, `--text-muted`
 - **Border tokens:** `--border`, `--header-border`
 - **Control tokens:** `--pill-bg`, `--pill-border`
@@ -388,7 +390,7 @@ are defined in JSON theme files under `public/themes/` and applied to
 ### Depth Tokens
 
 Depth tokens (gradients and shadows) are theme-dependent value strings. Every
-theme defines the complete vocabulary; a theme may be flat, shadowed, neumorphic,
+theme defines the complete vocabulary. A theme can be flat, shadowed, neumorphic,
 beveled, or glowing. Components read tokens and never hardcode shadows or
 gradients. See [DESIGN.md](../DESIGN.md) for the full token list with Emerald
 default values.
@@ -418,7 +420,7 @@ do not vary between themes.
 
 Each theme defines an 8-slot palette plus an unsorted color. Slots map to the
 sample's top-level source-folder name deterministically. Placements store the slot number, not
-the color; the hex resolves at draw time from the active palette. Switching
+the color. The hex resolves at draw time from the active palette. Switching
 themes recolors every placed sample bubble live.
 
 See [DESIGN.md](../DESIGN.md) for the slot-to-source-group mapping table, the
@@ -457,7 +459,7 @@ present. Native light Windows scrollbars never appear on dark themes.
 - **Transport buttons:** selected UI Size targets, round or rounded-rect
   based on `--radius-transport`. Transport Ribbon contains exactly four:
   Skip Back, Jump to End, Play/Pause, Stop.
-- **Mute/Solo:** selected UI Size targets in lane heads; absent from Mixer.
+- **Mute/Solo:** selected UI Size targets in lane heads. Absent from Mixer.
   Active mute fill must meet 3:1 non-text contrast against inactive pill.
 - **Disabled state:** visually subdued, non-interactive.
 
@@ -514,7 +516,7 @@ present. Native light Windows scrollbars never appear on dark themes.
   - Red (`--meter-red`): -3 to 0 dB
 - **Peak hold:** 2px CSS-positioned line, ~30 dB/s decay.
 - **Master output metering:** lives in the Master Bus Strip's pinned output
-  meter; its style rules live in the "Master Bus Strip" section.
+  meter. Its style rules live in the "Master Bus Strip" section.
 - Returns have no meters.
 
 ### Progress Indicators
@@ -562,22 +564,22 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Horizontal and vertical sliders expose the matching `aria-orientation` and
   unit-aware value text. Arrow Up/Right increases, Arrow Down/Left decreases,
   and Home/End select the bounds.
-- Used for BPM and lane channel Volume. (The Echoform Delay editor uses circular
-  knobs and one horizontal range instead of the shared linear rail.)
-  Level faders increase from bottom to top and may add unity ticks, meters, and
-  drag readouts without changing the shared rail or handle.
+- Use it for BPM and lane channel Volume.
+  The Echoform Delay editor uses circular knobs and one horizontal range.
+  Level faders increase from bottom to top.
+  They can add unity ticks, meters, and drag readouts without changing the shared rail or handle.
 - Rotary controls, resize separators, and the variable-width Song Progress Bar
-  scrollbar are separate semantic controls. The Tracker ruler reuses the shared
-  slider behavior and hardware handle, but its fixed 33px timeline row keeps a
-  compact 10-by-22px seek target instead of the parameter-slider UI Size target.
+  scrollbar are separate semantic controls.
+  The Tracker ruler uses the shared slider behavior and hardware handle.
+  Its fixed 33px row uses a compact 10-by-22px seek target instead of the parameter-slider target.
 
 ### Rotary Controls (Sends, Return Mix, Lane-Header Pan, FX Parameters)
 
 - Shared project-owned SVG control: 270-degree range track, high-contrast
   value arc, inset cap, short pointer inside cap.
-- Compact Mixer Sends and Return Mix, lane-header Pan, and full FX parameter
-  dials use the same complete SVG structure: range track, value arc, inset cap,
-  default marker, and pointer. Size changes only the rendered dimensions; it
+- Compact Mixer Sends, Return Mix, lane-header Pan, and full FX dials use one SVG structure.
+  It contains a range track, value arc, inset cap, default marker, and pointer.
+  Size changes only the rendered dimensions. It
   does not replace any of that structure with a CSS-only circle or pointer.
 - Unipolar Sends, Return Mix, and FX parameters fill from the minimum. Bipolar
   lane-header Pan fills outward from its center point. A short outer marker
@@ -587,9 +589,9 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Wheel up increases, wheel down decreases. Handled wheel events do not
   scroll the page.
 - The non-passive wheel listener binds once and reads only the latest committed
-  value, range, step, and callback; render work never publishes event inputs.
+  value, range, step, and callback. Render work never publishes event inputs.
 - Values are read-only text. Controls accept pointer, wheel, and discrete
-  keyboard events; there is no typed numeric entry.
+  keyboard events. There is no typed numeric entry.
 - `aria-valuetext` with unit-aware position (e.g. "Center", "40% left",
   "100% right").
 - Right-click cycle on pan: C to R to L to C.
@@ -617,25 +619,27 @@ present. Native light Windows scrollbars never appear on dark themes.
 
 - Compact 76px vertical stack at UI Size 30. Higher UI Sizes scale through
   shared tokens.
-- All strips sit inside a Channels panel whose small uppercase mono header
-  reads "N × Channels" on the left and a status LED plus "4 Sends" on the
-  right. The FX bank is a sibling panel with the same header grammar.
+- All strips sit inside a Channels panel.
+  Its small uppercase mono header reads "N × Channels" on the left.
+  A status LED and "4 Sends" appear on the right.
+  The FX bank is a sibling panel with the same header grammar.
 - The compact selectable header visibly shows only the zero-padded derived
-  channel number ("01"); it recompacts when lanes are deleted. The lane-owned
+  channel number ("01"). It recompacts when lanes are deleted. The lane-owned
   name remains available through the header's tooltip and accessible text, but
   is not visibly duplicated in the Mixer.
-- Four numbered Sends form a 2x2 group. Each send dial is tinted with its
-  matching FX slot accent (`--fx-accent-1` through `--fx-accent-4`, falling
-  back to `--accent`), mapping sends to FX slots 1:1 by color. Each tooltip
+- Four numbered Sends form a 2x2 group.
+  Each Send dial uses its matching `--fx-accent-1` through `--fx-accent-4` color.
+  A missing token uses `--accent`.
+  Thus, color maps Sends to FX slots 1:1. Each tooltip
   shows the current module type and Send percentage. Sends remain adjustable
   when their bus is Empty.
-- Pan edits the lane-owned pan value only in the lane header; it is not
+- Pan edits the lane-owned pan value only in the lane header. It is not
   repeated in the Mixer.
-- Volume defaults to 80 percent. The fader is a rectangular track with an
-  accent value fill and a low-profile rail thumb; the dry RMS dBFS meter with
-  peak hold renders beside it as a narrow segmented LED-style column.
+- Volume defaults to 80 percent.
+  The fader has a rectangular track, an accent value fill, and a low-profile rail thumb.
+  A narrow segmented LED-style column shows the dry RMS dBFS meter and peak hold.
 - A mono dB readout at the strip foot shows the fader position in dB
-  ("-2 dB"; "−∞ dB" at zero).
+  ("-2 dB" or "−∞ dB" at zero).
 - There are no EQ, Pan, Mute, Solo, remove, routing, or reorder controls in the
   Mixer.
 
@@ -663,9 +667,10 @@ present. Native light Windows scrollbars never appear on dark themes.
     that paints its compact dot centered inside. An Empty slot shows a
     static unlit dot.
   - Body: an Edit button (cog icon tinted with the slot accent), the square
-    limiter toggle, and a Mix rotary that edits the wet Return level
-    (default 100%) — the same shared Mix parameter the editor exposes. The
-    registry-driven editor opens the selected module; on an Empty slot it opens
+    limiter toggle, and a Mix rotary.
+    The rotary edits the wet Return level, which defaults to 100%.
+    The editor exposes the same shared Mix parameter.
+    The registry-driven editor opens the selected module. On an Empty slot, it opens
     the registry-driven picker.
   - Foot: a one-line mono summary of time/division, feedback, character, and
     Mix.
@@ -675,11 +680,13 @@ present. Native light Windows scrollbars never appear on dark themes.
 - Bypass stops new input but lets the current tail finish. A bypassed
   container dims to half opacity and desaturates.
 - Slot accents come from the theme tokens `--fx-accent-1` through
-  `--fx-accent-4` (optional per theme; missing slots fall back to
-  `--accent`). Every bundled theme ships explicit values drawn from its own
-  color system: Arcade, Neon, Neon Rave, and Riso use the reference board's
-  multi-accent sets; most others alternate two theme tones (IDE uses four
-  syntax-style tones); Mono stays single phosphor green by design.
+  `--fx-accent-4`. Missing slots use `--accent`.
+  Each bundled theme supplies values from its color system.
+  Arcade, Neon, Neon Rave, and Riso use the reference board multi-accent sets.
+  Most other themes alternate two theme tones.
+  IDE uses four syntax-style tones.
+
+  Mono uses only phosphor green.
 - The reference board (`fx-mixer-16-themes`, REV 07) governs structure and
   density only. Do not invent hardware controls, screws, tape labels, or
   behavior that is not in a specification.
@@ -691,24 +698,26 @@ of hardware: a dark rack shell holding thirteen module faceplates in a
 horizontal scrollport that follows the Mixer scroll conventions.
 
 **Hardware palette exception.** The rack is a fixed hardware surface. Its
-faceplate finishes, family chip colors, and meter face colors are constants
-scoped to the rack, like physical gear and like the reference-board rule
-for the Mixer. Everything around the rack (panel chrome, scrollbars, focus
+faceplate finishes, family chip colors, and meter face colors are rack constants.
+This rule matches the fixed hardware and the Mixer reference board.
+Everything around the rack (panel chrome, scrollbars, focus
 ring, text outside faceplates) uses theme tokens. Rack text uses the theme
 font roles (`--font-label` for labels, `--font-mono` for ordinals, values,
-and LCD readouts); no system fonts.
+and LCD readouts). It uses no system fonts.
 
 **Rack shell.** Rounded rack slab (14px radius) with a dark vertical
 gradient, 16px vertical and 18px horizontal padding, 9px gap between
 modules, deep drop shadow. Each module corner carries a small screw-head
 detail as a non-interactive decoration.
 
-**Module faceplate.** 152px wide (Bus Compressor 184px wide; the two meter
-modules 196px), 420px tall, 6px radius, vertical faceplate gradient in the
-module's finish, hairline dark border, inner top highlight. Reorderable
-processor anatomy, top to bottom: grip + ordinal + power LED row, family chip
-and module name, control grid, optional GR LED row, description text block
-separated by a hairline. The pinned Gain Stage keeps its ordinal and controls
+**Module faceplate.** A standard faceplate is 152px wide, 420px tall, and has a 6px radius.
+The Bus Compressor is 184px wide, and the two meter modules are 196px wide.
+Each faceplate has a vertical gradient, dark hairline border, and inner top highlight.
+The reorderable processor has a fixed top-to-bottom order.
+It starts with the grip, ordinal, and power LED row.
+Then it has the family chip, module name, control grid, and optional GR LED row.
+
+A hairline separates the description text block. The pinned Gain Stage keeps its ordinal and controls
 but omits the grip and power LED. Pinned meters omit both controls too.
 
 **Finishes.** Eight fixed finishes. See [DESIGN.md](../DESIGN.md) for the
@@ -722,14 +731,16 @@ turns neutral gray.
 
 **Knobs.** Rack knobs reuse the shared rotary control (270-degree track,
 value arc, inset cap, short pointer): standard face 46px, large face 74px.
-The value arc uses the family color; bipolar knobs (Trim) fill from
-center. Value text sits under the label in a recessed mono readout. Hit
-targets: the semantic pointer/focus box uses the selected UI Size; the
+The value arc uses the family color. Bipolar knobs (Trim) fill from
+center. Value text sits under the label in a recessed mono readout.
+
+The following rules apply to hit targets.
+The semantic pointer/focus box uses the selected UI Size. The
 painted knob stays compact inside it.
 
-**Power LED and grip.** The power toggle paints a 20px LED (amber when on,
-with glow) centered in a UI Size hit box, same pattern as the Mixer FX
-LED. The grip paints a 20x18px four-dot handle in a UI Size hit box with
+**Power LED and grip.** The power toggle paints a centered 20px LED in a UI Size hit box.
+The on state is amber with a glow, as in the Mixer FX LED.
+The grip paints a 20x18px four-dot handle in a UI Size hit box with
 `cursor: grab`.
 
 **Ordinals.** Two-digit mono chip (`01`-`13`), recessed background,
@@ -737,63 +748,69 @@ renumbered live on reorder.
 
 **Meters.**
 
-- Input VU: cream radial-gradient meter window (132px tall), dark tick
-  arcs with a red over-zero arc, physical needle, legend
-  `0 VU = -18 dBFS`; below it, L/R peak LEDs (red) flanking a green-on-
-  black LCD dBFS readout.
-- Output: two vertical bars — LUFS-M (30px wide, green fill, translucent
-  green target band at -14, red fill state when hot) and TP (16px wide,
-  amber fill, red line at -1 dBTP) — sharing a -6 to -24 mono scale
-  column; below them a large LCD integrated-LUFS readout whose color
-  encodes distance to target (green on target, blue quiet, amber hot, red
-  over), a TP readout, and the latching OVER lamp (full-width, red fill
-  and glow when lit).
+- Input VU: a cream radial-gradient meter window is 132px tall.
+  It has dark tick arcs, a red over-zero arc, a physical needle, and `0 VU = -18 dBFS`.
+  Red L/R peak LEDs flank a green-on-black LCD dBFS readout below it.
+- Output: LUFS-M and TP use two vertical bars and one -6 to -24 mono scale column.
+  LUFS-M is 30px wide with green fill and a translucent green target band at -14.
+  A hot state uses red fill.
+  TP is 16px wide with amber fill and a red line at -1 dBTP.
+  A large LCD Integrated LUFS readout appears below the bars.
+  Green means on target, blue means quiet, amber means hot, and red means over.
+
+  The area also has a TP readout and a full-width latching OVER lamp.
+  The lit OVER lamp uses red fill and glow.
 - GR LED rows: label `GR` plus six 8px LEDs tinted with the family color.
 
 **States.**
 
 - Off (bypassed): module body at 40 % opacity and 75 % grayscale,
-  controls inert; power LED unlit; family chip gray.
-- Dragging: dragged module at 35 % opacity; a 4px amber drop indicator
+  controls inert. The power LED is unlit, and the family chip is gray.
+- Dragging: the dragged module uses 35 % opacity. A 4px amber drop indicator
   with glow marks the insertion point.
 - Focus: standard focus-visible outline on grip, power, knobs, switches,
   preset chips, and the OVER lamp.
-- Reduced motion: `prefers-reduced-motion` removes transitions; meters
+- Reduced motion: `prefers-reduced-motion` removes transitions. Meters
   still update by value.
 
 **Preset chips.** The four factory presets render as the standard chip
-row in the strip header; the active chip uses an amber filled state with
+row in the strip header. The active chip uses an amber filled state with
 dark ink.
 
 **Layout fit.** The rack lives in the Master panel's horizontal
 scrollport. The Master tab's content-safe minimum derives from the rack
-height plus shell padding; if the granted panel height is smaller, the
-panel's sanctioned defensive vertical scrollport applies (spec-006).
+height plus shell padding.
+If the granted panel height is smaller, the approved defensive vertical scrollport applies under spec-006.
 Bottom Workspace expansion shows the rack full-height.
 
 ### Echoform Delay Editor Modal
 
-- Selecting Echoform Delay opens a centered blocking modal at a target 760 × 680
-  (width `min(760px, 100vw − 28px)`, height `min(680px, 100vh − 28px)`), outside
-  the Mixer scroll surface, with responsive two- and one-column fallbacks and an
-  internal scroll when smaller. The backdrop and ordinary app hotkeys are inert;
-  there is no click-outside dismissal. It inherits the active DAW theme through
+- Selecting Echoform Delay opens a centered blocking modal outside the Mixer scroll surface.
+  Its target size is 760 × 680.
+  Width is `min(760px, 100vw − 28px)`, and height is `min(680px, 100vh − 28px)`.
+  It has responsive two-column and one-column layouts.
+  It uses an internal scroll at smaller sizes. The backdrop and ordinary app hotkeys are inert.
+
+  There is no click-outside dismissal. It inherits the active DAW theme through
   semantic `--ef-*` tokens over a dark charcoal / amber / teal fallback palette.
-- A 68 px header holds a "D8" module mark, an "FX Return NN" kicker with the real
-  slot number, the "Echoform Delay" title, and a Bypass toggle, Preset selector,
-  and Close button on the right. Below it: a ~120 px echo-tap visualizer (a
-  tempo grid, never a waveform), a four-column control grid (Time spans two
-  columns; then Space, Feedback Tone, Modulation, Character, Ducking, Output),
-  and a footer with knob help plus a live `Active / Tape / Sync` state string.
+- A 68px header contains the "D8" module mark and an "FX Return NN" label with the slot number.
+  It also contains the "Echoform Delay" title.
+  A Bypass toggle, Preset selector, and Close button are on the right.
+  A ~120px echo-tap visualizer appears below it.
+  This visualizer is a tempo grid, not a waveform.
+  A four-column control grid follows it, with Time across two columns.
+
+  The remaining controls are Space, Feedback Tone, Modulation, Character, Ducking, and Output.
+  The footer shows knob help and a live `Active / Tape / Sync` state string.
 - Continuous controls are 270°-arc circular knobs (`role="slider"`) with value
   readouts, plus a horizontal range for Stereo width. Toggles (Bypass, Ping-pong,
   Sync/Free, Character) are real `aria-pressed` buttons.
 - Close saves as one undo edit. Esc discards. Knob keys: arrows step, Shift is
   fine, Page Up/Down move ten steps, Home/End are the bounds, double-click
-  resets to default. A manual edit switches the Preset selector to Custom; a
+  resets to default. A manual edit switches the Preset selector to Custom. A
   preset load is one atomic edit that clears Bypass.
 - Editing is a live audition. Cancel (Esc) restores the previous processor
-  state; canceling a new draft restores Empty. Focus is trapped, opens on
+  state. Canceling a new draft restores Empty. Focus is trapped and opens on
   Bypass, and returns to the originating FX container's Edit trigger. The
   visualizer honors `prefers-reduced-motion`.
 - OS Media Session actions remain available because they are not ordinary app
@@ -802,7 +819,7 @@ Bottom Workspace expansion shows the rack full-height.
 ### Tabs (Bottom Workspace)
 
 - Tablist with automatic activation.
-- Left/Right Arrow moves focus and activates; Home/End activates first/last.
+- Left/Right Arrow moves focus and activates. Home/End activates first/last.
 - One tab has `tabIndex=0`, others `tabIndex=-1`.
 - Connected via `id`, `aria-controls`, `aria-labelledby`.
 - Tab row shows compact read-only BPM and Master status (accessible
@@ -821,7 +838,7 @@ Bottom Workspace expansion shows the rack full-height.
 
 ### Transport
 
-- Play/Pause toggles; Play is accent-colored when stopped, Pause when playing.
+- Play/Pause toggles. Play is accent-colored when stopped, and Pause is accent-colored when playing.
 - Space toggles Play/Pause.
 - Stop returns to tick 0.
 - Skip Back returns to tick 0 (restarts playback if playing).
@@ -836,7 +853,7 @@ Bottom Workspace expansion shows the rack full-height.
 - **Alt:** freeform per-tick precision.
 - **Shift:** reserved for duplication.
 - **Ctrl:** reserved for rectangle-drag multi-select.
-- Overlapping placements are monophonic in audio only; both bubbles keep full
+- Overlapping placements are monophonic in audio only. Both bubbles keep full
   visual size and data.
 
 ### Playhead & Ruler
@@ -848,7 +865,7 @@ Bottom Workspace expansion shows the rack full-height.
   playhead visible without continuous lane-canvas redraws. Pause and stop leave
   the viewport unlocked until playback resumes, without clearing the toggle.
 - Clicking ruler moves playhead to nearest beat.
-- Song Progress Bar thumb reflects visible fraction of capacity; dragging
+- Song Progress Bar thumb shows the visible fraction of capacity. Dragging
   pans view without seeking.
 
 ### Keyboard Shortcuts Overlay
@@ -881,7 +898,7 @@ Bottom Workspace expansion shows the rack full-height.
 - Every icon-only control has an accessible name and visible focus indicator.
 - Square interactive targets use the selected 30x30, 40x40, or 50x50 UI Size
   token. Text-bearing targets use the selected value as their minimum height.
-- No overlapping interactive rectangles; every target's center hit-tests to
+- No interactive rectangles overlap. Each target center hit-tests to
   that target or a descendant.
 - Menus use the shared Radix-backed primitive and return focus to trigger on
   dismiss.
@@ -929,7 +946,7 @@ When creating or modifying a theme, follow these rules:
 
 8. **Treatments a single-value token cannot express** live in
    `[data-theme-key]` blocks in `index.css`. Semantic theme colors still come
-   from tokens; only neutral black/white overlays may be fixed. Examples:
+   from tokens. Only neutral black/white overlays can be fixed. Examples:
    Enterprise's `backdrop-filter: blur(4px)`, Rust noise overlay.
 
 9. **Typeface-wide metric corrections** belong on the theme root and inherit

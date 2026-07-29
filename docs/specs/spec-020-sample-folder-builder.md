@@ -6,14 +6,15 @@
 Electron renderer architecture (Sample Folder is a persisted `FileSystemDirectoryHandle`)
 
 Local semantic audio search belongs to
-[spec-015](spec-015-semantic-audio-search.md); this spec covers only the
+[spec-015](spec-015-semantic-audio-search.md). This spec covers only the
 archive.org folder builder.
 
 ## Objective
 
-Let a user who has no samples build a real Sample Folder from inside MixJam by
-searching archive.org's public-domain and Creative Commons audio collections
-and downloading selected items directly into their Sample Folder. This is the
+Let a user who has no samples build a real Sample Folder from inside MixJam.
+The user searches archive.org public-domain and Creative Commons audio
+collections. The user downloads selected items directly into the Sample
+Folder. This is the
 onboarding path for new users: MixJam has no demo mode, and without a Sample
 Folder the tracker is inaccessible. This feature provides a path forward for
 users who do not already have samples.
@@ -25,8 +26,8 @@ users who do not already have samples.
 - **US-002:** As a user, I can preview a result before deciding to download it.
 - **US-003:** As a user, I can download selected files into my Sample Folder
   and see them appear after automatic library sync.
-- **US-004:** As a user, I can see the license of every item before I download
-  it, so I know what I'm allowed to do with it.
+- **US-004:** As a user, I can see each item license before I download it.
+  The license shows how I can use the item.
 - **US-005:** As a user, I see download progress and can cancel pending
   downloads.
 
@@ -52,7 +53,7 @@ users who do not already have samples.
   one follow-up reconciliation after an active job. Repeated download events
   collapse into that one follow-up and do not prompt for a second manual scan
   action.
-- License/attribution metadata is preserved (e.g. a sidecar `.json` or
+- License/attribution metadata is preserved (e.g. A sidecar `.json` or
   `ATTRIBUTION.txt` per item).
 
 ### Access gating and write permission
@@ -60,11 +61,12 @@ users who do not already have samples.
 - Entry point appears on the Home Screen when a Sample Folder is configured
   but empty (or from the sample browser at any time).
 - The Sample Folder stays **read-only** in normal use (spec-003 picks it with
-  mode `'read'`). Write access is an **upgrade on demand**: when the builder
-  starts a download batch, it calls `requestPermission({ mode: 'readwrite' })`
-  on the existing Sample Folder handle from the user gesture. The Electron
+  mode `'read'`). Write access is an **upgrade on demand**.
+  When the builder starts a download batch, it calls
+  `requestPermission({ mode: 'readwrite' })` on the existing Sample Folder
+  handle. The user gesture starts this call. The Electron
   shell auto-grants the upgrade. The upgrade
-  is not persisted as the folder's default role; day-to-day scanning and
+  is not persisted as the folder's default role. Day-to-day scanning and
   playback continue to require only read access.
 - The feature never writes anywhere other than the Sample Folder's
   `archive.org/` subtree.
@@ -73,13 +75,13 @@ users who do not already have samples.
 
 - [ ] **AC-001:** Searching a known term returns archive.org audio results with license shown per item.
 - [ ] **AC-002:** Downloading a result produces a real audio file inside the Sample Folder under the `archive.org/` subtree.
-- [ ] **AC-003:** After download completes, automatic incremental sync makes the
-  new samples appear in the browser with tags derived from their
-  subfolder, even when session-start sync already ran.
+- [ ] **AC-003:** After download completes, automatic incremental sync adds the
+  new samples to the browser. It derives tags from their subfolder.
+  This sync also runs when session-start sync has finished.
 - [ ] **AC-004:** Cancelling an in-flight download leaves no partial file in the Sample Folder.
-- [ ] **AC-005:** The builder may be opened with the normal read-only Sample
-  Folder handle, but a download cannot begin until read-write permission is
-  granted for that handle.
+- [ ] **AC-005:** The builder can open with the normal read-only Sample Folder
+  handle. A download cannot start until the user grants read-write permission
+  for that handle.
 
 ## Non-Goals
 
@@ -89,7 +91,7 @@ users who do not already have samples.
 - No in-app license filtering beyond displaying each item's license (v1 does
   not attempt legal interpretation).
 - No automatic sample chopping/trimming of downloaded material — files land
-  as-is; editing is out of scope.
+  as-is. Editing is out of scope.
 - No bundled/curated starter pack shipped with the app (that would be demo
   mode by another name).
 

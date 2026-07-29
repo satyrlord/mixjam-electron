@@ -3,10 +3,11 @@
 **Spec Validation Status:** VALIDATED
 
 **Spec Implementation Status:** IMPLEMENTED — the `aetherform-reverb` Return FX
-module, its 760x680 modal editor with the spatial decay visualizer, the
-FDN-based DSP core with shimmer, ducking, and Clear Tail, seven built-in
-presets, and persistence are implemented with headless DSP, component, and
-persistence tests.
+module and its 760x680 modal editor are implemented.
+The editor includes the spatial decay visualizer.
+The FDN-based DSP core includes shimmer, ducking, and Clear Tail.
+Seven presets and persistence are implemented. DSP, component, and persistence
+tests cover these features.
 
 **Depends on:** spec-010 (Return FX Modules), spec-005 (Audio Playback Engine)
 
@@ -15,21 +16,22 @@ persistence tests.
 ## Objective
 
 Add the Aetherform Reverb as the second effect module hosted by the four Return
-FX buses. It is an algorithmic stereo reverb with four space models, three tail
-characters, a pitch-shifted shimmer feedback branch, wet-only
-ducking, and a momentary Clear Tail command. Every displayed control drives real
+FX buses. It is an algorithmic stereo reverb with four space models.
+It has three tail characters and a pitch-shifted shimmer feedback branch.
+It also has wet-only ducking and a momentary Clear Tail command.
+Every displayed control drives real
 DSP. The module follows the spec-010 black-box host contract: the host owns
 routing, power, the shared Mix (return level), the limiter, persistence, and
 disposal.
 
 The serialized module type is `aetherform-reverb`. No earlier reverb module or
-prototype ever shipped, so there is no migration; the type is new inside the
+prototype ever shipped, so there is no migration. The type is new inside the
 existing format version 7.
 
 ## Module Identity and Parameters
 
 The shared state contract lives in `aetherform-reverb-types.ts`
-(`AetherformReverbState`); the module record adds `type: 'aetherform-reverb'`
+(`AetherformReverbState`). The module record adds `type: 'aetherform-reverb'`
 and the optional runtime `id`. Mix is intentionally absent: the FX-return Mix is
 the bus `returnLevel`, the reverb always renders 100% wet (spec-010 Mix
 semantics).
@@ -70,29 +72,31 @@ Readout conventions:
 
 ### Clear Tail
 
-Clear Tail is a momentary command, not a parameter. It is routed as a
-`clear-tail` port message through an optional `clearTail()` method on the
-`ReturnModuleProcessor` contract, the audio engine (`clearReturnTail(index)`),
-the playback engine, and the `useMixer` hook. It is never serialized, never an
-undo entry, and never marks the preset Custom. In DSP it ramps the wet output
-down over ~12 ms, wipes every buffer (pre-delay, early, diffusion, FDN lines,
-filter state, shimmer history and voices), and ramps back up.
+Clear Tail is a momentary command, not a parameter.
+An optional `clearTail()` method routes a `clear-tail` port message.
+The route crosses `ReturnModuleProcessor`, the audio engine
+(`clearReturnTail(index)`), the playback engine, and `useMixer`.
+It is never serialized, never an
+undo entry, and never marks the preset Custom.
+In DSP, it lowers wet output over approximately 12 ms.
+It clears all buffers and filter state, then raises the output.
 
 ## DSP Architecture
 
 The reverb runs in an `AudioWorkletProcessor` (`aetherform-reverb-processor`)
 backed by the allocation-free `AetherformReverbCore`. The renderer posts the
-full parameter state; the audio thread smooths toward targets. Contexts without
+full parameter state. The audio thread smooths toward targets. Contexts without
 worklet support fall back to identity passthrough. A silent or inactive
 upstream input does not stop processing: the worklet feeds the core silence so
 tails ring out.
 
-Signal flow: stereo pre-delay -> model-specific multi-tap early reflections
-(toned once on output) in parallel with input diffusion -> eight-line
-Householder feedback delay network with in-loop tone damping, character
-processing, in-loop diffusion, modulated fractional reads, and the shimmer
-feedback branch -> equal-power early/late blend -> mid/side width -> wet-only
-ducking -> output trim. The host applies the shared Mix (return level) and
+The signal starts with stereo pre-delay.
+Model-specific early reflections run in parallel with input diffusion.
+An eight-line Householder feedback delay network follows.
+It contains tone damping, character processing, diffusion, modulated reads,
+and the shimmer branch. Equal-power early/late blend and mid/side width follow.
+Wet-only ducking and output trim end the module path.
+The host applies the shared Mix (return level) and
 limiter after the module.
 
 Real-time-safety and DSP notes:
@@ -100,96 +104,107 @@ Real-time-safety and DSP notes:
 - All delay, diffusion, modulation, and shimmer memory is preallocated from the
   sample rate at construction. No allocation, locks, logging, or unbounded work
   in the render callback. Cubic (4-point Lagrange) reads are always wrapped in
-  bounds. Denormals are flushed; non-finite input samples are replaced with 0.
-- Late network: eight delay lines with prime-valued, model-specific base
-  lengths (Room compact, Chamber medium, Hall long, Plate short and dense),
-  scaled by a nonlinear Size factor (0.28x–1x) with a 5 ms per-line floor.
-  Feedback uses a Householder matrix; per-line gain is
+  bounds. Denormals are flushed. Non-finite input samples are replaced with 0.
+- Late network: eight delay lines use prime-valued, model-specific lengths.
+  Room is compact, Chamber is medium, Hall is long, and Plate is short and
+  dense. A nonlinear Size factor scales them from 0.28x to 1x.
+  Each line has a 5 ms floor.
+  Feedback uses a Householder matrix. Per-line gain is
   `10 ^ (-3 * lineSeconds / decaySeconds)` so the displayed Decay is the RT60
   target independent of Size. A bounded in-loop soft limiter keeps extreme
   Decay + Shimmer combinations finite without clipping normal tails.
 - Retimes (Size, model, Pre-delay) use dual read-head crossfades — never pitch
   glides. Early reflections retarget through a crossfaded tap-set pair. Model
-  and character scalar changes are weight-smoothed; every externally
+  and character scalar changes are weight-smoothed. Every externally
   controllable value is smoothed or crossfaded.
 - Tone: low-cut (high-pass) and high-cut (low-pass) are cascaded TPT one-pole
   pairs (~12 dB/oct) inside the late feedback path, so damping accumulates per
-  circulation; the early output is filtered once with the same coefficients.
+  circulation. The early output is filtered once with the same coefficients.
   The dry source is never filtered.
 - Characters: Natural is neutral. Vintage blends tanh soft saturation plus an
   extra one-pole damping stage into the loop and adds slow deterministic wander
   scaled by Mod depth. Bloom smears late injection through two long all-passes
   per side (soft onset, gradually opening tail) and slows/widens modulation.
   Mod depth 0 disables all intentional time movement in every character.
-- Modulation: per-line sine LFOs with spread phase offsets; depth maps
+- Modulation: per-line sine LFOs with spread phase offsets. Depth maps
   nonlinearly (`depth^2`) to at most 4 ms. Deterministic seeded state only — no
-  RNG on the audio path; repeated renders are bit-identical.
-- Shimmer: a granular dual-head pitch shifter (sawtooth delay sweep, sin
-  windows at equal power, duration-preserving) per channel, fed from the late
-  output, band-limited before shifting to
-  `min(0.45 * sampleRate / ratio, highCut)`, and injected back into the FDN so
-  it circulates through damping, character, and the safety stage. Ratio is
+  RNG on the audio path. Repeated renders are bit-identical.
+- Shimmer: each channel has a granular dual-head pitch shifter.
+  It uses a sawtooth delay sweep and equal-power sine windows.
+  The late output feeds it. A band limit before shifting uses
+  `min(0.45 * sampleRate / ratio, highCut)`.
+  The result returns to the FDN and crosses damping, character, and safety.
+  Ratio is
   `2 ^ (semitones / 12)`. Amount maps nonlinearly to at most ~0.55 linear send,
   so the root tail stays audible at 100%. Enable/disable and interval changes
-  crossfade (~120 ms) between voice pairs; while faded out the shifter work is
+  crossfade (~120 ms) between voice pairs. While faded out the shifter work is
   suspended (history stays warm at negligible cost). Shimmer keeps circulating
-  during bypass; the loop stays bounded.
+  during bypass. The loop stays bounded.
 - Ducking keys from the unprocessed input (stereo-linked, ~7 ms attack,
   50–2500 ms release), soft knee, up to ~24 dB of wet-only attenuation.
-- Drive ("Smash") is a gain-compensated soft saturation on the signal entering
-  the reverb, before pre-delay/early/late — distinct from the in-loop Character
-  shaping. Applied after the ducking detector reads the input (ducking follows
-  the natural transient), curve `tanh(x·g)/g` with `g = 1 + drive·8` plus a mild
-  makeup, blended against the clean input by the Drive amount so 0% is an exact
-  bypass. Smoothed per sample. Matches
+- Drive ("Smash") adds gain-compensated soft saturation before the reverb.
+  It is separate from in-loop Character shaping.
+  The ducking detector reads the input before Drive.
+  Drive uses `tanh(x·g)/g` with `g = 1 + drive·8` and mild makeup.
+  The Drive amount blends this curve with clean input.
+  Thus, 0% is an exact bypass. The value is smoothed per sample. It matches
   the Echoform Drive curve so both effects "smash" alike.
 - Bypass is tail-preserving: the loop keeps running and the audible return
   crossfades to silence, matching the spec-010 return bypass contract.
 
 ## Editor
 
-The editor follows the Echoform Delay modal architecture exactly: a blocking
-Radix dialog (focus trap, Escape cancels, outside interaction blocked, focus
-restored to the opener), a local draft with live `onPreview` audition, and a
-single committed `onSave` on close — one undoable project edit per editor
-session, matching spec-010. The desktop envelope is 760x680 CSS pixels, scaled
-by UI Size with the same width-full/height-half policy as the delay editor, and
-clamped to the viewport with internal grid scrolling.
+The editor follows the Echoform Delay modal architecture.
+A blocking Radix dialog traps focus and blocks outside interaction.
+Escape cancels, and focus returns to the opener.
+A local draft uses live `onPreview` audition.
+Close commits one `onSave` and one undoable project edit.
+This behavior matches spec-010.
+The desktop envelope is 760x680 CSS pixels and scales with UI Size.
+It uses the delay editor width-full/height-half policy.
+The viewport clamps it and provides internal grid scrolling.
 
-Layout: header (RV mark, `FX Return NN` kicker, title, Bypass, preset selector,
-close), the spatial decay visualizer, a four-column control grid
-(1.12/1.12/0.88/0.88) — Space (spanning two columns), Image, Tone on the top
-row; Texture, Motion, Ducking, Output on the bottom — and a footer with the
+The header contains the RV mark, `FX Return NN`, title, Bypass, preset, and
+close controls. The spatial decay visualizer follows it.
+A four-column control grid uses 1.12/1.12/0.88/0.88 proportions.
+The top row contains Space across two columns, Image, and Tone.
+The bottom row contains Texture, Motion, Ducking, and Output.
+The footer contains the
 knob-interaction legend and a polite live state string such as
 `Active / Chamber / Vintage / Shimmer +12`. The grid drops to two columns
 around 720 px and one column around 500 px.
 
-Controls use the shared editor-knob contract (`role="slider"`, vertical drag,
-Shift fine, wheel, double-click reset, Arrow/Page/Home/End keys, full ARIA
-value reporting, log curves where the table above says so), native selects for
-the space model and shimmer interval, `aria-pressed` toggles for character,
-early reflections, shimmer, and bypass, and the shared LinearSlider for
-early/late balance. The Motion card holds the Rate, Depth, and Shimmer knobs
+Controls use the shared editor-knob contract.
+It includes `role="slider"`, vertical drag, Shift fine, wheel, and reset.
+It also includes Arrow, Page, Home, and End keys with full ARIA values.
+The table identifies controls that use logarithmic curves.
+Native selects set the space model and shimmer interval.
+`aria-pressed` toggles control character, early reflections, shimmer, and
+bypass. The shared LinearSlider controls early/late balance.
+The Motion card holds the Rate, Depth, and Shimmer knobs
 plus the shimmer toggle (with its contained On/Off pill) stacked above the
 interval selector.
 
 The visualizer is parameter-derived (never analyzer data, never a waveform):
-decay readout and model/character chip on the left; the spatial decay field in
+decay readout and model/character chip on the left. The spatial decay field in
 the center (source pulse, pre-delay marker, room boundary, early/late
-reflection nodes, shimmer particles, scanning playhead); pre-delay, size, and
-width/late/shimmer readouts on the right. Models change node shapes, Size and
-Decay scale the field, Diffusion/Density change node spread and count, Vintage
-softens and Bloom enlarges nodes, shimmer particles rise with interval and
-amount, Clear Tail briefly
-empties it, Bypass desaturates and pauses it. It renders through CSS animations
+reflection nodes, shimmer particles, scanning playhead). Pre-delay, size, and
+width/late/shimmer readouts on the right.
+Models change node shapes. Size and Decay scale the field.
+Diffusion and Density change node spread and count.
+Vintage softens nodes, and Bloom enlarges them.
+Shimmer particles rise with interval and amount.
+Clear Tail briefly empties the field. Bypass desaturates and pauses it.
+It renders through CSS animations
 only (no rAF loop), stops when the editor unmounts, honors
 `prefers-reduced-motion`, and carries a full text description
 (`role="img"`).
 
-Styling lives in `aetherform-reverb.css` under the `af-` prefix with the same
-semantic theme bridge as the delay editor — every colour derives from the
-active theme's tokens across all sixteen skins, plus a derived shimmer accent
-(`--af-shimmer`: secondary blended toward the strong accent). There is no
+Styles live in `aetherform-reverb.css` under the `af-` prefix.
+They use the same semantic theme bridge as the delay editor.
+All sixteen skins derive each color from active theme tokens.
+`--af-shimmer` blends the secondary color toward the strong accent.
+There is no
 private palette.
 
 ## Presets
@@ -197,10 +212,10 @@ private palette.
 Seven built-in presets plus a Custom label: Warm Chamber (default), Vocal
 Plate, Dark Hall, Small Room, Ambient Bloom, Shimmer Cloud, Endless Cathedral.
 Preset definitions live in `return-effects.ts`
-(`applyAetherformReverbPreset`); the preset Mix percentages (88, 82, 92, 74,
+(`applyAetherformReverbPreset`). The preset Mix percentages (88, 82, 92, 74,
 96, 98, 100) live with the editor and apply to the shared return level. A
 preset load sets every field atomically in one draft update, clears Bypass, and
-updates both Mix controls; any manual sound edit flips the selector to Custom
+updates both Mix controls. Any manual sound edit flips the selector to Custom
 (exact-match detection, including Mix).
 
 ## Persistence
@@ -213,30 +228,26 @@ phase, and modal state are never serialized. Slot duplication through
 
 ## Verification
 
-- `aetherform-reverb-core.test.ts` — headless DSP: mapping helpers, pre-delay
-  timing (0/120/250 ms, and at 96 kHz), RT60 slope and decay scaling, per-model
-  and per-character IR differences, click-free live model/size/character/
-  density changes, early-off behavior, balance endpoints, tone accumulation,
-  modulation determinism and bounds, width endpoints, ducking depth and
-  release, clear-tail flush, tail-preserving
-  bypass, output trim, non-finite input hygiene, and the full shimmer battery
-  (interval ratios, +12/+24 spectral lift, root retention, zero-amount
-  null, early-path isolation, band-limiting, mono sum, and 30 s decay).
+- `aetherform-reverb-core.test.ts` tests headless DSP.
+  It covers mapping, pre-delay, RT60, models, characters, and live changes.
+  It covers early-off behavior, balance, tone, modulation, width, and ducking.
+  It also covers Clear Tail, bypass, output trim, and non-finite input.
+  Shimmer tests cover intervals, spectral lift, root retention, zero amount,
+  early isolation, band limits, mono sum, and 30-second decay.
 - `aetherform-reverb-performance.test.ts` — no allocation on the processing
-  path; 20%-of-real-time CPU budget with shimmer off and on.
+  path. 20%-of-real-time CPU budget with shimmer off and on.
 - `aetherform-reverb-processor.test.ts` — registration memoization, state
   serialization, update/clear-tail messages, disposal, identity fallbacks.
-- `AetherformReverbModal.test.tsx` — header identity, save/cancel, knob
-  keyboard/pointer/wheel/reset gestures, ARIA reporting, selectors, toggles,
-  retained shimmer settings, Clear Tail command behavior, shared Mix sync,
-  preset atomicity and Custom detection, footer live state, visualizer
-  description and state coupling, reduced motion.
+- `AetherformReverbModal.test.tsx` covers identity, save, cancel, control
+  gestures, ARIA, selectors, and toggles.
+  It covers retained shimmer settings, Clear Tail, shared Mix, and presets.
+  It also covers footer state, the visualizer, and reduced motion.
 - `MixerFxSlot.test.tsx`, `return-effects.test.ts`, `project-file.test.ts` —
   selection flow, summaries, validation, presets, and round-trip persistence.
 
 ## Non-Goals
 
 - No convolution or impulse-response loading.
-- No FX-parameter automation lanes (the app has none; see spec-010).
+- No FX-parameter automation lanes (the app has none, see spec-010).
 - No per-module output metering or analyzer-driven visuals.
 - No BPM-synced reverb parameters.

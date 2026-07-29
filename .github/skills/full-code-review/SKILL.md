@@ -1,22 +1,22 @@
 ---
 name: full-code-review
-description: Reviews a change set for code-judo simplification, clear ownership, clean contracts, file growth, and spaghetti growth.
+description: Review a change set for simpler code, clear ownership, clean contracts, file growth, and scattered control flow.
 disable-model-invocation: true
 ---
 
 # Full Code Review
 
-Run a read-only **code-judo review** by default.
+Run a read-only **simplification review** by default.
 Seek changes that remove concepts, branches, wrappers, or layers without changing behavior.
 Edit files only when the user requests fixes.
 
 ## Review
 
-1. Establish the review surface from the user scope, current diff, and canonical documents.
+1. Establish the review scope from the user request, current diff, and canonical documents.
    Complete this step when every file in scope has an owner.
 2. Read each changed file with its relevant callers, tests, and contracts.
    Complete this step when each change has enough context for a judgment.
-3. Apply every standard below and record evidence before assigning severity.
+3. Evaluate every standard below with recorded evidence before you assign severity.
    Complete this step when every standard has a recorded result.
 4. Report only findings with a concrete risk and remedy.
    Complete this step when each finding cites exact evidence.
@@ -28,9 +28,9 @@ Run `run-quality-gate` after an authorized repair.
 
 ## Standards
 
-### Code judo
+### Simplification
 
-- **Smell:** A change moves complexity without reducing the reader's mental model.
+- **Smell:** A change moves complexity without reducing what the reader must understand.
 - **Remedy:** Change ownership or state so a branch, mode, wrapper, or layer disappears.
 
 ### File growth
@@ -38,7 +38,7 @@ Run `run-quality-gate` after an authorized repair.
 - **Smell:** A change pushes a file from below 1,000 lines to above 1,000 lines.
 - **Remedy:** Split the file unless one clear concept owns all its content.
 
-### Spaghetti growth
+### Scattered control flow
 
 - **Smell:** Conditions, nullable modes, or special cases spread through unrelated flows.
 - **Remedy:** Move the policy to its owner or use an explicit state model.

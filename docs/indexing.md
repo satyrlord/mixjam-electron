@@ -5,11 +5,12 @@ afterward, without freezing the UI.
 
 ## Where it runs
 
-Indexing runs inside the **backend Web Worker** (`src/renderer/src/backend/`) —
-never on the UI thread. opfs-sahpool allows exactly one DB connection, so the
-indexer shares the query connection: phase-1 work is batched in transactions
-and yields to the worker's event loop between batches, letting worker requests
-interleave with an in-flight scan. Progress and lifecycle events are posted to
+Indexing runs inside the **backend Web Worker** (`src/renderer/src/backend/`).
+It never runs on the UI thread. opfs-sahpool allows exactly one database connection.
+
+Thus, the indexer shares the query connection.
+Phase-1 work uses transaction batches and yields to the worker event loop between batches.
+Worker requests can interleave with an active scan. The worker sends progress and lifecycle events to
 the BackendAPI facade on the UI thread.
 
 ```text
@@ -19,7 +20,7 @@ UI thread --startLibrarySync(FolderRef, trigger)--> backend worker
    +-- root/job-scoped progress and done events <----+ metadata and analysis
 ```
 
-The traversal walks the Sample Folder's `FileSystemDirectoryHandle`; file
+The traversal walks the Sample Folder's `FileSystemDirectoryHandle`. File
 identity is the `(root_id, relpath)` pair, and `File.size`/`File.lastModified`
 replace `stat()`.
 
@@ -35,27 +36,29 @@ entry, and Home/Player navigation never starts or restarts a job.
 
 The backend job coordinator runs one library job at a time and serializes it
 with the single analyzer, individual analyzer requests, and generator planning.
-A duplicate request for the active or queued root returns the existing job identity. Picking
-a different Sample Folder cancels the prior root at its next checkpoint, removes
-its queued automatic request, prioritizes the new root, and invalidates UI events
-from the previous root. A completed app-owned mutation, including a spec-020
-download, bypasses the once-per-session suppression. If the same root is active,
-the coordinator sets a dirty bit and guarantees one follow-up reconciliation
-after the active job; multiple mutation events collapse into that one follow-up.
+A duplicate request for the active or queued root returns the existing job identity.
+Selecting a different Sample Folder cancels the prior root at its next checkpoint.
+It removes the queued automatic request and gives the new root priority.
+It also invalidates UI events from the previous root. A completed app-owned mutation, including a spec-020
+download, bypasses the once-per-session suppression.
+
+If the same root is active, the coordinator sets a dirty bit.
+It guarantees one follow-up reconciliation after the active job.
+Multiple mutation events become one follow-up.
 If the root is idle, the mutation schedules work immediately.
 
 The first sync and later refreshes use the same incremental pipeline. Existing
 indexed rows remain queryable while a refresh runs. A first-time folder shows
-an empty syncing state until `scan-done`; it does not apply an app-wide modal
+an empty syncing state until `scan-done`. It does not apply an app-wide modal
 overlay or block navigation. Progress appears in the Home Sample Folder card
 while Home is visible and in the Middle Strip library-status region while the
 Player is visible.
 
-The UI exposes one low-prominence manual **Re-scan Sample Folder** recovery
-action for files changed after the session's automatic sync. Automatic and
-manual triggers are single-flight and root-scoped: duplicate requests coalesce,
-the start call returns the owning job identity, and every progress/done event
-carries the string root key and job identity that owns it.
+The UI exposes one low-prominence manual **Re-scan Sample Folder** recovery action.
+Use it for files that change after the session's automatic sync.
+Automatic and manual triggers are single-flight and root-scoped.
+Duplicate requests merge, and the start call returns the owning job identity.
+Each progress/done event carries its string root key and job identity.
 
 ## Incremental sync pipeline
 
@@ -72,22 +75,25 @@ the existing browser remains available while progress appears in the current
 Home or Player status surface.
 
 **Phase 2 — extract metadata.**
-Walk rows where `scan_state = 0` or the persisted metadata revision is stale,
-read audio headers to fill `duration`, `sample_rate`, and `channels`, then set
-`scan_state = 1` and stamp the current metadata revision. A terminal unsupported
+Walk rows where `scan_state = 0` or the stored metadata revision is stale.
+Read audio headers to fill `duration`, `sample_rate`, and `channels`.
+Then set `scan_state = 1` and stamp the current metadata revision. A terminal unsupported
 or damaged-file result sets `scan_state = 3` (metadata unavailable) and also
-stamps the revision. It also clears stale non-manual BPM, key, and type values
-and stamps the analysis revision for those bytes; manual overrides remain
-unchanged. Automatic sync skips unchanged current-revision rows in both states;
-manual Re-scan explicitly retries state 3. Four metadata parses run
-concurrently; SQLite updates remain serialized on the worker in transactions of
+stamps the revision. It also clears stale non-manual BPM, key, and type values.
+
+It stamps the analysis revision for those bytes. Manual overrides remain
+unchanged. Automatic sync skips unchanged current-revision rows in both states.
+
+Manual Re-scan explicitly retries state 3. Four metadata parses run
+concurrently. SQLite updates remain serialized on the worker in transactions of
 up to 200 rows. `music-metadata.parseBlob` reads headers without decoding whole
 files. Progress is emitted every 50 rows and at completion.
+
 If a state-3 retry later extracts metadata successfully, its analysis revision
 returns to pending so the recovered sample is analyzed again.
 
 The scan can be cancelled but not paused. Cancellation increments a generation
-counter and is observed at phase boundaries and phase-1 batch boundaries; phase
+counter and is observed at phase boundaries and phase-1 batch boundaries. Phase
 2 checks it before taking the next stub. Already committed rows are retained,
 and the UI enters a cancelled state immediately. A later Retry or Re-scan
 resumes naturally by re-upserting phase-1 rows and processing remaining stubs.
@@ -100,14 +106,16 @@ from their contextual projections. The analyzer derives group summaries for
 directory prefixes and structured SC/SL source cohorts, then exposes resolved
 non-overlapping groups as tempo/key clusters. A folder path or filename cohort
 is group evidence, not a uniformity contract.
+
 Analysis has its own `{ status, analyzed, total }` progress events and yields to
 the worker event loop after every file so library queries continue to interleave.
 Each per-file evidence record is committed before its progress count advances.
 Automatic and manual sync analyze only files that are new, changed,
 interrupted, or stale for the current analysis revision. Unchanged attempted
 files are not decoded again, including files whose valid result was NULL.
+
 Manual fields are never replaced. The worker retains only compact result
-summaries and raw evidence; decoded PCM remains bounded to one sample. After file
+summaries and raw evidence. Decoded PCM remains limited to one sample. After file
 work, it rebuilds the affected root's group summaries and automatic projections
 from persisted raw evidence. Those contextual updates commit atomically.
 `analysis-done` refreshes the current windowed query and cluster summaries.
@@ -117,6 +125,7 @@ batch path. It has its own typed job identity and is serialized with library
 sync. Its request completes only after the file evidence and affected context
 have committed or the operation has reported an error. There is no separate
 folder calibration request or lifecycle.
+
 MixJam Generator planning is another typed, root-scoped worker job. It is
 serialized with library sync and analyzer writes. It selects one current
 analysis cluster and may decode its bounded candidate set for arrangement
@@ -124,9 +133,11 @@ scoring. It consumes analyzer-owned BPM, key, and type and performs no competing
 semantic inference for those fields. It returns a neutral plan for
 renderer-owned project serialization and commit. Cancellation is checked
 between reads and before the plan returns.
-An automatic sync requested for a newly selected root during individual
-analysis is queued and starts when that analysis finishes; the folder-selection
-request is not discarded.
+
+The worker queues an automatic sync for a newly selected root during individual analysis.
+It starts the sync after that analysis finishes.
+
+It does not discard the folder-selection request.
 
 Readable unsupported or damaged bytes clear stale non-manual analysis. A
 transient failure to read the file preserves prior metadata for a later retry.
@@ -134,7 +145,7 @@ transient failure to read the file preserves prior metadata for a later retry.
 Manual values carry per-field `manual` provenance and survive sync and
 re-analysis. Clearing an override clears its source and permits the individual
 re-analysis action to fill that field again. Automatic decoding of MP3, FLAC,
-OGG, and AIFF is deferred; those formats retain manual analysis controls.
+OGG, and AIFF is deferred. Those formats retain manual analysis controls.
 
 ## Folder-derived tag assignment
 
@@ -149,8 +160,8 @@ For example, `Hard Trance/Bass/kick.wav` receives `Hard Trance` and `Bass`, whil
 `House/Bass/bass.wav` receives `House` and the same `Bass` tag.
 
 Folder-derived assignment provenance is separate from user assignment
-provenance. A changed or moved file recomputes only its folder-derived tags;
-user-created assignments survive. After phase 1 completes, one transaction
+provenance. A changed or moved file recomputes only its folder-derived tags.
+User-created assignments survive. After phase 1 completes, one transaction
 publishes staged sample assignments and reconciles the root's visible
 folder-tag projection. A cancelled or failed walk discards the staging state and
 keeps the prior complete projection. Missing rows keep durable user metadata
@@ -158,15 +169,17 @@ but do not keep obsolete folder tags visible.
 
 ## Per-root scoping (one DB, many Sample Folders)
 
-Every Sample Folder that has ever been scanned gets a row in `scan_roots`
-(keyed by its FolderRef id), and each `samples` row carries the `root_id` of
-the root it was found under. Browser queries (`querySamples`, `hasSamples`) and
-folder-derived tag discovery is scoped to the active Sample Folder's root, so
-switching folders never shows another folder's rows or folder-only tags. A folder that has
-not been scanned yet reads as empty and its automatic session sync establishes
-the first index. Later syncs are scoped the same way: marking missing files and
-reconciling folder-derived tags only touch the root being scanned, so rows and
-tag sources belonging to other roots survive untouched.
+Each scanned Sample Folder gets a row in `scan_roots`, keyed by its `FolderRef` ID.
+Each `samples` row has the `root_id` of its source root.
+Browser queries and folder-derived tag discovery use the active Sample Folder root.
+These queries are `querySamples` and `hasSamples`.
+
+Thus, switching folders never shows rows or folder-only tags from another folder.
+A folder that has not been scanned yet reads as empty.
+Its automatic session sync establishes
+the first index. Later syncs use the same scope.
+Missing-file updates and folder-derived tag updates affect only the scanned root.
+Rows and tag sources from other roots remain unchanged.
 
 ## Change detection and incremental sync
 
@@ -175,15 +188,15 @@ The cheap, reliable change key is **`(size_bytes, mtime)`**. On sync of a root:
 1. Walk the filesystem, building the set of current paths.
 2. For each file:
    - **new path** → insert stub (phase 1), queue for phase 2.
-   - **known path, `mtime`/`size` changed** → reset to stub and re-extract
-     metadata, while preserving tags, bpm/key fields, and the original
-     `date_added`; reset metadata and analysis revisions; filesystem-derived
-     folder-derived tag assignments are recomputed. Mark that file's raw evidence and the
+   - **known path, `mtime`/`size` changed** → reset to a stub and extract metadata again.
+     Keep tags, BPM/key fields, and the original `date_added`.
+     Reset metadata and analysis revisions.
+     Recompute filesystem-derived folder tags. Mark that file's raw evidence and the
      affected root's group model stale through the reset analysis revision.
    - **known path, unchanged** → skip.
-3. **Deletions:** any `samples` row whose path was not seen in the walk is marked
-   `scan_state = 2` (missing) rather than hard-deleted, so its tags/library
-   memberships survive a temporarily-disconnected drive. Missing rows are hidden
+3. **Deletions:** mark an unseen `samples` row as `scan_state = 2` instead of deleting it.
+   Its tags and library memberships then survive a temporarily disconnected drive.
+   Missing rows are hidden
    from normal browsing by default. No purge-missing UI exists yet.
 4. **Folder-tag reconciliation:** after phase 1 completes, atomically replace
    this root's folder-derived sources with the complete walked segment
@@ -196,12 +209,12 @@ keys through the existing missing-plus-new identity behavior. Adding, changing,
 removing, or re-analyzing one member marks
 the root's group model stale. The analyzer rebuilds that model from stored raw
 evidence without decoding unchanged siblings. A grouping revision may
-invalidate every root model, but it reuses compatible raw evidence; only an
+invalidate every root model, but it reuses compatible raw evidence. Only an
 analysis revision that changes direct per-file extraction requires new audio
 reads.
 
 Content hashing (for move/rename detection and true dedup) is **out of scope for
-v1**; `UNIQUE(root_id, relpath)` is the dedup key. Hashing can be added later as
+v1**. `UNIQUE(root_id, relpath)` is the dedup key. Hashing can be added later as
 opt-in because it is expensive at 35GB.
 
 ## Live watching (optional, later)
@@ -220,7 +233,7 @@ the approved update because its cost against a 100k-file root is unmeasured.
 - `scan_roots.last_completed_at` advances only after phase 2 has committed every
   terminal metadata outcome for the current job. The worker updates it in the
   final database transaction immediately before emitting `scan-done`. A
-  completed empty folder is ready; cancellation or fatal failure does not
+  completed empty folder is ready. Cancellation or fatal failure does not
   advance it.
 - Terminal unsupported or damaged metadata sets `scan_state = 3` and stamps the
   metadata and analysis revisions. It clears stale automatic analysis fields

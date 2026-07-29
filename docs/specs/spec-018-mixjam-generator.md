@@ -17,7 +17,7 @@ template must require only one new JSON file, with no TypeScript, engine,
 worker, or UI registration change.
 
 The feature is aimed at first-time producers and users of vintage software such
-as eJay or Sony Acid. It is a style-guided arrangement tool; it does not claim
+as eJay or Sony Acid. It is a style-guided arrangement tool. It does not claim
 to infer a genre from audio analysis.
 
 **This spec owns the product contract** — the Home card, the wizard, parameters,
@@ -39,7 +39,7 @@ arrangement sounds like belongs there, not here.
 - **US-005:** As a user, the generated project is saved transactionally in my
   User Folder with a non-overwriting name and appears in the MixJam Browser.
 - **US-006:** As a user, I see a clear error when required sample roles cannot
-  be filled; the app never exposes a partial project.
+  be filled. The app never exposes a partial project.
 - **US-007:** As a user, I can regenerate a saved generated project either
   exactly or explicitly against the current corpus.
 - **US-008:** As a user, generated sample bubbles keep the same source-group
@@ -60,7 +60,7 @@ is selected, but its action is gated until both folders are accessible and the
 User Folder is writable. The card remains at normal contrast while gated. Only
 its secondary action is disabled, with the concrete prerequisite kept visible and
 linked through `aria-describedby`. Scanner progress appears only in Library
-Setup; the generator card does not duplicate it.
+Setup. The generator card does not duplicate it.
 
 Its states are:
 
@@ -81,7 +81,7 @@ The wizard is a blocking modal with two steps:
 
 1. **Parameters** — choose analysis cluster when needed, profile, BPM, intensity,
    duration, and seed.
-2. **Generate** — show planning, selection, arrangement, and save progress; then
+2. **Generate** — show planning, selection, arrangement, and save progress. Then
    show the saved artifact and an **Open in Player** action.
 
 There is no preview step. Planning happens once when the user clicks Generate.
@@ -92,7 +92,7 @@ Player project-menu trigger that opened regeneration.
 The worker returns a neutral, corpus-bound generator DTO from the shared
 BackendAPI contract. The renderer adapts that DTO to `ProjectData` and commits
 the exact plan through the production serializer and User Folder save path.
-Commit begins automatically after plan validation; there is no second
+Commit begins automatically after plan validation. There is no second
 confirmation. Any planning or selection error occurs before a file commit.
 
 ### Parameters
@@ -113,11 +113,11 @@ never silently treated as one corpus. Unresolved groups are not selectable.
 
 BPM defaults to the selected cluster's representative BPM. When analysis has no
 confident tempo, `follow detected` is unavailable and the user must choose Fixed
-BPM; that input falls back to 128 for editing. The `follow detected` choice
+BPM. That input falls back to 128 for editing. The `follow detected` choice
 recomputes its value when the selected cluster snapshot changes. The generator
 never takes a median over the complete Sample Folder. Genre is not inferred from
 folders or acoustic analysis. Intensity is a fixed medium default because the
-analysis pipeline has no arrangement-intensity signal; what it changes is defined
+analysis pipeline has no arrangement-intensity signal. What it changes is defined
 in spec-021.
 
 The duration target is converted to whole 8-bar phrases with:
@@ -140,11 +140,11 @@ Product generator profiles are repo-maintained JSON files directly under
 validates them into one immutable set. Membership is a build-time list, not a
 runtime filesystem scan, and not a bundler-specific glob — the shipped engine
 must stay importable from a plain Node process so the headless CLI can exercise
-it. The worker and UI consume that registry; neither keeps an enum, switch,
+it. The worker and UI consume that registry. Neither keeps an enum, switch,
 import list, nor separate registration table of profile IDs.
 
 The bundled template schema is a closed, versioned contract. The runtime
-validator is authoritative; `src/shared/generator-templates/schema.json` mirrors
+validator is authoritative. `src/shared/generator-templates/schema.json` mirrors
 it for editor feedback. Unknown fields, unknown enum values, and unsupported
 schema versions are errors rather than forward-compatible guesses. Schema version
 2 contains:
@@ -177,7 +177,7 @@ save, while the project retains from 8 through 32 populated lanes.
 The filename stem must equal `id` exactly, so `techno.json` contains
 `"id": "techno"`. IDs must be unique across all discovered files. A filename
 mismatch, duplicate ID, duplicate lane, section, or arc name, multiple defaults,
-malformed JSON, or schema/semantic failure rejects the complete registry; the app
+malformed JSON, or schema/semantic failure rejects the complete registry. The app
 must not omit only the bad template and continue with a partial set. The registry
 validates before it is exposed to parameter validation or planning. An unknown
 `profileId`, invalid registry, or unsupported `schemaVersion` fails before a
@@ -185,10 +185,10 @@ corpus snapshot, fingerprint query, candidate query, or audio read.
 
 Changing only `$schema`, `label`, `order`, or `default` does not require a
 `version` bump because those fields do not affect a plan. Changing any other
-planning field — including an arc — requires a bump. The ID itself is stable;
+planning field — including an arc — requires a bump. The ID itself is stable.
 changing it creates a different profile. A stored project supports exact
 regeneration only when the running registry contains that same ID at that same
-`profileVersion`; the app never substitutes a newer version silently.
+`profileVersion`. The app never substitutes a newer version silently.
 
 The engine operates only on a validated template and generic acoustic-role,
 section, phrase, op, transition, and lane-mix primitives. It must not compare a
@@ -219,12 +219,12 @@ writes, recent-project updates, and opening the resulting project.
 
 Worker filtering must support:
 
-- `rootId` scoping;
-- a current, resolved `tempoClusterPrefix` context key;
-- acoustic `sampleType` role filters plus role-folder diversity;
-- positive duration and role-specific duration limits;
-- current `scan_state = 1` metadata rows only;
-- deterministic ordering and bounded result sets; and
+- `rootId` scoping,
+- a current, resolved `tempoClusterPrefix` context key,
+- acoustic `sampleType` role filters plus role-folder diversity,
+- positive duration and role-specific duration limits,
+- current `scan_state = 1` metadata rows only,
+- deterministic ordering and bounded result sets, and
 - soft distance from the resolved project BPM, hard rejection of incompatible
   known keys, and the pool-coherence constraint in spec-021.
 
@@ -238,17 +238,17 @@ Selection hashes the safe seed with the profile ID, profile version, and stable
 lane index, then sorts by hash and relative path. Stable relative-path
 tie-breaking is mandatory. Rows with current readable metadata are preferred. The
 renderer calls the existing missing-file check for every selected `sampleRef`
-immediately before save; any now-unreadable selection aborts the transaction.
+immediately before save. Any now-unreadable selection aborts the transaction.
 Missing compatible material for a core lane produces a clear error. An unfilled
 removable support lane is pruned before save. Compatible secondary types may
 supplement primary types for variety, and every used secondary type is reported
 in the Generate result. Transition roles prefer a matching analyzed riser or
-impact; a typed FX candidate classified as texture may provide the same boundary
+impact. A typed FX candidate classified as texture may provide the same boundary
 event when transient scoring does not label it confidently. A known opposite
 transition kind is rejected.
 
 Placement IDs are derived from the seed, profile ID, profile version, stable lane
-index, and ordinal; generator code must not use `Date.now()`, `randomUUID()`, or
+index, and ordinal. Generator code must not use `Date.now()`, `randomUUID()`, or
 a process-global sequence. Lane IDs derive from the same stable inputs and the
 template lane's key, not its final array position, so pruning a support lane does
 not change any surviving lane ID.
@@ -276,7 +276,7 @@ an automatic sync request targets a root whose completed automatic job is alread
 current, the request is suppressed without cancelling an active generation for
 that same root. Readiness responses are scoped to both the current root and
 request generation, so a stale response cannot update a new root's card. Once the
-renderer begins its short transactional save, cancellation is disabled; a write
+renderer begins its short transactional save, cancellation is disabled. A write
 failure before file creation completes removes the incomplete allocation and
 leaves no recent-project row.
 
@@ -299,7 +299,7 @@ filesystem writers are outside this contract. The recent-project registry is
 updated only after the final write succeeds. Writes use the existing atomic File
 System Access behavior. Successful file creation is the durable commit. A later
 recent-project registration or list-refresh failure preserves and returns the
-saved relative path and shows a recoverable warning; it does not delete the
+saved relative path and shows a recoverable warning. It does not delete the
 project or report generation failure.
 
 After a successful save the wizard remains on its completion state. The user must
@@ -372,7 +372,7 @@ tracks.
   independent sibling card after a Sample Folder is selected. The card stays at
   normal contrast while its secondary action is gated until the User Folder is
   accessible and writable. During active sync or analysis, the disabled action
-  has a visible readiness reason linked through `aria-describedby`; progress is
+  has a visible readiness reason linked through `aria-describedby`. Progress is
   shown only in Library Setup. Readiness loads independently of opening the
   dialog and refreshes as library preparation changes state.
 - [x] **AC-002:** The wizard is a blocking modal with exactly two steps:
@@ -389,7 +389,7 @@ tracks.
   for the selected root and the selected analysis group is current. Preparation
   reuses the existing scheduler and does not start duplicate work.
 - [x] **AC-006:** Missing compatible material for a core lane fails with a clear
-  error before any file is written; an unfilled removable support lane is pruned
+  error before any file is written. An unfilled removable support lane is pruned
   and generation still succeeds while 8–32 lanes stay populated.
 - [x] **AC-007:** With the same seed, registered profile ID and profile version,
   generator version, root, cluster, and corpus fingerprint, two runs produce
@@ -405,20 +405,20 @@ tracks.
   type without recomputing or rewriting them, and one planning job attempts no
   more than 160 unique files and 96 analyses.
 - [x] **AC-010:** Output allocation is app-serialized, transactional, monotonic,
-  and non-overwriting; a failed write leaves no partial project and no
+  and non-overwriting. A failed write leaves no partial project and no
   recent-project row, while a post-commit registry failure keeps the saved
   project and reports a recoverable warning.
 - [x] **AC-011:** Exact regeneration creates a new artifact only when the stored
   profile ID and profile version are both registered and the fingerprint, root,
-  and cluster match; a version mismatch offers current-corpus regeneration
+  and cluster match. A version mismatch offers current-corpus regeneration
   instead of silently substituting a newer template.
 - [x] **AC-012:** Adding one valid `<id>.json` file to the bundled templates
   directory and its source list registers a new profile end to end — picker,
   parameter validation, planning, and metadata — with no other code change.
   Registry construction rejects malformed JSON, unsupported schema versions,
   unknown fields, filename/ID mismatches, duplicate IDs, multiple defaults, and
-  semantic violations by failing the whole registry; ordering is deterministic by
-  `order`, then `label`, then `id`; and a fixture of 250 valid unique templates
+  semantic violations by failing the whole registry. Ordering is deterministic by
+  `order`, then `label`, then `id`, and a fixture of 250 valid unique templates
   validates and exposes all of them.
 
 Musical acceptance criteria — density, arcs, ops, pool coherence, mix, FX, and
@@ -516,7 +516,7 @@ fingerprint, or audio-read dependency runs.
 - No executable code, expressions, or scripts inside templates. JSON may only
   compose the schema's supported declarative primitives. A new primitive still
   requires a versioned schema and engine change.
-- No user-selected target key in the first slice; key preference is derived.
+- No user-selected target key in the first slice. Key preference is derived.
 - No generator-owned BPM, key, or acoustic-type analysis, waveform cache,
   full-library generator rescan, machine-learning classifier, or network analysis
   service. Bounded transient arrangement scoring remains planner work.

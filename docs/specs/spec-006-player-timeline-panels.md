@@ -1,54 +1,52 @@
 # Spec 006 — MixJam Player Timeline & Panel Layout
 
 **Spec Validation Status:** VALIDATED
-**Spec Implementation Status:** PARTIAL — the Player baseline and app-wide UI
-Size layout are implemented; other unchecked acceptance criteria remain open
+**Spec Implementation Status:** PARTIAL — the app implements the Player baseline
+and app-wide UI Size layout. Other unchecked acceptance criteria remain open.
 **Depends on:** spec-005 (Audio Playback Engine)
 
 ## Objective
 
 Implement the MixJam Player's visual region layout from the approved General
-Layout mock-up: an upper row with the MixJam Browser and Tracker, a full-width
-Middle Strip containing the Transport Ribbon and global controls, and one
+Layout mock-up. Add an upper row with the MixJam Browser and Tracker. Add a
+full-width Middle Strip with the Transport Ribbon and global controls. Add one
 full-width Bottom Workspace with Master, Mixer, and Samples tabs. Within that
-shell, define the dynamic 1-through-64-lane Tracker, sample bubbles, ruler, moving playhead, and
-browser adjacencies.
+shell, define the dynamic 1-through-64-lane Tracker. Also define sample bubbles,
+the ruler, the moving playhead, and browser adjacencies.
 
 ## User Stories
 
-- **US-001:** As a user, I see a dedicated MixJam Browser in the active
-  Player that includes both recently opened `.mixjam` files and `.mixjam`
-  files discovered from the current User Folder so project-switching
-  affordances have a stable home.
+- **US-001:** As a user, I see a dedicated MixJam Browser in the active Player.
+  It includes recent `.mixjam` files and files from the current User Folder.
+  Project-switching controls have a stable location.
 - **US-002:** As a user, I see the Tracker occupy the upper-right
   primary work area so arrangement stays visually dominant.
-- **US-003:** As a user, I see a full-width Middle Strip between the tracker
-  and browser so transport controls and global song state live on a clear seam.
+- **US-003:** As a user, I see a full-width Middle Strip between the tracker and
+  browser. Transport controls and global song state have a clear boundary.
 - **US-004:** As a user, I can switch the full-width Bottom Workspace between
-  Master, Mixer, and Samples without learning different reveal mechanisms.
-- **US-004a:** As a user, I can adjust master volume, monitor overall loudness,
-  and change BPM from the Middle Strip without opening the Mixer.
+  Master, Mixer, and Samples. Each tab uses the same reveal method.
+- **US-004a:** As a user, I can adjust master volume and monitor overall
+  loudness. I can also change BPM from the Middle Strip without opening Mixer.
 - **US-004b:** As a keyboard user, I can navigate and activate every Bottom
   Workspace tab using the standard tablist keyboard model.
-- **US-005:** As a user, I can place sample bubbles onto lanes and see the same
-  project-owned musical-span geometry in the Sample Browser, unaffected by BPM
-  changes.
+- **US-005:** As a user, I can place sample bubbles onto lanes. The Sample
+  Browser shows the same project-owned musical-span geometry. BPM changes do not
+  affect this geometry.
 - **US-006:** As a user, I see a moving playhead sweep across the timeline
   during playback, synchronized to the audio.
-- **US-007:** As a user, I see a ruler with bar numbers and tick marks so I
-  can orient myself in the arrangement.
+- **US-007:** As a user, I see a ruler with bar numbers and tick marks. These
+  marks show my position in the arrangement.
 - **US-007a:** As a user, I can click the ruler to move the playhead to the
-  nearest beat so I can start or resume playback from a precise grid position.
-- **US-007b:** As a user, I can use an always-visible Song Progress Bar to
-  navigate across the full 999-bar capacity without changing playback
-  position.
-- **US-008:** As a user, I can use the Middle Strip transport buttons (Skip
-  Back, Jump to End, Play/Pause, Stop) to control playback and navigate to the
-  last content tick.
+  nearest beat. I can start or resume playback from a precise grid position.
+- **US-007b:** As a user, I can use an always-visible Song Progress Bar. It
+  navigates across the full 999-bar capacity without changing playback position.
+- **US-008:** As a user, I can use the Middle Strip transport buttons. Skip
+  Back, Jump to End, Play/Pause, and Stop control playback. They also navigate
+  to the last content tick.
 - **US-009:** As a user, I can drag the browser's internal vertical resize
-  handle to adjust the split between the tag navigator and the sample list.
+  handle. It adjusts the split between the tag navigator and sample list.
 - **US-010:** As a user, I can resize the upper work area against the Bottom
-  Workspace so the tracker or the active lower workflow gets the space I need.
+  Workspace. The tracker or active lower workflow gets the space I need.
 
 ## Scope
 
@@ -83,26 +81,26 @@ browser adjacencies.
 
 - Player layout, sizing, and region relationships follow the
   [Style Guide](../style-guide.md#layout-architecture).
-- The supported Player minimum is 1920x1080 CSS pixels. At that size, with UI
-  Size 50 and Mixer open, the Tracker still shows the ruler and at least one
+- The supported Player minimum is 1920x1080 CSS pixels. At that size, set UI
+  Size 50 and open Mixer. The Tracker still shows the ruler and at least one
   complete lane. The root Player does not gain a vertical scrollbar.
 - UI Size is an app preference with values 30, 40, and 50 and a default of 40.
   Sample-bubble/lane heights are 24/37px, 33/49px, and 41/61px respectively.
-  UI Size changes presentation only; it never changes project data.
+  UI Size changes presentation only. It never changes project data.
 - The active Player uses a two-column layout only in the upper work band. The
   Bottom Workspace spans the full Player width and does not inherit the upper
   MixJam Browser/Tracker split.
 - The **MixJam Browser** is visible in the active Player layout. This
-  spec only reserves the region; project-switching behavior is defined later.
+  spec only reserves the region. Project-switching behavior is defined later.
 - The **Bottom Workspace** is the only lower-band container. Master, Mixer, and
-  Samples are peer tabs; future peer workflows append tabs to the same
+  Samples are peer tabs. Future peer workflows append tabs to the same
   tablist instead of adding another reveal system.
 - The **Middle Strip** is a fixed, full-width band between the upper and lower
-  work areas. The Song Progress Bar is its first row and cannot scroll or resize
-  with the Tracker. Its main row contains project identity, a separate
-  edit-history group, the centered Transport Ribbon, sample search, transient
-  library status, and compact menus for infrequent actions. The Transport Ribbon
-  contains transport controls only.
+  work areas. The Song Progress Bar is its first row. It cannot scroll or resize
+  with the Tracker. Its main row contains project identity and a separate
+  edit-history group. It also contains the centered Transport Ribbon and sample
+  search. Transient library status and compact menus support infrequent actions.
+  The Transport Ribbon contains transport controls only.
 - The **Sample Browser** lives in the Samples panel and owns its internal
   tag-navigator/sample-list split.
 - Visual treatment of all controls, surfaces, buttons, and indicators follows
@@ -112,93 +110,93 @@ browser adjacencies.
 
 - Tab order is **Master, Mixer, Samples**. Master is active only when no valid
   saved tab exists. Thereafter, the last active tab persists in localStorage as
-  `mixjam:bottom-workspace-tab`; missing or unknown values fall back to Master.
+  `mixjam:bottom-workspace-tab`. Missing or unknown values fall back to Master.
 - Tab behavior (activation, keyboard navigation, ARIA, panel lifecycle) follows
   the [Style Guide](../style-guide.md#tabs-bottom-workspace).
 - All three panels remain mounted in the same Bottom Workspace grid cell while
-  inactive. Inactive panels keep their layout geometry but are visually hidden,
-  removed from the accessibility and pointer interaction paths, and excluded
-  from sequential focus. Tab changes therefore preserve Sample scroll/filter
+  inactive. Inactive panels keep their layout geometry. The interface hides
+  them visually and removes them from accessibility and pointer interaction
+  paths. It also excludes them from sequential focus. Tab changes preserve
+  Sample scroll/filter
   state, Mixer state, and stable control geometry. The
   inactive Samples panel mounts no virtual rows and cannot request result pages.
 - Mixer meters and return-module telemetry share one visual-only loop. Its
-  animation-frame loop runs only while Mixer is active; Master and Samples
+  animation-frame loop runs only while Mixer is active. Master and Samples
   pause that loop without changing audio state or unmounting any panel.
-- Mixer uses one horizontal scrollport containing the lane strips in visible
-  order, then a 2x2 grid of combined FX and Return containers `FX1` through
-  `FX4`. At base UI Size 30, lane strips are 76px wide and each combined
+- Mixer uses one horizontal scrollport with the lane strips in visible order.
+  A 2x2 grid of combined FX and Return containers follows. The containers are
+  `FX1` through `FX4`. At base UI Size 30, lane strips are 76px wide. Each combined
   container is 160px wide. All lane strips and all four combined containers
-  remain reachable by horizontal scrolling; none is pinned outside that
+  remain reachable by horizontal scrolling. None is pinned outside that
   scrollport.
 - The tab row shows compact read-only BPM and Master status. The status
-  is an accessible button that activates Master; it does not create a second
+  is an accessible button that activates Master. It does not create a second
   editable BPM or gain control.
 - Default layout proportion and sizing follow the
   [Style Guide](../style-guide.md#layout-architecture). The current layout
   persists under `mixjam:bottom-workspace-layout-v2`. Other layout keys are
   ignored. Every manual resize updates the current key and survives remounts.
 - One Player workspace-preference module owns validation, defaults, and storage
-  for both panel layouts, the active tab,
-  Samples expansion/restore state, and MixJam Browser collapse. Rendering code
+  for both panel layouts and the active tab. It also owns Samples
+  expansion/restore state and MixJam Browser collapse. Rendering code
   coordinates live panel refs but does not parse or write storage formats.
-- The Bottom Workspace module owns that live coordination: panel refs, tab-size
-  capture and restore, expand/restore actions, browser-collapse effects, and
-  the UI-Size-derived minimum for each tab. Manual sizes, stored sizes, tab
+- The Bottom Workspace module owns that live coordination. It owns panel refs,
+  tab-size capture and restore, expand/restore actions, and browser-collapse
+  effects. It also owns the UI-Size-derived minimum for each tab. Manual sizes, stored sizes, tab
   changes, expansion restores, and UI Size changes all clamp through the same
   content-safe minimum. The root Player supplies content and layout regions but
   does not duplicate this state machine.
-- The resizable Panel's drag floor is a single constant (the smallest tab's
-  content-safe minimum), not the active tab's minimum. A per-tab floor made the
-  Panel's `minSize` change on every tab switch, which re-registered the panel
-  group's size constraint — a forced synchronous layout and clamp — inside the
-  switch's commit frame. Split across a second (rAF-deferred) frame from the
-  size restore, that two-frame stall breached the audio scheduler's lookahead
-  margin and glitched playback during a switch. Holding the drag floor constant
-  keeps the group from re-clamping on a tab change, and the size restore now runs
-  in the same commit as the tab flip, so a switch is one frame, not two.
-- The per-tab content floor is instead enforced by a CSS `min-height` on the
-  active panel's content (`--bottom-workspace-content-min-height`), specific
-  enough to hold even when a panel root sets its own `min-height: 0`. The content
-  stays laid out at the active tab's full budget, and the panel is a vertical
-  scrollport, so a tab dragged below its budget SCROLLS — every control remains
-  reachable rather than being clipped or hard-stopped. Tab restoration still
+- The resizable Panel's drag floor uses the smallest tab's content-safe minimum.
+  It does not use the active tab's minimum. A per-tab floor changed the Panel's
+  `minSize` on every tab switch. This change re-registered the panel group's size
+  constraint during the switch commit. It forced a synchronous layout and
+  clamp. The size restoration used a second, rAF-deferred frame. This two-frame
+  delay exceeded the audio scheduler's lookahead margin and caused a playback
+  glitch. A constant drag floor prevents a new clamp after a tab change. The
+  size restoration now runs in the same commit as the tab change. Thus, a switch
+  uses one frame, not two.
+- A CSS `min-height` on the active panel content sets the per-tab content floor.
+  The property is `--bottom-workspace-content-min-height`. It remains effective
+  when a panel root sets `min-height: 0`. The content keeps the active tab's full
+  layout budget. The panel is a vertical scrollport. Thus, a tab below its budget
+  scrolls, and every control remains reachable. The interface does not clip or
+  stop the controls. Tab restoration still
   lifts each tab to its own remembered budget through the imperative resize.
-- At supported 1920x1080 geometry, every Master, Mixer, and Samples control
-  stays within its card and is reachable — visible when the panel is at or above
-  the tab's budget, and reachable by scrolling the panel when it is dragged
-  below. The three panel subtrees stay memoized so a switch re-renders the tab
-  chrome and the panel group, not the Mixer strips, Master rack, Sample Browser,
-  and Tracker as well.
+- At supported 1920x1080 geometry, every Master, Mixer, and Samples control stays
+  within its card. Every control remains reachable. Controls are visible when
+  the panel meets or exceeds the tab budget. Below the budget, panel scrolling
+  keeps them reachable. The three panel subtrees stay memoized. A switch renders
+  the tab chrome and panel group again. It does not render the Mixer strips,
+  Master rack, Sample Browser, or Tracker again.
 - Mixer effect selection and editing remain inside Mixer. There is no FX tab or
   cross-tab FX transition.
 - Samples exposes an explicit expand/restore action. Expansion grows the Bottom
-  Workspace to 60%; restoration returns to the previous user-controlled size.
+  Workspace to 60%. Restoration returns to the previous user-controlled size.
   Expansion intent and the restore size persist separately from the panel
-  layout, so manually resizing the workspace to 60% never turns Restore into a
-  hidden 24% jump.
+  layout. Thus, a manual 60% workspace size never makes Restore cause an unseen
+  24% jump.
 - The Bottom Workspace has no Master Controls/Mixer reveal seam. Resizing or
   collapsing the upper MixJam Browser remains independent of its full width.
 
 ### Middle Strip Controls
 
-- The Middle Strip carries the project BPM control as a horizontal slider with
-  an editable numeric value anchored to the slider's left margin. Both surfaces
-  reflect one transport BPM value (50 to 200); invalid or out-of-range input is
+- The Middle Strip carries the project BPM control as a horizontal slider. An
+  editable numeric value is anchored to the slider's left margin. Both surfaces
+  reflect one transport BPM value (50 to 200). Invalid or out-of-range input is
   not committed. The slider uses the app-wide Mixer-derived linear rail and
   compact rectangular handle.
 
 ### Master Panel Controls
 
-- The Master panel contains the 13-slot Master Bus Strip (spec-012) and
-  nothing else. Master Volume is no longer a Master-tab control: the tab row
-  keeps its read-only Master status, and the strip's Gain Stage module owns
-  gain staging.
+- The Master panel contains only the 13-slot Master Bus Strip (spec-012).
+  Master Volume is no longer a Master-tab control. The tab row keeps its
+  read-only Master status. The strip's Gain Stage module owns gain staging.
 - Master output metering lives in the strip's pinned output meter, which
   supersedes the previous standalone Output Level block. The strip's style
   rules live in the [Style Guide](../style-guide.md#master-bus-strip).
-- The Player Settings modal exposes the project-owned automatic clip-edge
-  micro-fade controls: one enabled checkbox plus fractional fade-in and fade-out
-  millisecond fields. Both fields accept 0 through 20 ms and default to 2 ms and
+- The Player Settings modal contains the project-owned automatic clip-edge
+  micro-fade controls. These controls include one enabled checkbox and
+  fractional fade-in and fade-out millisecond fields. Both fields accept 0 through 20 ms and default to 2 ms and
   4 ms. The move out of Master does not change sound, dirty-state, or project
   persistence behavior.
 - The Master Bus Strip's pinned output meter shows Momentary, Short-term, and
@@ -210,13 +208,13 @@ browser adjacencies.
 
 ### Ruler
 
-- Sizing, spacing, tick-mark styling, bar-number formatting, and visual
-  treatment follow the [Style Guide](../style-guide.md#layout-architecture)
-  and [Style Guide](../style-guide.md#typography).
-- The lane-head rendered border box must remain exactly 240px wide so ruler
-  marks, tracker grid lines, placements, and playhead share the same x-origin.
-- The arrangement capacity is 999 bars in 4/4: 31,968 ticks at 8 ticks per beat
-  and 32 ticks per bar. Minimum timeline density follows the
+- Sizing, spacing, tick-mark styling, and bar-number formatting follow the
+  [Style Guide](../style-guide.md#layout-architecture). Visual treatment follows
+  the [Style Guide](../style-guide.md#typography).
+- The lane-head rendered border box must remain exactly 240px wide. Ruler marks,
+  tracker grid lines, placements, and playhead share the same x-origin.
+- The arrangement capacity is 999 bars in 4/4. It has 31,968 ticks at 8 ticks
+  per beat and 32 ticks per bar. Minimum timeline density follows the
   [Style Guide](../style-guide.md#spacing--rhythm).
 - The scrollable capacity is not song length. The exact `songEndTick` comes
   from the latest placement end across all lanes as defined by spec-005. The
@@ -226,30 +224,31 @@ browser adjacencies.
   horizontal scroll position. Lane heads and the ruler's lane-head spacer stay
   pinned while the rest of the song moves beneath them.
 - The **Song Progress Bar** is the only visible horizontal timeline-navigation
-  control. It is always rendered as the first row of the Middle Strip, directly
-  below the Tracker, and remains visible but disabled when the song is no wider
-  than the Tracker viewport. Native horizontal scrollbar chrome is hidden so
-  operating-system auto-hide behavior cannot remove the control.
+  control. The Middle Strip always renders it as the first row below the
+  Tracker. It remains visible but disabled when the song is no wider than the
+  Tracker viewport. The interface hides native horizontal scrollbar chrome.
+  Thus, operating-system auto-hide behavior cannot remove the control.
 - The Song Progress Bar thumb size reflects the visible fraction of the full
-  arrangement capacity; its position mirrors the shared horizontal scroll
-  offset. Pointer dragging, track clicks, Arrow keys, Page Up/Down, Home, and
-  End update the visible timeline range without seeking the playhead or
-  changing transport state.
-- Clicking the timeline portion of the ruler moves the engine and visual
-  playhead to the nearest beat boundary (every 8 ticks). The lane-head spacer
+  arrangement capacity. Its position mirrors the shared horizontal scroll
+  offset. Pointer dragging and track clicks update the visible timeline range.
+  Arrow keys, Page Up/Down, Home, and End do the same. These actions do not seek
+  the playhead or change transport state.
+- Clicking the timeline portion of the ruler moves the engine playhead to the
+  nearest beat boundary. It moves the visual playhead to the same 8-tick
+  boundary. The lane-head spacer
   is not a seek target.
 - Seeking while playing continues playback from the selected beat. Seeking
   while paused or stopped only repositions the playhead and does not start it.
 
 ### Lanes (1 through 64)
 
-- `hooks/useTrackerInteraction.ts` owns Tracker selection, drag coordination,
-  scroll and transport-location policy, lane context menus, and sample-location
-  feedback. `PlayerView` composes the Tracker region and renders its returned
-  state; it does not own a parallel interaction state machine.
-- Lane sizing, head width, control dimensions, and visual treatment follow the
-  [Style Guide](../style-guide.md#layout-architecture) and
-  [Style Guide](../style-guide.md#spacing--rhythm).
+- `hooks/useTrackerInteraction.ts` owns Tracker selection and drag coordination.
+  It owns scroll and transport-location policy, lane context menus, and
+  sample-location feedback. `PlayerView` composes the Tracker region and renders its returned
+  state. It does not own a parallel interaction state machine.
+- Lane sizing, head width, and control dimensions follow the
+  [Style Guide](../style-guide.md#layout-architecture). Visual treatment follows
+  the [Style Guide](../style-guide.md#spacing--rhythm).
 - A blank project contains exactly eight lanes. Each lane has a stable project
   ID. Visible lane numbers and default names follow current array order.
 - The persistent **Add Lane** row follows the last lane. It appends one lane,
@@ -260,7 +259,7 @@ browser adjacencies.
   - Lane name (e.g. "Lane 1"), truncated with ellipsis.
   - Right-clicking the lane head opens a keyboard-operable context menu with
     Rename lane. Rename replaces the label with a focused, prefilled inline
-    field. Enter or blur commits a trimmed, non-empty name; Escape cancels.
+    field. Enter or blur commits a trimmed, non-empty name. Escape cancels.
   - The same menu contains Delete lane. It is disabled at one lane. Deleting an
     empty lane is immediate. Deleting a non-empty lane opens a blocking
     confirmation that names the lane and states its placement count.
@@ -272,8 +271,8 @@ browser adjacencies.
 - **Lane canvas:** hosts sample bubbles.
 - **Focused lane:** subtle accent-color left border on the lane head.
 - Add and delete stop playback before changing project state. Deletion removes
-  the lane and its lane-owned mixer state, keeps every surviving stable ID, and
-  shifts and renumbers later lanes in visible order. Add and delete participate
+  the lane and its lane-owned mixer state. It keeps every surviving stable ID.
+  It shifts and renumbers later lanes in visible order. Add and delete participate
   in the same undo history as placement edits.
 - An eye-icon **Follow playhead** toggle sits above the lane headers immediately
   before the empty-lane macro. It is off whenever the Player mounts and is
@@ -281,7 +280,7 @@ browser adjacencies.
   Tracker centers the current playhead in the visible timeline area, clamped at
   the arrangement boundaries. Enabling it during playback centers the current
   playhead immediately. Later playhead ticks do not scroll while the playhead
-  remains inside the central 60% of the visible timeline; crossing either 20%
+  remains inside the central 60% of the visible timeline. Crossing either 20%
   guard band recenters it. This avoids continuous canvas redraws while keeping
   the playhead in view. Paused, stopped, and preparing transport do not trigger
   follow scrolling.
@@ -299,40 +298,41 @@ browser adjacencies.
 - Position: `left` computed from the clip placement's start tick multiplied by
   pixels-per-tick.
 - Width: the placement's project-owned `durationTicks` multiplied by the shared
-  pixels-per-tick scale. BPM changes do not resize placed sample bubbles;
-  viewport scale changes resize every representation together.
+  pixels-per-tick scale. BPM changes do not resize placed sample bubbles.
+  Viewport scale changes resize every representation together.
   The Sample Browser reuses an existing placement span for an already-placed
-  sample. Before first placement, it estimates the span from source duration
-  and detected BPM, or the current project BPM when detection is unavailable,
-  so the first drop preserves the same dimensions across views.
+  sample. Before first placement, it estimates the span from source duration and
+  detected BPM. It uses the current project BPM when detection is unavailable.
+  Thus, the first drop preserves the same dimensions across views.
 - Bubble color: resolved from the active theme's palette using the placement's
   stable source-group slot. Known top-level source-folder names have fixed
-  slots; unknown names map to a slot through the shared deterministic hash.
-- **Snap-to-beat (default):** Dropping a sample from the browser or moving a
-  sample bubble within the Tracker snaps the placement's start position to the
-  nearest beat boundary (every 8 ticks). Holding **Alt** while dropping/moving
+  slots. Unknown names map to a slot through the shared deterministic hash.
+- **Snap-to-beat (default):** Dropping a browser sample snaps its start to the
+  nearest beat boundary. Moving a Tracker sample bubble applies the same 8-tick
+  snap. Holding **Alt** while dropping or moving
   places the placement at per-tick precision (freeform). **Shift** is reserved
-  for duplicating a sample; **Ctrl** is reserved for rectangle-drag
+  for duplicating a sample. **Ctrl** is reserved for rectangle-drag
   multi-select.
-- **Monophonic cut-off behavior** (per spec-005): a lane is monophonic in
-  *audio* only — a new trigger cuts off the previously sounding voice on that
-  lane. Overlapping placements are *not* trimmed visually: both bubbles keep
-  their full size and data, so an accidental overlap never destroys the earlier
+- **Monophonic cut-off behavior** (per spec-005): a lane is monophonic only in
+  *audio*. A new trigger cuts off the previous voice on that lane. The interface
+  does *not* trim overlapping placements visually. Both bubbles keep their full
+  size and data. Thus, an accidental overlap never destroys the previous
   sample's information.
-- Placements are rendered on a canvas element for performance — not as
-  individual DOM nodes (enables smooth scrolling at high placement counts).
-- The logical lane spans the full 999-bar surface, but each lane's canvas
-  backing store is bounded to at most two visible Tracker viewports. The extra
+- A canvas element renders placements for performance. Individual DOM nodes do
+  not render them. This supports smooth scrolling at high placement counts.
+- The logical lane spans the full 999-bar surface. Each lane's canvas backing
+  store has a maximum of two visible Tracker viewports. The extra
   horizontal viewport is split around the visible range as overscan. Scrolls
-  inside that covered range reuse the bitmap; crossing its inner 10% guard
+  inside that covered range reuse the bitmap. Crossing its inner 10% guard
   schedules one frame-coalesced redraw in full-timeline coordinates. This keeps
   Follow playhead recentering covered without allocating the full 127,872px
   lane width, which exceeds Chromium's reliable canvas dimensions.
-- Sample drag payload access is defensive: the complete internal sample detail
-  is cached synchronously at drag start, before the browser protects payload
-  access. Dragover and drop reuse that cache, so an over-capacity sample still
-  advertises an unavailable target even when `DataTransfer.getData()` cannot be
-  read during dragover. External or malformed drag data is treated as absent.
+- Sample drag payload access is defensive. The browser caches the complete
+  internal sample detail synchronously at drag start. It does this before it
+  protects payload access. Dragover and drop reuse that cache. Thus, an
+  over-capacity sample still shows an unavailable target when dragover cannot
+  read `DataTransfer.getData()`. The interface treats external or malformed drag
+  data as absent.
 - Drag image sizing follows the [Style Guide](../style-guide.md#sample-bubbles).
 
 ### Playhead
@@ -348,8 +348,8 @@ browser adjacencies.
 
 #### Context and goals
 
-The Middle Strip is a sleek, low-clutter command surface. It keeps transport
-visually stable, makes current project and library state easy to scan, and moves
+The Middle Strip is a low-clutter command surface. It keeps transport visually
+stable and makes the current project and library state easy to scan. It moves
 infrequent commands out of the permanent button row.
 
 - Sizing, zone layout, spacing, and visual treatment follow the
@@ -381,16 +381,16 @@ infrequent commands out of the permanent button row.
 
 - The project trigger truncates the name with an ellipsis and keeps the
   unsaved-state indicator visible.
-- Undo and Redo remain visible because they are frequent editing commands, but
-  they are outside the Transport Ribbon and separated from it by spacing, not a
-  heavy divider.
+- Undo and Redo remain visible because they are frequent edit commands. They are
+  outside the Transport Ribbon. Spacing, not a heavy divider, separates them
+  from the ribbon.
 - The center **Transport Ribbon** contains exactly four transport buttons:
   - Skip Back (returns to tick 0). Resets the engine scheduler's playhead, not
-    just the UI mirror; while playing it restarts playback from the top.
+    just the UI mirror. While playing it restarts playback from the top.
   - Jump to End (moves the playhead and Tracker view to the exact
-    `songEndTick`). It is disabled when the song has no placements. When used
-    during playback, it stops playback but parks the playhead and view at the
-    end instead of applying the natural-playback reset-to-zero rule. Pressing
+    `songEndTick`). It is disabled when the song has no placements. During
+    playback, it stops playback. It parks the playhead and view at the end. It
+    does not apply the natural-playback reset-to-zero rule. Pressing
     Play from that parked state restarts preparation and playback at tick 0.
   - Play / Pause (toggles). Space toggles the same action.
   - Stop (returns to tick 0 and stops).
@@ -400,9 +400,9 @@ infrequent commands out of the permanent button row.
   plus percentage, but its accessible name retains full detail. Active status
   provides Cancel without adding another permanent button to the row.
 - The command dock remains anchored to the horizontal midpoint. As space
-  tightens, the project name truncates, status text compacts, and search changes
-  to an icon-triggered expandable field before any command overlaps, clips,
-  scrolls horizontally, or displaces transport.
+  decreases, the project name truncates and status text compacts. Search changes
+  to an icon-triggered expandable field. This happens before a command overlaps,
+  clips, scrolls horizontally, or displaces transport.
 - Required control states are default, hover, focus-visible, active/pressed,
   disabled, and busy where relevant. Dynamic status never changes the geometry
   of the center command dock.
@@ -428,26 +428,27 @@ infrequent commands out of the permanent button row.
 - Do not render four equal New/Open/Save/Save As buttons.
 - Do not render multiple scan buttons or insert unbounded progress/error text
   into the same grid track as search.
-- Do not use a fixed three-column layout whose side content can overlap the
-  centered command dock while root overflow remains hidden.
+- Do not use a fixed three-column layout if side content can overlap the
+  centered command dock. The root overflow must remain hidden.
 - Do not add per-button gradients, strong bevels, or decorative borders that
   compete with the Play action.
 
 ### Undo/Redo
 
-- One project command stack covers clip-placement edits, lane add, lane delete,
-  bulk empty-lane removal, lane name/mute/solo/pan/volume/Sends, Return levels,
-  limiter toggles, and FX selection, parameters, Power, and Clear. A structural
-  lane command stores the complete affected lane and Mixer state so undo
-  restores the same stable IDs, placements, order, and Send values. BPM remains
+- One project command stack covers clip-placement edits, lane addition, lane
+  deletion, and bulk empty-lane removal. It covers lane name, mute, solo, pan,
+  volume, Sends, Return levels, and limiter toggles. It also covers FX selection,
+  parameters, Power, and Clear. A structural lane command stores the complete
+  affected lane and Mixer state. Thus, undo restores the same stable IDs,
+  placements, order, and Send values. BPM remains
   outside this history.
 - Each entry is an immutable project edit snapshot or delta with structural
   sharing, capped at 100 entries. A new edit clears the redo stack.
 - One continuous pointer, wheel, or repeated-key adjustment gesture collapses
   into one history entry. The project-history hook owns the gesture baseline,
-  live updates, commit, cancel, and synchronization behavior; feature hooks do
+  live updates, commit, cancel, and synchronization behavior. Feature hooks do
   not keep a second gesture snapshot.
-- Bindings: Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes; the platform primary
+- Bindings: Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes. The platform primary
   modifier is accepted for these commands. The Middle Strip
   buttons mirror the same actions and disable when their stack is empty.
 - A multi-placement Delete is one history entry (batch remove), so one Ctrl+Z
@@ -457,7 +458,7 @@ infrequent commands out of the permanent button row.
 
 - A blocking lane-delete or Mixer FX editor modal traps focus and blocks
   background pointer and keyboard interaction.
-- Enter activates Save or the modal's affirmative action; Escape cancels.
+- Enter activates Save or the modal's affirmative action. Escape cancels.
   Arrow keys navigate modal controls. In an FX editor, Space toggles bypass,
   Backspace resets the focused parameter, and Ctrl+Backspace resets all module
   parameters. Editable text fields retain their normal editing behavior.
@@ -525,7 +526,7 @@ infrequent commands out of the permanent button row.
 #### Master panel
 
 - Occupies the Master panel in the full-width Bottom Workspace.
-- First-launch default; subsequent visits restore the last active tab.
+- First-launch default. Subsequent visits restore the last active tab.
 - While the arrangement is empty, a persistent Tracker cue explains the first
   sample action and opens Samples directly. Opening it also grows a compressed
   Bottom Workspace to at least 50%.
@@ -533,8 +534,8 @@ infrequent commands out of the permanent button row.
   - **Master Bus Strip (spec-012)** — the 13-slot mastering rack with pinned
     input and output meters. The output meter shows Momentary, Short-term, and
     Integrated LUFS plus true peak in dBTP. The strip's Gain Stage module owns
-    gain staging; a separate Master Volume module no longer exists.
-- Clip Edge Fades are not rendered in Master; their project-owned editor is in
+    gain staging. A separate Master Volume module no longer exists.
+- Clip Edge Fades are not rendered in Master. Their project-owned editor is in
   the Player Settings modal.
 - Changing the BPM slider updates the engine's transport BPM immediately.
 - Owns project-wide sound controls only. Mixer visibility is controlled by the
@@ -548,7 +549,7 @@ Sizing and visual treatment follow the [Style Guide](../style-guide.md#resize-ha
 
 - Resizes only the MixJam Browser/Tracker split and persists the expanded width
   as `mixjam:upper-work-layout`. The existing collapse state remains
-  authoritative while collapsed; no prior width key is read.
+  authoritative while collapsed. No prior width key is read.
 - Does not cross the Middle Strip or change the Bottom Workspace width.
 
 **Browser vertical handle** (`.browser-resize-v`):
@@ -562,7 +563,7 @@ Sizing and visual treatment follow the [Style Guide](../style-guide.md#resize-ha
 - Supports pointer, touch, and keyboard resizing, exposes separator value/min/max
   semantics, and persists the resulting layout as
   `mixjam:bottom-workspace-layout-v2`. Its drag floor is the smallest tab's
-  UI-Size-derived content minimum (constant across tab switches); the active
+  UI-Size-derived content minimum (constant across tab switches). The active
   tab's own minimum is enforced as a CSS content floor, so dragging a taller tab
   below its budget scrolls the panel with every control reachable.
 
@@ -579,16 +580,16 @@ window-level mouse listeners.
   plus `.mixjam` files discovered from the current User Folder, and can be
   collapsed/expanded via a persisted toggle button.
 - [x] **AC-002a:** The User Folder contribution to the MixJam Browser includes `.mixjam` files found in nested subfolders, not only files at the User Folder root.
-- [x] **AC-002b:** The MixJam Browser sorts entries with open history by `lastOpened` descending; discovered projects with no open history appear afterward in alphabetical order.
+- [x] **AC-002b:** The MixJam Browser sorts entries with open history by `lastOpened` descending. Discovered projects with no open history appear afterward in alphabetical order.
 - [x] **AC-002c:** When the MixJam Browser has no recent entries and no discovered `.mixjam` files, it shows an informational empty state instead of a blank region or browser-specific action buttons.
 - [x] **AC-002d:** Resizing the MixJam Browser/Tracker seam changes and persists
-  only the upper split; it does not resize or divide the Bottom Workspace.
+  only the upper split. It does not resize or divide the Bottom Workspace.
 - [x] **AC-003:** At UI Size 30, the 80px border-box Middle Strip spans the full
   Player width between the upper and lower work bands. Its 28px Song Progress
   Bar and 48px main row remain fully contained, including borders and group
   padding. Higher UI Sizes use the coherent scaling contract in spec-002.
 - [x] **AC-004:** The Bottom Workspace presents Master, Mixer, and Samples as
-  ordered peer tabs; the lower reveal seam no longer exists.
+  ordered peer tabs. The lower reveal seam no longer exists.
 - [x] **AC-004a:** With no valid persisted selection, Master is active. A valid
   last tab is restored after remount, and each mounted panel preserves its
   internal state while inactive. The hidden Samples panel keeps its virtual DOM
@@ -601,7 +602,7 @@ window-level mouse listeners.
   targets below the selected UI Size.
 - [x] **AC-004d:** The Master panel content is the spec-012 Master Bus Strip.
   Master output metering lives in the strip's pinned output meter, which shows
-  Momentary, Short-term, and Integrated LUFS plus true peak; the previous
+  Momentary, Short-term, and Integrated LUFS plus true peak. The previous
   standalone Master Volume module and Output Level block are retired.
   The Middle Strip shows a horizontal BPM slider with an editable numeric
   value. BPM accepts 50 to 200, initializes to 120 for a new project, and
@@ -618,11 +619,11 @@ window-level mouse listeners.
   1 through 64 lanes. UI Size 30/40/50 produces bubble/lane heights of 24/37px,
   33/49px, and 41/61px while preserving the 240px lane-head x-origin.
 - [x] **AC-005a:** Right-clicking a lane head exposes Rename lane. The inline
-  rename field is prefilled and focused; Enter or blur commits a trimmed,
+  rename field is prefilled and focused. Enter or blur commits a trimmed,
   non-empty name, while Escape cancels. A committed name updates the lane label
   and the accessible names of its controls.
 - [ ] **AC-005b:** Add Lane appends one lane and is disabled with a limit tooltip
-  at 64. Delete lane is disabled at one; empty deletion is immediate; non-empty
+  at 64. Delete lane is disabled at one. Empty deletion is immediate. Non-empty
   deletion uses a blocking confirmation that shows the placement count.
 - [ ] **AC-005c:** Add and delete stop playback, preserve surviving stable IDs,
   shift and renumber visible order, and roundtrip through the unified undo stack.
@@ -632,8 +633,8 @@ window-level mouse listeners.
 - [x] **AC-005e:** At the supported 1920x1080 CSS minimum, UI Size 50 with Mixer
   open leaves the ruler and one complete lane visible without a root vertical
   scrollbar.
-- [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state; the lane dims and no audio plays from it. Clicking again restores.
-- [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane; all other lanes dim. Clicking again un-soloes.
+- [x] **AC-006:** Clicking a lane's M (mute) button toggles mute state. The lane dims and no audio plays from it. Clicking again restores.
+- [x] **AC-007:** Clicking a lane's S (solo) button soloes that lane. All other lanes dim. Clicking again un-soloes.
 - [x] **AC-008:** Dragging a sample bubble from the Sample Browser and dropping it onto a lane creates a clip placement snapped to the nearest beat boundary.
   Its bubble uses the selected UI Size height and the placement's project-owned
   musical span.
@@ -645,16 +646,16 @@ window-level mouse listeners.
   tick 31,968. A placement longer than the whole capacity is rejected without
   a dialog, and illegal targets show an unavailable cursor or equivalent
   inline pointer feedback even while the browser protects drag payload access.
-- [x] **AC-009:** Placing a sample that overlaps an existing placement on the same lane keeps both sample bubbles visually intact; only the audio
+- [x] **AC-009:** Placing a sample that overlaps an existing placement on the same lane keeps both sample bubbles visually intact. Only the audio
   is monophonic. Overlap never deletes or trims the earlier placement's data.
 - [x] **AC-010:** The playhead moves smoothly from left to right during playback, synchronized to audio.
-- [x] **AC-011:** The ruler displays beat ticks and stronger bar ticks using the same beat/bar grid as the lane canvas, with bar numbers (1, 5, 9, 13…) in monospace font;
-  the ruler x-origin aligns with the tracker grid, placements, and playhead.
+- [x] **AC-011:** The ruler displays beat ticks and stronger bar ticks using the same beat/bar grid as the lane canvas, with bar numbers (1, 5, 9, 13…) in monospace font.
+  The ruler x-origin aligns with the tracker grid, placements, and playhead.
 - [x] **AC-011a:** Clicking the ruler timeline moves the playhead to the nearest
   8-tick beat boundary, with the clicked beat and rendered playhead sharing the
   same pixel position at every horizontal scroll offset. Arrow Left and Arrow
   Right move by one beat,
-  while Home and End move to the timeline boundaries. The engine seeks to the same tick; playback continues from that tick when already playing,
+  while Home and End move to the timeline boundaries. The engine seeks to the same tick. Playback continues from that tick when already playing,
   while paused or stopped transport remains paused or stopped.
 - [x] **AC-011b:** The always-rendered, skinnable Song Progress Bar controls the
   shared horizontal position of the ruler, playhead, selections, and every lane
@@ -678,12 +679,12 @@ window-level mouse listeners.
   current playhead, centers it in the unobscured timeline area, and recenters
   only after it crosses the visible timeline's 20% guard bands. It does not
   auto-scroll while playback is inactive.
-- [x] **AC-012:** Clicking Play starts playback; the button changes to Pause. Clicking Pause pauses; the button reverts to Play.
+- [x] **AC-012:** Clicking Play starts playback. The button changes to Pause. Clicking Pause pauses. The button reverts to Play.
 - [x] **AC-013:** Clicking Stop halts playback and returns the playhead to tick 0.
 - [x] **AC-014:** Clicking Skip Back returns the playhead to tick 0 without stopping playback (if playing).
 - [x] **AC-014a:** Jump to End moves both the playhead and Tracker viewport to
   the exact `songEndTick` and is disabled for an empty song. If activated while
-  playing, it stops playback and parks at the end; natural playback reaching
+  playing, it stops playback and parks at the end. Natural playback reaching
   the same tick still stops and resets to tick 0 per spec-005. Play from the
   parked end synchronizes both engine and visual playheads to tick 0 before
   asynchronous preparation begins.
@@ -699,7 +700,7 @@ window-level mouse listeners.
   manual, stored, restored, and tab-switched sizes to their content-safe
   minimum. Visible controls remain inside their card and workspace. Changing UI
   Size grows the active panel when required. The active panel retains a
-  defensive vertical scrollport for later content growth; no interactive
+  defensive vertical scrollport for later content growth. No interactive
   content is clipped.
 - [x] **AC-016c:** A missing or malformed stored layout falls back to a fresh
   24% Bottom Workspace preference. The rendered height clamps to the active tab
@@ -709,16 +710,16 @@ window-level mouse listeners.
   scrollable for the real `tmp/test-samples` catalog at UI Sizes 30, 40, and 50.
   Identically named subfolders appear once and active filters stay visible.
 - [x] **AC-017:** Placements are rendered on canvas (or equivalent performant surface), not as individual DOM nodes per placement.
-- [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position; the original remains unchanged.
-- [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle; placements whose bounds intersect the rectangle are selected (highlighted with a white border).
+- [x] **AC-018:** Shift-dragging a placed sample bubble duplicates its placement at the drop position. The original remains unchanged.
+- [x] **AC-019:** Ctrl+drag on the lane canvas area draws a selection rectangle. Placements whose bounds intersect the rectangle are selected (highlighted with a white border).
 - [x] **AC-020:** Pressing Delete removes all selected placements. Clicking empty space without Ctrl deselects all.
 - [x] **AC-021:** Dragging a sample bubble that is part of a multi-selection moves the entire placement group, maintaining relative offsets. Shift-dragging the group duplicates all members.
 - [x] **AC-022:** Ctrl+Z undoes the last placement, lane-structure, Mixer,
-  Return, limiter, or FX edit; Ctrl+Y or Ctrl+Shift+Z redoes it. A continuous
+  Return, limiter, or FX edit. Ctrl+Y or Ctrl+Shift+Z redoes it. A continuous
   adjustment is one history entry.
   The Middle Strip Undo/Redo buttons mirror the shortcuts and disable when their history stack is empty. A multi-placement delete undoes as a single step.
 - [x] **AC-023:** The More-menu Keyboard Shortcuts item and the "?" key open a
-  modal dialog; Esc, the close button, or a backdrop click dismisses it,
+  modal dialog. Esc, the close button, or a backdrop click dismisses it,
   background interaction is blocked, and focus returns to the opener. The
   dialog paints above its non-blurring backdrop, its center hit-tests to dialog
   content, and a trigger tooltip is closed before the dialog appears.
@@ -729,14 +730,14 @@ window-level mouse listeners.
   Full project deserialization restores lanes and placements from the `.mixjam`
   file through spec-011.
 - [ ] **AC-025:** A sample bubble keeps its canonical width and selected UI Size
-  height in the drag image; any minimum drag surface, theme-shadow clearance,
+  height in the drag image. Any minimum drag surface, theme-shadow clearance,
   or group badge uses transparent space outside that rectangle.
 - [x] **AC-026:** Space toggles Play/Pause when focus is not in a text control.
 - [ ] **AC-026a:** Blocking modals implement Enter, Escape, Arrow, FX Space,
   Backspace, and Ctrl+Backspace as specified and suppress app/transport hotkeys,
   while OS Previous, Play/Pause, and Next retain their defined transport actions.
 - [x] **AC-027:** An arrangement with no placements keeps a visible first-sample
-  cue in the Tracker; its Open Samples action activates Samples and grows the
+  cue in the Tracker. Its Open Samples action activates Samples and grows the
   Bottom Workspace to at least 50% when needed. The cue disappears after the
   first placement.
 - [x] **AC-028:** Transport, Mixer, theme, header, footer, management, browser,
@@ -819,11 +820,11 @@ contract.
   `tmp/verify-song-progress-performance/`. Six raw CDP traces cover a real
   pointer drag from start to end and back across 999 bars, 16 lanes, and 15,984
   placements. Native-speed p95 frame intervals were 16.7-16.8ms and p95
-  input-to-scroll latency was 0.5ms; at 4x CPU slowdown those ranges were
+  input-to-scroll latency was 0.5ms. At 4x CPU slowdown those ranges were
   50.1ms and 2.4-2.9ms. Every run reached capacity, kept canvas backing stores
   viewport-bounded, and coalesced lane redraws to one per animation frame. The
   later Follow playhead repair permits at most two viewport widths of bounded
-  horizontal overscan; those earlier figures have not been re-characterized.
+  horizontal overscan. Those earlier figures have not been re-characterized.
   These values are characterization only because no numeric performance budget
   has been approved.
 

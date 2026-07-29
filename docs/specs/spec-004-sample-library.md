@@ -6,19 +6,18 @@
 
 ## Objective
 
-Index the user's Sample Folder, build a searchable/browsable sample library with
-virtualized rendering, and provide one flat tag system for both folder-derived
-and user-defined organization. Libraries are saved queries, not file copies.
+Index the user's Sample Folder. Build a searchable sample library with
+virtualized rendering. Provide one flat tag system for folder-derived and
+user-defined organization. Libraries are saved queries, not file copies.
 
 ## User Stories
 
-- **US-001:** As a user, I open the tracker and see my sample library
-  automatically indexed from the Sample Folder — I don't have to manually
-  import files.
+- **US-001:** As a user, I see my Sample Folder library after I open the
+  Tracker. The app indexes it automatically without a manual import.
 - **US-002:** As a user, I can browse samples in a scrollable bubble grid that stays
   responsive even with thousands of files.
-- **US-002a:** As a user, when I select a sample I see its path, metadata, and
-  tags in the Player footer without losing list width in the browser.
+- **US-002a:** As a user, I see the selected sample path, metadata, and tags in
+  the Player footer. The browser keeps its list width.
 - **US-003:** As a user, I can search samples by filename and get instant
   results as I type.
 - **US-004:** As a user, I can create custom tags and assign them to samples,
@@ -39,22 +38,22 @@ and user-defined organization. Libraries are saved queries, not file copies.
   the app session. Sync starts from Home and does not wait for Player entry.
 - On the first sync, the app scans the folder for audio files (`.wav`, `.mp3`,
   `.flac`, `.ogg`, `.aiff`).
-- Each file is registered in the SQLite database with: scan root + relpath
-  (path relative to the Sample Folder), filename, extension, file size,
+- The app registers each file in SQLite.
+  The record contains its scan root, relative path, filename, extension, size,
   modification time, and import date.
 - **Phase 1:** file enumeration creates stub rows. Metadata columns (duration,
   sample rate, channels) are left empty.
 - **Phase 2:** audio headers are parsed to fill duration, sample rate, and
-  channels. Metadata parsing uses four concurrent readers; database updates
+  channels. Metadata parsing uses four concurrent readers. Database updates
   stay serialized in the backend worker.
 - The first sync is non-modal. Home shows phase and progress inside the Sample
   Folder card. If the user enters Player before `scan-done`, the Samples panel
   shows an empty syncing state and the Middle Strip carries the same job status.
   Navigation and project actions remain available.
-- Samples are queried and displayed after `scan-done`; first-sync rows do not
+- Samples are queried and displayed after `scan-done`. First-sync rows do not
   appear incrementally during phase 1 or phase 2.
 - Scan status uses a native progress element with a visible text equivalent and
-  an accessible label; indeterminate phases omit a fabricated numeric value.
+  an accessible label. Indeterminate phases omit a fabricated numeric value.
 - Indexing runs on a background thread/worker — the UI stays responsive.
 
 ### Automatic Incremental Sync and Manual Recovery
@@ -72,25 +71,25 @@ and user-defined organization. Libraries are saved queries, not file copies.
 - An app-owned filesystem mutation, such as a completed spec-020 download,
   schedules a sync even when the root already used its once-per-session
   automatic trigger. If the same root is active, the worker marks it dirty and
-  guarantees one follow-up reconciliation after the current job; repeated
+  guarantees one follow-up reconciliation after the current job. Repeated
   mutation events collapse into that one follow-up.
 - New files: added as stubs, queued for metadata extraction.
-- Changed files: metadata is re-extracted; tags, bpm/key fields, and original
+- Changed files: metadata is re-extracted. Tags, bpm/key fields, and original
   import date are preserved, while folder-derived tags are recomputed.
 - Missing files: marked as missing (not deleted) so tags survive a temporarily
   disconnected drive. Hidden from normal browsing.
 - Unchanged files with a completed metadata attempt are not metadata-parsed or
-  automatically analyzed again. Persisted root-completion, metadata-revision,
-  and analysis-revision state make a completed empty folder valid and keep
-  terminal metadata failures and valid NULL analysis results from being retried
-  on every launch. The manual Re-scan action retries unchanged rows whose
+  automatically analyzed again. Persisted revision and completion state makes
+  a completed empty folder valid. It prevents a retry of terminal metadata
+  failures and valid NULL analysis results after each launch.
+  The manual Re-scan action retries unchanged rows whose
   metadata is marked unavailable.
 - One manual **Re-scan Sample Folder** action invokes the same incremental
   pipeline only for the rare case where files change after the session's
   automatic sync. It lives in the Middle Strip utility menu rather than as
   permanent primary chrome.
 - A single "Cancel library sync" action is available while a job is active.
-  Cancelling bumps a generation counter; the in-flight work stops at its next
+  Cancelling bumps a generation counter. The in-flight work stops at its next
   cancellation check.
   Already committed rows remain in the database, and the progress indicator
   enters a cancelled state immediately. A cancelled or failed first sync shows
@@ -104,10 +103,10 @@ and user-defined organization. Libraries are saved queries, not file copies.
   cancel actions. `useLibraryData` owns browse queries and mutations. Home,
   Middle Strip, and status controls derive shared capabilities from
   `lib/library-sync-presentation.ts` while keeping view-specific copy local.
-  It does not load the app version or scan the User Folder for projects; those
+  It does not load the app version or scan the User Folder for projects. Those
   are project-persistence and project-catalog responsibilities from spec-011.
 - Contextual sample analysis is part of the single worker-owned analysis job.
-  It has no separate command or scan variant; spec-008 owns its inference rules.
+  It has no separate command or scan variant. Spec-008 owns its inference rules.
 
 ### Sample Browser Container
 
@@ -150,8 +149,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   footer with the path, assigned tags, and decoded waveform.
 - The grid does not use inline expansion.
 - Functional development and scan checks use the real fixture corpus under
-  `tmp/test-samples`. Scale validation against 100k+ samples remains deferred;
-  do not hardcode the fixture count because that corpus changes over time.
+  `tmp/test-samples`. Scale validation against 100k+ samples remains deferred.
+  Do not hardcode the fixture count because that corpus changes over time.
 
 ### Full-Text Search
 
@@ -163,10 +162,10 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - Empty search query shows all samples (subject to active filters).
 - Search uses token-prefix matching through FTS5, not typo-tolerant fuzzy
   matching.
-- Query results load as windowed pages on demand: the first page loads eagerly
-  and the grid requests the next page as the user scrolls near the end of the
-  loaded rows. Each page request belongs to one root/filter/sort generation;
-  changing any query input invalidates pending pagination immediately, and a
+- Query results load as windowed pages on demand. The first page loads eagerly.
+  The grid requests the next page near the end of the loaded rows.
+  Each page request belongs to one root/filter/sort generation.
+  Changing any query input invalidates pending pagination immediately, and a
   late response cannot append rows or release another generation's paging
   guard. The renderer never accumulates the full result set up front.
 
@@ -180,13 +179,13 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - The Samples panel's filter/results toolbar owns active tag filters, the
   result count summary, and filename/duration/date-added sorting.
 - Those controls share one non-wrapping toolbar. The left side is a horizontally
-  scrollable filter strip; the right side keeps the result count and one compact
+  scrollable filter strip. The right side keeps the result count and one compact
   sort group visible. The count remains present at zero. Active tag filters are
   removable and expose their optional color indicator. The active sort exposes
   both pressed state and direction in its accessible name.
 - Contextual BPM, key, and type results are produced automatically by the one
   analyzer defined in spec-008. There is no separate analysis-management action.
-- These controls never bypass the SQLite-backed query/filter flow; they only
+- These controls never bypass the SQLite-backed query/filter flow. They only
   change the current browser query state or trigger the indexed sync path.
 - Manage replaces the sample-results pane while it is open. Covered result and
   resize controls are not left in the accessibility tree or tab order. Focus
@@ -214,15 +213,16 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   exposes one **Edit tags** action that opens a searchable, collision-aware
   assignment surface. The UI never mounts the complete tag catalog once per
   sample tile.
-- The sample menu follows the standard context-menu keyboard model, remains
-  inside the viewport, returns focus on dismissal, and opens sample analysis in
-  a collision-aware modal popover anchored to the originating sample bubble.
+- The sample menu follows the standard context-menu keyboard model.
+  It stays inside the viewport and restores focus after dismissal.
+  It opens sample analysis in a collision-aware modal popover at the source
+  sample bubble.
 - The left navigator searches the flat tag catalog and toggles filters. Only
   active filters render as chips in the results toolbar, so tag count does not
   expand permanent chrome.
-- Tags have an optional color for visual identification. The manage panel can
-  set or clear that color during creation or later editing, and colored tags
-  carry the same indicator in filter chips and sample context menus.
+- Tags have an optional color for visual identification.
+  The manage panel can set or clear the color during creation or later edits.
+  Colored tags use the same indicator in filter chips and sample menus.
 - Tag assignment is many-to-many: one sample can have many tags, one tag can
   apply to many samples.
 - Deleting a tag removes it from all assigned samples (no orphaned references).
@@ -241,9 +241,9 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   complete projection.
 - User-created tags remain global and editable. When a user tag and a
   folder-derived tag share a name, they share one visible tag identity while
-  retaining independent assignment provenance. The per-sample editor lets the
-  user pin or unpin that user provenance while the folder assignment stays
-  visibly active, so an explicit assignment can survive a later file move.
+  retaining independent assignment provenance. The per-sample editor can pin
+  or unpin the user provenance. The folder assignment stays visibly active.
+  Thus, an explicit assignment can survive a later file move.
 - A changed or moved file recomputes folder-derived assignments while keeping
   its user assignments. Missing rows retain user tags but do not keep obsolete
   folder tags visible.
@@ -261,7 +261,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 
 - A library is a named, saved set of filter/search/tag criteria.
 - Creating a library saves the current filter state under a user-chosen name.
-- Library metadata and its compiled rule are created in one transaction; a
+- Library metadata and its compiled rule are created in one transaction. A
   failed rule write leaves no orphan library row.
 - Opening a library parses its `rule_json` and restores search text plus tag
   filters. Stale tag ids are ignored.
@@ -271,7 +271,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - Deleting a library only removes the saved query, never the samples.
 - The executable v1 subset is one `and` group containing optional `text` and one
   `tag`-`all` leaf. The full predicate-tree compiler remains
-  target architecture; see [query-schema.md](../query-schema.md).
+  target architecture. See [query-schema.md](../query-schema.md).
 
 ### Performance Constraints (from architecture)
 
@@ -280,13 +280,14 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - The UI requests windowed pages of results, not the entire dataset.
 - Virtualized rendering ensures constant DOM node count regardless of result
   set size. Tiles are packed into fixed-height rows and virtualized with
-  TanStack Virtual; only rows intersecting the scroll viewport are mounted. A
-  visible unmeasured viewport may render only a bounded first-paint window;
-  hidden viewports mount no rows and never request another result page.
+  TanStack Virtual. Only rows intersecting the scroll viewport are mounted. A
+  visible unmeasured viewport may render only a bounded first-paint window.
+  Hidden viewports mount no rows and never request another result page.
 - `tests/e2e/ui-performance.spec.ts` proves the bound with fewer than 40
-  mounted rows and fewer than 400 sample bubbles while scrolling through exact
-  `0`, `500`, and `1000` backend offsets. It also proves that each page mounts
-  distinct samples; repeatedly fetching offset zero or fully rendering a
+  mounted rows and fewer than 400 sample bubbles.
+  It scrolls through exact `0`, `500`, and `1000` backend offsets.
+  It also proves that each page mounts
+  distinct samples. Repeatedly fetching offset zero or fully rendering a
   500-row page cannot satisfy the test.
 - No current 100k-row latency claim has been measured. Any throughput or query
   latency claim must be recorded with the real fixture/library subset and the
@@ -297,13 +298,13 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-001:** A folder's first sync starts automatically from Home and
   shows accessible phase and progress without a full-screen overlay. Entering
   Player keeps the job running and shows a non-modal syncing state.
-- [x] **AC-002:** After `scan-done`, the browser queries the active folder and displays its indexed samples; first-scan results are not exposed before completion.
+- [x] **AC-002:** After `scan-done`, the browser queries the active folder and displays its indexed samples. First-scan results are not exposed before completion.
 - [x] **AC-003:** Phase 2 persists duration, sample rate, and channel metadata.
   Terminal unsupported or damaged files become metadata-unavailable without
-  aborting the sync; transient I/O failure keeps the job incomplete for Retry.
-- [x] **AC-004:** The sample bubble grid is virtualized — scrolling through
-  indexed samples keeps a bounded DOM row count, and an inactive Samples tab
-  mounts no sample rows or additional query pages while hidden.
+  aborting the sync. Transient I/O failure keeps the job incomplete for Retry.
+- [x] **AC-004:** The sample bubble grid is virtualized.
+  The DOM row count stays bounded as the user scrolls indexed samples.
+  A hidden Samples tab mounts no rows or additional query pages.
 - [x] **AC-004a:** The UI exposes one manual "Re-scan Sample Folder" recovery
   action, one compact library-status region, and Cancel only while active. It
   exposes no second scan variant. The Samples panel retains result count and
@@ -313,27 +314,28 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
 - [x] **AC-006:** Clearing the search field restores the full sample list.
 - [x] **AC-006b:** Clearing an active tag restores matching samples across every
   SQLite result window, not only the first page.
-- [x] **AC-006a:** Selecting a sample populates the center area of the Player footer with that sample's path, metadata, and assigned tags while the footer's left and right shell items remain visible.
-- [x] **AC-007:** User can create a new tag with or without a color, later set
-  or clear its color, see the visual indicator in tag affordances, and assign
-  the tag to a sample.
+- [x] **AC-006a:** Selecting a sample adds its path, metadata, and assigned tags
+  to the Player footer center. The left and right shell items stay visible.
+- [x] **AC-007:** The user can create a tag with or without a color.
+  The user can set or clear its color later.
+  Tag controls show the color indicator, and the user can assign the tag.
 - [x] **AC-008:** User can rename a tag — the rename reflects on all assigned samples.
 - [x] **AC-009:** User can delete a tag — it is removed from all assigned samples.
 - [x] **AC-010:** A complete sync assigns one shared tag per directory segment.
   Identically named subfolders under different parents share one tag identity,
   and flat-root samples receive the hardcoded `Unsorted` tag.
-- [x] **AC-010a:** The tag navigator searches the flat catalog, toggles filters
-  without mounting the catalog in the results toolbar, and keeps only active
-  tags visible as removable filter chips. A sync cannot leave an invisible
+- [x] **AC-010a:** The tag navigator searches the flat catalog and toggles
+  filters. It does not mount the catalog in the results toolbar.
+  Only active tags appear as removable filter chips. A sync cannot leave an invisible
   stale tag id filtering the result set.
-- [x] **AC-010b:** Folder-derived assignments are root-scoped and read-only;
-  user-created tags are global and editable. Sync reconciliation never removes
+- [x] **AC-010b:** Folder-derived assignments are root-scoped and read-only.
+  User-created tags are global and editable. Sync reconciliation never removes
   user assignments or another root's folder-derived projection. A shared
   folder/user tag can be pinned independently for a sample. Tag mutation
   completions reconcile through the current root and cannot overwrite a new
   Sample Folder's projection after a root switch.
 - [x] **AC-011:** Multiple tag filters use match-all semantics. `Bass` alone
-  spans parents; `Hard Trance` plus `Bass` narrows to their intersection; and a
+  spans parents. `Hard Trance` plus `Bass` narrows to their intersection, and a
   top-level folder tag includes nested samples because they carry it directly.
   Membership mutations refresh the SQLite window and total count.
 - [x] **AC-012:** User can save the current filter/search state as a named library.
@@ -372,8 +374,8 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   span and current pixels-per-tick scale as its Tracker representation. Before
   first placement it uses the spec-009 span estimate, so the first drop and both
   views remain pixel-identical.
-- [x] **AC-018:** Sample actions use an accessible, viewport-aware context menu;
-  the tag-navigator/sample separator works by pointer, touch, and keyboard; and scan
+- [x] **AC-018:** Sample actions use an accessible, viewport-aware context menu.
+  The tag-navigator/sample separator works by pointer, touch, and keyboard, and scan
   progress exposes native progress semantics plus visible status text. Manage
   replaces the results pane, receives focus, and restores focus when closed.
 
@@ -388,7 +390,7 @@ Workspace below the Middle Strip from spec-006. Its internal layout:
   once-per-session automatic sync plus one manual in-session recovery action
   (see [indexing.md](../indexing.md#live-watching-optional-later)).
 - No drag-and-drop within the browser itself (reordering tiles). Drag to tracker lane is the primary placement mechanism (see spec-006).
-- No dedicated detail pane inside the browser region; selected-sample details
+- No dedicated detail pane inside the browser region. Selected-sample details
   are footer-hosted.
 - No library export or sharing.
 - No tag import/export or cloud synchronization.

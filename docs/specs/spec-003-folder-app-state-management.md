@@ -6,9 +6,10 @@
 
 ## Objective
 
-Add a two-folder setup flow to the Home Screen: the user must select a **User
-Folder** (output, read-write) and a **Sample Folder** (input, read-only) before
-entering the Player. Folder selections persist as app state across restarts.
+Add a two-folder setup flow to the Home Screen. The user must select a **User
+Folder** (output, read-write) and a **Sample Folder** (input, read-only).
+The user must select both folders before entering the Player.
+Folder selections persist as app state across restarts.
 
 ## User Stories
 
@@ -16,15 +17,15 @@ entering the Player. Folder selections persist as app state across restarts.
   my projects and exports.
 - **US-002:** As a user, I select a Sample Folder so the app knows where my
   sample files live.
-- **US-003:** As a user, I must pick the User Folder before the Sample Folder
-  becomes available — the app enforces this order so it always has a write
-  destination before reading samples.
+- **US-003:** As a user, I must pick the User Folder first.
+  The app then makes the Sample Folder available.
+  This order gives the app a write destination before it reads samples.
 - **US-004:** As a user, the "Start New MixJam" button is disabled until both
-  folders are selected, with a hint explaining what's missing.
-- **US-005:** As a user, when I reopen the app, my previously selected folders
-  are restored automatically — I don't have to re-pick them on every launch.
-- **US-006:** As a user, if a previously selected folder is no longer
-  accessible, the app shows a clear error and lets me pick a new one.
+  folders are selected, with a hint explaining what is missing.
+- **US-005:** As a user, the app restores my selected folders after launch.
+  I do not have to select them after each launch.
+- **US-006:** As a user, I see a clear error when a selected folder is not
+  accessible. I can then select a new folder.
 
 ## Scope
 
@@ -55,7 +56,7 @@ Each card shows:
   "Sample Folder").
 - **"Pick Folder" button** — opens the File System Access directory picker.
 - **Status text** — shows the selected folder's name, or a prompt if none
-  selected. (MixJam stores no absolute paths; a folder is a `FolderRef` whose
+  selected. (MixJam stores no absolute paths, a folder is a `FolderRef` whose
   handle is persisted in IndexedDB.)
 - **Library status** in the full-width scanner row below both folder controls —
   Unindexed, Syncing, Ready, Cancelled, or Error. Checking, syncing, and
@@ -102,8 +103,8 @@ Each card shows:
 ### Folder Picker Behavior
 
 - Clicking "Pick Folder" opens the File System Access directory picker
-  (`showDirectoryPicker`) with the mode matching the folder role
-  (`readwrite` for the User Folder, `read` for the Sample Folder).
+  (`showDirectoryPicker`). Its mode matches the folder role.
+  The User Folder uses `readwrite`. The Sample Folder uses `read`.
 - Picking a folder that was picked before reuses its existing `FolderRef`
   (via `isSameEntry`), so the folder's scan root and indexed samples survive
   re-picking.
@@ -127,7 +128,7 @@ Each card shows:
 
 ### App State Persistence
 
-- Selected `FolderRef`s are persisted in localStorage; their directory handles
+- Selected `FolderRef`s are persisted in localStorage. Their directory handles
   are persisted in IndexedDB. Both survive app restarts on the same origin.
 - On app launch, the persisted folders are loaded and restored into the cards
   automatically.
@@ -163,14 +164,14 @@ Folder's directory handle). It is not user-editable.
 - [x] **AC-010:** Selected folder names are displayed on their respective cards after successful validation.
 - [x] **AC-010b:** The User Folder picker is hinted to start in the OS Documents folder.
 - [x] **AC-010c:** Select User Folder in the Player Settings modal uses the same
-  validated picker and persisted app state as the Home User Folder card;
-  neither surface stores an absolute path.
+  validated picker and persisted app state as the Home User Folder card.
+  Neither surface stores an absolute path.
 - [x] **AC-010a:** If a selected folder is not accessible (permissions error), the card shows: "Cannot access this folder. Check permissions and try again."
 - [x] **AC-011:** Closing and reopening the app restores previously selected folders automatically.
 - [x] **AC-012:** If both folders restore successfully on launch, "Start New MixJam" is immediately active.
 - [x] **AC-013:** If a restored folder is no longer accessible, its card shows an error state: "Folder not accessible — pick a new one."
 - [x] **AC-013a:** If a restored handle unexpectedly needs a permission
-  re-grant, the card offers "Restore access to `folder`"; granting it validates
+  re-grant, the card offers "Restore access to `folder`". Granting it validates
   the folder and opens the gate.
 - [x] **AC-014:** A `mixjam.json` app config file is written to the User Folder after both folders are selected.
 - [x] **AC-015:** Changing the User Folder while a Sample Folder is already selected does not clear the Sample Folder selection.
@@ -178,14 +179,14 @@ Folder's directory handle). It is not user-editable.
   exactly one automatic library sync for that folder during the app session.
   Re-renders and Home/Player transitions do not start duplicate jobs.
 - [x] **AC-017:** While Home is visible, the Library Setup scanner row shows
-  expanded sync or analysis phase and progress, then collapses to a compact
-  ready state. Folder availability remains the launch gate, and an existing
+  the sync or analysis phase and progress. It collapses to a compact ready
+  state after completion. Folder availability remains the launch gate, and an existing
   index remains usable during background sync. A cancelled or failed first sync
   remains visibly unindexed and offers Retry without a modal overlay.
 
 ## Non-Goals (deferred to later specs)
 
-- The indexing pipeline and sync scheduling rules belong to spec-004; this spec
+- The indexing pipeline and sync scheduling rules belong to spec-004. This spec
   only supplies the accessible Sample Folder trigger and status host.
 - Project save/load behavior belongs to spec-011.
 - No sample analysis or metadata extraction. Sample analysis is spec-008.
@@ -196,5 +197,5 @@ Folder's directory handle). It is not user-editable.
   only.
 - Continuous folder watching is optional follow-up work. The approved baseline
   performs automatic incremental sync after folder selection/restoration and
-  once per app session; see
+  once per app session. See
   [indexing.md](../indexing.md#sync-trigger-policy).

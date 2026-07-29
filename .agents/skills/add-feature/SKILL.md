@@ -1,6 +1,6 @@
 ---
 name: add-feature
-description: Create or revise feature specifications and durable decisions. Use for unclear slices, contract changes, or lasting project guidance.
+description: Create or revise feature specifications and lasting project decisions. Use for unclear scope, contract changes, or decisions that need documentation.
 ---
 
 # Add Feature

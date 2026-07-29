@@ -8,7 +8,7 @@ description: Verifies nontrivial MixJam renderer changes through production Elec
 Verify renderer changes against the production Electron bundle.
 Use real Chromium evidence for CSS, canvas, themes, and Tracker behavior.
 
-## Build And Drive
+## Build and Test
 
 1. Remove `ELECTRON_RUN_AS_NODE` from the command environment.
    Complete this step when the launch process lacks the variable.
@@ -20,7 +20,7 @@ Use real Chromium evidence for CSS, canvas, themes, and Tracker behavior.
    Complete this step when the script uses the helper's isolated user-data policy.
 5. Launch Electron through `launchMixJamElectron`.
    Complete this step when the helper returns the application page.
-6. Drive only the changed user states.
+6. Test only the changed user states.
    Complete this step when each changed state has objective evidence.
 7. Store screenshots and a short report under `tmp/verify-<slug>/`.
    Complete this step when every artifact exists.
@@ -30,7 +30,7 @@ Use real Chromium evidence for CSS, canvas, themes, and Tracker behavior.
 If the run lacks real folders, read [REFERENCE.md](REFERENCE.md#mock-data).
 If the change affects the Tracker, read [REFERENCE.md](REFERENCE.md#tracker-actions).
 
-## Assert The Surface
+## Check the Interface
 
 - Read theme tokens through `getComputedStyle(document.documentElement)`.
 - Compare resolved DOM colors as computed `rgb(...)` values.

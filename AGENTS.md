@@ -18,10 +18,17 @@ Use two modes:
 Words:
 
 - Use one name for one thing. Do not call the same item by two different names.
-- Use the short common word: start (not begin, commence, or initiate), use (not utilize), help (not
-  facilitate), make sure (not ensure), before (not prior to), after (not subsequent to), about (not
-  regarding), get (not obtain), show (not demonstrate), also (not additionally, furthermore, or
-  moreover).
+- Use these short common words:
+  - Use *start*. Do not use *begin*, *commence*, or *initiate*.
+  - Use *use*. Do not use *utilize*.
+  - Use *help*. Do not use *facilitate*.
+  - Use *make sure*. Do not use *ensure*.
+  - Use *before*. Do not use *prior to*.
+  - Use *after*. Do not use *subsequent to*.
+  - Use *about*. Do not use *regarding*.
+  - Use *get*. Do not use *obtain*.
+  - Use *show*. Do not use *demonstrate*.
+  - Use *also*. Do not use *additionally*, *furthermore*, or *moreover*.
 - Give each word one meaning. "Fall" means to move down. It does not mean to decrease.
 - No marketing adjectives: seamless, robust, powerful, cutting-edge, effortless, world-class,
   next-generation, revolutionary.
@@ -140,7 +147,8 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 - A library is a saved `rule_json` query, not copied files or symlinks.
 - Use parameterized SQL statements. Never concatenate user input into SQL.
 - All DB access stays in `src/renderer/src/backend/` (opfs-sahpool, worker-only, single-connection). Never open a second connection or touch DB from the UI thread.
-- No absolute paths. Folders are `FolderRef` (persisted directory handles); samples are `(root_id, relpath)`.
+- Do not use absolute paths. Folders use `FolderRef` values for saved directory handles.
+- Samples use `(root_id, relpath)` values.
 - Electron renderer: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. Preload exposes only `ShellAPI` via `contextBridge`. Everything must work without the shell.
 - Audio on the renderer main thread (Web Audio API). Load bytes via `readSampleBytes(rootId, relpath)`.
 - No emoji in code, docs, specs, or skills.
@@ -155,14 +163,15 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
 ## Resolved decisions — do not reopen
 
 - Electron-only: one renderer backend inside the Electron desktop app. The
-  renderer loads from `app://`; there is no browser deployment. No demo/mock mode
+  renderer loads from `app://`. There is no browser deployment. No demo/mock mode
   (onboarding without samples is spec-020).
 - `@sqlite.org/sqlite-wasm` with opfs-sahpool VFS. One tab, enforced by Web Lock.
 - `rule_json` predicate tree compiles to parameterized SQL. Current executable subset:
   one `and` group with optional text and one tag-all leaf.
   Do not extend before validator and full compiler land (see `docs/query-schema.md`).
 - Two-phase background indexer, `(size, mtime)` change detection, soft-delete for missing files.
-- Web Audio API lookahead scheduler for v1; native addon only if latency triggers it.
+- Use the Web Audio API lookahead scheduler for v1.
+- Use a native addon only if latency triggers it.
 - Library export out of scope for v1.
 
 ## Session conventions
@@ -174,7 +183,7 @@ Before `dev` or `build`: unset `ELECTRON_RUN_AS_NODE` or Electron will not launc
   Delegate independent work concurrently when the environment supports it.
 - **Code Mode batching.** Within each bounded stage, run independent, `functions.exec`-available tool
   calls concurrently in one `functions.exec` call. Use `await Promise.allSettled([...])` when partial
-  results are useful, and inspect every result; use `await Promise.all([...])` only when any failure
+  results are useful, and inspect every result. Use `await Promise.all([...])` only when any failure
   should abort the batch. Keep dependencies, waits/resumes, approvals, conflicting or interdependent
   mutations, and adaptive investigations where each result may change the next step sequential. Do not
   split otherwise batchable inspections across outer tool calls.

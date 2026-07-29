@@ -3,8 +3,8 @@
 A library is a saved query. Its JSON is stored in
 `library_rules.rule_json`.
 
-The full predicate-tree contract in this document is the accepted target
-architecture. The current implementation supports only a restricted v1 subset:
+This document defines the accepted target predicate-tree contract.
+The current implementation supports only a restricted v1 subset:
 
 - saved libraries contain one top-level `and` group
 - supported leaves are `text` and `tag` with `all`
@@ -15,10 +15,11 @@ architecture. The current implementation supports only a restricted v1 subset:
 The current library parser validates this restricted shape atomically. Explicit
 version 1 rules require the top-level `group` / `and` descriptors. Earlier
 unversioned rules may omit those descriptors but must otherwise have the same
-shape. Unsupported versions, group operators, quantifiers, nested groups,
-unknown leaves, duplicate leaf kinds, and malformed fields reject the whole
-rule instead of applying a recognized subset with different semantics. The full
-predicate-tree compiler below remains required before later specs add leaf kinds
+shape. The parser rejects the whole rule for any unsupported or malformed item.
+These items include versions, group operators, quantifiers, nested groups, unknown leaves, and duplicate leaf kinds.
+The parser does not apply a recognized subset with different semantics.
+
+The full predicate-tree compiler below remains required before later specs add leaf kinds
 or boolean composition.
 
 ## Target design goals
@@ -26,7 +27,7 @@ or boolean composition.
 - Express **tag AND/OR/NOT** logic, **BPM/key range**, **text search**,
   **date-added**, and **duration** filters.
 - Be **extensible**: new leaf types can be added without breaking stored rules.
-- Compile to a single parameterized SQL `WHERE` clause — no in-memory filtering.
+- Compile to one parameterized SQL `WHERE` clause with no in-memory filters.
 
 ## Current supported shape
 
@@ -46,7 +47,7 @@ or boolean composition.
 
 All children are optional. Multiple tag ids use `all` semantics in the backend
 query. The saved JSON is not used for
-ad-hoc browser filtering; live filters travel through `SampleQueryRequest`.
+ad-hoc browser filters. Live filters use `SampleQueryRequest`.
 
 ## Target shape: a versioned predicate tree
 
@@ -123,8 +124,8 @@ never mis-runs a newer rule.
 The completed query engine will walk the tree and emit a parameterized `WHERE`
 fragment plus a parameter array. Outline:
 
-- **group/and** → `(<child> AND <child> ...)`; **or** → `OR`; **not** →
-  `NOT (<child>)`. An empty `and` group matches all; an empty `or` matches none.
+- **group/and** → `(<child> AND <child> ...)`. **or** → `OR`. **not** →
+  `NOT (<child>)`. An empty `and` group matches all. An empty `or` matches none.
 - **tag**
   - `any` → `EXISTS (SELECT 1 FROM sample_tags st WHERE st.sample_id = samples.id AND st.tag_id IN (?, ?))`
   - `all` → one `EXISTS` per tag id (AND-ed), or a `GROUP BY ... HAVING COUNT(DISTINCT tag_id) = N`
@@ -134,21 +135,23 @@ fragment plus a parameter array. Outline:
   BPM is excluded from a BPM filter).
 - **key / ext** → `samples.musical_key IN (...)` / `samples.ext IN (...)`.
 - **text** → `samples.id IN (SELECT rowid FROM samples_fts WHERE samples_fts MATCH ?)`.
-- **dateAdded** → bounds on `samples.date_added`; `withinDays` is resolved to
+- **dateAdded** → bounds on `samples.date_added`. Resolve `withinDays` to
   `date_added >= (now - days*86400000)` **at query time** (never baked into stored
   JSON, so a saved "last 30 days" library stays relative).
 
-Always bind values as parameters — never string-concatenate user input into SQL.
+Always bind values as parameters.
+Never join user input into an SQL string.
 
 ## Target versioning and migration
 
 Once the full parser is implemented, `version` gates it. To evolve the format:
 
-1. Add new leaf `kind`s additively — old rules keep working, no migration needed.
+1. Add new leaf `kind`s without changing old kinds.
+   Old rules continue to work without a migration.
 2. For a **breaking** change, bump `version`, write a `migrateRule(v_old → v_new)`
    transform, and run it lazily when a library is loaded (and persist the upgraded
-   JSON back). Reject `version` values newer than the running build understands with
-   a clear message.
+   JSON back).
+   Reject newer `version` values with a clear message.
 
 A validator must run on every rule before it is compiled or saved, so malformed
 rules fail fast at the boundary. Until that validator and compiler ship, later

@@ -30,7 +30,7 @@ This step is complete when the inventory proves which requested constraints the 
 - Record source links in `tmp/<slug>/brief.md`.
 - Record the normal tempo, duration, section arc, instrumentation, transitions, and effects.
 - Reconcile each requested constraint with the corpus inventory.
-- Mark each unsupported constraint and select the closest supported choice.
+- Select the closest supported choice for each unsupported constraint.
 
 This step is complete when each brief item has current source evidence and a corpus-backed choice.
 
@@ -65,7 +65,8 @@ This step is complete when the round-trip preserves every intended lane, placeme
 - For a revision, preserve the named mix path.
 - For a new mix, select the next free `tmp/generated-songs/Agent-Manual-<Genre>-<BPM>-<NNN>.mixjam` path.
 - Store that stable output path in the build script.
-- Run the build script and check that the output file exists.
+- Run the build script.
+- Check that the output file exists.
 - Run the build script again from a clean process.
 - Check that the second run writes the same path and project content.
 - Report the path, tempo, duration, sections, corpus, sample count, and source links.

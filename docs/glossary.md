@@ -110,8 +110,8 @@ exactly one channel, and every channel is derived from exactly one lane. A
 channel cannot be added, deleted, routed, or renamed independently. Its name,
 pan, volume, and four FX Send values are lane-owned project state.
 
-Do not use *channel* for a lane, an audio file's channel count, an active voice,
-or a generic engine route when discussing MixJam product concepts. See
+For MixJam product concepts, use *channel* only for the Mixer representation of a lane.
+Do not use it for a file channel count, an active voice, or a generic engine route. See
 [spec 007](specs/spec-007-mixer.md).
 
 ## Clip
@@ -128,7 +128,7 @@ variable-width visual representation.
 
 The nonvisual arrangement record that places a [sample](#sample) on a
 [lane](#lane), including its start tick and [musical span](#musical-span). The
-Tracker renders the referenced sample as a [sample bubble](#sample-bubble);
+Tracker renders the referenced sample as a [sample bubble](#sample-bubble).
 placement data does not create a second kind of visual object.
 
 ## Contextual group
@@ -166,7 +166,7 @@ An audio-processing module hosted by one of the four global
 [FX buses](#fx-bus) in the Mixer. An FX module is a black box with an audio
 input and output, its own state, editor, live processor, and tests. An *FX
 sample* instead means a source audio file whose [sample type](#sample-type) is
-an effect sound; it remains a [sample](#sample), not a signal processor.
+an effect sound. It remains a [sample](#sample), not a signal processor.
 
 ## FX bus
 
@@ -203,12 +203,12 @@ contextual groups and clusters as part of this pipeline.
 
 ## Middle Strip
 
-The complete full-width composite band in the [Player](#player). It includes
-the [Song Progress Bar](#song-progress-bar) as its first row, followed by the
-project identity and project menu, edit-history controls,
-[Transport Ribbon](#transport-ribbon), sample search, transient
-[library sync](#library-sync) status, and a compact utility menu. The utility
-menu contains Keyboard Shortcuts and the single low-prominence manual Re-scan
+The complete full-width composite band in the [Player](#player).
+Its first row contains the [Song Progress Bar](#song-progress-bar).
+The next row contains the project identity, project menu, edit-history controls, and [Transport Ribbon](#transport-ribbon).
+It also contains sample search, transient [library sync](#library-sync) status, and a compact utility menu.
+
+The utility menu contains Keyboard Shortcuts and the single low-prominence manual Re-scan
 recovery action. It is fixed
 between the Tracker and Bottom Workspace, so Bottom Workspace resizing does
 not move the progress bar out of this band. It is not a synonym for the
@@ -219,13 +219,13 @@ Transport Ribbon. See
 
 The full-width tabbed region below the [Middle Strip](#middle-strip) in the
 [Player](#player). Its peer tabs are Master, Mixer, and Samples. Use *Bottom
-Workspace* for the shared container; use the individual tab name for the
+Workspace* for the shared container. Use the individual tab name for the
 workflow shown inside it. See [spec 006](specs/spec-006-player-timeline-panels.md).
 
 ## MixJam
 
 The `.mixjam` file format. A MixJam file serializes a [song](#song) or
-[project](#project); *MixJam* does not name a separate in-memory object nested
+[project](#project). *MixJam* does not name a separate in-memory object nested
 inside the project.
 
 ## MixJam Browser
@@ -236,13 +236,14 @@ Projects rail* describes the same region too narrowly.
 
 ## MixJam Generator
 
-The Home wizard that turns a prepared [Sample Folder](#sample-folder) into a
-saved, ready-to-play [project](#project) using a selected profile, BPM,
-intensity, duration, seed, and, for a mixed root, an
-[analysis cluster](#analysis-cluster). Its output is an ordinary `.mixjam` project with
+The Home wizard that turns a prepared [Sample Folder](#sample-folder) into a saved, ready-to-play [project](#project).
+The user selects a profile, BPM, intensity, duration, and seed.
+For a mixed root, the user also selects an [analysis cluster](#analysis-cluster).
+
+Its output is an ordinary `.mixjam` project with
 optional generator metadata for exact or current-corpus regeneration. The
 generator does not infer genre. [Spec 018](specs/spec-018-mixjam-generator.md)
-owns its product contract; [spec 021](specs/spec-021-arrangement-model.md) owns
+owns its product contract. [Spec 021](specs/spec-021-arrangement-model.md) owns
 what the arrangement sounds like.
 
 ## Natural-rate placement
@@ -254,9 +255,9 @@ being stretched. Its tick span is recomputed when the project tempo changes.
 
 ## Occupancy envelope
 
-The machine-checkable shape of a generated arrangement — populated lanes, lane
-occupancy, entries per lane, density curve, sends, returns, and pan — measured
-against the hand-authored reference library. It is a *report*, never a throw:
+The machine-checkable shape of a generated arrangement, measured against the hand-authored reference library.
+Measurements cover populated lanes, lane occupancy, entries per lane, density curve, sends, returns, and pan.
+It is a *report*, never a throw:
 the generator hard-fails only on structural invariants. See
 [spec 021](specs/spec-021-arrangement-model.md).
 
@@ -283,7 +284,7 @@ It determines placed playback boundaries and [sample bubble](#sample-bubble)
 width. The first span is derived from [source duration](#source-duration) using
 [Native BPM](#native-bpm) when available, or the current
 [Project BPM](#project-bpm) otherwise. Later placements with the same
-[sample reference](#sample-reference) reuse that span; Project BPM edits never
+[sample reference](#sample-reference) reuse that span. Project BPM edits never
 mutate it. See [spec 009](specs/spec-009-time-stretching.md).
 
 ## Native BPM
@@ -320,7 +321,7 @@ their [musical spans](#musical-span), or resize sample bubbles.
 A [project](#project) opened from outside the [User Folder](#user-folder). The
 source file is readable, but the project has no current writable path in the
 app. Its first Save uses Save As and must choose a destination inside the User
-Folder; after that save, it is an ordinary writable project. See
+Folder. After that save, it is an ordinary writable project. See
 [spec 011](specs/spec-011-project-save-load.md).
 
 ## Return
@@ -343,7 +344,7 @@ data, not its arrangement placement and not its visual representation.
 ## Sample Browser
 
 The [Player](#player) region for searching, filtering, previewing, and selecting
-indexed samples. It browses samples from the active Sample Folder; it does not
+indexed samples. It browses samples from the active Sample Folder. It does not
 browse `.mixjam` files or define saved [libraries](#library).
 
 ## Sample bubble
@@ -354,7 +355,9 @@ its width represents the sample's
 [musical span](#musical-span) in ticks at the Player's shared pixels-per-tick
 scale, with a 12px minimum. [Project BPM](#project-bpm) changes never move or
 resize placed bubbles: they change how quickly the source audio is rendered
-inside that stable musical span. The Sample Browser reuses the same stored span
+inside that stable musical span.
+
+The Sample Browser reuses the same stored span
 for an already-placed sample, so the same sample remains perfectly identical
 everywhere in the UI. Placement data and UI context never create a different
 geometry. Drag-image canvases may add transparent padding for shadows, pointer
@@ -403,7 +406,7 @@ settings are [app state](#app-state), not session data.
 ## Skin
 
 Use [theme](#theme) for a concrete named token set or JSON definition.
-*Skinning* describes the app's ability to change its appearance; a skin is not
+*Skinning* describes the app's ability to change its appearance. A skin is not
 a second artifact type beside a theme.
 
 ## Song
@@ -439,7 +442,7 @@ The peer panel selected by the Master tab in the
 [Bottom Workspace](#bottom-workspace). Its content is the 13-slot Master
 Bus Strip (spec-012): pinned Gain Stage, Input Meter, and Output Meter around ten
 reorderable processors. The Gain Stage is always on, cannot move, and persists
-only its Trim parameter; order and power state belong to the ten downstream
+only its Trim parameter. Order and power state belong to the ten downstream
 processors. The strip's Gain Stage owns gain staging, the Input
 Meter shows the trimmed signal, and its pinned Output Meter owns master loudness
 display. Use *Master panel* for
@@ -471,10 +474,10 @@ placed geometry or scheduled duration by itself.
 ## Stereo pair
 
 Two [lanes](#lane) that play complementary left and right halves of one
-recording, sharing one `stereoPairId`. The `.mixjam` format carries the field
-(see [spec 011](specs/spec-011-project-save-load.md)), but nothing produces one:
-the analyzer persists no stereo-side evidence and the
-[MixJam Generator](#mixjam-generator) creates no mirror lanes.
+recording, sharing one `stereoPairId`.
+The `.mixjam` format carries the field (see [spec 011](specs/spec-011-project-save-load.md)).
+However, the analyzer stores no stereo-side evidence.
+The [MixJam Generator](#mixjam-generator) also creates no mirror lanes.
 
 Lane *position* in the image is a separate idea: it is mix data a generator
 profile declares, bounded by
@@ -486,15 +489,17 @@ motif-family syntax and is never evidence of a pair or a pan.
 A flat, optionally colored label assigned many-to-many to [samples](#sample).
 Tags are the only library-organization vocabulary and remain independent of
 acoustic [sample type](#sample-type) metadata. User tags are global and
-editable. Folder-derived tags are automatic and read-only: every directory
-segment assigns its shared name, identically named folders reuse one tag, and
-files at the Sample Folder root receive `Unsorted`.
+editable. Folder-derived tags are automatic and read-only.
+Each directory segment assigns its shared name.
+Folders with the same name use one tag.
+
+Files at the Sample Folder root receive `Unsorted`.
 
 ## Theme
 
 A named set of design-token values stored as a JSON definition and applied to
 the entire app at runtime. *Theme* is the canonical name for each selectable
-appearance; [skinning](#skin) names the capability, not a second artifact type.
+appearance. [Skinning](#skin) names the capability, not a second artifact type.
 See [spec 002](specs/spec-002-theming-skin-system.md).
 
 ## Track

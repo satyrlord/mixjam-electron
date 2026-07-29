@@ -7,7 +7,7 @@ description: >
 
 # Refactor
 
-Use a **surgical** scope.
+Use a narrow scope.
 Each change must remove a named source of complexity without changing behavior.
 
 ## Process

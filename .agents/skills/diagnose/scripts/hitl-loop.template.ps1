@@ -19,7 +19,7 @@ function capture {
 
 # Replace the prompts below.
 
-step "Perform the exact action that triggers the reported symptom."
+step "Do the exact action that triggers the reported symptom."
 capture OBSERVED "Did the reported symptom occur? Enter yes or no."
 capture DETAILS "Enter the exact error, result, timing, or visible state."
 

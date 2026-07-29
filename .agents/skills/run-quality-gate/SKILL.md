@@ -11,7 +11,7 @@ Run a fixed **gate** sequence with objective command evidence.
 
 - **Verify mode:** Run every applicable gate without editing source, tests, or configuration.
 - **Repair mode:** Repair each failed gate inside the authorized repository scope.
-- **Release mode:** Run all gates, package the application, and test the packaged artifact.
+- **Release mode:** Run all gates, including the package and packaged-smoke gates.
 
 Mode selection is complete when the user request authorizes one branch.
 Never add suppressions, exclusions, disabled rules, or lower thresholds without user approval.

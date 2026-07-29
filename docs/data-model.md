@@ -98,9 +98,10 @@ CREATE TABLE library_rules (
 );
 ```
 
-`scan_roots` is load-bearing: one active Sample Folder is shown at a time (the
-app state's `sampleFolder`), but every folder ever scanned keeps its samples and
-folder-tag sources, scoped by `root_id`. Switching folders therefore switches
+`scan_roots` is load-bearing.
+The app shows one active Sample Folder at a time through the app state's `sampleFolder`.
+Each scanned folder keeps its samples and folder-tag sources, scoped by `root_id`.
+Switching folders therefore switches
 the visible library and folder-derived tags instead of mixing or losing either (see
 [indexing.md](indexing.md#per-root-scoping-one-db-many-sample-folders)).
 
@@ -115,11 +116,11 @@ exclusive:
 | `shared` | User-created *and* derived by some Sample Folder | no | yes |
 
 `shared` is not renameable because the name is another root's automatic tag
-identity. Deleting a `shared` tag withdraws only the user's ownership and
-assignments, demoting it to `folder`: the identity and folder assignments stay
-visible wherever the directory name still exists. `isTagEditable` and
+identity. Deleting a `shared` tag removes only the user's ownership and assignments.
+This action changes the tag to `folder`.
+Its identity and folder assignments stay visible while the directory name exists. `isTagEditable` and
 `isTagRenameable` in `src/shared/backend-api.ts` are the canonical policy
-helpers; UI and persistence guards both call them rather than re-deriving the
+helpers. UI and persistence guards both call them rather than re-deriving the
 rule.
 
 `folderDerived` is separate and root-scoped: true when the *active* Sample
@@ -138,23 +139,22 @@ library sync:
   during the first reconciliation without treating partial rows from a new
   first scan as a usable index.
 - `samples.metadata_revision INTEGER NOT NULL DEFAULT 0` records the metadata
-  parser revision attempted for the current file bytes. A terminal parse failure
-  sets `scan_state = 3` (metadata unavailable) and stamps the revision, so an
-  unchanged damaged or unsupported file is not retried on every automatic sync.
+  parser revision attempted for the current file bytes.
+  A terminal parse failure sets `scan_state = 3` and stamps the revision.
+  Thus, automatic sync does not repeatedly retry an unchanged damaged or unsupported file.
   A manual Re-scan retries unavailable metadata, and new bytes or a newer parser
   revision reset the row to pending.
 - `samples.analysis_revision INTEGER NOT NULL DEFAULT 0` records the analysis
   projection revision attempted for the current file bytes. New or changed
-  files reset it to 0. Automatic analysis stamps the current revision even when
-  a valid result is NULL, so later app launches do not repeatedly decode
-  unchanged unsupported or low-confidence samples.
+  files reset it to 0. Automatic analysis stamps the current revision for a valid NULL result.
+  Thus, later app starts do not repeatedly decode unchanged unsupported or low-confidence samples.
 
 `samples.raw_bpm` and `samples.raw_musical_key` preserve the analyzer's direct
 per-file result. `samples.bpm` and `samples.musical_key` remain the contextual
 user-facing projections. This separation lets group inference rerun from stored
 raw evidence, duration, sample type, and relative-path labels without decoding
 unchanged audio. `analysis_groups` stores one summary for each directory or
-virtual cohort context key. A resolved child group is a generator cluster; mixed
+virtual cohort context key. A resolved child group is a generator cluster. Mixed
 and uncertain rows explain why no single BPM/key was projected.
 
 Changing one sample resets its analysis revision, making its retained raw
@@ -166,23 +166,23 @@ all group rows from raw evidence without reading audio bytes.
 
 Migration from schema versions before v3 preserves uncertainty:
 
-- roots from prior versions keep `last_completed_at = NULL` because a prior
-  schema cannot prove enumeration and metadata work completed; existing rows
-  remain browseable while the required first post-upgrade sync reconciles them.
+- Roots from prior versions keep `last_completed_at = NULL`.
+  A prior schema cannot prove that enumeration and metadata work finished.
+  Existing rows remain browseable while the required first post-upgrade sync reconciles them.
   Root usability is based on the presence of existing non-missing rows, not on
-  whether any row already has a current analysis revision;
-- existing `scan_state = 1` rows are stamped with the current metadata revision;
-  the analysis revision is stamped only when a prior `analysis` source proves
+  whether any row already has a current analysis revision.
+- Existing `scan_state = 1` rows receive the current metadata revision.
+  The analysis revision changes only when a prior `analysis` source proves
   the per-file analysis write completed. Entirely NULL prior results are
-  retried once because NULL alone cannot distinguish them from interrupted work;
-- existing `scan_state = 0` rows remain pending with revision 0, so interrupted
-  work resumes and previously failed metadata receives one classified attempt;
-- missing rows remain missing and keep revision 0 until restored.
+  retried once because NULL alone cannot distinguish them from interrupted work.
+- Existing `scan_state = 0` rows remain pending with revision 0.
+  Thus, interrupted work resumes, and failed metadata gets one classified attempt.
+- Missing rows remain missing and keep revision 0 until restored.
 
 Schema v4 adds `raw_bpm`, `raw_musical_key`, and `analysis_groups`, then bumps
-the analysis revision. Existing projected BPM/key values cannot prove the direct
-per-file evidence that produced them, so current readable WAV rows receive one
-intentional analyzer pass to populate raw evidence and the contextual model.
+the analysis revision. Existing projected BPM/key values cannot prove their direct per-file evidence.
+Thus, current readable WAV rows receive one analyzer pass.
+This pass adds raw evidence and the contextual model.
 This is the one exception to the normal grouping-only reuse rule. Manual fields
 remain protected during that pass.
 
@@ -193,9 +193,9 @@ candidates. They are app/index state, not project data.
 Analysis provenance is stored per field so a manual BPM does not prevent a
 missing key or sample type from being analyzed. Clearing a manual value clears
 both its value and source. Re-analysis refreshes each non-manual field and may
-clear a stale automatic value when readable bytes do not produce that field;
-fields whose source is `manual` remain unchanged. `sample_type` is acoustic
-metadata; spec-004 organizational tags have separate provenance and analysis
+clear a stale automatic value when readable bytes do not produce that field.
+Fields whose source is `manual` remain unchanged. `sample_type` is acoustic
+metadata. Spec-004 organizational tags have separate provenance, and analysis
 never overwrites them.
 
 `samples.bpm`, `musical_key`, and `sample_type` are the current user-facing
@@ -206,8 +206,8 @@ cohort keys use their deterministic cohort-membership matcher instead of path
 containment. Planner scoring must not recompute semantic BPM, key, or sample
 type.
 
-`PRAGMA foreign_keys = ON;` must be set per connection (SQLite default is off).
-There is no WAL under opfs-sahpool — queries and the indexer share the single
+Set `PRAGMA foreign_keys = ON` for each connection because SQLite disables it by default.
+There is no WAL under opfs-sahpool. Queries and the indexer share the single
 worker connection. Phase-1 stub upserts and folder-tag assignments are batched in
 transactions and yield to the worker event loop between batches. Phase-2
 metadata updates use serialized transactions of up to 200 rows.
@@ -240,29 +240,34 @@ CREATE VIRTUAL TABLE samples_fts USING fts5(
 );
 ```
 
-Use `content=`/`content_rowid=` (external-content) so the FTS index doesn't
-duplicate the text, and maintain it with `AFTER INSERT/DELETE` triggers plus an
-`AFTER UPDATE OF filename, relpath` trigger on `samples` — scoping the update
-trigger to the indexed columns keeps scan-state and metadata writes from
-rewriting the FTS row. The current `textSearch` request field compiles to a
+Use `content=`/`content_rowid=` external content so the FTS index does not copy the text.
+Maintain it with `AFTER INSERT/DELETE` triggers.
+Also use an `AFTER UPDATE OF filename, relpath` trigger on `samples`.
+Limit the update trigger to the indexed columns.
+
+This limit stops scan-state and metadata writes from rewriting the FTS row.
+The current `textSearch` request field compiles to a
 `samples_fts MATCH ?` subquery with each whitespace-separated token quoted and
 given a trailing `*`. See [query-schema.md](query-schema.md) for the current
 saved-library subset and the target predicate-tree compiler.
 
 ## Migrations
 
-`rule_json` is versioned (see [query-schema.md](query-schema.md)); the schema
-carries a `schema_version` table stamped at init. Add forward-only, idempotent
+`rule_json` is versioned (see [query-schema.md](query-schema.md)). The schema
+has a `schema_version` table that initialization stamps. Add forward-only, idempotent
 migration steps from v1 onward in
 `src/renderer/src/backend/schema.ts`.
 
-Schema v6 replaces category storage with flat tags. Migration maps each legacy
-category node name to one shared tag identity, merges identically named nodes,
-preserves user tags and assignments, converts folder membership to folder tag
-provenance, rewrites saved category leaves to tag leaves, and rebuilds `samples`
-without `category_id`. This is a forward-only product-contract migration; no
+Schema v6 replaces category storage with flat tags.
+Migration maps each legacy category node name to one shared tag identity.
+It merges nodes with the same name and keeps user tags and assignments.
+It converts folder membership to folder tag provenance.
+It rewrites saved category leaves to tag leaves.
+
+It rebuilds `samples` without `category_id`. This is a forward-only product-contract migration.
+No
 category tables remain afterward.
 
-The structural swap is restart-safe. If it commits before the v6 version stamp,
-the next startup detects the current `samples` and sourced `sample_tags` shape,
-rebuilds derived DDL and FTS state, then completes the stamp.
+The structural swap is restart-safe.
+If it commits before the v6 stamp, the next startup detects the current `samples` and `sample_tags` shape.
+The startup then rebuilds derived DDL and FTS state and completes the stamp.

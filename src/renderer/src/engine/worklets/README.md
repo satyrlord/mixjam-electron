@@ -7,10 +7,9 @@
 - SHA-256: `972a36c9f3f84a2520b67cbc61ea2a199e380baae260f91defa9fada264b8a8f`
 - License: MIT
 
-The npm dependency is pinned to the same version for its public TypeScript
-types and package provenance. MixJam self-hosts the processor asset so the
-production Content Security Policy can retain `worker-src 'self'`; the
-package's default loader creates a `blob:` URL and is not used.
+The npm dependency uses the same version for its public TypeScript types and package source.
+MixJam hosts the processor asset, so the production Content Security Policy keeps `worker-src 'self'`.
+The package default loader creates a `blob:` URL, so MixJam does not use it.
 
 ## MIT License
 

@@ -7,9 +7,10 @@
 ## Objective
 
 Export the full arrangement as a stereo audio file: WAV (uncompressed) and MP3
-(compressed). The export renders the same 1:1 lane/mixer, four-send, four-return,
-Delay, return-limiter, and unchanged Master graph used by live playback, at the
-project BPM with spec-009 tempo-following resampling applied.
+(compressed). The export uses the live playback graph.
+This graph has a 1:1 lane/mixer path, four sends, four returns, Delay,
+return limiters, and the unchanged Master. The export uses the project BPM
+and spec-009 tempo-following resampling.
 
 ## User Stories
 
@@ -27,7 +28,7 @@ project BPM with spec-009 tempo-following resampling applied.
 ### Export Flow
 
 - Triggered from the Player UI (export button or menu item).
-- User selects the format only: WAV or MP3. v1 fixes the encoding parameters —
+- User selects the format only: WAV or MP3. V1 fixes the encoding parameters —
   16-bit for WAV, 320 kbps CBR for MP3 — so there is no bit-depth or bitrate
   choice in the UI. See the WAV Export and MP3 Export sections below.
 - User chooses output file location via native save dialog.
@@ -53,10 +54,10 @@ project BPM with spec-009 tempo-following resampling applied.
 - Each Mixer track is derived from the lane at the same visible position and
   retains that lane's stable identity. There is no
   separate lane-routing or insert-effect path.
-- Rendering respects lane volume, pan, mute, and solo state, all four send
-  levels, all four Empty or Delay configurations, return levels, the limiter
-  on each return path, BPM, playback-rate ratios, and automatic clip-edge
-  micro-fades. Export must reuse spec-005's sample-count rounding, proportional
+- Rendering respects lane volume, pan, mute, and solo state.
+  It respects all four send levels and all four Empty or Delay configurations.
+  It also respects return levels, return limiters, BPM, playback-rate ratios,
+  and automatic clip-edge micro-fades. Export must reuse spec-005's sample-count rounding, proportional
   short-placement handling, and same-lane boundary classification so live and
   offline envelopes are sample-consistent.
 - The four return limiters are part of their return paths before the Master sum.
@@ -88,8 +89,8 @@ project BPM with spec-009 tempo-following resampling applied.
 
 - The arrangement renders from tick 0 through the last placement end, then all
   Delay inputs close and the four Returns ring out. The renderer evaluates the
-  rendered Return outputs and ends the ring-out at the earliest point where all
-  four remain below -90 dBFS for the following 500 ms.
+  rendered Return outputs. It ends the ring-out when all four outputs remain
+  below -90 dBFS for 500 ms.
 - Ring-out analysis may inspect at most 120 seconds after the last placement.
   If the Returns do not reach the threshold, export fails clearly instead of
   silently truncating an audible tail.
@@ -113,9 +114,9 @@ project BPM with spec-009 tempo-following resampling applied.
   that does not decay within 120 seconds fails export instead of being cut.
 - [ ] **AC-010:** Export applies the same placement-owned playback rates as live
   playback instead of exporting placed samples at native rate.
-- [ ] **AC-011:** Each lane's dry path and four send paths are rendered, each
-  send reaches only its matching Delay and return, and the four limited returns
-  join the dry lanes at the unchanged Master.
+- [ ] **AC-011:** The renderer renders each lane dry path and four send paths.
+  Each send reaches only its matching Delay and return.
+  The four limited returns join the dry lanes at the unchanged Master.
 - [ ] **AC-012:** Each return limiter is before the Master sum. Export adds no
   Master limiter or other export-only Master processing.
 
